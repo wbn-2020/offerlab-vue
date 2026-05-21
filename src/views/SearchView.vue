@@ -70,6 +70,34 @@
               </button>
             </div>
           </div>
+
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-medium text-slate-900 dark:text-slate-100">搜索服务</h3>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {{ searchStatusText }}
+                </p>
+              </div>
+              <span
+                :class="[
+                  'rounded-full px-2 py-0.5 text-xs font-medium',
+                  searchStatus?.available ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                ]"
+              >
+                {{ searchStatus?.available ? 'ES 在线' : 'Fallback' }}
+              </span>
+            </div>
+            <button
+              v-if="canRebuildIndex"
+              type="button"
+              class="mt-3 w-full rounded border border-slate-200 px-3 py-2 text-xs text-slate-700 transition-colors hover:bg-white disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+              :disabled="isRebuilding"
+              @click="rebuildIndex"
+            >
+              {{ isRebuilding ? '重建中...' : '重建搜索索引' }}
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -128,9 +156,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { searchApi } from '@/api/search'
+import { searchApi, type SearchStatus } from '@/api/search'
 import type { Post } from '@/api/types'
 
 const route = useRoute()
@@ -151,8 +179,18 @@ const filters = reactive<{
 const hotWords = ref<string[]>([])
 const suggestions = ref<string[]>([])
 const searchResults = ref<Post[]>([])
+const searchStatus = ref<SearchStatus | null>(null)
 const isLoading = ref(false)
+const isRebuilding = ref(false)
 const emptyText = ref('输入关键词或筛选条件开始搜索')
+const canRebuildIndex = computed(() => Boolean(localStorage.getItem('token')))
+const searchStatusText = computed(() => {
+  if (!searchStatus.value) return '正在检测搜索状态'
+  if (!searchStatus.value.enabled) return 'ES 未启用，当前使用数据库搜索'
+  if (!searchStatus.value.available) return 'ES 不可用，当前使用数据库降级搜索'
+  if (!searchStatus.value.indexExists) return `索引 ${searchStatus.value.indexName} 尚未创建`
+  return `索引 ${searchStatus.value.indexName} 已就绪`
+})
 
 const stripHighlight = (value: string) => value.replace(/<\/?em>/g, '')
 
@@ -227,8 +265,28 @@ const loadSuggestions = async () => {
   }
 }
 
+const loadSearchStatus = async () => {
+  try {
+    const res = await searchApi.status()
+    searchStatus.value = res.data
+  } catch {
+    searchStatus.value = null
+  }
+}
+
+const rebuildIndex = async () => {
+  isRebuilding.value = true
+  try {
+    await searchApi.rebuildIndex()
+    await loadSearchStatus()
+  } finally {
+    isRebuilding.value = false
+  }
+}
+
 onMounted(async () => {
   syncFromRoute()
+  await loadSearchStatus()
   try {
     const hot = await searchApi.hotSearches()
     hotWords.value = hot.data || []

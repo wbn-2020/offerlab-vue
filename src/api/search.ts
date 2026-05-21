@@ -13,6 +13,23 @@ export interface SearchParams {
   size?: number
 }
 
+export interface SearchStatus {
+  enabled: boolean
+  available: boolean
+  indexName: string
+  indexExists: boolean
+  indexReady: boolean
+}
+
+export interface SearchRebuildResult {
+  accepted: boolean
+  indexed: number
+  failed: number
+  total?: number
+  indexName?: string
+  message?: string
+}
+
 export const searchApi = {
   searchPosts: async (params: SearchParams): Promise<Result<PaginatedResponse<Post>>> => {
     const res = await client.get('/api/v1/search/posts', { params }) as Result<any>
@@ -24,4 +41,10 @@ export const searchApi = {
 
   hotSearches: (): Promise<Result<string[]>> =>
     client.get('/api/v1/search/hot'),
+
+  status: (): Promise<Result<SearchStatus>> =>
+    client.get('/api/v1/search/status'),
+
+  rebuildIndex: (): Promise<Result<SearchRebuildResult>> =>
+    client.post('/api/v1/search/admin/rebuild'),
 }
