@@ -1,4 +1,4 @@
-import type { Comment, PaginatedResponse, Post, Tag, User } from './types'
+import type { Comment, Notification, PaginatedResponse, Post, Tag, User } from './types'
 
 export function adaptId(value: any): string {
   if (value === null || value === undefined || value === '') return ''
@@ -107,5 +107,46 @@ export function adaptComment(raw: any): Comment {
     myLiked: Boolean(raw?.myLiked ?? raw?.liked ?? false),
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
     replies: Array.isArray(raw?.replies) ? raw.replies.map(adaptComment) : undefined,
+  }
+}
+
+export function adaptNotification(raw: any): Notification {
+  const content = typeof raw?.content === 'object' && raw.content ? raw.content : {}
+  const type = raw?.type ?? 'system'
+  const targetId = raw?.targetId ?? content.postId ?? content.commentId ?? content.userId
+  return {
+    notificationId: adaptId(raw?.notificationId ?? raw?.id),
+    type,
+    title: notificationTitle(type),
+    content: notificationText(type, content),
+    relatedId: targetId ? adaptId(targetId) : undefined,
+    read: Boolean(raw?.read ?? raw?.isRead ?? false),
+    createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
+  }
+}
+
+function notificationTitle(type: string): string {
+  switch (type) {
+    case 'like':
+      return '收到点赞'
+    case 'comment':
+      return '收到评论'
+    case 'follower':
+      return '新的关注'
+    default:
+      return '系统通知'
+  }
+}
+
+function notificationText(type: string, content: Record<string, any>): string {
+  switch (type) {
+    case 'like':
+      return content.targetType === 2 ? '有人点赞了你的评论' : '有人点赞了你的帖子'
+    case 'comment':
+      return '有人评论了你的帖子'
+    case 'follower':
+      return '有人关注了你'
+    default:
+      return content.action === 'favorite' ? '有人收藏了你的帖子' : '你有一条新通知'
   }
 }

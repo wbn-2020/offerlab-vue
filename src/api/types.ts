@@ -63,7 +63,7 @@ export interface Notification {
   type: string
   title: string
   content: string
-  relatedId?: number
+  relatedId?: ApiId
   read: boolean
   createdAt: number
 }
