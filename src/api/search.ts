@@ -21,13 +21,19 @@ export interface SearchStatus {
   indexReady: boolean
 }
 
-export interface SearchRebuildResult {
+export interface SearchIndexTask {
+  taskId: string
+  type: string
+  status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+  operatorUid?: number
   accepted: boolean
   indexed: number
   failed: number
-  total?: number
+  total: number
   indexName?: string
   message?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export const searchApi = {
@@ -45,6 +51,9 @@ export const searchApi = {
   status: (): Promise<Result<SearchStatus>> =>
     client.get('/api/v1/search/status'),
 
-  rebuildIndex: (): Promise<Result<SearchRebuildResult>> =>
+  rebuildIndex: (): Promise<Result<SearchIndexTask>> =>
     client.post('/api/v1/search/admin/rebuild'),
+
+  getRebuildTask: (taskId: string): Promise<Result<SearchIndexTask>> =>
+    client.get(`/api/v1/search/admin/tasks/${taskId}`),
 }

@@ -65,6 +65,12 @@ const routes = [
     meta: { title: '搜索' },
   },
   {
+    path: '/admin/ops',
+    name: 'AdminOps',
+    component: () => import('@/views/OpsView.vue'),
+    meta: { title: '运维中心', requiresAuth: true },
+  },
+  {
     path: '/tag/:slug',
     name: 'TagDetail',
     component: () => import('@/views/TagDetailView.vue'),

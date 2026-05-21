@@ -61,6 +61,7 @@
               <RouterLink to="/me" class="menu-item" @click="showUserMenu = false">个人主页</RouterLink>
               <RouterLink to="/me/notifications" class="menu-item" @click="showUserMenu = false">通知中心</RouterLink>
               <RouterLink to="/me/settings" class="menu-item" @click="showUserMenu = false">设置</RouterLink>
+              <RouterLink to="/admin/ops" class="menu-item" @click="showUserMenu = false">运维中心</RouterLink>
               <button type="button" @click="handleLogout" class="menu-item w-full text-left text-danger">
                 退出登录
               </button>
