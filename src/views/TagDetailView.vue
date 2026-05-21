@@ -21,8 +21,12 @@
     <!-- 帖子列表 -->
     <div class="max-w-6xl mx-auto p-8">
       <div class="space-y-4">
-        <div v-if="posts.length === 0" class="text-center py-12">
-          <p class="text-slate-500 dark:text-slate-400">该标签下还没有帖子</p>
+        <div v-if="isLoading" class="text-center py-12">
+          <p class="text-slate-500 dark:text-slate-400">正在加载标签内容...</p>
+        </div>
+
+        <div v-else-if="posts.length === 0" class="text-center py-12">
+          <p class="text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
         </div>
 
         <div v-for="post in posts" :key="post.postId" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all">
@@ -66,24 +70,40 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { postApi } from '@/api/post'
-import type { Post } from '@/api/types'
+import type { Post, Tag } from '@/api/types'
 
 const route = useRoute()
 
 const tagName = ref('')
 const postCount = ref(0)
 const posts = ref<Post[]>([])
+const isLoading = ref(false)
+const emptyText = ref('该标签下还没有帖子')
 
 onMounted(async () => {
   const slug = route.params.slug as string
   tagName.value = slug || '标签'
+  isLoading.value = true
 
   try {
-    // TODO: 根据 slug 获取标签 ID，然后加载帖子
-    // 这里先用占位数据
-    posts.value = []
+    const tagsRes = await postApi.getTags()
+    const tags = tagsRes.data || []
+    const currentTag = tags.find((tag: Tag) => tag.slug === slug || String(tag.id) === slug || tag.name === slug)
+    if (!currentTag) {
+      emptyText.value = '标签接口暂未返回该标签'
+      return
+    }
+
+    tagName.value = currentTag.name
+    postCount.value = currentTag.count || 0
+    const postsRes = await postApi.getTagPosts(currentTag.id)
+    posts.value = postsRes.data?.items || []
+    postCount.value = postCount.value || posts.value.length
   } catch (error) {
     console.error('Failed to load tag posts:', error)
+    emptyText.value = '标签接口暂未接通'
+  } finally {
+    isLoading.value = false
   }
 })
 </script>

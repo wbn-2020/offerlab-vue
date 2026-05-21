@@ -57,8 +57,8 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  like: [postId: number]
-  favorite: [postId: number]
+  like: [postId: Post['postId']]
+  favorite: [postId: Post['postId']]
 }>()
 
 const authStore = useAuthStore()
@@ -101,4 +101,3 @@ const handleFavorite = async () => {
   }
 }
 </script>
-

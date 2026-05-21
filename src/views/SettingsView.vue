@@ -184,14 +184,20 @@ onMounted(() => {
 const updateProfile = async () => {
   isUpdatingProfile.value = true
   try {
-    const res = await userApi.updateProfile(profileForm.value)
+    const payload = {
+      nickname: profileForm.value.nickname.trim(),
+      avatarUrl: profileForm.value.avatarUrl.trim(),
+      bio: profileForm.value.bio.trim(),
+      signature: profileForm.value.bio.trim(),
+    }
+    const res = await userApi.updateProfile(payload)
     if (res.code === 0) {
       if (authStore.user) {
         authStore.setUser({
           ...authStore.user,
-          nickname: profileForm.value.nickname,
-          avatar: profileForm.value.avatarUrl,
-          signature: profileForm.value.bio,
+          nickname: payload.nickname,
+          avatar: payload.avatarUrl,
+          signature: payload.bio,
         })
       }
       alert('资料已更新')

@@ -166,6 +166,7 @@ import PostCard from '@/components/post/PostCard.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { toast } from 'vue-sonner'
+import type { Post } from '@/api/types'
 
 const authStore = useAuthStore()
 
@@ -202,11 +203,11 @@ watch(activeFeed, (newFeed) => {
   // This would require resetting the query in useInfiniteFeed
 })
 
-const handleLike = (postId: number) => {
+const handleLike = (postId: Post['postId']) => {
   toast.success('已点赞')
 }
 
-const handleFavorite = (postId: number) => {
+const handleFavorite = (postId: Post['postId']) => {
   toast.success('已收藏')
 }
 </script>

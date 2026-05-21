@@ -97,8 +97,8 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  like: [postId: number]
-  favorite: [postId: number]
+  like: [postId: Post['postId']]
+  favorite: [postId: Post['postId']]
 }>()
 
 const authStore = useAuthStore()
@@ -147,4 +147,3 @@ const handleFollow = () => {
   toast.success(props.post.author.isFollowing ? '已取关' : '已关注')
 }
 </script>
-

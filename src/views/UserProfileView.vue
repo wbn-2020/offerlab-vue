@@ -47,15 +47,15 @@
             <!-- 数据统计 -->
             <div class="flex gap-8">
               <div>
-                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">0</div>
+                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">{{ user?.postCount || posts.length }}</div>
                 <div class="text-sm text-slate-500 dark:text-slate-400">发帖</div>
               </div>
               <div>
-                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">0</div>
+                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">{{ user?.followingCount || 0 }}</div>
                 <div class="text-sm text-slate-500 dark:text-slate-400">关注</div>
               </div>
               <div>
-                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">0</div>
+                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">{{ user?.followerCount || 0 }}</div>
                 <div class="text-sm text-slate-500 dark:text-slate-400">粉丝</div>
               </div>
             </div>
@@ -154,7 +154,7 @@ const userIntent = ref<any>(null)
 const posts = ref<Post[]>([])
 
 onMounted(async () => {
-  const uid = Number(route.params.uid)
+  const uid = route.params.uid as string
   if (!uid) return
 
   try {

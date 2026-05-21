@@ -1,6 +1,6 @@
 import client, { Result } from './client'
-import type { User } from './types'
-import { adaptUser } from './adapters'
+import type { ApiId, PaginatedResponse, User } from './types'
+import { adaptPage, adaptUser } from './adapters'
 
 export interface UserProfileReq {
   nickname?: string
@@ -17,7 +17,7 @@ export interface IntentReq {
 }
 
 export const userApi = {
-  getProfile: async (uid: number): Promise<Result<User>> => {
+  getProfile: async (uid: ApiId): Promise<Result<User>> => {
     const res = await client.get(`/api/v1/users/${uid}`) as Result<any>
     return { ...res, data: res.data ? adaptUser(res.data) : null }
   },
@@ -28,15 +28,19 @@ export const userApi = {
   updateIntent: (req: IntentReq): Promise<Result<void>> =>
     client.put('/api/v1/users/me/intent', req),
 
-  getFollowers: (uid: number, cursor?: string, size = 20): Promise<Result<any>> =>
-    client.get(`/api/v1/users/${uid}/followers`, { params: { cursor, size } }),
+  getFollowers: async (uid: ApiId, cursor?: string, size = 20): Promise<Result<PaginatedResponse<User>>> => {
+    const res = await client.get(`/api/v1/users/${uid}/followers`, { params: { cursor, size } }) as Result<any>
+    return { ...res, data: res.data ? adaptPage(res.data, adaptUser) : null }
+  },
 
-  getFollowing: (uid: number, cursor?: string, size = 20): Promise<Result<any>> =>
-    client.get(`/api/v1/users/${uid}/following`, { params: { cursor, size } }),
+  getFollowing: async (uid: ApiId, cursor?: string, size = 20): Promise<Result<PaginatedResponse<User>>> => {
+    const res = await client.get(`/api/v1/users/${uid}/following`, { params: { cursor, size } }) as Result<any>
+    return { ...res, data: res.data ? adaptPage(res.data, adaptUser) : null }
+  },
 
-  follow: (uid: number): Promise<Result<void>> =>
+  follow: (uid: ApiId): Promise<Result<void>> =>
     client.post(`/api/v1/users/${uid}/follow`),
 
-  unfollow: (uid: number): Promise<Result<void>> =>
+  unfollow: (uid: ApiId): Promise<Result<void>> =>
     client.delete(`/api/v1/users/${uid}/follow`),
 }

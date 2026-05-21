@@ -1,5 +1,7 @@
+export type ApiId = string | number
+
 export interface User {
-  uid: number
+  uid: ApiId
   email?: string
   nickname: string
   avatar: string
@@ -13,7 +15,7 @@ export interface User {
 }
 
 export interface Post {
-  postId: number
+  postId: ApiId
   postType: number
   title: string
   content: string
@@ -37,25 +39,27 @@ export interface Post {
 }
 
 export interface Tag {
-  id: number
+  id: ApiId
   name: string
   slug: string
   category?: string
+  count?: number
 }
 
 export interface Comment {
-  commentId: number
-  postId: number
+  commentId: ApiId
+  postId: ApiId
   content: string
   author: User
-  parentId?: number
+  parentId?: ApiId
   likeCount: number
+  myLiked?: boolean
   createdAt: number
   replies?: Comment[]
 }
 
 export interface Notification {
-  notificationId: number
+  notificationId: ApiId
   type: string
   title: string
   content: string

@@ -22,7 +22,12 @@
               <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-colors">
                 回复
               </button>
-              <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-danger transition-colors">
+              <button
+                @click="$emit('like-comment', comment.commentId)"
+                :disabled="!canLikeComments"
+                class="text-xs text-slate-500 dark:text-slate-400 hover:text-danger transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                :title="canLikeComments ? '点赞评论' : '评论点赞接口暂未接通'"
+              >
                 👍 {{ comment.likeCount }}
               </button>
             </div>
@@ -39,7 +44,12 @@
                   <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-colors">
                     回复
                   </button>
-                  <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-danger transition-colors">
+                  <button
+                    @click="$emit('like-comment', reply.commentId)"
+                    :disabled="!canLikeComments"
+                    class="text-xs text-slate-500 dark:text-slate-400 hover:text-danger transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    :title="canLikeComments ? '点赞评论' : '评论点赞接口暂未接通'"
+                  >
                     👍 {{ reply.likeCount }}
                   </button>
                 </div>
@@ -62,10 +72,16 @@ import type { Comment } from '@/api/types'
 import { formatTime } from '@/lib/format'
 
 interface Props {
-  postId: number
+  postId: Comment['postId']
   comments: Comment[]
+  canLikeComments?: boolean
 }
 
-defineProps<Props>()
-</script>
+withDefaults(defineProps<Props>(), {
+  canLikeComments: false,
+})
 
+defineEmits<{
+  'like-comment': [commentId: Comment['commentId']]
+}>()
+</script>

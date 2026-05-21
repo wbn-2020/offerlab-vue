@@ -107,7 +107,12 @@
               </div>
 
               <!-- Comments List -->
-              <CommentTree :post-id="postId" :comments="comments" />
+              <CommentTree
+                :post-id="postId"
+                :comments="comments"
+                :can-like-comments="authStore.isLoggedIn"
+                @like-comment="handleLikeComment"
+              />
             </div>
           </template>
           <template v-else>
@@ -175,7 +180,7 @@ import type { Post, Comment } from '@/api/types'
 const route = useRoute()
 const authStore = useAuthStore()
 
-const postId = computed(() => parseInt(route.params.id as string))
+const postId = computed(() => route.params.id as string)
 const commentText = ref('')
 const isSubmittingComment = ref(false)
 const comments = ref<Comment[]>([])
@@ -184,7 +189,7 @@ const comments = ref<Comment[]>([])
 const { data: postData, isLoading } = useQuery({
   queryKey: ['post', postId],
   queryFn: () => postApi.getDetail(postId.value),
-  enabled: computed(() => postId.value > 0),
+  enabled: computed(() => Boolean(postId.value)),
 })
 
 const post = computed(() => postData.value?.data)
@@ -214,7 +219,7 @@ const handleLike = async () => {
     toast.error('请先登录')
     return
   }
-  toast.success('已点赞')
+  toast.success('操作已提交')
 }
 
 const handleFavorite = async () => {
@@ -222,7 +227,21 @@ const handleFavorite = async () => {
     toast.error('请先登录')
     return
   }
-  toast.success('已收藏')
+  toast.success('操作已提交')
+}
+
+const handleLikeComment = async (commentId: Comment['commentId']) => {
+  if (!authStore.isLoggedIn) {
+    toast.error('请先登录')
+    return
+  }
+  try {
+    await interactionApi.likeComment(commentId)
+    toast.success('评论已点赞')
+    await loadComments()
+  } catch (error: any) {
+    toast.error(error?.message || '评论点赞失败')
+  }
 }
 
 const handleSubmitComment = async () => {
@@ -255,4 +274,3 @@ onMounted(() => {
   loadComments()
 })
 </script>
-
