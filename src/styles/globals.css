@@ -70,10 +70,10 @@ a {
 
 /* 按钮重置 */
 button {
-  @apply font-inherit;
+  font: inherit;
 }
 
 /* 输入框 */
 input, textarea, select {
-  @apply font-inherit;
+  font: inherit;
 }

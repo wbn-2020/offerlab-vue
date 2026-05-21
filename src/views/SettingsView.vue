@@ -62,13 +62,13 @@
           <div class="flex flex-col gap-2">
             <label class="text-sm font-medium text-slate-700 dark:text-slate-300">头像 URL</label>
             <input
-              v-model="profileForm.avatar"
+              v-model="profileForm.avatarUrl"
               type="url"
               placeholder="输入头像 URL"
               class="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
-            <div v-if="profileForm.avatar" class="mt-2 rounded-lg overflow-hidden max-h-32">
-              <img :src="profileForm.avatar" :alt="profileForm.nickname" class="w-full h-auto object-cover" />
+            <div v-if="profileForm.avatarUrl" class="mt-2 rounded-lg overflow-hidden max-h-32">
+              <img :src="profileForm.avatarUrl" :alt="profileForm.nickname" class="w-full h-auto object-cover" />
             </div>
           </div>
 
@@ -76,7 +76,7 @@
           <div class="flex flex-col gap-2">
             <label class="text-sm font-medium text-slate-700 dark:text-slate-300">个性签名</label>
             <textarea
-              v-model="profileForm.signature"
+              v-model="profileForm.bio"
               placeholder="输入个性签名"
               rows="3"
               class="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
@@ -159,8 +159,8 @@ const user = ref(authStore.user)
 
 const profileForm = ref({
   nickname: user.value?.nickname || '',
-  avatar: user.value?.avatar || '',
-  signature: user.value?.signature || ''
+  avatarUrl: user.value?.avatar || '',
+  bio: user.value?.signature || ''
 })
 
 const privacyForm = ref({
@@ -175,8 +175,8 @@ onMounted(() => {
   if (user.value) {
     profileForm.value = {
       nickname: user.value.nickname,
-      avatar: user.value.avatar,
-      signature: user.value.signature
+      avatarUrl: user.value.avatar,
+      bio: user.value.signature
     }
   }
 })
@@ -186,7 +186,14 @@ const updateProfile = async () => {
   try {
     const res = await userApi.updateProfile(profileForm.value)
     if (res.code === 0) {
-      authStore.setUser(res.data)
+      if (authStore.user) {
+        authStore.setUser({
+          ...authStore.user,
+          nickname: profileForm.value.nickname,
+          avatar: profileForm.value.avatarUrl,
+          signature: profileForm.value.bio,
+        })
+      }
       alert('资料已更新')
     } else {
       alert(`更新失败: ${res.message}`)

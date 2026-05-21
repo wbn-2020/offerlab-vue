@@ -7,13 +7,15 @@ export function useAuth() {
   const login = async (email: string, password: string) => {
     const result = await authApi.login({ email, password })
     authStore.setToken(result.data!.token)
-    authStore.setUser(result.data!.user)
+    const me = await authApi.fetchMe()
+    if (me.data) {
+      authStore.setUser(me.data)
+    }
   }
 
   const register = async (email: string, password: string, nickname: string) => {
-    const result = await authApi.register({ email, password, nickname })
-    authStore.setToken(result.data!.token)
-    authStore.setUser(result.data!.user)
+    await authApi.register({ email, password, nickname })
+    await login(email, password)
   }
 
   const logout = async () => {

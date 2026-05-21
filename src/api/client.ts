@@ -40,13 +40,13 @@ client.interceptors.request.use((config) => {
 
 // 响应拦截器
 client.interceptors.response.use(
-  (response) => {
+  (response): any => {
     const result = response.data as Result
     if (result.code !== 0) {
       const error = new BizException(result.code, result.message, result.traceId)
       return Promise.reject(error)
     }
-    return result
+    return result as any
   },
   (error: AxiosError) => {
     if (error.response?.status === 401) {
