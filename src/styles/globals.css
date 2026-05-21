@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-50: #eef2ff;
+  --primary-100: #e0e7ff;
+  --primary-500: #6366f1;
+  --primary-600: #4f46e5;
+  --primary-700: #4338ca;
+  --accent-500: #f59e0b;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+}
+
+html.dark {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #18181b;
+  --border-color: #27272a;
+  --text-primary: #e4e4e7;
+  --text-secondary: #a1a1aa;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors;
+}
+
+/* 中英文字体 */
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Inter', system-ui, sans-serif;
+}
+
+code, pre {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-100 dark:bg-slate-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400 dark:bg-slate-600;
+}
+
+/* 选中文本 */
+::selection {
+  @apply bg-primary-500 text-white;
+}
+
+/* 链接 */
+a {
+  @apply text-primary-600 dark:text-primary-400 hover:underline;
+}
+
+/* 按钮重置 */
+button {
+  @apply font-inherit;
+}
+
+/* 输入框 */
+input, textarea, select {
+  @apply font-inherit;
+}

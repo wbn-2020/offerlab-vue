@@ -1,0 +1,121 @@
+<template>
+  <div class="flex flex-col gap-4">
+    <!-- Tab 切换 -->
+    <div class="flex gap-2 border-b border-slate-200 dark:border-slate-800">
+      <button
+        @click="activeTab = 'edit'"
+        :class="[
+          'px-4 py-2 font-medium text-sm transition-colors',
+          activeTab === 'edit'
+            ? 'text-primary-600 border-b-2 border-primary-600'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+        ]"
+      >
+        编辑
+      </button>
+      <button
+        @click="activeTab = 'preview'"
+        :class="[
+          'px-4 py-2 font-medium text-sm transition-colors',
+          activeTab === 'preview'
+            ? 'text-primary-600 border-b-2 border-primary-600'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+        ]"
+      >
+        预览
+      </button>
+    </div>
+
+    <!-- 编辑模式 -->
+    <div v-if="activeTab === 'edit'" class="flex flex-col gap-2">
+      <textarea
+        v-model="content"
+        placeholder="用 Markdown 格式编写内容...&#10;&#10;支持：&#10;# 标题&#10;**粗体** *斜体*&#10;- 列表&#10;`代码` 和 ```代码块```&#10;[链接](url)"
+        class="w-full h-96 p-4 border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+      />
+      <div class="text-xs text-slate-500 dark:text-slate-400">
+        字数：{{ content.length }} / 50000
+      </div>
+    </div>
+
+    <!-- 预览模式 -->
+    <div v-if="activeTab === 'preview'" class="border border-slate-200 dark:border-slate-800 rounded-lg p-6 bg-white dark:bg-slate-900 min-h-96 prose dark:prose-invert max-w-none">
+      <div v-if="!content" class="text-slate-400 dark:text-slate-600 text-center py-12">
+        预览内容将显示在这里
+      </div>
+      <div v-else class="markdown-preview" v-html="renderMarkdown(content)" />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+
+interface Props {
+  modelValue: string
+}
+
+interface Emits {
+  (e: 'update:modelValue', value: string): void
+}
+
+defineProps<Props>()
+defineEmits<Emits>()
+
+const activeTab = ref<'edit' | 'preview'>('edit')
+
+const content = ref('')
+
+// 简单的 Markdown 渲染（实际项目中应使用 markdown-it 或类似库）
+const renderMarkdown = (md: string) => {
+  let html = md
+    .replace(/^### (.*?)$/gm, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
+    .replace(/^## (.*?)$/gm, '<h2 class="text-xl font-bold mt-6 mb-3">$1</h2>')
+    .replace(/^# (.*?)$/gm, '<h1 class="text-2xl font-bold mt-8 mb-4">$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+    .replace(/`(.*?)`/g, '<code class="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-sm font-mono">$1</code>')
+    .replace(/\n\n/g, '</p><p class="my-4">')
+    .replace(/^- (.*?)$/gm, '<li class="ml-4">$1</li>')
+
+  if (html.includes('<li')) {
+    html = html.replace(/(<li.*?<\/li>)/s, '<ul class="list-disc ml-6 my-2">$1</ul>')
+  }
+
+  if (!html.includes('<p')) {
+    html = `<p class="my-4">${html}</p>`
+  }
+
+  return html
+}
+</script>
+
+<style scoped>
+.markdown-preview :deep(h1) {
+  @apply text-2xl font-bold mt-8 mb-4;
+}
+
+.markdown-preview :deep(h2) {
+  @apply text-xl font-bold mt-6 mb-3;
+}
+
+.markdown-preview :deep(h3) {
+  @apply text-lg font-bold mt-4 mb-2;
+}
+
+.markdown-preview :deep(p) {
+  @apply my-4 leading-relaxed;
+}
+
+.markdown-preview :deep(code) {
+  @apply bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-sm font-mono;
+}
+
+.markdown-preview :deep(ul) {
+  @apply list-disc ml-6 my-2;
+}
+
+.markdown-preview :deep(li) {
+  @apply ml-4;
+}
+</style>
