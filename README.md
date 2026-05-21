@@ -101,7 +101,7 @@ VITE_WS_URL=ws://localhost:9001/ws
 
 - `npm run build` 通过。
 - `http://127.0.0.1:5174/trend` 正常展示真实统计数据。
-- `http://127.0.0.1:5174/admin/ops` 登录后可查看运维状态并触发异步索引重建。
+- `http://127.0.0.1:5174/admin/ops` 登录后可查看运维状态、Outbox 最近消息，并触发异步索引重建。
 
 验证截图：
 
@@ -110,7 +110,6 @@ VITE_WS_URL=ws://localhost:9001/ws
 
 ## 后续可选增强
 
-- Outbox 失败消息详情页和单条重试 UI。
 - Admin 角色管理页。
 - Settings 隐私设置接入后端配置模型。
 - 移动端细节回归和 E2E 测试脚本。

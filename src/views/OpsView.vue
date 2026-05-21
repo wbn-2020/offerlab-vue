@@ -1,17 +1,17 @@
 <template>
   <main class="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950">
-    <div class="mx-auto max-w-6xl space-y-6">
+    <div class="mx-auto max-w-7xl space-y-6">
       <section class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Admin Ops</p>
           <h1 class="mt-2 text-2xl font-bold text-slate-950 dark:text-slate-50">运维中心</h1>
           <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-            查看搜索索引、Outbox 消息积压，并异步触发帖子搜索索引重建。
+            查看搜索索引、Outbox 消息投递状态，并安全地处理单条失败消息。
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
-          <button type="button" class="secondary-button" :disabled="isLoading" @click="loadStatus">
-            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
+          <button type="button" class="secondary-button" :disabled="isLoading || isOutboxLoading" @click="refreshAll">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isOutboxLoading }" />
             刷新状态
           </button>
           <button type="button" class="primary-button" :disabled="isSubmitting || isTaskActive" @click="submitRebuild">
@@ -103,40 +103,160 @@
           <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">权限状态</h2>
           <div class="mt-5 space-y-4">
             <div class="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-950">
-              <span class="text-sm text-slate-600 dark:text-slate-300">Admin 白名单</span>
-              <span :class="['status-pill', status?.adminWhitelistEnabled ? 'status-ok' : 'status-warn']">
-                {{ status?.adminWhitelistEnabled ? '已启用' : '本地宽松模式' }}
+              <span class="text-sm text-slate-600 dark:text-slate-300">Admin 模式</span>
+              <span :class="['status-pill', status?.adminMode === 'LOCAL_OPEN' ? 'status-warn' : 'status-ok']">
+                {{ adminModeText }}
               </span>
             </div>
             <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
-              生产环境可通过 <code>offerlab.admin.uid-whitelist</code> 或 <code>OFFERLAB_ADMIN_UIDS</code> 限制可访问用户。
+              生产环境建议使用数据库 RBAC 或 UID 白名单；本地宽松模式只用于未配置 admin 时的开发验证。
             </p>
           </div>
         </article>
       </section>
+
+      <section class="panel">
+        <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">Outbox 消息</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">只展示最近消息，失败消息支持单条重试。</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="item in outboxFilters"
+              :key="item.label"
+              type="button"
+              :class="['filter-button', outboxStatusFilter === item.value ? 'filter-button-active' : '']"
+              @click="setOutboxStatus(item.value)"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="isOutboxLoading" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+          正在加载 Outbox 消息...
+        </div>
+        <div v-else-if="outboxMessages.length === 0" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+          当前筛选下暂无消息。
+        </div>
+        <div v-else class="overflow-x-auto">
+          <table class="ops-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Topic</th>
+                <th>聚合</th>
+                <th>状态</th>
+                <th>重试</th>
+                <th>创建时间</th>
+                <th class="text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="message in outboxMessages" :key="message.id">
+                <td class="font-mono text-xs">{{ message.id }}</td>
+                <td>{{ message.topic }}</td>
+                <td>{{ message.aggregateType }} / {{ message.aggregateId }}</td>
+                <td>
+                  <span :class="['status-pill', outboxStatusClass(message.msgStatus)]">
+                    {{ outboxStatusText(message.msgStatus) }}
+                  </span>
+                </td>
+                <td>{{ message.retryCount }}</td>
+                <td>{{ formatTime(message.createTime) }}</td>
+                <td>
+                  <div class="flex justify-end gap-2">
+                    <button type="button" class="icon-button" title="查看详情" @click="openOutboxDetail(message)">
+                      <FileText class="h-4 w-4" />
+                    </button>
+                    <button
+                      v-if="message.msgStatus === 2"
+                      type="button"
+                      class="icon-button danger-action"
+                      title="重试失败消息"
+                      :disabled="retryingId === message.id"
+                      @click="retryMessage(message)"
+                    >
+                      <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': retryingId === message.id }" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="selectedOutbox" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="selectedOutbox = null">
+      <article class="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900">
+        <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-50">Outbox 详情</h3>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ selectedOutbox.topic }} / {{ selectedOutbox.id }}</p>
+          </div>
+          <button type="button" class="secondary-button" @click="selectedOutbox = null">关闭</button>
+        </div>
+        <div class="max-h-[65vh] space-y-4 overflow-auto p-5">
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="task-stat">
+              <span>状态</span>
+              <strong>{{ outboxStatusText(selectedOutbox.msgStatus) }}</strong>
+            </div>
+            <div class="task-stat">
+              <span>重试次数</span>
+              <strong>{{ selectedOutbox.retryCount }}</strong>
+            </div>
+            <div class="task-stat">
+              <span>下次重试</span>
+              <strong class="text-sm">{{ formatTime(selectedOutbox.nextRetryTime) }}</strong>
+            </div>
+          </div>
+          <pre class="payload-box">{{ formatPayload(selectedOutbox.payload) }}</pre>
+        </div>
+      </article>
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RefreshCw, RotateCcw } from 'lucide-vue-next'
+import { FileText, RefreshCw, RotateCcw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { opsApi, type OpsStatus } from '@/api/ops'
+import { opsApi, type OpsStatus, type OutboxMessage } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 
 const status = ref<OpsStatus | null>(null)
 const task = ref<SearchIndexTask | null>(null)
+const outboxMessages = ref<OutboxMessage[]>([])
+const selectedOutbox = ref<OutboxMessage | null>(null)
+const outboxStatusFilter = ref<number | undefined>(undefined)
 const isLoading = ref(false)
+const isOutboxLoading = ref(false)
 const isSubmitting = ref(false)
+const retryingId = ref<number | null>(null)
 const loadError = ref('')
 let pollTimer: number | undefined
+
+const outboxFilters = [
+  { label: '全部', value: undefined },
+  { label: '待投递', value: 0 },
+  { label: '已发送', value: 1 },
+  { label: '失败', value: 2 },
+]
 
 const isTaskActive = computed(() => task.value?.status === 'PENDING' || task.value?.status === 'RUNNING')
 const searchOnlineText = computed(() => {
   if (!status.value) return '--'
   if (!status.value.search.enabled) return '未启用'
   return status.value.search.available ? '在线' : '降级'
+})
+const adminModeText = computed(() => {
+  if (!status.value) return '--'
+  if (status.value.adminMode === 'RBAC') return 'RBAC'
+  if (status.value.adminMode === 'WHITELIST') return '白名单'
+  return '本地宽松模式'
 })
 const taskStatusClass = computed(() => {
   if (task.value?.status === 'SUCCEEDED') return 'status-ok'
@@ -169,6 +289,28 @@ const loadStatus = async () => {
   }
 }
 
+const loadOutbox = async () => {
+  isOutboxLoading.value = true
+  try {
+    const res = await opsApi.listOutbox({ status: outboxStatusFilter.value, limit: 30 })
+    outboxMessages.value = res.data || []
+  } catch (error: any) {
+    toast.error(error?.message || 'Outbox 消息加载失败')
+    outboxMessages.value = []
+  } finally {
+    isOutboxLoading.value = false
+  }
+}
+
+const refreshAll = async () => {
+  await Promise.all([loadStatus(), loadOutbox()])
+}
+
+const setOutboxStatus = async (statusValue?: number) => {
+  outboxStatusFilter.value = statusValue
+  await loadOutbox()
+}
+
 const stopPolling = () => {
   if (pollTimer) {
     window.clearInterval(pollTimer)
@@ -184,7 +326,7 @@ const pollTask = (taskId: string) => {
       task.value = res.data
       if (!res.data || res.data.status === 'SUCCEEDED' || res.data.status === 'FAILED') {
         stopPolling()
-        await loadStatus()
+        await refreshAll()
       }
     } catch {
       stopPolling()
@@ -208,22 +350,74 @@ const submitRebuild = async () => {
   }
 }
 
-onMounted(loadStatus)
+const openOutboxDetail = async (message: OutboxMessage) => {
+  try {
+    const res = await opsApi.getOutbox(message.id)
+    selectedOutbox.value = res.data || message
+  } catch {
+    selectedOutbox.value = message
+  }
+}
+
+const retryMessage = async (message: OutboxMessage) => {
+  retryingId.value = message.id
+  try {
+    await opsApi.retryOutbox(message.id)
+    toast.success('失败消息已重置为待投递')
+    await refreshAll()
+  } catch (error: any) {
+    toast.error(error?.message || '重试失败消息失败')
+  } finally {
+    retryingId.value = null
+  }
+}
+
+const outboxStatusText = (value: number) => {
+  if (value === 0) return '待投递'
+  if (value === 1) return '已发送'
+  if (value === 2) return '失败'
+  return '未知'
+}
+
+const outboxStatusClass = (value: number) => {
+  if (value === 1) return 'status-ok'
+  if (value === 2) return 'status-danger'
+  return 'status-warn'
+}
+
+const formatTime = (value?: string) => value ? value.replace('T', ' ').slice(0, 19) : '--'
+
+const formatPayload = (payload: string) => {
+  try {
+    return JSON.stringify(JSON.parse(payload), null, 2)
+  } catch {
+    return payload || '--'
+  }
+}
+
+onMounted(refreshAll)
 onBeforeUnmount(stopPolling)
 </script>
 
 <style scoped>
 .primary-button,
-.secondary-button {
+.secondary-button,
+.filter-button,
+.icon-button {
   display: inline-flex;
-  min-height: 40px;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   border-radius: 0.5rem;
-  padding: 0.625rem 1rem;
   font-size: 0.875rem;
   font-weight: 600;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.primary-button,
+.secondary-button {
+  min-height: 40px;
+  padding: 0.625rem 1rem;
 }
 
 .primary-button {
@@ -235,18 +429,45 @@ onBeforeUnmount(stopPolling)
   background: rgb(67 56 202);
 }
 
-.secondary-button {
+.secondary-button,
+.filter-button,
+.icon-button {
   border: 1px solid rgb(226 232 240);
   background: white;
   color: rgb(51 65 85);
 }
 
-.secondary-button:hover:not(:disabled) {
+.secondary-button:hover:not(:disabled),
+.filter-button:hover:not(:disabled),
+.icon-button:hover:not(:disabled) {
   background: rgb(248 250 252);
 }
 
+.filter-button {
+  min-height: 34px;
+  padding: 0.4rem 0.75rem;
+}
+
+.filter-button-active {
+  border-color: rgb(79 70 229);
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+}
+
+.icon-button {
+  height: 32px;
+  width: 32px;
+  padding: 0;
+}
+
+.danger-action {
+  color: rgb(185 28 28);
+}
+
 .primary-button:disabled,
-.secondary-button:disabled {
+.secondary-button:disabled,
+.filter-button:disabled,
+.icon-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -279,6 +500,7 @@ onBeforeUnmount(stopPolling)
   padding: 0.25rem 0.625rem;
   font-size: 0.75rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .status-ok {
@@ -316,23 +538,69 @@ onBeforeUnmount(stopPolling)
   font-size: 1.125rem;
 }
 
+.ops-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.ops-table th,
+.ops-table td {
+  border-bottom: 1px solid rgb(226 232 240);
+  padding: 0.875rem 0.75rem;
+  text-align: left;
+  font-size: 0.875rem;
+  color: rgb(51 65 85);
+  vertical-align: middle;
+}
+
+.ops-table th {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.payload-box {
+  max-height: 420px;
+  overflow: auto;
+  border-radius: 0.5rem;
+  background: rgb(15 23 42);
+  padding: 1rem;
+  color: rgb(226 232 240);
+  font-size: 0.8125rem;
+}
+
 :global(.dark) .secondary-button,
+:global(.dark) .filter-button,
+:global(.dark) .icon-button,
 :global(.dark) .metric-card,
 :global(.dark) .panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .secondary-button {
+:global(.dark) .secondary-button,
+:global(.dark) .filter-button,
+:global(.dark) .icon-button,
+:global(.dark) .ops-table td {
   color: rgb(203 213 225);
 }
 
-:global(.dark) .secondary-button:hover:not(:disabled) {
+:global(.dark) .filter-button-active {
+  border-color: rgb(99 102 241);
+  background: rgb(49 46 129);
+  color: white;
+}
+
+:global(.dark) .secondary-button:hover:not(:disabled),
+:global(.dark) .filter-button:hover:not(:disabled),
+:global(.dark) .icon-button:hover:not(:disabled) {
   background: rgb(30 41 59);
 }
 
 :global(.dark) .metric-label,
-:global(.dark) .task-stat span {
+:global(.dark) .task-stat span,
+:global(.dark) .ops-table th {
   color: rgb(148 163 184);
 }
 
@@ -343,5 +611,10 @@ onBeforeUnmount(stopPolling)
 
 :global(.dark) .task-stat {
   background: rgb(2 6 23);
+}
+
+:global(.dark) .ops-table th,
+:global(.dark) .ops-table td {
+  border-bottom-color: rgb(30 41 59);
 }
 </style>
