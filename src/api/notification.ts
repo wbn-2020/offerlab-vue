@@ -8,7 +8,7 @@ export const notificationApi = {
     return { ...res, data: res.data ? adaptPage(res.data, adaptNotification) : null }
   },
 
-  getUnreadCount: (): Promise<Result<{ total: number; like: number; comment: number; follower: number; system: number }>> =>
+  getUnreadCount: (): Promise<Result<{ total: number; like: number; comment: number; favorite: number; follower: number; mention: number; system: number }>> =>
     client.get('/api/v1/notifications/unread-count'),
 
   markAsRead: (ids: Array<string | number>): Promise<Result<void>> =>

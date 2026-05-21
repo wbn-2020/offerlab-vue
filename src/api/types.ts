@@ -64,6 +64,7 @@ export interface Notification {
   title: string
   content: string
   relatedId?: ApiId
+  targetPath?: string
   read: boolean
   createdAt: number
 }

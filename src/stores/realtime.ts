@@ -8,7 +8,9 @@ export const useRealtimeStore = defineStore('realtime', () => {
     total: 0,
     like: 0,
     comment: 0,
+    favorite: 0,
     follower: 0,
+    mention: 0,
     system: 0,
   })
 

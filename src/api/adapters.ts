@@ -114,12 +114,15 @@ export function adaptNotification(raw: any): Notification {
   const content = typeof raw?.content === 'object' && raw.content ? raw.content : {}
   const type = raw?.type ?? 'system'
   const targetId = raw?.targetId ?? content.postId ?? content.commentId ?? content.userId
+  const postId = content.postId ?? (['like', 'favorite', 'mention'].includes(type) && raw?.targetType === 1 ? raw?.targetId : undefined)
+  const userId = type === 'follower' ? content.userId ?? raw?.senderUid ?? raw?.targetId : undefined
   return {
     notificationId: adaptId(raw?.notificationId ?? raw?.id),
     type,
     title: notificationTitle(type),
     content: notificationText(type, content),
     relatedId: targetId ? adaptId(targetId) : undefined,
+    targetPath: userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined,
     read: Boolean(raw?.read ?? raw?.isRead ?? false),
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
   }
@@ -131,8 +134,12 @@ function notificationTitle(type: string): string {
       return '收到点赞'
     case 'comment':
       return '收到评论'
+    case 'favorite':
+      return '收到收藏'
     case 'follower':
       return '新的关注'
+    case 'mention':
+      return '提到了你'
     default:
       return '系统通知'
   }
@@ -144,9 +151,13 @@ function notificationText(type: string, content: Record<string, any>): string {
       return content.targetType === 2 ? '有人点赞了你的评论' : '有人点赞了你的帖子'
     case 'comment':
       return '有人评论了你的帖子'
+    case 'favorite':
+      return '有人收藏了你的帖子'
     case 'follower':
       return '有人关注了你'
+    case 'mention':
+      return content.commentId ? '有人在评论中提到了你' : '有人在帖子中提到了你'
     default:
-      return content.action === 'favorite' ? '有人收藏了你的帖子' : '你有一条新通知'
+      return '你有一条新通知'
   }
 }

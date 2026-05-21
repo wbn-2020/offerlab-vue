@@ -1,124 +1,140 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
-    <div class="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-6">
-      <div class="max-w-6xl mx-auto flex gap-3">
-        <input
-          v-model="filters.q"
-          type="text"
-          placeholder="搜索面经、技术博客、公司或岗位..."
-          class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          @keyup.enter="runSearch"
-        />
+    <div class="sticky top-0 z-30 border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div class="mx-auto flex max-w-6xl flex-col gap-3 md:flex-row">
+        <div class="relative flex-1">
+          <input
+            v-model="filters.q"
+            type="search"
+            list="search-suggestions"
+            placeholder="搜索面经、技术博客、公司或岗位..."
+            class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            @input="loadSuggestions"
+            @keyup.enter="runSearch"
+          />
+          <datalist id="search-suggestions">
+            <option v-for="item in suggestions" :key="item" :value="item" />
+          </datalist>
+        </div>
         <button
+          type="button"
           @click="runSearch"
           :disabled="isLoading"
-          class="px-5 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium disabled:opacity-50"
+          class="rounded-lg bg-primary-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
         >
           搜索
         </button>
       </div>
     </div>
 
-    <div class="max-w-6xl mx-auto p-6">
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <aside class="lg:col-span-1">
-          <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 space-y-6 sticky top-24">
-            <div>
-              <h3 class="font-medium text-slate-900 dark:text-slate-100 mb-3">公司</h3>
-              <select v-model="filters.company" class="filter-input">
-                <option value="">全部公司</option>
-                <option v-for="company in companies" :key="company" :value="company">{{ company }}</option>
-              </select>
-            </div>
+    <div class="mx-auto grid max-w-6xl grid-cols-1 gap-6 p-6 lg:grid-cols-4">
+      <aside class="lg:col-span-1">
+        <div class="sticky top-24 space-y-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+          <label class="block">
+            <span class="filter-label">公司</span>
+            <input v-model="filters.company" class="filter-input" placeholder="输入公司名" @keyup.enter="runSearch" />
+          </label>
 
-            <div>
-              <h3 class="font-medium text-slate-900 dark:text-slate-100 mb-3">岗位</h3>
-              <select v-model="filters.position" class="filter-input">
-                <option value="">全部岗位</option>
-                <option v-for="position in positions" :key="position" :value="position">{{ position }}</option>
-              </select>
-            </div>
+          <label class="block">
+            <span class="filter-label">岗位</span>
+            <input v-model="filters.position" class="filter-input" placeholder="例如 Backend、Java 后端" @keyup.enter="runSearch" />
+          </label>
 
-            <div>
-              <h3 class="font-medium text-slate-900 dark:text-slate-100 mb-3">内容类型</h3>
-              <select v-model.number="filters.type" class="filter-input">
-                <option :value="undefined">全部类型</option>
-                <option :value="1">面经</option>
-                <option :value="2">技术博客</option>
-                <option :value="3">题解</option>
-                <option :value="4">求职问答</option>
-              </select>
-            </div>
+          <label class="block">
+            <span class="filter-label">内容类型</span>
+            <select v-model.number="filters.type" class="filter-input">
+              <option :value="undefined">全部类型</option>
+              <option :value="1">面经</option>
+              <option :value="2">技术博客</option>
+              <option :value="3">题解</option>
+              <option :value="4">求职问答</option>
+            </select>
+          </label>
 
-            <button
-              @click="resetFilters"
-              class="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm"
-            >
-              清空筛选
-            </button>
-
-            <div>
-              <h3 class="font-medium text-slate-900 dark:text-slate-100 mb-3">热门搜索</h3>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="word in hotWords"
-                  :key="word"
-                  @click="useHotWord(word)"
-                  class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300 hover:text-primary-600"
-                >
-                  {{ word }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        <main class="lg:col-span-3 space-y-4">
-          <div v-if="isLoading" class="text-center py-12 text-slate-500 dark:text-slate-400">
-            正在搜索...
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" class="secondary-button" @click="resetFilters">清空</button>
+            <button type="button" class="secondary-button" @click="runSearch">应用筛选</button>
           </div>
 
-          <div v-else-if="searchResults.length === 0" class="text-center py-12">
-            <p class="text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+          <div>
+            <h3 class="mb-3 text-sm font-medium text-slate-900 dark:text-slate-100">热门搜索</h3>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="word in hotWords"
+                :key="word"
+                type="button"
+                @click="useHotWord(word)"
+                class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-600 transition-colors hover:text-primary-600 dark:bg-slate-800 dark:text-slate-300"
+              >
+                {{ word }}
+              </button>
+            </div>
           </div>
+        </div>
+      </aside>
 
-          <div v-for="post in searchResults" :key="post.postId" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all">
+      <main class="lg:col-span-3">
+        <div v-if="isLoading" class="rounded-xl border border-slate-200 bg-white py-12 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+          正在搜索...
+        </div>
+
+        <div v-else-if="searchResults.length === 0" class="rounded-xl border border-dashed border-slate-300 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+          <p class="text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+        </div>
+
+        <div v-else class="space-y-4">
+          <article
+            v-for="post in searchResults"
+            :key="post.postId"
+            class="rounded-xl border border-slate-200 bg-white p-5 transition-all hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+          >
             <div class="flex items-start gap-4">
-              <div class="w-12 h-12 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold flex-shrink-0">
+              <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 font-semibold text-white">
                 {{ post.author.nickname.charAt(0) || '?' }}
               </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-2">
+              <div class="min-w-0 flex-1">
+                <div class="mb-2 flex flex-wrap items-center gap-2">
                   <span class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname }}</span>
-                  <span v-if="post.extension?.company" class="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded">
+                  <span v-if="post.extension?.company" class="rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-700 dark:bg-purple-900 dark:text-purple-300">
                     {{ post.extension.company }}
                   </span>
+                  <span v-if="post.extension?.position" class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {{ post.extension.position }}
+                  </span>
                 </div>
-                <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2 line-clamp-2">{{ stripHighlight(post.title) }}</h3>
-                <p class="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{{ stripHighlight(post.summary || post.content.substring(0, 100)) }}</p>
-                <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
+                <h3 class="mb-2 line-clamp-2 text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {{ stripHighlight(post.title) }}
+                </h3>
+                <p class="mb-3 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">
+                  {{ stripHighlight(post.summary || post.content.substring(0, 100)) }}
+                </p>
+                <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500 dark:text-slate-400">
                   <div class="flex gap-4">
                     <span>浏览 {{ post.counter.view }}</span>
                     <span>点赞 {{ post.counter.like }}</span>
                     <span>评论 {{ post.counter.comment }}</span>
                   </div>
-                  <router-link :to="`/post/${post.postId}`" class="text-primary-600 hover:text-primary-700 font-medium">
+                  <router-link :to="`/post/${post.postId}`" class="font-medium text-primary-600 hover:text-primary-700">
                     查看
                   </router-link>
                 </div>
               </div>
             </div>
-          </div>
-        </main>
-      </div>
+          </article>
+        </div>
+      </main>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { searchApi } from '@/api/search'
 import type { Post } from '@/api/types'
+
+const route = useRoute()
+const router = useRouter()
 
 const filters = reactive<{
   q: string
@@ -132,14 +148,36 @@ const filters = reactive<{
   type: undefined,
 })
 
-const companies = ['字节跳动', '美团', '阿里巴巴', '腾讯', '百度']
-const positions = ['Java 后端', 'Go 后端', 'Python 后端', 'C++ 后端', '前端']
 const hotWords = ref<string[]>([])
+const suggestions = ref<string[]>([])
 const searchResults = ref<Post[]>([])
 const isLoading = ref(false)
 const emptyText = ref('输入关键词或筛选条件开始搜索')
 
+const stripHighlight = (value: string) => value.replace(/<\/?em>/g, '')
+
+const syncFromRoute = () => {
+  filters.q = typeof route.query.q === 'string' ? route.query.q : ''
+  filters.company = typeof route.query.company === 'string' ? route.query.company : ''
+  filters.position = typeof route.query.position === 'string' ? route.query.position : ''
+  const type = Number(route.query.type)
+  filters.type = Number.isFinite(type) && type > 0 ? type : undefined
+}
+
+const pushQuery = () => {
+  router.replace({
+    path: '/search',
+    query: {
+      ...(filters.q.trim() ? { q: filters.q.trim() } : {}),
+      ...(filters.company.trim() ? { company: filters.company.trim() } : {}),
+      ...(filters.position.trim() ? { position: filters.position.trim() } : {}),
+      ...(filters.type ? { type: String(filters.type) } : {}),
+    },
+  })
+}
+
 const runSearch = async () => {
+  pushQuery()
   isLoading.value = true
   try {
     const res = await searchApi.searchPosts({
@@ -165,7 +203,9 @@ const resetFilters = async () => {
   filters.position = ''
   filters.type = undefined
   searchResults.value = []
+  suggestions.value = []
   emptyText.value = '输入关键词或筛选条件开始搜索'
+  await router.replace({ path: '/search' })
 }
 
 const useHotWord = async (word: string) => {
@@ -173,19 +213,43 @@ const useHotWord = async (word: string) => {
   await runSearch()
 }
 
-const stripHighlight = (value: string) => value.replace(/<\/?em>/g, '')
+const loadSuggestions = async () => {
+  const q = filters.q.trim()
+  if (q.length < 2) {
+    suggestions.value = []
+    return
+  }
+  try {
+    const res = await searchApi.suggest(q)
+    suggestions.value = Array.isArray(res.data) ? res.data : []
+  } catch {
+    suggestions.value = []
+  }
+}
 
 onMounted(async () => {
+  syncFromRoute()
   try {
     const hot = await searchApi.hotSearches()
     hotWords.value = hot.data || []
   } catch {
     hotWords.value = []
   }
+  if (filters.q || filters.company || filters.position || filters.type) {
+    await runSearch()
+  }
 })
 </script>
 
 <style scoped>
+.filter-label {
+  margin-bottom: 0.5rem;
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(15 23 42);
+}
+
 .filter-input {
   width: 100%;
   border-radius: 0.5rem;
@@ -196,9 +260,35 @@ onMounted(async () => {
   color: rgb(15 23 42);
 }
 
+.secondary-button {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: rgb(51 65 85);
+  transition: background-color 0.15s ease;
+}
+
+.secondary-button:hover {
+  background: rgb(248 250 252);
+}
+
+:global(.dark) .filter-label {
+  color: rgb(241 245 249);
+}
+
 :global(.dark) .filter-input {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(241 245 249);
+}
+
+:global(.dark) .secondary-button {
+  border-color: rgb(51 65 85);
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .secondary-button:hover {
+  background: rgb(30 41 59);
 }
 </style>

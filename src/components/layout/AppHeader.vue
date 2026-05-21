@@ -1,93 +1,73 @@
 <template>
-  <header class="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-6">
-      <!-- Logo -->
-      <RouterLink to="/" class="flex-shrink-0">
-        <div class="text-2xl font-bold text-primary-600 hover:text-primary-700 transition-colors">面试圈</div>
+  <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+    <div class="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4">
+      <RouterLink to="/" class="flex-shrink-0 text-2xl font-bold text-primary-600 transition-colors hover:text-primary-700">
+        面试场
       </RouterLink>
 
-      <!-- Search Bar -->
-      <div class="flex-1 max-w-md">
-        <input
-          type="text"
-          placeholder="搜索面经、公司、岗位..."
-          class="w-full px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-        />
-      </div>
+      <form class="hidden max-w-md flex-1 items-center gap-2 sm:flex" @submit.prevent="submitSearch">
+        <div class="relative w-full">
+          <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            v-model="keyword"
+            type="search"
+            placeholder="搜索面经、公司、岗位..."
+            class="w-full rounded-lg border border-slate-200 bg-slate-100 py-2 pl-9 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
+      </form>
 
-      <!-- Right Actions -->
-      <div class="flex items-center gap-4">
-        <!-- Notification Bell -->
-        <button class="relative p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-          <span class="text-xl">🔔</span>
+      <div class="flex items-center gap-3">
+        <RouterLink
+          v-if="authStore.token"
+          to="/me/notifications"
+          class="relative rounded-lg p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+          title="通知"
+        >
+          <Bell class="h-5 w-5 text-slate-700 dark:text-slate-200" />
           <span
             v-if="unreadCount > 0"
-            class="absolute top-1 right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold"
+            class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-semibold text-white"
           >
             {{ unreadCount > 99 ? '99+' : unreadCount }}
           </span>
-        </button>
+        </RouterLink>
 
-        <!-- Theme Toggle -->
         <button
+          type="button"
           @click="toggleTheme"
-          class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          class="rounded-lg p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
           :title="themeStore.isDark() ? '切换亮色模式' : '切换暗色模式'"
         >
-          <span class="text-xl">{{ themeStore.isDark() ? '☀️' : '🌙' }}</span>
+          <Sun v-if="themeStore.isDark()" class="h-5 w-5 text-slate-700 dark:text-slate-200" />
+          <Moon v-else class="h-5 w-5 text-slate-700 dark:text-slate-200" />
         </button>
 
-        <!-- User Menu -->
-        <div class="relative">
+        <div class="relative" data-user-menu>
           <button
-            @click="showUserMenu = !showUserMenu"
-            class="w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center hover:bg-primary-700 transition-colors font-semibold"
+            type="button"
+            @click.stop="showUserMenu = !showUserMenu"
+            class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-600 font-semibold text-white transition-colors hover:bg-primary-700"
           >
-            {{ authStore.isLoggedIn ? (authStore.user?.nickname?.[0] || 'U') : '👤' }}
+            <span v-if="authStore.isLoggedIn">{{ authStore.user?.nickname?.[0] || 'U' }}</span>
+            <User v-else class="h-5 w-5" />
           </button>
 
-          <!-- User Dropdown Menu -->
           <div
             v-if="showUserMenu"
-            class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-slate-200 dark:border-slate-800 py-2 z-50"
+            class="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-slate-200 bg-white py-2 shadow-lg dark:border-slate-800 dark:bg-slate-900"
           >
             <template v-if="authStore.isLoggedIn">
-              <RouterLink
-                to="/me"
-                class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                @click="showUserMenu = false"
-              >
-                个人主页
-              </RouterLink>
-              <RouterLink
-                to="/me/settings"
-                class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                @click="showUserMenu = false"
-              >
-                设置
-              </RouterLink>
-              <button
-                @click="handleLogout"
-                class="w-full text-left px-4 py-2 text-sm text-danger hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
+              <RouterLink to="/me" class="menu-item" @click="showUserMenu = false">个人主页</RouterLink>
+              <RouterLink to="/me/notifications" class="menu-item" @click="showUserMenu = false">通知中心</RouterLink>
+              <RouterLink to="/me/settings" class="menu-item" @click="showUserMenu = false">设置</RouterLink>
+              <button type="button" @click="handleLogout" class="menu-item w-full text-left text-danger">
                 退出登录
               </button>
             </template>
             <template v-else>
-              <RouterLink
-                to="/login"
-                class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                @click="showUserMenu = false"
-              >
-                登录
-              </RouterLink>
-              <RouterLink
-                to="/register"
-                class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                @click="showUserMenu = false"
-              >
-                注册
-              </RouterLink>
+              <RouterLink to="/login" class="menu-item" @click="showUserMenu = false">登录</RouterLink>
+              <RouterLink to="/register" class="menu-item" @click="showUserMenu = false">注册</RouterLink>
             </template>
           </div>
         </div>
@@ -97,12 +77,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { Bell, Moon, Search, Sun, User } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { useThemeStore } from '@/stores/theme'
-import { useRealtimeStore } from '@/stores/realtime'
 import { toast } from 'vue-sonner'
+import { notificationApi } from '@/api/notification'
+import { useAuthStore } from '@/stores/auth'
+import { useRealtimeStore } from '@/stores/realtime'
+import { useThemeStore } from '@/stores/theme'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
@@ -110,33 +92,65 @@ const realtimeStore = useRealtimeStore()
 const router = useRouter()
 
 const showUserMenu = ref(false)
-
+const keyword = ref('')
 const unreadCount = computed(() => realtimeStore.unreadCount.total)
 
-const toggleTheme = () => {
-  const newMode = themeStore.mode === 'dark' ? 'light' : 'dark'
-  themeStore.setMode(newMode)
-}
-
-const handleLogout = async () => {
+const loadUnread = async () => {
+  if (!authStore.token) return
   try {
-    authStore.logout()
-    showUserMenu.value = false
-    toast.success('已退出登录')
-    router.push('/login')
-  } catch (error) {
-    toast.error('退出登录失败')
+    const res = await notificationApi.getUnreadCount()
+    if (res.code === 0 && res.data) realtimeStore.setUnreadCount(res.data)
+  } catch {
+    realtimeStore.setUnreadCount({ total: 0, like: 0, comment: 0, favorite: 0, follower: 0, mention: 0, system: 0 })
   }
 }
 
-// Close menu when clicking outside
+const submitSearch = () => {
+  const q = keyword.value.trim()
+  router.push({ path: '/search', query: q ? { q } : {} })
+}
+
+const toggleTheme = () => {
+  themeStore.setMode(themeStore.mode === 'dark' ? 'light' : 'dark')
+}
+
+const handleLogout = async () => {
+  authStore.logout()
+  realtimeStore.setUnreadCount({ total: 0, like: 0, comment: 0, favorite: 0, follower: 0, mention: 0, system: 0 })
+  showUserMenu.value = false
+  toast.success('已退出登录')
+  router.push('/login')
+}
+
 onMounted(() => {
+  loadUnread()
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
-    if (!target.closest('[data-user-menu]')) {
-      showUserMenu.value = false
-    }
+    if (!target.closest('[data-user-menu]')) showUserMenu.value = false
   })
 })
+
+watch(() => authStore.token, loadUnread)
 </script>
 
+<style scoped>
+.menu-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: rgb(51 65 85);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.menu-item:hover {
+  background: rgb(241 245 249);
+}
+
+:global(.dark) .menu-item {
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .menu-item:hover {
+  background: rgb(30 41 59);
+}
+</style>

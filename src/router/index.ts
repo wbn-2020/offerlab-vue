@@ -47,6 +47,7 @@ const routes = [
   },
   {
     path: '/me/notifications',
+    alias: '/notifications',
     name: 'Notifications',
     component: () => import('@/views/NotificationsView.vue'),
     meta: { title: '通知', requiresAuth: true },
@@ -104,4 +105,3 @@ const router = createRouter({
 setupRouterGuards(router)
 
 export default router
-
