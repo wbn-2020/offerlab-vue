@@ -99,7 +99,7 @@
           <!-- Load More -->
           <div v-if="hasNextPage && !isFetching" class="mt-6 text-center">
             <button
-              @click="fetchNextPage"
+              @click="() => fetchNextPage()"
               class="px-6 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 dark:hover:bg-slate-800 transition-colors font-medium"
             >
               加载更多
@@ -210,4 +210,3 @@ const handleFavorite = (postId: number) => {
   toast.success('已收藏')
 }
 </script>
-

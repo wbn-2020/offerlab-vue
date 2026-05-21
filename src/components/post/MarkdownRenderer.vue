@@ -1,18 +1,28 @@
 <template>
-  <div class="markdown-content text-slate-700 dark:text-slate-300 leading-relaxed">
-    <VueMarkdownRender :source="content" />
-  </div>
+  <div
+    class="markdown-content text-slate-700 dark:text-slate-300 leading-relaxed"
+    v-html="renderedContent"
+  />
 </template>
 
 <script setup lang="ts">
-import VueMarkdownRender from 'vue-markdown-render'
+import { computed } from 'vue'
+import MarkdownIt from 'markdown-it'
 import 'highlight.js/styles/atom-one-dark.css'
 
 interface Props {
   content: string
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+})
+
+const renderedContent = computed(() => md.render(props.content || ''))
 </script>
 
 <style scoped>
@@ -165,4 +175,3 @@ defineProps<Props>()
   color: inherit;
 }
 </style>
-

@@ -1,5 +1,6 @@
 import client, { Result } from './client'
 import type { User } from './types'
+import { adaptUser } from './adapters'
 
 export interface LoginReq {
   email: string
@@ -14,7 +15,8 @@ export interface RegisterReq {
 
 export interface AuthResp {
   token: string
-  user: User
+  user?: User
+  uid?: number
 }
 
 export const authApi = {
@@ -27,6 +29,8 @@ export const authApi = {
   logout: (): Promise<Result<void>> =>
     client.post('/api/v1/auth/logout'),
 
-  fetchMe: (): Promise<Result<User>> =>
-    client.get('/api/v1/users/me'),
+  fetchMe: async (): Promise<Result<User>> => {
+    const res = await client.get('/api/v1/users/me') as Result<any>
+    return { ...res, data: res.data ? adaptUser(res.data) : null }
+  },
 }

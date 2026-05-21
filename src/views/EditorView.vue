@@ -215,15 +215,19 @@ const publishPost = async () => {
       postType: form.value.postType,
       title: form.value.title,
       content: form.value.content,
-      tags: form.value.tags,
-      extension: form.value.extension
+      coverUrl: form.value.coverUrl,
+      visibility: 0,
+      extJson: JSON.stringify({
+        ...form.value.extension,
+        tags: selectedTags.value
+      })
     }
 
     const res = await postApi.create(req)
     if (res.code === 0) {
       localStorage.removeItem('post_draft')
       alert('发布成功')
-      router.push(`/post/${res.data.postId}`)
+      router.push(`/post/${res.data?.postId}`)
     } else {
       alert(`发布失败: ${res.message}`)
     }

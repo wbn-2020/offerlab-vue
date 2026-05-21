@@ -1,10 +1,11 @@
 import client, { Result } from './client'
 import type { User } from './types'
+import { adaptUser } from './adapters'
 
 export interface UserProfileReq {
   nickname?: string
-  avatar?: string
-  signature?: string
+  avatarUrl?: string
+  bio?: string
 }
 
 export interface IntentReq {
@@ -16,10 +17,12 @@ export interface IntentReq {
 }
 
 export const userApi = {
-  getProfile: (uid: number): Promise<Result<User>> =>
-    client.get(`/api/v1/users/${uid}`),
+  getProfile: async (uid: number): Promise<Result<User>> => {
+    const res = await client.get(`/api/v1/users/${uid}`) as Result<any>
+    return { ...res, data: res.data ? adaptUser(res.data) : null }
+  },
 
-  updateProfile: (req: UserProfileReq): Promise<Result<User>> =>
+  updateProfile: (req: UserProfileReq): Promise<Result<void>> =>
     client.patch('/api/v1/users/me', req),
 
   updateIntent: (req: IntentReq): Promise<Result<void>> =>
