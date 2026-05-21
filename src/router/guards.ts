@@ -1,10 +1,22 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api/auth'
 
 export function setupRouterGuards(router: Router) {
-  router.beforeEach((to, from, next) => {
+  router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
     const requiresAuth = to.meta.requiresAuth as boolean
+
+    if (requiresAuth && authStore.token && !authStore.user) {
+      try {
+        const me = await authApi.fetchMe()
+        if (me.data) {
+          authStore.setUser(me.data)
+        }
+      } catch {
+        authStore.logout()
+      }
+    }
 
     if (requiresAuth && !authStore.isLoggedIn) {
       next({ name: 'Login', query: { redirect: to.fullPath } })

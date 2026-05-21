@@ -16,6 +16,14 @@ export interface IntentReq {
   techStack: string[]
 }
 
+export interface PrivacySetting {
+  profileVisibility: 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE'
+  intentVisibility: 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE'
+  searchable: boolean
+  interactionNotification: boolean
+  systemNotification: boolean
+}
+
 export const userApi = {
   getProfile: async (uid: ApiId): Promise<Result<User>> => {
     const res = await client.get(`/api/v1/users/${uid}`) as Result<any>
@@ -27,6 +35,12 @@ export const userApi = {
 
   updateIntent: (req: IntentReq): Promise<Result<void>> =>
     client.put('/api/v1/users/me/intent', req),
+
+  getPrivacySettings: (): Promise<Result<PrivacySetting>> =>
+    client.get('/api/v1/users/me/privacy-settings'),
+
+  updatePrivacySettings: (req: PrivacySetting): Promise<Result<PrivacySetting>> =>
+    client.put('/api/v1/users/me/privacy-settings', req),
 
   getFollowers: async (uid: ApiId, cursor?: string, size = 20): Promise<Result<PaginatedResponse<User>>> => {
     const res = await client.get(`/api/v1/users/${uid}/followers`, { params: { cursor, size } }) as Result<any>

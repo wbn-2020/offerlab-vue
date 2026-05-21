@@ -1,148 +1,146 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-8">
-    <div class="max-w-4xl mx-auto">
-      <h1 class="text-3xl font-bold mb-8">设置</h1>
+  <main class="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950">
+    <div class="mx-auto max-w-5xl space-y-6">
+      <section class="flex flex-col gap-2">
+        <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Account Settings</p>
+        <h1 class="text-2xl font-bold text-slate-950 dark:text-slate-50">设置</h1>
+        <p class="max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+          管理账号资料、求职意向和隐私偏好。
+        </p>
+      </section>
 
-      <!-- Tab 切换 -->
-      <div class="flex gap-2 border-b border-slate-200 dark:border-slate-800 mb-8">
+      <nav class="flex gap-2 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
         <button
           v-for="tab in tabs"
           :key="tab.value"
+          type="button"
+          :class="['tab-button', activeTab === tab.value ? 'tab-button-active' : '']"
           @click="activeTab = tab.value"
-          :class="[
-            'px-4 py-3 font-medium text-sm transition-colors border-b-2',
-            activeTab === tab.value
-              ? 'text-primary-600 border-primary-600'
-              : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
-          ]"
         >
           {{ tab.label }}
         </button>
-      </div>
+      </nav>
 
-      <!-- 账号设置 -->
-      <div v-if="activeTab === 'account'" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 space-y-6">
+      <section v-if="activeTab === 'account'" class="panel space-y-6">
         <div>
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">邮箱</label>
-          <input
-            type="email"
-            :value="user?.email || ''"
-            disabled
-            class="mt-2 w-full px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm cursor-not-allowed"
-          />
-          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">邮箱不可修改</p>
+          <label class="field-label">邮箱</label>
+          <input :value="user?.email || ''" disabled class="form-input cursor-not-allowed bg-slate-50 text-slate-500 dark:bg-slate-800" />
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">邮箱暂不支持修改。</p>
         </div>
-
         <div>
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">修改密码</label>
-          <button
-            class="mt-2 px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium text-sm"
-          >
-            修改密码
+          <label class="field-label">密码</label>
+          <button type="button" class="secondary-button" disabled>修改密码</button>
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">密码修改功能待后端接口补齐。</p>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'profile'" class="panel">
+        <form class="space-y-6" @submit.prevent="updateProfile">
+          <div>
+            <label class="field-label">昵称</label>
+            <input v-model.trim="profileForm.nickname" type="text" placeholder="输入昵称" class="form-input" />
+          </div>
+          <div>
+            <label class="field-label">头像 URL</label>
+            <input v-model.trim="profileForm.avatarUrl" type="url" placeholder="https://..." class="form-input" />
+            <img
+              v-if="profileForm.avatarUrl"
+              :src="profileForm.avatarUrl"
+              :alt="profileForm.nickname"
+              class="mt-3 h-24 w-24 rounded-lg object-cover"
+            />
+          </div>
+          <div>
+            <label class="field-label">个人简介</label>
+            <textarea v-model.trim="profileForm.bio" rows="4" placeholder="一句话介绍自己" class="form-input resize-none" />
+          </div>
+          <button type="submit" class="primary-button" :disabled="isUpdatingProfile">
+            {{ isUpdatingProfile ? '保存中...' : '保存资料' }}
           </button>
-          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">修改密码功能开发中</p>
-        </div>
-      </div>
-
-      <!-- 资料设置 -->
-      <div v-if="activeTab === 'profile'" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 space-y-6">
-        <form @submit.prevent="updateProfile" class="space-y-6">
-          <!-- 昵称 -->
-          <div class="flex flex-col gap-2">
-            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">昵称</label>
-            <input
-              v-model="profileForm.nickname"
-              type="text"
-              placeholder="输入昵称"
-              class="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-
-          <!-- 头像 URL -->
-          <div class="flex flex-col gap-2">
-            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">头像 URL</label>
-            <input
-              v-model="profileForm.avatarUrl"
-              type="url"
-              placeholder="输入头像 URL"
-              class="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <div v-if="profileForm.avatarUrl" class="mt-2 rounded-lg overflow-hidden max-h-32">
-              <img :src="profileForm.avatarUrl" :alt="profileForm.nickname" class="w-full h-auto object-cover" />
-            </div>
-          </div>
-
-          <!-- 个性签名 -->
-          <div class="flex flex-col gap-2">
-            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">个性签名</label>
-            <textarea
-              v-model="profileForm.bio"
-              placeholder="输入个性签名"
-              rows="3"
-              class="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-            />
-          </div>
-
-          <!-- 提交按钮 -->
-          <div class="flex gap-3 pt-4">
-            <button
-              type="submit"
-              :disabled="isUpdatingProfile"
-              class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {{ isUpdatingProfile ? '保存中...' : '保存资料' }}
-            </button>
-          </div>
         </form>
-      </div>
+      </section>
 
-      <!-- 求职意向 -->
-      <div v-if="activeTab === 'intent'" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8">
+      <section v-if="activeTab === 'intent'" class="panel">
         <IntentForm @submit="updateIntent" />
-      </div>
+      </section>
 
-      <!-- 隐私设置 -->
-      <div v-if="activeTab === 'privacy'" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 space-y-6">
-        <div class="flex items-center justify-between">
+      <section v-if="activeTab === 'privacy'" class="panel space-y-6">
+        <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 class="font-medium text-slate-900 dark:text-slate-100">公开求职意向</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">允许其他用户查看你的求职意向</p>
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">隐私设置</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">保存后会写入后端，刷新页面仍会保留。</p>
           </div>
-          <input
-            v-model="privacyForm.publicIntent"
-            type="checkbox"
-            class="w-5 h-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-          />
+          <button type="button" class="secondary-button" :disabled="isPrivacyLoading" @click="loadPrivacy">
+            {{ isPrivacyLoading ? '加载中...' : '重新加载' }}
+          </button>
         </div>
 
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="font-medium text-slate-900 dark:text-slate-100">公开发帖历史</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">允许其他用户查看你的所有发帖</p>
-          </div>
-          <input
-            v-model="privacyForm.publicPosts"
-            type="checkbox"
-            class="w-5 h-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-          />
+        <div v-if="isPrivacyLoading" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+          正在加载隐私设置...
         </div>
+        <form v-else class="space-y-6" @submit.prevent="updatePrivacy">
+          <div class="setting-row">
+            <div>
+              <h3 class="setting-title">主页可见性</h3>
+              <p class="setting-desc">控制其他用户查看你的主页资料范围。</p>
+            </div>
+            <select v-model="privacyForm.profileVisibility" class="form-select">
+              <option value="PUBLIC">所有人</option>
+              <option value="FOLLOWERS">仅关注关系</option>
+              <option value="PRIVATE">仅自己</option>
+            </select>
+          </div>
 
-        <button
-          @click="updatePrivacy"
-          :disabled="isUpdatingPrivacy"
-          class="mt-6 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-        >
-          {{ isUpdatingPrivacy ? '保存中...' : '保存隐私设置' }}
-        </button>
-      </div>
+          <div class="setting-row">
+            <div>
+              <h3 class="setting-title">求职意向可见性</h3>
+              <p class="setting-desc">控制目标公司、岗位、城市等求职意向的展示范围。</p>
+            </div>
+            <select v-model="privacyForm.intentVisibility" class="form-select">
+              <option value="PUBLIC">所有人</option>
+              <option value="FOLLOWERS">仅关注关系</option>
+              <option value="PRIVATE">仅自己</option>
+            </select>
+          </div>
+
+          <label class="switch-row">
+            <div>
+              <h3 class="setting-title">允许被搜索</h3>
+              <p class="setting-desc">关闭后，用户搜索场景可以隐藏你的资料。</p>
+            </div>
+            <input v-model="privacyForm.searchable" type="checkbox" class="switch-input" />
+          </label>
+
+          <label class="switch-row">
+            <div>
+              <h3 class="setting-title">接收互动通知</h3>
+              <p class="setting-desc">包括关注、点赞、评论、收藏等通知。</p>
+            </div>
+            <input v-model="privacyForm.interactionNotification" type="checkbox" class="switch-input" />
+          </label>
+
+          <label class="switch-row">
+            <div>
+              <h3 class="setting-title">接收系统通知</h3>
+              <p class="setting-desc">包括系统公告、运维提示和产品消息。</p>
+            </div>
+            <input v-model="privacyForm.systemNotification" type="checkbox" class="switch-input" />
+          </label>
+
+          <button type="submit" class="primary-button" :disabled="isUpdatingPrivacy">
+            {{ isUpdatingPrivacy ? '保存中...' : '保存隐私设置' }}
+          </button>
+        </form>
+      </section>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import { toast } from 'vue-sonner'
 import { useAuthStore } from '@/stores/auth'
-import { userApi } from '@/api/user'
+import { userApi, type PrivacySetting } from '@/api/user'
 import IntentForm from '@/components/user/IntentForm.vue'
 
 const authStore = useAuthStore()
@@ -151,7 +149,7 @@ const tabs = [
   { value: 'account', label: '账号' },
   { value: 'profile', label: '资料' },
   { value: 'intent', label: '求职意向' },
-  { value: 'privacy', label: '隐私' }
+  { value: 'privacy', label: '隐私' },
 ]
 
 const activeTab = ref('account')
@@ -160,25 +158,44 @@ const user = ref(authStore.user)
 const profileForm = ref({
   nickname: user.value?.nickname || '',
   avatarUrl: user.value?.avatar || '',
-  bio: user.value?.signature || ''
+  bio: user.value?.signature || '',
 })
 
-const privacyForm = ref({
-  publicIntent: true,
-  publicPosts: true
+const privacyForm = ref<PrivacySetting>({
+  profileVisibility: 'PUBLIC',
+  intentVisibility: 'PUBLIC',
+  searchable: true,
+  interactionNotification: true,
+  systemNotification: true,
 })
 
 const isUpdatingProfile = ref(false)
+const isPrivacyLoading = ref(false)
 const isUpdatingPrivacy = ref(false)
+
+const loadPrivacy = async () => {
+  isPrivacyLoading.value = true
+  try {
+    const res = await userApi.getPrivacySettings()
+    if (res.data) {
+      privacyForm.value = res.data
+    }
+  } catch (error: any) {
+    toast.error(error?.message || '隐私设置加载失败')
+  } finally {
+    isPrivacyLoading.value = false
+  }
+}
 
 onMounted(() => {
   if (user.value) {
     profileForm.value = {
       nickname: user.value.nickname,
       avatarUrl: user.value.avatar,
-      bio: user.value.signature
+      bio: user.value.signature,
     }
   }
+  loadPrivacy()
 })
 
 const updateProfile = async () => {
@@ -200,13 +217,12 @@ const updateProfile = async () => {
           signature: payload.bio,
         })
       }
-      alert('资料已更新')
+      toast.success('资料已更新')
     } else {
-      alert(`更新失败: ${res.message}`)
+      toast.error(res.message || '资料更新失败')
     }
-  } catch (error) {
-    console.error('Update profile error:', error)
-    alert('更新失败，请重试')
+  } catch (error: any) {
+    toast.error(error?.message || '资料更新失败')
   } finally {
     isUpdatingProfile.value = false
   }
@@ -216,23 +232,206 @@ const updateIntent = async (intentData: any) => {
   try {
     const res = await userApi.updateIntent(intentData)
     if (res.code === 0) {
-      alert('求职意向已更新')
+      toast.success('求职意向已更新')
     } else {
-      alert(`更新失败: ${res.message}`)
+      toast.error(res.message || '求职意向更新失败')
     }
-  } catch (error) {
-    console.error('Update intent error:', error)
-    alert('更新失败，请重试')
+  } catch (error: any) {
+    toast.error(error?.message || '求职意向更新失败')
   }
 }
 
 const updatePrivacy = async () => {
   isUpdatingPrivacy.value = true
   try {
-    // TODO: 调用隐私设置 API
-    alert('隐私设置已保存')
+    const res = await userApi.updatePrivacySettings(privacyForm.value)
+    if (res.data) {
+      privacyForm.value = res.data
+    }
+    toast.success('隐私设置已保存')
+  } catch (error: any) {
+    toast.error(error?.message || '隐私设置保存失败')
   } finally {
     isUpdatingPrivacy.value = false
   }
 }
 </script>
+
+<style scoped>
+.panel {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 2rem;
+}
+
+.tab-button {
+  min-height: 44px;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem 1rem;
+  color: rgb(71 85 105);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.tab-button:hover,
+.tab-button-active {
+  border-color: rgb(79 70 229);
+  color: rgb(79 70 229);
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: rgb(51 65 85);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.form-input,
+.form-select {
+  min-height: 40px;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.625rem 0.75rem;
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.form-input:focus,
+.form-select:focus {
+  border-color: rgb(79 70 229);
+  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
+}
+
+.form-select {
+  max-width: 220px;
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.primary-button {
+  background: rgb(79 70 229);
+  color: white;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: rgb(67 56 202);
+}
+
+.secondary-button {
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: rgb(248 250 252);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.setting-row,
+.switch-row {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  border-bottom: 1px solid rgb(241 245 249);
+  padding-bottom: 1.25rem;
+}
+
+.setting-title {
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.setting-desc {
+  margin-top: 0.25rem;
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+}
+
+.switch-input {
+  height: 1.25rem;
+  width: 1.25rem;
+  flex: 0 0 auto;
+  accent-color: rgb(79 70 229);
+}
+
+:global(.dark) .panel,
+:global(.dark) .form-input,
+:global(.dark) .form-select,
+:global(.dark) .secondary-button {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+:global(.dark) .field-label,
+:global(.dark) .setting-title,
+:global(.dark) .form-input,
+:global(.dark) .form-select,
+:global(.dark) .secondary-button {
+  color: rgb(226 232 240);
+}
+
+:global(.dark) .tab-button {
+  color: rgb(148 163 184);
+}
+
+:global(.dark) .tab-button:hover,
+:global(.dark) .tab-button-active {
+  color: rgb(129 140 248);
+}
+
+:global(.dark) .setting-row,
+:global(.dark) .switch-row {
+  border-bottom-color: rgb(30 41 59);
+}
+
+:global(.dark) .setting-desc {
+  color: rgb(148 163 184);
+}
+
+:global(.dark) .secondary-button:hover:not(:disabled) {
+  background: rgb(30 41 59);
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 1.25rem;
+  }
+
+  .setting-row,
+  .switch-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .form-select {
+    max-width: none;
+  }
+}
+</style>
