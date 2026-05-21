@@ -5,15 +5,17 @@ export interface PostCreateReq {
   postType: number
   title: string
   content: string
-  tags: number[]
-  extension?: Record<string, any>
+  coverUrl?: string
+  visibility?: number
+  extJson?: string
 }
 
 export interface PostUpdateReq {
   title?: string
   content?: string
-  tags?: number[]
-  extension?: Record<string, any>
+  coverUrl?: string
+  visibility?: number
+  extJson?: string
 }
 
 export const postApi = {
@@ -30,7 +32,7 @@ export const postApi = {
     client.delete(`/api/v1/posts/${postId}`),
 
   list: (params: {
-    author?: number
+    authorId?: number
     tag?: number
     type?: number
     cursor?: string

@@ -160,8 +160,8 @@ const posts = ref<Post[]>([])
 onMounted(async () => {
   if (user.value?.uid) {
     try {
-      const res = await postApi.list({ author: user.value.uid })
-      if (res.code === 0) {
+      const res = await postApi.list({ authorId: user.value.uid })
+      if (res.code === 0 && res.data) {
         posts.value = res.data.items
       }
     } catch (error) {

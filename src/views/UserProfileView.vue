@@ -165,8 +165,8 @@ onMounted(async () => {
     }
 
     // 加载用户发帖
-    const postsRes = await postApi.list({ author: uid })
-    if (postsRes.code === 0) {
+    const postsRes = await postApi.list({ authorId: uid })
+    if (postsRes.code === 0 && postsRes.data) {
       posts.value = postsRes.data.items
     }
   } catch (error) {

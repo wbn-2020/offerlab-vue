@@ -1,9 +1,13 @@
 export interface User {
   uid: number
+  email?: string
   nickname: string
   avatar: string
   signature: string
   createdAt: number
+  followerCount?: number
+  followingCount?: number
+  postCount?: number
   isFollowing?: boolean
   isBigV?: boolean
 }
@@ -47,6 +51,7 @@ export interface Comment {
   parentId?: number
   likeCount: number
   createdAt: number
+  replies?: Comment[]
 }
 
 export interface Notification {

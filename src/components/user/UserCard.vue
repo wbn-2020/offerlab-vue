@@ -63,7 +63,7 @@ interface Props {
   user: User
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const authStore = useAuthStore()
 
