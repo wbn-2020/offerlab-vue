@@ -100,17 +100,71 @@
         </article>
 
         <article class="panel">
-          <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">权限状态</h2>
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">权限状态</h2>
+            <button type="button" class="icon-button" title="刷新管理员" :disabled="isAdminsLoading" @click="loadAdmins">
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isAdminsLoading }" />
+            </button>
+          </div>
           <div class="mt-5 space-y-4">
             <div class="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-950">
               <span class="text-sm text-slate-600 dark:text-slate-300">Admin 模式</span>
-              <span :class="['status-pill', status?.adminMode === 'LOCAL_OPEN' ? 'status-warn' : 'status-ok']">
+              <span :class="['status-pill', status?.adminMode === 'LOCAL_OPEN' || status?.adminMode === 'RBAC_EMPTY' ? 'status-warn' : 'status-ok']">
                 {{ adminModeText }}
               </span>
             </div>
             <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
               生产环境建议使用数据库 RBAC 或 UID 白名单；本地宽松模式只用于未配置 admin 时的开发验证。
             </p>
+            <div class="admin-form">
+              <input
+                v-model.trim="adminForm.uid"
+                class="admin-input"
+                inputmode="numeric"
+                placeholder="用户 UID"
+                :disabled="isAdminSubmitting"
+              />
+              <input
+                v-model.trim="adminForm.remark"
+                class="admin-input"
+                placeholder="备注"
+                :disabled="isAdminSubmitting"
+              />
+              <button type="button" class="primary-button" :disabled="isAdminSubmitting || !adminForm.uid" @click="addAdmin">
+                <UserPlus class="h-4 w-4" />
+                添加
+              </button>
+            </div>
+            <div v-if="isAdminsLoading" class="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+              正在加载管理员...
+            </div>
+            <div v-else-if="adminUsers.length === 0" class="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+              尚未配置数据库管理员，当前仍处于本地宽松模式。
+            </div>
+            <div v-else class="admin-list">
+              <div v-for="admin in adminUsers" :key="admin.uid" class="admin-row">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="truncate font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{{ admin.uid }}</span>
+                    <span :class="['status-pill', isAdminEnabled(admin) ? 'status-ok' : 'status-danger']">
+                      {{ isAdminEnabled(admin) ? '启用' : '禁用' }}
+                    </span>
+                  </div>
+                  <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                    {{ admin.remark || '暂无备注' }} · {{ formatTime(admin.updateTime) }}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  :class="['secondary-button', isAdminEnabled(admin) ? 'danger-action' : '']"
+                  :disabled="adminActionUid === admin.uid"
+                  @click="toggleAdmin(admin)"
+                >
+                  <Power class="h-4 w-4" :class="{ 'animate-spin': adminActionUid === admin.uid }" />
+                  {{ isAdminEnabled(admin) ? '禁用' : '启用' }}
+                </button>
+              </div>
+            </div>
           </div>
         </article>
       </section>
@@ -222,19 +276,24 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileText, RefreshCw, RotateCcw } from 'lucide-vue-next'
+import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { opsApi, type OpsStatus, type OutboxMessage } from '@/api/ops'
+import { opsApi, type AdminUserRole, type OpsStatus, type OutboxMessage } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 
 const status = ref<OpsStatus | null>(null)
 const task = ref<SearchIndexTask | null>(null)
+const adminUsers = ref<AdminUserRole[]>([])
 const outboxMessages = ref<OutboxMessage[]>([])
 const selectedOutbox = ref<OutboxMessage | null>(null)
 const outboxStatusFilter = ref<number | undefined>(undefined)
+const adminForm = ref({ uid: '', remark: '' })
 const isLoading = ref(false)
+const isAdminsLoading = ref(false)
+const isAdminSubmitting = ref(false)
 const isOutboxLoading = ref(false)
 const isSubmitting = ref(false)
+const adminActionUid = ref<number | null>(null)
 const retryingId = ref<number | null>(null)
 const loadError = ref('')
 let pollTimer: number | undefined
@@ -256,6 +315,7 @@ const adminModeText = computed(() => {
   if (!status.value) return '--'
   if (status.value.adminMode === 'RBAC') return 'RBAC'
   if (status.value.adminMode === 'WHITELIST') return '白名单'
+  if (status.value.adminMode === 'RBAC_EMPTY') return 'RBAC 未启用'
   return '本地宽松模式'
 })
 const taskStatusClass = computed(() => {
@@ -302,8 +362,21 @@ const loadOutbox = async () => {
   }
 }
 
+const loadAdmins = async () => {
+  isAdminsLoading.value = true
+  try {
+    const res = await opsApi.listAdmins({ limit: 50 })
+    adminUsers.value = res.data || []
+  } catch (error: any) {
+    toast.error(error?.message || '管理员列表加载失败')
+    adminUsers.value = []
+  } finally {
+    isAdminsLoading.value = false
+  }
+}
+
 const refreshAll = async () => {
-  await Promise.all([loadStatus(), loadOutbox()])
+  await Promise.all([loadStatus(), loadOutbox(), loadAdmins()])
 }
 
 const setOutboxStatus = async (statusValue?: number) => {
@@ -371,6 +444,41 @@ const retryMessage = async (message: OutboxMessage) => {
     retryingId.value = null
   }
 }
+
+const addAdmin = async () => {
+  const uid = Number(adminForm.value.uid)
+  if (!Number.isSafeInteger(uid) || uid <= 0) {
+    toast.error('请输入有效 UID')
+    return
+  }
+  isAdminSubmitting.value = true
+  try {
+    await opsApi.addAdmin({ uid, remark: adminForm.value.remark })
+    toast.success('管理员已启用')
+    adminForm.value = { uid: '', remark: '' }
+    await refreshAll()
+  } catch (error: any) {
+    toast.error(error?.message || '添加管理员失败')
+  } finally {
+    isAdminSubmitting.value = false
+  }
+}
+
+const toggleAdmin = async (admin: AdminUserRole) => {
+  adminActionUid.value = admin.uid
+  const nextEnabled = !isAdminEnabled(admin)
+  try {
+    await opsApi.updateAdminStatus(admin.uid, { enabled: nextEnabled, remark: admin.remark || '' })
+    toast.success(nextEnabled ? '管理员已启用' : '管理员已禁用')
+    await refreshAll()
+  } catch (error: any) {
+    toast.error(error?.message || '更新管理员状态失败')
+  } finally {
+    adminActionUid.value = null
+  }
+}
+
+const isAdminEnabled = (admin: AdminUserRole) => admin.enabled === true || admin.enabled === 1
 
 const outboxStatusText = (value: number) => {
   if (value === 0) return '待投递'
@@ -570,9 +678,56 @@ onBeforeUnmount(stopPolling)
   font-size: 0.8125rem;
 }
 
+.admin-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.admin-input {
+  min-height: 40px;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: rgb(15 23 42);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-input:focus {
+  border-color: rgb(79 70 229);
+  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
+}
+
+.admin-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-row {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  padding: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .admin-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+}
+
 :global(.dark) .secondary-button,
 :global(.dark) .filter-button,
 :global(.dark) .icon-button,
+:global(.dark) .admin-input,
 :global(.dark) .metric-card,
 :global(.dark) .panel {
   border-color: rgb(30 41 59);
@@ -582,6 +737,7 @@ onBeforeUnmount(stopPolling)
 :global(.dark) .secondary-button,
 :global(.dark) .filter-button,
 :global(.dark) .icon-button,
+:global(.dark) .admin-input,
 :global(.dark) .ops-table td {
   color: rgb(203 213 225);
 }
@@ -611,6 +767,10 @@ onBeforeUnmount(stopPolling)
 
 :global(.dark) .task-stat {
   background: rgb(2 6 23);
+}
+
+:global(.dark) .admin-row {
+  border-color: rgb(30 41 59);
 }
 
 :global(.dark) .ops-table th,

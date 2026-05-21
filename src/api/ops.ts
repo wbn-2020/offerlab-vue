@@ -14,9 +14,19 @@ export interface OutboxStatus {
 export interface OpsStatus {
   adminWhitelistEnabled: boolean
   adminRoleEnabled: boolean
-  adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN'
+  adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY'
   search: SearchStatus
   outbox: OutboxStatus
+}
+
+export interface AdminUserRole {
+  uid: number
+  roleCode: string
+  enabled: number | boolean
+  remark?: string
+  operatorUid?: number
+  createTime?: string
+  updateTime?: string
 }
 
 export interface OutboxMessage {
@@ -44,4 +54,16 @@ export const opsApi = {
 
   retryOutbox: (id: number): Promise<Result<{ id: number; retried: boolean }>> =>
     client.post(`/api/v1/ops/outbox/${id}/retry`),
+
+  listAdmins: (params?: { limit?: number }): Promise<Result<AdminUserRole[]>> =>
+    client.get('/api/v1/ops/admins', { params }),
+
+  addAdmin: (data: { uid: number; remark?: string }): Promise<Result<{ uid: number; enabled: boolean; updated: boolean }>> =>
+    client.post('/api/v1/ops/admins', data),
+
+  updateAdminStatus: (
+    uid: number,
+    data: { enabled: boolean; remark?: string },
+  ): Promise<Result<{ uid: number; enabled: boolean; updated: boolean }>> =>
+    client.post(`/api/v1/ops/admins/${uid}/status`, data),
 }
