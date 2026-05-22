@@ -1,4 +1,4 @@
-import type { Comment, Notification, PaginatedResponse, Post, Tag, User } from './types'
+import type { Comment, Notification, PaginatedResponse, Post, PostReport, Tag, User, UserIntent } from './types'
 
 export function adaptId(value: any): string {
   if (value === null || value === undefined || value === '') return ''
@@ -34,6 +34,35 @@ export function adaptUser(raw: any): User {
     followerCount: Number(raw?.followerCount ?? 0),
     followingCount: Number(raw?.followingCount ?? 0),
     postCount: Number(raw?.postCount ?? 0),
+    profileVisible: raw?.profileVisible ?? true,
+    intentVisible: raw?.intentVisible ?? true,
+    privacyReason: raw?.privacyReason,
+  }
+}
+
+function toStringArray(value: any): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean)
+  if (typeof value === 'string') {
+    return value
+      .split(/[,，、]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+export function adaptUserIntent(raw: any): UserIntent | null {
+  if (!raw) return null
+
+  const targetPositions = toStringArray(raw?.targetPositions ?? raw?.targetPosition)
+
+  return {
+    targetCompanies: toStringArray(raw?.targetCompanies ?? raw?.targetCompany),
+    targetPositions,
+    targetPosition: raw?.targetPosition ?? targetPositions[0],
+    targetCity: raw?.targetCity ?? raw?.city,
+    yearsOfExp: Number(raw?.yearsOfExp ?? raw?.experienceYears ?? 0),
+    techStack: toStringArray(raw?.techStack ?? raw?.skills),
   }
 }
 
@@ -107,6 +136,21 @@ export function adaptComment(raw: any): Comment {
     myLiked: Boolean(raw?.myLiked ?? raw?.liked ?? false),
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
     replies: Array.isArray(raw?.replies) ? raw.replies.map(adaptComment) : undefined,
+  }
+}
+
+export function adaptPostReport(raw: any): PostReport {
+  return {
+    reportId: adaptId(raw?.reportId ?? raw?.id),
+    postId: adaptId(raw?.postId),
+    reporterUid: raw?.reporterUid ? adaptId(raw.reporterUid) : undefined,
+    reason: raw?.reason ?? raw?.reasonType ?? '',
+    detail: raw?.detail ?? raw?.reasonText ?? '',
+    reportStatus: raw?.reportStatus ?? raw?.status,
+    reviewerUid: raw?.reviewerUid ? adaptId(raw.reviewerUid) : undefined,
+    reviewNote: raw?.reviewNote ?? raw?.reviewRemark ?? raw?.remark,
+    createTime: raw?.createTime ?? raw?.createdAt,
+    reviewTime: raw?.reviewTime ?? raw?.updatedAt,
   }
 }
 

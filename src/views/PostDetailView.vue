@@ -75,6 +75,16 @@
 
               <!-- Interaction Bar -->
               <InteractionBar :post="post" @like="handleLike" @favorite="handleFavorite" />
+              <div v-if="authStore.isLoggedIn && !isOwnPost" class="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  :disabled="isReporting"
+                  @click="isReportDialogOpen = true"
+                >
+                  {{ isReporting ? '提交中...' : '举报帖子' }}
+                </button>
+              </div>
             </div>
 
             <!-- Comments Section -->
@@ -157,6 +167,72 @@
         </aside>
       </div>
     </main>
+
+    <div
+      v-if="isReportDialogOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
+      @click.self="closeReportDialog"
+    >
+      <form
+        class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        @submit.prevent="submitReport"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">举报帖子</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">说明问题后提交给管理员审核。</p>
+          </div>
+          <button
+            type="button"
+            class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            @click="closeReportDialog"
+          >
+            关闭
+          </button>
+        </div>
+
+        <label class="mt-5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+          举报类型
+          <select
+            v-model="reportForm.reason"
+            class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+            <option value="SPAM">垃圾推广</option>
+            <option value="ABUSE">攻击辱骂</option>
+            <option value="PRIVACY">隐私泄露</option>
+            <option value="OTHER">其他问题</option>
+          </select>
+        </label>
+
+        <label class="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+          补充说明
+          <textarea
+            v-model.trim="reportForm.detail"
+            rows="4"
+            maxlength="1000"
+            placeholder="请描述需要审核的内容"
+            class="mt-2 w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          />
+        </label>
+
+        <div class="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            @click="closeReportDialog"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="isReporting"
+          >
+            {{ isReporting ? '提交中...' : '提交举报' }}
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
@@ -183,6 +259,12 @@ const authStore = useAuthStore()
 const postId = computed(() => route.params.id as string)
 const commentText = ref('')
 const isSubmittingComment = ref(false)
+const isReporting = ref(false)
+const isReportDialogOpen = ref(false)
+const reportForm = ref({
+  reason: 'OTHER',
+  detail: '',
+})
 const comments = ref<Comment[]>([])
 
 // Fetch post detail
@@ -258,6 +340,35 @@ const handleSubmitComment = async () => {
     toast.error(error?.message || '评论失败')
   } finally {
     isSubmittingComment.value = false
+  }
+}
+
+const closeReportDialog = () => {
+  if (isReporting.value) return
+  isReportDialogOpen.value = false
+  reportForm.value = {
+    reason: 'OTHER',
+    detail: '',
+  }
+}
+
+const submitReport = async () => {
+  isReporting.value = true
+  try {
+    await postApi.report(postId.value, {
+      reason: reportForm.value.reason,
+      detail: reportForm.value.detail || undefined,
+    })
+    toast.success('举报已提交，等待管理员处理')
+    isReportDialogOpen.value = false
+    reportForm.value = {
+      reason: 'OTHER',
+      detail: '',
+    }
+  } catch (error: any) {
+    toast.error(error?.message || '举报提交失败')
+  } finally {
+    isReporting.value = false
   }
 }
 

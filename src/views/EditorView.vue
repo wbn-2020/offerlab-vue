@@ -216,7 +216,7 @@ const publishPost = async () => {
       title: form.value.title,
       content: form.value.content,
       coverUrl: form.value.coverUrl,
-      visibility: 0,
+      visibility: 1,
       extJson: JSON.stringify({
         ...form.value.extension,
         tags: selectedTags.value

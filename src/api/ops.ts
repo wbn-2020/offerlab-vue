@@ -1,5 +1,6 @@
 import client, { Result } from './client'
 import type { SearchStatus } from './search'
+import type { ApiId } from './types'
 
 export interface OutboxStatus {
   byStatus: {
@@ -20,19 +21,19 @@ export interface OpsStatus {
 }
 
 export interface AdminUserRole {
-  uid: number
+  uid: ApiId
   roleCode: string
   enabled: number | boolean
   remark?: string
-  operatorUid?: number
+  operatorUid?: ApiId
   createTime?: string
   updateTime?: string
 }
 
 export interface OutboxMessage {
-  id: number
+  id: ApiId
   aggregateType: string
-  aggregateId: number
+  aggregateId: ApiId
   topic: string
   payload: string
   msgStatus: number
@@ -42,6 +43,11 @@ export interface OutboxMessage {
   updateTime?: string
 }
 
+export interface OutboxRetryBatchResp {
+  requested: number
+  retried: number
+}
+
 export const opsApi = {
   status: (): Promise<Result<OpsStatus>> =>
     client.get('/api/v1/ops/status'),
@@ -49,21 +55,24 @@ export const opsApi = {
   listOutbox: (params?: { status?: number; limit?: number }): Promise<Result<OutboxMessage[]>> =>
     client.get('/api/v1/ops/outbox', { params }),
 
-  getOutbox: (id: number): Promise<Result<OutboxMessage>> =>
+  getOutbox: (id: ApiId): Promise<Result<OutboxMessage>> =>
     client.get(`/api/v1/ops/outbox/${id}`),
 
-  retryOutbox: (id: number): Promise<Result<{ id: number; retried: boolean }>> =>
+  retryOutbox: (id: ApiId): Promise<Result<{ id: ApiId; retried: boolean }>> =>
     client.post(`/api/v1/ops/outbox/${id}/retry`),
+
+  retryOutboxBatch: (ids: ApiId[]): Promise<Result<OutboxRetryBatchResp>> =>
+    client.post('/api/v1/ops/outbox/retry-batch', { ids }),
 
   listAdmins: (params?: { limit?: number }): Promise<Result<AdminUserRole[]>> =>
     client.get('/api/v1/ops/admins', { params }),
 
-  addAdmin: (data: { uid: number; remark?: string }): Promise<Result<{ uid: number; enabled: boolean; updated: boolean }>> =>
+  addAdmin: (data: { uid: ApiId; remark?: string }): Promise<Result<{ uid: ApiId; enabled: boolean; updated: boolean }>> =>
     client.post('/api/v1/ops/admins', data),
 
   updateAdminStatus: (
-    uid: number,
+    uid: ApiId,
     data: { enabled: boolean; remark?: string },
-  ): Promise<Result<{ uid: number; enabled: boolean; updated: boolean }>> =>
+  ): Promise<Result<{ uid: ApiId; enabled: boolean; updated: boolean }>> =>
     client.post(`/api/v1/ops/admins/${uid}/status`, data),
 }

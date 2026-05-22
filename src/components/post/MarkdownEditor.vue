@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 interface Props {
   modelValue: string
@@ -59,12 +59,15 @@ interface Emits {
   (e: 'update:modelValue', value: string): void
 }
 
-defineProps<Props>()
-defineEmits<Emits>()
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
 
 const activeTab = ref<'edit' | 'preview'>('edit')
 
-const content = ref('')
+const content = computed({
+  get: () => props.modelValue,
+  set: (value: string) => emit('update:modelValue', value),
+})
 
 // 简单的 Markdown 渲染（实际项目中应使用 markdown-it 或类似库）
 const renderMarkdown = (md: string) => {

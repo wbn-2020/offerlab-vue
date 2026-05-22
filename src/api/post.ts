@@ -1,6 +1,6 @@
 import client, { Result } from './client'
-import type { ApiId, Post, PaginatedResponse, Tag } from './types'
-import { adaptPage, adaptPost, adaptTag } from './adapters'
+import type { ApiId, PaginatedResponse, Post, PostReport, PostReportReq, PostReportReviewReq, Tag } from './types'
+import { adaptPage, adaptPost, adaptPostReport, adaptTag } from './adapters'
 
 export interface PostCreateReq {
   postType: number
@@ -22,7 +22,7 @@ export interface PostUpdateReq {
 }
 
 export const postApi = {
-  create: (req: PostCreateReq): Promise<Result<{ postId: number }>> =>
+  create: (req: PostCreateReq): Promise<Result<{ postId: ApiId }>> =>
     client.post('/api/v1/posts', req),
 
   getDetail: async (postId: ApiId): Promise<Result<Post>> => {
@@ -67,4 +67,18 @@ export const postApi = {
     const res = await client.get('/api/v1/users/me/liked-posts', { params: { cursor, size } }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
+
+  report: (postId: ApiId, req: PostReportReq): Promise<Result<{ reportId?: ApiId }>> =>
+    client.post(`/api/v1/posts/${postId}/reports`, req),
+
+  listAdminReports: async (params?: { status?: number; limit?: number }): Promise<Result<PostReport[]>> => {
+    const res = await client.get('/api/v1/posts/admin/reports', { params }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostReport) : [] }
+  },
+
+  reviewAdminReport: (
+    reportId: ApiId,
+    req: PostReportReviewReq,
+  ): Promise<Result<void>> =>
+    client.post(`/api/v1/posts/admin/reports/${reportId}/review`, req),
 }

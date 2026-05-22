@@ -12,6 +12,20 @@ export interface User {
   postCount?: number
   isFollowing?: boolean
   isBigV?: boolean
+  profileVisible?: boolean
+  intentVisible?: boolean
+  privacyReason?: string
+}
+
+export type UserBrief = User
+
+export interface UserIntent {
+  targetCompanies?: string[]
+  targetPositions?: string[]
+  targetPosition?: string
+  targetCity?: string
+  yearsOfExp?: number
+  techStack?: string[]
 }
 
 export interface Post {
@@ -56,6 +70,31 @@ export interface Comment {
   myLiked?: boolean
   createdAt: number
   replies?: Comment[]
+}
+
+export interface PostReportReq {
+  reason?: string
+  detail?: string
+}
+
+export interface PostReportReviewReq {
+  approved?: boolean
+  action?: string
+  status?: number
+  note?: string
+}
+
+export interface PostReport {
+  reportId: ApiId
+  postId: ApiId
+  reporterUid?: ApiId
+  reason: string
+  detail?: string
+  reportStatus?: number
+  reviewerUid?: ApiId
+  reviewNote?: string
+  createTime?: string
+  reviewTime?: string
 }
 
 export interface Notification {

@@ -7,7 +7,7 @@ export function setupRouterGuards(router: Router) {
     const authStore = useAuthStore()
     const requiresAuth = to.meta.requiresAuth as boolean
 
-    if (requiresAuth && authStore.token && !authStore.user) {
+    if (authStore.token && !authStore.user) {
       try {
         const me = await authApi.fetchMe()
         if (me.data) {

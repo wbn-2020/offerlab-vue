@@ -173,9 +173,18 @@
         <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">Outbox 消息</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">只展示最近消息，失败消息支持单条重试。</p>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">只展示最近消息，失败消息支持单条和批量重试。</p>
           </div>
           <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="secondary-button"
+              :disabled="selectedFailedIds.length === 0 || isBatchRetrying"
+              @click="retrySelectedMessages"
+            >
+              <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': isBatchRetrying }" />
+              批量重试 {{ selectedFailedIds.length || '' }}
+            </button>
             <button
               v-for="item in outboxFilters"
               :key="item.label"
@@ -198,6 +207,7 @@
           <table class="ops-table">
             <thead>
               <tr>
+                <th>选择</th>
                 <th>ID</th>
                 <th>Topic</th>
                 <th>聚合</th>
@@ -209,6 +219,16 @@
             </thead>
             <tbody>
               <tr v-for="message in outboxMessages" :key="message.id">
+                <td>
+                  <input
+                    v-if="message.msgStatus === 2"
+                    type="checkbox"
+                    class="h-4 w-4 accent-indigo-600"
+                    :checked="selectedFailedIds.includes(message.id)"
+                    @change="toggleFailedSelection(message.id)"
+                  />
+                  <span v-else>--</span>
+                </td>
                 <td class="font-mono text-xs">{{ message.id }}</td>
                 <td>{{ message.topic }}</td>
                 <td>{{ message.aggregateType }} / {{ message.aggregateId }}</td>
@@ -240,6 +260,128 @@
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <article class="panel">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">最近索引任务</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">保留本次启动周期内最近的后台重建记录。</p>
+            </div>
+            <button type="button" class="icon-button" title="刷新索引任务" :disabled="isTasksLoading" @click="loadTasks">
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isTasksLoading }" />
+            </button>
+          </div>
+
+          <div v-if="isTasksLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            正在加载索引任务...
+          </div>
+          <div v-else-if="recentTasks.length === 0" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            暂无索引任务记录。
+          </div>
+          <div v-else class="space-y-3 pt-5">
+            <div v-for="item in recentTasks" :key="item.taskId" class="admin-row task-row">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="truncate font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">{{ item.taskId }}</span>
+                  <span :class="['status-pill', searchTaskStatusClass(item.status)]">{{ item.status }}</span>
+                </div>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  已索引 {{ item.indexed }} / {{ item.total }}，失败 {{ item.failed }} · {{ formatTime(item.updatedAt || item.createdAt) }}
+                </p>
+              </div>
+              <strong class="text-sm text-slate-700 dark:text-slate-200">{{ item.indexName || '--' }}</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">帖子举报审核</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">通过会下架帖子，驳回仅关闭当前举报。</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="item in reportFilters"
+                :key="item.label"
+                type="button"
+                :class="['filter-button', reportStatusFilter === item.value ? 'filter-button-active' : '']"
+                @click="setReportStatus(item.value)"
+              >
+                {{ item.label }}
+              </button>
+              <button type="button" class="icon-button" title="刷新举报列表" :disabled="isReportsLoading" @click="loadReports">
+                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isReportsLoading }" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="isReportsLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            正在加载举报...
+          </div>
+          <div v-else-if="postReports.length === 0" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            当前筛选下暂无举报。
+          </div>
+          <div v-else class="overflow-x-auto pt-4">
+            <table class="ops-table report-table">
+              <thead>
+                <tr>
+                  <th>举报</th>
+                  <th>帖子</th>
+                  <th>说明</th>
+                  <th>状态</th>
+                  <th>时间</th>
+                  <th class="text-right">审核</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="report in postReports" :key="report.reportId">
+                  <td class="font-mono text-xs">{{ report.reportId }}</td>
+                  <td>
+                    <RouterLink class="font-mono text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400" :to="`/post/${report.postId}`">
+                      {{ report.postId }}
+                    </RouterLink>
+                  </td>
+                  <td class="max-w-[260px]">
+                    <p class="font-semibold text-slate-800 dark:text-slate-100">{{ report.reason }}</p>
+                    <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '--' }}</p>
+                  </td>
+                  <td>
+                    <span :class="['status-pill', reportStatusClass(report.reportStatus)]">
+                      {{ reportStatusText(report.reportStatus) }}
+                    </span>
+                  </td>
+                  <td>{{ formatTime(report.createTime) }}</td>
+                  <td>
+                    <div v-if="report.reportStatus === 0" class="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        class="secondary-button compact-action danger-action"
+                        :disabled="reviewingReportId === report.reportId"
+                        @click="reviewReport(report, true)"
+                      >
+                        通过下架
+                      </button>
+                      <button
+                        type="button"
+                        class="secondary-button compact-action"
+                        :disabled="reviewingReportId === report.reportId"
+                        @click="reviewReport(report, false)"
+                      >
+                        驳回
+                      </button>
+                    </div>
+                    <span v-else class="block text-right text-xs text-slate-500 dark:text-slate-400">
+                      {{ formatTime(report.reviewTime) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
       </section>
     </div>
 
@@ -280,21 +422,31 @@ import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next
 import { toast } from 'vue-sonner'
 import { opsApi, type AdminUserRole, type OpsStatus, type OutboxMessage } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
+import { postApi } from '@/api/post'
+import type { ApiId, PostReport } from '@/api/types'
 
 const status = ref<OpsStatus | null>(null)
 const task = ref<SearchIndexTask | null>(null)
 const adminUsers = ref<AdminUserRole[]>([])
 const outboxMessages = ref<OutboxMessage[]>([])
+const recentTasks = ref<SearchIndexTask[]>([])
+const postReports = ref<PostReport[]>([])
 const selectedOutbox = ref<OutboxMessage | null>(null)
 const outboxStatusFilter = ref<number | undefined>(undefined)
+const reportStatusFilter = ref<number | undefined>(0)
 const adminForm = ref({ uid: '', remark: '' })
 const isLoading = ref(false)
 const isAdminsLoading = ref(false)
 const isAdminSubmitting = ref(false)
 const isOutboxLoading = ref(false)
+const isTasksLoading = ref(false)
+const isReportsLoading = ref(false)
 const isSubmitting = ref(false)
-const adminActionUid = ref<number | null>(null)
-const retryingId = ref<number | null>(null)
+const adminActionUid = ref<ApiId | null>(null)
+const retryingId = ref<ApiId | null>(null)
+const reviewingReportId = ref<PostReport['reportId'] | null>(null)
+const selectedFailedIds = ref<ApiId[]>([])
+const isBatchRetrying = ref(false)
 const loadError = ref('')
 let pollTimer: number | undefined
 
@@ -303,6 +455,13 @@ const outboxFilters = [
   { label: '待投递', value: 0 },
   { label: '已发送', value: 1 },
   { label: '失败', value: 2 },
+]
+
+const reportFilters = [
+  { label: '待审核', value: 0 },
+  { label: '已通过', value: 1 },
+  { label: '已驳回', value: 2 },
+  { label: '全部', value: undefined },
 ]
 
 const isTaskActive = computed(() => task.value?.status === 'PENDING' || task.value?.status === 'RUNNING')
@@ -354,11 +513,40 @@ const loadOutbox = async () => {
   try {
     const res = await opsApi.listOutbox({ status: outboxStatusFilter.value, limit: 30 })
     outboxMessages.value = res.data || []
+    selectedFailedIds.value = selectedFailedIds.value.filter((id) =>
+      outboxMessages.value.some((message) => message.id === id && message.msgStatus === 2),
+    )
   } catch (error: any) {
     toast.error(error?.message || 'Outbox 消息加载失败')
     outboxMessages.value = []
   } finally {
     isOutboxLoading.value = false
+  }
+}
+
+const loadTasks = async () => {
+  isTasksLoading.value = true
+  try {
+    const res = await searchApi.listRebuildTasks(10)
+    recentTasks.value = res.data || []
+  } catch (error: any) {
+    toast.error(error?.message || '索引任务加载失败')
+    recentTasks.value = []
+  } finally {
+    isTasksLoading.value = false
+  }
+}
+
+const loadReports = async () => {
+  isReportsLoading.value = true
+  try {
+    const res = await postApi.listAdminReports({ status: reportStatusFilter.value, limit: 20 })
+    postReports.value = res.data || []
+  } catch (error: any) {
+    toast.error(error?.message || '举报列表加载失败')
+    postReports.value = []
+  } finally {
+    isReportsLoading.value = false
   }
 }
 
@@ -376,12 +564,17 @@ const loadAdmins = async () => {
 }
 
 const refreshAll = async () => {
-  await Promise.all([loadStatus(), loadOutbox(), loadAdmins()])
+  await Promise.all([loadStatus(), loadOutbox(), loadAdmins(), loadTasks(), loadReports()])
 }
 
 const setOutboxStatus = async (statusValue?: number) => {
   outboxStatusFilter.value = statusValue
   await loadOutbox()
+}
+
+const setReportStatus = async (statusValue?: number) => {
+  reportStatusFilter.value = statusValue
+  await loadReports()
 }
 
 const stopPolling = () => {
@@ -445,9 +638,43 @@ const retryMessage = async (message: OutboxMessage) => {
   }
 }
 
+const toggleFailedSelection = (id: ApiId) => {
+  selectedFailedIds.value = selectedFailedIds.value.includes(id)
+    ? selectedFailedIds.value.filter((item) => item !== id)
+    : [...selectedFailedIds.value, id]
+}
+
+const retrySelectedMessages = async () => {
+  if (selectedFailedIds.value.length === 0) return
+  isBatchRetrying.value = true
+  try {
+    const res = await opsApi.retryOutboxBatch(selectedFailedIds.value)
+    toast.success(`已重置 ${res.data?.retried ?? 0} / ${res.data?.requested ?? selectedFailedIds.value.length} 条失败消息`)
+    selectedFailedIds.value = []
+    await refreshAll()
+  } catch (error: any) {
+    toast.error(error?.message || '批量重试失败')
+  } finally {
+    isBatchRetrying.value = false
+  }
+}
+
+const reviewReport = async (report: PostReport, approved: boolean) => {
+  reviewingReportId.value = report.reportId
+  try {
+    await postApi.reviewAdminReport(report.reportId, { approved })
+    toast.success(approved ? '举报已通过，帖子已下架' : '举报已驳回')
+    await loadReports()
+  } catch (error: any) {
+    toast.error(error?.message || '举报审核失败')
+  } finally {
+    reviewingReportId.value = null
+  }
+}
+
 const addAdmin = async () => {
-  const uid = Number(adminForm.value.uid)
-  if (!Number.isSafeInteger(uid) || uid <= 0) {
+  const uid = adminForm.value.uid.trim()
+  if (!/^\d+$/.test(uid)) {
     toast.error('请输入有效 UID')
     return
   }
@@ -488,6 +715,24 @@ const outboxStatusText = (value: number) => {
 }
 
 const outboxStatusClass = (value: number) => {
+  if (value === 1) return 'status-ok'
+  if (value === 2) return 'status-danger'
+  return 'status-warn'
+}
+
+const searchTaskStatusClass = (value: SearchIndexTask['status']) => {
+  if (value === 'SUCCEEDED') return 'status-ok'
+  if (value === 'FAILED') return 'status-danger'
+  return 'status-warn'
+}
+
+const reportStatusText = (value?: number) => {
+  if (value === 1) return '已通过'
+  if (value === 2) return '已驳回'
+  return '待审核'
+}
+
+const reportStatusClass = (value?: number) => {
   if (value === 1) return 'status-ok'
   if (value === 2) return 'status-danger'
   return 'status-warn'
@@ -716,6 +961,19 @@ onBeforeUnmount(stopPolling)
   border-radius: 0.5rem;
   border: 1px solid rgb(226 232 240);
   padding: 0.75rem;
+}
+
+.task-row {
+  min-height: 72px;
+}
+
+.report-table {
+  min-width: 980px;
+}
+
+.compact-action {
+  min-height: 32px;
+  padding: 0.35rem 0.65rem;
 }
 
 @media (min-width: 640px) {

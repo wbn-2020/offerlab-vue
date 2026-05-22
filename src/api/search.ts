@@ -1,5 +1,5 @@
 import client, { Result } from './client'
-import type { Post, PaginatedResponse } from './types'
+import type { ApiId, Post, PaginatedResponse } from './types'
 import { adaptPage, adaptPost } from './adapters'
 
 export interface SearchParams {
@@ -25,7 +25,7 @@ export interface SearchIndexTask {
   taskId: string
   type: string
   status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
-  operatorUid?: number
+  operatorUid?: ApiId
   accepted: boolean
   indexed: number
   failed: number
@@ -56,4 +56,7 @@ export const searchApi = {
 
   getRebuildTask: (taskId: string): Promise<Result<SearchIndexTask>> =>
     client.get(`/api/v1/search/admin/tasks/${taskId}`),
+
+  listRebuildTasks: (limit = 10): Promise<Result<SearchIndexTask[]>> =>
+    client.get('/api/v1/search/admin/tasks', { params: { limit } }),
 }

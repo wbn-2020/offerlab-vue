@@ -22,15 +22,62 @@
       </nav>
 
       <section v-if="activeTab === 'account'" class="panel space-y-6">
-        <div>
+        <div class="account-section">
           <label class="field-label">邮箱</label>
           <input :value="user?.email || ''" disabled class="form-input cursor-not-allowed bg-slate-50 text-slate-500 dark:bg-slate-800" />
           <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">邮箱暂不支持修改。</p>
         </div>
-        <div>
-          <label class="field-label">密码</label>
-          <button type="button" class="secondary-button" disabled>修改密码</button>
-          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">密码修改功能待后端接口补齐。</p>
+
+        <form class="account-section space-y-4" @submit.prevent="changePassword">
+          <div>
+            <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">修改密码</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">提交后会立即更新当前账号密码。</p>
+          </div>
+          <div class="grid gap-4 md:grid-cols-3">
+            <label>
+              <span class="field-label">原密码</span>
+              <input
+                v-model="passwordForm.oldPassword"
+                type="password"
+                autocomplete="current-password"
+                class="form-input"
+                placeholder="输入原密码"
+              />
+            </label>
+            <label>
+              <span class="field-label">新密码</span>
+              <input
+                v-model="passwordForm.newPassword"
+                type="password"
+                autocomplete="new-password"
+                class="form-input"
+                placeholder="至少 8 位"
+              />
+            </label>
+            <label>
+              <span class="field-label">确认新密码</span>
+              <input
+                v-model="passwordForm.confirmPassword"
+                type="password"
+                autocomplete="new-password"
+                class="form-input"
+                placeholder="再次输入"
+              />
+            </label>
+          </div>
+          <button type="submit" class="primary-button" :disabled="isChangingPassword || !canSubmitPassword">
+            {{ isChangingPassword ? '提交中...' : '修改密码' }}
+          </button>
+        </form>
+
+        <div class="account-section flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">退出所有设备</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">会使其他设备上的登录态失效，并退出当前会话。</p>
+          </div>
+          <button type="button" class="danger-button" :disabled="isLoggingOutAll" @click="logoutAllSessions">
+            {{ isLoggingOutAll ? '处理中...' : '退出所有设备' }}
+          </button>
         </div>
       </section>
 
@@ -137,13 +184,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { userApi, type PrivacySetting } from '@/api/user'
 import IntentForm from '@/components/user/IntentForm.vue'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 const tabs = [
   { value: 'account', label: '账号' },
@@ -161,6 +211,12 @@ const profileForm = ref({
   bio: user.value?.signature || '',
 })
 
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+
 const privacyForm = ref<PrivacySetting>({
   profileVisibility: 'PUBLIC',
   intentVisibility: 'PUBLIC',
@@ -170,8 +226,16 @@ const privacyForm = ref<PrivacySetting>({
 })
 
 const isUpdatingProfile = ref(false)
+const isChangingPassword = ref(false)
+const isLoggingOutAll = ref(false)
 const isPrivacyLoading = ref(false)
 const isUpdatingPrivacy = ref(false)
+
+const canSubmitPassword = computed(() => Boolean(
+  passwordForm.value.oldPassword
+  && passwordForm.value.newPassword
+  && passwordForm.value.confirmPassword,
+))
 
 const loadPrivacy = async () => {
   isPrivacyLoading.value = true
@@ -225,6 +289,49 @@ const updateProfile = async () => {
     toast.error(error?.message || '资料更新失败')
   } finally {
     isUpdatingProfile.value = false
+  }
+}
+
+const changePassword = async () => {
+  const oldPassword = passwordForm.value.oldPassword
+  const newPassword = passwordForm.value.newPassword
+  const confirmPassword = passwordForm.value.confirmPassword
+
+  if (newPassword.length < 8) {
+    toast.error('新密码至少需要 8 位')
+    return
+  }
+  if (newPassword !== confirmPassword) {
+    toast.error('两次输入的新密码不一致')
+    return
+  }
+
+  isChangingPassword.value = true
+  try {
+    await userApi.changePassword({ oldPassword, newPassword })
+    passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+    toast.success('密码已更新')
+  } catch (error: any) {
+    toast.error(error?.message || '密码修改失败')
+  } finally {
+    isChangingPassword.value = false
+  }
+}
+
+const logoutAllSessions = async () => {
+  const confirmed = window.confirm('确认退出所有设备？当前页面也会跳转到登录页。')
+  if (!confirmed) return
+
+  isLoggingOutAll.value = true
+  try {
+    await authApi.logoutAll()
+    authStore.logout()
+    toast.success('已退出所有设备')
+    router.push('/login')
+  } catch (error: any) {
+    toast.error(error?.message || '退出所有设备失败')
+  } finally {
+    isLoggingOutAll.value = false
   }
 }
 
@@ -314,7 +421,8 @@ const updatePrivacy = async () => {
 }
 
 .primary-button,
-.secondary-button {
+.secondary-button,
+.danger-button {
   display: inline-flex;
   min-height: 40px;
   align-items: center;
@@ -345,8 +453,24 @@ const updatePrivacy = async () => {
   background: rgb(248 250 252);
 }
 
+.danger-button {
+  border: 1px solid rgb(254 202 202);
+  background: rgb(254 242 242);
+  color: rgb(185 28 28);
+}
+
+.danger-button:hover:not(:disabled) {
+  background: rgb(254 226 226);
+}
+
+.account-section {
+  border-bottom: 1px solid rgb(241 245 249);
+  padding-bottom: 1.5rem;
+}
+
 .primary-button:disabled,
-.secondary-button:disabled {
+.secondary-button:disabled,
+.danger-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -384,7 +508,8 @@ const updatePrivacy = async () => {
 :global(.dark) .panel,
 :global(.dark) .form-input,
 :global(.dark) .form-select,
-:global(.dark) .secondary-button {
+:global(.dark) .secondary-button,
+:global(.dark) .danger-button {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
@@ -417,6 +542,16 @@ const updatePrivacy = async () => {
 
 :global(.dark) .secondary-button:hover:not(:disabled) {
   background: rgb(30 41 59);
+}
+
+:global(.dark) .account-section {
+  border-bottom-color: rgb(30 41 59);
+}
+
+:global(.dark) .danger-button {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10);
+  color: rgb(254 202 202);
 }
 
 @media (max-width: 640px) {

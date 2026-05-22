@@ -25,6 +25,14 @@
           搜索
         </button>
       </div>
+      <div class="mx-auto mt-3 flex max-w-6xl gap-2">
+        <button type="button" :class="['mode-button', searchMode === 'posts' ? 'mode-button-active' : '']" @click="setMode('posts')">
+          内容
+        </button>
+        <button type="button" :class="['mode-button', searchMode === 'users' ? 'mode-button-active' : '']" @click="setMode('users')">
+          用户
+        </button>
+      </div>
     </div>
 
     <div class="mx-auto grid max-w-6xl grid-cols-1 gap-6 p-6 lg:grid-cols-4">
@@ -106,8 +114,28 @@
           正在搜索...
         </div>
 
-        <div v-else-if="searchResults.length === 0" class="rounded-xl border border-dashed border-slate-300 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+        <div v-else-if="resultCount === 0" class="rounded-xl border border-dashed border-slate-300 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
           <p class="text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+        </div>
+
+        <div v-else-if="searchMode === 'users'" class="space-y-4">
+          <router-link
+            v-for="item in userResults"
+            :key="item.uid"
+            :to="`/u/${item.uid}`"
+            class="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 transition hover:border-primary-300 dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div class="flex min-w-0 items-center gap-4">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-950 font-semibold text-white">
+                {{ item.nickname.charAt(0) || '?' }}
+              </div>
+              <div class="min-w-0">
+                <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.nickname }}</h3>
+                <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ item.signature || '公开用户资料' }}</p>
+              </div>
+            </div>
+            <span class="text-sm font-medium text-primary-600">查看主页</span>
+          </router-link>
         </div>
 
         <div v-else class="space-y-4">
@@ -159,7 +187,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { searchApi, type SearchStatus } from '@/api/search'
-import type { Post } from '@/api/types'
+import { userApi } from '@/api/user'
+import type { Post, User } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -179,11 +208,14 @@ const filters = reactive<{
 const hotWords = ref<string[]>([])
 const suggestions = ref<string[]>([])
 const searchResults = ref<Post[]>([])
+const userResults = ref<User[]>([])
+const searchMode = ref<'posts' | 'users'>('posts')
 const searchStatus = ref<SearchStatus | null>(null)
 const isLoading = ref(false)
 const isRebuilding = ref(false)
 const emptyText = ref('输入关键词或筛选条件开始搜索')
 const canRebuildIndex = computed(() => Boolean(localStorage.getItem('token')))
+const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
 const searchStatusText = computed(() => {
   if (!searchStatus.value) return '正在检测搜索状态'
   if (!searchStatus.value.enabled) return 'ES 未启用，当前使用数据库搜索'
@@ -200,6 +232,7 @@ const syncFromRoute = () => {
   filters.position = typeof route.query.position === 'string' ? route.query.position : ''
   const type = Number(route.query.type)
   filters.type = Number.isFinite(type) && type > 0 ? type : undefined
+  searchMode.value = route.query.mode === 'users' ? 'users' : 'posts'
 }
 
 const pushQuery = () => {
@@ -210,6 +243,7 @@ const pushQuery = () => {
       ...(filters.company.trim() ? { company: filters.company.trim() } : {}),
       ...(filters.position.trim() ? { position: filters.position.trim() } : {}),
       ...(filters.type ? { type: String(filters.type) } : {}),
+      ...(searchMode.value === 'users' ? { mode: 'users' } : {}),
     },
   })
 }
@@ -218,6 +252,18 @@ const runSearch = async () => {
   pushQuery()
   isLoading.value = true
   try {
+    if (searchMode.value === 'users') {
+      if (!filters.q.trim()) {
+        userResults.value = []
+        emptyText.value = '输入昵称关键词搜索公开用户'
+        return
+      }
+      const res = await userApi.searchUsers(filters.q.trim(), 20)
+      userResults.value = res.data || []
+      searchResults.value = []
+      emptyText.value = userResults.value.length === 0 ? '没有匹配的公开用户' : ''
+      return
+    }
     const res = await searchApi.searchPosts({
       q: filters.q || undefined,
       company: filters.company || undefined,
@@ -226,6 +272,7 @@ const runSearch = async () => {
       size: 20,
     })
     searchResults.value = res.data?.items || []
+    userResults.value = []
     emptyText.value = searchResults.value.length === 0 ? '没有匹配的搜索结果' : ''
   } catch (error) {
     console.error('Failed to search posts:', error)
@@ -241,19 +288,22 @@ const resetFilters = async () => {
   filters.position = ''
   filters.type = undefined
   searchResults.value = []
+  userResults.value = []
   suggestions.value = []
+  searchMode.value = 'posts'
   emptyText.value = '输入关键词或筛选条件开始搜索'
   await router.replace({ path: '/search' })
 }
 
 const useHotWord = async (word: string) => {
+  searchMode.value = 'posts'
   filters.q = word
   await runSearch()
 }
 
 const loadSuggestions = async () => {
   const q = filters.q.trim()
-  if (q.length < 2) {
+  if (searchMode.value !== 'posts' || q.length < 2) {
     suggestions.value = []
     return
   }
@@ -263,6 +313,14 @@ const loadSuggestions = async () => {
   } catch {
     suggestions.value = []
   }
+}
+
+const setMode = async (mode: 'posts' | 'users') => {
+  searchMode.value = mode
+  searchResults.value = []
+  userResults.value = []
+  emptyText.value = mode === 'users' ? '输入昵称关键词搜索公开用户' : '输入关键词或筛选条件开始搜索'
+  await runSearch()
 }
 
 const loadSearchStatus = async () => {
@@ -293,7 +351,7 @@ onMounted(async () => {
   } catch {
     hotWords.value = []
   }
-  if (filters.q || filters.company || filters.position || filters.type) {
+  if (filters.q || filters.company || filters.position || filters.type || searchMode.value === 'users') {
     await runSearch()
   }
 })
@@ -327,6 +385,22 @@ onMounted(async () => {
   transition: background-color 0.15s ease;
 }
 
+.mode-button {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.45rem 0.9rem;
+  color: rgb(71 85 105);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.mode-button-active {
+  border-color: rgb(79 70 229);
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+}
+
 .secondary-button:hover {
   background: rgb(248 250 252);
 }
@@ -343,6 +417,12 @@ onMounted(async () => {
 
 :global(.dark) .secondary-button {
   border-color: rgb(51 65 85);
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .mode-button {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 

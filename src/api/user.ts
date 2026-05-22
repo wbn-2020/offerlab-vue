@@ -1,6 +1,6 @@
 import client, { Result } from './client'
-import type { ApiId, PaginatedResponse, User } from './types'
-import { adaptPage, adaptUser } from './adapters'
+import type { ApiId, PaginatedResponse, User, UserBrief, UserIntent } from './types'
+import { adaptPage, adaptUser, adaptUserIntent } from './adapters'
 
 export interface UserProfileReq {
   nickname?: string
@@ -24,14 +24,35 @@ export interface PrivacySetting {
   systemNotification: boolean
 }
 
+export interface ChangePasswordReq {
+  oldPassword: string
+  newPassword: string
+}
+
 export const userApi = {
   getProfile: async (uid: ApiId): Promise<Result<User>> => {
     const res = await client.get(`/api/v1/users/${uid}`) as Result<any>
     return { ...res, data: res.data ? adaptUser(res.data) : null }
   },
 
+  getIntent: async (uid: ApiId): Promise<Result<UserIntent | null>> => {
+    const res = await client.get(`/api/v1/users/${uid}/intent`) as Result<any>
+    return { ...res, data: adaptUserIntent(res.data) }
+  },
+
+  searchUsers: async (q: string, size = 20): Promise<Result<UserBrief[]>> => {
+    const res = await client.get('/api/v1/users/search', { params: { q, size } }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptUser) : [] }
+  },
+
   updateProfile: (req: UserProfileReq): Promise<Result<void>> =>
     client.patch('/api/v1/users/me', req),
+
+  changePassword: (req: ChangePasswordReq): Promise<Result<void>> =>
+    client.put('/api/v1/users/me/password', req),
+
+  logoutAll: (): Promise<Result<void>> =>
+    client.post('/api/v1/users/me/logout-all'),
 
   updateIntent: (req: IntentReq): Promise<Result<void>> =>
     client.put('/api/v1/users/me/intent', req),
