@@ -97,7 +97,29 @@
                 </div>
               </div>
 
-              <CommentTree :post-id="postId" :comments="comments" :can-like-comments="authStore.isLoggedIn" @like-comment="handleLikeComment" />
+              <div v-if="isLoadingComments" class="rounded-lg border border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                正在加载评论...
+              </div>
+              <CommentTree
+                v-else
+                :post-id="postId"
+                :comments="comments"
+                :can-like-comments="authStore.isLoggedIn"
+                @like-comment="handleLikeComment"
+                @unlike-comment="handleUnlikeComment"
+                @reply-comment="handleReplyComment"
+                @delete-comment="handleDeleteComment"
+              />
+              <div v-if="hasMoreComments" class="mt-6 text-center">
+                <button
+                  type="button"
+                  class="rounded-lg border border-primary-600 px-5 py-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800"
+                  :disabled="isLoadingMoreComments"
+                  @click="loadMoreComments"
+                >
+                  {{ isLoadingMoreComments ? '加载中...' : '加载更多评论' }}
+                </button>
+              </div>
             </section>
           </template>
 
@@ -214,6 +236,10 @@ const isFollowingAuthor = ref(false)
 const reportForm = ref({ reason: 'OTHER', detail: '' })
 const comments = ref<Comment[]>([])
 const relatedPosts = ref<Post[]>([])
+const commentCursor = ref<string | undefined>()
+const hasMoreComments = ref(false)
+const isLoadingComments = ref(false)
+const isLoadingMoreComments = ref(false)
 
 const { data: postData, isLoading } = useQuery({
   queryKey: computed(() => ['post', postId.value]),
@@ -221,7 +247,19 @@ const { data: postData, isLoading } = useQuery({
   enabled: computed(() => Boolean(postId.value)),
 })
 
-const post = computed(() => postData.value?.data ?? null)
+const clonePost = (source?: Post | null): Post | null => {
+  if (!source) return null
+  return {
+    ...source,
+    author: { ...source.author },
+    counter: { ...source.counter },
+    extension: source.extension ? { ...source.extension } : undefined,
+    myInteraction: source.myInteraction ? { ...source.myInteraction } : undefined,
+    tags: [...source.tags],
+  }
+}
+
+const post = ref<Post | null>(null)
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(post.value?.author.uid ?? ''))
 
 const getResultClass = (result: number) => {
@@ -298,17 +336,50 @@ const toggleFollowAuthor = async () => {
   }
 }
 
+const findComment = (commentId: Comment['commentId']) => {
+  for (const comment of comments.value) {
+    if (String(comment.commentId) === String(commentId)) return comment
+    const reply = comment.replies?.find((item) => String(item.commentId) === String(commentId))
+    if (reply) return reply
+  }
+  return undefined
+}
+
+const countCommentBranch = (comment: Comment): number => 1 + (comment.replies?.length ?? 0)
+
 const handleLikeComment = async (commentId: Comment['commentId']) => {
   if (!authStore.isLoggedIn) {
     toast.error('请先登录')
     return
   }
+  const comment = findComment(commentId)
   try {
     await interactionApi.likeComment(commentId)
-    toast.success('评论已点赞')
-    await loadComments()
+    if (comment) {
+      comment.myLiked = true
+      comment.likeCount += 1
+    }
   } catch (error: any) {
     toast.error(error?.message || '评论点赞失败')
+    await loadComments(true)
+  }
+}
+
+const handleUnlikeComment = async (commentId: Comment['commentId']) => {
+  if (!authStore.isLoggedIn) {
+    toast.error('请先登录')
+    return
+  }
+  const comment = findComment(commentId)
+  try {
+    await interactionApi.unlikeComment(commentId)
+    if (comment) {
+      comment.myLiked = false
+      comment.likeCount = Math.max(0, comment.likeCount - 1)
+    }
+  } catch (error: any) {
+    toast.error(error?.message || '取消点赞失败')
+    await loadComments(true)
   }
 }
 
@@ -325,6 +396,36 @@ const handleSubmitComment = async () => {
     toast.error(error?.message || '评论失败')
   } finally {
     isSubmittingComment.value = false
+  }
+}
+
+const handleReplyComment = async (payload: { parentId: Comment['commentId']; replyToUid: Comment['author']['uid']; content: string }) => {
+  if (!post.value) return
+  if (!authStore.isLoggedIn) {
+    toast.error('请先登录')
+    return
+  }
+  try {
+    await interactionApi.comment(postId.value, payload.content, payload.parentId, payload.replyToUid)
+    post.value.counter.comment += 1
+    toast.success('回复成功')
+    await loadComments(true)
+  } catch (error: any) {
+    toast.error(error?.message || '回复失败')
+  }
+}
+
+const handleDeleteComment = async (commentId: Comment['commentId']) => {
+  if (!post.value) return
+  const target = findComment(commentId)
+  try {
+    await interactionApi.deleteComment(commentId)
+    const removed = target ? countCommentBranch(target) : 1
+    post.value.counter.comment = Math.max(0, post.value.counter.comment - removed)
+    toast.success('评论已删除')
+    await loadComments(true)
+  } catch (error: any) {
+    toast.error(error?.message || '删除评论失败')
   }
 }
 
@@ -351,14 +452,28 @@ const submitReport = async () => {
   }
 }
 
-const loadComments = async () => {
+const loadComments = async (reset = true) => {
+  if (reset) {
+    isLoadingComments.value = true
+    commentCursor.value = undefined
+  } else {
+    isLoadingMoreComments.value = true
+  }
   try {
-    const result = await interactionApi.getComments(postId.value)
-    comments.value = result.data?.items || []
+    const result = await interactionApi.getComments(postId.value, reset ? undefined : commentCursor.value)
+    const page = result.data
+    comments.value = reset ? page?.items || [] : [...comments.value, ...(page?.items || [])]
+    commentCursor.value = page?.nextCursor
+    hasMoreComments.value = Boolean(page?.hasMore)
   } catch (error) {
     console.error('Failed to load comments:', error)
+  } finally {
+    isLoadingComments.value = false
+    isLoadingMoreComments.value = false
   }
 }
+
+const loadMoreComments = () => loadComments(false)
 
 const loadRelatedPosts = async () => {
   const current = post.value
@@ -391,17 +506,21 @@ const loadInteractionState = async () => {
   }
 }
 
+watch(() => postData.value?.data, (value) => {
+  post.value = clonePost(value)
+}, { immediate: true })
+
 watch(post, () => {
   loadRelatedPosts()
   loadInteractionState()
 })
 
 watch(postId, () => {
-  loadComments()
+  loadComments(true)
 })
 
 onMounted(() => {
-  loadComments()
+  loadComments(true)
 })
 </script>
 

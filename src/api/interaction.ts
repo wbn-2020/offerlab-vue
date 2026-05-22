@@ -18,8 +18,8 @@ export const interactionApi = {
   getPostInteraction: (postId: ApiId): Promise<Result<{ liked: boolean; favorited: boolean }>> =>
     client.get(`/api/v1/posts/${postId}/interaction`),
 
-  comment: (postId: ApiId, content: string, parentId?: ApiId): Promise<Result<any>> =>
-    client.post(`/api/v1/posts/${postId}/comments`, { content, parentId }),
+  comment: (postId: ApiId, content: string, parentId?: ApiId, replyToUid?: ApiId): Promise<Result<any>> =>
+    client.post(`/api/v1/posts/${postId}/comments`, { content, parentId, replyToUid }),
 
   getComments: async (postId: ApiId, cursor?: string, size = 20): Promise<Result<PaginatedResponse<Comment>>> => {
     const res = await client.get(`/api/v1/posts/${postId}/comments`, { params: { cursor, size } }) as Result<any>

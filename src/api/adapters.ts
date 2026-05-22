@@ -141,9 +141,13 @@ export function adaptComment(raw: any): Comment {
     postId: adaptId(raw?.postId),
     content: raw?.content ?? '',
     author: raw?.author ? adaptUser(raw.author) : emptyAuthor(raw?.authorId),
+    rootId: raw?.rootId ? adaptId(raw.rootId) : undefined,
     parentId: raw?.parentId ? adaptId(raw.parentId) : undefined,
+    replyToUid: raw?.replyToUid ? adaptId(raw.replyToUid) : undefined,
+    replyToUser: raw?.replyToUser ? adaptUser(raw.replyToUser) : undefined,
     likeCount: Number(raw?.likeCount ?? 0),
     myLiked: Boolean(raw?.myLiked ?? raw?.liked ?? false),
+    canDelete: Boolean(raw?.canDelete ?? false),
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
     replies: Array.isArray(raw?.replies) ? raw.replies.map(adaptComment) : undefined,
   }

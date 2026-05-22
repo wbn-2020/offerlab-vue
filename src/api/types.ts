@@ -65,9 +65,13 @@ export interface Comment {
   postId: ApiId
   content: string
   author: User
+  rootId?: ApiId
   parentId?: ApiId
+  replyToUid?: ApiId
+  replyToUser?: User
   likeCount: number
   myLiked?: boolean
+  canDelete?: boolean
   createdAt: number
   replies?: Comment[]
 }
