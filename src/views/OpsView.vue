@@ -167,6 +167,95 @@
             </div>
           </div>
         </article>
+
+        <article class="panel">
+          <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">评论举报审核</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">通过会隐藏评论或整段回复，驳回仅关闭当前举报。</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="item in reportFilters"
+                :key="`comment-${item.label}`"
+                type="button"
+                :class="['filter-button', commentReportStatusFilter === item.value ? 'filter-button-active' : '']"
+                @click="setCommentReportStatus(item.value)"
+              >
+                {{ item.label }}
+              </button>
+              <button type="button" class="icon-button" title="刷新评论举报" :disabled="isCommentReportsLoading" @click="loadCommentReports">
+                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isCommentReportsLoading }" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="isCommentReportsLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            正在加载评论举报...
+          </div>
+          <div v-else-if="commentReports.length === 0" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            当前筛选下暂无评论举报。
+          </div>
+          <div v-else class="overflow-x-auto pt-4">
+            <table class="ops-table report-table">
+              <thead>
+                <tr>
+                  <th>举报</th>
+                  <th>评论</th>
+                  <th>所属帖子</th>
+                  <th>说明</th>
+                  <th>状态</th>
+                  <th>时间</th>
+                  <th class="text-right">审核</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="report in commentReports" :key="report.reportId">
+                  <td class="font-mono text-xs">{{ report.reportId }}</td>
+                  <td class="font-mono text-xs">{{ report.commentId }}</td>
+                  <td>
+                    <RouterLink class="font-mono text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400" :to="`/post/${report.postId}`">
+                      {{ report.postId }}
+                    </RouterLink>
+                  </td>
+                  <td class="max-w-[260px]">
+                    <p class="font-semibold text-slate-800 dark:text-slate-100">{{ report.reason }}</p>
+                    <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '--' }}</p>
+                  </td>
+                  <td>
+                    <span :class="['status-pill', reportStatusClass(report.reportStatus)]">
+                      {{ reportStatusText(report.reportStatus) }}
+                    </span>
+                  </td>
+                  <td>{{ formatTime(report.createTime) }}</td>
+                  <td>
+                    <div v-if="report.reportStatus === 0" class="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        class="secondary-button compact-action danger-action"
+                        :disabled="reviewingCommentReportId === report.reportId"
+                        @click="reviewCommentReport(report, true)"
+                      >
+                        通过隐藏
+                      </button>
+                      <button
+                        type="button"
+                        class="secondary-button compact-action"
+                        :disabled="reviewingCommentReportId === report.reportId"
+                        @click="reviewCommentReport(report, false)"
+                      >
+                        驳回
+                      </button>
+                    </div>
+                    <span v-else class="block text-right text-xs text-slate-500 dark:text-slate-400">
+                      {{ formatTime(report.reviewTime) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
       </section>
 
       <section class="panel">
@@ -423,7 +512,8 @@ import { toast } from 'vue-sonner'
 import { opsApi, type AdminUserRole, type OpsStatus, type OutboxMessage } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
-import type { ApiId, PostReport } from '@/api/types'
+import { interactionApi } from '@/api/interaction'
+import type { ApiId, CommentReport, PostReport } from '@/api/types'
 
 const status = ref<OpsStatus | null>(null)
 const task = ref<SearchIndexTask | null>(null)
@@ -431,9 +521,11 @@ const adminUsers = ref<AdminUserRole[]>([])
 const outboxMessages = ref<OutboxMessage[]>([])
 const recentTasks = ref<SearchIndexTask[]>([])
 const postReports = ref<PostReport[]>([])
+const commentReports = ref<CommentReport[]>([])
 const selectedOutbox = ref<OutboxMessage | null>(null)
 const outboxStatusFilter = ref<number | undefined>(undefined)
 const reportStatusFilter = ref<number | undefined>(0)
+const commentReportStatusFilter = ref<number | undefined>(0)
 const adminForm = ref({ uid: '', remark: '' })
 const isLoading = ref(false)
 const isAdminsLoading = ref(false)
@@ -441,10 +533,12 @@ const isAdminSubmitting = ref(false)
 const isOutboxLoading = ref(false)
 const isTasksLoading = ref(false)
 const isReportsLoading = ref(false)
+const isCommentReportsLoading = ref(false)
 const isSubmitting = ref(false)
 const adminActionUid = ref<ApiId | null>(null)
 const retryingId = ref<ApiId | null>(null)
 const reviewingReportId = ref<PostReport['reportId'] | null>(null)
+const reviewingCommentReportId = ref<CommentReport['reportId'] | null>(null)
 const selectedFailedIds = ref<ApiId[]>([])
 const isBatchRetrying = ref(false)
 const loadError = ref('')
@@ -550,6 +644,19 @@ const loadReports = async () => {
   }
 }
 
+const loadCommentReports = async () => {
+  isCommentReportsLoading.value = true
+  try {
+    const res = await interactionApi.listAdminCommentReports({ status: commentReportStatusFilter.value, limit: 20 })
+    commentReports.value = res.data || []
+  } catch (error: any) {
+    toast.error(error?.message || '评论举报列表加载失败')
+    commentReports.value = []
+  } finally {
+    isCommentReportsLoading.value = false
+  }
+}
+
 const loadAdmins = async () => {
   isAdminsLoading.value = true
   try {
@@ -564,7 +671,7 @@ const loadAdmins = async () => {
 }
 
 const refreshAll = async () => {
-  await Promise.all([loadStatus(), loadOutbox(), loadAdmins(), loadTasks(), loadReports()])
+  await Promise.all([loadStatus(), loadOutbox(), loadAdmins(), loadTasks(), loadReports(), loadCommentReports()])
 }
 
 const setOutboxStatus = async (statusValue?: number) => {
@@ -575,6 +682,11 @@ const setOutboxStatus = async (statusValue?: number) => {
 const setReportStatus = async (statusValue?: number) => {
   reportStatusFilter.value = statusValue
   await loadReports()
+}
+
+const setCommentReportStatus = async (statusValue?: number) => {
+  commentReportStatusFilter.value = statusValue
+  await loadCommentReports()
 }
 
 const stopPolling = () => {
@@ -669,6 +781,19 @@ const reviewReport = async (report: PostReport, approved: boolean) => {
     toast.error(error?.message || '举报审核失败')
   } finally {
     reviewingReportId.value = null
+  }
+}
+
+const reviewCommentReport = async (report: CommentReport, approved: boolean) => {
+  reviewingCommentReportId.value = report.reportId
+  try {
+    await interactionApi.reviewAdminCommentReport(report.reportId, { approved })
+    toast.success(approved ? '评论举报已通过，评论已隐藏' : '评论举报已驳回')
+    await loadCommentReports()
+  } catch (error: any) {
+    toast.error(error?.message || '评论举报审核失败')
+  } finally {
+    reviewingCommentReportId.value = null
   }
 }
 

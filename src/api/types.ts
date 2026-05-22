@@ -102,6 +102,20 @@ export interface PostReport {
   reviewTime?: string
 }
 
+export interface CommentReport {
+  reportId: ApiId
+  commentId: ApiId
+  postId: ApiId
+  reporterUid?: ApiId
+  reason: string
+  detail?: string
+  reportStatus?: number
+  reviewerUid?: ApiId
+  reviewNote?: string
+  createTime?: string
+  reviewTime?: string
+}
+
 export interface Notification {
   notificationId: ApiId
   type: string

@@ -34,6 +34,12 @@ const routes = [
     meta: { title: '发布帖子', requiresAuth: true },
   },
   {
+    path: '/editor/:id',
+    name: 'PostEditor',
+    component: () => import('@/views/EditorView.vue'),
+    meta: { title: '编辑帖子', requiresAuth: true },
+  },
+  {
     path: '/u/:uid',
     name: 'UserProfile',
     component: () => import('@/views/UserProfileView.vue'),

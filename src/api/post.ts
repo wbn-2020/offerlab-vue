@@ -10,6 +10,7 @@ export interface PostCreateReq {
   visibility?: number
   extJson?: string
   tagIds?: ApiId[]
+  tagNames?: string[]
 }
 
 export interface PostUpdateReq {
@@ -19,6 +20,7 @@ export interface PostUpdateReq {
   visibility?: number
   extJson?: string
   tagIds?: ApiId[]
+  tagNames?: string[]
 }
 
 export const postApi = {

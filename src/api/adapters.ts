@@ -1,4 +1,4 @@
-import type { Comment, Notification, PaginatedResponse, Post, PostReport, Tag, User, UserIntent } from './types'
+import type { Comment, CommentReport, Notification, PaginatedResponse, Post, PostReport, Tag, User, UserIntent } from './types'
 
 export function adaptId(value: any): string {
   if (value === null || value === undefined || value === '') return ''
@@ -161,6 +161,22 @@ export function adaptComment(raw: any): Comment {
 export function adaptPostReport(raw: any): PostReport {
   return {
     reportId: adaptId(raw?.reportId ?? raw?.id),
+    postId: adaptId(raw?.postId),
+    reporterUid: raw?.reporterUid ? adaptId(raw.reporterUid) : undefined,
+    reason: raw?.reason ?? raw?.reasonType ?? '',
+    detail: raw?.detail ?? raw?.reasonText ?? '',
+    reportStatus: raw?.reportStatus ?? raw?.status,
+    reviewerUid: raw?.reviewerUid ? adaptId(raw.reviewerUid) : undefined,
+    reviewNote: raw?.reviewNote ?? raw?.reviewRemark ?? raw?.remark,
+    createTime: raw?.createTime ?? raw?.createdAt,
+    reviewTime: raw?.reviewTime ?? raw?.updatedAt,
+  }
+}
+
+export function adaptCommentReport(raw: any): CommentReport {
+  return {
+    reportId: adaptId(raw?.reportId ?? raw?.id),
+    commentId: adaptId(raw?.commentId),
     postId: adaptId(raw?.postId),
     reporterUid: raw?.reporterUid ? adaptId(raw.reporterUid) : undefined,
     reason: raw?.reason ?? raw?.reasonType ?? '',

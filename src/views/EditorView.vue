@@ -17,16 +17,17 @@
         <div class="flex gap-3">
           <button
             @click="saveDraft"
+            :disabled="isEditing || isLoadingPost"
             class="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium"
           >
             保存草稿
           </button>
           <button
             @click="publishPost"
-            :disabled="isPublishing || !form.title.trim() || !form.content.trim()"
+            :disabled="isPublishing || isLoadingPost || !form.title.trim() || !form.content.trim()"
             class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
           >
-            {{ isPublishing ? '发布中...' : '发布' }}
+            {{ isPublishing ? (isEditing ? '保存中...' : '发布中...') : (isEditing ? '保存修改' : '发布') }}
           </button>
         </div>
       </div>
@@ -54,6 +55,7 @@
             v-for="type in postTypes"
             :key="type.value"
             @click="form.postType = type.value"
+            :disabled="isEditing"
             :class="[
               'px-4 py-3 font-medium text-sm transition-colors border-b-2',
               form.postType === type.value
@@ -160,6 +162,7 @@ const tagInput = ref('')
 const selectedTags = ref<string[]>([])
 const isPublishing = ref(false)
 const isEditing = ref(false)
+const isLoadingPost = ref(false)
 
 const postTypes_map = {
   1: '面经',
@@ -168,11 +171,41 @@ const postTypes_map = {
   4: '求职问答'
 }
 
-onMounted(() => {
+const loadPostForEdit = async (postId: number) => {
+  isLoadingPost.value = true
+  try {
+    const res = await postApi.getDetail(postId)
+    if (res.code !== 0 || !res.data) {
+      alert(`加载帖子失败: ${res.message || '帖子不存在'}`)
+      router.push('/')
+      return
+    }
+
+    const post = res.data
+    form.value = {
+      postType: post.postType,
+      title: post.title,
+      content: post.content,
+      tags: post.tags?.map(tag => Number(tag.id)).filter(tagId => !Number.isNaN(tagId)) || [],
+      extension: post.extension || {},
+      coverUrl: post.coverUrl || ''
+    }
+    selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
+  } catch (e) {
+    console.error('Failed to load post:', e)
+    alert('加载帖子失败，请重试')
+    router.push('/')
+  } finally {
+    isLoadingPost.value = false
+  }
+}
+
+onMounted(async () => {
   const postId = route.params.id
   if (postId) {
     isEditing.value = true
-    // TODO: 加载现有帖子数据
+    await loadPostForEdit(Number(postId))
+    return
   }
 
   // 从 localStorage 恢复草稿
@@ -181,6 +214,7 @@ onMounted(() => {
     try {
       const draftData = JSON.parse(draft)
       form.value = { ...form.value, ...draftData }
+      selectedTags.value = draftData.selectedTags || []
     } catch (e) {
       console.error('Failed to load draft:', e)
     }
@@ -199,7 +233,10 @@ const removeTag = (idx: number) => {
 }
 
 const saveDraft = () => {
-  localStorage.setItem('post_draft', JSON.stringify(form.value))
+  localStorage.setItem('post_draft', JSON.stringify({
+    ...form.value,
+    selectedTags: selectedTags.value
+  }))
   alert('草稿已保存')
 }
 
@@ -217,23 +254,28 @@ const publishPost = async () => {
       content: form.value.content,
       coverUrl: form.value.coverUrl,
       visibility: 1,
+      tagIds: form.value.tags,
+      tagNames: selectedTags.value,
       extJson: JSON.stringify({
         ...form.value.extension,
         tags: selectedTags.value
       })
     }
 
-    const res = await postApi.create(req)
+    const postId = Number(route.params.id)
+    const res = isEditing.value
+      ? await postApi.update(postId, req)
+      : await postApi.create(req)
     if (res.code === 0) {
       localStorage.removeItem('post_draft')
-      alert('发布成功')
-      router.push(`/post/${res.data?.postId}`)
+      alert(isEditing.value ? '保存成功' : '发布成功')
+      router.push(`/post/${isEditing.value ? postId : res.data?.postId}`)
     } else {
-      alert(`发布失败: ${res.message}`)
+      alert(`${isEditing.value ? '保存' : '发布'}失败: ${res.message}`)
     }
   } catch (error) {
     console.error('Publish error:', error)
-    alert('发布失败，请重试')
+    alert(`${isEditing.value ? '保存' : '发布'}失败，请重试`)
   } finally {
     isPublishing.value = false
   }

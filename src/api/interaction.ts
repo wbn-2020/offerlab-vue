@@ -1,6 +1,6 @@
 import client, { Result } from './client'
-import type { ApiId, Comment, PaginatedResponse } from './types'
-import { adaptComment, adaptPage } from './adapters'
+import type { ApiId, Comment, CommentReport, PaginatedResponse, PostReportReq, PostReportReviewReq } from './types'
+import { adaptComment, adaptCommentReport, adaptPage } from './adapters'
 
 export const interactionApi = {
   like: (postId: ApiId): Promise<Result<{ liked: boolean; likeCount?: number }>> =>
@@ -34,4 +34,18 @@ export const interactionApi = {
 
   unlikeComment: (commentId: ApiId): Promise<Result<any>> =>
     client.delete(`/api/v1/comments/${commentId}/like`),
+
+  reportComment: (commentId: ApiId, req: PostReportReq): Promise<Result<{ reportId?: ApiId }>> =>
+    client.post(`/api/v1/comments/${commentId}/reports`, req),
+
+  listAdminCommentReports: async (params?: { status?: number; limit?: number }): Promise<Result<CommentReport[]>> => {
+    const res = await client.get('/api/v1/comments/admin/reports', { params }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptCommentReport) : [] }
+  },
+
+  reviewAdminCommentReport: (
+    reportId: ApiId,
+    req: PostReportReviewReq,
+  ): Promise<Result<void>> =>
+    client.post(`/api/v1/comments/admin/reports/${reportId}/review`, req),
 }

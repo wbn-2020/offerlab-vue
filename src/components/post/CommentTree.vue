@@ -47,6 +47,16 @@
                 <Trash2 class="h-3.5 w-3.5" />
                 删除
               </button>
+              <button
+                v-if="canReportComments"
+                type="button"
+                class="comment-action hover:text-amber-600"
+                aria-label="举报评论"
+                @click="$emit('report-comment', comment.commentId)"
+              >
+                <Flag class="h-3.5 w-3.5" />
+                举报
+              </button>
             </div>
 
             <ReplyComposer
@@ -105,6 +115,16 @@
                         <Trash2 class="h-3.5 w-3.5" />
                         删除
                       </button>
+                      <button
+                        v-if="canReportComments"
+                        type="button"
+                        class="comment-action hover:text-amber-600"
+                        aria-label="举报评论"
+                        @click="$emit('report-comment', reply.commentId)"
+                      >
+                        <Flag class="h-3.5 w-3.5" />
+                        举报
+                      </button>
                     </div>
 
                     <ReplyComposer
@@ -132,7 +152,7 @@
 <script setup lang="ts">
 import { defineComponent, h, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { MessageCircle, ThumbsUp, Trash2 } from 'lucide-vue-next'
+import { Flag, MessageCircle, ThumbsUp, Trash2 } from 'lucide-vue-next'
 import type { Comment } from '@/api/types'
 import { formatTime } from '@/lib/format'
 
@@ -140,8 +160,10 @@ const props = withDefaults(defineProps<{
   postId: Comment['postId']
   comments: Comment[]
   canLikeComments?: boolean
+  canReportComments?: boolean
 }>(), {
   canLikeComments: false,
+  canReportComments: false,
 })
 
 const emit = defineEmits<{
@@ -149,6 +171,7 @@ const emit = defineEmits<{
   'unlike-comment': [commentId: Comment['commentId']]
   'reply-comment': [payload: { parentId: Comment['commentId']; replyToUid: Comment['author']['uid']; content: string }]
   'delete-comment': [commentId: Comment['commentId']]
+  'report-comment': [commentId: Comment['commentId']]
 }>()
 
 const replyingTo = ref<Comment | null>(null)

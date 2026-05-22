@@ -60,8 +60,25 @@
 
               <InteractionBar :post="post" @like="handleLike" @favorite="handleFavorite" />
 
-              <div v-if="authStore.isLoggedIn && !isOwnPost" class="mt-4 flex justify-end">
+              <div v-if="authStore.isLoggedIn" class="mt-4 flex justify-end gap-3">
+                <template v-if="isOwnPost">
+                  <RouterLink
+                    :to="`/editor/${post.postId}`"
+                    class="rounded-lg border border-primary-600 px-3 py-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 dark:hover:bg-slate-800"
+                  >
+                    编辑帖子
+                  </RouterLink>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950"
+                    :disabled="isDeletingPost"
+                    @click="handleDeletePost"
+                  >
+                    {{ isDeletingPost ? '删除中...' : '删除帖子' }}
+                  </button>
+                </template>
                 <button
+                  v-else
                   type="button"
                   class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   :disabled="isReporting"
@@ -105,10 +122,12 @@
                 :post-id="postId"
                 :comments="comments"
                 :can-like-comments="authStore.isLoggedIn"
+                :can-report-comments="authStore.isLoggedIn"
                 @like-comment="handleLikeComment"
                 @unlike-comment="handleUnlikeComment"
                 @reply-comment="handleReplyComment"
                 @delete-comment="handleDeleteComment"
+                @report-comment="openCommentReportDialog"
               />
               <div v-if="hasMoreComments" class="mt-6 text-center">
                 <button
@@ -164,7 +183,7 @@
       <form class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" @submit.prevent="submitReport">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">举报帖子</h2>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">{{ reportTarget.type === 'comment' ? '举报评论' : '举报帖子' }}</h2>
             <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">说明问题后提交给管理员审核。</p>
           </div>
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" @click="closeReportDialog">
@@ -208,7 +227,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
@@ -225,15 +244,18 @@ import { toast } from 'vue-sonner'
 import type { Comment, Post } from '@/api/types'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 
 const postId = computed(() => route.params.id as string)
 const commentText = ref('')
 const isSubmittingComment = ref(false)
 const isReporting = ref(false)
+const isDeletingPost = ref(false)
 const isReportDialogOpen = ref(false)
 const isFollowingAuthor = ref(false)
 const reportForm = ref({ reason: 'OTHER', detail: '' })
+const reportTarget = ref<{ type: 'post' | 'comment'; id?: Comment['commentId'] }>({ type: 'post' })
 const comments = ref<Comment[]>([])
 const relatedPosts = ref<Post[]>([])
 const commentCursor = ref<string | undefined>()
@@ -336,6 +358,23 @@ const toggleFollowAuthor = async () => {
   }
 }
 
+const handleDeletePost = async () => {
+  if (!post.value || !isOwnPost.value || isDeletingPost.value) return
+  const confirmed = window.confirm('确定删除这篇帖子吗？删除后不可恢复。')
+  if (!confirmed) return
+
+  isDeletingPost.value = true
+  try {
+    await postApi.delete(post.value.postId)
+    toast.success('帖子已删除')
+    router.push('/')
+  } catch (error: any) {
+    toast.error(error?.message || '删除帖子失败')
+  } finally {
+    isDeletingPost.value = false
+  }
+}
+
 const findComment = (commentId: Comment['commentId']) => {
   for (const comment of comments.value) {
     if (String(comment.commentId) === String(commentId)) return comment
@@ -433,18 +472,34 @@ const closeReportDialog = () => {
   if (isReporting.value) return
   isReportDialogOpen.value = false
   reportForm.value = { reason: 'OTHER', detail: '' }
+  reportTarget.value = { type: 'post' }
+}
+
+const openCommentReportDialog = (commentId: Comment['commentId']) => {
+  if (!authStore.isLoggedIn) {
+    toast.error('请先登录')
+    return
+  }
+  reportTarget.value = { type: 'comment', id: commentId }
+  isReportDialogOpen.value = true
 }
 
 const submitReport = async () => {
   isReporting.value = true
   try {
-    await postApi.report(postId.value, {
+    const payload = {
       reason: reportForm.value.reason,
       detail: reportForm.value.detail || undefined,
-    })
+    }
+    if (reportTarget.value.type === 'comment' && reportTarget.value.id) {
+      await interactionApi.reportComment(reportTarget.value.id, payload)
+    } else {
+      await postApi.report(postId.value, payload)
+    }
     toast.success('举报已提交，等待管理员处理')
     isReportDialogOpen.value = false
     reportForm.value = { reason: 'OTHER', detail: '' }
+    reportTarget.value = { type: 'post' }
   } catch (error: any) {
     toast.error(error?.message || '举报提交失败')
   } finally {
