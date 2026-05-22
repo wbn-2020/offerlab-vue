@@ -1,16 +1,22 @@
 import client, { Result } from './client'
 import type { Post, PaginatedResponse } from './types'
+import { adaptPage, adaptPost } from './adapters'
+
+async function getFeed(path: string, cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> {
+  const res = await client.get(path, { params: { cursor, size } }) as Result<any>
+  return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
+}
 
 export const feedApi = {
   getFollowing: (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> =>
-    client.get('/api/v1/feeds/following', { params: { cursor, size } }),
+    getFeed('/api/v1/feeds/following', cursor, size),
 
   getRecommend: (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> =>
-    client.get('/api/v1/feeds/recommend', { params: { cursor, size } }),
+    getFeed('/api/v1/feeds/recommend', cursor, size),
 
   getLatest: (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> =>
-    client.get('/api/v1/feeds/latest', { params: { cursor, size } }),
+    getFeed('/api/v1/feeds/latest', cursor, size),
 
   getHot: (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> =>
-    client.get('/api/v1/feeds/hot', { params: { cursor, size } }),
+    getFeed('/api/v1/feeds/hot', cursor, size),
 }

@@ -15,6 +15,9 @@ export const interactionApi = {
   unfavorite: (postId: ApiId): Promise<Result<{ favorited: boolean }>> =>
     client.delete(`/api/v1/posts/${postId}/favorite`),
 
+  getPostInteraction: (postId: ApiId): Promise<Result<{ liked: boolean; favorited: boolean }>> =>
+    client.get(`/api/v1/posts/${postId}/interaction`),
+
   comment: (postId: ApiId, content: string, parentId?: ApiId): Promise<Result<any>> =>
     client.post(`/api/v1/posts/${postId}/comments`, { content, parentId }),
 

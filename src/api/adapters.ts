@@ -73,7 +73,7 @@ export function adaptTag(raw: any): Tag {
     name,
     slug: raw?.slug ?? raw?.code ?? String(name).toLowerCase(),
     category: raw?.category,
-    count: Number(raw?.count ?? raw?.postCount ?? 0),
+    count: Number(raw?.count ?? raw?.postCount ?? raw?.useCount ?? 0),
   }
 }
 
@@ -99,29 +99,39 @@ function emptyAuthor(authorId: any): User {
 }
 
 export function adaptPost(raw: any): Post {
-  const counter = raw?.counter ?? {}
+  const source = raw?.post
+    ? {
+        ...raw.post,
+        author: raw.author ?? raw.post.author,
+        counter: raw.counter ?? raw.post.counter,
+        myInteraction: raw.myInteraction ?? raw.post.myInteraction,
+      }
+    : raw
+  const counter = source?.counter ?? {}
+  const authorId = source?.authorId ?? source?.uid
+  const myInteraction = source?.myInteraction ?? {}
   return {
-    postId: adaptId(raw?.postId ?? raw?.id),
-    postType: Number(raw?.postType ?? 0),
-    title: raw?.title ?? '',
-    content: raw?.content ?? raw?.summary ?? '',
-    summary: raw?.summary,
-    coverUrl: raw?.coverUrl,
-    tags: Array.isArray(raw?.tags) ? raw.tags.map(adaptTag) : [],
-    author: raw?.author ? adaptUser(raw.author) : emptyAuthor(raw?.authorId),
+    postId: adaptId(source?.postId ?? source?.id),
+    postType: Number(source?.postType ?? 0),
+    title: source?.title ?? '',
+    content: source?.content ?? source?.summary ?? '',
+    summary: source?.summary,
+    coverUrl: source?.coverUrl,
+    tags: Array.isArray(source?.tags) ? source.tags.map(adaptTag) : [],
+    author: source?.author ? adaptUser(source.author) : emptyAuthor(authorId),
     counter: {
-      view: Number(counter.view ?? raw?.viewCount ?? 0),
-      like: Number(counter.like ?? raw?.likeCount ?? 0),
-      comment: Number(counter.comment ?? raw?.commentCount ?? 0),
-      favorite: Number(counter.favorite ?? raw?.favoriteCount ?? 0),
+      view: Number(counter.view ?? counter.viewCount ?? source?.viewCount ?? 0),
+      like: Number(counter.like ?? counter.likeCount ?? source?.likeCount ?? 0),
+      comment: Number(counter.comment ?? counter.commentCount ?? source?.commentCount ?? 0),
+      favorite: Number(counter.favorite ?? counter.favoriteCount ?? source?.favoriteCount ?? 0),
     },
-    extension: parseExtension(raw),
+    extension: parseExtension(source),
     myInteraction: {
-      liked: Boolean(raw?.myInteraction?.liked ?? raw?.liked ?? false),
-      favorited: Boolean(raw?.myInteraction?.favorited ?? raw?.favorited ?? false),
+      liked: Boolean(myInteraction.liked ?? source?.liked ?? false),
+      favorited: Boolean(myInteraction.favorited ?? source?.favorited ?? false),
     },
-    createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
-    updatedAt: adaptTime(raw?.updatedAt ?? raw?.updateTime ?? raw?.createTime),
+    createdAt: adaptTime(source?.createdAt ?? source?.createTime),
+    updatedAt: adaptTime(source?.updatedAt ?? source?.updateTime ?? source?.createTime),
   }
 }
 
