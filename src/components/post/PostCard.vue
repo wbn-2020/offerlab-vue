@@ -67,6 +67,22 @@
       {{ post.summary || post.content.substring(0, 100) }}
     </p>
 
+    <div v-if="props.showRecommendFeedback && post.recommendationReasons?.length" class="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
+      <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+        <Lightbulb class="h-3.5 w-3.5" />
+        为什么推荐
+      </div>
+      <div class="flex flex-wrap gap-1.5">
+        <span
+          v-for="reason in post.recommendationReasons.slice(0, 3)"
+          :key="reason"
+          class="rounded-full bg-white px-2 py-1 text-xs text-indigo-700 dark:bg-slate-900 dark:text-indigo-200"
+        >
+          {{ reason }}
+        </span>
+      </div>
+    </div>
+
     <div v-if="post.extension" class="mb-3 flex flex-wrap gap-2">
       <span v-if="post.extension.company" class="rounded bg-indigo-50 px-2 py-1 text-xs text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
         {{ post.extension.company }}
@@ -111,7 +127,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Eye, EyeOff, Heart, MessageCircle, MoreHorizontal, Star } from 'lucide-vue-next'
+import { Eye, EyeOff, Heart, Lightbulb, MessageCircle, MoreHorizontal, Star } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'

@@ -126,6 +126,11 @@ export function adaptPost(raw: any): Post {
       favorite: Number(counter.favorite ?? counter.favoriteCount ?? source?.favoriteCount ?? 0),
     },
     extension: parseExtension(source),
+    recommendationReasons: Array.isArray(raw?.recommendationReasons)
+      ? raw.recommendationReasons.map(String).filter(Boolean)
+      : Array.isArray(source?.recommendationReasons)
+        ? source.recommendationReasons.map(String).filter(Boolean)
+        : undefined,
     myInteraction: {
       liked: Boolean(myInteraction.liked ?? source?.liked ?? false),
       favorited: Boolean(myInteraction.favorited ?? source?.favorited ?? false),

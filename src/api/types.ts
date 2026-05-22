@@ -44,6 +44,7 @@ export interface Post {
     favorite: number
   }
   extension?: Record<string, any>
+  recommendationReasons?: string[]
   myInteraction?: {
     liked: boolean
     favorited: boolean
