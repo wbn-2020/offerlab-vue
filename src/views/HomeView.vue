@@ -81,8 +81,16 @@
 
           <div class="space-y-4">
             <LoadingSkeleton v-if="isLoading" />
-            <template v-else-if="posts.length">
-              <PostCard v-for="post in posts" :key="post.postId" :post="post" @like="handleLike" @favorite="handleFavorite" />
+            <template v-else-if="visiblePosts.length">
+              <PostCard
+                v-for="post in visiblePosts"
+                :key="post.postId"
+                :post="post"
+                :show-recommend-feedback="activeFeed === 'recommend'"
+                @like="handleLike"
+                @favorite="handleFavorite"
+                @not-interested="handleRecommendFeedback"
+              />
             </template>
             <EmptyState
               v-else
@@ -167,6 +175,7 @@ import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import { userApi } from '@/api/user'
+import { feedApi } from '@/api/feed'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -193,11 +202,15 @@ const feedDescriptions: Record<FeedType, string> = {
 const tags = ref<Tag[]>([])
 const recommendedUsers = ref<User[]>([])
 const followingBusyIds = ref(new Set<string>())
+const locallyHiddenPostIds = ref(new Set<string>())
 const { posts, fetchNextPage, hasNextPage, isFetching, isLoading } = useInfiniteFeed(activeFeed)
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
 const topTags = computed(() => sortedTags.value.slice(0, 10))
 const trendingTags = computed(() => sortedTags.value.slice(0, 6))
+const visiblePosts = computed(() => activeFeed.value === 'recommend'
+  ? posts.value.filter((post) => !locallyHiddenPostIds.value.has(String(post.postId)))
+  : posts.value)
 
 const findPost = (postId: Post['postId']) => posts.value.find((item) => String(item.postId) === String(postId))
 const isSelf = (user: User) => Boolean(authStore.user && String(authStore.user.uid) === String(user.uid))
@@ -233,6 +246,20 @@ const handleFavorite = async (postId: Post['postId']) => {
     post.counter.favorite = Math.max(0, post.counter.favorite + (favorited ? -1 : 1))
   } catch (error: any) {
     toast.error(error?.message || '收藏操作失败')
+  }
+}
+
+const handleRecommendFeedback = async (postId: Post['postId'], reason: string) => {
+  if (!authStore.isLoggedIn) {
+    toast.error('登录后才能调整推荐')
+    return
+  }
+  try {
+    await feedApi.recordFeedback(postId, reason)
+    locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(String(postId))
+    toast.success('已减少类似推荐')
+  } catch (error: any) {
+    toast.error(error?.message || '推荐反馈提交失败')
   }
 }
 

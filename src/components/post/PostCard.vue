@@ -18,15 +18,45 @@
         </div>
       </div>
 
-      <button
-        v-if="!isOwnPost"
-        type="button"
-        class="shrink-0 rounded-lg border border-primary-600 px-3 py-1 text-sm text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800"
-        :disabled="isFollowing"
-        @click.prevent="handleFollow"
-      >
-        {{ post.author.isFollowing ? '已关注' : '关注' }}
-      </button>
+      <div class="flex shrink-0 items-center gap-2">
+        <button
+          v-if="!isOwnPost"
+          type="button"
+          class="rounded-lg border border-primary-600 px-3 py-1 text-sm text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800"
+          :disabled="isFollowing"
+          @click.prevent="handleFollow"
+        >
+          {{ post.author.isFollowing ? '已关注' : '关注' }}
+        </button>
+
+        <div v-if="props.showRecommendFeedback" class="relative" data-feedback-menu>
+          <button
+            type="button"
+            class="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+            aria-label="推荐反馈"
+            title="推荐反馈"
+            @click.prevent="showFeedbackMenu = !showFeedbackMenu"
+          >
+            <MoreHorizontal class="h-4 w-4" />
+          </button>
+          <div
+            v-if="showFeedbackMenu"
+            class="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-slate-200 bg-white py-2 shadow-lg dark:border-slate-800 dark:bg-slate-900"
+            @click.prevent
+          >
+            <button
+              v-for="reason in feedbackReasons"
+              :key="reason.value"
+              type="button"
+              class="feedback-menu-item"
+              @click.stop.prevent="handleNotInterested(reason.value)"
+            >
+              <EyeOff class="h-4 w-4" />
+              <span>{{ reason.label }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <h3 class="mb-2 line-clamp-2 text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -81,7 +111,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Eye, Heart, MessageCircle, Star } from 'lucide-vue-next'
+import { Eye, EyeOff, Heart, MessageCircle, MoreHorizontal, Star } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
@@ -90,15 +120,23 @@ import { toast } from 'vue-sonner'
 
 const props = defineProps<{
   post: Post
+  showRecommendFeedback?: boolean
 }>()
 
 const emit = defineEmits<{
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
+  notInterested: [postId: Post['postId'], reason: string]
 }>()
 
 const authStore = useAuthStore()
 const isFollowing = ref(false)
+const showFeedbackMenu = ref(false)
+const feedbackReasons = [
+  { value: 'irrelevant', label: '内容不相关' },
+  { value: 'seen', label: '已经看过' },
+  { value: 'low_quality', label: '质量不高' },
+]
 
 const authorInitial = computed(() => props.post.author.nickname?.charAt(0) || '?')
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(props.post.author.uid))
@@ -137,6 +175,15 @@ const handleFavorite = () => {
   emit('favorite', props.post.postId)
 }
 
+const handleNotInterested = (reason: string) => {
+  if (!authStore.isLoggedIn) {
+    toast.error('登录后才能调整推荐')
+    return
+  }
+  showFeedbackMenu.value = false
+  emit('notInterested', props.post.postId, reason)
+}
+
 const handleFollow = async () => {
   if (!authStore.isLoggedIn) {
     toast.error('请先登录')
@@ -160,3 +207,31 @@ const handleFollow = async () => {
   }
 }
 </script>
+
+<style scoped>
+.feedback-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.875rem;
+  color: rgb(71 85 105);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.feedback-menu-item:hover {
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
+}
+
+:global(.dark) .feedback-menu-item {
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .feedback-menu-item:hover {
+  background: rgb(30 41 59);
+  color: rgb(248 250 252);
+}
+</style>
