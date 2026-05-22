@@ -174,11 +174,14 @@ export function adaptNotification(raw: any): Notification {
   const targetId = raw?.targetId ?? content.postId ?? content.commentId ?? content.userId
   const postId = content.postId ?? (['like', 'favorite', 'mention'].includes(type) && raw?.targetType === 1 ? raw?.targetId : undefined)
   const userId = type === 'follower' ? content.userId ?? raw?.senderUid ?? raw?.targetId : undefined
+  const sender = raw?.sender ? adaptUser(raw.sender) : undefined
   return {
     notificationId: adaptId(raw?.notificationId ?? raw?.id),
     type,
-    title: notificationTitle(type),
-    content: notificationText(type, content),
+    title: notificationTitle(type, sender?.nickname),
+    content: notificationText(type, content, sender?.nickname),
+    sender,
+    senderUid: raw?.senderUid ? adaptId(raw.senderUid) : undefined,
     relatedId: targetId ? adaptId(targetId) : undefined,
     targetPath: userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined,
     read: Boolean(raw?.read ?? raw?.isRead ?? false),
@@ -186,35 +189,41 @@ export function adaptNotification(raw: any): Notification {
   }
 }
 
-function notificationTitle(type: string): string {
+function displayName(name?: string): string {
+  return name?.trim() || '有人'
+}
+
+function notificationTitle(type: string, senderName?: string): string {
+  const name = displayName(senderName)
   switch (type) {
     case 'like':
-      return '收到点赞'
+      return `${name}点赞了你`
     case 'comment':
-      return '收到评论'
+      return `${name}评论了你`
     case 'favorite':
-      return '收到收藏'
+      return `${name}收藏了你`
     case 'follower':
-      return '新的关注'
+      return `${name}关注了你`
     case 'mention':
-      return '提到了你'
+      return `${name}提到了你`
     default:
       return '系统通知'
   }
 }
 
-function notificationText(type: string, content: Record<string, any>): string {
+function notificationText(type: string, content: Record<string, any>, senderName?: string): string {
+  const name = displayName(senderName)
   switch (type) {
     case 'like':
-      return content.targetType === 2 ? '有人点赞了你的评论' : '有人点赞了你的帖子'
+      return content.targetType === 2 ? `${name}点赞了你的评论` : `${name}点赞了你的帖子`
     case 'comment':
-      return '有人评论了你的帖子'
+      return content.commentId ? `${name}评论了你的帖子，点击查看上下文` : `${name}评论了你的帖子`
     case 'favorite':
-      return '有人收藏了你的帖子'
+      return `${name}收藏了你的帖子`
     case 'follower':
-      return '有人关注了你'
+      return '可以进入对方主页查看资料，也可以回关建立联系。'
     case 'mention':
-      return content.commentId ? '有人在评论中提到了你' : '有人在帖子中提到了你'
+      return content.commentId ? `${name}在评论中提到了你` : `${name}在帖子中提到了你`
     default:
       return '你有一条新通知'
   }

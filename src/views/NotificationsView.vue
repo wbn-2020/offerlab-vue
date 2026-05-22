@@ -1,51 +1,83 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-6 dark:bg-slate-950">
+  <div class="min-h-screen bg-slate-50 px-4 py-6 dark:bg-slate-950 sm:px-6">
     <div class="mx-auto max-w-5xl">
-      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 class="text-3xl font-bold text-slate-900 dark:text-slate-100">通知中心</h1>
-          <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            查看点赞、评论、收藏、关注和提及消息
-          </p>
-        </div>
-        <button
-          type="button"
-          @click="markAllAsRead"
-          :disabled="isMutating || unread.total === 0"
-          class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
-        >
-          全部已读
-        </button>
-      </div>
+      <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p class="text-sm font-medium text-primary-600 dark:text-primary-400">消息收件箱</p>
+            <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-slate-100 sm:text-3xl">通知中心</h1>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              集中处理点赞、评论、收藏、关注和提及，未读消息会同步到顶部铃铛。
+            </p>
+          </div>
 
-      <div class="mb-6 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
-        <div class="flex min-w-max gap-2">
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div class="metric-card">
+              <span>未读</span>
+              <strong>{{ unread.total }}</strong>
+            </div>
+            <div class="metric-card">
+              <span>互动</span>
+              <strong>{{ interactionUnread }}</strong>
+            </div>
+            <div class="metric-card">
+              <span>提及</span>
+              <strong>{{ unread.mention }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+          <div class="overflow-x-auto">
+            <div class="flex min-w-max gap-2">
+              <button
+                v-for="tab in tabs"
+                :key="tab.value"
+                type="button"
+                @click="switchTab(tab.value)"
+                :class="[
+                  'tab-button',
+                  activeType === tab.value ? 'tab-button-active' : 'tab-button-idle'
+                ]"
+              >
+                <component :is="tab.icon" class="h-4 w-4" />
+                <span>{{ tab.label }}</span>
+                <span v-if="tab.count > 0" class="tab-count">{{ tab.count > 99 ? '99+' : tab.count }}</span>
+              </button>
+            </div>
+          </div>
+
           <button
-            v-for="tab in tabs"
-            :key="tab.value"
             type="button"
-            @click="switchTab(tab.value)"
-            :class="[
-              'border-b-2 px-4 py-3 text-sm font-medium transition-colors',
-              activeType === tab.value
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-            ]"
+            @click="markAllAsRead"
+            :disabled="isMutating || unread.total === 0"
+            class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           >
-            {{ tab.label }}
-            <span v-if="tab.count > 0" class="ml-2 rounded-full bg-danger px-2 py-0.5 text-xs text-white">
-              {{ tab.count }}
-            </span>
+            <CheckCheck class="h-4 w-4" />
+            全部已读
           </button>
         </div>
+      </section>
+
+      <div v-if="isLoading && notifications.length === 0" class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div v-for="item in 4" :key="item" class="flex gap-4 border-b border-slate-100 py-4 last:border-b-0 dark:border-slate-800">
+          <div class="h-11 w-11 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+          <div class="flex-1 space-y-3">
+            <div class="h-4 w-1/3 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+            <div class="h-3 w-2/3 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+          </div>
+        </div>
       </div>
 
-      <div v-if="isLoading" class="rounded-xl border border-slate-200 bg-white py-12 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-        正在加载通知...
-      </div>
-
-      <div v-else-if="notifications.length === 0" class="rounded-xl border border-dashed border-slate-300 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
-        <p class="text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+      <div v-else-if="notifications.length === 0" class="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+          <BellOff class="h-6 w-6" />
+        </div>
+        <h2 class="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">{{ emptyTitle }}</h2>
+        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+        <RouterLink to="/explore" class="mt-5 inline-flex items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
+          去发现页看看
+        </RouterLink>
       </div>
 
       <div v-else class="space-y-3">
@@ -53,7 +85,7 @@
           v-for="notif in notifications"
           :key="notif.notificationId"
           :class="[
-            'rounded-xl border p-4 transition-colors',
+            'rounded-xl border p-4 shadow-sm transition-colors',
             notif.targetPath ? 'cursor-pointer hover:border-primary-300 hover:bg-primary-50/40 dark:hover:border-primary-800 dark:hover:bg-slate-800' : '',
             notif.read
               ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
@@ -62,28 +94,46 @@
           @click="openNotification(notif)"
         >
           <div class="flex items-start gap-4">
-            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 text-sm font-semibold text-white">
-              {{ iconFor(notif.type) }}
+            <div :class="['flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full', iconClass(notif.type)]">
+              <component :is="iconFor(notif.type)" class="h-5 w-5" />
             </div>
             <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{{ notif.title }}</p>
-                <span v-if="!notif.read" class="h-2 w-2 rounded-full bg-danger" />
+              <div class="flex flex-wrap items-center gap-2 pr-1">
+                <p class="min-w-0 text-sm font-semibold text-slate-900 dark:text-slate-100">{{ notif.title }}</p>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  {{ labelFor(notif.type) }}
+                </span>
+                <span v-if="!notif.read" class="rounded-full bg-danger px-2 py-0.5 text-xs font-semibold text-white">未读</span>
               </div>
               <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ notif.content }}</p>
-              <p class="mt-2 text-xs text-slate-500">{{ formatTime(notif.createdAt) }}</p>
+              <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
+                <span>{{ formatTime(notif.createdAt) }}</span>
+                <span v-if="notif.targetPath">点击查看详情</span>
+              </div>
             </div>
             <button
               v-if="!notif.read"
               type="button"
               @click.stop="markAsRead(notif.notificationId)"
               :disabled="isMutating"
-              class="flex-shrink-0 rounded bg-primary-600 px-2 py-1 text-xs text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+              class="flex-shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
             >
               标记已读
             </button>
           </div>
         </article>
+
+        <div class="flex justify-center pt-3">
+          <button
+            v-if="hasMore"
+            type="button"
+            @click="loadMore"
+            :disabled="isLoading"
+            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {{ isLoading ? '加载中...' : '加载更多' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -91,7 +141,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
+import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, UserPlus } from 'lucide-vue-next'
 import { notificationApi } from '@/api/notification'
 import type { ApiId, Notification } from '@/api/types'
 import { formatTime } from '@/lib/format'
@@ -105,25 +156,51 @@ const notifications = ref<Notification[]>([])
 const isLoading = ref(false)
 const isMutating = ref(false)
 const emptyText = ref('暂无通知')
+const nextCursor = ref<string | undefined>()
+const hasMore = ref(false)
 const unread = ref({ total: 0, like: 0, comment: 0, favorite: 0, follower: 0, mention: 0, system: 0 })
 
+type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
+
 const tabs = computed(() => [
-  { value: 'all', label: '全部', count: unread.value.total },
-  { value: 'like', label: '点赞', count: unread.value.like },
-  { value: 'comment', label: '评论', count: unread.value.comment },
-  { value: 'favorite', label: '收藏', count: unread.value.favorite },
-  { value: 'follower', label: '关注', count: unread.value.follower },
-  { value: 'mention', label: '提及我', count: unread.value.mention },
-  { value: 'system', label: '系统', count: unread.value.system },
+  { value: 'all', label: '全部', count: unread.value.total, icon: Bell },
+  { value: 'like', label: '点赞', count: unread.value.like, icon: Heart },
+  { value: 'comment', label: '评论', count: unread.value.comment, icon: MessageCircle },
+  { value: 'favorite', label: '收藏', count: unread.value.favorite, icon: Bookmark },
+  { value: 'follower', label: '关注', count: unread.value.follower, icon: UserPlus },
+  { value: 'mention', label: '提及我', count: unread.value.mention, icon: AtSign },
+  { value: 'system', label: '系统', count: unread.value.system, icon: Bell },
 ])
 
+const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
+const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
+
 const iconFor = (type: string) => {
-  if (type === 'like') return '赞'
-  if (type === 'comment') return '评'
-  if (type === 'favorite') return '藏'
-  if (type === 'follower') return '关'
-  if (type === 'mention') return '@'
-  return '信'
+  if (type === 'like') return Heart
+  if (type === 'comment') return MessageCircle
+  if (type === 'favorite') return Bookmark
+  if (type === 'follower') return UserPlus
+  if (type === 'mention') return AtSign
+  return Bell
+}
+
+const iconClass = (type: string) => {
+  if (type === 'like') return 'bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-300'
+  if (type === 'comment') return 'bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-300'
+  if (type === 'favorite') return 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300'
+  if (type === 'follower') return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300'
+  if (type === 'mention') return 'bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300'
+  return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+}
+
+const labelFor = (type: string) => {
+  if (type === 'like') return '点赞'
+  if (type === 'comment') return '评论'
+  if (type === 'favorite') return '收藏'
+  if (type === 'follower') return '关注'
+  if (type === 'mention') return '提及'
+  if (type === 'system') return '系统'
+  return '全部'
 }
 
 const syncUnread = (value: typeof unread.value) => {
@@ -140,8 +217,10 @@ const loadNotifications = async () => {
   isLoading.value = true
   try {
     const type = activeType.value === 'all' ? undefined : activeType.value
-    const res = await notificationApi.getList(type)
+    const res = await notificationApi.getList(type, undefined, 20)
     notifications.value = res.data?.items || []
+    nextCursor.value = res.data?.nextCursor
+    hasMore.value = Boolean(res.data?.hasMore)
     emptyText.value = '暂无通知'
   } catch (error) {
     console.error('Failed to load notifications:', error)
@@ -151,8 +230,24 @@ const loadNotifications = async () => {
   }
 }
 
-const switchTab = async (type: string) => {
+const loadMore = async () => {
+  if (!hasMore.value || isLoading.value) return
+  isLoading.value = true
+  try {
+    const type = activeType.value === 'all' ? undefined : activeType.value
+    const res = await notificationApi.getList(type, nextCursor.value, 20)
+    notifications.value = [...notifications.value, ...(res.data?.items || [])]
+    nextCursor.value = res.data?.nextCursor
+    hasMore.value = Boolean(res.data?.hasMore)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const switchTab = async (type: NotificationType | string) => {
   activeType.value = type
+  nextCursor.value = undefined
+  hasMore.value = false
   await loadNotifications()
 }
 
@@ -189,3 +284,91 @@ onMounted(async () => {
   await Promise.all([loadUnread(), loadNotifications()])
 })
 </script>
+
+<style scoped>
+.metric-card {
+  min-width: 6.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  padding: 0.75rem 0.9rem;
+}
+
+.metric-card span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(100 116 139);
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.35rem;
+  line-height: 1.8rem;
+  color: rgb(15 23 42);
+}
+
+.tab-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 0.6rem;
+  border: 1px solid transparent;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.tab-button-active {
+  border-color: rgb(199 210 254);
+  background: rgb(238 242 255);
+  color: rgb(79 70 229);
+}
+
+.tab-button-idle {
+  color: rgb(71 85 105);
+}
+
+.tab-button-idle:hover {
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
+}
+
+.tab-count {
+  min-width: 1.25rem;
+  border-radius: 999px;
+  background: rgb(220 38 38);
+  padding: 0.05rem 0.35rem;
+  text-align: center;
+  font-size: 0.7rem;
+  color: white;
+}
+
+:global(.dark) .metric-card {
+  border-color: rgb(51 65 85);
+}
+
+:global(.dark) .metric-card span {
+  color: rgb(148 163 184);
+}
+
+:global(.dark) .metric-card strong {
+  color: rgb(241 245 249);
+}
+
+:global(.dark) .tab-button-active {
+  border-color: rgb(67 56 202);
+  background: rgb(30 27 75);
+  color: rgb(199 210 254);
+}
+
+:global(.dark) .tab-button-idle {
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .tab-button-idle:hover {
+  background: rgb(30 41 59);
+  color: rgb(248 250 252);
+}
+</style>

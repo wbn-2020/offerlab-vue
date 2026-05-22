@@ -106,6 +106,8 @@ export interface Notification {
   type: string
   title: string
   content: string
+  sender?: User
+  senderUid?: ApiId
   relatedId?: ApiId
   targetPath?: string
   read: boolean
