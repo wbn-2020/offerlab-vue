@@ -12,6 +12,37 @@
         </RouterLink>
       </div>
 
+      <section class="mb-8 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div class="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto] md:items-end">
+          <label>
+            <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">关键词</span>
+            <input v-model="searchForm.q" class="filter-input" placeholder="面经、技术栈、公司或岗位" @keyup.enter="goSearch" />
+          </label>
+          <label>
+            <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">公司</span>
+            <input v-model="searchForm.company" class="filter-input" placeholder="例如 字节跳动" @keyup.enter="goSearch" />
+          </label>
+          <label>
+            <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">岗位</span>
+            <input v-model="searchForm.position" class="filter-input" placeholder="例如 Java 后端" @keyup.enter="goSearch" />
+          </label>
+          <button type="button" class="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700" @click="goSearch">
+            搜索内容
+          </button>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button
+            v-for="item in quickFilters"
+            :key="item.value"
+            type="button"
+            class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-700 dark:border-slate-700 dark:text-slate-300"
+            @click="applyQuickFilter(item)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+      </section>
+
       <section class="mb-8 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
         <div class="mb-5 flex items-center justify-between gap-4">
           <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">热门标签</h2>
@@ -40,23 +71,33 @@
           <RouterLink to="/search?mode=users" class="text-sm font-medium text-primary-600 hover:text-primary-700">查看更多</RouterLink>
         </div>
         <div v-if="recommendedUsers.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <RouterLink
+          <article
             v-for="user in recommendedUsers"
             :key="user.uid"
-            :to="`/u/${user.uid}`"
             class="rounded-xl border border-slate-200 p-4 text-center transition-colors hover:border-primary-300 dark:border-slate-800 dark:hover:border-primary-700"
           >
-            <div class="mx-auto mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-xl font-bold text-white">
-              <img v-if="user.avatar" :src="user.avatar" :alt="user.nickname" class="h-full w-full object-cover" />
-              <span v-else>{{ user.nickname.charAt(0) || '?' }}</span>
-            </div>
-            <h3 class="truncate font-bold text-slate-900 dark:text-slate-100">{{ user.nickname }}</h3>
-            <p class="mt-1 line-clamp-2 min-h-8 text-xs text-slate-500 dark:text-slate-400">{{ user.signature || '公开用户资料' }}</p>
+            <RouterLink :to="`/u/${user.uid}`" class="block">
+              <div class="mx-auto mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-xl font-bold text-white">
+                <img v-if="user.avatar" :src="user.avatar" :alt="user.nickname" class="h-full w-full object-cover" />
+                <span v-else>{{ user.nickname.charAt(0) || '?' }}</span>
+              </div>
+              <h3 class="truncate font-bold text-slate-900 dark:text-slate-100">{{ user.nickname }}</h3>
+              <p class="mt-1 line-clamp-2 min-h-8 text-xs text-slate-500 dark:text-slate-400">{{ user.signature || '公开用户资料' }}</p>
+            </RouterLink>
             <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span>{{ user.postCount ?? 0 }} 帖子</span>
               <span>{{ user.followerCount ?? 0 }} 粉丝</span>
             </div>
-          </RouterLink>
+            <button
+              type="button"
+              class="mt-4 w-full rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60"
+              :class="user.isFollowing ? 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800' : 'border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950 dark:text-primary-300'"
+              :disabled="isSelf(user) || followingBusyIds.has(String(user.uid))"
+              @click="toggleFollowUser(user)"
+            >
+              {{ user.isFollowing ? '已关注' : '关注' }}
+            </button>
+          </article>
         </div>
         <EmptyState v-else title="暂无推荐用户" description="公开用户资料会展示在这里。" />
       </section>
@@ -104,10 +145,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 import { postApi } from '@/api/post'
 import { userApi } from '@/api/user'
+import { useAuthStore } from '@/stores/auth'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -118,8 +161,78 @@ const recommendedUsers = ref<User[]>([])
 const latestPosts = ref<Post[]>([])
 const isLoadingMeta = ref(true)
 const isLoadingPosts = ref(true)
+const followingBusyIds = ref(new Set<string>())
+const router = useRouter()
+const authStore = useAuthStore()
+
+const searchForm = reactive({
+  q: '',
+  company: '',
+  position: '',
+})
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
+const quickFilters = computed(() => {
+  const companies = new Set<string>()
+  const positions = new Set<string>()
+  latestPosts.value.forEach((post) => {
+    if (post.extension?.company) companies.add(String(post.extension.company))
+    if (post.extension?.position) positions.add(String(post.extension.position))
+  })
+  return [
+    ...Array.from(companies).slice(0, 4).map((value) => ({ label: `公司：${value}`, value, type: 'company' as const })),
+    ...Array.from(positions).slice(0, 4).map((value) => ({ label: `岗位：${value}`, value, type: 'position' as const })),
+  ]
+})
+
+const goSearch = () => {
+  router.push({
+    path: '/search',
+    query: {
+      ...(searchForm.q.trim() ? { q: searchForm.q.trim() } : {}),
+      ...(searchForm.company.trim() ? { company: searchForm.company.trim() } : {}),
+      ...(searchForm.position.trim() ? { position: searchForm.position.trim() } : {}),
+      sort: 'relevance',
+    },
+  })
+}
+
+const applyQuickFilter = (item: { value: string; type: 'company' | 'position' }) => {
+  if (item.type === 'company') {
+    searchForm.company = item.value
+  } else {
+    searchForm.position = item.value
+  }
+  goSearch()
+}
+
+const isSelf = (user: User) => Boolean(authStore.user && String(authStore.user.uid) === String(user.uid))
+
+const toggleFollowUser = async (user: User) => {
+  if (!authStore.isLoggedIn) {
+    toast.error('登录后才能关注用户')
+    return
+  }
+  if (isSelf(user)) return
+  const uid = String(user.uid)
+  followingBusyIds.value = new Set(followingBusyIds.value).add(uid)
+  const wasFollowing = Boolean(user.isFollowing)
+  try {
+    if (wasFollowing) {
+      await userApi.unfollow(user.uid)
+    } else {
+      await userApi.follow(user.uid)
+    }
+    user.isFollowing = !wasFollowing
+    user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
+  } catch (error: any) {
+    toast.error(error?.message || '关注操作失败')
+  } finally {
+    const next = new Set(followingBusyIds.value)
+    next.delete(uid)
+    followingBusyIds.value = next
+  }
+}
 
 onMounted(async () => {
   isLoadingMeta.value = true
@@ -142,3 +255,27 @@ onMounted(async () => {
   isLoadingPosts.value = false
 })
 </script>
+
+<style scoped>
+.filter-input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: rgb(15 23 42);
+  outline: none;
+}
+
+.filter-input:focus {
+  border-color: rgb(99 102 241);
+  box-shadow: 0 0 0 2px rgb(199 210 254);
+}
+
+:global(.dark) .filter-input {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(241 245 249);
+}
+</style>

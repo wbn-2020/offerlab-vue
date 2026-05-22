@@ -25,13 +25,26 @@
           搜索
         </button>
       </div>
-      <div class="mx-auto mt-3 flex max-w-6xl gap-2">
-        <button type="button" :class="['mode-button', searchMode === 'posts' ? 'mode-button-active' : '']" @click="setMode('posts')">
-          内容
-        </button>
-        <button type="button" :class="['mode-button', searchMode === 'users' ? 'mode-button-active' : '']" @click="setMode('users')">
-          用户
-        </button>
+      <div class="mx-auto mt-3 flex max-w-6xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div class="flex gap-2">
+          <button type="button" :class="['mode-button', searchMode === 'posts' ? 'mode-button-active' : '']" @click="setMode('posts')">
+            内容
+          </button>
+          <button type="button" :class="['mode-button', searchMode === 'users' ? 'mode-button-active' : '']" @click="setMode('users')">
+            用户
+          </button>
+        </div>
+        <div v-if="searchMode === 'posts'" class="flex flex-wrap gap-2">
+          <button
+            v-for="option in sortOptions"
+            :key="option.value"
+            type="button"
+            :class="['mode-button', filters.sort === option.value ? 'mode-button-active' : '']"
+            @click="setSort(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -110,6 +123,11 @@
       </aside>
 
       <main class="lg:col-span-3">
+        <div v-if="!isLoading && resultCount > 0" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+          <span>{{ searchMode === 'posts' ? `找到 ${resultCount} 条内容` : `找到 ${resultCount} 位用户` }}</span>
+          <span v-if="searchMode === 'posts'">排序：{{ activeSortLabel }}</span>
+        </div>
+
         <div v-if="isLoading" class="rounded-xl border border-slate-200 bg-white py-12 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
           正在搜索...
         </div>
@@ -198,11 +216,13 @@ const filters = reactive<{
   company: string
   position: string
   type?: number
+  sort: 'relevance' | 'latest' | 'hot'
 }>({
   q: '',
   company: '',
   position: '',
   type: undefined,
+  sort: 'relevance',
 })
 
 const hotWords = ref<string[]>([])
@@ -214,8 +234,14 @@ const searchStatus = ref<SearchStatus | null>(null)
 const isLoading = ref(false)
 const isRebuilding = ref(false)
 const emptyText = ref('输入关键词或筛选条件开始搜索')
+const sortOptions: Array<{ value: 'relevance' | 'latest' | 'hot'; label: string }> = [
+  { value: 'relevance', label: '相关度' },
+  { value: 'latest', label: '最新' },
+  { value: 'hot', label: '热门' },
+]
 const canRebuildIndex = computed(() => Boolean(localStorage.getItem('token')))
 const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
+const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label ?? '相关度')
 const searchStatusText = computed(() => {
   if (!searchStatus.value) return '正在检测搜索状态'
   if (!searchStatus.value.enabled) return 'ES 未启用，当前使用数据库搜索'
@@ -232,6 +258,7 @@ const syncFromRoute = () => {
   filters.position = typeof route.query.position === 'string' ? route.query.position : ''
   const type = Number(route.query.type)
   filters.type = Number.isFinite(type) && type > 0 ? type : undefined
+  filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
   searchMode.value = route.query.mode === 'users' ? 'users' : 'posts'
 }
 
@@ -243,6 +270,7 @@ const pushQuery = () => {
       ...(filters.company.trim() ? { company: filters.company.trim() } : {}),
       ...(filters.position.trim() ? { position: filters.position.trim() } : {}),
       ...(filters.type ? { type: String(filters.type) } : {}),
+      ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
       ...(searchMode.value === 'users' ? { mode: 'users' } : {}),
     },
   })
@@ -269,6 +297,7 @@ const runSearch = async () => {
       company: filters.company || undefined,
       position: filters.position || undefined,
       type: filters.type,
+      sort: filters.sort,
       size: 20,
     })
     searchResults.value = res.data?.items || []
@@ -287,6 +316,7 @@ const resetFilters = async () => {
   filters.company = ''
   filters.position = ''
   filters.type = undefined
+  filters.sort = 'relevance'
   searchResults.value = []
   userResults.value = []
   suggestions.value = []
@@ -320,6 +350,11 @@ const setMode = async (mode: 'posts' | 'users') => {
   searchResults.value = []
   userResults.value = []
   emptyText.value = mode === 'users' ? '输入昵称关键词搜索公开用户' : '输入关键词或筛选条件开始搜索'
+  await runSearch()
+}
+
+const setSort = async (sort: 'relevance' | 'latest' | 'hot') => {
+  filters.sort = sort
   await runSearch()
 }
 

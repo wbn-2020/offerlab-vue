@@ -74,6 +74,9 @@
                 {{ feedLabels[tab] }}
               </button>
             </div>
+            <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              {{ feedDescriptions[activeFeed] }}
+            </p>
           </div>
 
           <div class="space-y-4">
@@ -121,21 +124,31 @@
             <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">推荐用户</h3>
               <div class="space-y-3">
-                <RouterLink
+                <div
                   v-for="user in recommendedUsers"
                   :key="user.uid"
-                  :to="`/u/${user.uid}`"
                   class="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-xs font-bold text-white">
-                    <img v-if="user.avatar" :src="user.avatar" :alt="user.nickname" class="h-full w-full object-cover" />
-                    <span v-else>{{ user.nickname.charAt(0) || '?' }}</span>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{{ user.nickname }}</div>
-                    <div class="truncate text-xs text-slate-500 dark:text-slate-400">{{ user.signature || '公开用户资料' }}</div>
-                  </div>
-                </RouterLink>
+                  <RouterLink :to="`/u/${user.uid}`" class="flex min-w-0 flex-1 items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-xs font-bold text-white">
+                      <img v-if="user.avatar" :src="user.avatar" :alt="user.nickname" class="h-full w-full object-cover" />
+                      <span v-else>{{ user.nickname.charAt(0) || '?' }}</span>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{{ user.nickname }}</div>
+                      <div class="truncate text-xs text-slate-500 dark:text-slate-400">{{ user.signature || '公开用户资料' }}</div>
+                    </div>
+                  </RouterLink>
+                  <button
+                    type="button"
+                    class="shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-60"
+                    :class="user.isFollowing ? 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800' : 'border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950 dark:text-primary-300'"
+                    :disabled="isSelf(user) || followingBusyIds.has(String(user.uid))"
+                    @click="toggleFollowUser(user)"
+                  >
+                    {{ user.isFollowing ? '已关注' : '关注' }}
+                  </button>
+                </div>
               </div>
             </section>
           </div>
@@ -170,9 +183,16 @@ const feedLabels: Record<FeedType, string> = {
   latest: '最新',
   hot: '热门',
 }
+const feedDescriptions: Record<FeedType, string> = {
+  following: '只看你关注作者的最新动态，适合持续追踪熟悉的求职路径。',
+  recommend: '结合近期内容、互动热度和标签完整度重排，优先展示更值得看的帖子。',
+  latest: '按发布时间倒序展示公开内容，适合快速浏览新发布的面经和问答。',
+  hot: '按浏览、点赞、收藏、评论和发布时间计算热度，适合查看正在升温的内容。',
+}
 
 const tags = ref<Tag[]>([])
 const recommendedUsers = ref<User[]>([])
+const followingBusyIds = ref(new Set<string>())
 const { posts, fetchNextPage, hasNextPage, isFetching, isLoading } = useInfiniteFeed(activeFeed)
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
@@ -180,6 +200,7 @@ const topTags = computed(() => sortedTags.value.slice(0, 10))
 const trendingTags = computed(() => sortedTags.value.slice(0, 6))
 
 const findPost = (postId: Post['postId']) => posts.value.find((item) => String(item.postId) === String(postId))
+const isSelf = (user: User) => Boolean(authStore.user && String(authStore.user.uid) === String(user.uid))
 
 const handleLike = async (postId: Post['postId']) => {
   const post = findPost(postId)
@@ -212,6 +233,32 @@ const handleFavorite = async (postId: Post['postId']) => {
     post.counter.favorite = Math.max(0, post.counter.favorite + (favorited ? -1 : 1))
   } catch (error: any) {
     toast.error(error?.message || '收藏操作失败')
+  }
+}
+
+const toggleFollowUser = async (user: User) => {
+  if (!authStore.isLoggedIn) {
+    toast.error('登录后才能关注用户')
+    return
+  }
+  if (isSelf(user)) return
+  const uid = String(user.uid)
+  followingBusyIds.value = new Set(followingBusyIds.value).add(uid)
+  const wasFollowing = Boolean(user.isFollowing)
+  try {
+    if (wasFollowing) {
+      await userApi.unfollow(user.uid)
+    } else {
+      await userApi.follow(user.uid)
+    }
+    user.isFollowing = !wasFollowing
+    user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
+  } catch (error: any) {
+    toast.error(error?.message || '关注操作失败')
+  } finally {
+    const next = new Set(followingBusyIds.value)
+    next.delete(uid)
+    followingBusyIds.value = next
   }
 }
 
