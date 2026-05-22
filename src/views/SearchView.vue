@@ -132,8 +132,36 @@
           正在搜索...
         </div>
 
-        <div v-else-if="resultCount === 0" class="rounded-xl border border-dashed border-slate-300 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
-          <p class="text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+        <div v-else-if="resultCount === 0" class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center dark:border-slate-700 dark:bg-slate-900">
+          <div class="mx-auto max-w-2xl">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+              0
+            </div>
+            <h2 class="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">{{ emptyTitle }}</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+
+            <div class="mt-5 flex flex-wrap justify-center gap-2">
+              <button type="button" class="primary-action" @click="resetFilters">清空筛选</button>
+              <button v-if="searchMode === 'posts'" type="button" class="empty-action" @click="searchHotContent">看热门内容</button>
+              <router-link to="/explore" class="empty-action">去发现页</router-link>
+              <router-link to="/" class="empty-action">回到信息流</router-link>
+            </div>
+
+            <div v-if="searchMode === 'posts' && hotWords.length" class="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+              <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">换个关键词试试</h3>
+              <div class="mt-3 flex flex-wrap justify-center gap-2">
+                <button
+                  v-for="word in hotWords.slice(0, 8)"
+                  :key="word"
+                  type="button"
+                  class="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-primary-50 hover:text-primary-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-primary-950"
+                  @click="useHotWord(word)"
+                >
+                  {{ word }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-else-if="searchMode === 'users'" class="space-y-4">
@@ -242,6 +270,13 @@ const sortOptions: Array<{ value: 'relevance' | 'latest' | 'hot'; label: string 
 const canRebuildIndex = computed(() => Boolean(localStorage.getItem('token')))
 const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
 const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label ?? '相关度')
+const hasActivePostFilters = computed(() => Boolean(filters.q.trim() || filters.company.trim() || filters.position.trim() || filters.type))
+const emptyTitle = computed(() => {
+  if (searchMode.value === 'users') {
+    return filters.q.trim() ? '没有找到这个用户' : '先输入用户昵称'
+  }
+  return hasActivePostFilters.value ? '没有匹配的内容' : '开始探索内容'
+})
 const searchStatusText = computed(() => {
   if (!searchStatus.value) return '正在检测搜索状态'
   if (!searchStatus.value.enabled) return 'ES 未启用，当前使用数据库搜索'
@@ -283,13 +318,13 @@ const runSearch = async () => {
     if (searchMode.value === 'users') {
       if (!filters.q.trim()) {
         userResults.value = []
-        emptyText.value = '输入昵称关键词搜索公开用户'
+        emptyText.value = '可以搜索作者昵称，找到公开资料和他的内容。'
         return
       }
       const res = await userApi.searchUsers(filters.q.trim(), 20)
       userResults.value = res.data || []
       searchResults.value = []
-      emptyText.value = userResults.value.length === 0 ? '没有匹配的公开用户' : ''
+      emptyText.value = userResults.value.length === 0 ? '换一个昵称关键词，或去发现页看看推荐用户。' : ''
       return
     }
     const res = await searchApi.searchPosts({
@@ -302,7 +337,9 @@ const runSearch = async () => {
     })
     searchResults.value = res.data?.items || []
     userResults.value = []
-    emptyText.value = searchResults.value.length === 0 ? '没有匹配的搜索结果' : ''
+    emptyText.value = searchResults.value.length === 0
+      ? '当前关键词或筛选条件太窄，可以清空筛选、换热门关键词，或者去发现页继续浏览。'
+      : ''
   } catch (error) {
     console.error('Failed to search posts:', error)
     emptyText.value = '搜索接口暂不可用'
@@ -323,6 +360,16 @@ const resetFilters = async () => {
   searchMode.value = 'posts'
   emptyText.value = '输入关键词或筛选条件开始搜索'
   await router.replace({ path: '/search' })
+}
+
+const searchHotContent = async () => {
+  searchMode.value = 'posts'
+  filters.q = ''
+  filters.company = ''
+  filters.position = ''
+  filters.type = undefined
+  filters.sort = 'hot'
+  await runSearch()
 }
 
 const useHotWord = async (word: string) => {
@@ -349,7 +396,7 @@ const setMode = async (mode: 'posts' | 'users') => {
   searchMode.value = mode
   searchResults.value = []
   userResults.value = []
-  emptyText.value = mode === 'users' ? '输入昵称关键词搜索公开用户' : '输入关键词或筛选条件开始搜索'
+  emptyText.value = mode === 'users' ? '可以搜索作者昵称，找到公开资料和他的内容。' : '输入关键词或筛选条件开始搜索'
   await runSearch()
 }
 
@@ -440,6 +487,37 @@ onMounted(async () => {
   background: rgb(248 250 252);
 }
 
+.primary-action,
+.empty-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.primary-action {
+  background: rgb(79 70 229);
+  color: white;
+}
+
+.primary-action:hover {
+  background: rgb(67 56 202);
+}
+
+.empty-action {
+  border: 1px solid rgb(226 232 240);
+  color: rgb(51 65 85);
+}
+
+.empty-action:hover {
+  border-color: rgb(199 210 254);
+  color: rgb(67 56 202);
+}
+
 :global(.dark) .filter-label {
   color: rgb(241 245 249);
 }
@@ -463,5 +541,15 @@ onMounted(async () => {
 
 :global(.dark) .secondary-button:hover {
   background: rgb(30 41 59);
+}
+
+:global(.dark) .empty-action {
+  border-color: rgb(51 65 85);
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .empty-action:hover {
+  border-color: rgb(79 70 229);
+  color: rgb(165 180 252);
 }
 </style>
