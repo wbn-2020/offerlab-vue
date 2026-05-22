@@ -34,6 +34,12 @@ const routes = [
     meta: { title: '发布帖子', requiresAuth: true },
   },
   {
+    path: '/editor/:id',
+    name: 'PostEditor',
+    component: () => import('@/views/EditorView.vue'),
+    meta: { title: '编辑帖子', requiresAuth: true },
+  },
+  {
     path: '/u/:uid',
     name: 'UserProfile',
     component: () => import('@/views/UserProfileView.vue'),
@@ -47,6 +53,7 @@ const routes = [
   },
   {
     path: '/me/notifications',
+    alias: '/notifications',
     name: 'Notifications',
     component: () => import('@/views/NotificationsView.vue'),
     meta: { title: '通知', requiresAuth: true },
@@ -62,6 +69,12 @@ const routes = [
     name: 'Search',
     component: () => import('@/views/SearchView.vue'),
     meta: { title: '搜索' },
+  },
+  {
+    path: '/admin/ops',
+    name: 'AdminOps',
+    component: () => import('@/views/OpsView.vue'),
+    meta: { title: '运维中心', requiresAuth: true },
   },
   {
     path: '/tag/:slug',
@@ -104,4 +117,3 @@ const router = createRouter({
 setupRouterGuards(router)
 
 export default router
-

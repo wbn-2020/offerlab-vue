@@ -54,8 +54,7 @@ withDefaults(defineProps<Props>(), {
 
 defineEmits<{
   'load-more': []
-  like: [postId: number]
-  favorite: [postId: number]
+  like: [postId: Post['postId']]
+  favorite: [postId: Post['postId']]
 }>()
 </script>
-

@@ -1,27 +1,51 @@
 import client, { Result } from './client'
+import type { ApiId, Comment, CommentReport, PaginatedResponse, PostReportReq, PostReportReviewReq } from './types'
+import { adaptComment, adaptCommentReport, adaptPage } from './adapters'
 
 export const interactionApi = {
-  like: (postId: number): Promise<Result<{ liked: boolean; likeCount: number }>> =>
+  like: (postId: ApiId): Promise<Result<{ liked: boolean; likeCount?: number }>> =>
     client.post(`/api/v1/posts/${postId}/like`),
 
-  unlike: (postId: number): Promise<Result<{ liked: boolean; likeCount: number }>> =>
+  unlike: (postId: ApiId): Promise<Result<{ liked: boolean; likeCount?: number }>> =>
     client.delete(`/api/v1/posts/${postId}/like`),
 
-  favorite: (postId: number): Promise<Result<{ favorited: boolean }>> =>
+  favorite: (postId: ApiId): Promise<Result<{ favorited: boolean }>> =>
     client.post(`/api/v1/posts/${postId}/favorite`),
 
-  unfavorite: (postId: number): Promise<Result<{ favorited: boolean }>> =>
+  unfavorite: (postId: ApiId): Promise<Result<{ favorited: boolean }>> =>
     client.delete(`/api/v1/posts/${postId}/favorite`),
 
-  comment: (postId: number, content: string, parentId?: number): Promise<Result<any>> =>
-    client.post(`/api/v1/posts/${postId}/comments`, { content, parentId }),
+  getPostInteraction: (postId: ApiId): Promise<Result<{ liked: boolean; favorited: boolean }>> =>
+    client.get(`/api/v1/posts/${postId}/interaction`),
 
-  getComments: (postId: number, cursor?: string, size = 20): Promise<Result<any>> =>
-    client.get(`/api/v1/posts/${postId}/comments`, { params: { cursor, size } }),
+  comment: (postId: ApiId, content: string, parentId?: ApiId, replyToUid?: ApiId): Promise<Result<any>> =>
+    client.post(`/api/v1/posts/${postId}/comments`, { content, parentId, replyToUid }),
 
-  deleteComment: (commentId: number): Promise<Result<void>> =>
+  getComments: async (postId: ApiId, cursor?: string, size = 20): Promise<Result<PaginatedResponse<Comment>>> => {
+    const res = await client.get(`/api/v1/posts/${postId}/comments`, { params: { cursor, size } }) as Result<any>
+    return { ...res, data: res.data ? adaptPage(res.data, adaptComment) : null }
+  },
+
+  deleteComment: (commentId: ApiId): Promise<Result<void>> =>
     client.delete(`/api/v1/comments/${commentId}`),
 
-  likeComment: (commentId: number): Promise<Result<any>> =>
+  likeComment: (commentId: ApiId): Promise<Result<any>> =>
     client.post(`/api/v1/comments/${commentId}/like`),
+
+  unlikeComment: (commentId: ApiId): Promise<Result<any>> =>
+    client.delete(`/api/v1/comments/${commentId}/like`),
+
+  reportComment: (commentId: ApiId, req: PostReportReq): Promise<Result<{ reportId?: ApiId }>> =>
+    client.post(`/api/v1/comments/${commentId}/reports`, req),
+
+  listAdminCommentReports: async (params?: { status?: number; limit?: number }): Promise<Result<CommentReport[]>> => {
+    const res = await client.get('/api/v1/comments/admin/reports', { params }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptCommentReport) : [] }
+  },
+
+  reviewAdminCommentReport: (
+    reportId: ApiId,
+    req: PostReportReviewReq,
+  ): Promise<Result<void>> =>
+    client.post(`/api/v1/comments/admin/reports/${reportId}/review`, req),
 }
