@@ -1,5 +1,7 @@
+export type ApiId = string | number
+
 export interface User {
-  uid: number
+  uid: ApiId
   email?: string
   nickname: string
   avatar: string
@@ -10,10 +12,24 @@ export interface User {
   postCount?: number
   isFollowing?: boolean
   isBigV?: boolean
+  profileVisible?: boolean
+  intentVisible?: boolean
+  privacyReason?: string
+}
+
+export type UserBrief = User
+
+export interface UserIntent {
+  targetCompanies?: string[]
+  targetPositions?: string[]
+  targetPosition?: string
+  targetCity?: string
+  yearsOfExp?: number
+  techStack?: string[]
 }
 
 export interface Post {
-  postId: number
+  postId: ApiId
   postType: number
   title: string
   content: string
@@ -28,6 +44,7 @@ export interface Post {
     favorite: number
   }
   extension?: Record<string, any>
+  recommendationReasons?: string[]
   myInteraction?: {
     liked: boolean
     favorited: boolean
@@ -37,29 +54,77 @@ export interface Post {
 }
 
 export interface Tag {
-  id: number
+  id: ApiId
   name: string
   slug: string
   category?: string
+  count?: number
 }
 
 export interface Comment {
-  commentId: number
-  postId: number
+  commentId: ApiId
+  postId: ApiId
   content: string
   author: User
-  parentId?: number
+  rootId?: ApiId
+  parentId?: ApiId
+  replyToUid?: ApiId
+  replyToUser?: User
   likeCount: number
+  myLiked?: boolean
+  canDelete?: boolean
   createdAt: number
   replies?: Comment[]
 }
 
+export interface PostReportReq {
+  reason?: string
+  detail?: string
+}
+
+export interface PostReportReviewReq {
+  approved?: boolean
+  action?: string
+  status?: number
+  note?: string
+}
+
+export interface PostReport {
+  reportId: ApiId
+  postId: ApiId
+  reporterUid?: ApiId
+  reason: string
+  detail?: string
+  reportStatus?: number
+  reviewerUid?: ApiId
+  reviewNote?: string
+  createTime?: string
+  reviewTime?: string
+}
+
+export interface CommentReport {
+  reportId: ApiId
+  commentId: ApiId
+  postId: ApiId
+  reporterUid?: ApiId
+  reason: string
+  detail?: string
+  reportStatus?: number
+  reviewerUid?: ApiId
+  reviewNote?: string
+  createTime?: string
+  reviewTime?: string
+}
+
 export interface Notification {
-  notificationId: number
+  notificationId: ApiId
   type: string
   title: string
   content: string
-  relatedId?: number
+  sender?: User
+  senderUid?: ApiId
+  relatedId?: ApiId
+  targetPath?: string
   read: boolean
   createdAt: number
 }

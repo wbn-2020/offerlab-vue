@@ -1,5 +1,5 @@
 import client, { Result } from './client'
-import type { User } from './types'
+import type { ApiId, User } from './types'
 import { adaptUser } from './adapters'
 
 export interface LoginReq {
@@ -16,7 +16,7 @@ export interface RegisterReq {
 export interface AuthResp {
   token: string
   user?: User
-  uid?: number
+  uid?: ApiId
 }
 
 export const authApi = {
@@ -28,6 +28,9 @@ export const authApi = {
 
   logout: (): Promise<Result<void>> =>
     client.post('/api/v1/auth/logout'),
+
+  logoutAll: (): Promise<Result<void>> =>
+    client.post('/api/v1/users/me/logout-all'),
 
   fetchMe: async (): Promise<Result<User>> => {
     const res = await client.get('/api/v1/users/me') as Result<any>

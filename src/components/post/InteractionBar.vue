@@ -1,104 +1,88 @@
 <template>
-  <div class="flex items-center justify-between text-sm text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-4">
-    <div class="flex items-center gap-6">
-      <!-- View Count -->
-      <button class="flex items-center gap-2 hover:text-primary-600 transition-colors">
-        <span>👁</span>
-        <span>{{ formatNumber(post.counter.view) }}</span>
-      </button>
+  <div class="flex items-center justify-between border-t border-slate-200 pt-4 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
+    <div class="flex flex-wrap items-center gap-5">
+      <span class="inline-flex items-center gap-2">
+        <Eye class="h-4 w-4" />
+        {{ formatNumber(post.counter.view) }}
+      </span>
 
-      <!-- Like Button -->
       <button
+        type="button"
+        aria-label="点赞帖子"
+        class="inline-flex items-center gap-2 transition-colors hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="!isLoggedIn"
         @click="handleLike"
-        :disabled="!isLoggedIn"
-        class="flex items-center gap-2 hover:text-danger transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <span>{{ post.myInteraction?.liked ? '❤️' : '🤍' }}</span>
-        <span>{{ formatNumber(post.counter.like) }}</span>
+        <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-rose-600' : ''" />
+        {{ formatNumber(post.counter.like) }}
       </button>
 
-      <!-- Comment Button -->
-      <button class="flex items-center gap-2 hover:text-primary-600 transition-colors">
-        <span>💬</span>
-        <span>{{ formatNumber(post.counter.comment) }}</span>
-      </button>
+      <span class="inline-flex items-center gap-2">
+        <MessageCircle class="h-4 w-4" />
+        {{ formatNumber(post.counter.comment) }}
+      </span>
 
-      <!-- Favorite Button -->
       <button
-        @click="handleFavorite"
+        type="button"
+        aria-label="收藏帖子"
+        class="inline-flex items-center gap-2 transition-colors hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="!isLoggedIn"
-        class="flex items-center gap-2 hover:text-accent-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        @click="handleFavorite"
       >
-        <span>{{ post.myInteraction?.favorited ? '⭐' : '☆' }}</span>
-        <span>{{ formatNumber(post.counter.favorite) }}</span>
+        <Star class="h-4 w-4" :class="post.myInteraction?.favorited ? 'fill-current text-amber-500' : ''" />
+        {{ formatNumber(post.counter.favorite) }}
       </button>
     </div>
 
-    <!-- Share Button -->
-    <button class="flex items-center gap-2 hover:text-primary-600 transition-colors">
-      <span>🔗</span>
-      <span>分享</span>
+    <button type="button" class="inline-flex items-center gap-2 transition-colors hover:text-primary-600" aria-label="复制分享链接" @click="copyLink">
+      <Share2 class="h-4 w-4" />
+      分享
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Eye, Heart, MessageCircle, Share2, Star } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
-import { interactionApi } from '@/api/interaction'
 import { toast } from 'vue-sonner'
 
-interface Props {
+const props = defineProps<{
   post: Post
-}
-
-const props = defineProps<Props>()
+}>()
 
 const emit = defineEmits<{
-  like: [postId: number]
-  favorite: [postId: number]
+  like: [postId: Post['postId']]
+  favorite: [postId: Post['postId']]
 }>()
 
 const authStore = useAuthStore()
-
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 
-const handleLike = async () => {
+const handleLike = () => {
   if (!isLoggedIn.value) {
     toast.error('请先登录')
     return
   }
-
-  try {
-    if (props.post.myInteraction?.liked) {
-      await interactionApi.unlike(props.post.postId)
-    } else {
-      await interactionApi.like(props.post.postId)
-    }
-    emit('like', props.post.postId)
-  } catch (error: any) {
-    toast.error(error?.message || '操作失败')
-  }
+  emit('like', props.post.postId)
 }
 
-const handleFavorite = async () => {
+const handleFavorite = () => {
   if (!isLoggedIn.value) {
     toast.error('请先登录')
     return
   }
+  emit('favorite', props.post.postId)
+}
 
+const copyLink = async () => {
   try {
-    if (props.post.myInteraction?.favorited) {
-      await interactionApi.unfavorite(props.post.postId)
-    } else {
-      await interactionApi.favorite(props.post.postId)
-    }
-    emit('favorite', props.post.postId)
-  } catch (error: any) {
-    toast.error(error?.message || '操作失败')
+    await navigator.clipboard.writeText(window.location.href)
+    toast.success('链接已复制')
+  } catch {
+    toast.error('复制失败')
   }
 }
 </script>
-
