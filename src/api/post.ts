@@ -32,7 +32,7 @@ export const postApi = {
     return { ...res, data: res.data ? adaptPost(res.data) : null }
   },
 
-  update: (postId: ApiId, req: PostUpdateReq): Promise<Result<Post>> =>
+  update: (postId: ApiId, req: PostUpdateReq): Promise<Result<void>> =>
     client.put(`/api/v1/posts/${postId}`, req),
 
   delete: (postId: ApiId): Promise<Result<void>> =>

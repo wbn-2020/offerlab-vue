@@ -13,17 +13,20 @@ export interface RegisterReq {
   nickname: string
 }
 
-export interface AuthResp {
+export interface LoginResp {
   token: string
   user?: User
-  uid?: ApiId
+}
+
+export interface RegisterResp {
+  uid: ApiId
 }
 
 export const authApi = {
-  login: (req: LoginReq): Promise<Result<AuthResp>> =>
+  login: (req: LoginReq): Promise<Result<LoginResp>> =>
     client.post('/api/v1/auth/login', req),
 
-  register: (req: RegisterReq): Promise<Result<AuthResp>> =>
+  register: (req: RegisterReq): Promise<Result<RegisterResp>> =>
     client.post('/api/v1/auth/register', req),
 
   logout: (): Promise<Result<void>> =>
