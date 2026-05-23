@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import MarkdownIt from 'markdown-it'
 
 interface Props {
   modelValue: string
@@ -69,28 +70,13 @@ const content = computed({
   set: (value: string) => emit('update:modelValue', value),
 })
 
-// 简单的 Markdown 渲染（实际项目中应使用 markdown-it 或类似库）
-const renderMarkdown = (md: string) => {
-  let html = md
-    .replace(/^### (.*?)$/gm, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
-    .replace(/^## (.*?)$/gm, '<h2 class="text-xl font-bold mt-6 mb-3">$1</h2>')
-    .replace(/^# (.*?)$/gm, '<h1 class="text-2xl font-bold mt-8 mb-4">$1</h1>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-    .replace(/`(.*?)`/g, '<code class="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-sm font-mono">$1</code>')
-    .replace(/\n\n/g, '</p><p class="my-4">')
-    .replace(/^- (.*?)$/gm, '<li class="ml-4">$1</li>')
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+})
 
-  if (html.includes('<li')) {
-    html = html.replace(/(<li.*?<\/li>)/s, '<ul class="list-disc ml-6 my-2">$1</ul>')
-  }
-
-  if (!html.includes('<p')) {
-    html = `<p class="my-4">${html}</p>`
-  }
-
-  return html
-}
+const renderMarkdown = (value: string) => md.render(value || '')
 </script>
 
 <style scoped>

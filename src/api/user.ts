@@ -10,10 +10,17 @@ export interface UserProfileReq {
 
 export interface IntentReq {
   targetCompanies: string[]
-  targetPosition: string
+  targetPositions?: string[]
+  targetPosition?: string
   yearsOfExp: number
-  targetCity: string
+  expectedCity?: string
+  targetCity?: string
   techStack: string[]
+  expectedSalaryRange?: {
+    min: number
+    max: number
+    unit: string
+  }
 }
 
 export interface PrivacySetting {
@@ -54,8 +61,14 @@ export const userApi = {
   logoutAll: (): Promise<Result<void>> =>
     client.post('/api/v1/users/me/logout-all'),
 
-  updateIntent: (req: IntentReq): Promise<Result<void>> =>
-    client.put('/api/v1/users/me/intent', req),
+  updateIntent: (req: IntentReq): Promise<Result<void>> => {
+    const city = req.expectedCity ?? req.targetCity ?? ''
+    return client.put('/api/v1/users/me/intent', {
+      ...req,
+      expectedCity: city,
+      targetCity: city,
+    })
+  },
 
   getPrivacySettings: (): Promise<Result<PrivacySetting>> =>
     client.get('/api/v1/users/me/privacy-settings'),

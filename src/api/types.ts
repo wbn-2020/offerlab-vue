@@ -23,6 +23,7 @@ export interface UserIntent {
   targetCompanies?: string[]
   targetPositions?: string[]
   targetPosition?: string
+  expectedCity?: string
   targetCity?: string
   yearsOfExp?: number
   techStack?: string[]

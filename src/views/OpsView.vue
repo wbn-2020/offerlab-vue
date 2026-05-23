@@ -109,7 +109,7 @@
           <div class="mt-5 space-y-4">
             <div class="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-950">
               <span class="text-sm text-slate-600 dark:text-slate-300">Admin 模式</span>
-              <span :class="['status-pill', status?.adminMode === 'LOCAL_OPEN' || status?.adminMode === 'RBAC_EMPTY' ? 'status-warn' : 'status-ok']">
+              <span :class="['status-pill', adminModeClass]">
                 {{ adminModeText }}
               </span>
             </div>
@@ -569,7 +569,14 @@ const adminModeText = computed(() => {
   if (status.value.adminMode === 'RBAC') return 'RBAC'
   if (status.value.adminMode === 'WHITELIST') return '白名单'
   if (status.value.adminMode === 'RBAC_EMPTY') return 'RBAC 未启用'
+  if (status.value.adminMode === 'LOCKED') return '未开放'
   return '本地宽松模式'
+})
+const adminModeClass = computed(() => {
+  if (!status.value) return 'status-warn'
+  if (status.value.adminMode === 'LOCKED') return 'status-danger'
+  if (status.value.adminMode === 'LOCAL_OPEN' || status.value.adminMode === 'RBAC_EMPTY') return 'status-warn'
+  return 'status-ok'
 })
 const taskStatusClass = computed(() => {
   if (task.value?.status === 'SUCCEEDED') return 'status-ok'
