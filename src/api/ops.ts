@@ -15,7 +15,7 @@ export interface OutboxStatus {
 export interface OpsStatus {
   adminWhitelistEnabled: boolean
   adminRoleEnabled: boolean
-  adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY'
+  adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY' | 'LOCKED'
   search: SearchStatus
   outbox: OutboxStatus
 }

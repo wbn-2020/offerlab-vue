@@ -60,7 +60,8 @@ export function adaptUserIntent(raw: any): UserIntent | null {
     targetCompanies: toStringArray(raw?.targetCompanies ?? raw?.targetCompany),
     targetPositions,
     targetPosition: raw?.targetPosition ?? targetPositions[0],
-    targetCity: raw?.targetCity ?? raw?.city,
+    expectedCity: raw?.expectedCity ?? raw?.targetCity ?? raw?.city,
+    targetCity: raw?.targetCity ?? raw?.expectedCity ?? raw?.city,
     yearsOfExp: Number(raw?.yearsOfExp ?? raw?.experienceYears ?? 0),
     techStack: toStringArray(raw?.techStack ?? raw?.skills),
   }

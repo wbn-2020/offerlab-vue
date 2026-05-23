@@ -6,10 +6,19 @@ export function useAuth() {
 
   const login = async (email: string, password: string) => {
     const result = await authApi.login({ email, password })
-    authStore.setToken(result.data!.token)
-    const me = await authApi.fetchMe()
-    if (me.data) {
-      authStore.setUser(me.data)
+    const token = result.data?.token
+    if (!token) {
+      throw new Error('登录响应缺少 token')
+    }
+    authStore.setToken(token)
+    try {
+      const me = await authApi.fetchMe()
+      if (me.data) {
+        authStore.setUser(me.data)
+      }
+    } catch (error) {
+      authStore.logout()
+      throw error
     }
   }
 
