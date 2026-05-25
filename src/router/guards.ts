@@ -1,11 +1,36 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
+import { opsApi, type MyAdminPermissions } from '@/api/ops'
+
+type AdminPermissionKey = keyof Pick<MyAdminPermissions, 'admin' | 'ops' | 'contentModerator' | 'questionOperator'>
+
+let cachedAdminPermissions: MyAdminPermissions | null = null
+let cachedToken: string | null = null
+let cachedAt = 0
+
+const getAdminPermissions = async (token: string | null) => {
+  if (!token) return null
+  if (cachedToken === token && cachedAdminPermissions && Date.now() - cachedAt < 30_000) return cachedAdminPermissions
+  const res = await opsApi.myPermissions()
+  cachedToken = token
+  cachedAdminPermissions = res.data
+  cachedAt = Date.now()
+  return cachedAdminPermissions
+}
+
+const hasAdminPermission = (permissions: MyAdminPermissions | null, required?: AdminPermissionKey | AdminPermissionKey[]) => {
+  if (!required) return true
+  if (!permissions) return false
+  const requiredList = Array.isArray(required) ? required : [required]
+  return requiredList.some((key) => Boolean(permissions[key]))
+}
 
 export function setupRouterGuards(router: Router) {
   router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
     const requiresAuth = to.meta.requiresAuth as boolean
+    const adminPermission = to.meta.adminPermission as AdminPermissionKey | AdminPermissionKey[] | undefined
 
     if (authStore.token && !authStore.user) {
       try {
@@ -21,6 +46,18 @@ export function setupRouterGuards(router: Router) {
     if (requiresAuth && !authStore.isLoggedIn) {
       next({ name: 'Login', query: { redirect: to.fullPath } })
     } else {
+      if (adminPermission) {
+        try {
+          const permissions = await getAdminPermissions(authStore.token)
+          if (!hasAdminPermission(permissions, adminPermission)) {
+            next({ name: 'Home', query: { denied: 'admin' } })
+            return
+          }
+        } catch {
+          next({ name: 'Home', query: { denied: 'admin' } })
+          return
+        }
+      }
       next()
     }
   })
