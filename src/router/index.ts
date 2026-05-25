@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { setupRouterGuards } from './guards'
 
 const routes = [
@@ -98,7 +97,7 @@ const routes = [
     path: '/admin/ops',
     name: 'AdminOps',
     component: () => import('@/views/OpsView.vue'),
-    meta: { title: '运维中心', requiresAuth: true, adminPermission: 'ops' },
+    meta: { title: '运维中心', requiresAuth: true, adminPermission: ['ops', 'questionOperator', 'contentModerator', 'admin'] },
   },
   {
     path: '/admin/questions',
@@ -141,6 +140,12 @@ const routes = [
     name: 'About',
     component: () => import('@/views/AboutView.vue'),
     meta: { title: '关于' },
+  },
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('@/views/ForbiddenView.vue'),
+    meta: { title: '无权访问', requiresAuth: true },
   },
   {
     path: '/:pathMatch(.*)*',

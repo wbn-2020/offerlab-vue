@@ -118,7 +118,7 @@ const adminLinks = computed(() => {
   const value = permissions.value
   if (!value) return []
   const links: Array<{ to: string; label: string }> = []
-  if (value.ops) links.push({ to: '/admin/ops', label: '运维中心' })
+  if (value.ops || value.questionOperator || value.contentModerator || value.admin) links.push({ to: '/admin/ops', label: '运维中心' })
   if (value.questionOperator) {
     links.push({ to: '/admin/questions', label: '题目审核' })
     links.push({ to: '/admin/company-aliases', label: '公司别名维护' })

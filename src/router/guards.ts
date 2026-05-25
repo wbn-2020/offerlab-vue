@@ -2,8 +2,7 @@ import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
-
-type AdminPermissionKey = keyof Pick<MyAdminPermissions, 'admin' | 'ops' | 'contentModerator' | 'questionOperator'>
+import { adminPermissionRequirementText, hasAdminPermission, type AdminPermissionKey } from '@/utils/adminPermissions'
 
 let cachedAdminPermissions: MyAdminPermissions | null = null
 let cachedToken: string | null = null
@@ -17,13 +16,6 @@ const getAdminPermissions = async (token: string | null) => {
   cachedAdminPermissions = res.data
   cachedAt = Date.now()
   return cachedAdminPermissions
-}
-
-const hasAdminPermission = (permissions: MyAdminPermissions | null, required?: AdminPermissionKey | AdminPermissionKey[]) => {
-  if (!required) return true
-  if (!permissions) return false
-  const requiredList = Array.isArray(required) ? required : [required]
-  return requiredList.some((key) => Boolean(permissions[key]))
 }
 
 export function setupRouterGuards(router: Router) {
@@ -50,11 +42,17 @@ export function setupRouterGuards(router: Router) {
         try {
           const permissions = await getAdminPermissions(authStore.token)
           if (!hasAdminPermission(permissions, adminPermission)) {
-            next({ name: 'Home', query: { denied: 'admin' } })
+            next({
+              name: 'Forbidden',
+              query: {
+                from: to.fullPath,
+                role: adminPermissionRequirementText(adminPermission),
+              },
+            })
             return
           }
         } catch {
-          next({ name: 'Home', query: { denied: 'admin' } })
+          next({ name: 'Forbidden', query: { from: to.fullPath } })
           return
         }
       }

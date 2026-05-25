@@ -14,7 +14,7 @@
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isOutboxLoading }" />
             刷新状态
           </button>
-          <button type="button" class="primary-button" :disabled="isSubmitting || isTaskActive" @click="submitRebuild">
+          <button v-if="canOps" type="button" class="primary-button" :disabled="isSubmitting || isTaskActive" @click="submitRebuild">
             <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': isSubmitting || isTaskActive }" />
             {{ isTaskActive ? '重建中' : '重建索引' }}
           </button>
@@ -25,7 +25,7 @@
         {{ loadError }}
       </section>
 
-      <section class="grid gap-4 md:grid-cols-3">
+      <section v-if="canOps" class="grid gap-4 md:grid-cols-3">
         <article class="metric-card">
           <div class="flex items-start justify-between gap-4">
             <div>
@@ -59,7 +59,7 @@
       </section>
 
       <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <article class="panel">
+        <article v-if="canOps" class="panel">
           <div class="flex flex-col gap-2 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">索引重建任务</h2>
@@ -99,7 +99,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article v-if="canAdmin" class="panel">
           <div class="flex items-center justify-between gap-3">
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">权限状态</h2>
             <button type="button" class="icon-button" title="刷新管理员" :disabled="isAdminsLoading" @click="loadAdmins">
@@ -174,7 +174,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article v-if="canModerate" class="panel">
           <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">评论举报审核</h2>
@@ -264,7 +264,7 @@
         </article>
       </section>
 
-      <section class="panel">
+      <section v-if="canOps" class="panel">
         <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">Outbox 消息</h2>
@@ -358,7 +358,7 @@
       </section>
 
       <section class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <article class="panel">
+        <article v-if="canQuestion" class="panel">
           <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">AI 题目提取任务</h2>
@@ -412,7 +412,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article v-if="canOps" class="panel">
           <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">最近索引任务</h2>
@@ -445,7 +445,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article v-if="canModerate" class="panel">
           <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">帖子举报审核</h2>
@@ -569,13 +569,14 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { opsApi, type AdminUserRole, type AiExtractTask, type OpsStatus, type OutboxMessage } from '@/api/ops'
+import { opsApi, type AdminUserRole, type AiExtractTask, type MyAdminPermissions, type OpsStatus, type OutboxMessage } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import type { ApiId, CommentReport, PostReport } from '@/api/types'
 
 const status = ref<OpsStatus | null>(null)
+const permissions = ref<MyAdminPermissions | null>(null)
 const task = ref<SearchIndexTask | null>(null)
 const adminUsers = ref<AdminUserRole[]>([])
 const outboxMessages = ref<OutboxMessage[]>([])
@@ -623,6 +624,10 @@ const reportFilters = [
   { label: '全部', value: undefined },
 ]
 
+const canOps = computed(() => Boolean(permissions.value?.ops || permissions.value?.admin))
+const canAdmin = computed(() => Boolean(permissions.value?.admin))
+const canQuestion = computed(() => Boolean(permissions.value?.questionOperator || permissions.value?.admin))
+const canModerate = computed(() => Boolean(permissions.value?.contentModerator || permissions.value?.admin))
 const isTaskActive = computed(() => task.value?.status === 'PENDING' || task.value?.status === 'RUNNING')
 const searchOnlineText = computed(() => {
   if (!status.value) return '--'
@@ -661,7 +666,18 @@ const taskTimeText = computed(() => {
   return `最近更新：${task.value.updatedAt.replace('T', ' ')}`
 })
 
+const loadPermissions = async () => {
+  try {
+    const res = await opsApi.myPermissions()
+    permissions.value = res.data
+  } catch (error: any) {
+    loadError.value = error?.message || '管理权限接口暂不可用'
+    permissions.value = null
+  }
+}
+
 const loadStatus = async () => {
+  if (!canOps.value) return
   isLoading.value = true
   loadError.value = ''
   try {
@@ -675,6 +691,7 @@ const loadStatus = async () => {
 }
 
 const loadOutbox = async () => {
+  if (!canOps.value) return
   isOutboxLoading.value = true
   try {
     const res = await opsApi.listOutbox({ status: outboxStatusFilter.value, limit: 30 })
@@ -691,6 +708,7 @@ const loadOutbox = async () => {
 }
 
 const loadAiTasks = async () => {
+  if (!canQuestion.value) return
   isAiTasksLoading.value = true
   try {
     const res = await opsApi.listAiTasks({ limit: 20 })
@@ -704,6 +722,7 @@ const loadAiTasks = async () => {
 }
 
 const loadTasks = async () => {
+  if (!canOps.value) return
   isTasksLoading.value = true
   try {
     const res = await searchApi.listRebuildTasks(10)
@@ -717,6 +736,7 @@ const loadTasks = async () => {
 }
 
 const loadReports = async () => {
+  if (!canModerate.value) return
   isReportsLoading.value = true
   try {
     const res = await postApi.listAdminReports({ status: reportStatusFilter.value, limit: 20 })
@@ -730,6 +750,7 @@ const loadReports = async () => {
 }
 
 const loadCommentReports = async () => {
+  if (!canModerate.value) return
   isCommentReportsLoading.value = true
   try {
     const res = await interactionApi.listAdminCommentReports({ status: commentReportStatusFilter.value, limit: 20 })
@@ -743,6 +764,7 @@ const loadCommentReports = async () => {
 }
 
 const loadAdmins = async () => {
+  if (!canAdmin.value) return
   isAdminsLoading.value = true
   try {
     const res = await opsApi.listAdmins({ limit: 50 })
@@ -756,7 +778,13 @@ const loadAdmins = async () => {
 }
 
 const refreshAll = async () => {
-  await Promise.all([loadStatus(), loadOutbox(), loadAiTasks(), loadAdmins(), loadTasks(), loadReports(), loadCommentReports()])
+  await loadPermissions()
+  const loaders: Array<Promise<void>> = []
+  if (canOps.value) loaders.push(loadStatus(), loadOutbox(), loadTasks())
+  if (canQuestion.value) loaders.push(loadAiTasks())
+  if (canAdmin.value) loaders.push(loadAdmins())
+  if (canModerate.value) loaders.push(loadReports(), loadCommentReports())
+  await Promise.all(loaders)
 }
 
 const setOutboxStatus = async (statusValue?: number) => {
