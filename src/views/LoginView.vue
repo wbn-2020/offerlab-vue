@@ -11,13 +11,13 @@
 
         <!-- Form -->
         <form @submit.prevent="handleSubmit" class="space-y-4">
-          <!-- Email Field -->
+          <!-- Account Field -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">邮箱</label>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">账号或邮箱</label>
             <input
               v-model="form.email"
-              type="email"
-              placeholder="your@email.com"
+              type="text"
+              placeholder="admin / user1 / your@email.com"
               class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
               :disabled="isLoading"
             />
@@ -69,7 +69,7 @@
       <!-- Demo Hint -->
       <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
         <p class="text-xs text-blue-700 dark:text-blue-300">
-          <strong>演示账号：</strong> demo@example.com / password123
+          <strong>演示账号：</strong> admin / admin123，user1 / user123
         </p>
       </div>
     </div>
@@ -101,7 +101,7 @@ const errors = reactive({
 
 // Validation schema
 const loginSchema = z.object({
-  email: z.string().email('请输入有效的邮箱地址'),
+  email: z.string().min(1, '请输入账号或邮箱'),
   password: z.string().min(6, '密码至少 6 位'),
 })
 
@@ -134,11 +134,10 @@ const handleSubmit = async () => {
     const redirect = route.query.redirect as string
     router.push(redirect || '/')
   } catch (error: any) {
-    const message = getErrorMessage(error, '登录失败，请检查邮箱和密码')
+    const message = getErrorMessage(error, '登录失败，请检查账号和密码')
     toast.error(message)
   } finally {
     isLoading.value = false
   }
 }
 </script>
-
