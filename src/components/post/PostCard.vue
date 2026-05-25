@@ -133,6 +133,7 @@ import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 
 const props = defineProps<{
   post: Post
@@ -217,7 +218,7 @@ const handleFollow = async () => {
       toast.success('已关注')
     }
   } catch (error: any) {
-    toast.error(error?.message || '关注操作失败')
+    toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     isFollowing.value = false
   }

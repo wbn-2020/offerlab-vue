@@ -127,6 +127,7 @@ import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Bookmark, FileText, Heart, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import UserCard from '@/components/user/UserCard.vue'
@@ -276,7 +277,7 @@ const handleLike = async (postId: ApiId) => {
       removeFromState(likedPosts, postId)
     }
   } catch (error: any) {
-    toast.error(error?.message || '点赞操作失败')
+    toast.error(getErrorMessage(error, '点赞操作失败'))
   }
 }
 
@@ -294,7 +295,7 @@ const handleFavorite = async (postId: ApiId) => {
       removeFromState(favorites, postId)
     }
   } catch (error: any) {
-    toast.error(error?.message || '收藏操作失败')
+    toast.error(getErrorMessage(error, '收藏操作失败'))
   }
 }
 

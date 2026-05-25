@@ -148,6 +148,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import { postApi } from '@/api/post'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
@@ -226,7 +227,7 @@ const toggleFollowUser = async (user: User) => {
     user.isFollowing = !wasFollowing
     user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '关注操作失败')
+    toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     const next = new Set(followingBusyIds.value)
     next.delete(uid)

@@ -54,6 +54,7 @@ import { onMounted, ref, watch } from 'vue'
 import { questionApi, type PostQuestionBlock } from '@/api/question'
 import type { ApiId } from '@/api/types'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 
 const props = defineProps<{
   postId: ApiId
@@ -83,7 +84,7 @@ const retry = async () => {
     toast.success('已提交重新提取任务')
     await load()
   } catch (error: any) {
-    toast.error(error?.message || '重新提取失败')
+    toast.error(getErrorMessage(error, '重新提取失败'))
   } finally {
     isRetrying.value = false
   }

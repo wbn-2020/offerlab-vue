@@ -101,6 +101,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import { userApi } from '@/api/user'
 import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
@@ -140,7 +141,7 @@ const loadProfile = async () => {
     userIntent.value = intent.data
     posts.value = authoredPosts.data?.items || []
   } catch (error: any) {
-    loadError.value = error?.message || '用户资料加载失败'
+    loadError.value = getErrorMessage(error, '用户资料加载失败')
   } finally {
     isLoading.value = false
   }
@@ -160,7 +161,7 @@ const toggleFollow = async () => {
     }
     user.value.isFollowing = !user.value.isFollowing
   } catch (error: any) {
-    toast.error(error?.message || '关注操作失败')
+    toast.error(getErrorMessage(error, '关注操作失败'))
   }
 }
 

@@ -118,6 +118,7 @@ import { ListChecks, Power, RefreshCw, Save, Search } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import { getErrorMessage } from '@/api/client'
 import { opsApi, type CompanyAlias } from '@/api/ops'
 
 const aliases = ref<CompanyAlias[]>([])
@@ -141,7 +142,7 @@ const loadAliases = async () => {
       refreshed ? selectAlias(refreshed) : resetForm()
     }
   } catch (error: any) {
-    toast.error(error?.message || '公司别名加载失败')
+    toast.error(getErrorMessage(error, '公司别名加载失败'))
     aliases.value = []
   } finally {
     isLoading.value = false
@@ -173,7 +174,7 @@ const saveAlias = async () => {
     if (res.data) selectAlias(res.data)
     await loadAliases()
   } catch (error: any) {
-    toast.error(error?.message || '公司别名保存失败，可能已存在相同别名')
+    toast.error(getErrorMessage(error, '公司别名保存失败，可能已存在相同别名'))
   } finally {
     isSaving.value = false
   }
@@ -188,7 +189,7 @@ const toggleStatus = async () => {
     toast.success(nextStatus === 1 ? '别名已启用' : '别名已停用')
     await loadAliases()
   } catch (error: any) {
-    toast.error(error?.message || '状态更新失败')
+    toast.error(getErrorMessage(error, '状态更新失败'))
   } finally {
     isSaving.value = false
   }

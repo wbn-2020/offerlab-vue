@@ -55,6 +55,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { postApi } from '@/api/post'
@@ -133,7 +134,7 @@ const handleLike = async (postId: ApiId) => {
     post.myInteraction = { ...(post.myInteraction ?? { favorited: false }), liked: !liked }
     post.counter.like = Math.max(0, post.counter.like + (liked ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '点赞操作失败')
+    toast.error(getErrorMessage(error, '点赞操作失败'))
   }
 }
 
@@ -146,7 +147,7 @@ const handleFavorite = async (postId: ApiId) => {
     post.myInteraction = { ...(post.myInteraction ?? { liked: false }), favorited: !favorited }
     post.counter.favorite = Math.max(0, post.counter.favorite + (favorited ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '收藏操作失败')
+    toast.error(getErrorMessage(error, '收藏操作失败'))
   }
 }
 

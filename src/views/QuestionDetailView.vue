@@ -88,6 +88,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { questionApi } from '@/api/question'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 
 const route = useRoute()
 const router = useRouter()
@@ -124,7 +125,7 @@ const toggleFavorite = async () => {
     }
     await refetch()
   } catch (error: any) {
-    toast.error(error?.message || '收藏操作失败')
+    toast.error(getErrorMessage(error, '收藏操作失败'))
   }
 }
 
@@ -134,7 +135,7 @@ const updateProgress = async () => {
     await questionApi.updateProgress(question.value.id, selectedProgress.value)
     await refetch()
   } catch (error: any) {
-    toast.error(error?.message || '学习状态更新失败')
+    toast.error(getErrorMessage(error, '学习状态更新失败'))
   }
 }
 

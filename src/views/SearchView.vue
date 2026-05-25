@@ -165,6 +165,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { FileText, Search, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { interactionApi } from '@/api/interaction'
@@ -368,7 +369,7 @@ const rebuildIndex = async () => {
     toast.success(res.data?.taskId ? `索引重建任务已提交: ${res.data.taskId}` : '索引重建任务已提交')
     await loadSearchStatus()
   } catch (error: any) {
-    toast.error(error?.message || '索引重建提交失败')
+    toast.error(getErrorMessage(error, '索引重建提交失败'))
   } finally {
     isRebuilding.value = false
   }
@@ -385,7 +386,7 @@ const handleLike = async (postId: ApiId) => {
     post.myInteraction = { ...(post.myInteraction ?? { favorited: false }), liked: !liked }
     post.counter.like = Math.max(0, post.counter.like + (liked ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '点赞操作失败')
+    toast.error(getErrorMessage(error, '点赞操作失败'))
   }
 }
 
@@ -398,7 +399,7 @@ const handleFavorite = async (postId: ApiId) => {
     post.myInteraction = { ...(post.myInteraction ?? { liked: false }), favorited: !favorited }
     post.counter.favorite = Math.max(0, post.counter.favorite + (favorited ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '收藏操作失败')
+    toast.error(getErrorMessage(error, '收藏操作失败'))
   }
 }
 

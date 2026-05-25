@@ -136,6 +136,7 @@ import { RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import { getErrorMessage } from '@/api/client'
 import { opsApi } from '@/api/ops'
 import type { Question } from '@/api/question'
 
@@ -182,7 +183,7 @@ const loadQuestions = async () => {
       if (refreshed) selectQuestion(refreshed)
     }
   } catch (error: any) {
-    toast.error(error?.message || '题目列表加载失败')
+    toast.error(getErrorMessage(error, '题目列表加载失败'))
     questions.value = []
   } finally {
     isLoading.value = false
@@ -224,7 +225,7 @@ const saveQuestion = async () => {
     if (res.data) selectQuestion(res.data)
     await loadQuestions()
   } catch (error: any) {
-    toast.error(error?.message || '题目保存失败')
+    toast.error(getErrorMessage(error, '题目保存失败'))
   } finally {
     isSaving.value = false
   }
@@ -258,7 +259,7 @@ const batchReview = async (status: number) => {
     selectedIds.value = []
     await loadQuestions()
   } catch (error: any) {
-    toast.error(error?.message || '批量审核失败')
+    toast.error(getErrorMessage(error, '批量审核失败'))
   } finally {
     isBatching.value = false
   }

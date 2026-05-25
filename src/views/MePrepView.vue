@@ -94,6 +94,7 @@ import { computed, defineComponent, h, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -121,7 +122,7 @@ const addTarget = async () => {
     toast.success('准备目标已添加')
     await refetch()
   } catch (error: any) {
-    toast.error(error?.message || '添加准备目标失败')
+    toast.error(getErrorMessage(error, '添加准备目标失败'))
   } finally {
     isSubmittingTarget.value = false
   }
@@ -134,7 +135,7 @@ const deleteTarget = async (id: ApiId) => {
     toast.success('准备目标已移除')
     await refetch()
   } catch (error: any) {
-    toast.error(error?.message || '移除准备目标失败')
+    toast.error(getErrorMessage(error, '移除准备目标失败'))
   } finally {
     deletingTargetId.value = null
   }

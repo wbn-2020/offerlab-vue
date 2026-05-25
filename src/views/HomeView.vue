@@ -170,6 +170,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
@@ -228,7 +229,7 @@ const handleLike = async (postId: Post['postId']) => {
     post.myInteraction = { ...(post.myInteraction ?? { favorited: false }), liked: !liked }
     post.counter.like = Math.max(0, post.counter.like + (liked ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '点赞操作失败')
+    toast.error(getErrorMessage(error, '点赞操作失败'))
   }
 }
 
@@ -245,7 +246,7 @@ const handleFavorite = async (postId: Post['postId']) => {
     post.myInteraction = { ...(post.myInteraction ?? { liked: false }), favorited: !favorited }
     post.counter.favorite = Math.max(0, post.counter.favorite + (favorited ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '收藏操作失败')
+    toast.error(getErrorMessage(error, '收藏操作失败'))
   }
 }
 
@@ -259,7 +260,7 @@ const handleRecommendFeedback = async (postId: Post['postId'], reason: string) =
     locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(String(postId))
     toast.success('已减少类似推荐')
   } catch (error: any) {
-    toast.error(error?.message || '推荐反馈提交失败')
+    toast.error(getErrorMessage(error, '推荐反馈提交失败'))
   }
 }
 
@@ -281,7 +282,7 @@ const toggleFollowUser = async (user: User) => {
     user.isFollowing = !wasFollowing
     user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '关注操作失败')
+    toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     const next = new Set(followingBusyIds.value)
     next.delete(uid)

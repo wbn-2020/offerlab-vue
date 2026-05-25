@@ -123,7 +123,7 @@
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
-              <tr><th>ID</th><th>操作者</th><th>动作</th><th>对象</th><th>备注</th></tr>
+              <tr><th>ID</th><th>操作者</th><th>动作</th><th>对象</th><th>备注</th><th class="text-right">详情</th></tr>
             </thead>
             <tbody>
               <tr v-for="item in auditLogs" :key="item.id">
@@ -132,12 +132,46 @@
                 <td>{{ item.action }}</td>
                 <td>{{ item.resourceType }} / {{ item.resourceId || '--' }}</td>
                 <td>{{ item.remark || '--' }}</td>
+                <td class="text-right">
+                  <button type="button" class="text-button" @click="selectedAudit = item">查看</button>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
     </main>
+
+    <div v-if="selectedAudit" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <article class="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Audit Detail</p>
+            <h2 class="mt-1 text-lg font-bold text-slate-950 dark:text-slate-50">{{ selectedAudit.action }}</h2>
+            <p class="mt-1 text-sm text-slate-500">{{ selectedAudit.resourceType }} / {{ selectedAudit.resourceId || '--' }}</p>
+          </div>
+          <button type="button" class="secondary-button" @click="selectedAudit = null">关闭</button>
+        </div>
+        <div class="grid max-h-[68vh] gap-4 overflow-auto p-5 lg:grid-cols-2">
+          <div class="detail-card">
+            <span>操作者</span>
+            <strong>{{ selectedAudit.operatorUid || '--' }}</strong>
+          </div>
+          <div class="detail-card">
+            <span>备注</span>
+            <strong>{{ selectedAudit.remark || '--' }}</strong>
+          </div>
+          <div class="lg:col-span-2">
+            <h3 class="mb-2 text-sm font-bold text-slate-700 dark:text-slate-200">变更前</h3>
+            <pre class="json-box">{{ formatJson(selectedAudit.beforeJson) }}</pre>
+          </div>
+          <div class="lg:col-span-2">
+            <h3 class="mb-2 text-sm font-bold text-slate-700 dark:text-slate-200">变更后</h3>
+            <pre class="json-box">{{ formatJson(selectedAudit.afterJson) }}</pre>
+          </div>
+        </div>
+      </article>
+    </div>
   </div>
 </template>
 
@@ -146,6 +180,7 @@ import { defineComponent, h, onMounted, reactive, ref } from 'vue'
 import { RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import { getErrorMessage } from '@/api/client'
 import { opsApi, type AdminAuditLog, type MigrationStatus, type ModerationKeyword, type UserModerationState } from '@/api/ops'
 
 const tabs = [
@@ -162,6 +197,7 @@ const migration = ref<MigrationStatus | null>(null)
 const keywords = ref<ModerationKeyword[]>([])
 const users = ref<UserModerationState[]>([])
 const auditLogs = ref<AdminAuditLog[]>([])
+const selectedAudit = ref<AdminAuditLog | null>(null)
 const selectedKeyword = ref<ModerationKeyword | null>(null)
 const keywordForm = reactive({ keyword: '', scope: 'ALL', matchType: 'CONTAINS', action: 'BLOCK', enabled: 1, remark: '' })
 const userForm = reactive({ uid: '', muteHours: 0, banHours: 0, reason: '' })
@@ -198,7 +234,7 @@ const refreshAll = async () => {
       toast.error('治理数据加载失败')
     }
   } catch (error: any) {
-    toast.error(error?.message || '治理数据加载失败')
+    toast.error(getErrorMessage(error, '治理数据加载失败'))
   } finally {
     isLoading.value = false
   }
@@ -235,7 +271,7 @@ const saveKeyword = async () => {
     resetKeyword()
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '关键词保存失败')
+    toast.error(getErrorMessage(error, '关键词保存失败'))
   } finally {
     isSaving.value = false
   }
@@ -257,13 +293,22 @@ const saveUserState = async () => {
     userForm.reason = ''
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '用户限制保存失败')
+    toast.error(getErrorMessage(error, '用户限制保存失败'))
   } finally {
     isSaving.value = false
   }
 }
 
 const formatTime = (value?: string) => value ? value.replace('T', ' ').slice(0, 19) : '--'
+
+const formatJson = (value?: string) => {
+  if (!value) return '--'
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
+}
 
 onMounted(refreshAll)
 </script>
@@ -293,6 +338,12 @@ onMounted(refreshAll)
   border: 1px solid rgb(226 232 240);
   background: white;
   color: rgb(51 65 85);
+}
+
+.text-button {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(37 99 235);
 }
 
 .tabs {
@@ -403,6 +454,37 @@ onMounted(refreshAll)
   font-size: 0.875rem;
 }
 
+.detail-card {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.875rem;
+}
+
+.detail-card span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(100 116 139);
+}
+
+.detail-card strong {
+  margin-top: 0.35rem;
+  display: block;
+  word-break: break-all;
+  color: rgb(15 23 42);
+}
+
+.json-box {
+  max-height: 260px;
+  overflow: auto;
+  border-radius: 0.5rem;
+  background: rgb(15 23 42);
+  padding: 1rem;
+  color: rgb(226 232 240);
+  font-size: 0.8125rem;
+}
+
 :global(.dark) .panel,
 :global(.dark) .metric-card,
 :global(.dark) .secondary-button,
@@ -423,5 +505,14 @@ onMounted(refreshAll)
 :global(.dark) .row-card,
 :global(.dark) .status-list {
   background: rgb(2 6 23);
+}
+
+:global(.dark) .detail-card {
+  border-color: rgb(30 41 59);
+  background: rgb(2 6 23);
+}
+
+:global(.dark) .detail-card strong {
+  color: rgb(248 250 252);
 }
 </style>

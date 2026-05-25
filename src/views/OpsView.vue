@@ -569,6 +569,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import { opsApi, type AdminUserRole, type AiExtractTask, type MyAdminPermissions, type OpsStatus, type OutboxMessage } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
@@ -671,7 +672,7 @@ const loadPermissions = async () => {
     const res = await opsApi.myPermissions()
     permissions.value = res.data
   } catch (error: any) {
-    loadError.value = error?.message || '管理权限接口暂不可用'
+    loadError.value = getErrorMessage(error, '管理权限接口暂不可用')
     permissions.value = null
   }
 }
@@ -684,7 +685,7 @@ const loadStatus = async () => {
     const res = await opsApi.status()
     status.value = res.data
   } catch (error: any) {
-    loadError.value = error?.message || '运维状态接口暂不可用'
+    loadError.value = getErrorMessage(error, '运维状态接口暂不可用')
   } finally {
     isLoading.value = false
   }
@@ -700,7 +701,7 @@ const loadOutbox = async () => {
       outboxMessages.value.some((message) => message.id === id && message.msgStatus === 2),
     )
   } catch (error: any) {
-    toast.error(error?.message || 'Outbox 消息加载失败')
+    toast.error(getErrorMessage(error, 'Outbox 消息加载失败'))
     outboxMessages.value = []
   } finally {
     isOutboxLoading.value = false
@@ -714,7 +715,7 @@ const loadAiTasks = async () => {
     const res = await opsApi.listAiTasks({ limit: 20 })
     aiTasks.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || 'AI 任务加载失败')
+    toast.error(getErrorMessage(error, 'AI 任务加载失败'))
     aiTasks.value = []
   } finally {
     isAiTasksLoading.value = false
@@ -728,7 +729,7 @@ const loadTasks = async () => {
     const res = await searchApi.listRebuildTasks(10)
     recentTasks.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || '索引任务加载失败')
+    toast.error(getErrorMessage(error, '索引任务加载失败'))
     recentTasks.value = []
   } finally {
     isTasksLoading.value = false
@@ -742,7 +743,7 @@ const loadReports = async () => {
     const res = await postApi.listAdminReports({ status: reportStatusFilter.value, limit: 20 })
     postReports.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || '举报列表加载失败')
+    toast.error(getErrorMessage(error, '举报列表加载失败'))
     postReports.value = []
   } finally {
     isReportsLoading.value = false
@@ -756,7 +757,7 @@ const loadCommentReports = async () => {
     const res = await interactionApi.listAdminCommentReports({ status: commentReportStatusFilter.value, limit: 20 })
     commentReports.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || '评论举报列表加载失败')
+    toast.error(getErrorMessage(error, '评论举报列表加载失败'))
     commentReports.value = []
   } finally {
     isCommentReportsLoading.value = false
@@ -770,7 +771,7 @@ const loadAdmins = async () => {
     const res = await opsApi.listAdmins({ limit: 50 })
     adminUsers.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || '管理员列表加载失败')
+    toast.error(getErrorMessage(error, '管理员列表加载失败'))
     adminUsers.value = []
   } finally {
     isAdminsLoading.value = false
@@ -835,7 +836,7 @@ const submitRebuild = async () => {
       toast.success('索引重建任务已提交')
     }
   } catch (error: any) {
-    toast.error(error?.message || '提交重建任务失败')
+    toast.error(getErrorMessage(error, '提交重建任务失败'))
   } finally {
     isSubmitting.value = false
   }
@@ -857,7 +858,7 @@ const retryMessage = async (message: OutboxMessage) => {
     toast.success('失败消息已重置为待投递')
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '重试失败消息失败')
+    toast.error(getErrorMessage(error, '重试失败消息失败'))
   } finally {
     retryingId.value = null
   }
@@ -870,7 +871,7 @@ const retryAiTask = async (task: AiExtractTask) => {
     toast.success('AI 提取任务已重试')
     await loadAiTasks()
   } catch (error: any) {
-    toast.error(error?.message || 'AI 任务重试失败')
+    toast.error(getErrorMessage(error, 'AI 任务重试失败'))
   } finally {
     retryingAiTaskId.value = null
   }
@@ -883,7 +884,7 @@ const rebuildQuestions = async () => {
     toast.success(`已提交 ${res.data?.submitted ?? 0} 个题库重建任务`)
     await loadAiTasks()
   } catch (error: any) {
-    toast.error(error?.message || '题库重建任务提交失败')
+    toast.error(getErrorMessage(error, '题库重建任务提交失败'))
   } finally {
     isQuestionRebuilding.value = false
   }
@@ -895,7 +896,7 @@ const rebuildQuestionIndex = async () => {
     const res = await opsApi.rebuildQuestionIndexTask()
     toast.success(res.data?.taskId ? '题库索引重建任务已提交' : '题库索引重建已提交')
   } catch (error: any) {
-    toast.error(error?.message || '题库索引重建失败')
+    toast.error(getErrorMessage(error, '题库索引重建失败'))
   } finally {
     isQuestionIndexRebuilding.value = false
   }
@@ -916,7 +917,7 @@ const retrySelectedMessages = async () => {
     selectedFailedIds.value = []
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '批量重试失败')
+    toast.error(getErrorMessage(error, '批量重试失败'))
   } finally {
     isBatchRetrying.value = false
   }
@@ -929,7 +930,7 @@ const reviewReport = async (report: PostReport, approved: boolean) => {
     toast.success(approved ? '举报已通过，帖子已下架' : '举报已驳回')
     await loadReports()
   } catch (error: any) {
-    toast.error(error?.message || '举报审核失败')
+    toast.error(getErrorMessage(error, '举报审核失败'))
   } finally {
     reviewingReportId.value = null
   }
@@ -942,7 +943,7 @@ const reviewCommentReport = async (report: CommentReport, approved: boolean) => 
     toast.success(approved ? '评论举报已通过，评论已隐藏' : '评论举报已驳回')
     await loadCommentReports()
   } catch (error: any) {
-    toast.error(error?.message || '评论举报审核失败')
+    toast.error(getErrorMessage(error, '评论举报审核失败'))
   } finally {
     reviewingCommentReportId.value = null
   }
@@ -961,7 +962,7 @@ const addAdmin = async () => {
     adminForm.value = { uid: '', roleCode: 'ADMIN', remark: '' }
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '添加管理员失败')
+    toast.error(getErrorMessage(error, '添加管理员失败'))
   } finally {
     isAdminSubmitting.value = false
   }
@@ -975,7 +976,7 @@ const toggleAdmin = async (admin: AdminUserRole) => {
     toast.success(nextEnabled ? '管理员已启用' : '管理员已禁用')
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '更新管理员状态失败')
+    toast.error(getErrorMessage(error, '更新管理员状态失败'))
   } finally {
     adminActionUid.value = null
   }
