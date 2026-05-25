@@ -47,6 +47,8 @@
                 <MarkdownRenderer :content="post.content" />
               </div>
 
+              <PostQuestionBlock v-if="post.postType === 1" :post-id="post.postId" />
+
               <div v-if="post.tags.length" class="mb-8 flex flex-wrap gap-2 border-b border-slate-200 pb-8 dark:border-slate-800">
                 <RouterLink
                   v-for="tag in post.tags"
@@ -237,6 +239,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownRenderer from '@/components/post/MarkdownRenderer.vue'
 import InteractionBar from '@/components/post/InteractionBar.vue'
 import CommentTree from '@/components/post/CommentTree.vue'
+import PostQuestionBlock from '@/components/question/PostQuestionBlock.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatTime } from '@/lib/format'

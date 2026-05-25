@@ -19,6 +19,13 @@
 
       <div class="flex items-center gap-3">
         <RouterLink
+          to="/questions"
+          class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white sm:inline-flex"
+        >
+          题库
+        </RouterLink>
+
+        <RouterLink
           v-if="authStore.token"
           to="/me/notifications"
           class="relative rounded-lg p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -59,9 +66,13 @@
           >
             <template v-if="authStore.isLoggedIn">
               <RouterLink to="/me" class="menu-item" @click="showUserMenu = false">个人主页</RouterLink>
+              <RouterLink to="/me/prep" class="menu-item" @click="showUserMenu = false">我的准备台</RouterLink>
               <RouterLink to="/me/notifications" class="menu-item" @click="showUserMenu = false">通知中心</RouterLink>
               <RouterLink to="/me/settings" class="menu-item" @click="showUserMenu = false">设置</RouterLink>
               <RouterLink to="/admin/ops" class="menu-item" @click="showUserMenu = false">运维中心</RouterLink>
+              <RouterLink to="/admin/questions" class="menu-item" @click="showUserMenu = false">题目审核</RouterLink>
+              <RouterLink to="/admin/company-aliases" class="menu-item" @click="showUserMenu = false">公司别名维护</RouterLink>
+              <RouterLink to="/admin/governance" class="menu-item" @click="showUserMenu = false">治理中心</RouterLink>
               <button type="button" @click="handleLogout" class="menu-item w-full text-left text-danger">
                 退出登录
               </button>

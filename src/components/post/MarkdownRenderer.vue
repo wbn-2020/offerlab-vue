@@ -22,6 +22,8 @@ const md = new MarkdownIt({
   breaks: true,
 })
 
+md.validateLink = (url: string) => /^(https?:|mailto:)/i.test(url.trim())
+
 const renderedContent = computed(() => md.render(props.content || ''))
 </script>
 

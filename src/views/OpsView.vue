@@ -124,6 +124,12 @@
                 placeholder="用户 UID"
                 :disabled="isAdminSubmitting"
               />
+              <select v-model="adminForm.roleCode" class="admin-input" :disabled="isAdminSubmitting">
+                <option value="ADMIN">ADMIN</option>
+                <option value="OPS">OPS</option>
+                <option value="CONTENT_MODERATOR">CONTENT_MODERATOR</option>
+                <option value="QUESTION_OPERATOR">QUESTION_OPERATOR</option>
+              </select>
               <input
                 v-model.trim="adminForm.remark"
                 class="admin-input"
@@ -355,6 +361,60 @@
         <article class="panel">
           <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
             <div>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">AI 题目提取任务</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">查看面经题目提取状态，失败任务可直接重试。</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" class="secondary-button compact-action" :disabled="isQuestionRebuilding" @click="rebuildQuestions">
+                <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': isQuestionRebuilding }" />
+                重建题库
+              </button>
+              <button type="button" class="secondary-button compact-action" :disabled="isQuestionIndexRebuilding" @click="rebuildQuestionIndex">
+                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isQuestionIndexRebuilding }" />
+                重建索引
+              </button>
+              <button type="button" class="icon-button" title="刷新 AI 任务" :disabled="isAiTasksLoading" @click="loadAiTasks">
+                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isAiTasksLoading }" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="isAiTasksLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            正在加载 AI 任务...
+          </div>
+          <div v-else-if="aiTasks.length === 0" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            暂无 AI 提取任务。
+          </div>
+          <div v-else class="space-y-3 pt-5">
+            <div v-for="item in aiTasks" :key="item.id" class="admin-row task-row">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <RouterLink :to="`/post/${item.postId}`" class="truncate font-mono text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400">
+                    {{ item.postId }}
+                  </RouterLink>
+                  <span :class="['status-pill', aiTaskStatusClass(item.taskStatus)]">{{ aiTaskStatusText(item.taskStatus) }}</span>
+                </div>
+                <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                  题目 {{ item.questionCount }} · 重试 {{ item.retryCount }} · {{ item.errorMessage || formatTime(item.updateTime || item.createTime) }}
+                </p>
+              </div>
+              <button
+                v-if="item.taskStatus === 3"
+                type="button"
+                class="secondary-button compact-action danger-action"
+                :disabled="retryingAiTaskId === item.id"
+                @click="retryAiTask(item)"
+              >
+                <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': retryingAiTaskId === item.id }" />
+                重试
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
+            <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">最近索引任务</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">保留本次启动周期内最近的后台重建记录。</p>
             </div>
@@ -509,7 +569,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { opsApi, type AdminUserRole, type OpsStatus, type OutboxMessage } from '@/api/ops'
+import { opsApi, type AdminUserRole, type AiExtractTask, type OpsStatus, type OutboxMessage } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
@@ -519,6 +579,7 @@ const status = ref<OpsStatus | null>(null)
 const task = ref<SearchIndexTask | null>(null)
 const adminUsers = ref<AdminUserRole[]>([])
 const outboxMessages = ref<OutboxMessage[]>([])
+const aiTasks = ref<AiExtractTask[]>([])
 const recentTasks = ref<SearchIndexTask[]>([])
 const postReports = ref<PostReport[]>([])
 const commentReports = ref<CommentReport[]>([])
@@ -526,21 +587,25 @@ const selectedOutbox = ref<OutboxMessage | null>(null)
 const outboxStatusFilter = ref<number | undefined>(undefined)
 const reportStatusFilter = ref<number | undefined>(0)
 const commentReportStatusFilter = ref<number | undefined>(0)
-const adminForm = ref({ uid: '', remark: '' })
+const adminForm = ref({ uid: '', roleCode: 'ADMIN', remark: '' })
 const isLoading = ref(false)
 const isAdminsLoading = ref(false)
 const isAdminSubmitting = ref(false)
 const isOutboxLoading = ref(false)
+const isAiTasksLoading = ref(false)
 const isTasksLoading = ref(false)
 const isReportsLoading = ref(false)
 const isCommentReportsLoading = ref(false)
 const isSubmitting = ref(false)
 const adminActionUid = ref<ApiId | null>(null)
 const retryingId = ref<ApiId | null>(null)
+const retryingAiTaskId = ref<ApiId | null>(null)
 const reviewingReportId = ref<PostReport['reportId'] | null>(null)
 const reviewingCommentReportId = ref<CommentReport['reportId'] | null>(null)
 const selectedFailedIds = ref<ApiId[]>([])
 const isBatchRetrying = ref(false)
+const isQuestionRebuilding = ref(false)
+const isQuestionIndexRebuilding = ref(false)
 const loadError = ref('')
 let pollTimer: number | undefined
 
@@ -625,6 +690,19 @@ const loadOutbox = async () => {
   }
 }
 
+const loadAiTasks = async () => {
+  isAiTasksLoading.value = true
+  try {
+    const res = await opsApi.listAiTasks({ limit: 20 })
+    aiTasks.value = res.data || []
+  } catch (error: any) {
+    toast.error(error?.message || 'AI 任务加载失败')
+    aiTasks.value = []
+  } finally {
+    isAiTasksLoading.value = false
+  }
+}
+
 const loadTasks = async () => {
   isTasksLoading.value = true
   try {
@@ -678,7 +756,7 @@ const loadAdmins = async () => {
 }
 
 const refreshAll = async () => {
-  await Promise.all([loadStatus(), loadOutbox(), loadAdmins(), loadTasks(), loadReports(), loadCommentReports()])
+  await Promise.all([loadStatus(), loadOutbox(), loadAiTasks(), loadAdmins(), loadTasks(), loadReports(), loadCommentReports()])
 }
 
 const setOutboxStatus = async (statusValue?: number) => {
@@ -757,6 +835,44 @@ const retryMessage = async (message: OutboxMessage) => {
   }
 }
 
+const retryAiTask = async (task: AiExtractTask) => {
+  retryingAiTaskId.value = task.id
+  try {
+    await opsApi.retryAiTask(task.id)
+    toast.success('AI 提取任务已重试')
+    await loadAiTasks()
+  } catch (error: any) {
+    toast.error(error?.message || 'AI 任务重试失败')
+  } finally {
+    retryingAiTaskId.value = null
+  }
+}
+
+const rebuildQuestions = async () => {
+  isQuestionRebuilding.value = true
+  try {
+    const res = await opsApi.rebuildQuestions(100)
+    toast.success(`已提交 ${res.data?.submitted ?? 0} 个题库重建任务`)
+    await loadAiTasks()
+  } catch (error: any) {
+    toast.error(error?.message || '题库重建任务提交失败')
+  } finally {
+    isQuestionRebuilding.value = false
+  }
+}
+
+const rebuildQuestionIndex = async () => {
+  isQuestionIndexRebuilding.value = true
+  try {
+    const res = await opsApi.rebuildQuestionIndexTask()
+    toast.success(res.data?.taskId ? '题库索引重建任务已提交' : '题库索引重建已提交')
+  } catch (error: any) {
+    toast.error(error?.message || '题库索引重建失败')
+  } finally {
+    isQuestionIndexRebuilding.value = false
+  }
+}
+
 const toggleFailedSelection = (id: ApiId) => {
   selectedFailedIds.value = selectedFailedIds.value.includes(id)
     ? selectedFailedIds.value.filter((item) => item !== id)
@@ -812,9 +928,9 @@ const addAdmin = async () => {
   }
   isAdminSubmitting.value = true
   try {
-    await opsApi.addAdmin({ uid, remark: adminForm.value.remark })
+    await opsApi.addAdmin({ uid, roleCode: adminForm.value.roleCode, remark: adminForm.value.remark })
     toast.success('管理员已启用')
-    adminForm.value = { uid: '', remark: '' }
+    adminForm.value = { uid: '', roleCode: 'ADMIN', remark: '' }
     await refreshAll()
   } catch (error: any) {
     toast.error(error?.message || '添加管理员失败')
@@ -827,7 +943,7 @@ const toggleAdmin = async (admin: AdminUserRole) => {
   adminActionUid.value = admin.uid
   const nextEnabled = !isAdminEnabled(admin)
   try {
-    await opsApi.updateAdminStatus(admin.uid, { enabled: nextEnabled, remark: admin.remark || '' })
+    await opsApi.updateAdminStatus(admin.uid, { enabled: nextEnabled, roleCode: admin.roleCode, remark: admin.remark || '' })
     toast.success(nextEnabled ? '管理员已启用' : '管理员已禁用')
     await refreshAll()
   } catch (error: any) {
@@ -849,6 +965,20 @@ const outboxStatusText = (value: number) => {
 const outboxStatusClass = (value: number) => {
   if (value === 1) return 'status-ok'
   if (value === 2) return 'status-danger'
+  return 'status-warn'
+}
+
+const aiTaskStatusText = (value: number) => {
+  if (value === 0) return '待处理'
+  if (value === 1) return '运行中'
+  if (value === 2) return '成功'
+  if (value === 3) return '失败'
+  return '未知'
+}
+
+const aiTaskStatusClass = (value: number) => {
+  if (value === 2) return 'status-ok'
+  if (value === 3) return 'status-danger'
   return 'status-warn'
 }
 
@@ -1110,7 +1240,7 @@ onBeforeUnmount(stopPolling)
 
 @media (min-width: 640px) {
   .admin-form {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 }
 

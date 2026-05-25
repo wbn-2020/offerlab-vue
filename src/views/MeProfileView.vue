@@ -1,242 +1,553 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
-    <!-- 顶部 Banner -->
-    <div class="bg-gradient-to-br from-primary-500 to-primary-700 h-48 relative">
-      <div class="absolute inset-0 opacity-10 bg-pattern" />
-    </div>
+    <AppHeader />
 
-    <!-- 主体内容 -->
-    <div class="max-w-6xl mx-auto px-6 -mt-24 relative z-10">
-      <!-- 用户信息卡片 -->
-      <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 mb-8">
-        <div class="flex items-start gap-6">
-          <!-- 头像 -->
-          <img
-            :src="user?.avatar || 'https://via.placeholder.com/120'"
-            :alt="user?.nickname"
-            class="w-24 h-24 rounded-full border-4 border-primary-500"
-          />
+    <main class="mx-auto max-w-6xl px-4 py-8">
+      <section class="profile-panel">
+        <div class="flex flex-col gap-6 md:flex-row md:items-start">
+          <div class="avatar">
+            <img v-if="user?.avatar" :src="user.avatar" :alt="user.nickname" class="h-full w-full object-cover" />
+            <span v-else>{{ userInitial }}</span>
+          </div>
 
-          <!-- 用户信息 -->
-          <div class="flex-1">
-            <div class="flex items-center gap-3 mb-2">
-              <h1 class="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                {{ user?.nickname || '加载中...' }}
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-3">
+              <h1 class="truncate text-2xl font-bold text-slate-950 dark:text-slate-50">
+                {{ user?.nickname || '我的主页' }}
               </h1>
-              <span v-if="user?.isBigV" class="text-xs bg-accent-500 text-white px-3 py-1 rounded">
-                大V
+              <span v-if="user?.isBigV" class="rounded bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                认证用户
               </span>
             </div>
-            <p v-if="user?.signature" class="text-slate-600 dark:text-slate-400 mb-4">
-              {{ user.signature }}
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              {{ user?.signature || '完善个人资料后，其他求职者可以更快了解你的方向和经验。' }}
             </p>
 
-            <!-- 数据统计 -->
-            <div class="flex gap-8">
-              <div>
-                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">{{ user?.postCount || posts.length }}</div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">发帖</div>
+            <div class="mt-5 grid gap-3 sm:grid-cols-3">
+              <div class="metric-card">
+                <FileText class="h-4 w-4 text-primary-600" />
+                <span>发帖</span>
+                <strong>{{ user?.postCount ?? posts.items.length }}</strong>
               </div>
-              <div>
-                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">{{ user?.followingCount || following.length }}</div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">关注</div>
+              <div class="metric-card">
+                <Users class="h-4 w-4 text-primary-600" />
+                <span>关注</span>
+                <strong>{{ user?.followingCount ?? following.items.length }}</strong>
               </div>
-              <div>
-                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">{{ user?.followerCount || followers.length }}</div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">粉丝</div>
-              </div>
-              <div>
-                <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">0</div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">收到的赞</div>
+              <div class="metric-card">
+                <UserRoundCheck class="h-4 w-4 text-primary-600" />
+                <span>粉丝</span>
+                <strong>{{ user?.followerCount ?? followers.items.length }}</strong>
               </div>
             </div>
           </div>
 
-          <!-- 操作按钮 -->
-          <div class="flex gap-3">
-            <router-link
-              to="/me/settings"
-              class="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium"
-            >
-              编辑资料
-            </router-link>
-          </div>
+          <RouterLink to="/me/settings" class="secondary-button shrink-0">
+            <Settings class="h-4 w-4" />
+            编辑资料
+          </RouterLink>
         </div>
-      </div>
+      </section>
 
-      <!-- Tab 切换 -->
-      <div class="flex gap-2 border-b border-slate-200 dark:border-slate-800 mb-6">
-        <button
-          v-for="tab in tabs"
-          :key="tab.value"
-          @click="activeTab = tab.value"
-          :class="[
-            'px-4 py-3 font-medium text-sm transition-colors border-b-2',
-            activeTab === tab.value
-              ? 'text-primary-600 border-primary-600'
-              : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
-          ]"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
-
-      <!-- 内容区 -->
-      <div class="space-y-4">
-        <!-- 我的发帖 -->
-        <div v-if="activeTab === 'posts'" class="space-y-4">
-          <div v-if="posts.length === 0" class="text-center py-12">
-            <p class="text-slate-500 dark:text-slate-400 mb-4">还没有发布过帖子</p>
-            <router-link
-              to="/editor"
-              class="inline-block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
-            >
-              发布第一篇
-            </router-link>
-          </div>
-          <div v-else>
-            <div v-for="post in posts" :key="post.postId" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-              <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
-                {{ post.title }}
-              </h3>
-              <p class="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">
-                {{ post.summary || post.content.substring(0, 100) }}
-              </p>
-              <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
-                <div class="flex gap-4">
-                  <span>👁 {{ post.counter.view }}</span>
-                  <span>👍 {{ post.counter.like }}</span>
-                  <span>💬 {{ post.counter.comment }}</span>
-                </div>
-                <router-link
-                  :to="`/post/${post.postId}`"
-                  class="text-primary-600 hover:text-primary-700 font-medium"
-                >
-                  查看
-                </router-link>
-              </div>
-            </div>
-          </div>
+      <section class="mt-6">
+        <div class="tab-bar">
+          <button
+            v-for="tab in tabs"
+            :key="tab.value"
+            type="button"
+            :class="['tab-button', activeTab === tab.value ? 'tab-active' : '']"
+            @click="activeTab = tab.value"
+          >
+            <component :is="tab.icon" class="h-4 w-4" />
+            {{ tab.label }}
+          </button>
         </div>
 
-        <!-- 我的收藏 -->
-        <div v-if="activeTab === 'favorites'" class="space-y-4">
-          <div v-if="favorites.length === 0" class="text-center py-12">
-            <p class="text-slate-500 dark:text-slate-400">{{ favoritesMessage }}</p>
-          </div>
-          <div v-for="post in favorites" :key="post.postId" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">{{ post.title }}</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{{ post.summary || post.content.substring(0, 100) }}</p>
-            <router-link :to="`/post/${post.postId}`" class="text-primary-600 hover:text-primary-700 font-medium text-sm">查看</router-link>
-          </div>
-        </div>
+        <div class="mt-5">
+          <section v-if="activeTab === 'posts'" class="space-y-4">
+            <PostList
+              :state="posts"
+              empty-title="还没有发布内容"
+              empty-description="发布第一篇面经、复盘或求职问题，让主页真正活起来。"
+              empty-action-text="去发布"
+              empty-action-href="/editor"
+              @load-more="loadPosts(true)"
+              @like="handleLike"
+              @favorite="handleFavorite"
+            />
+          </section>
 
-        <!-- 我的点赞 -->
-        <div v-if="activeTab === 'liked'" class="space-y-4">
-          <div v-if="likedPosts.length === 0" class="text-center py-12">
-            <p class="text-slate-500 dark:text-slate-400">{{ likedPostsMessage }}</p>
-          </div>
-          <div v-for="post in likedPosts" :key="post.postId" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">{{ post.title }}</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{{ post.summary || post.content.substring(0, 100) }}</p>
-            <router-link :to="`/post/${post.postId}`" class="text-primary-600 hover:text-primary-700 font-medium text-sm">查看</router-link>
-          </div>
-        </div>
+          <section v-else-if="activeTab === 'favorites'" class="space-y-4">
+            <PostList
+              :state="favorites"
+              empty-title="还没有收藏内容"
+              empty-description="收藏高质量帖子后，可以在这里快速回看。"
+              @load-more="loadFavorites(true)"
+              @like="handleLike"
+              @favorite="handleFavorite"
+            />
+          </section>
 
-        <!-- 我的关注 -->
-        <div v-if="activeTab === 'following'">
-          <div v-if="following.length === 0" class="text-center py-12">
-            <p class="text-slate-500 dark:text-slate-400">还没有关注用户</p>
-          </div>
-          <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <UserCard v-for="item in following" :key="item.uid" :user="item" />
-          </div>
-        </div>
+          <section v-else-if="activeTab === 'liked'" class="space-y-4">
+            <PostList
+              :state="likedPosts"
+              empty-title="还没有点赞内容"
+              empty-description="点赞过的帖子会汇总到这里，方便回访和继续互动。"
+              @load-more="loadLikedPosts(true)"
+              @like="handleLike"
+              @favorite="handleFavorite"
+            />
+          </section>
 
-        <!-- 我的粉丝 -->
-        <div v-if="activeTab === 'followers'">
-          <div v-if="followers.length === 0" class="text-center py-12">
-            <p class="text-slate-500 dark:text-slate-400">还没有粉丝</p>
-          </div>
-          <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <UserCard v-for="item in followers" :key="item.uid" :user="item" />
-          </div>
+          <section v-else-if="activeTab === 'following'">
+            <UserList
+              :state="following"
+              empty-title="还没有关注用户"
+              empty-description="在发现页或帖子作者卡片里关注感兴趣的人。"
+              @load-more="loadFollowing(true)"
+            />
+          </section>
+
+          <section v-else>
+            <UserList
+              :state="followers"
+              empty-title="还没有粉丝"
+              empty-description="持续发布有价值的求职内容，会更容易被同路人关注。"
+              @load-more="loadFollowers(true)"
+            />
+          </section>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import { Bookmark, FileText, Heart, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import AppHeader from '@/components/layout/AppHeader.vue'
+import PostCard from '@/components/post/PostCard.vue'
+import UserCard from '@/components/user/UserCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
+import { interactionApi } from '@/api/interaction'
 import { userApi } from '@/api/user'
-import UserCard from '@/components/user/UserCard.vue'
-import type { Post, User } from '@/api/types'
+import type { ApiId, PaginatedResponse, Post, User } from '@/api/types'
+
+type TabValue = 'posts' | 'favorites' | 'liked' | 'following' | 'followers'
+
+interface ListState<T> {
+  items: T[]
+  cursor?: string
+  hasMore: boolean
+  loading: boolean
+  error: string
+}
+
+const createState = <T,>(): ListState<T> => reactive({
+  items: [],
+  cursor: undefined,
+  hasMore: false,
+  loading: false,
+  error: '',
+})
 
 const authStore = useAuthStore()
+const user = ref(authStore.user)
+const activeTab = ref<TabValue>('posts')
+const posts = createState<Post>()
+const favorites = createState<Post>()
+const likedPosts = createState<Post>()
+const following = createState<User>()
+const followers = createState<User>()
 
 const tabs = [
-  { value: 'posts', label: '我的发帖' },
-  { value: 'favorites', label: '我的收藏' },
-  { value: 'liked', label: '我的点赞' },
-  { value: 'following', label: '我的关注' },
-  { value: 'followers', label: '我的粉丝' }
-]
+  { value: 'posts', label: '我的发帖', icon: FileText },
+  { value: 'favorites', label: '我的收藏', icon: Bookmark },
+  { value: 'liked', label: '我的点赞', icon: Heart },
+  { value: 'following', label: '我的关注', icon: Users },
+  { value: 'followers', label: '我的粉丝', icon: UserRoundCheck },
+] satisfies Array<{ value: TabValue; label: string; icon: any }>
 
-const activeTab = ref('posts')
-const user = ref(authStore.user)
-const posts = ref<Post[]>([])
-const favorites = ref<Post[]>([])
-const likedPosts = ref<Post[]>([])
-const following = ref<User[]>([])
-const followers = ref<User[]>([])
-const favoritesMessage = ref('收藏列表接口暂未接通')
-const likedPostsMessage = ref('点赞列表接口暂未接通')
+const userInitial = computed(() => user.value?.nickname?.charAt(0) || '?')
+
+const applyPage = <T,>(state: ListState<T>, page: PaginatedResponse<T> | null | undefined, append: boolean) => {
+  const items = page?.items || []
+  state.items = append ? [...state.items, ...items] : items
+  state.cursor = page?.nextCursor
+  state.hasMore = Boolean(page?.hasMore && page?.nextCursor)
+}
+
+const loadPage = async <T,>(
+  state: ListState<T>,
+  append: boolean,
+  loader: (cursor?: string) => Promise<PaginatedResponse<T> | null | undefined>,
+  fallbackMessage: string,
+) => {
+  if (state.loading || (append && !state.hasMore)) return
+  state.loading = true
+  state.error = ''
+  try {
+    const page = await loader(append ? state.cursor : undefined)
+    applyPage(state, page, append)
+  } catch (error: any) {
+    state.error = error?.message || fallbackMessage
+    if (!append) {
+      state.items = []
+      state.cursor = undefined
+      state.hasMore = false
+    }
+  } finally {
+    state.loading = false
+  }
+}
+
+const loadPosts = (append = false) => {
+  if (!user.value?.uid) return Promise.resolve()
+  return loadPage(
+    posts,
+    append,
+    async (cursor) => (await postApi.list({ authorId: user.value!.uid, cursor, size: 10 })).data,
+    '发帖列表加载失败',
+  )
+}
+
+const loadFavorites = (append = false) => loadPage(
+  favorites,
+  append,
+  async (cursor) => (await postApi.getMyFavorites(cursor, 10)).data,
+  '收藏列表加载失败',
+)
+
+const loadLikedPosts = (append = false) => loadPage(
+  likedPosts,
+  append,
+  async (cursor) => (await postApi.getMyLikedPosts(cursor, 10)).data,
+  '点赞列表加载失败',
+)
+
+const loadFollowing = (append = false) => {
+  if (!user.value?.uid) return Promise.resolve()
+  return loadPage(
+    following,
+    append,
+    async (cursor) => (await userApi.getFollowing(user.value!.uid, cursor, 12)).data,
+    '关注列表加载失败',
+  )
+}
+
+const loadFollowers = (append = false) => {
+  if (!user.value?.uid) return Promise.resolve()
+  return loadPage(
+    followers,
+    append,
+    async (cursor) => (await userApi.getFollowers(user.value!.uid, cursor, 12)).data,
+    '粉丝列表加载失败',
+  )
+}
+
+const allPostStates = [posts, favorites, likedPosts]
+
+const updatePostEverywhere = (postId: ApiId, updater: (post: Post) => void) => {
+  allPostStates.forEach((state) => {
+    state.items.forEach((post) => {
+      if (String(post.postId) === String(postId)) updater(post)
+    })
+  })
+}
+
+const removeFromState = (state: ListState<Post>, postId: ApiId) => {
+  state.items = state.items.filter((post) => String(post.postId) !== String(postId))
+}
+
+const handleLike = async (postId: ApiId) => {
+  const post = allPostStates.flatMap((state) => state.items).find((item) => String(item.postId) === String(postId))
+  if (!post) return
+  const liked = Boolean(post.myInteraction?.liked)
+  try {
+    liked ? await interactionApi.unlike(postId) : await interactionApi.like(postId)
+    updatePostEverywhere(postId, (item) => {
+      item.myInteraction = { ...(item.myInteraction ?? { favorited: false }), liked: !liked }
+      item.counter.like = Math.max(0, item.counter.like + (liked ? -1 : 1))
+    })
+    if (liked && activeTab.value === 'liked') {
+      removeFromState(likedPosts, postId)
+    }
+  } catch (error: any) {
+    toast.error(error?.message || '点赞操作失败')
+  }
+}
+
+const handleFavorite = async (postId: ApiId) => {
+  const post = allPostStates.flatMap((state) => state.items).find((item) => String(item.postId) === String(postId))
+  if (!post) return
+  const favorited = Boolean(post.myInteraction?.favorited)
+  try {
+    favorited ? await interactionApi.unfavorite(postId) : await interactionApi.favorite(postId)
+    updatePostEverywhere(postId, (item) => {
+      item.myInteraction = { ...(item.myInteraction ?? { liked: false }), favorited: !favorited }
+      item.counter.favorite = Math.max(0, item.counter.favorite + (favorited ? -1 : 1))
+    })
+    if (favorited && activeTab.value === 'favorites') {
+      removeFromState(favorites, postId)
+    }
+  } catch (error: any) {
+    toast.error(error?.message || '收藏操作失败')
+  }
+}
+
+const EmptyPanel = defineComponent({
+  props: {
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    actionText: String,
+    actionHref: String,
+  },
+  setup(props) {
+    return () => h('div', { class: 'empty-panel' }, [
+      h('h3', props.title),
+      h('p', props.description),
+      props.actionText && props.actionHref
+        ? h(RouterLink, { to: props.actionHref, class: 'primary-button mt-4' }, () => props.actionText)
+        : null,
+    ])
+  },
+})
+
+const PostList = defineComponent({
+  props: {
+    state: { type: Object as () => ListState<Post>, required: true },
+    emptyTitle: { type: String, required: true },
+    emptyDescription: { type: String, required: true },
+    emptyActionText: String,
+    emptyActionHref: String,
+  },
+  emits: ['load-more', 'like', 'favorite'],
+  setup(props, { emit }) {
+    return () => h('div', { class: 'space-y-4' }, [
+      props.state.error ? h('div', { class: 'notice-error' }, props.state.error) : null,
+      props.state.loading && props.state.items.length === 0
+        ? h('div', { class: 'loading-panel' }, '正在加载...')
+        : props.state.items.length
+          ? props.state.items.map((post) => h(PostCard, {
+              key: post.postId,
+              post,
+              onLike: (id: ApiId) => emit('like', id),
+              onFavorite: (id: ApiId) => emit('favorite', id),
+            }))
+          : h(EmptyPanel, {
+              title: props.emptyTitle,
+              description: props.emptyDescription,
+              actionText: props.emptyActionText,
+              actionHref: props.emptyActionHref,
+            }),
+      props.state.hasMore
+        ? h('div', { class: 'text-center' }, [
+            h('button', {
+              type: 'button',
+              class: 'secondary-button',
+              disabled: props.state.loading,
+              onClick: () => emit('load-more'),
+            }, props.state.loading ? '加载中...' : '加载更多'),
+          ])
+        : null,
+    ])
+  },
+})
+
+const UserList = defineComponent({
+  props: {
+    state: { type: Object as () => ListState<User>, required: true },
+    emptyTitle: { type: String, required: true },
+    emptyDescription: { type: String, required: true },
+  },
+  emits: ['load-more'],
+  setup(props, { emit }) {
+    return () => h('div', { class: 'space-y-4' }, [
+      props.state.error ? h('div', { class: 'notice-error' }, props.state.error) : null,
+      props.state.loading && props.state.items.length === 0
+        ? h('div', { class: 'loading-panel' }, '正在加载...')
+        : props.state.items.length
+          ? h('div', { class: 'grid gap-4 md:grid-cols-2 lg:grid-cols-3' }, props.state.items.map((item) =>
+              h(UserCard, { key: item.uid, user: item }),
+            ))
+          : h(EmptyPanel, { title: props.emptyTitle, description: props.emptyDescription }),
+      props.state.hasMore
+        ? h('div', { class: 'text-center' }, [
+            h('button', {
+              type: 'button',
+              class: 'secondary-button',
+              disabled: props.state.loading,
+              onClick: () => emit('load-more'),
+            }, props.state.loading ? '加载中...' : '加载更多'),
+          ])
+        : null,
+    ])
+  },
+})
 
 onMounted(async () => {
-  if (user.value?.uid) {
-    try {
-      const res = await postApi.list({ authorId: user.value.uid })
-      if (res.code === 0 && res.data) {
-        posts.value = res.data.items
-      }
-    } catch (error) {
-      console.error('Failed to load posts:', error)
-    }
-
-    try {
-      const favoritesRes = await postApi.getMyFavorites()
-      favorites.value = favoritesRes.data?.items || []
-      favoritesMessage.value = favorites.value.length === 0 ? '还没有收藏内容' : ''
-    } catch (error) {
-      console.error('Failed to load favorite posts:', error)
-      favoritesMessage.value = '收藏列表接口暂未接通'
-    }
-
-    try {
-      const likedRes = await postApi.getMyLikedPosts()
-      likedPosts.value = likedRes.data?.items || []
-      likedPostsMessage.value = likedPosts.value.length === 0 ? '还没有点赞内容' : ''
-    } catch (error) {
-      console.error('Failed to load liked posts:', error)
-      likedPostsMessage.value = '点赞列表接口暂未接通'
-    }
-
-    try {
-      const followingRes = await userApi.getFollowing(user.value.uid)
-      following.value = followingRes.data?.items || []
-    } catch (error) {
-      console.error('Failed to load following:', error)
-    }
-
-    try {
-      const followersRes = await userApi.getFollowers(user.value.uid)
-      followers.value = followersRes.data?.items || []
-    } catch (error) {
-      console.error('Failed to load followers:', error)
-    }
-  }
+  if (!user.value?.uid) return
+  await Promise.all([
+    loadPosts(),
+    loadFavorites(),
+    loadLikedPosts(),
+    loadFollowing(),
+    loadFollowers(),
+  ])
 })
 </script>
+
+<style scoped>
+.profile-panel {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 1.5rem;
+}
+
+.avatar {
+  display: flex;
+  height: 6rem;
+  width: 6rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(37 99 235);
+  font-size: 2rem;
+  font-weight: 800;
+  color: white;
+}
+
+.metric-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.625rem;
+  background: rgb(248 250 252);
+  padding: 0.85rem;
+}
+
+.metric-card span {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: rgb(100 116 139);
+}
+
+.metric-card strong {
+  grid-column: 1 / -1;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.tab-bar {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  border-bottom: 1px solid rgb(226 232 240);
+}
+
+.tab-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.45rem;
+  border-bottom: 2px solid transparent;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: rgb(71 85 105);
+}
+
+.tab-active {
+  border-color: rgb(37 99 235);
+  color: rgb(37 99 235);
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  min-height: 2.375rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.primary-button {
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.secondary-button {
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.empty-panel,
+.loading-panel,
+.notice-error {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 2.25rem 1.25rem;
+  text-align: center;
+}
+
+.empty-panel h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.empty-panel p,
+.loading-panel {
+  margin-top: 0.5rem;
+  color: rgb(100 116 139);
+}
+
+.notice-error {
+  border-color: rgb(254 202 202);
+  background: rgb(254 242 242);
+  color: rgb(185 28 28);
+}
+
+:global(.dark) .profile-panel,
+:global(.dark) .secondary-button,
+:global(.dark) .empty-panel,
+:global(.dark) .loading-panel {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .metric-card {
+  border-color: rgb(30 41 59);
+  background: rgb(2 6 23);
+}
+
+:global(.dark) .metric-card strong,
+:global(.dark) .empty-panel h3 {
+  color: rgb(248 250 252);
+}
+
+:global(.dark) .tab-bar {
+  border-color: rgb(30 41 59);
+}
+</style>

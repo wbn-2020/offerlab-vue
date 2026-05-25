@@ -18,6 +18,7 @@ export function adaptPage<T>(raw: any, itemAdapter: (item: any) => T): Paginated
     items: items.map(itemAdapter),
     nextCursor: raw?.nextCursor ? String(raw.nextCursor) : undefined,
     hasMore: Boolean(raw?.hasMore),
+    total: Number(raw?.total ?? items.length),
   }
 }
 

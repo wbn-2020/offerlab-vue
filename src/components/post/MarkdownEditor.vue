@@ -76,6 +76,8 @@ const md = new MarkdownIt({
   breaks: true,
 })
 
+md.validateLink = (url: string) => /^(https?:|mailto:)/i.test(url.trim())
+
 const renderMarkdown = (value: string) => md.render(value || '')
 </script>
 
