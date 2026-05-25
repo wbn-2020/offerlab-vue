@@ -1,251 +1,183 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
-    <div class="sticky top-0 z-30 border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <div class="mx-auto flex max-w-6xl flex-col gap-3 md:flex-row">
-        <div class="relative flex-1">
-          <input
-            v-model="filters.q"
-            type="search"
-            list="search-suggestions"
-            placeholder="搜索面经、技术博客、公司或岗位..."
-            class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            @input="loadSuggestions"
-            @keyup.enter="runSearch"
-          />
-          <datalist id="search-suggestions">
-            <option v-for="item in suggestions" :key="item" :value="item" />
-          </datalist>
-        </div>
-        <button
-          type="button"
-          @click="runSearch"
-          :disabled="isLoading"
-          class="rounded-lg bg-primary-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-        >
-          搜索
-        </button>
-      </div>
-      <div class="mx-auto mt-3 flex max-w-6xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div class="flex gap-2">
-          <button type="button" :class="['mode-button', searchMode === 'posts' ? 'mode-button-active' : '']" @click="setMode('posts')">
-            内容
-          </button>
-          <button type="button" :class="['mode-button', searchMode === 'users' ? 'mode-button-active' : '']" @click="setMode('users')">
-            用户
-          </button>
-        </div>
-        <div v-if="searchMode === 'posts'" class="flex flex-wrap gap-2">
-          <button
-            v-for="option in sortOptions"
-            :key="option.value"
-            type="button"
-            :class="['mode-button', filters.sort === option.value ? 'mode-button-active' : '']"
-            @click="setSort(option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <AppHeader />
 
-    <div class="mx-auto grid max-w-6xl grid-cols-1 gap-6 p-6 lg:grid-cols-4">
-      <aside class="lg:col-span-1">
-        <div class="sticky top-24 space-y-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-          <label class="block">
-            <span class="filter-label">公司</span>
-            <input v-model="filters.company" class="filter-input" placeholder="输入公司名" @keyup.enter="runSearch" />
-          </label>
-
-          <label class="block">
-            <span class="filter-label">岗位</span>
-            <input v-model="filters.position" class="filter-input" placeholder="例如 Backend、Java 后端" @keyup.enter="runSearch" />
-          </label>
-
-          <label class="block">
-            <span class="filter-label">内容类型</span>
-            <select v-model.number="filters.type" class="filter-input">
-              <option :value="undefined">全部类型</option>
-              <option :value="1">面经</option>
-              <option :value="2">技术博客</option>
-              <option :value="3">题解</option>
-              <option :value="4">求职问答</option>
-            </select>
-          </label>
-
-          <div class="grid grid-cols-2 gap-2">
-            <button type="button" class="secondary-button" @click="resetFilters">清空</button>
-            <button type="button" class="secondary-button" @click="runSearch">应用筛选</button>
+    <main class="mx-auto max-w-6xl px-4 py-8">
+      <section class="search-shell">
+        <div class="flex flex-col gap-3 lg:flex-row">
+          <div class="relative flex-1">
+            <Search class="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+            <input
+              v-model.trim="filters.q"
+              type="search"
+              list="search-suggestions"
+              class="search-input pl-10"
+              placeholder="搜索面经、技术博客、公司、岗位或作者"
+              @input="loadSuggestions"
+              @keyup.enter="runSearch(false)"
+            />
+            <datalist id="search-suggestions">
+              <option v-for="item in suggestions" :key="item" :value="item" />
+            </datalist>
           </div>
 
-          <div>
-            <h3 class="mb-3 text-sm font-medium text-slate-900 dark:text-slate-100">热门搜索</h3>
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="word in hotWords"
-                :key="word"
-                type="button"
-                @click="useHotWord(word)"
-                class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-600 transition-colors hover:text-primary-600 dark:bg-slate-800 dark:text-slate-300"
-              >
-                {{ word }}
-              </button>
-            </div>
+          <button type="button" class="primary-button" :disabled="isLoading" @click="runSearch(false)">
+            <Search class="h-4 w-4" />
+            搜索
+          </button>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div class="segmented">
+            <button type="button" :class="['segment-button', searchMode === 'posts' ? 'segment-active' : '']" @click="setMode('posts')">
+              <FileText class="h-4 w-4" />
+              内容
+            </button>
+            <button type="button" :class="['segment-button', searchMode === 'users' ? 'segment-active' : '']" @click="setMode('users')">
+              <Users class="h-4 w-4" />
+              用户
+            </button>
           </div>
 
-          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h3 class="text-sm font-medium text-slate-900 dark:text-slate-100">搜索服务</h3>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {{ searchStatusText }}
-                </p>
-              </div>
-              <span
-                :class="[
-                  'rounded-full px-2 py-0.5 text-xs font-medium',
-                  searchStatus?.available ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                ]"
-              >
-                {{ searchStatus?.available ? 'ES 在线' : 'Fallback' }}
-              </span>
-            </div>
+          <div v-if="searchMode === 'posts'" class="flex flex-wrap gap-2">
             <button
-              v-if="canRebuildIndex"
+              v-for="option in sortOptions"
+              :key="option.value"
               type="button"
-              class="mt-3 w-full rounded border border-slate-200 px-3 py-2 text-xs text-slate-700 transition-colors hover:bg-white disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
-              :disabled="isRebuilding"
-              @click="rebuildIndex"
+              :class="['chip-button', filters.sort === option.value ? 'chip-active' : '']"
+              @click="setSort(option.value)"
             >
-              {{ isRebuilding ? '重建中...' : '重建搜索索引' }}
+              {{ option.label }}
             </button>
           </div>
         </div>
-      </aside>
+      </section>
 
-      <main class="lg:col-span-3">
-        <div v-if="!isLoading && resultCount > 0" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-          <span>{{ searchMode === 'posts' ? `找到 ${resultCount} 条内容` : `找到 ${resultCount} 位用户` }}</span>
-          <span v-if="searchMode === 'posts'">排序：{{ activeSortLabel }}</span>
-        </div>
-
-        <div v-if="isLoading" class="rounded-xl border border-slate-200 bg-white py-12 text-center text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-          正在搜索...
-        </div>
-
-        <div v-else-if="resultCount === 0" class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center dark:border-slate-700 dark:bg-slate-900">
-          <div class="mx-auto max-w-2xl">
-            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-              0
+      <div class="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
+        <aside class="space-y-4">
+          <section class="side-panel">
+            <h2 class="side-title">筛选</h2>
+            <div class="space-y-3">
+              <label class="field-label">
+                公司
+                <input v-model.trim="filters.company" class="field-input" placeholder="例如 ByteDance" @keyup.enter="runSearch(false)" />
+              </label>
+              <label class="field-label">
+                岗位
+                <input v-model.trim="filters.position" class="field-input" placeholder="例如 Java 后端" @keyup.enter="runSearch(false)" />
+              </label>
+              <label class="field-label">
+                内容类型
+                <select v-model.number="filters.type" class="field-input">
+                  <option :value="undefined">全部类型</option>
+                  <option :value="1">面经</option>
+                  <option :value="2">技术博客</option>
+                  <option :value="3">题解</option>
+                  <option :value="4">求职问答</option>
+                </select>
+              </label>
             </div>
-            <h2 class="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">{{ emptyTitle }}</h2>
-            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
-
-            <div class="mt-5 flex flex-wrap justify-center gap-2">
-              <button type="button" class="primary-action" @click="resetFilters">清空筛选</button>
-              <button v-if="searchMode === 'posts'" type="button" class="empty-action" @click="searchHotContent">看热门内容</button>
-              <router-link to="/explore" class="empty-action">去发现页</router-link>
-              <router-link to="/" class="empty-action">回到信息流</router-link>
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" class="secondary-button" @click="resetFilters">清空</button>
+              <button type="button" class="secondary-button" @click="runSearch(false)">应用</button>
             </div>
+          </section>
 
-            <div v-if="searchMode === 'posts' && hotWords.length" class="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
-              <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">换个关键词试试</h3>
-              <div class="mt-3 flex flex-wrap justify-center gap-2">
-                <button
-                  v-for="word in hotWords.slice(0, 8)"
-                  :key="word"
-                  type="button"
-                  class="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-primary-50 hover:text-primary-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-primary-950"
-                  @click="useHotWord(word)"
-                >
-                  {{ word }}
-                </button>
+          <section class="side-panel">
+            <h2 class="side-title">热门搜索</h2>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="word in hotWords" :key="word" type="button" class="tag-button" @click="useHotWord(word)">
+                {{ word }}
+              </button>
+            </div>
+          </section>
+
+          <section class="side-panel">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h2 class="side-title">搜索服务</h2>
+                <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ searchStatusText }}</p>
               </div>
+              <span :class="['status-pill', searchStatus?.available ? 'status-ok' : 'status-warn']">
+                {{ searchStatus?.available ? 'ES' : '降级' }}
+              </span>
             </div>
+            <button v-if="canRebuildIndex" type="button" class="secondary-button mt-3 w-full" :disabled="isRebuilding" @click="rebuildIndex">
+              {{ isRebuilding ? '已提交重建...' : '重建帖子索引' }}
+            </button>
+          </section>
+        </aside>
+
+        <section class="min-w-0 space-y-4">
+          <div v-if="errorMessage" class="notice-error">
+            <span>{{ errorMessage }}</span>
+            <button type="button" class="text-sm font-bold" @click="runSearch(false)">重试</button>
           </div>
-        </div>
 
-        <div v-else-if="searchMode === 'users'" class="space-y-4">
-          <router-link
-            v-for="item in userResults"
-            :key="item.uid"
-            :to="`/u/${item.uid}`"
-            class="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 transition hover:border-primary-300 dark:border-slate-800 dark:bg-slate-900"
-          >
-            <div class="flex min-w-0 items-center gap-4">
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-950 font-semibold text-white">
-                {{ item.nickname.charAt(0) || '?' }}
+          <div v-if="!isLoading && resultCount > 0" class="result-summary">
+            <span>{{ searchMode === 'posts' ? `找到 ${resultCount} 条内容` : `找到 ${resultCount} 位用户` }}</span>
+            <span v-if="searchMode === 'posts'">排序: {{ activeSortLabel }}</span>
+          </div>
+
+          <div v-if="isLoading && resultCount === 0" class="loading-panel">正在搜索...</div>
+
+          <template v-else-if="searchMode === 'users' && userResults.length">
+            <RouterLink v-for="item in userResults" :key="item.uid" :to="`/u/${item.uid}`" class="user-row">
+              <div class="avatar">
+                <img v-if="item.avatar" :src="item.avatar" :alt="item.nickname" class="h-full w-full object-cover" />
+                <span v-else>{{ item.nickname.charAt(0) || '?' }}</span>
               </div>
-              <div class="min-w-0">
+              <div class="min-w-0 flex-1">
                 <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.nickname }}</h3>
                 <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ item.signature || '公开用户资料' }}</p>
               </div>
-            </div>
-            <span class="text-sm font-medium text-primary-600">查看主页</span>
-          </router-link>
-        </div>
+              <span class="view-link">查看主页</span>
+            </RouterLink>
+          </template>
 
-        <div v-else class="space-y-4">
-          <article
-            v-for="post in searchResults"
-            :key="post.postId"
-            class="rounded-xl border border-slate-200 bg-white p-5 transition-all hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-          >
-            <div class="flex items-start gap-4">
-              <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 font-semibold text-white">
-                {{ post.author.nickname.charAt(0) || '?' }}
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="mb-2 flex flex-wrap items-center gap-2">
-                  <span class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname }}</span>
-                  <span v-if="post.extension?.company" class="rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-                    {{ post.extension.company }}
-                  </span>
-                  <span v-if="post.extension?.position" class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    {{ post.extension.position }}
-                  </span>
-                </div>
-                <h3 class="mb-2 line-clamp-2 text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {{ stripHighlight(post.title) }}
-                </h3>
-                <p class="mb-3 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">
-                  {{ stripHighlight(post.summary || post.content.substring(0, 100)) }}
-                </p>
-                <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500 dark:text-slate-400">
-                  <div class="flex gap-4">
-                    <span>浏览 {{ post.counter.view }}</span>
-                    <span>点赞 {{ post.counter.like }}</span>
-                    <span>评论 {{ post.counter.comment }}</span>
-                  </div>
-                  <router-link :to="`/post/${post.postId}`" class="font-medium text-primary-600 hover:text-primary-700">
-                    查看
-                  </router-link>
-                </div>
-              </div>
+          <template v-else-if="searchMode === 'posts' && searchResults.length">
+            <PostCard v-for="post in searchResults" :key="post.postId" :post="post" @like="handleLike" @favorite="handleFavorite" />
+          </template>
+
+          <div v-else-if="!isLoading" class="empty-panel">
+            <h2>{{ emptyTitle }}</h2>
+            <p>{{ emptyText }}</p>
+            <div class="mt-5 flex flex-wrap justify-center gap-2">
+              <button type="button" class="primary-button" @click="resetFilters">清空筛选</button>
+              <button v-if="searchMode === 'posts'" type="button" class="secondary-button" @click="searchHotContent">热门内容</button>
+              <RouterLink to="/explore" class="secondary-button">去发现页</RouterLink>
             </div>
-          </article>
-        </div>
-      </main>
-    </div>
+          </div>
+
+          <div v-if="hasMore && searchMode === 'posts'" class="text-center">
+            <button type="button" class="secondary-button" :disabled="isLoading" @click="runSearch(true)">
+              {{ isLoading ? '加载中...' : '加载更多' }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { FileText, Search, Users } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import AppHeader from '@/components/layout/AppHeader.vue'
+import PostCard from '@/components/post/PostCard.vue'
+import { interactionApi } from '@/api/interaction'
 import { searchApi, type SearchStatus } from '@/api/search'
 import { userApi } from '@/api/user'
-import type { Post, User } from '@/api/types'
+import type { ApiId, Post, User } from '@/api/types'
+
+type SortValue = 'relevance' | 'latest' | 'hot'
+type SearchMode = 'posts' | 'users'
 
 const route = useRoute()
 const router = useRouter()
-
-const filters = reactive<{
-  q: string
-  company: string
-  position: string
-  type?: number
-  sort: 'relevance' | 'latest' | 'hot'
-}>({
+const filters = reactive<{ q: string; company: string; position: string; type?: number; sort: SortValue }>({
   q: '',
   company: '',
   position: '',
@@ -253,29 +185,35 @@ const filters = reactive<{
   sort: 'relevance',
 })
 
-const hotWords = ref<string[]>([])
-const suggestions = ref<string[]>([])
-const searchResults = ref<Post[]>([])
-const userResults = ref<User[]>([])
-const searchMode = ref<'posts' | 'users'>('posts')
-const searchStatus = ref<SearchStatus | null>(null)
-const isLoading = ref(false)
-const isRebuilding = ref(false)
-const emptyText = ref('输入关键词或筛选条件开始搜索')
-const sortOptions: Array<{ value: 'relevance' | 'latest' | 'hot'; label: string }> = [
+const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: 'relevance', label: '相关度' },
   { value: 'latest', label: '最新' },
   { value: 'hot', label: '热门' },
 ]
+
+const searchMode = ref<SearchMode>('posts')
+const searchResults = ref<Post[]>([])
+const userResults = ref<User[]>([])
+const cursor = ref<string | undefined>()
+const hasMore = ref(false)
+const hotWords = ref<string[]>([])
+const suggestions = ref<string[]>([])
+const searchStatus = ref<SearchStatus | null>(null)
+const isLoading = ref(false)
+const isRebuilding = ref(false)
+const errorMessage = ref('')
+
 const canRebuildIndex = computed(() => Boolean(localStorage.getItem('token')))
 const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
-const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label ?? '相关度')
-const hasActivePostFilters = computed(() => Boolean(filters.q.trim() || filters.company.trim() || filters.position.trim() || filters.type))
+const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label || '相关度')
+const hasQuery = computed(() => Boolean(filters.q || filters.company || filters.position || filters.type))
 const emptyTitle = computed(() => {
-  if (searchMode.value === 'users') {
-    return filters.q.trim() ? '没有找到这个用户' : '先输入用户昵称'
-  }
-  return hasActivePostFilters.value ? '没有匹配的内容' : '开始探索内容'
+  if (searchMode.value === 'users') return filters.q ? '没有找到这个用户' : '先输入用户昵称'
+  return hasQuery.value ? '没有匹配的内容' : '开始探索内容'
+})
+const emptyText = computed(() => {
+  if (searchMode.value === 'users') return '可以搜索作者昵称，找到公开资料和 TA 的内容。'
+  return hasQuery.value ? '当前关键词或筛选条件较窄，可以清空筛选或换一个热门关键词。' : '输入关键词，或直接查看热门内容。'
 })
 const searchStatusText = computed(() => {
   if (!searchStatus.value) return '正在检测搜索状态'
@@ -284,8 +222,6 @@ const searchStatusText = computed(() => {
   if (!searchStatus.value.indexExists) return `索引 ${searchStatus.value.indexName} 尚未创建`
   return `索引 ${searchStatus.value.indexName} 已就绪`
 })
-
-const stripHighlight = (value: string) => value.replace(/<\/?em>/g, '')
 
 const syncFromRoute = () => {
   filters.q = typeof route.query.q === 'string' ? route.query.q : ''
@@ -301,9 +237,9 @@ const pushQuery = () => {
   router.replace({
     path: '/search',
     query: {
-      ...(filters.q.trim() ? { q: filters.q.trim() } : {}),
-      ...(filters.company.trim() ? { company: filters.company.trim() } : {}),
-      ...(filters.position.trim() ? { position: filters.position.trim() } : {}),
+      ...(filters.q ? { q: filters.q } : {}),
+      ...(filters.company ? { company: filters.company } : {}),
+      ...(filters.position ? { position: filters.position } : {}),
       ...(filters.type ? { type: String(filters.type) } : {}),
       ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
       ...(searchMode.value === 'users' ? { mode: 'users' } : {}),
@@ -311,38 +247,47 @@ const pushQuery = () => {
   })
 }
 
-const runSearch = async () => {
+const runSearch = async (append = false) => {
+  if (isLoading.value || (append && !hasMore.value)) return
   pushQuery()
   isLoading.value = true
+  errorMessage.value = ''
   try {
     if (searchMode.value === 'users') {
-      if (!filters.q.trim()) {
+      cursor.value = undefined
+      hasMore.value = false
+      searchResults.value = []
+      if (!filters.q) {
         userResults.value = []
-        emptyText.value = '可以搜索作者昵称，找到公开资料和他的内容。'
         return
       }
-      const res = await userApi.searchUsers(filters.q.trim(), 20)
+      const res = await userApi.searchUsers(filters.q, 20)
       userResults.value = res.data || []
-      searchResults.value = []
-      emptyText.value = userResults.value.length === 0 ? '换一个昵称关键词，或去发现页看看推荐用户。' : ''
       return
     }
+
     const res = await searchApi.searchPosts({
       q: filters.q || undefined,
       company: filters.company || undefined,
       position: filters.position || undefined,
       type: filters.type,
       sort: filters.sort,
+      cursor: append ? cursor.value : undefined,
       size: 20,
     })
-    searchResults.value = res.data?.items || []
+    const page = res.data
+    searchResults.value = append ? [...searchResults.value, ...(page?.items || [])] : (page?.items || [])
     userResults.value = []
-    emptyText.value = searchResults.value.length === 0
-      ? '当前关键词或筛选条件太窄，可以清空筛选、换热门关键词，或者去发现页继续浏览。'
-      : ''
-  } catch (error) {
-    console.error('Failed to search posts:', error)
-    emptyText.value = '搜索接口暂不可用'
+    cursor.value = page?.nextCursor
+    hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
+  } catch (error: any) {
+    errorMessage.value = error?.message || '搜索接口暂不可用'
+    if (!append) {
+      searchResults.value = []
+      userResults.value = []
+      cursor.value = undefined
+      hasMore.value = false
+    }
   } finally {
     isLoading.value = false
   }
@@ -354,12 +299,34 @@ const resetFilters = async () => {
   filters.position = ''
   filters.type = undefined
   filters.sort = 'relevance'
+  searchMode.value = 'posts'
+  suggestions.value = []
   searchResults.value = []
   userResults.value = []
-  suggestions.value = []
-  searchMode.value = 'posts'
-  emptyText.value = '输入关键词或筛选条件开始搜索'
+  cursor.value = undefined
+  hasMore.value = false
+  errorMessage.value = ''
   await router.replace({ path: '/search' })
+}
+
+const setMode = async (mode: SearchMode) => {
+  searchMode.value = mode
+  searchResults.value = []
+  userResults.value = []
+  cursor.value = undefined
+  hasMore.value = false
+  await runSearch(false)
+}
+
+const setSort = async (sort: SortValue) => {
+  filters.sort = sort
+  await runSearch(false)
+}
+
+const useHotWord = async (word: string) => {
+  searchMode.value = 'posts'
+  filters.q = word
+  await runSearch(false)
 }
 
 const searchHotContent = async () => {
@@ -369,40 +336,20 @@ const searchHotContent = async () => {
   filters.position = ''
   filters.type = undefined
   filters.sort = 'hot'
-  await runSearch()
-}
-
-const useHotWord = async (word: string) => {
-  searchMode.value = 'posts'
-  filters.q = word
-  await runSearch()
+  await runSearch(false)
 }
 
 const loadSuggestions = async () => {
-  const q = filters.q.trim()
-  if (searchMode.value !== 'posts' || q.length < 2) {
+  if (searchMode.value !== 'posts' || filters.q.length < 2) {
     suggestions.value = []
     return
   }
   try {
-    const res = await searchApi.suggest(q)
+    const res = await searchApi.suggest(filters.q)
     suggestions.value = Array.isArray(res.data) ? res.data : []
   } catch {
     suggestions.value = []
   }
-}
-
-const setMode = async (mode: 'posts' | 'users') => {
-  searchMode.value = mode
-  searchResults.value = []
-  userResults.value = []
-  emptyText.value = mode === 'users' ? '可以搜索作者昵称，找到公开资料和他的内容。' : '输入关键词或筛选条件开始搜索'
-  await runSearch()
-}
-
-const setSort = async (sort: 'relevance' | 'latest' | 'hot') => {
-  filters.sort = sort
-  await runSearch()
 }
 
 const loadSearchStatus = async () => {
@@ -417,139 +364,276 @@ const loadSearchStatus = async () => {
 const rebuildIndex = async () => {
   isRebuilding.value = true
   try {
-    await searchApi.rebuildIndex()
+    const res = await searchApi.rebuildIndex()
+    toast.success(res.data?.taskId ? `索引重建任务已提交: ${res.data.taskId}` : '索引重建任务已提交')
     await loadSearchStatus()
+  } catch (error: any) {
+    toast.error(error?.message || '索引重建提交失败')
   } finally {
     isRebuilding.value = false
   }
 }
 
+const findPost = (postId: ApiId) => searchResults.value.find((item) => String(item.postId) === String(postId))
+
+const handleLike = async (postId: ApiId) => {
+  const post = findPost(postId)
+  if (!post) return
+  const liked = Boolean(post.myInteraction?.liked)
+  try {
+    liked ? await interactionApi.unlike(postId) : await interactionApi.like(postId)
+    post.myInteraction = { ...(post.myInteraction ?? { favorited: false }), liked: !liked }
+    post.counter.like = Math.max(0, post.counter.like + (liked ? -1 : 1))
+  } catch (error: any) {
+    toast.error(error?.message || '点赞操作失败')
+  }
+}
+
+const handleFavorite = async (postId: ApiId) => {
+  const post = findPost(postId)
+  if (!post) return
+  const favorited = Boolean(post.myInteraction?.favorited)
+  try {
+    favorited ? await interactionApi.unfavorite(postId) : await interactionApi.favorite(postId)
+    post.myInteraction = { ...(post.myInteraction ?? { liked: false }), favorited: !favorited }
+    post.counter.favorite = Math.max(0, post.counter.favorite + (favorited ? -1 : 1))
+  } catch (error: any) {
+    toast.error(error?.message || '收藏操作失败')
+  }
+}
+
 onMounted(async () => {
   syncFromRoute()
-  await loadSearchStatus()
-  try {
-    const hot = await searchApi.hotSearches()
-    hotWords.value = hot.data || []
-  } catch {
-    hotWords.value = []
-  }
-  if (filters.q || filters.company || filters.position || filters.type || searchMode.value === 'users') {
-    await runSearch()
+  await Promise.all([
+    loadSearchStatus(),
+    searchApi.hotSearches().then((res) => { hotWords.value = res.data || [] }).catch(() => { hotWords.value = [] }),
+  ])
+  if (hasQuery.value || searchMode.value === 'users') {
+    await runSearch(false)
   }
 })
 </script>
 
 <style scoped>
-.filter-label {
-  margin-bottom: 0.5rem;
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgb(15 23 42);
+.search-shell,
+.side-panel,
+.result-summary,
+.loading-panel,
+.empty-panel,
+.user-row {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
 }
 
-.filter-input {
+.search-shell,
+.side-panel,
+.loading-panel,
+.empty-panel,
+.user-row {
+  padding: 1.25rem;
+}
+
+.search-input,
+.field-input {
   width: 100%;
   border-radius: 0.5rem;
   border: 1px solid rgb(226 232 240);
   background: white;
-  padding: 0.5rem 0.75rem;
+  padding: 0.65rem 0.75rem;
   font-size: 0.875rem;
   color: rgb(15 23 42);
+  outline: none;
 }
 
-.secondary-button {
+.search-input:focus,
+.field-input:focus {
+  border-color: rgb(79 70 229);
+  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
+}
+
+.primary-button,
+.secondary-button,
+.segment-button,
+.chip-button,
+.tag-button {
+  display: inline-flex;
+  min-height: 2.375rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.85rem;
   font-size: 0.875rem;
-  color: rgb(51 65 85);
-  transition: background-color 0.15s ease;
+  font-weight: 700;
 }
 
-.mode-button {
-  border-radius: 0.5rem;
+.primary-button {
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.secondary-button,
+.chip-button,
+.tag-button {
   border: 1px solid rgb(226 232 240);
   background: white;
-  padding: 0.45rem 0.9rem;
-  color: rgb(71 85 105);
-  font-size: 0.875rem;
-  font-weight: 600;
+  color: rgb(51 65 85);
 }
 
-.mode-button-active {
-  border-color: rgb(79 70 229);
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.segmented {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.625rem;
+  padding: 0.2rem;
+  background: rgb(248 250 252);
+}
+
+.segment-button {
+  min-height: 2rem;
+  color: rgb(71 85 105);
+}
+
+.segment-active,
+.chip-active {
   background: rgb(238 242 255);
   color: rgb(67 56 202);
 }
 
-.secondary-button:hover {
-  background: rgb(248 250 252);
+.chip-active {
+  border-color: rgb(129 140 248);
 }
 
-.primary-action,
-.empty-action {
+.side-title,
+.field-label {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.field-label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.result-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: rgb(71 85 105);
+}
+
+.status-pill {
   display: inline-flex;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.status-ok {
+  background: rgb(220 252 231);
+  color: rgb(21 128 61);
+}
+
+.status-warn {
+  background: rgb(254 243 199);
+  color: rgb(180 83 9);
+}
+
+.notice-error {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(254 202 202);
+  border-radius: 0.75rem;
+  background: rgb(254 242 242);
+  padding: 1rem;
+  color: rgb(185 28 28);
+}
+
+.loading-panel,
+.empty-panel {
+  text-align: center;
+  color: rgb(100 116 139);
+}
+
+.empty-panel h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.empty-panel p {
+  margin-top: 0.5rem;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.user-row:hover {
+  border-color: rgb(147 197 253);
+  transform: translateY(-1px);
+}
+
+.avatar {
+  display: flex;
+  height: 3rem;
+  width: 3rem;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
-  padding: 0.55rem 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.primary-action {
-  background: rgb(79 70 229);
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(37 99 235);
+  font-weight: 800;
   color: white;
 }
 
-.primary-action:hover {
-  background: rgb(67 56 202);
+.view-link {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: rgb(37 99 235);
 }
 
-.empty-action {
-  border: 1px solid rgb(226 232 240);
-  color: rgb(51 65 85);
-}
-
-.empty-action:hover {
-  border-color: rgb(199 210 254);
-  color: rgb(67 56 202);
-}
-
-:global(.dark) .filter-label {
-  color: rgb(241 245 249);
-}
-
-:global(.dark) .filter-input {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(241 245 249);
-}
-
-:global(.dark) .secondary-button {
-  border-color: rgb(51 65 85);
-  color: rgb(203 213 225);
-}
-
-:global(.dark) .mode-button {
-  border-color: rgb(51 65 85);
+:global(.dark) .search-shell,
+:global(.dark) .side-panel,
+:global(.dark) .result-summary,
+:global(.dark) .loading-panel,
+:global(.dark) .empty-panel,
+:global(.dark) .user-row,
+:global(.dark) .secondary-button,
+:global(.dark) .chip-button,
+:global(.dark) .tag-button,
+:global(.dark) .search-input,
+:global(.dark) .field-input {
+  border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .secondary-button:hover {
-  background: rgb(30 41 59);
+:global(.dark) .segmented {
+  border-color: rgb(30 41 59);
+  background: rgb(2 6 23);
 }
 
-:global(.dark) .empty-action {
-  border-color: rgb(51 65 85);
-  color: rgb(203 213 225);
-}
-
-:global(.dark) .empty-action:hover {
-  border-color: rgb(79 70 229);
-  color: rgb(165 180 252);
+:global(.dark) .side-title,
+:global(.dark) .field-label,
+:global(.dark) .empty-panel h2 {
+  color: rgb(248 250 252);
 }
 </style>
