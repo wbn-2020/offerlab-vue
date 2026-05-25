@@ -11,7 +11,8 @@
     "test:permissions": "node scripts/test-admin-permissions.mjs",
     "test:error-handling": "node scripts/test-error-handling.mjs",
     "test:routes": "node scripts/test-route-meta.mjs",
-    "test:guards": "npm run test:permissions && npm run test:error-handling && npm run test:routes"
+    "test:guards": "npm run test:permissions && npm run test:error-handling && npm run test:routes",
+    "verify": "npm run test:guards && npm run build"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.28.0",

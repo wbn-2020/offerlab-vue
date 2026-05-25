@@ -1,6 +1,6 @@
 # OfferLab Vue Frontend
 
-OfferLab 前端是一个面向求职者的面经与技术内容社区应用，使用 Vue 3、Vite、TypeScript、Pinia、Vue Router、Axios、TailwindCSS 和 Lucide 图标。当前开发分支为 `dev-v1`。
+OfferLab 前端是一个面向求职者的面经与技术内容社区应用，使用 Vue 3、Vite、TypeScript、Pinia、Vue Router、Axios、TailwindCSS 和 Lucide 图标。当前开发分支为 `dev-v2`。
 
 ## 当前状态
 
@@ -64,6 +64,18 @@ npm run build
 
 ```bash
 npm run typecheck
+```
+
+Guard checks:
+
+```bash
+npm run test:guards
+```
+
+Full local verification:
+
+```bash
+npm run verify
 ```
 
 ## 环境变量
