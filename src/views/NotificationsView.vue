@@ -143,6 +143,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, UserPlus } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import { notificationApi } from '@/api/notification'
 import type { ApiId, Notification } from '@/api/types'
 import { formatTime } from '@/lib/format'
@@ -223,8 +225,7 @@ const loadNotifications = async () => {
     hasMore.value = Boolean(res.data?.hasMore)
     emptyText.value = '暂无通知'
   } catch (error) {
-    console.error('Failed to load notifications:', error)
-    emptyText.value = '通知接口暂不可用'
+    emptyText.value = getErrorMessage(error, '通知接口暂不可用')
   } finally {
     isLoading.value = false
   }
@@ -239,6 +240,8 @@ const loadMore = async () => {
     notifications.value = [...notifications.value, ...(res.data?.items || [])]
     nextCursor.value = res.data?.nextCursor
     hasMore.value = Boolean(res.data?.hasMore)
+  } catch (error) {
+    toast.error(getErrorMessage(error, '加载更多通知失败'))
   } finally {
     isLoading.value = false
   }
@@ -259,6 +262,8 @@ const markAsRead = async (id: ApiId) => {
       item.notificationId === id ? { ...item, read: true } : item
     )
     await loadUnread()
+  } catch (error) {
+    toast.error(getErrorMessage(error, '标记已读失败'))
   } finally {
     isMutating.value = false
   }
@@ -270,6 +275,8 @@ const markAllAsRead = async () => {
     await notificationApi.markAllAsRead()
     notifications.value = notifications.value.map(item => ({ ...item, read: true }))
     await loadUnread()
+  } catch (error) {
+    toast.error(getErrorMessage(error, '全部标记已读失败'))
   } finally {
     isMutating.value = false
   }

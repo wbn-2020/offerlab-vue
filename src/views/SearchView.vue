@@ -169,9 +169,11 @@ import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { interactionApi } from '@/api/interaction'
+import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { searchApi, type SearchStatus } from '@/api/search'
 import { userApi } from '@/api/user'
 import type { ApiId, Post, User } from '@/api/types'
+import { hasAdminPermission } from '@/utils/adminPermissions'
 
 type SortValue = 'relevance' | 'latest' | 'hot'
 type SearchMode = 'posts' | 'users'
@@ -200,11 +202,12 @@ const hasMore = ref(false)
 const hotWords = ref<string[]>([])
 const suggestions = ref<string[]>([])
 const searchStatus = ref<SearchStatus | null>(null)
+const adminPermissions = ref<MyAdminPermissions | null>(null)
 const isLoading = ref(false)
 const isRebuilding = ref(false)
 const errorMessage = ref('')
 
-const canRebuildIndex = computed(() => Boolean(localStorage.getItem('token')))
+const canRebuildIndex = computed(() => hasAdminPermission(adminPermissions.value, ['ops', 'admin']))
 const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
 const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label || '相关度')
 const hasQuery = computed(() => Boolean(filters.q || filters.company || filters.position || filters.type))
@@ -362,7 +365,20 @@ const loadSearchStatus = async () => {
   }
 }
 
+const loadAdminPermissions = async () => {
+  try {
+    const res = await opsApi.myPermissions()
+    adminPermissions.value = res.data || null
+  } catch {
+    adminPermissions.value = null
+  }
+}
+
 const rebuildIndex = async () => {
+  if (!canRebuildIndex.value) {
+    toast.error('当前账号没有权限执行该操作')
+    return
+  }
   isRebuilding.value = true
   try {
     const res = await searchApi.rebuildIndex()
@@ -407,6 +423,7 @@ onMounted(async () => {
   syncFromRoute()
   await Promise.all([
     loadSearchStatus(),
+    loadAdminPermissions(),
     searchApi.hotSearches().then((res) => { hotWords.value = res.data || [] }).catch(() => { hotWords.value = [] }),
   ])
   if (hasQuery.value || searchMode.value === 'users') {

@@ -137,7 +137,9 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import MarkdownEditor from '@/components/post/MarkdownEditor.vue'
 import PostMeta from '@/components/post/PostMeta.vue'
+import { getErrorMessage } from '@/api/client'
 import { postApi } from '@/api/post'
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const route = useRoute()
@@ -176,7 +178,7 @@ const loadPostForEdit = async (postId: number) => {
   try {
     const res = await postApi.getDetail(postId)
     if (res.code !== 0 || !res.data) {
-      alert(`加载帖子失败: ${res.message || '帖子不存在'}`)
+      toast.error(res.message || '帖子不存在或已被删除')
       router.push('/')
       return
     }
@@ -191,9 +193,8 @@ const loadPostForEdit = async (postId: number) => {
       coverUrl: post.coverUrl || ''
     }
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
-  } catch (e) {
-    console.error('Failed to load post:', e)
-    alert('加载帖子失败，请重试')
+  } catch (error) {
+    toast.error(getErrorMessage(error, '加载帖子失败，请重试'))
     router.push('/')
   } finally {
     isLoadingPost.value = false
@@ -215,8 +216,8 @@ onMounted(async () => {
       const draftData = JSON.parse(draft)
       form.value = { ...form.value, ...draftData }
       selectedTags.value = draftData.selectedTags || []
-    } catch (e) {
-      console.error('Failed to load draft:', e)
+    } catch {
+      toast.warning('本地草稿已损坏，已忽略')
     }
   }
 })
@@ -237,12 +238,12 @@ const saveDraft = () => {
     ...form.value,
     selectedTags: selectedTags.value
   }))
-  alert('草稿已保存')
+  toast.success('草稿已保存')
 }
 
 const publishPost = async () => {
   if (!form.value.title.trim() || !form.value.content.trim()) {
-    alert('请填写标题和内容')
+    toast.error('请填写标题和内容')
     return
   }
 
@@ -268,14 +269,13 @@ const publishPost = async () => {
       : await postApi.create(req)
     if (res.code === 0) {
       localStorage.removeItem('post_draft')
-      alert(isEditing.value ? '保存成功' : '发布成功')
+      toast.success(isEditing.value ? '保存成功' : '发布成功')
       router.push(`/post/${isEditing.value ? postId : res.data?.postId}`)
     } else {
-      alert(`${isEditing.value ? '保存' : '发布'}失败: ${res.message}`)
+      toast.error(res.message || `${isEditing.value ? '保存' : '发布'}失败`)
     }
   } catch (error) {
-    console.error('Publish error:', error)
-    alert(`${isEditing.value ? '保存' : '发布'}失败，请重试`)
+    toast.error(getErrorMessage(error, `${isEditing.value ? '保存' : '发布'}失败，请重试`))
   } finally {
     isPublishing.value = false
   }
