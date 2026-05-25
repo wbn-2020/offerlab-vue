@@ -81,6 +81,7 @@ import { ref, reactive } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import { z } from 'zod'
 
 const router = useRouter()
@@ -133,7 +134,7 @@ const handleSubmit = async () => {
     const redirect = route.query.redirect as string
     router.push(redirect || '/')
   } catch (error: any) {
-    const message = error?.message || '登录失败，请检查邮箱和密码'
+    const message = getErrorMessage(error, '登录失败，请检查邮箱和密码')
     toast.error(message)
   } finally {
     isLoading.value = false

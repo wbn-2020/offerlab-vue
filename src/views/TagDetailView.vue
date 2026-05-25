@@ -101,7 +101,7 @@ const loadTag = async () => {
     declaredCount.value = currentTag.count || 0
     await loadPosts(false)
   } catch (error: any) {
-    errorMessage.value = error?.message || '标签内容加载失败'
+    errorMessage.value = getErrorMessage(error, '标签内容加载失败')
   } finally {
     isLoading.value = false
   }
@@ -119,7 +119,7 @@ const loadPosts = async (append = false) => {
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
     declaredCount.value = declaredCount.value || posts.value.length
   } catch (error: any) {
-    errorMessage.value = error?.message || '标签内容加载失败'
+    errorMessage.value = getErrorMessage(error, '标签内容加载失败')
   } finally {
     isLoading.value = false
   }

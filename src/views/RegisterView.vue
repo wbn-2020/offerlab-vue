@@ -87,6 +87,7 @@ import { ref, reactive } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import { z } from 'zod'
 
 const router = useRouter()
@@ -142,7 +143,7 @@ const handleSubmit = async () => {
     toast.success('注册成功')
     router.push('/')
   } catch (error: any) {
-    const message = error?.message || '注册失败，请稍后重试'
+    const message = getErrorMessage(error, '注册失败，请稍后重试')
     toast.error(message)
   } finally {
     isLoading.value = false

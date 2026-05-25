@@ -194,7 +194,7 @@ const loadPage = async <T,>(
     const page = await loader(append ? state.cursor : undefined)
     applyPage(state, page, append)
   } catch (error: any) {
-    state.error = error?.message || fallbackMessage
+    state.error = getErrorMessage(error, fallbackMessage)
     if (!append) {
       state.items = []
       state.cursor = undefined

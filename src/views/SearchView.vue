@@ -282,7 +282,7 @@ const runSearch = async (append = false) => {
     cursor.value = page?.nextCursor
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
   } catch (error: any) {
-    errorMessage.value = error?.message || '搜索接口暂不可用'
+    errorMessage.value = getErrorMessage(error, '搜索接口暂不可用')
     if (!append) {
       searchResults.value = []
       userResults.value = []
