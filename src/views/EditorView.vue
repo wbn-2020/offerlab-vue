@@ -137,7 +137,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import MarkdownEditor from '@/components/post/MarkdownEditor.vue'
 import PostMeta from '@/components/post/PostMeta.vue'
-import { getErrorMessage } from '@/api/client'
+import { getErrorMessage, getResultMessage } from '@/api/client'
 import { postApi } from '@/api/post'
 import { toast } from 'vue-sonner'
 
@@ -178,7 +178,7 @@ const loadPostForEdit = async (postId: number) => {
   try {
     const res = await postApi.getDetail(postId)
     if (res.code !== 0 || !res.data) {
-      toast.error(res.message || '帖子不存在或已被删除')
+      toast.error(getResultMessage(res, '帖子不存在或已被删除'))
       router.push('/')
       return
     }
@@ -272,7 +272,7 @@ const publishPost = async () => {
       toast.success(isEditing.value ? '保存成功' : '发布成功')
       router.push(`/post/${isEditing.value ? postId : res.data?.postId}`)
     } else {
-      toast.error(res.message || `${isEditing.value ? '保存' : '发布'}失败`)
+      toast.error(getResultMessage(res, `${isEditing.value ? '保存' : '发布'}失败`))
     }
   } catch (error) {
     toast.error(getErrorMessage(error, `${isEditing.value ? '保存' : '发布'}失败，请重试`))

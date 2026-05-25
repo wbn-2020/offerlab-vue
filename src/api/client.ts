@@ -41,6 +41,11 @@ export function getErrorMessage(error: unknown, fallback = '操作失败') {
   return fallback
 }
 
+export function getResultMessage(result: Pick<Result, 'message' | 'traceId'> | null | undefined, fallback = '操作失败') {
+  const message = result?.message || fallback
+  return result?.traceId ? `${message}（Trace: ${result.traceId}）` : message
+}
+
 const client: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 30000,

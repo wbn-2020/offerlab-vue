@@ -28,6 +28,10 @@ const forbiddenPatterns = [
     label: 'direct Error.message fallback',
     regex: /error\.message\s*\|\|/g,
   },
+  {
+    label: 'direct API result.message fallback',
+    regex: /res\.message\s*\|\|/g,
+  },
 ]
 
 const violations = []

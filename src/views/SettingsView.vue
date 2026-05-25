@@ -187,7 +187,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { getErrorMessage } from '@/api/client'
+import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { userApi, type PrivacySetting } from '@/api/user'
@@ -284,7 +284,7 @@ const updateProfile = async () => {
       }
       toast.success('资料已更新')
     } else {
-      toast.error(res.message || '资料更新失败')
+      toast.error(getResultMessage(res, '资料更新失败'))
     }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '资料更新失败'))
@@ -342,7 +342,7 @@ const updateIntent = async (intentData: any) => {
     if (res.code === 0) {
       toast.success('求职意向已更新')
     } else {
-      toast.error(res.message || '求职意向更新失败')
+      toast.error(getResultMessage(res, '求职意向更新失败'))
     }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '求职意向更新失败'))
