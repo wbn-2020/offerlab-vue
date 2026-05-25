@@ -11,6 +11,12 @@
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
+          <button type="button" class="secondary-button" :disabled="selectedIds.length === 0 || isBatching" @click="batchReview(1)">
+            批量通过
+          </button>
+          <button type="button" class="secondary-button danger-action" :disabled="selectedIds.length === 0 || isBatching" @click="batchReview(2)">
+            批量隐藏
+          </button>
           <button type="button" class="secondary-button" :disabled="isLoading" @click="loadQuestions">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
             刷新
@@ -35,6 +41,18 @@
         >
           {{ item.label }}
         </button>
+        <button
+          v-if="questions.length > 0"
+          type="button"
+          class="filter-button"
+          :disabled="isLoading || isBatching"
+          @click="toggleCurrentPageSelection"
+        >
+          {{ allCurrentPageSelected ? '取消本页选择' : '选择本页' }}
+        </button>
+        <span v-if="selectedIds.length > 0" class="selection-hint">
+          已选 {{ selectedIds.length }} 题
+        </span>
       </section>
 
       <section class="grid gap-6 lg:grid-cols-[1fr_420px]">
@@ -44,13 +62,20 @@
           </div>
           <EmptyState v-else-if="questions.length === 0" title="暂无题目" description="当前筛选条件下没有需要维护的题目。" />
           <div v-else class="space-y-3">
-            <button
+            <div
               v-for="question in questions"
               :key="question.id"
-              type="button"
               :class="['question-row', selectedQuestion?.id === question.id ? 'question-row-active' : '']"
               @click="selectQuestion(question)"
             >
+              <label class="row-check" @click.stop>
+                <input
+                  type="checkbox"
+                  :checked="selectedIds.includes(question.id)"
+                  :disabled="isBatching"
+                  @change="toggleSelection(question.id)"
+                />
+              </label>
               <div class="min-w-0 flex-1 text-left">
                 <div class="mb-2 flex flex-wrap items-center gap-2">
                   <span :class="['status-pill', statusClass(question.status)]">{{ statusText(question.status) }}</span>
@@ -63,7 +88,7 @@
                   来源帖子 {{ question.sourcePostId || '--' }} · 质量分 {{ question.qualityScore || 0 }} · 出现 {{ question.appearCount || 0 }} 次
                 </p>
               </div>
-            </button>
+            </div>
           </div>
           <div class="mt-5 flex items-center justify-between border-t border-slate-200 pt-4 text-sm dark:border-slate-800">
             <span class="text-slate-500">第 {{ page }} 页 · 共 {{ total }} 条</span>
@@ -105,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -126,12 +151,15 @@ const selectedQuestion = ref<Question | null>(null)
 const statusFilter = ref<number | undefined>(0)
 const isLoading = ref(false)
 const isSaving = ref(false)
+const isBatching = ref(false)
+const selectedIds = ref<Array<Question['id']>>([])
 const page = ref(1)
 const pageSize = 20
 const total = ref(0)
 const hasMore = ref(false)
 const summary = reactive({ total: 0, pending: 0, approved: 0, hidden: 0 })
 const form = reactive({ questionText: '', answerHint: '', company: '', position: '', interviewRound: '', difficulty: 'medium', status: 1 })
+const allCurrentPageSelected = computed(() => questions.value.length > 0 && questions.value.every((item) => selectedIds.value.includes(item.id)))
 
 const loadSummary = async () => {
   const res = await opsApi.questionSummary()
@@ -148,6 +176,7 @@ const loadQuestions = async () => {
     questions.value = pageRes.data?.items || []
     total.value = pageRes.data?.total || 0
     hasMore.value = Boolean(pageRes.data?.hasMore)
+    selectedIds.value = selectedIds.value.filter((id) => questions.value.some((item) => item.id === id))
     if (selectedQuestion.value) {
       const refreshed = questions.value.find((item) => item.id === selectedQuestion.value?.id)
       if (refreshed) selectQuestion(refreshed)
@@ -163,6 +192,7 @@ const loadQuestions = async () => {
 const setStatus = async (value?: number) => {
   statusFilter.value = value
   selectedQuestion.value = null
+  selectedIds.value = []
   page.value = 1
   await loadQuestions()
 }
@@ -170,6 +200,7 @@ const setStatus = async (value?: number) => {
 const goPage = async (next: number) => {
   page.value = Math.max(1, next)
   selectedQuestion.value = null
+  selectedIds.value = []
   await loadQuestions()
 }
 
@@ -204,6 +235,35 @@ const quickReview = async (status: number) => {
   await saveQuestion()
 }
 
+const toggleSelection = (id: Question['id']) => {
+  selectedIds.value = selectedIds.value.includes(id)
+    ? selectedIds.value.filter((item) => item !== id)
+    : [...selectedIds.value, id]
+}
+
+const toggleCurrentPageSelection = () => {
+  selectedIds.value = allCurrentPageSelected.value ? [] : questions.value.map((item) => item.id)
+}
+
+const batchReview = async (status: number) => {
+  if (selectedIds.value.length === 0) return
+  isBatching.value = true
+  try {
+    const ids = [...selectedIds.value]
+    const res = await opsApi.batchReviewQuestions(ids, status)
+    toast.success(`已处理 ${res.data?.reviewed || ids.length} 道题`)
+    if (selectedQuestion.value && ids.includes(selectedQuestion.value.id)) {
+      selectedQuestion.value = null
+    }
+    selectedIds.value = []
+    await loadQuestions()
+  } catch (error: any) {
+    toast.error(error?.message || '批量审核失败')
+  } finally {
+    isBatching.value = false
+  }
+}
+
 const statusText = (status?: number) => status === 0 ? '待审核' : status === 2 ? '隐藏' : '通过'
 const statusClass = (status?: number) => status === 1 ? 'status-ok' : status === 2 ? 'status-danger' : 'status-warn'
 const difficultyText = (value?: string) => value === 'easy' ? '简单' : value === 'hard' ? '困难' : '中等'
@@ -212,5 +272,5 @@ onMounted(loadQuestions)
 </script>
 
 <style scoped>
-.primary-button,.secondary-button,.filter-button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:.5rem;border-radius:.5rem;padding:.5rem .9rem;font-size:.875rem;font-weight:700}.primary-button{background:rgb(37 99 235);color:white}.secondary-button,.filter-button{border:1px solid rgb(226 232 240);background:white;color:rgb(51 65 85)}.compact{min-height:32px;padding:.35rem .7rem}.filter-button-active{border-color:rgb(79 70 229);background:rgb(238 242 255);color:rgb(67 56 202)}.danger-action{color:rgb(185 28 28)}.primary-button:disabled,.secondary-button:disabled{cursor:not-allowed;opacity:.6}.metric-card,.panel{border-radius:.75rem;border:1px solid rgb(226 232 240);background:white;padding:1.25rem}.metric-card span{display:block;font-size:.8125rem;font-weight:700;color:rgb(100 116 139)}.metric-card strong{margin-top:.45rem;display:block;font-size:1.6rem;font-weight:800;color:rgb(15 23 42)}.question-row{display:flex;width:100%;border-radius:.75rem;border:1px solid rgb(226 232 240);background:rgb(248 250 252);padding:1rem;transition:border-color .15s ease,background-color .15s ease}.question-row:hover,.question-row-active{border-color:rgb(129 140 248);background:rgb(238 242 255)}.status-pill,.meta-chip{display:inline-flex;align-items:center;border-radius:999px;padding:.25rem .6rem;font-size:.75rem;font-weight:700}.meta-chip{background:white;color:rgb(71 85 105)}.status-ok{background:rgb(220 252 231);color:rgb(21 128 61)}.status-warn{background:rgb(254 243 199);color:rgb(180 83 9)}.status-danger{background:rgb(254 226 226);color:rgb(185 28 28)}.field-label{display:grid;gap:.4rem;font-size:.8125rem;font-weight:700;color:rgb(71 85 105)}.field-input{width:100%;border-radius:.5rem;border:1px solid rgb(226 232 240);background:white;padding:.65rem .75rem;font-size:.875rem;color:rgb(15 23 42);outline:none}.field-input:focus{border-color:rgb(79 70 229);box-shadow:0 0 0 3px rgb(199 210 254 / .7)}:global(.dark) .metric-card,:global(.dark) .panel,:global(.dark) .secondary-button,:global(.dark) .filter-button,:global(.dark) .field-input{border-color:rgb(30 41 59);background:rgb(15 23 42);color:rgb(203 213 225)}:global(.dark) .metric-card strong{color:rgb(248 250 252)}:global(.dark) .question-row{border-color:rgb(30 41 59);background:rgb(2 6 23)}:global(.dark) .question-row:hover,:global(.dark) .question-row-active,:global(.dark) .filter-button-active{border-color:rgb(99 102 241);background:rgb(30 27 75)}:global(.dark) .meta-chip{background:rgb(30 41 59);color:rgb(203 213 225)}
+.primary-button,.secondary-button,.filter-button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:.5rem;border-radius:.5rem;padding:.5rem .9rem;font-size:.875rem;font-weight:700}.primary-button{background:rgb(37 99 235);color:white}.secondary-button,.filter-button{border:1px solid rgb(226 232 240);background:white;color:rgb(51 65 85)}.compact{min-height:32px;padding:.35rem .7rem}.filter-button-active{border-color:rgb(79 70 229);background:rgb(238 242 255);color:rgb(67 56 202)}.danger-action{color:rgb(185 28 28)}.primary-button:disabled,.secondary-button:disabled,.filter-button:disabled{cursor:not-allowed;opacity:.6}.metric-card,.panel{border-radius:.75rem;border:1px solid rgb(226 232 240);background:white;padding:1.25rem}.metric-card span{display:block;font-size:.8125rem;font-weight:700;color:rgb(100 116 139)}.metric-card strong{margin-top:.45rem;display:block;font-size:1.6rem;font-weight:800;color:rgb(15 23 42)}.question-row{display:flex;width:100%;cursor:pointer;gap:.85rem;border-radius:.75rem;border:1px solid rgb(226 232 240);background:rgb(248 250 252);padding:1rem;transition:border-color .15s ease,background-color .15s ease}.question-row:hover,.question-row-active{border-color:rgb(129 140 248);background:rgb(238 242 255)}.row-check{display:flex;min-height:1.5rem;align-items:flex-start;padding-top:.15rem}.row-check input{height:1rem;width:1rem;accent-color:rgb(37 99 235)}.selection-hint{display:inline-flex;min-height:38px;align-items:center;border-radius:999px;background:rgb(239 246 255);padding:0 .85rem;font-size:.8125rem;font-weight:800;color:rgb(29 78 216)}.status-pill,.meta-chip{display:inline-flex;align-items:center;border-radius:999px;padding:.25rem .6rem;font-size:.75rem;font-weight:700}.meta-chip{background:white;color:rgb(71 85 105)}.status-ok{background:rgb(220 252 231);color:rgb(21 128 61)}.status-warn{background:rgb(254 243 199);color:rgb(180 83 9)}.status-danger{background:rgb(254 226 226);color:rgb(185 28 28)}.field-label{display:grid;gap:.4rem;font-size:.8125rem;font-weight:700;color:rgb(71 85 105)}.field-input{width:100%;border-radius:.5rem;border:1px solid rgb(226 232 240);background:white;padding:.65rem .75rem;font-size:.875rem;color:rgb(15 23 42);outline:none}.field-input:focus{border-color:rgb(79 70 229);box-shadow:0 0 0 3px rgb(199 210 254 / .7)}:global(.dark) .metric-card,:global(.dark) .panel,:global(.dark) .secondary-button,:global(.dark) .filter-button,:global(.dark) .field-input{border-color:rgb(30 41 59);background:rgb(15 23 42);color:rgb(203 213 225)}:global(.dark) .metric-card strong{color:rgb(248 250 252)}:global(.dark) .question-row{border-color:rgb(30 41 59);background:rgb(2 6 23)}:global(.dark) .question-row:hover,:global(.dark) .question-row-active,:global(.dark) .filter-button-active{border-color:rgb(99 102 241);background:rgb(30 27 75)}:global(.dark) .meta-chip{background:rgb(30 41 59);color:rgb(203 213 225)}:global(.dark) .selection-hint{background:rgb(30 58 138 / .35);color:rgb(147 197 253)}
 </style>

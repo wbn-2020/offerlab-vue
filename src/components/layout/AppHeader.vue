@@ -69,10 +69,16 @@
               <RouterLink to="/me/prep" class="menu-item" @click="showUserMenu = false">我的准备台</RouterLink>
               <RouterLink to="/me/notifications" class="menu-item" @click="showUserMenu = false">通知中心</RouterLink>
               <RouterLink to="/me/settings" class="menu-item" @click="showUserMenu = false">设置</RouterLink>
-              <RouterLink to="/admin/ops" class="menu-item" @click="showUserMenu = false">运维中心</RouterLink>
-              <RouterLink to="/admin/questions" class="menu-item" @click="showUserMenu = false">题目审核</RouterLink>
-              <RouterLink to="/admin/company-aliases" class="menu-item" @click="showUserMenu = false">公司别名维护</RouterLink>
-              <RouterLink to="/admin/governance" class="menu-item" @click="showUserMenu = false">治理中心</RouterLink>
+              <div v-if="adminLinks.length" class="menu-divider" />
+              <RouterLink
+                v-for="item in adminLinks"
+                :key="item.to"
+                :to="item.to"
+                class="menu-item"
+                @click="showUserMenu = false"
+              >
+                {{ item.label }}
+              </RouterLink>
               <button type="button" @click="handleLogout" class="menu-item w-full text-left text-danger">
                 退出登录
               </button>
@@ -94,6 +100,7 @@ import { Bell, Moon, Search, Sun, User } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { notificationApi } from '@/api/notification'
+import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { useAuthStore } from '@/stores/auth'
 import { useRealtimeStore } from '@/stores/realtime'
 import { useThemeStore } from '@/stores/theme'
@@ -105,7 +112,20 @@ const router = useRouter()
 
 const showUserMenu = ref(false)
 const keyword = ref('')
+const permissions = ref<MyAdminPermissions | null>(null)
 const unreadCount = computed(() => realtimeStore.unreadCount.total)
+const adminLinks = computed(() => {
+  const value = permissions.value
+  if (!value) return []
+  const links: Array<{ to: string; label: string }> = []
+  if (value.ops) links.push({ to: '/admin/ops', label: '运维中心' })
+  if (value.questionOperator) {
+    links.push({ to: '/admin/questions', label: '题目审核' })
+    links.push({ to: '/admin/company-aliases', label: '公司别名维护' })
+  }
+  if (value.contentModerator || value.ops || value.admin) links.push({ to: '/admin/governance', label: '治理中心' })
+  return links
+})
 
 const loadUnread = async () => {
   if (!authStore.token) return
@@ -114,6 +134,19 @@ const loadUnread = async () => {
     if (res.code === 0 && res.data) realtimeStore.setUnreadCount(res.data)
   } catch {
     realtimeStore.setUnreadCount({ total: 0, like: 0, comment: 0, favorite: 0, follower: 0, mention: 0, system: 0 })
+  }
+}
+
+const loadPermissions = async () => {
+  if (!authStore.token) {
+    permissions.value = null
+    return
+  }
+  try {
+    const res = await opsApi.myPermissions()
+    permissions.value = res.code === 0 ? res.data : null
+  } catch {
+    permissions.value = null
   }
 }
 
@@ -129,6 +162,7 @@ const toggleTheme = () => {
 const handleLogout = async () => {
   authStore.logout()
   realtimeStore.setUnreadCount({ total: 0, like: 0, comment: 0, favorite: 0, follower: 0, mention: 0, system: 0 })
+  permissions.value = null
   showUserMenu.value = false
   toast.success('已退出登录')
   router.push('/login')
@@ -136,13 +170,17 @@ const handleLogout = async () => {
 
 onMounted(() => {
   loadUnread()
+  loadPermissions()
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
     if (!target.closest('[data-user-menu]')) showUserMenu.value = false
   })
 })
 
-watch(() => authStore.token, loadUnread)
+watch(() => authStore.token, () => {
+  loadUnread()
+  loadPermissions()
+})
 </script>
 
 <style scoped>
@@ -158,11 +196,20 @@ watch(() => authStore.token, loadUnread)
   background: rgb(241 245 249);
 }
 
+.menu-divider {
+  margin: 0.35rem 0;
+  border-top: 1px solid rgb(226 232 240);
+}
+
 :global(.dark) .menu-item {
   color: rgb(203 213 225);
 }
 
 :global(.dark) .menu-item:hover {
   background: rgb(30 41 59);
+}
+
+:global(.dark) .menu-divider {
+  border-color: rgb(30 41 59);
 }
 </style>

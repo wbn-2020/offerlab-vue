@@ -21,6 +21,16 @@ export interface OpsStatus {
   outbox: OutboxStatus
 }
 
+export interface MyAdminPermissions {
+  uid: ApiId
+  adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY' | 'LOCKED'
+  admin: boolean
+  ops: boolean
+  contentModerator: boolean
+  questionOperator: boolean
+  localOpen: boolean
+}
+
 export interface AdminUserRole {
   uid: ApiId
   roleCode: string
@@ -125,6 +135,9 @@ export const opsApi = {
   status: (): Promise<Result<OpsStatus>> =>
     client.get('/api/v1/ops/status'),
 
+  myPermissions: (): Promise<Result<MyAdminPermissions>> =>
+    client.get('/api/v1/ops/me/permissions'),
+
   listOutbox: (params?: { status?: number; limit?: number }): Promise<Result<OutboxMessage[]>> =>
     client.get('/api/v1/ops/outbox', { params }),
 
@@ -196,6 +209,9 @@ export const opsApi = {
 
   reviewQuestion: (id: ApiId, status: number): Promise<Result<{ questionId: ApiId; status: number }>> =>
     client.post(`/api/v1/admin/questions/${id}/review`, null, { params: { status } }),
+
+  batchReviewQuestions: (ids: ApiId[], status: number): Promise<Result<{ requested: number; reviewed: number; status: number }>> =>
+    client.post('/api/v1/admin/questions/batch-review', { ids, status }),
 
   listQuestions: (params?: { status?: number; limit?: number }): Promise<Result<Question[]>> =>
     client.get('/api/v1/admin/questions', { params }),

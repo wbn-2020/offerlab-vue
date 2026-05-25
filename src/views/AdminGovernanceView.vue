@@ -184,16 +184,19 @@ const StatusList = defineComponent({
 const refreshAll = async () => {
   isLoading.value = true
   try {
-    const [migrationRes, keywordRes, userRes, auditRes] = await Promise.all([
+    const [migrationRes, keywordRes, userRes, auditRes] = await Promise.allSettled([
       opsApi.migrationStatus(),
       opsApi.listModerationKeywords({ limit: 80 }),
       opsApi.listModerationUsers(80),
       opsApi.listAuditLogs({ limit: 80 }),
     ])
-    migration.value = migrationRes.data
-    keywords.value = keywordRes.data || []
-    users.value = userRes.data || []
-    auditLogs.value = auditRes.data || []
+    if (migrationRes.status === 'fulfilled') migration.value = migrationRes.value.data
+    if (keywordRes.status === 'fulfilled') keywords.value = keywordRes.value.data || []
+    if (userRes.status === 'fulfilled') users.value = userRes.value.data || []
+    if (auditRes.status === 'fulfilled') auditLogs.value = auditRes.value.data || []
+    if ([migrationRes, keywordRes, userRes, auditRes].every((item) => item.status === 'rejected')) {
+      toast.error('治理数据加载失败')
+    }
   } catch (error: any) {
     toast.error(error?.message || '治理数据加载失败')
   } finally {
