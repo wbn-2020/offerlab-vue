@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import MarkdownIt from 'markdown-it'
+import { renderMarkdown } from '@/utils/markdown'
 import 'highlight.js/styles/atom-one-dark.css'
 
 interface Props {
@@ -16,15 +16,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const md = new MarkdownIt({
-  html: false,
-  linkify: true,
-  breaks: true,
-})
-
-md.validateLink = (url: string) => /^(https?:|mailto:)/i.test(url.trim())
-
-const renderedContent = computed(() => md.render(props.content || ''))
+const renderedContent = computed(() => renderMarkdown(props.content))
 </script>
 
 <style scoped>
