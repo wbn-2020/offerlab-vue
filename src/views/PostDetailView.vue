@@ -525,7 +525,7 @@ const loadComments = async (reset = true) => {
     commentCursor.value = page?.nextCursor
     hasMoreComments.value = Boolean(page?.hasMore)
   } catch (error) {
-    console.error('Failed to load comments:', error)
+    toast.error(getErrorMessage(error, reset ? '评论加载失败' : '加载更多评论失败'))
   } finally {
     isLoadingComments.value = false
     isLoadingMoreComments.value = false

@@ -32,6 +32,14 @@ const forbiddenPatterns = [
     label: 'direct API result.message fallback',
     regex: /res\.message\s*\|\|/g,
   },
+  {
+    label: 'console-only user-facing error handling',
+    regex: /console\.error\(/g,
+  },
+  {
+    label: 'blocking alert feedback',
+    regex: /alert\(/g,
+  },
 ]
 
 const violations = []
