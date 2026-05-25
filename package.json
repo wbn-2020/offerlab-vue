@@ -14,7 +14,8 @@
     "test:markdown-safety": "node scripts/test-markdown-safety.mjs",
     "test:search-permissions": "node scripts/test-search-permissions.mjs",
     "test:routes": "node scripts/test-route-meta.mjs",
-    "test:guards": "npm run test:permissions && npm run test:error-handling && npm run test:editor-notification-errors && npm run test:markdown-safety && npm run test:search-permissions && npm run test:routes",
+    "test:smoke-pages": "node scripts/test-smoke-pages.mjs",
+    "test:guards": "npm run test:permissions && npm run test:error-handling && npm run test:editor-notification-errors && npm run test:markdown-safety && npm run test:search-permissions && npm run test:routes && npm run test:smoke-pages",
     "verify": "npm run test:guards && npm run build"
   },
   "dependencies": {
