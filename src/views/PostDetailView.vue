@@ -47,6 +47,8 @@
                 <MarkdownRenderer :content="post.content" />
               </div>
 
+              <PostQuestionBlock v-if="post.postType === 1" :post-id="post.postId" />
+
               <div v-if="post.tags.length" class="mb-8 flex flex-wrap gap-2 border-b border-slate-200 pb-8 dark:border-slate-800">
                 <RouterLink
                   v-for="tag in post.tags"
@@ -237,10 +239,12 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownRenderer from '@/components/post/MarkdownRenderer.vue'
 import InteractionBar from '@/components/post/InteractionBar.vue'
 import CommentTree from '@/components/post/CommentTree.vue'
+import PostQuestionBlock from '@/components/question/PostQuestionBlock.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import type { Comment, Post } from '@/api/types'
 
 const route = useRoute()
@@ -314,7 +318,7 @@ const handleLike = async () => {
     post.value.myInteraction = { ...(post.value.myInteraction ?? { favorited: false }), liked: !liked }
     post.value.counter.like = Math.max(0, post.value.counter.like + (liked ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '点赞操作失败')
+    toast.error(getErrorMessage(error, '点赞操作失败'))
   }
 }
 
@@ -330,7 +334,7 @@ const handleFavorite = async () => {
     post.value.myInteraction = { ...(post.value.myInteraction ?? { liked: false }), favorited: !favorited }
     post.value.counter.favorite = Math.max(0, post.value.counter.favorite + (favorited ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '收藏操作失败')
+    toast.error(getErrorMessage(error, '收藏操作失败'))
   }
 }
 
@@ -352,7 +356,7 @@ const toggleFollowAuthor = async () => {
       toast.success('已关注')
     }
   } catch (error: any) {
-    toast.error(error?.message || '关注操作失败')
+    toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     isFollowingAuthor.value = false
   }
@@ -369,7 +373,7 @@ const handleDeletePost = async () => {
     toast.success('帖子已删除')
     router.push('/')
   } catch (error: any) {
-    toast.error(error?.message || '删除帖子失败')
+    toast.error(getErrorMessage(error, '删除帖子失败'))
   } finally {
     isDeletingPost.value = false
   }
@@ -399,7 +403,7 @@ const handleLikeComment = async (commentId: Comment['commentId']) => {
       comment.likeCount += 1
     }
   } catch (error: any) {
-    toast.error(error?.message || '评论点赞失败')
+    toast.error(getErrorMessage(error, '评论点赞失败'))
     await loadComments(true)
   }
 }
@@ -417,7 +421,7 @@ const handleUnlikeComment = async (commentId: Comment['commentId']) => {
       comment.likeCount = Math.max(0, comment.likeCount - 1)
     }
   } catch (error: any) {
-    toast.error(error?.message || '取消点赞失败')
+    toast.error(getErrorMessage(error, '取消点赞失败'))
     await loadComments(true)
   }
 }
@@ -432,7 +436,7 @@ const handleSubmitComment = async () => {
     toast.success('评论成功')
     await loadComments()
   } catch (error: any) {
-    toast.error(error?.message || '评论失败')
+    toast.error(getErrorMessage(error, '评论失败'))
   } finally {
     isSubmittingComment.value = false
   }
@@ -450,7 +454,7 @@ const handleReplyComment = async (payload: { parentId: Comment['commentId']; rep
     toast.success('回复成功')
     await loadComments(true)
   } catch (error: any) {
-    toast.error(error?.message || '回复失败')
+    toast.error(getErrorMessage(error, '回复失败'))
   }
 }
 
@@ -464,7 +468,7 @@ const handleDeleteComment = async (commentId: Comment['commentId']) => {
     toast.success('评论已删除')
     await loadComments(true)
   } catch (error: any) {
-    toast.error(error?.message || '删除评论失败')
+    toast.error(getErrorMessage(error, '删除评论失败'))
   }
 }
 
@@ -501,7 +505,7 @@ const submitReport = async () => {
     reportForm.value = { reason: 'OTHER', detail: '' }
     reportTarget.value = { type: 'post' }
   } catch (error: any) {
-    toast.error(error?.message || '举报提交失败')
+    toast.error(getErrorMessage(error, '举报提交失败'))
   } finally {
     isReporting.value = false
   }
@@ -521,7 +525,7 @@ const loadComments = async (reset = true) => {
     commentCursor.value = page?.nextCursor
     hasMoreComments.value = Boolean(page?.hasMore)
   } catch (error) {
-    console.error('Failed to load comments:', error)
+    toast.error(getErrorMessage(error, reset ? '评论加载失败' : '加载更多评论失败'))
   } finally {
     isLoadingComments.value = false
     isLoadingMoreComments.value = false

@@ -8,11 +8,20 @@
   --primary-500: #6366f1;
   --primary-600: #4f46e5;
   --primary-700: #4338ca;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --surface-muted: #f1f5f9;
+  --border-subtle: #e2e8f0;
+  --text-strong: #0f172a;
+  --text-muted: #64748b;
   --accent-500: #f59e0b;
+  --accent-teal: #14b8a6;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
   --info: #3b82f6;
+  --shadow-card: 0 18px 45px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 html.dark {
@@ -28,7 +37,17 @@ html {
 }
 
 body {
-  @apply bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors;
+  @apply bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased transition-colors;
+  background:
+    radial-gradient(circle at top left, rgba(79, 70, 229, 0.08), transparent 28rem),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  min-width: 320px;
+}
+
+html.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.16), transparent 28rem),
+    linear-gradient(180deg, #020617 0%, #0f172a 100%);
 }
 
 /* 中英文字体 */
@@ -65,7 +84,13 @@ code, pre {
 
 /* 链接 */
 a {
-  @apply text-primary-600 dark:text-primary-400 hover:underline;
+  @apply text-primary-600 dark:text-primary-400;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-line: none;
 }
 
 /* 按钮重置 */
@@ -76,4 +101,109 @@ button {
 /* 输入框 */
 input, textarea, select {
   font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.55);
+  outline-offset: 3px;
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-transparent;
+  }
+
+  .surface-card {
+    @apply rounded-xl border border-slate-200/80 bg-white/90 shadow-[var(--shadow-soft)] backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/85;
+  }
+
+  .surface-panel {
+    @apply rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/75;
+  }
+
+  .primary-action {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .secondary-action {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-primary-800 dark:hover:bg-slate-800;
+  }
+
+  .muted-pill {
+    @apply inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300;
+  }
+}
+
+html.dark :is(
+  .filter-input,
+  .field-input,
+  .form-input,
+  .form-select,
+  .target-input,
+  .admin-input,
+  .search-input,
+  .quick-input
+) {
+  border-color: rgb(51 65 85) !important;
+  background-color: rgba(2, 6, 23, 0.62) !important;
+  color: rgb(226 232 240) !important;
+  box-shadow: none !important;
+  color-scheme: dark;
+}
+
+html.dark :is(
+  .filter-input,
+  .field-input,
+  .form-input,
+  .form-select,
+  .target-input,
+  .admin-input,
+  .search-input,
+  .quick-input
+)::placeholder {
+  color: rgb(100 116 139) !important;
+}
+
+html.dark :is(
+  .filter-input,
+  .field-input,
+  .form-input,
+  .form-select,
+  .target-input,
+  .admin-input,
+  .search-input,
+  .quick-input
+):focus {
+  border-color: rgba(129, 140, 248, 0.72) !important;
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.28) !important;
+}
+
+html.dark select:is(
+  .filter-input,
+  .field-input,
+  .form-select,
+  .target-input,
+  .admin-input
+) option {
+  background: rgb(15 23 42);
+  color: rgb(226 232 240);
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+html.dark textarea,
+html.dark select {
+  border-color: rgb(51 65 85);
+  background-color: rgba(2, 6, 23, 0.62);
+  color: rgb(226 232 240);
+  color-scheme: dark;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"])::placeholder,
+html.dark textarea::placeholder {
+  color: rgb(100 116 139);
 }

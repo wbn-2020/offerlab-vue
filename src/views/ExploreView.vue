@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell">
     <AppHeader />
     <main class="mx-auto max-w-6xl px-4 py-8">
       <div class="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -7,26 +7,26 @@
           <h1 class="text-3xl font-bold text-slate-900 dark:text-slate-100">发现</h1>
           <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">从真实标签、公开用户和最新内容里找到值得关注的求职经验。</p>
         </div>
-        <RouterLink to="/editor" class="inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
+        <RouterLink to="/editor" class="primary-action">
           发布内容
         </RouterLink>
       </div>
 
-      <section class="mb-8 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <section class="surface-card mb-8 p-5">
         <div class="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto] md:items-end">
           <label>
             <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">关键词</span>
-            <input v-model="searchForm.q" class="filter-input" placeholder="面经、技术栈、公司或岗位" @keyup.enter="goSearch" />
+            <input v-model="searchForm.q" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="面经、技术栈、公司或岗位" @keyup.enter="goSearch" />
           </label>
           <label>
             <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">公司</span>
-            <input v-model="searchForm.company" class="filter-input" placeholder="例如 字节跳动" @keyup.enter="goSearch" />
+            <input v-model="searchForm.company" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="例如 字节跳动" @keyup.enter="goSearch" />
           </label>
           <label>
             <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">岗位</span>
-            <input v-model="searchForm.position" class="filter-input" placeholder="例如 Java 后端" @keyup.enter="goSearch" />
+            <input v-model="searchForm.position" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="例如 Java 后端" @keyup.enter="goSearch" />
           </label>
-          <button type="button" class="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700" @click="goSearch">
+          <button type="button" class="primary-action px-5 py-2.5" @click="goSearch">
             搜索内容
           </button>
         </div>
@@ -35,7 +35,7 @@
             v-for="item in quickFilters"
             :key="item.value"
             type="button"
-            class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-700 dark:border-slate-700 dark:text-slate-300"
+            class="rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-300 dark:hover:border-primary-700 dark:hover:bg-slate-800"
             @click="applyQuickFilter(item)"
           >
             {{ item.label }}
@@ -43,7 +43,7 @@
         </div>
       </section>
 
-      <section class="mb-8 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <section class="surface-card mb-8 p-6">
         <div class="mb-5 flex items-center justify-between gap-4">
           <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">热门标签</h2>
           <span class="text-sm text-slate-500 dark:text-slate-400">{{ sortedTags.length }} 个标签</span>
@@ -56,7 +56,7 @@
             v-for="tag in sortedTags.slice(0, 24)"
             :key="tag.id"
             :to="`/tag/${tag.slug || tag.id}`"
-            class="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-primary-100 hover:text-primary-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-primary-950"
+            class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300 dark:hover:border-primary-700 dark:hover:bg-slate-800"
           >
             {{ tag.name }}
             <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ tag.count ?? 0 }}</span>
@@ -65,7 +65,7 @@
         <EmptyState v-else title="暂无标签" description="发布内容时添加标签后会显示在这里。" />
       </section>
 
-      <section class="mb-8 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <section class="surface-card mb-8 p-6">
         <div class="mb-5 flex items-center justify-between gap-4">
           <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">推荐用户</h2>
           <RouterLink to="/search?mode=users" class="text-sm font-medium text-primary-600 hover:text-primary-700">查看更多</RouterLink>
@@ -74,7 +74,7 @@
           <article
             v-for="user in recommendedUsers"
             :key="user.uid"
-            class="rounded-xl border border-slate-200 p-4 text-center transition-colors hover:border-primary-300 dark:border-slate-800 dark:hover:border-primary-700"
+            class="rounded-xl border border-slate-200 bg-white/70 p-4 text-center transition-colors hover:border-primary-300 dark:border-slate-800 dark:bg-slate-950/25 dark:hover:border-primary-700"
           >
             <RouterLink :to="`/u/${user.uid}`" class="block">
               <div class="mx-auto mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-xl font-bold text-white">
@@ -102,7 +102,7 @@
         <EmptyState v-else title="暂无推荐用户" description="公开用户资料会展示在这里。" />
       </section>
 
-      <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <section class="surface-card p-6">
         <div class="mb-5 flex items-center justify-between gap-4">
           <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">最新发布</h2>
           <RouterLink to="/" class="text-sm font-medium text-primary-600 hover:text-primary-700">进入信息流</RouterLink>
@@ -113,7 +113,7 @@
             v-for="post in latestPosts"
             :key="post.postId"
             :to="`/post/${post.postId}`"
-            class="block rounded-lg border border-slate-200 p-4 transition-colors hover:border-primary-300 dark:border-slate-800 dark:hover:border-primary-700"
+            class="block rounded-lg border border-slate-200 bg-white/65 p-4 transition-colors hover:border-primary-300 dark:border-slate-800 dark:bg-slate-950/25 dark:hover:border-primary-700"
           >
             <div class="flex items-start gap-4">
               <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-sm font-bold text-white">
@@ -148,6 +148,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import { postApi } from '@/api/post'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
@@ -226,7 +227,7 @@ const toggleFollowUser = async (user: User) => {
     user.isFollowing = !wasFollowing
     user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '关注操作失败')
+    toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     const next = new Set(followingBusyIds.value)
     next.delete(uid)
@@ -259,23 +260,35 @@ onMounted(async () => {
 <style scoped>
 .filter-input {
   width: 100%;
-  border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(203 213 225);
+  background: rgb(248 250 252);
+  padding: 0.75rem 0.9rem;
   font-size: 0.875rem;
   color: rgb(15 23 42);
   outline: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .filter-input:focus {
-  border-color: rgb(99 102 241);
-  box-shadow: 0 0 0 2px rgb(199 210 254);
+  border-color: rgb(129 140 248);
+  background: white;
+  box-shadow: 0 0 0 3px rgb(224 231 255 / 0.8);
 }
 
 :global(.dark) .filter-input {
   border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(241 245 249);
+  background: rgb(2 6 23 / 0.55);
+  color: rgb(226 232 240);
+}
+
+:global(.dark) .filter-input::placeholder {
+  color: rgb(100 116 139);
+}
+
+:global(.dark) .filter-input:focus {
+  border-color: rgb(99 102 241 / 0.65);
+  background: rgb(15 23 42 / 0.9);
+  box-shadow: 0 0 0 3px rgb(67 56 202 / 0.28);
 }
 </style>

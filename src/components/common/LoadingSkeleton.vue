@@ -1,21 +1,22 @@
 <template>
   <div class="space-y-4">
-    <div v-for="i in 3" :key="i" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 bg-slate-200 dark:bg-slate-800 rounded-full animate-pulse" />
+    <div v-for="i in 3" :key="i" class="surface-card p-5">
+      <div class="mb-4 flex items-center gap-3">
+        <div class="h-11 w-11 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
         <div class="flex-1">
-          <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-24 mb-2 animate-pulse" />
-          <div class="h-3 bg-slate-200 dark:bg-slate-800 rounded w-16 animate-pulse" />
+          <div class="mb-2 h-4 w-28 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+          <div class="h-3 w-20 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
         </div>
       </div>
-      <div class="h-5 bg-slate-200 dark:bg-slate-800 rounded w-3/4 mb-3 animate-pulse" />
-      <div class="space-y-2 mb-4">
-        <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-        <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-5/6 animate-pulse" />
+      <div class="mb-3 h-5 w-3/4 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+      <div class="mb-4 space-y-2">
+        <div class="h-4 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+        <div class="h-4 w-5/6 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
       </div>
-      <div class="flex gap-2 mb-4">
-        <div class="h-6 bg-slate-200 dark:bg-slate-800 rounded w-16 animate-pulse" />
-        <div class="h-6 bg-slate-200 dark:bg-slate-800 rounded w-16 animate-pulse" />
+      <div class="mb-4 flex gap-2">
+        <div class="h-7 w-16 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+        <div class="h-7 w-20 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+        <div class="h-7 w-14 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
       </div>
     </div>
   </div>

@@ -1,9 +1,11 @@
 <template>
-  <div class="flex flex-col items-center justify-center py-12 text-center">
-    <div class="text-6xl mb-4">📭</div>
-    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">{{ title }}</h3>
-    <p class="text-slate-600 dark:text-slate-400 mb-6">{{ description }}</p>
-    <button v-if="actionText && actionHref" @click="navigate" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+  <div class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
+    <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:border dark:border-primary-500/20 dark:bg-slate-950/70 dark:text-primary-300">
+      <Inbox class="h-7 w-7" />
+    </div>
+    <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">{{ title }}</h3>
+    <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">{{ description }}</p>
+    <button v-if="actionText && actionHref" @click="navigate" class="primary-action">
       {{ actionText }}
     </button>
   </div>
@@ -11,6 +13,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { Inbox } from 'lucide-vue-next'
 
 interface Props {
   title?: string

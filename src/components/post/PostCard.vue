@@ -1,18 +1,18 @@
 <template>
   <RouterLink
     :to="`/post/${post.postId}`"
-    class="block rounded-xl border border-slate-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-primary-700"
+    class="group block rounded-xl border border-slate-200/80 bg-white/92 p-5 shadow-[var(--shadow-soft)] backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[var(--shadow-card)] dark:border-slate-800/80 dark:bg-slate-900/85 dark:hover:border-primary-800"
   >
     <div class="mb-4 flex items-center justify-between gap-4">
       <div class="flex min-w-0 items-center gap-3">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-sm font-bold text-white">
+        <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary-600 to-sky-500 text-sm font-black text-white shadow-sm shadow-primary-600/20">
           <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
           <span v-else>{{ authorInitial }}</span>
         </div>
         <div class="min-w-0">
-          <div class="flex items-center gap-2">
+          <div class="flex min-w-0 items-center gap-2">
             <span class="truncate font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</span>
-            <span v-if="post.author.isBigV" class="shrink-0 rounded bg-accent-500 px-2 py-0.5 text-xs text-white">大V</span>
+            <span v-if="post.author.isBigV" class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">大V</span>
           </div>
           <div class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(post.createdAt) }}</div>
         </div>
@@ -22,7 +22,7 @@
         <button
           v-if="!isOwnPost"
           type="button"
-          class="rounded-lg border border-primary-600 px-3 py-1 text-sm text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800"
+          class="rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-bold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-primary-800 dark:bg-primary-950 dark:text-primary-300 dark:hover:bg-primary-900/50"
           :disabled="isFollowing"
           @click.prevent="handleFollow"
         >
@@ -63,11 +63,11 @@
       {{ post.title }}
     </h3>
 
-    <p class="mb-3 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+    <p class="mb-4 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
       {{ post.summary || post.content.substring(0, 100) }}
     </p>
 
-    <div v-if="props.showRecommendFeedback && post.recommendationReasons?.length" class="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
+    <div v-if="props.showRecommendFeedback && post.recommendationReasons?.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
       <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
         <Lightbulb class="h-3.5 w-3.5" />
         为什么推荐
@@ -84,38 +84,38 @@
     </div>
 
     <div v-if="post.extension" class="mb-3 flex flex-wrap gap-2">
-      <span v-if="post.extension.company" class="rounded bg-indigo-50 px-2 py-1 text-xs text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+      <span v-if="post.extension.company" class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
         {{ post.extension.company }}
       </span>
-      <span v-if="post.extension.position" class="rounded bg-sky-50 px-2 py-1 text-xs text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+      <span v-if="post.extension.position" class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
         {{ post.extension.position }}
       </span>
-      <span v-if="post.extension.interviewResult" class="rounded px-2 py-1 text-xs" :class="getResultClass(post.extension.interviewResult)">
+      <span v-if="post.extension.interviewResult" class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="getResultClass(post.extension.interviewResult)">
         {{ getResultText(post.extension.interviewResult) }}
       </span>
     </div>
 
     <div v-if="post.tags.length" class="mb-4 flex flex-wrap gap-2">
-      <span v-for="tag in post.tags" :key="tag.id" class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+      <span v-for="tag in post.tags" :key="tag.id" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
         {{ tag.name }}
       </span>
     </div>
 
     <div class="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
-      <div class="flex flex-wrap items-center gap-4">
-        <span class="inline-flex items-center gap-1">
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <span class="card-action">
           <Eye class="h-4 w-4" />
           {{ formatNumber(post.counter.view) }}
         </span>
-        <button type="button" class="inline-flex items-center gap-1 transition-colors hover:text-rose-600" aria-label="点赞帖子" @click.prevent="handleLike">
+        <button type="button" class="card-action hover:text-rose-600" aria-label="点赞帖子" @click.prevent="handleLike">
           <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-rose-600' : ''" />
           {{ formatNumber(post.counter.like) }}
         </button>
-        <span class="inline-flex items-center gap-1">
+        <span class="card-action">
           <MessageCircle class="h-4 w-4" />
           {{ formatNumber(post.counter.comment) }}
         </span>
-        <button type="button" class="inline-flex items-center gap-1 transition-colors hover:text-amber-600" aria-label="收藏帖子" @click.prevent="handleFavorite">
+        <button type="button" class="card-action hover:text-amber-600" aria-label="收藏帖子" @click.prevent="handleFavorite">
           <Star class="h-4 w-4" :class="post.myInteraction?.favorited ? 'fill-current text-amber-500' : ''" />
           {{ formatNumber(post.counter.favorite) }}
         </button>
@@ -133,6 +133,7 @@ import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 
 const props = defineProps<{
   post: Post
@@ -217,7 +218,7 @@ const handleFollow = async () => {
       toast.success('已关注')
     }
   } catch (error: any) {
-    toast.error(error?.message || '关注操作失败')
+    toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     isFollowing.value = false
   }
@@ -242,6 +243,20 @@ const handleFollow = async () => {
   color: rgb(15 23 42);
 }
 
+.card-action {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.card-action:hover {
+  background: rgb(248 250 252);
+}
+
 :global(.dark) .feedback-menu-item {
   color: rgb(203 213 225);
 }
@@ -249,5 +264,9 @@ const handleFollow = async () => {
 :global(.dark) .feedback-menu-item:hover {
   background: rgb(30 41 59);
   color: rgb(248 250 252);
+}
+
+:global(.dark) .card-action:hover {
+  background: rgb(30 41 59);
 }
 </style>

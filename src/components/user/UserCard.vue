@@ -58,6 +58,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/api/client'
 import type { User } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
@@ -102,7 +103,7 @@ const toggleFollow = async () => {
     isFollowing.value = !wasFollowing
     followerCount.value = Math.max(0, followerCount.value + (wasFollowing ? -1 : 1))
   } catch (error: any) {
-    toast.error(error?.message || '关注操作失败')
+    toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     isFollowingBusy.value = false
   }

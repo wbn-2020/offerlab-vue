@@ -93,6 +93,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
+import { getErrorMessage } from '@/api/client'
 import { dashboardApi, type RankedMetric, type TrendDashboard, type TrendRange } from '@/api/dashboard'
 
 const periods: Array<{ value: TrendRange; label: string }> = [
@@ -116,7 +117,7 @@ const loadDashboard = async () => {
     const res = await dashboardApi.getTrendDashboard(activeRange.value)
     dashboard.value = res.data
   } catch (error: any) {
-    errorText.value = error?.message || '趋势数据暂不可用'
+    errorText.value = getErrorMessage(error, '趋势数据暂不可用')
     dashboard.value = null
   } finally {
     isLoading.value = false

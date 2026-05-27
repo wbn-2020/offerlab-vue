@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import MarkdownIt from 'markdown-it'
+import { renderMarkdown } from '@/utils/markdown'
 
 interface Props {
   modelValue: string
@@ -69,14 +69,6 @@ const content = computed({
   get: () => props.modelValue,
   set: (value: string) => emit('update:modelValue', value),
 })
-
-const md = new MarkdownIt({
-  html: false,
-  linkify: true,
-  breaks: true,
-})
-
-const renderMarkdown = (value: string) => md.render(value || '')
 </script>
 
 <style scoped>
