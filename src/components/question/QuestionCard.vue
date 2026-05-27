@@ -1,5 +1,5 @@
 <template>
-  <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-primary-800">
+  <article class="rounded-xl border border-slate-200 bg-white/90 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/80 dark:hover:border-primary-800">
     <div class="mb-3 flex flex-wrap items-center gap-2">
       <RouterLink v-if="question.company" :to="`/companies/${encodeURIComponent(question.company)}/prep`" class="meta-chip meta-company">
         {{ question.company }}
@@ -17,7 +17,7 @@
       </p>
     </RouterLink>
     <div class="mt-4 flex flex-wrap gap-2">
-      <span v-for="tag in question.tags.slice(0, 5)" :key="tag.id" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+      <span v-for="tag in question.tags.slice(0, 5)" :key="tag.id" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/45 dark:text-slate-300">
         {{ tag.name }}
       </span>
     </div>
