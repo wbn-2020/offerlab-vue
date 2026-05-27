@@ -14,7 +14,7 @@
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isOutboxLoading }" />
             刷新状态
           </button>
-          <button type="button" class="primary-button" :disabled="isSubmitting || isTaskActive" @click="submitRebuild">
+          <button v-if="canOps" type="button" class="primary-button" :disabled="isSubmitting || isTaskActive" @click="submitRebuild">
             <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': isSubmitting || isTaskActive }" />
             {{ isTaskActive ? '重建中' : '重建索引' }}
           </button>
@@ -25,7 +25,7 @@
         {{ loadError }}
       </section>
 
-      <section class="grid gap-4 md:grid-cols-3">
+      <section v-if="canOps" class="grid gap-4 md:grid-cols-3">
         <article class="metric-card">
           <div class="flex items-start justify-between gap-4">
             <div>
@@ -59,7 +59,7 @@
       </section>
 
       <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <article class="panel">
+        <article v-if="canOps" class="panel">
           <div class="flex flex-col gap-2 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">索引重建任务</h2>
@@ -99,7 +99,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article v-if="canAdmin" class="panel">
           <div class="flex items-center justify-between gap-3">
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">权限状态</h2>
             <button type="button" class="icon-button" title="刷新管理员" :disabled="isAdminsLoading" @click="loadAdmins">
@@ -124,6 +124,12 @@
                 placeholder="用户 UID"
                 :disabled="isAdminSubmitting"
               />
+              <select v-model="adminForm.roleCode" class="admin-input" :disabled="isAdminSubmitting">
+                <option value="ADMIN">ADMIN</option>
+                <option value="OPS">OPS</option>
+                <option value="CONTENT_MODERATOR">CONTENT_MODERATOR</option>
+                <option value="QUESTION_OPERATOR">QUESTION_OPERATOR</option>
+              </select>
               <input
                 v-model.trim="adminForm.remark"
                 class="admin-input"
@@ -168,7 +174,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article v-if="canModerate" class="panel">
           <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">评论举报审核</h2>
@@ -258,7 +264,7 @@
         </article>
       </section>
 
-      <section class="panel">
+      <section v-if="canOps" class="panel">
         <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">Outbox 消息</h2>
@@ -352,7 +358,61 @@
       </section>
 
       <section class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <article class="panel">
+        <article v-if="canQuestion" class="panel">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">AI 题目提取任务</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">查看面经题目提取状态，失败任务可直接重试。</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" class="secondary-button compact-action" :disabled="isQuestionRebuilding" @click="rebuildQuestions">
+                <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': isQuestionRebuilding }" />
+                重建题库
+              </button>
+              <button type="button" class="secondary-button compact-action" :disabled="isQuestionIndexRebuilding" @click="rebuildQuestionIndex">
+                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isQuestionIndexRebuilding }" />
+                重建索引
+              </button>
+              <button type="button" class="icon-button" title="刷新 AI 任务" :disabled="isAiTasksLoading" @click="loadAiTasks">
+                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isAiTasksLoading }" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="isAiTasksLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            正在加载 AI 任务...
+          </div>
+          <div v-else-if="aiTasks.length === 0" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            暂无 AI 提取任务。
+          </div>
+          <div v-else class="space-y-3 pt-5">
+            <div v-for="item in aiTasks" :key="item.id" class="admin-row task-row">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <RouterLink :to="`/post/${item.postId}`" class="truncate font-mono text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400">
+                    {{ item.postId }}
+                  </RouterLink>
+                  <span :class="['status-pill', aiTaskStatusClass(item.taskStatus)]">{{ aiTaskStatusText(item.taskStatus) }}</span>
+                </div>
+                <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                  题目 {{ item.questionCount }} · 重试 {{ item.retryCount }} · {{ item.errorMessage || formatTime(item.updateTime || item.createTime) }}
+                </p>
+              </div>
+              <button
+                v-if="item.taskStatus === 3"
+                type="button"
+                class="secondary-button compact-action danger-action"
+                :disabled="retryingAiTaskId === item.id"
+                @click="retryAiTask(item)"
+              >
+                <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': retryingAiTaskId === item.id }" />
+                重试
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article v-if="canOps" class="panel">
           <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">最近索引任务</h2>
@@ -385,7 +445,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article v-if="canModerate" class="panel">
           <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">帖子举报审核</h2>
@@ -509,16 +569,19 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { opsApi, type AdminUserRole, type OpsStatus, type OutboxMessage } from '@/api/ops'
+import { getErrorMessage } from '@/api/client'
+import { opsApi, type AdminUserRole, type AiExtractTask, type MyAdminPermissions, type OpsStatus, type OutboxMessage } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import type { ApiId, CommentReport, PostReport } from '@/api/types'
 
 const status = ref<OpsStatus | null>(null)
+const permissions = ref<MyAdminPermissions | null>(null)
 const task = ref<SearchIndexTask | null>(null)
 const adminUsers = ref<AdminUserRole[]>([])
 const outboxMessages = ref<OutboxMessage[]>([])
+const aiTasks = ref<AiExtractTask[]>([])
 const recentTasks = ref<SearchIndexTask[]>([])
 const postReports = ref<PostReport[]>([])
 const commentReports = ref<CommentReport[]>([])
@@ -526,21 +589,25 @@ const selectedOutbox = ref<OutboxMessage | null>(null)
 const outboxStatusFilter = ref<number | undefined>(undefined)
 const reportStatusFilter = ref<number | undefined>(0)
 const commentReportStatusFilter = ref<number | undefined>(0)
-const adminForm = ref({ uid: '', remark: '' })
+const adminForm = ref({ uid: '', roleCode: 'ADMIN', remark: '' })
 const isLoading = ref(false)
 const isAdminsLoading = ref(false)
 const isAdminSubmitting = ref(false)
 const isOutboxLoading = ref(false)
+const isAiTasksLoading = ref(false)
 const isTasksLoading = ref(false)
 const isReportsLoading = ref(false)
 const isCommentReportsLoading = ref(false)
 const isSubmitting = ref(false)
 const adminActionUid = ref<ApiId | null>(null)
 const retryingId = ref<ApiId | null>(null)
+const retryingAiTaskId = ref<ApiId | null>(null)
 const reviewingReportId = ref<PostReport['reportId'] | null>(null)
 const reviewingCommentReportId = ref<CommentReport['reportId'] | null>(null)
 const selectedFailedIds = ref<ApiId[]>([])
 const isBatchRetrying = ref(false)
+const isQuestionRebuilding = ref(false)
+const isQuestionIndexRebuilding = ref(false)
 const loadError = ref('')
 let pollTimer: number | undefined
 
@@ -558,6 +625,10 @@ const reportFilters = [
   { label: '全部', value: undefined },
 ]
 
+const canOps = computed(() => Boolean(permissions.value?.ops || permissions.value?.admin))
+const canAdmin = computed(() => Boolean(permissions.value?.admin))
+const canQuestion = computed(() => Boolean(permissions.value?.questionOperator || permissions.value?.admin))
+const canModerate = computed(() => Boolean(permissions.value?.contentModerator || permissions.value?.admin))
 const isTaskActive = computed(() => task.value?.status === 'PENDING' || task.value?.status === 'RUNNING')
 const searchOnlineText = computed(() => {
   if (!status.value) return '--'
@@ -596,20 +667,32 @@ const taskTimeText = computed(() => {
   return `最近更新：${task.value.updatedAt.replace('T', ' ')}`
 })
 
+const loadPermissions = async () => {
+  try {
+    const res = await opsApi.myPermissions()
+    permissions.value = res.data
+  } catch (error: any) {
+    loadError.value = getErrorMessage(error, '管理权限接口暂不可用')
+    permissions.value = null
+  }
+}
+
 const loadStatus = async () => {
+  if (!canOps.value) return
   isLoading.value = true
   loadError.value = ''
   try {
     const res = await opsApi.status()
     status.value = res.data
   } catch (error: any) {
-    loadError.value = error?.message || '运维状态接口暂不可用'
+    loadError.value = getErrorMessage(error, '运维状态接口暂不可用')
   } finally {
     isLoading.value = false
   }
 }
 
 const loadOutbox = async () => {
+  if (!canOps.value) return
   isOutboxLoading.value = true
   try {
     const res = await opsApi.listOutbox({ status: outboxStatusFilter.value, limit: 30 })
@@ -618,20 +701,35 @@ const loadOutbox = async () => {
       outboxMessages.value.some((message) => message.id === id && message.msgStatus === 2),
     )
   } catch (error: any) {
-    toast.error(error?.message || 'Outbox 消息加载失败')
+    toast.error(getErrorMessage(error, 'Outbox 消息加载失败'))
     outboxMessages.value = []
   } finally {
     isOutboxLoading.value = false
   }
 }
 
+const loadAiTasks = async () => {
+  if (!canQuestion.value) return
+  isAiTasksLoading.value = true
+  try {
+    const res = await opsApi.listAiTasks({ limit: 20 })
+    aiTasks.value = res.data || []
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, 'AI 任务加载失败'))
+    aiTasks.value = []
+  } finally {
+    isAiTasksLoading.value = false
+  }
+}
+
 const loadTasks = async () => {
+  if (!canOps.value) return
   isTasksLoading.value = true
   try {
     const res = await searchApi.listRebuildTasks(10)
     recentTasks.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || '索引任务加载失败')
+    toast.error(getErrorMessage(error, '索引任务加载失败'))
     recentTasks.value = []
   } finally {
     isTasksLoading.value = false
@@ -639,12 +737,13 @@ const loadTasks = async () => {
 }
 
 const loadReports = async () => {
+  if (!canModerate.value) return
   isReportsLoading.value = true
   try {
     const res = await postApi.listAdminReports({ status: reportStatusFilter.value, limit: 20 })
     postReports.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || '举报列表加载失败')
+    toast.error(getErrorMessage(error, '举报列表加载失败'))
     postReports.value = []
   } finally {
     isReportsLoading.value = false
@@ -652,12 +751,13 @@ const loadReports = async () => {
 }
 
 const loadCommentReports = async () => {
+  if (!canModerate.value) return
   isCommentReportsLoading.value = true
   try {
     const res = await interactionApi.listAdminCommentReports({ status: commentReportStatusFilter.value, limit: 20 })
     commentReports.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || '评论举报列表加载失败')
+    toast.error(getErrorMessage(error, '评论举报列表加载失败'))
     commentReports.value = []
   } finally {
     isCommentReportsLoading.value = false
@@ -665,12 +765,13 @@ const loadCommentReports = async () => {
 }
 
 const loadAdmins = async () => {
+  if (!canAdmin.value) return
   isAdminsLoading.value = true
   try {
     const res = await opsApi.listAdmins({ limit: 50 })
     adminUsers.value = res.data || []
   } catch (error: any) {
-    toast.error(error?.message || '管理员列表加载失败')
+    toast.error(getErrorMessage(error, '管理员列表加载失败'))
     adminUsers.value = []
   } finally {
     isAdminsLoading.value = false
@@ -678,7 +779,13 @@ const loadAdmins = async () => {
 }
 
 const refreshAll = async () => {
-  await Promise.all([loadStatus(), loadOutbox(), loadAdmins(), loadTasks(), loadReports(), loadCommentReports()])
+  await loadPermissions()
+  const loaders: Array<Promise<void>> = []
+  if (canOps.value) loaders.push(loadStatus(), loadOutbox(), loadTasks())
+  if (canQuestion.value) loaders.push(loadAiTasks())
+  if (canAdmin.value) loaders.push(loadAdmins())
+  if (canModerate.value) loaders.push(loadReports(), loadCommentReports())
+  await Promise.all(loaders)
 }
 
 const setOutboxStatus = async (statusValue?: number) => {
@@ -729,7 +836,7 @@ const submitRebuild = async () => {
       toast.success('索引重建任务已提交')
     }
   } catch (error: any) {
-    toast.error(error?.message || '提交重建任务失败')
+    toast.error(getErrorMessage(error, '提交重建任务失败'))
   } finally {
     isSubmitting.value = false
   }
@@ -751,9 +858,47 @@ const retryMessage = async (message: OutboxMessage) => {
     toast.success('失败消息已重置为待投递')
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '重试失败消息失败')
+    toast.error(getErrorMessage(error, '重试失败消息失败'))
   } finally {
     retryingId.value = null
+  }
+}
+
+const retryAiTask = async (task: AiExtractTask) => {
+  retryingAiTaskId.value = task.id
+  try {
+    await opsApi.retryAiTask(task.id)
+    toast.success('AI 提取任务已重试')
+    await loadAiTasks()
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, 'AI 任务重试失败'))
+  } finally {
+    retryingAiTaskId.value = null
+  }
+}
+
+const rebuildQuestions = async () => {
+  isQuestionRebuilding.value = true
+  try {
+    const res = await opsApi.rebuildQuestions(100)
+    toast.success(`已提交 ${res.data?.submitted ?? 0} 个题库重建任务`)
+    await loadAiTasks()
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '题库重建任务提交失败'))
+  } finally {
+    isQuestionRebuilding.value = false
+  }
+}
+
+const rebuildQuestionIndex = async () => {
+  isQuestionIndexRebuilding.value = true
+  try {
+    const res = await opsApi.rebuildQuestionIndexTask()
+    toast.success(res.data?.taskId ? '题库索引重建任务已提交' : '题库索引重建已提交')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '题库索引重建失败'))
+  } finally {
+    isQuestionIndexRebuilding.value = false
   }
 }
 
@@ -772,7 +917,7 @@ const retrySelectedMessages = async () => {
     selectedFailedIds.value = []
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '批量重试失败')
+    toast.error(getErrorMessage(error, '批量重试失败'))
   } finally {
     isBatchRetrying.value = false
   }
@@ -785,7 +930,7 @@ const reviewReport = async (report: PostReport, approved: boolean) => {
     toast.success(approved ? '举报已通过，帖子已下架' : '举报已驳回')
     await loadReports()
   } catch (error: any) {
-    toast.error(error?.message || '举报审核失败')
+    toast.error(getErrorMessage(error, '举报审核失败'))
   } finally {
     reviewingReportId.value = null
   }
@@ -798,7 +943,7 @@ const reviewCommentReport = async (report: CommentReport, approved: boolean) => 
     toast.success(approved ? '评论举报已通过，评论已隐藏' : '评论举报已驳回')
     await loadCommentReports()
   } catch (error: any) {
-    toast.error(error?.message || '评论举报审核失败')
+    toast.error(getErrorMessage(error, '评论举报审核失败'))
   } finally {
     reviewingCommentReportId.value = null
   }
@@ -812,12 +957,12 @@ const addAdmin = async () => {
   }
   isAdminSubmitting.value = true
   try {
-    await opsApi.addAdmin({ uid, remark: adminForm.value.remark })
+    await opsApi.addAdmin({ uid, roleCode: adminForm.value.roleCode, remark: adminForm.value.remark })
     toast.success('管理员已启用')
-    adminForm.value = { uid: '', remark: '' }
+    adminForm.value = { uid: '', roleCode: 'ADMIN', remark: '' }
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '添加管理员失败')
+    toast.error(getErrorMessage(error, '添加管理员失败'))
   } finally {
     isAdminSubmitting.value = false
   }
@@ -827,11 +972,11 @@ const toggleAdmin = async (admin: AdminUserRole) => {
   adminActionUid.value = admin.uid
   const nextEnabled = !isAdminEnabled(admin)
   try {
-    await opsApi.updateAdminStatus(admin.uid, { enabled: nextEnabled, remark: admin.remark || '' })
+    await opsApi.updateAdminStatus(admin.uid, { enabled: nextEnabled, roleCode: admin.roleCode, remark: admin.remark || '' })
     toast.success(nextEnabled ? '管理员已启用' : '管理员已禁用')
     await refreshAll()
   } catch (error: any) {
-    toast.error(error?.message || '更新管理员状态失败')
+    toast.error(getErrorMessage(error, '更新管理员状态失败'))
   } finally {
     adminActionUid.value = null
   }
@@ -849,6 +994,20 @@ const outboxStatusText = (value: number) => {
 const outboxStatusClass = (value: number) => {
   if (value === 1) return 'status-ok'
   if (value === 2) return 'status-danger'
+  return 'status-warn'
+}
+
+const aiTaskStatusText = (value: number) => {
+  if (value === 0) return '待处理'
+  if (value === 1) return '运行中'
+  if (value === 2) return '成功'
+  if (value === 3) return '失败'
+  return '未知'
+}
+
+const aiTaskStatusClass = (value: number) => {
+  if (value === 2) return 'status-ok'
+  if (value === 3) return 'status-danger'
   return 'status-warn'
 }
 
@@ -1110,7 +1269,7 @@ onBeforeUnmount(stopPolling)
 
 @media (min-width: 640px) {
   .admin-form {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 }
 

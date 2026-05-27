@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { setupRouterGuards } from './guards'
 
 const routes = [
@@ -20,6 +19,24 @@ const routes = [
     name: 'TrendDashboard',
     component: () => import('@/views/TrendDashboardView.vue'),
     meta: { title: '趋势看板' },
+  },
+  {
+    path: '/questions',
+    name: 'Questions',
+    component: () => import('@/views/QuestionsView.vue'),
+    meta: { title: '面试题库' },
+  },
+  {
+    path: '/questions/:id',
+    name: 'QuestionDetail',
+    component: () => import('@/views/QuestionDetailView.vue'),
+    meta: { title: '题目详情' },
+  },
+  {
+    path: '/companies/:company/prep',
+    name: 'CompanyPrep',
+    component: () => import('@/views/CompanyPrepView.vue'),
+    meta: { title: '公司准备包' },
   },
   {
     path: '/post/:id',
@@ -52,6 +69,12 @@ const routes = [
     meta: { title: '我的主页', requiresAuth: true },
   },
   {
+    path: '/me/prep',
+    name: 'MePrep',
+    component: () => import('@/views/MePrepView.vue'),
+    meta: { title: '我的准备台', requiresAuth: true },
+  },
+  {
     path: '/me/notifications',
     alias: '/notifications',
     name: 'Notifications',
@@ -74,7 +97,25 @@ const routes = [
     path: '/admin/ops',
     name: 'AdminOps',
     component: () => import('@/views/OpsView.vue'),
-    meta: { title: '运维中心', requiresAuth: true },
+    meta: { title: '运维中心', requiresAuth: true, adminPermission: ['ops', 'questionOperator', 'contentModerator', 'admin'] },
+  },
+  {
+    path: '/admin/questions',
+    name: 'AdminQuestions',
+    component: () => import('@/views/AdminQuestionsView.vue'),
+    meta: { title: '题目审核', requiresAuth: true, adminPermission: 'questionOperator' },
+  },
+  {
+    path: '/admin/company-aliases',
+    name: 'AdminCompanyAliases',
+    component: () => import('@/views/AdminCompanyAliasesView.vue'),
+    meta: { title: '公司别名维护', requiresAuth: true, adminPermission: 'questionOperator' },
+  },
+  {
+    path: '/admin/governance',
+    name: 'AdminGovernance',
+    component: () => import('@/views/AdminGovernanceView.vue'),
+    meta: { title: '治理中心', requiresAuth: true, adminPermission: ['contentModerator', 'ops', 'admin'] },
   },
   {
     path: '/tag/:slug',
@@ -99,6 +140,12 @@ const routes = [
     name: 'About',
     component: () => import('@/views/AboutView.vue'),
     meta: { title: '关于' },
+  },
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('@/views/ForbiddenView.vue'),
+    meta: { title: '无权访问', requiresAuth: true },
   },
   {
     path: '/:pathMatch(.*)*',

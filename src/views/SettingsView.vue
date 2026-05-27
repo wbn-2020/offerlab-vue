@@ -187,6 +187,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { userApi, type PrivacySetting } from '@/api/user'
@@ -245,7 +246,7 @@ const loadPrivacy = async () => {
       privacyForm.value = res.data
     }
   } catch (error: any) {
-    toast.error(error?.message || '隐私设置加载失败')
+    toast.error(getErrorMessage(error, '隐私设置加载失败'))
   } finally {
     isPrivacyLoading.value = false
   }
@@ -283,10 +284,10 @@ const updateProfile = async () => {
       }
       toast.success('资料已更新')
     } else {
-      toast.error(res.message || '资料更新失败')
+      toast.error(getResultMessage(res, '资料更新失败'))
     }
   } catch (error: any) {
-    toast.error(error?.message || '资料更新失败')
+    toast.error(getErrorMessage(error, '资料更新失败'))
   } finally {
     isUpdatingProfile.value = false
   }
@@ -312,7 +313,7 @@ const changePassword = async () => {
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
     toast.success('密码已更新')
   } catch (error: any) {
-    toast.error(error?.message || '密码修改失败')
+    toast.error(getErrorMessage(error, '密码修改失败'))
   } finally {
     isChangingPassword.value = false
   }
@@ -329,7 +330,7 @@ const logoutAllSessions = async () => {
     toast.success('已退出所有设备')
     router.push('/login')
   } catch (error: any) {
-    toast.error(error?.message || '退出所有设备失败')
+    toast.error(getErrorMessage(error, '退出所有设备失败'))
   } finally {
     isLoggingOutAll.value = false
   }
@@ -341,10 +342,10 @@ const updateIntent = async (intentData: any) => {
     if (res.code === 0) {
       toast.success('求职意向已更新')
     } else {
-      toast.error(res.message || '求职意向更新失败')
+      toast.error(getResultMessage(res, '求职意向更新失败'))
     }
   } catch (error: any) {
-    toast.error(error?.message || '求职意向更新失败')
+    toast.error(getErrorMessage(error, '求职意向更新失败'))
   }
 }
 
@@ -357,7 +358,7 @@ const updatePrivacy = async () => {
     }
     toast.success('隐私设置已保存')
   } catch (error: any) {
-    toast.error(error?.message || '隐私设置保存失败')
+    toast.error(getErrorMessage(error, '隐私设置保存失败'))
   } finally {
     isUpdatingPrivacy.value = false
   }
