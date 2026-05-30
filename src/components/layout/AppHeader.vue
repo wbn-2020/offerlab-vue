@@ -118,14 +118,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { Bell, BookOpen, Compass, Flame, Moon, PenLine, Search, Sun, User } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { Bell, BookOpen, Compass, Flame, Mic, Moon, PenLine, Search, Sun, User } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { notificationApi } from '@/api/notification'
+import { authApi } from '@/api/auth'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { useAuthStore } from '@/stores/auth'
-import { useRealtimeStore } from '@/stores/realtime'
+import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 import { useThemeStore } from '@/stores/theme'
 
 const authStore = useAuthStore()
@@ -141,6 +141,7 @@ const navItems = [
   { to: '/', label: '信息流', icon: Flame },
   { to: '/explore', label: '发现', icon: Compass },
   { to: '/questions', label: '题库', icon: BookOpen },
+  { to: '/mock-interview', label: '模拟面试', icon: Mic },
 ]
 const adminLinks = computed(() => {
   const value = permissions.value
@@ -155,23 +156,13 @@ const adminLinks = computed(() => {
   return links
 })
 
-const loadUnread = async () => {
-  if (!authStore.token) return
-  try {
-    const res = await notificationApi.getUnreadCount()
-    if (res.code === 0 && res.data) realtimeStore.setUnreadCount(res.data)
-  } catch {
-    realtimeStore.setUnreadCount({ total: 0, like: 0, comment: 0, favorite: 0, follower: 0, mention: 0, system: 0 })
-  }
-}
-
 const loadPermissions = async () => {
   if (!authStore.token) {
     permissions.value = null
     return
   }
   try {
-    const res = await opsApi.myPermissions()
+    const res = await opsApi.myPermissions({ skipAuthRedirect: true })
     permissions.value = res.code === 0 ? res.data : null
   } catch {
     permissions.value = null
@@ -187,9 +178,19 @@ const toggleTheme = () => {
   themeStore.setMode(themeStore.mode === 'dark' ? 'light' : 'dark')
 }
 
+const handleDocumentClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement | null
+  if (!target?.closest('[data-user-menu]')) showUserMenu.value = false
+}
+
 const handleLogout = async () => {
+  try {
+    await authApi.logout()
+  } catch {
+    // Local logout still clears private client state if the server session is already gone.
+  }
   authStore.logout()
-  realtimeStore.setUnreadCount({ total: 0, like: 0, comment: 0, favorite: 0, follower: 0, mention: 0, system: 0 })
+  realtimeStore.setUnreadCount(emptyUnreadCount())
   permissions.value = null
   showUserMenu.value = false
   toast.success('已退出登录')
@@ -197,16 +198,15 @@ const handleLogout = async () => {
 }
 
 onMounted(() => {
-  loadUnread()
   loadPermissions()
-  document.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement
-    if (!target.closest('[data-user-menu]')) showUserMenu.value = false
-  })
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick)
 })
 
 watch(() => authStore.token, () => {
-  loadUnread()
   loadPermissions()
 })
 </script>

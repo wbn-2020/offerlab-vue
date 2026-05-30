@@ -60,10 +60,25 @@
                 </RouterLink>
               </div>
 
-              <InteractionBar :post="post" @like="handleLike" @favorite="handleFavorite" />
+              <InteractionBar
+                :post="post"
+                :like-pending="isTogglingLike"
+                :favorite-pending="isTogglingFavorite"
+                @like="handleLike"
+                @favorite="handleFavorite"
+              />
 
               <div v-if="authStore.isLoggedIn" class="mt-4 flex justify-end gap-3">
                 <template v-if="isOwnPost">
+                  <button
+                    v-if="canViewVersionHistory"
+                    type="button"
+                    class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    :disabled="isLoadingVersions"
+                    @click="openVersionHistory"
+                  >
+                    {{ isLoadingVersions ? '加载中...' : '版本历史' }}
+                  </button>
                   <RouterLink
                     :to="`/editor/${post.postId}`"
                     class="rounded-lg border border-primary-600 px-3 py-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 dark:hover:bg-slate-800"
@@ -79,15 +94,25 @@
                     {{ isDeletingPost ? '删除中...' : '删除帖子' }}
                   </button>
                 </template>
-                <button
-                  v-else
-                  type="button"
-                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                  :disabled="isReporting"
-                  @click="isReportDialogOpen = true"
-                >
-                  举报帖子
-                </button>
+                <template v-else>
+                  <button
+                    v-if="canViewVersionHistory"
+                    type="button"
+                    class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    :disabled="isLoadingVersions"
+                    @click="openVersionHistory"
+                  >
+                    {{ isLoadingVersions ? '加载中...' : '版本历史' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    :disabled="isReporting"
+                    @click="openPostReportDialog"
+                  >
+                    举报帖子
+                  </button>
+                </template>
               </div>
             </article>
 
@@ -120,11 +145,14 @@
                 正在加载评论...
               </div>
               <CommentTree
+                ref="commentTreeRef"
                 v-else
                 :post-id="postId"
                 :comments="comments"
                 :can-like-comments="authStore.isLoggedIn"
-                :can-report-comments="authStore.isLoggedIn"
+                :can-report-comments="true"
+                :can-reply-comments="authStore.isLoggedIn"
+                @require-login="requireLogin"
                 @like-comment="handleLikeComment"
                 @unlike-comment="handleUnlikeComment"
                 @reply-comment="handleReplyComment"
@@ -209,7 +237,7 @@
             v-model.trim="reportForm.detail"
             rows="4"
             maxlength="1000"
-            placeholder="请描述需要审核的内容"
+            placeholder="Describe the content that needs review"
             class="mt-2 w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           />
         </label>
@@ -224,6 +252,52 @@
         </div>
       </form>
     </div>
+
+    <div v-if="isVersionDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" @click.self="closeVersionHistory">
+      <section class="version-dialog w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="version-history-title">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="version-history-title" class="text-lg font-bold text-slate-950 dark:text-slate-50">版本历史</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">展示最近编辑前的内容快照，便于作者回看和内容审计。</p>
+          </div>
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" @click="closeVersionHistory">
+            关闭
+          </button>
+        </div>
+
+        <div class="mt-5 flex justify-end">
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" :disabled="isLoadingVersions" @click="loadVersionHistory">
+            {{ isLoadingVersions ? '刷新中...' : '刷新' }}
+          </button>
+        </div>
+
+        <div v-if="isLoadingVersions" class="mt-5 rounded-lg border border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          正在加载版本历史...
+        </div>
+        <div v-else-if="versionHistories.length === 0" class="mt-5 rounded-lg border border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          暂无历史版本
+        </div>
+        <div v-else class="version-list mt-5">
+          <article v-for="item in versionHistories" :key="item.id" class="version-item">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</div>
+                <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {{ formatTime(item.createdAt) }} / v{{ item.baseVersion ?? 0 }} / {{ changeSummaryText(item.changeSummary) }}
+                </div>
+              </div>
+              <div v-if="item.editorUid" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                UID {{ item.editorUid }}
+              </div>
+            </div>
+            <p class="mt-3 line-clamp-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{{ item.contentSummary || item.content }}</p>
+            <div v-if="item.tags.length" class="mt-3 flex flex-wrap gap-2">
+              <span v-for="tag in item.tags" :key="tag.id" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ tag.name }}</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -234,7 +308,9 @@ import { useQuery } from '@tanstack/vue-query'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import { userApi } from '@/api/user'
+import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownRenderer from '@/components/post/MarkdownRenderer.vue'
 import InteractionBar from '@/components/post/InteractionBar.vue'
@@ -245,22 +321,31 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
-import type { Comment, Post } from '@/api/types'
+import type { Comment, Post, PostVersionHistory } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { requireLogin } = useLoginRedirect()
 
+const adminPermissions = ref<MyAdminPermissions | null>(null)
+const versionHistories = ref<PostVersionHistory[]>([])
+const isVersionDialogOpen = ref(false)
+const isLoadingVersions = ref(false)
+const versionLoadAttempted = ref(false)
 const postId = computed(() => route.params.id as string)
 const commentText = ref('')
 const isSubmittingComment = ref(false)
 const isReporting = ref(false)
 const isDeletingPost = ref(false)
+const isTogglingLike = ref(false)
+const isTogglingFavorite = ref(false)
 const isReportDialogOpen = ref(false)
 const isFollowingAuthor = ref(false)
 const reportForm = ref({ reason: 'OTHER', detail: '' })
 const reportTarget = ref<{ type: 'post' | 'comment'; id?: Comment['commentId'] }>({ type: 'post' })
 const comments = ref<Comment[]>([])
+const commentTreeRef = ref<{ markCommentLikeSettled: (commentId: Comment['commentId']) => void } | null>(null)
 const relatedPosts = ref<Post[]>([])
 const commentCursor = ref<string | undefined>()
 const hasMoreComments = ref(false)
@@ -287,6 +372,8 @@ const clonePost = (source?: Post | null): Post | null => {
 
 const post = ref<Post | null>(null)
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(post.value?.author.uid ?? ''))
+const isContentModerator = computed(() => Boolean(adminPermissions.value?.contentModerator || adminPermissions.value?.admin))
+const canViewVersionHistory = computed(() => Boolean(authStore.isLoggedIn && post.value && (isOwnPost.value || isContentModerator.value)))
 
 const getResultClass = (result: number) => {
   const classes: Record<number, string> = {
@@ -307,7 +394,8 @@ const getResultText = (result: number) => {
 }
 
 const handleLike = async () => {
-  if (!post.value) return
+  if (!post.value || isTogglingLike.value) return
+  isTogglingLike.value = true
   const liked = Boolean(post.value.myInteraction?.liked)
   try {
     if (liked) {
@@ -319,11 +407,14 @@ const handleLike = async () => {
     post.value.counter.like = Math.max(0, post.value.counter.like + (liked ? -1 : 1))
   } catch (error: any) {
     toast.error(getErrorMessage(error, '点赞操作失败'))
+  } finally {
+    isTogglingLike.value = false
   }
 }
 
 const handleFavorite = async () => {
-  if (!post.value) return
+  if (!post.value || isTogglingFavorite.value) return
+  isTogglingFavorite.value = true
   const favorited = Boolean(post.value.myInteraction?.favorited)
   try {
     if (favorited) {
@@ -335,15 +426,14 @@ const handleFavorite = async () => {
     post.value.counter.favorite = Math.max(0, post.value.counter.favorite + (favorited ? -1 : 1))
   } catch (error: any) {
     toast.error(getErrorMessage(error, '收藏操作失败'))
+  } finally {
+    isTogglingFavorite.value = false
   }
 }
 
 const toggleFollowAuthor = async () => {
   if (!post.value) return
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   isFollowingAuthor.value = true
   try {
     if (post.value.author.isFollowing) {
@@ -391,8 +481,8 @@ const findComment = (commentId: Comment['commentId']) => {
 const countCommentBranch = (comment: Comment): number => 1 + (comment.replies?.length ?? 0)
 
 const handleLikeComment = async (commentId: Comment['commentId']) => {
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
+  if (!requireLogin()) {
+    commentTreeRef.value?.markCommentLikeSettled(commentId)
     return
   }
   const comment = findComment(commentId)
@@ -405,12 +495,14 @@ const handleLikeComment = async (commentId: Comment['commentId']) => {
   } catch (error: any) {
     toast.error(getErrorMessage(error, '评论点赞失败'))
     await loadComments(true)
+  } finally {
+    commentTreeRef.value?.markCommentLikeSettled(commentId)
   }
 }
 
 const handleUnlikeComment = async (commentId: Comment['commentId']) => {
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
+  if (!requireLogin()) {
+    commentTreeRef.value?.markCommentLikeSettled(commentId)
     return
   }
   const comment = findComment(commentId)
@@ -423,18 +515,25 @@ const handleUnlikeComment = async (commentId: Comment['commentId']) => {
   } catch (error: any) {
     toast.error(getErrorMessage(error, '取消点赞失败'))
     await loadComments(true)
+  } finally {
+    commentTreeRef.value?.markCommentLikeSettled(commentId)
   }
 }
 
 const handleSubmitComment = async () => {
   if (!post.value || !commentText.value.trim()) return
+  if (!requireLogin()) return
   isSubmittingComment.value = true
   try {
-    await interactionApi.comment(postId.value, commentText.value)
+    const res = await interactionApi.comment(postId.value, commentText.value)
     commentText.value = ''
-    post.value.counter.comment += 1
-    toast.success('评论成功')
-    await loadComments()
+    if (res.data?.reviewRequired) {
+      toast.success('评论已提交审核')
+    } else {
+      post.value.counter.comment += 1
+      toast.success('评论成功')
+      await loadComments()
+    }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '评论失败'))
   } finally {
@@ -444,15 +543,16 @@ const handleSubmitComment = async () => {
 
 const handleReplyComment = async (payload: { parentId: Comment['commentId']; replyToUid: Comment['author']['uid']; content: string }) => {
   if (!post.value) return
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   try {
-    await interactionApi.comment(postId.value, payload.content, payload.parentId, payload.replyToUid)
-    post.value.counter.comment += 1
-    toast.success('回复成功')
-    await loadComments(true)
+    const res = await interactionApi.comment(postId.value, payload.content, payload.parentId, payload.replyToUid)
+    if (res.data?.reviewRequired) {
+      toast.success('回复已提交审核')
+    } else {
+      post.value.counter.comment += 1
+      toast.success('回复成功')
+      await loadComments(true)
+    }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '回复失败'))
   }
@@ -479,11 +579,14 @@ const closeReportDialog = () => {
   reportTarget.value = { type: 'post' }
 }
 
+const openPostReportDialog = () => {
+  if (!requireLogin()) return
+  reportTarget.value = { type: 'post' }
+  isReportDialogOpen.value = true
+}
+
 const openCommentReportDialog = (commentId: Comment['commentId']) => {
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   reportTarget.value = { type: 'comment', id: commentId }
   isReportDialogOpen.value = true
 }
@@ -565,6 +668,60 @@ const loadInteractionState = async () => {
   }
 }
 
+const loadAdminPermissions = async () => {
+  if (!authStore.token) {
+    adminPermissions.value = null
+    return
+  }
+  try {
+    const res = await opsApi.myPermissions({ skipAuthRedirect: true })
+    adminPermissions.value = res.code === 0 ? res.data : null
+  } catch {
+    adminPermissions.value = null
+  }
+}
+
+const loadVersionHistory = async () => {
+  if (!post.value || !canViewVersionHistory.value) return
+  isLoadingVersions.value = true
+  try {
+    const res = await postApi.listVersions(post.value.postId, 12)
+    versionHistories.value = res.data || []
+    versionLoadAttempted.value = true
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '版本历史加载失败'))
+  } finally {
+    isLoadingVersions.value = false
+  }
+}
+
+const openVersionHistory = async () => {
+  if (!canViewVersionHistory.value) return
+  isVersionDialogOpen.value = true
+  if (!versionLoadAttempted.value) {
+    await loadVersionHistory()
+  }
+}
+
+const closeVersionHistory = () => {
+  if (isLoadingVersions.value) return
+  isVersionDialogOpen.value = false
+}
+
+const changeSummaryText = (summary?: string) => {
+  if (!summary) return '内容更新'
+  const labels: Record<string, string> = {
+    title: '标题',
+    content: '正文',
+    coverUrl: '封面',
+    visibility: '可见性',
+    extension: '扩展信息',
+    tags: '标签',
+  }
+  const values = summary.split(',').map((item) => labels[item] || item).filter(Boolean)
+  return values.length ? values.join(' / ') : '内容更新'
+}
+
 watch(() => postData.value?.data, (value) => {
   post.value = clonePost(value)
 }, { immediate: true })
@@ -576,10 +733,21 @@ watch(post, () => {
 
 watch(postId, () => {
   loadComments(true)
+  versionHistories.value = []
+  versionLoadAttempted.value = false
 })
 
 onMounted(() => {
+  loadAdminPermissions()
   loadComments(true)
+})
+
+watch(() => authStore.token, () => {
+  loadAdminPermissions()
+})
+
+watch(canViewVersionHistory, (allowed) => {
+  if (!allowed) isVersionDialogOpen.value = false
 })
 </script>
 
@@ -595,5 +763,32 @@ onMounted(() => {
 :global(.dark) .meta-pill {
   background: rgb(15 23 42);
   color: rgb(203 213 225);
+}
+
+.version-dialog {
+  max-height: min(82vh, 760px);
+  overflow: hidden;
+}
+
+.version-list {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.version-item {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: rgb(248 250 252);
+}
+
+.version-item + .version-item {
+  margin-top: 0.75rem;
+}
+
+:global(.dark) .version-item {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
 }
 </style>

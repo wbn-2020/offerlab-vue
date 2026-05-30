@@ -30,6 +30,8 @@
             v-for="post in posts"
             :key="post.postId"
             :post="post"
+            :like-pending="isActionPending('like', post.postId)"
+            :favorite-pending="isActionPending('favorite', post.postId)"
             @like="handleLike"
             @favorite="handleFavorite"
           />
@@ -54,12 +56,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { postApi } from '@/api/post'
-import { interactionApi } from '@/api/interaction'
+import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, Post, Tag } from '@/api/types'
 
 const route = useRoute()
@@ -79,6 +80,11 @@ const emptyDescription = computed(() => tagId.value
   : '标签可能已被重命名，或者当前标签列表暂未包含它。')
 
 const findPost = (postId: ApiId) => posts.value.find((item) => String(item.postId) === String(postId))
+const updatePost = (postId: ApiId, updater: (post: Post) => void) => {
+  const post = findPost(postId)
+  if (post) updater(post)
+}
+const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePost)
 
 const loadTag = async () => {
   const slug = String(route.params.slug || '')
@@ -128,27 +134,13 @@ const loadPosts = async (append = false) => {
 const handleLike = async (postId: ApiId) => {
   const post = findPost(postId)
   if (!post) return
-  const liked = Boolean(post.myInteraction?.liked)
-  try {
-    liked ? await interactionApi.unlike(postId) : await interactionApi.like(postId)
-    post.myInteraction = { ...(post.myInteraction ?? { favorited: false }), liked: !liked }
-    post.counter.like = Math.max(0, post.counter.like + (liked ? -1 : 1))
-  } catch (error: any) {
-    toast.error(getErrorMessage(error, '点赞操作失败'))
-  }
+  await toggleLike(post)
 }
 
 const handleFavorite = async (postId: ApiId) => {
   const post = findPost(postId)
   if (!post) return
-  const favorited = Boolean(post.myInteraction?.favorited)
-  try {
-    favorited ? await interactionApi.unfavorite(postId) : await interactionApi.favorite(postId)
-    post.myInteraction = { ...(post.myInteraction ?? { liked: false }), favorited: !favorited }
-    post.counter.favorite = Math.max(0, post.counter.favorite + (favorited ? -1 : 1))
-  } catch (error: any) {
-    toast.error(getErrorMessage(error, '收藏操作失败'))
-  }
+  await toggleFavorite(post)
 }
 
 watch(() => route.params.slug, loadTag)

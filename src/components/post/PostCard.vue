@@ -59,13 +59,15 @@
       </div>
     </div>
 
-    <h3 class="mb-2 line-clamp-2 text-lg font-bold text-slate-900 dark:text-slate-100">
-      {{ post.title }}
-    </h3>
+    <h3
+      class="mb-2 line-clamp-2 text-lg font-bold text-slate-900 dark:text-slate-100"
+      v-html="displayTitle"
+    />
 
-    <p class="mb-4 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-      {{ post.summary || post.content.substring(0, 100) }}
-    </p>
+    <p
+      class="mb-4 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400"
+      v-html="displaySummary"
+    />
 
     <div v-if="props.showRecommendFeedback && post.recommendationReasons?.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
       <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
@@ -107,7 +109,14 @@
           <Eye class="h-4 w-4" />
           {{ formatNumber(post.counter.view) }}
         </span>
-        <button type="button" class="card-action hover:text-rose-600" aria-label="点赞帖子" @click.prevent="handleLike">
+        <button
+          type="button"
+          class="card-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-55"
+          :aria-label="likePending ? '点赞处理中' : '点赞帖子'"
+          :aria-busy="likePending"
+          :disabled="likePending"
+          @click.prevent="handleLike"
+        >
           <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-rose-600' : ''" />
           {{ formatNumber(post.counter.like) }}
         </button>
@@ -115,7 +124,14 @@
           <MessageCircle class="h-4 w-4" />
           {{ formatNumber(post.counter.comment) }}
         </span>
-        <button type="button" class="card-action hover:text-amber-600" aria-label="收藏帖子" @click.prevent="handleFavorite">
+        <button
+          type="button"
+          class="card-action hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-55"
+          :aria-label="favoritePending ? '收藏处理中' : '收藏帖子'"
+          :aria-busy="favoritePending"
+          :disabled="favoritePending"
+          @click.prevent="handleFavorite"
+        >
           <Star class="h-4 w-4" :class="post.myInteraction?.favorited ? 'fill-current text-amber-500' : ''" />
           {{ formatNumber(post.counter.favorite) }}
         </button>
@@ -134,10 +150,13 @@ import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
+import { useLoginRedirect } from '@/composables/useLoginRedirect'
 
 const props = defineProps<{
   post: Post
   showRecommendFeedback?: boolean
+  likePending?: boolean
+  favoritePending?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -147,6 +166,7 @@ const emit = defineEmits<{
 }>()
 
 const authStore = useAuthStore()
+const { requireLogin } = useLoginRedirect()
 const isFollowing = ref(false)
 const showFeedbackMenu = ref(false)
 const feedbackReasons = [
@@ -157,6 +177,26 @@ const feedbackReasons = [
 
 const authorInitial = computed(() => props.post.author.nickname?.charAt(0) || '?')
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(props.post.author.uid))
+const displayTitle = computed(() => renderSearchHighlight(props.post.highlightTitle, props.post.title))
+const displaySummary = computed(() => renderSearchHighlight(
+  props.post.highlightSummary,
+  props.post.summary || props.post.content.substring(0, 100),
+))
+
+const escapeHtml = (value: string) => value
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+const renderSearchHighlight = (highlight: string | undefined, fallback: string) => {
+  if (!highlight) return escapeHtml(fallback || '')
+  const safe = escapeHtml(highlight)
+  return safe
+    .replace(/&lt;em&gt;/g, '<mark class="search-highlight">')
+    .replace(/&lt;\/em&gt;/g, '</mark>')
+}
 
 const getResultClass = (result: number) => {
   const classes: Record<number, string> = {
@@ -177,35 +217,23 @@ const getResultText = (result: number) => {
 }
 
 const handleLike = () => {
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   emit('like', props.post.postId)
 }
 
 const handleFavorite = () => {
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   emit('favorite', props.post.postId)
 }
 
 const handleNotInterested = (reason: string) => {
-  if (!authStore.isLoggedIn) {
-    toast.error('登录后才能调整推荐')
-    return
-  }
+  if (!requireLogin()) return
   showFeedbackMenu.value = false
   emit('notInterested', props.post.postId, reason)
 }
 
 const handleFollow = async () => {
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   isFollowing.value = true
   try {
     if (props.post.author.isFollowing) {
@@ -257,6 +285,13 @@ const handleFollow = async () => {
   background: rgb(248 250 252);
 }
 
+:deep(.search-highlight) {
+  border-radius: 0.25rem;
+  background: rgb(254 240 138);
+  padding: 0 0.15rem;
+  color: rgb(113 63 18);
+}
+
 :global(.dark) .feedback-menu-item {
   color: rgb(203 213 225);
 }
@@ -268,5 +303,10 @@ const handleFollow = async () => {
 
 :global(.dark) .card-action:hover {
   background: rgb(30 41 59);
+}
+
+:global(.dark) :deep(.search-highlight) {
+  background: rgb(133 77 14);
+  color: rgb(254 243 199);
 }
 </style>

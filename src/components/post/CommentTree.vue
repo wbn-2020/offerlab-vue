@@ -30,8 +30,9 @@
               <button
                 type="button"
                 class="comment-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="!canLikeComments"
-                :aria-label="comment.myLiked ? '取消点赞评论' : '点赞评论'"
+                :aria-label="isCommentLikePending(comment.commentId) ? '评论点赞处理中' : comment.myLiked ? '取消点赞评论' : '点赞评论'"
+                :aria-busy="isCommentLikePending(comment.commentId)"
+                :disabled="isCommentLikePending(comment.commentId)"
                 @click="toggleCommentLike(comment)"
               >
                 <ThumbsUp class="h-3.5 w-3.5" :class="comment.myLiked ? 'fill-current text-rose-600' : ''" />
@@ -98,8 +99,9 @@
                       <button
                         type="button"
                         class="comment-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                        :disabled="!canLikeComments"
-                        :aria-label="reply.myLiked ? '取消点赞评论' : '点赞评论'"
+                        :aria-label="isCommentLikePending(reply.commentId) ? '评论点赞处理中' : reply.myLiked ? '取消点赞评论' : '点赞评论'"
+                        :aria-busy="isCommentLikePending(reply.commentId)"
+                        :disabled="isCommentLikePending(reply.commentId)"
                         @click="toggleCommentLike(reply)"
                       >
                         <ThumbsUp class="h-3.5 w-3.5" :class="reply.myLiked ? 'fill-current text-rose-600' : ''" />
@@ -161,24 +163,47 @@ const props = withDefaults(defineProps<{
   comments: Comment[]
   canLikeComments?: boolean
   canReportComments?: boolean
+  canReplyComments?: boolean
 }>(), {
   canLikeComments: false,
   canReportComments: false,
+  canReplyComments: false,
 })
 
 const emit = defineEmits<{
+  'require-login': []
   'like-comment': [commentId: Comment['commentId']]
   'unlike-comment': [commentId: Comment['commentId']]
+  'comment-like-settled': [commentId: Comment['commentId']]
   'reply-comment': [payload: { parentId: Comment['commentId']; replyToUid: Comment['author']['uid']; content: string }]
   'delete-comment': [commentId: Comment['commentId']]
   'report-comment': [commentId: Comment['commentId']]
 }>()
 
 const replyingTo = ref<Comment | null>(null)
+const pendingCommentLikes = ref(new Set<string>())
 
 const initial = (name?: string) => name?.charAt(0) || '?'
+const commentLikeKey = (commentId: Comment['commentId']) => String(commentId)
+const isCommentLikePending = (commentId: Comment['commentId']) => pendingCommentLikes.value.has(commentLikeKey(commentId))
+const startCommentLike = (commentId: Comment['commentId']) => {
+  const key = commentLikeKey(commentId)
+  if (pendingCommentLikes.value.has(key)) return false
+  pendingCommentLikes.value = new Set([...pendingCommentLikes.value, key])
+  return true
+}
+const finishCommentLike = (commentId: Comment['commentId']) => {
+  const key = commentLikeKey(commentId)
+  const next = new Set(pendingCommentLikes.value)
+  next.delete(key)
+  pendingCommentLikes.value = next
+}
 
 const startReply = (comment: Comment) => {
+  if (!props.canReplyComments) {
+    emit('require-login')
+    return
+  }
   replyingTo.value = comment
 }
 
@@ -187,12 +212,23 @@ const cancelReply = () => {
 }
 
 const toggleCommentLike = (comment: Comment) => {
+  if (!props.canLikeComments) {
+    emit('require-login')
+    return
+  }
+  if (!startCommentLike(comment.commentId)) return
   if (comment.myLiked) {
     emit('unlike-comment', comment.commentId)
     return
   }
   emit('like-comment', comment.commentId)
 }
+
+const markCommentLikeSettled = (commentId: Comment['commentId']) => {
+  finishCommentLike(commentId)
+}
+
+defineExpose({ markCommentLikeSettled })
 
 const submitReply = (comment: Comment, content: string) => {
   emit('reply-comment', {

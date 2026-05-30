@@ -36,6 +36,12 @@ export interface SearchIndexTask {
   updatedAt?: string
 }
 
+export interface SearchAnalyticsTrackReq {
+  eventType: 'PREP_CLICK'
+  keyword?: string
+  company?: string
+}
+
 export const searchApi = {
   searchPosts: async (params: SearchParams): Promise<Result<PaginatedResponse<Post>>> => {
     const res = await client.get('/api/v1/search/posts', { params }) as Result<any>
@@ -59,4 +65,7 @@ export const searchApi = {
 
   listRebuildTasks: (limit = 10): Promise<Result<SearchIndexTask[]>> =>
     client.get('/api/v1/search/admin/tasks', { params: { limit } }),
+
+  trackAnalytics: (data: SearchAnalyticsTrackReq): Promise<Result<{ tracked: boolean }>> =>
+    client.post('/api/v1/search/analytics/track', data),
 }

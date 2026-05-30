@@ -152,6 +152,7 @@ import { getErrorMessage } from '@/api/client'
 import { postApi } from '@/api/post'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -165,6 +166,7 @@ const isLoadingPosts = ref(true)
 const followingBusyIds = ref(new Set<string>())
 const router = useRouter()
 const authStore = useAuthStore()
+const { requireLogin } = useLoginRedirect()
 
 const searchForm = reactive({
   q: '',
@@ -210,10 +212,7 @@ const applyQuickFilter = (item: { value: string; type: 'company' | 'position' })
 const isSelf = (user: User) => Boolean(authStore.user && String(authStore.user.uid) === String(user.uid))
 
 const toggleFollowUser = async (user: User) => {
-  if (!authStore.isLoggedIn) {
-    toast.error('登录后才能关注用户')
-    return
-  }
+  if (!requireLogin()) return
   if (isSelf(user)) return
   const uid = String(user.uid)
   followingBusyIds.value = new Set(followingBusyIds.value).add(uid)

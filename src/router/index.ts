@@ -75,6 +75,12 @@ const routes = [
     meta: { title: '我的准备台', requiresAuth: true },
   },
   {
+    path: '/mock-interview',
+    name: 'MockInterview',
+    component: () => import('@/views/MockInterviewView.vue'),
+    meta: { title: '模拟面试', requiresAuth: true },
+  },
+  {
     path: '/me/notifications',
     alias: '/notifications',
     name: 'Notifications',

@@ -35,9 +35,12 @@ export interface Post {
   title: string
   content: string
   summary?: string
+  highlightTitle?: string
+  highlightSummary?: string
   coverUrl?: string
   tags: Tag[]
   author: User
+
   counter: {
     view: number
     like: number
@@ -52,6 +55,24 @@ export interface Post {
   }
   createdAt: number
   updatedAt: number
+}
+
+export interface PostVersionHistory {
+  id: ApiId
+  postId: ApiId
+  authorId?: ApiId
+  editorUid?: ApiId
+  baseVersion?: number
+  title: string
+  content: string
+  contentSummary?: string
+  coverUrl?: string
+  visibility?: number
+  postStatus?: number
+  extension?: Record<string, any>
+  tags: Tag[]
+  changeSummary?: string
+  createdAt: number
 }
 
 export interface Tag {
@@ -93,6 +114,8 @@ export interface PostReportReviewReq {
 export interface PostReport {
   reportId: ApiId
   postId: ApiId
+  postTitle?: string
+  postSummary?: string
   reporterUid?: ApiId
   reason: string
   detail?: string
@@ -107,6 +130,8 @@ export interface CommentReport {
   reportId: ApiId
   commentId: ApiId
   postId: ApiId
+  postTitle?: string
+  commentSummary?: string
   reporterUid?: ApiId
   reason: string
   detail?: string
@@ -128,6 +153,24 @@ export interface Notification {
   targetPath?: string
   read: boolean
   createdAt: number
+}
+
+export interface NotificationUnreadCount {
+  total: number
+  like: number
+  comment: number
+  favorite: number
+  follower: number
+  mention: number
+  system: number
+}
+
+export interface NotificationRealtimeStatus {
+  unread: NotificationUnreadCount
+  latestUnreadId?: ApiId
+  latestUnreadAt?: number
+  serverTime: number
+  pollIntervalSeconds: number
 }
 
 export interface PaginatedResponse<T> {

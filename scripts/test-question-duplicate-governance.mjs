@@ -1,0 +1,38 @@
+import { readFileSync } from 'node:fs'
+import assert from 'node:assert/strict'
+
+const opsApi = readFileSync(new URL('../src/api/ops.ts', import.meta.url), 'utf8')
+const view = readFileSync(new URL('../src/views/AdminQuestionsView.vue', import.meta.url), 'utf8')
+
+assert.match(opsApi, /interface QuestionDuplicateGroup/, 'ops API must expose question duplicate group type')
+assert.match(opsApi, /sourcePostCount: number/, 'duplicate group must expose source post count')
+assert.match(opsApi, /questions: Question\[\]/, 'duplicate group must expose grouped questions')
+assert.match(opsApi, /semanticCandidates\?: Array/, 'duplicate group must expose semantic duplicate candidates')
+assert.match(opsApi, /similarityScore: number/, 'semantic duplicate candidates must expose similarity score')
+assert.match(opsApi, /getQuestionDuplicateGroup/, 'ops API must expose duplicate group query')
+assert.match(opsApi, /setQuestionDuplicateCanonical/, 'ops API must expose canonical update')
+assert.match(opsApi, /mergeQuestionDuplicateCandidate/, 'ops API must expose semantic candidate merge')
+assert.match(opsApi, /hideQuestionDuplicates/, 'ops API must expose duplicate hide action')
+assert.match(opsApi, /\/api\/v1\/admin\/questions\/\$\{id\}\/duplicates/, 'duplicate group API must call backend endpoint')
+assert.match(opsApi, /\/duplicates\/canonical/, 'canonical API must call backend endpoint')
+assert.match(opsApi, /\/duplicates\/merge-candidate/, 'semantic candidate merge API must call backend endpoint')
+assert.match(opsApi, /\/duplicates\/hide/, 'hide API must call backend endpoint')
+
+assert.match(view, /重复题组治理/, 'admin questions view must render duplicate governance panel')
+assert.match(view, /duplicateGroup = ref<QuestionDuplicateGroup \| null>\(null\)/, 'admin questions view must keep duplicate group state')
+assert.match(view, /loadDuplicateGroup\(question\.id\)/, 'selecting a question must load duplicate group')
+assert.match(view, /opsApi\.getQuestionDuplicateGroup\(id\)/, 'duplicate panel must call group query')
+assert.match(view, /setDuplicateCanonical/, 'duplicate panel must support canonical update')
+assert.match(view, /opsApi\.setQuestionDuplicateCanonical\(selectedQuestion\.value\.id, canonicalQuestionId\)/, 'canonical button must call API')
+assert.match(view, /hideSelectedDuplicates/, 'duplicate panel must support hiding selected duplicates')
+assert.match(view, /opsApi\.hideQuestionDuplicates\(selectedQuestion\.value\.id, \[\.\.\.duplicateSelection\.value\]\)/, 'hide button must call API')
+assert.match(view, /疑似同题候选/, 'duplicate panel must render semantic duplicate candidates')
+assert.match(view, /candidate\.similarityScore/, 'semantic candidate rows must show similarity score')
+assert.match(view, /mergeDuplicateCandidate/, 'duplicate panel must support semantic candidate merge')
+assert.match(view, /opsApi\.mergeQuestionDuplicateCandidate\(selectedQuestion\.value\.id, candidateQuestionId\)/, 'semantic merge button must call API')
+assert.match(view, /同组 \{\{ duplicateGroup\.questionCount \}\} 题/, 'duplicate panel must show group question count')
+assert.match(view, /来源 \{\{ duplicateGroup\.sourcePostCount \}\} 帖/, 'duplicate panel must show source post count')
+assert.match(view, /设为主问题/, 'duplicate panel must expose canonical action')
+assert.match(view, /隐藏选中重复题/, 'duplicate panel must expose duplicate hide action')
+
+console.log('question duplicate governance guard passed')

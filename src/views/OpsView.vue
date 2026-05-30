@@ -98,7 +98,64 @@
             </p>
           </div>
         </article>
+        <article v-if="canOps" class="panel lg:col-span-2">
+        <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">搜索运营统计</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">近 30 天热门搜索、无结果词和公司准备包点击。</p>
+          </div>
+          <button type="button" class="icon-button" title="刷新搜索统计" :disabled="isSearchAnalyticsLoading" @click="loadSearchAnalytics">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isSearchAnalyticsLoading }" />
+          </button>
+        </div>
 
+        <div v-if="isSearchAnalyticsLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+          正在加载搜索统计...
+        </div>
+        <div v-else class="analytics-grid pt-5">
+          <div class="analytics-column">
+            <div class="analytics-column-head">
+              <span>热门搜索词</span>
+              <strong>{{ searchAnalytics?.hotKeywords.length || 0 }}</strong>
+            </div>
+            <div v-if="!searchAnalytics?.hotKeywords.length" class="analytics-empty">暂无搜索记录</div>
+            <div v-else class="analytics-list">
+              <div v-for="item in searchAnalytics.hotKeywords" :key="`hot-${item.keyword}`" class="analytics-row">
+                <span class="analytics-title">{{ item.keyword || '--' }}</span>
+                <span class="status-pill status-ok">{{ item.count }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="analytics-column">
+            <div class="analytics-column-head">
+              <span>无结果词</span>
+              <strong>{{ searchAnalytics?.noResultKeywords.length || 0 }}</strong>
+            </div>
+            <div v-if="!searchAnalytics?.noResultKeywords.length" class="analytics-empty">暂无无结果记录</div>
+            <div v-else class="analytics-list">
+              <div v-for="item in searchAnalytics.noResultKeywords" :key="`zero-${item.keyword}`" class="analytics-row">
+                <span class="analytics-title">{{ item.keyword || '--' }}</span>
+                <span class="status-pill status-warn">{{ item.noResultCount || item.count }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="analytics-column">
+            <div class="analytics-column-head">
+              <span>准备包点击</span>
+              <strong>{{ searchAnalytics?.prepClicks.length || 0 }}</strong>
+            </div>
+            <div v-if="!searchAnalytics?.prepClicks.length" class="analytics-empty">暂无点击记录</div>
+            <div v-else class="analytics-list">
+              <div v-for="item in searchAnalytics.prepClicks" :key="`prep-${item.company}`" class="analytics-row">
+                <span class="analytics-title">{{ item.company || '--' }}</span>
+                <span class="status-pill status-ok">{{ item.count }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        </article>
         <article v-if="canAdmin" class="panel">
           <div class="flex items-center justify-between gap-3">
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">权限状态</h2>
@@ -218,15 +275,19 @@
               <tbody>
                 <tr v-for="report in commentReports" :key="report.reportId">
                   <td class="font-mono text-xs">{{ report.reportId }}</td>
-                  <td class="font-mono text-xs">{{ report.commentId }}</td>
+                  <td class="max-w-[260px]">
+                    <p class="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100">{{ report.commentId }}</p>
+                    <p class="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{{ report.commentSummary || '暂无评论摘要' }}</p>
+                  </td>
                   <td>
                     <RouterLink class="font-mono text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400" :to="`/post/${report.postId}`">
-                      {{ report.postId }}
+                      {{ report.postTitle || report.postId }}
                     </RouterLink>
                   </td>
                   <td class="max-w-[260px]">
                     <p class="font-semibold text-slate-800 dark:text-slate-100">{{ report.reason }}</p>
                     <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '--' }}</p>
+                    <p v-if="report.reviewNote" class="mt-1 truncate text-xs text-primary-600 dark:text-primary-300">处理备注：{{ report.reviewNote }}</p>
                   </td>
                   <td>
                     <span :class="['status-pill', reportStatusClass(report.reportStatus)]">
@@ -240,7 +301,7 @@
                         type="button"
                         class="secondary-button compact-action danger-action"
                         :disabled="reviewingCommentReportId === report.reportId"
-                        @click="reviewCommentReport(report, true)"
+                        @click="openReviewDialog('comment', report, true)"
                       >
                         通过隐藏
                       </button>
@@ -248,7 +309,7 @@
                         type="button"
                         class="secondary-button compact-action"
                         :disabled="reviewingCommentReportId === report.reportId"
-                        @click="reviewCommentReport(report, false)"
+                        @click="openReviewDialog('comment', report, false)"
                       >
                         驳回
                       </button>
@@ -398,16 +459,87 @@
                   题目 {{ item.questionCount }} · 重试 {{ item.retryCount }} · {{ item.errorMessage || formatTime(item.updateTime || item.createTime) }}
                 </p>
               </div>
-              <button
-                v-if="item.taskStatus === 3"
-                type="button"
-                class="secondary-button compact-action danger-action"
-                :disabled="retryingAiTaskId === item.id"
-                @click="retryAiTask(item)"
-              >
-                <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': retryingAiTaskId === item.id }" />
-                重试
+              <div class="flex flex-wrap justify-end gap-2">
+                <button type="button" class="secondary-button compact-action" :disabled="loadingAiTaskDetailId === item.id" @click="openAiTaskDetail(item)">
+                  <FileText class="h-4 w-4" />
+                  详情
+                </button>
+                <button
+                  v-if="item.taskStatus === 3"
+                  type="button"
+                  class="secondary-button compact-action danger-action"
+                  :disabled="retryingAiTaskId === item.id"
+                  @click="retryAiTask(item)"
+                >
+                  <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': retryingAiTaskId === item.id }" />
+                  重试
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article v-if="canQuestion" class="panel">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">题库索引任务</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">题目 ES 索引重建会展示总数、已索引、失败和状态。</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span v-if="questionIndexTask" :class="['status-pill', questionIndexTaskStatusClass]">{{ questionIndexTask.status }}</span>
+              <button type="button" class="icon-button" title="刷新题库索引任务" :disabled="isQuestionIndexTasksLoading" @click="loadQuestionIndexTasks">
+                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isQuestionIndexTasksLoading }" />
               </button>
+            </div>
+          </div>
+
+          <div v-if="questionIndexTask" class="space-y-5 pt-5">
+            <div class="grid gap-4 sm:grid-cols-4">
+              <div class="task-stat">
+                <span>总数</span>
+                <strong>{{ questionIndexTask.total }}</strong>
+              </div>
+              <div class="task-stat">
+                <span>已索引</span>
+                <strong>{{ questionIndexTask.indexed }}</strong>
+              </div>
+              <div class="task-stat">
+                <span>失败</span>
+                <strong>{{ questionIndexTask.failed }}</strong>
+              </div>
+              <div class="task-stat">
+                <span>索引</span>
+                <strong class="truncate text-sm">{{ questionIndexTask.indexName || '--' }}</strong>
+              </div>
+            </div>
+            <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div class="h-full rounded-full bg-primary-600 transition-all" :style="{ width: questionIndexTaskProgress + '%' }" />
+            </div>
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+              {{ questionIndexTask.message || questionIndexTaskTimeText }}
+            </p>
+          </div>
+
+          <div class="mt-5 border-t border-slate-200 pt-4 dark:border-slate-800">
+            <div v-if="isQuestionIndexTasksLoading" class="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+              正在加载题库索引任务...
+            </div>
+            <div v-else-if="recentQuestionIndexTasks.length === 0" class="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+              暂无题库索引任务记录。
+            </div>
+            <div v-else class="space-y-3">
+              <div v-for="item in recentQuestionIndexTasks" :key="item.taskId" class="admin-row task-row">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="truncate font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">{{ item.taskId }}</span>
+                    <span :class="['status-pill', searchTaskStatusClass(item.status)]">{{ item.status }}</span>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    已索引 {{ item.indexed }} / {{ item.total }}，失败 {{ item.failed }} · {{ formatTime(item.updatedAt || item.createdAt) }}
+                  </p>
+                </div>
+                <strong class="text-sm text-slate-700 dark:text-slate-200">{{ item.indexName || '--' }}</strong>
+              </div>
             </div>
           </div>
         </article>
@@ -490,12 +622,14 @@
                   <td class="font-mono text-xs">{{ report.reportId }}</td>
                   <td>
                     <RouterLink class="font-mono text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400" :to="`/post/${report.postId}`">
-                      {{ report.postId }}
+                      {{ report.postTitle || report.postId }}
                     </RouterLink>
+                    <p class="mt-1 line-clamp-2 max-w-[260px] text-xs text-slate-500 dark:text-slate-400">{{ report.postSummary || '暂无帖子摘要' }}</p>
                   </td>
                   <td class="max-w-[260px]">
                     <p class="font-semibold text-slate-800 dark:text-slate-100">{{ report.reason }}</p>
                     <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '--' }}</p>
+                    <p v-if="report.reviewNote" class="mt-1 truncate text-xs text-primary-600 dark:text-primary-300">处理备注：{{ report.reviewNote }}</p>
                   </td>
                   <td>
                     <span :class="['status-pill', reportStatusClass(report.reportStatus)]">
@@ -509,7 +643,7 @@
                         type="button"
                         class="secondary-button compact-action danger-action"
                         :disabled="reviewingReportId === report.reportId"
-                        @click="reviewReport(report, true)"
+                        @click="openReviewDialog('post', report, true)"
                       >
                         通过下架
                       </button>
@@ -517,7 +651,7 @@
                         type="button"
                         class="secondary-button compact-action"
                         :disabled="reviewingReportId === report.reportId"
-                        @click="reviewReport(report, false)"
+                        @click="openReviewDialog('post', report, false)"
                       >
                         驳回
                       </button>
@@ -534,14 +668,14 @@
       </section>
     </div>
 
-    <div v-if="selectedOutbox" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="selectedOutbox = null">
-      <article class="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900">
+    <div v-if="selectedOutbox" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="closeOutboxDetail">
+      <article class="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="outbox-detail-title" tabindex="-1">
         <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div>
-            <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-50">Outbox 详情</h3>
+            <h3 id="outbox-detail-title" class="text-lg font-semibold text-slate-950 dark:text-slate-50">Outbox 详情</h3>
             <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ selectedOutbox.topic }} / {{ selectedOutbox.id }}</p>
           </div>
-          <button type="button" class="secondary-button" @click="selectedOutbox = null">关闭</button>
+          <button ref="outboxCloseButton" type="button" class="secondary-button" @click="closeOutboxDetail">关闭</button>
         </div>
         <div class="max-h-[65vh] space-y-4 overflow-auto p-5">
           <div class="grid gap-3 sm:grid-cols-3">
@@ -562,18 +696,109 @@
         </div>
       </article>
     </div>
+
+    <div v-if="reviewDialog.open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="closeReviewDialog">
+      <article class="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="report-review-title" tabindex="-1">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+          <div>
+            <h3 id="report-review-title" class="text-lg font-semibold text-slate-950 dark:text-slate-50">{{ reviewDialogTitle }}</h3>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">备注会写入审核记录和审计日志。</p>
+          </div>
+          <button type="button" class="secondary-button" :disabled="isReviewSubmitting" @click="closeReviewDialog">取消</button>
+        </div>
+        <div class="space-y-4 p-5">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
+            <p class="font-semibold text-slate-900 dark:text-slate-100">{{ reviewContentTitle }}</p>
+            <p class="mt-2 leading-6 text-slate-600 dark:text-slate-300">{{ reviewContentSummary }}</p>
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">举报原因：{{ reviewDialog.report?.reason || '--' }} · {{ reviewDialog.report?.detail || '无补充说明' }}</p>
+          </div>
+          <label class="block text-sm font-bold text-slate-700 dark:text-slate-200">
+            审核备注
+            <textarea ref="reviewNoteInput" v-model.trim="reviewDialog.note" class="mt-2 field-textarea" rows="4" placeholder="填写处理依据，例如命中广告引流、辱骂、人身攻击，或证据不足予以驳回。" />
+          </label>
+          <p v-if="reviewDialog.error" class="text-sm font-bold text-rose-600 dark:text-rose-300">{{ reviewDialog.error }}</p>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="secondary-button" :disabled="isReviewSubmitting" @click="closeReviewDialog">取消</button>
+            <button type="button" :class="['primary-button', reviewDialog.approved ? 'danger-primary' : '']" :disabled="isReviewSubmitting" @click="submitReviewDialog">
+              {{ isReviewSubmitting ? '提交中...' : reviewDialog.approved ? '确认通过' : '确认驳回' }}
+            </button>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div v-if="selectedAiTaskDetail" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="closeAiTaskDetail">
+      <article class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="ai-task-detail-title" tabindex="-1">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">AI Task Detail</p>
+            <h3 id="ai-task-detail-title" class="mt-1 text-lg font-semibold text-slate-950 dark:text-slate-50">提题任务详情</h3>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">任务 {{ selectedAiTaskDetail.task.id }} / 来源帖 {{ selectedAiTaskDetail.sourcePostId }}</p>
+          </div>
+          <button ref="aiTaskDetailCloseButton" type="button" class="secondary-button" @click="closeAiTaskDetail">关闭</button>
+        </div>
+        <div class="max-h-[72vh] space-y-5 overflow-auto p-5">
+          <div class="grid gap-3 sm:grid-cols-4">
+            <div class="task-stat"><span>状态</span><strong>{{ aiTaskStatusText(selectedAiTaskDetail.task.taskStatus) }}</strong></div>
+            <div class="task-stat"><span>提取题数</span><strong>{{ selectedAiTaskDetail.task.questionCount }}</strong></div>
+            <div class="task-stat"><span>重试次数</span><strong>{{ selectedAiTaskDetail.task.retryCount }}</strong></div>
+            <div class="task-stat"><span>更新时间</span><strong class="text-sm">{{ formatTime(selectedAiTaskDetail.task.updateTime || selectedAiTaskDetail.task.createTime) }}</strong></div>
+          </div>
+
+          <section class="detail-section">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h4>来源帖子</h4>
+              <RouterLink :to="`/post/${selectedAiTaskDetail.sourcePostId}`" class="text-sm font-semibold text-primary-600 hover:underline dark:text-primary-400">打开帖子</RouterLink>
+            </div>
+            <p class="mt-2 font-semibold text-slate-900 dark:text-slate-100">{{ selectedAiTaskDetail.sourcePostTitle || '来源帖子标题不可见' }}</p>
+            <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{{ selectedAiTaskDetail.sourcePostSummary || '暂无来源摘要，可能是帖子已隐藏或内容为空。' }}</p>
+          </section>
+
+          <section class="detail-section">
+            <h4>错误信息</h4>
+            <pre class="payload-box">{{ selectedAiTaskDetail.task.errorMessage || '暂无错误信息' }}</pre>
+          </section>
+
+          <section class="detail-section">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h4>同帖尝试记录</h4>
+              <span class="text-xs font-semibold text-slate-400">{{ selectedAiTaskDetail.retryRecords.length }} 条</span>
+            </div>
+            <div v-if="selectedAiTaskDetail.retryRecords.length === 0" class="py-5 text-center text-sm text-slate-500 dark:text-slate-400">暂无尝试记录</div>
+            <div v-else class="space-y-2">
+              <div v-for="record in selectedAiTaskDetail.retryRecords" :key="record.id" class="admin-row task-row">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">{{ record.id }}</span>
+                    <span :class="['status-pill', aiTaskStatusClass(record.taskStatus)]">{{ aiTaskStatusText(record.taskStatus) }}</span>
+                  </div>
+                  <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                    题目 {{ record.questionCount }} · 重试 {{ record.retryCount }} · {{ record.errorMessage || formatTime(record.updateTime || record.createTime) }}
+                  </p>
+                </div>
+                <button v-if="record.taskStatus === 3" type="button" class="secondary-button compact-action danger-action" :disabled="retryingAiTaskId === record.id" @click="retryAiTask(record)">
+                  <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': retryingAiTaskId === record.id }" />
+                  重试
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </article>
+    </div>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
-import { opsApi, type AdminUserRole, type AiExtractTask, type MyAdminPermissions, type OpsStatus, type OutboxMessage } from '@/api/ops'
+import { opsApi, type AdminUserRole, type AiExtractTask, type AiExtractTaskDetail, type MyAdminPermissions, type OpsStatus, type OutboxMessage, type QuestionIndexTask, type SearchAnalytics } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import type { ApiId, CommentReport, PostReport } from '@/api/types'
 
 const status = ref<OpsStatus | null>(null)
@@ -583,9 +808,13 @@ const adminUsers = ref<AdminUserRole[]>([])
 const outboxMessages = ref<OutboxMessage[]>([])
 const aiTasks = ref<AiExtractTask[]>([])
 const recentTasks = ref<SearchIndexTask[]>([])
+const questionIndexTask = ref<QuestionIndexTask | null>(null)
+const recentQuestionIndexTasks = ref<QuestionIndexTask[]>([])
 const postReports = ref<PostReport[]>([])
 const commentReports = ref<CommentReport[]>([])
 const selectedOutbox = ref<OutboxMessage | null>(null)
+const selectedAiTaskDetail = ref<AiExtractTaskDetail | null>(null)
+const searchAnalytics = ref<SearchAnalytics | null>(null)
 const outboxStatusFilter = ref<number | undefined>(undefined)
 const reportStatusFilter = ref<number | undefined>(0)
 const commentReportStatusFilter = ref<number | undefined>(0)
@@ -596,12 +825,15 @@ const isAdminSubmitting = ref(false)
 const isOutboxLoading = ref(false)
 const isAiTasksLoading = ref(false)
 const isTasksLoading = ref(false)
+const isQuestionIndexTasksLoading = ref(false)
 const isReportsLoading = ref(false)
+const isSearchAnalyticsLoading = ref(false)
 const isCommentReportsLoading = ref(false)
 const isSubmitting = ref(false)
 const adminActionUid = ref<ApiId | null>(null)
 const retryingId = ref<ApiId | null>(null)
 const retryingAiTaskId = ref<ApiId | null>(null)
+const loadingAiTaskDetailId = ref<ApiId | null>(null)
 const reviewingReportId = ref<PostReport['reportId'] | null>(null)
 const reviewingCommentReportId = ref<CommentReport['reportId'] | null>(null)
 const selectedFailedIds = ref<ApiId[]>([])
@@ -609,7 +841,20 @@ const isBatchRetrying = ref(false)
 const isQuestionRebuilding = ref(false)
 const isQuestionIndexRebuilding = ref(false)
 const loadError = ref('')
+const outboxCloseButton = ref<HTMLButtonElement | null>(null)
+const aiTaskDetailCloseButton = ref<HTMLButtonElement | null>(null)
+const reviewNoteInput = ref<HTMLTextAreaElement | null>(null)
+const reviewDialog = reactive<{
+  open: boolean
+  type: 'post' | 'comment'
+  report: PostReport | CommentReport | null
+  approved: boolean
+  note: string
+  error: string
+}>({ open: false, type: 'post', report: null, approved: false, note: '', error: '' })
+const isReviewSubmitting = ref(false)
 let pollTimer: number | undefined
+let questionIndexPollTimer: number | undefined
 
 const outboxFilters = [
   { label: '全部', value: undefined },
@@ -630,6 +875,7 @@ const canAdmin = computed(() => Boolean(permissions.value?.admin))
 const canQuestion = computed(() => Boolean(permissions.value?.questionOperator || permissions.value?.admin))
 const canModerate = computed(() => Boolean(permissions.value?.contentModerator || permissions.value?.admin))
 const isTaskActive = computed(() => task.value?.status === 'PENDING' || task.value?.status === 'RUNNING')
+const isQuestionIndexTaskActive = computed(() => questionIndexTask.value?.status === 'PENDING' || questionIndexTask.value?.status === 'RUNNING')
 const searchOnlineText = computed(() => {
   if (!status.value) return '--'
   if (!status.value.search.enabled) return '未启用'
@@ -655,16 +901,34 @@ const taskStatusClass = computed(() => {
   return 'status-warn'
 })
 const taskProgress = computed(() => {
-  if (!task.value) return 0
-  if (task.value.status === 'SUCCEEDED') return 100
-  if (task.value.total > 0) {
-    return Math.min(100, Math.round(((task.value.indexed + task.value.failed) / task.value.total) * 100))
-  }
-  return task.value.status === 'RUNNING' ? 35 : 8
+  return taskProgressValue(task.value)
 })
 const taskTimeText = computed(() => {
   if (!task.value?.updatedAt) return '等待任务状态更新'
   return `最近更新：${task.value.updatedAt.replace('T', ' ')}`
+})
+const questionIndexTaskStatusClass = computed(() => searchTaskStatusClass(questionIndexTask.value?.status || 'PENDING'))
+const questionIndexTaskProgress = computed(() => taskProgressValue(questionIndexTask.value))
+const questionIndexTaskTimeText = computed(() => {
+  if (!questionIndexTask.value?.updatedAt) return '等待题库索引任务状态更新'
+  return `最近更新：${questionIndexTask.value.updatedAt.replace('T', ' ')}`
+})
+const reviewDialogTitle = computed(() => {
+  const target = reviewDialog.type === 'comment' ? '评论举报' : '帖子举报'
+  return `${reviewDialog.approved ? '通过' : '驳回'}${target}`
+})
+const reviewContentTitle = computed(() => {
+  const report = reviewDialog.report
+  if (!report) return '--'
+  if (reviewDialog.type === 'comment') return (report as CommentReport).postTitle || `帖子 ${(report as CommentReport).postId}`
+  return (report as PostReport).postTitle || `帖子 ${(report as PostReport).postId}`
+})
+const reviewContentSummary = computed(() => {
+  const report = reviewDialog.report
+  if (!report) return '--'
+  return reviewDialog.type === 'comment'
+    ? ((report as CommentReport).commentSummary || '暂无评论摘要')
+    : ((report as PostReport).postSummary || '暂无帖子摘要')
 })
 
 const loadPermissions = async () => {
@@ -736,6 +1000,34 @@ const loadTasks = async () => {
   }
 }
 
+const loadSearchAnalytics = async () => {
+  if (!canOps.value) return
+  isSearchAnalyticsLoading.value = true
+  try {
+    const res = await opsApi.searchAnalytics({ days: 30, limit: 8 })
+    searchAnalytics.value = res.data || { hotKeywords: [], noResultKeywords: [], prepClicks: [] }
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '搜索统计加载失败'))
+    searchAnalytics.value = { hotKeywords: [], noResultKeywords: [], prepClicks: [] }
+  } finally {
+    isSearchAnalyticsLoading.value = false
+  }
+}
+
+const loadQuestionIndexTasks = async () => {
+  if (!canQuestion.value) return
+  isQuestionIndexTasksLoading.value = true
+  try {
+    const res = await opsApi.listQuestionIndexTasks(10)
+    recentQuestionIndexTasks.value = res.data || []
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '题库索引任务加载失败'))
+    recentQuestionIndexTasks.value = []
+  } finally {
+    isQuestionIndexTasksLoading.value = false
+  }
+}
+
 const loadReports = async () => {
   if (!canModerate.value) return
   isReportsLoading.value = true
@@ -781,8 +1073,8 @@ const loadAdmins = async () => {
 const refreshAll = async () => {
   await loadPermissions()
   const loaders: Array<Promise<void>> = []
-  if (canOps.value) loaders.push(loadStatus(), loadOutbox(), loadTasks())
-  if (canQuestion.value) loaders.push(loadAiTasks())
+  if (canOps.value) loaders.push(loadStatus(), loadOutbox(), loadTasks(), loadSearchAnalytics())
+  if (canQuestion.value) loaders.push(loadAiTasks(), loadQuestionIndexTasks())
   if (canAdmin.value) loaders.push(loadAdmins())
   if (canModerate.value) loaders.push(loadReports(), loadCommentReports())
   await Promise.all(loaders)
@@ -810,6 +1102,13 @@ const stopPolling = () => {
   }
 }
 
+const stopQuestionIndexPolling = () => {
+  if (questionIndexPollTimer) {
+    window.clearInterval(questionIndexPollTimer)
+    questionIndexPollTimer = undefined
+  }
+}
+
 const pollTask = (taskId: string) => {
   stopPolling()
   pollTimer = window.setInterval(async () => {
@@ -822,6 +1121,22 @@ const pollTask = (taskId: string) => {
       }
     } catch {
       stopPolling()
+    }
+  }, 1500)
+}
+
+const pollQuestionIndexTask = (taskId: string) => {
+  stopQuestionIndexPolling()
+  questionIndexPollTimer = window.setInterval(async () => {
+    try {
+      const res = await opsApi.getQuestionIndexTask(taskId)
+      questionIndexTask.value = res.data
+      if (!res.data || res.data.status === 'SUCCEEDED' || res.data.status === 'FAILED') {
+        stopQuestionIndexPolling()
+        await loadQuestionIndexTasks()
+      }
+    } catch {
+      stopQuestionIndexPolling()
     }
   }, 1500)
 }
@@ -851,6 +1166,10 @@ const openOutboxDetail = async (message: OutboxMessage) => {
   }
 }
 
+const closeOutboxDetail = () => {
+  selectedOutbox.value = null
+}
+
 const retryMessage = async (message: OutboxMessage) => {
   retryingId.value = message.id
   try {
@@ -867,14 +1186,37 @@ const retryMessage = async (message: OutboxMessage) => {
 const retryAiTask = async (task: AiExtractTask) => {
   retryingAiTaskId.value = task.id
   try {
-    await opsApi.retryAiTask(task.id)
+    const res = await opsApi.retryAiTask(task.id)
     toast.success('AI 提取任务已重试')
+    if (selectedAiTaskDetail.value && selectedAiTaskDetail.value.sourcePostId === task.postId) {
+      selectedAiTaskDetail.value = {
+        ...selectedAiTaskDetail.value,
+        task: selectedAiTaskDetail.value.task.id === task.id ? (res.data || selectedAiTaskDetail.value.task) : selectedAiTaskDetail.value.task,
+        retryRecords: selectedAiTaskDetail.value.retryRecords.map((record) => record.id === task.id ? (res.data || record) : record),
+      }
+    }
     await loadAiTasks()
   } catch (error: any) {
     toast.error(getErrorMessage(error, 'AI 任务重试失败'))
   } finally {
     retryingAiTaskId.value = null
   }
+}
+
+const openAiTaskDetail = async (task: AiExtractTask) => {
+  loadingAiTaskDetailId.value = task.id
+  try {
+    const res = await opsApi.getAiTaskDetail(task.id)
+    selectedAiTaskDetail.value = res.data || null
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, 'AI 任务详情加载失败'))
+  } finally {
+    loadingAiTaskDetailId.value = null
+  }
+}
+
+const closeAiTaskDetail = () => {
+  selectedAiTaskDetail.value = null
 }
 
 const rebuildQuestions = async () => {
@@ -894,6 +1236,11 @@ const rebuildQuestionIndex = async () => {
   isQuestionIndexRebuilding.value = true
   try {
     const res = await opsApi.rebuildQuestionIndexTask()
+    questionIndexTask.value = res.data
+    if (res.data?.taskId) {
+      pollQuestionIndexTask(res.data.taskId)
+    }
+    await loadQuestionIndexTasks()
     toast.success(res.data?.taskId ? '题库索引重建任务已提交' : '题库索引重建已提交')
   } catch (error: any) {
     toast.error(getErrorMessage(error, '题库索引重建失败'))
@@ -923,27 +1270,87 @@ const retrySelectedMessages = async () => {
   }
 }
 
-const reviewReport = async (report: PostReport, approved: boolean) => {
+const openReviewDialog = (type: 'post' | 'comment', report: PostReport | CommentReport, approved: boolean) => {
+  reviewDialog.open = true
+  reviewDialog.type = type
+  reviewDialog.report = report
+  reviewDialog.approved = approved
+  reviewDialog.note = ''
+  reviewDialog.error = ''
+}
+
+const closeReviewDialog = () => {
+  if (isReviewSubmitting.value) return
+  reviewDialog.open = false
+  reviewDialog.report = null
+  reviewDialog.note = ''
+  reviewDialog.error = ''
+}
+
+useAccessibleDialog(() => Boolean(selectedOutbox.value), {
+  close: closeOutboxDetail,
+  initialFocus: outboxCloseButton,
+})
+
+useAccessibleDialog(() => Boolean(selectedAiTaskDetail.value), {
+  close: closeAiTaskDetail,
+  initialFocus: aiTaskDetailCloseButton,
+})
+
+useAccessibleDialog(() => reviewDialog.open, {
+  close: closeReviewDialog,
+  closeOnEscape: () => !isReviewSubmitting.value,
+  initialFocus: reviewNoteInput,
+})
+
+const submitReviewDialog = async () => {
+  if (!reviewDialog.report) return
+  const note = reviewDialog.note.trim()
+  if (!note) {
+    reviewDialog.error = '请填写审核备注'
+    return
+  }
+  reviewDialog.error = ''
+  isReviewSubmitting.value = true
+  try {
+    if (reviewDialog.type === 'post') {
+      await reviewReport(reviewDialog.report as PostReport, reviewDialog.approved, note)
+    } else {
+      await reviewCommentReport(reviewDialog.report as CommentReport, reviewDialog.approved, note)
+    }
+    reviewDialog.open = false
+    reviewDialog.report = null
+    reviewDialog.note = ''
+  } catch {
+    // Keep the dialog open so the operator can adjust the note or retry.
+  } finally {
+    isReviewSubmitting.value = false
+  }
+}
+
+const reviewReport = async (report: PostReport, approved: boolean, note: string) => {
   reviewingReportId.value = report.reportId
   try {
-    await postApi.reviewAdminReport(report.reportId, { approved })
+    await postApi.reviewAdminReport(report.reportId, { approved, note })
     toast.success(approved ? '举报已通过，帖子已下架' : '举报已驳回')
     await loadReports()
   } catch (error: any) {
     toast.error(getErrorMessage(error, '举报审核失败'))
+    throw error
   } finally {
     reviewingReportId.value = null
   }
 }
 
-const reviewCommentReport = async (report: CommentReport, approved: boolean) => {
+const reviewCommentReport = async (report: CommentReport, approved: boolean, note: string) => {
   reviewingCommentReportId.value = report.reportId
   try {
-    await interactionApi.reviewAdminCommentReport(report.reportId, { approved })
+    await interactionApi.reviewAdminCommentReport(report.reportId, { approved, note })
     toast.success(approved ? '评论举报已通过，评论已隐藏' : '评论举报已驳回')
     await loadCommentReports()
   } catch (error: any) {
     toast.error(getErrorMessage(error, '评论举报审核失败'))
+    throw error
   } finally {
     reviewingCommentReportId.value = null
   }
@@ -1011,10 +1418,19 @@ const aiTaskStatusClass = (value: number) => {
   return 'status-warn'
 }
 
-const searchTaskStatusClass = (value: SearchIndexTask['status']) => {
+const searchTaskStatusClass = (value?: string) => {
   if (value === 'SUCCEEDED') return 'status-ok'
   if (value === 'FAILED') return 'status-danger'
   return 'status-warn'
+}
+
+const taskProgressValue = (value?: { status?: string; total?: number; indexed?: number; failed?: number } | null) => {
+  if (!value) return 0
+  if (value.status === 'SUCCEEDED') return 100
+  if ((value.total || 0) > 0) {
+    return Math.min(100, Math.round((((value.indexed || 0) + (value.failed || 0)) / (value.total || 1)) * 100))
+  }
+  return value.status === 'RUNNING' ? 35 : 8
 }
 
 const reportStatusText = (value?: number) => {
@@ -1040,7 +1456,10 @@ const formatPayload = (payload: string) => {
 }
 
 onMounted(refreshAll)
-onBeforeUnmount(stopPolling)
+onBeforeUnmount(() => {
+  stopPolling()
+  stopQuestionIndexPolling()
+})
 </script>
 
 <style scoped>
@@ -1106,6 +1525,101 @@ onBeforeUnmount(stopPolling)
 
 .danger-action {
   color: rgb(185 28 28);
+}
+
+.danger-primary {
+  background: rgb(220 38 38);
+}
+
+.danger-primary:hover:not(:disabled) {
+  background: rgb(185 28 28);
+}
+
+.field-textarea {
+  width: 100%;
+  resize: vertical;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  padding: 0.75rem;
+  color: rgb(15 23 42);
+  outline: none;
+}
+
+.analytics-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.analytics-column {
+  min-width: 0;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1rem;
+}
+
+.analytics-column-head,
+.analytics-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.analytics-column-head span {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: rgb(15 23 42);
+}
+
+.analytics-column-head strong {
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+}
+
+.analytics-list {
+  margin-top: 0.875rem;
+  display: grid;
+  gap: 0.625rem;
+}
+
+.analytics-row {
+  min-height: 34px;
+}
+
+.analytics-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgb(51 65 85);
+  font-size: 0.875rem;
+
+}
+
+.analytics-empty {
+  padding-top: 1rem;
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+}
+
+.detail-section {
+  border-radius: 0.625rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1rem;
+}
+
+.detail-section h4 {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.field-textarea:focus {
+  border-color: rgb(79 70 229);
+  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.8);
 }
 
 .primary-button:disabled,
@@ -1273,11 +1787,20 @@ onBeforeUnmount(stopPolling)
   }
 }
 
+@media (min-width: 768px) {
+  .analytics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 :global(.dark) .secondary-button,
 :global(.dark) .filter-button,
 :global(.dark) .icon-button,
+:global(.dark) .field-textarea,
 :global(.dark) .admin-input,
 :global(.dark) .metric-card,
+:global(.dark) .analytics-column,
+:global(.dark) .detail-section,
 :global(.dark) .panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
@@ -1286,6 +1809,7 @@ onBeforeUnmount(stopPolling)
 :global(.dark) .secondary-button,
 :global(.dark) .filter-button,
 :global(.dark) .icon-button,
+:global(.dark) .field-textarea,
 :global(.dark) .admin-input,
 :global(.dark) .ops-table td {
   color: rgb(203 213 225);
@@ -1305,16 +1829,23 @@ onBeforeUnmount(stopPolling)
 
 :global(.dark) .metric-label,
 :global(.dark) .task-stat span,
+:global(.dark) .analytics-empty,
+:global(.dark) .analytics-column-head strong,
 :global(.dark) .ops-table th {
   color: rgb(148 163 184);
 }
 
 :global(.dark) .metric-value,
+:global(.dark) .analytics-column-head span,
+:global(.dark) .analytics-title,
+:global(.dark) .detail-section h4,
 :global(.dark) .task-stat strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .task-stat {
+:global(.dark) .task-stat,
+:global(.dark) .analytics-column,
+:global(.dark) .detail-section {
   background: rgb(2 6 23);
 }
 

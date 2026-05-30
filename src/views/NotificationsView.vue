@@ -148,7 +148,7 @@ import { getErrorMessage } from '@/api/client'
 import { notificationApi } from '@/api/notification'
 import type { ApiId, Notification } from '@/api/types'
 import { formatTime } from '@/lib/format'
-import { useRealtimeStore } from '@/stores/realtime'
+import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 
 const router = useRouter()
 const realtimeStore = useRealtimeStore()
@@ -160,7 +160,7 @@ const isMutating = ref(false)
 const emptyText = ref('暂无通知')
 const nextCursor = ref<string | undefined>()
 const hasMore = ref(false)
-const unread = ref({ total: 0, like: 0, comment: 0, favorite: 0, follower: 0, mention: 0, system: 0 })
+const unread = ref(emptyUnreadCount())
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
 
