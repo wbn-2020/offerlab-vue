@@ -161,6 +161,8 @@
                 :key="post.postId"
                 :post="post"
                 :show-recommend-feedback="activeFeed === 'recommend'"
+                :like-pending="isActionPending('like', post.postId)"
+                :favorite-pending="isActionPending('favorite', post.postId)"
                 @like="handleLike"
                 @favorite="handleFavorite"
                 @not-interested="handleRecommendFeedback"
@@ -260,9 +262,10 @@ import { getErrorMessage } from '@/api/client'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
-import { interactionApi } from '@/api/interaction'
 import { userApi } from '@/api/user'
 import { feedApi } from '@/api/feed'
+import { usePostInteraction } from '@/composables/usePostInteraction'
+import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -271,6 +274,7 @@ import type { Post, Tag as PostTag, User } from '@/api/types'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const { requireLogin } = useLoginRedirect()
 
 const activeFeed = ref<FeedType>('latest')
 const heroKeyword = ref('')
@@ -309,6 +313,11 @@ const visiblePosts = computed(() => activeFeed.value === 'recommend'
 
 const findPost = (postId: Post['postId']) => posts.value.find((item) => String(item.postId) === String(postId))
 const isSelf = (user: User) => Boolean(authStore.user && String(authStore.user.uid) === String(user.uid))
+const updatePost = (postId: Post['postId'], updater: (post: Post) => void) => {
+  const post = findPost(postId)
+  if (post) updater(post)
+}
+const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePost)
 
 const submitHeroSearch = () => {
   const q = heroKeyword.value.trim()
@@ -318,42 +327,17 @@ const submitHeroSearch = () => {
 const handleLike = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
-  const liked = Boolean(post.myInteraction?.liked)
-  try {
-    if (liked) {
-      await interactionApi.unlike(postId)
-    } else {
-      await interactionApi.like(postId)
-    }
-    post.myInteraction = { ...(post.myInteraction ?? { favorited: false }), liked: !liked }
-    post.counter.like = Math.max(0, post.counter.like + (liked ? -1 : 1))
-  } catch (error: any) {
-    toast.error(getErrorMessage(error, '点赞操作失败'))
-  }
+  await toggleLike(post)
 }
 
 const handleFavorite = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
-  const favorited = Boolean(post.myInteraction?.favorited)
-  try {
-    if (favorited) {
-      await interactionApi.unfavorite(postId)
-    } else {
-      await interactionApi.favorite(postId)
-    }
-    post.myInteraction = { ...(post.myInteraction ?? { liked: false }), favorited: !favorited }
-    post.counter.favorite = Math.max(0, post.counter.favorite + (favorited ? -1 : 1))
-  } catch (error: any) {
-    toast.error(getErrorMessage(error, '收藏操作失败'))
-  }
+  await toggleFavorite(post)
 }
 
 const handleRecommendFeedback = async (postId: Post['postId'], reason: string) => {
-  if (!authStore.isLoggedIn) {
-    toast.error('登录后才能调整推荐')
-    return
-  }
+  if (!requireLogin()) return
   try {
     await feedApi.recordFeedback(postId, reason)
     locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(String(postId))
@@ -364,10 +348,7 @@ const handleRecommendFeedback = async (postId: Post['postId'], reason: string) =
 }
 
 const toggleFollowUser = async (user: User) => {
-  if (!authStore.isLoggedIn) {
-    toast.error('登录后才能关注用户')
-    return
-  }
+  if (!requireLogin()) return
   if (isSelf(user)) return
   const uid = String(user.uid)
   followingBusyIds.value = new Set(followingBusyIds.value).add(uid)

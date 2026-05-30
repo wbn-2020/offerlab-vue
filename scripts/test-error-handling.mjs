@@ -18,6 +18,7 @@ function collectSourceFiles(dir) {
 }
 
 const files = collectSourceFiles(sourceRoot)
+const clientSource = readFileSync(resolve(sourceRoot, 'api/client.ts'), 'utf8')
 
 const forbiddenPatterns = [
   {
@@ -59,6 +60,18 @@ if (violations.length > 0) {
   for (const violation of violations) {
     console.error(`- ${violation}`)
   }
+  process.exit(1)
+}
+
+if (/window\.location\.href\s*=/.test(clientSource)) {
+  console.error('error handling guard failed:')
+  console.error('- src/api/client.ts must use redirect helper instead of hard window.location.href assignment')
+  process.exit(1)
+}
+
+if (!/skipAuthRedirect/.test(clientSource)) {
+  console.error('error handling guard failed:')
+  console.error('- src/api/client.ts must support skipAuthRedirect for optional auth probes')
   process.exit(1)
 }
 

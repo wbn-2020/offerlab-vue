@@ -1,4 +1,4 @@
-import type { Comment, CommentReport, Notification, PaginatedResponse, Post, PostReport, Tag, User, UserIntent } from './types'
+import type { Comment, CommentReport, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
 
 export function adaptId(value: any): string {
   if (value === null || value === undefined || value === '') return ''
@@ -118,6 +118,8 @@ export function adaptPost(raw: any): Post {
     title: source?.title ?? '',
     content: source?.content ?? source?.summary ?? '',
     summary: source?.summary,
+    highlightTitle: source?.highlightTitle,
+    highlightSummary: source?.highlightSummary,
     coverUrl: source?.coverUrl,
     tags: Array.isArray(source?.tags) ? source.tags.map(adaptTag) : [],
     author: source?.author ? adaptUser(source.author) : emptyAuthor(authorId),
@@ -139,6 +141,26 @@ export function adaptPost(raw: any): Post {
     },
     createdAt: adaptTime(source?.createdAt ?? source?.createTime),
     updatedAt: adaptTime(source?.updatedAt ?? source?.updateTime ?? source?.createTime),
+  }
+}
+
+export function adaptPostVersionHistory(raw: any): PostVersionHistory {
+  return {
+    id: adaptId(raw?.id),
+    postId: adaptId(raw?.postId),
+    authorId: raw?.authorId ? adaptId(raw.authorId) : undefined,
+    editorUid: raw?.editorUid ? adaptId(raw.editorUid) : undefined,
+    baseVersion: Number(raw?.baseVersion ?? 0),
+    title: raw?.title ?? '',
+    content: raw?.content ?? '',
+    contentSummary: raw?.contentSummary ?? raw?.summary ?? '',
+    coverUrl: raw?.coverUrl || undefined,
+    visibility: raw?.visibility,
+    postStatus: raw?.postStatus,
+    extension: parseExtension(raw),
+    tags: Array.isArray(raw?.tags) ? raw.tags.map(adaptTag) : [],
+    changeSummary: raw?.changeSummary || undefined,
+    createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
   }
 }
 
@@ -164,6 +186,8 @@ export function adaptPostReport(raw: any): PostReport {
   return {
     reportId: adaptId(raw?.reportId ?? raw?.id),
     postId: adaptId(raw?.postId),
+    postTitle: raw?.postTitle || undefined,
+    postSummary: raw?.postSummary || undefined,
     reporterUid: raw?.reporterUid ? adaptId(raw.reporterUid) : undefined,
     reason: raw?.reason ?? raw?.reasonType ?? '',
     detail: raw?.detail ?? raw?.reasonText ?? '',
@@ -180,6 +204,8 @@ export function adaptCommentReport(raw: any): CommentReport {
     reportId: adaptId(raw?.reportId ?? raw?.id),
     commentId: adaptId(raw?.commentId),
     postId: adaptId(raw?.postId),
+    postTitle: raw?.postTitle || undefined,
+    commentSummary: raw?.commentSummary || undefined,
     reporterUid: raw?.reporterUid ? adaptId(raw.reporterUid) : undefined,
     reason: raw?.reason ?? raw?.reasonType ?? '',
     detail: raw?.detail ?? raw?.reasonText ?? '',
@@ -201,8 +227,8 @@ export function adaptNotification(raw: any): Notification {
   return {
     notificationId: adaptId(raw?.notificationId ?? raw?.id),
     type,
-    title: notificationTitle(type, sender?.nickname),
-    content: notificationText(type, content, sender?.nickname),
+    title: notificationHeading(type, content, sender?.nickname),
+    content: notificationContent(type, content, sender?.nickname),
     sender,
     senderUid: raw?.senderUid ? adaptId(raw.senderUid) : undefined,
     relatedId: targetId ? adaptId(targetId) : undefined,
@@ -214,6 +240,12 @@ export function adaptNotification(raw: any): Notification {
 
 function displayName(name?: string): string {
   return name?.trim() || '有人'
+}
+
+function notificationHeading(type: string, content: Record<string, any>, senderName?: string): string {
+  if (type === 'system' && content.action === 'question_extract_succeeded') return '题目已整理完成'
+  if (type === 'system' && content.action === 'question_extract_failed') return '题目整理失败'
+  return notificationTitle(type, senderName)
 }
 
 function notificationTitle(type: string, senderName?: string): string {
@@ -232,6 +264,19 @@ function notificationTitle(type: string, senderName?: string): string {
     default:
       return '系统通知'
   }
+}
+
+function notificationContent(type: string, content: Record<string, any>, senderName?: string): string {
+  if (type === 'system' && content.action === 'question_extract_succeeded') {
+    const count = Number(content.questionCount || 0)
+    const title = content.postTitle ? `《${content.postTitle}》` : '这篇面经'
+    return count > 0 ? `${title}已整理出 ${count} 道面试题，点击查看来源帖子。` : `${title}已完成整理，但暂未提取到可用题目。`
+  }
+  if (type === 'system' && content.action === 'question_extract_failed') {
+    const title = content.postTitle ? `《${content.postTitle}》` : '这篇面经'
+    return `${title}题目整理失败，请稍后重试或联系运营。`
+  }
+  return notificationText(type, content, senderName)
 }
 
 function notificationText(type: string, content: Record<string, any>, senderName?: string): string {

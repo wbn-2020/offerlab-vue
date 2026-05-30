@@ -9,6 +9,7 @@ const criticalRoutes = [
   { path: '/post/:id', view: 'PostDetailView.vue' },
   { path: '/editor', view: 'EditorView.vue' },
   { path: '/me/settings', view: 'SettingsView.vue' },
+  { path: '/mock-interview', view: 'MockInterviewView.vue' },
   { path: '/admin/ops', view: 'OpsView.vue' },
   { path: '/admin/questions', view: 'AdminQuestionsView.vue' },
   { path: '/403', view: 'ForbiddenView.vue' },

@@ -61,6 +61,7 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import type { User } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { userApi } from '@/api/user'
 
 interface Props {
@@ -70,6 +71,7 @@ interface Props {
 const props = defineProps<Props>()
 
 const authStore = useAuthStore()
+const { requireLogin } = useLoginRedirect()
 
 const isOwnUser = computed(() => authStore.user?.uid === props.user.uid)
 const isFollowing = ref(Boolean(props.user.isFollowing))
@@ -86,10 +88,7 @@ watch(
 )
 
 const toggleFollow = async () => {
-  if (!authStore.isLoggedIn) {
-    toast.error('登录后才能关注用户')
-    return
-  }
+  if (!requireLogin()) return
   if (isOwnUser.value || isFollowingBusy.value) return
 
   const wasFollowing = isFollowing.value

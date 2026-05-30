@@ -68,12 +68,28 @@ export interface AdminAuditLog {
   beforeJson?: string
   afterJson?: string
   remark?: string
+  createTime?: string
 }
 
 export interface MigrationStatus {
   ready: boolean
   tables: Record<string, boolean>
   indexes: Record<string, boolean>
+}
+
+export interface SearchAnalyticsItem {
+  keyword?: string
+  company?: string
+  count: number
+  noResultCount?: number
+  lastResultCount?: number
+  lastSearchedAt?: string
+}
+
+export interface SearchAnalytics {
+  hotKeywords: SearchAnalyticsItem[]
+  noResultKeywords: SearchAnalyticsItem[]
+  prepClicks: SearchAnalyticsItem[]
 }
 
 export interface ModerationKeyword {
@@ -87,12 +103,29 @@ export interface ModerationKeyword {
   operatorUid?: ApiId
 }
 
+export interface ModerationKeywordHit {
+  id: ApiId
+  scope: string
+  uid?: ApiId
+  keywordId?: ApiId
+  keyword: string
+  action: string
+  contentSummary: string
+  createTime?: string
+}
+
 export interface UserModerationState {
   uid: ApiId
+  nickname?: string
+  avatarUrl?: string
   mutedUntil?: string
   bannedUntil?: string
   reason?: string
   operatorUid?: ApiId
+  recentViolationKeyword?: string
+  recentViolationAction?: string
+  recentViolationSummary?: string
+  recentViolationTime?: string
 }
 
 export interface AiExtractTask {
@@ -105,6 +138,14 @@ export interface AiExtractTask {
   errorMessage?: string
   createTime?: string
   updateTime?: string
+}
+
+export interface AiExtractTaskDetail {
+  task: AiExtractTask
+  sourcePostId: ApiId
+  sourcePostTitle?: string
+  sourcePostSummary?: string
+  retryRecords: AiExtractTask[]
 }
 
 export interface QuestionIndexTask {
@@ -131,12 +172,38 @@ export interface CompanyAlias {
   updateTime?: string
 }
 
+export interface CompanyAliasCandidate {
+  canonicalCompany: string
+  alias: string
+  canonicalSampleCount?: number
+  aliasSampleCount?: number
+  questionSampleCount?: number
+  postSampleCount?: number
+  totalSampleCount?: number
+  reason?: string
+  sampleCompanies?: string[]
+}
+
+export interface QuestionDuplicateGroup {
+  questionId: ApiId
+  canonicalId?: ApiId
+  normalizedHash?: string
+  sourcePostCount: number
+  questionCount: number
+  questions: Question[]
+  semanticCandidates?: Array<{
+    question: Question
+    similarityScore: number
+    reason?: string
+  }>
+}
+
 export const opsApi = {
   status: (): Promise<Result<OpsStatus>> =>
     client.get('/api/v1/ops/status'),
 
-  myPermissions: (): Promise<Result<MyAdminPermissions>> =>
-    client.get('/api/v1/ops/me/permissions'),
+  myPermissions: (options?: { skipAuthRedirect?: boolean }): Promise<Result<MyAdminPermissions>> =>
+    client.get('/api/v1/ops/me/permissions', { skipAuthRedirect: options?.skipAuthRedirect }),
 
   listOutbox: (params?: { status?: number; limit?: number }): Promise<Result<OutboxMessage[]>> =>
     client.get('/api/v1/ops/outbox', { params }),
@@ -165,11 +232,28 @@ export const opsApi = {
   listAuditLogs: (params?: { action?: string; resourceType?: string; limit?: number }): Promise<Result<AdminAuditLog[]>> =>
     client.get('/api/v1/ops/audit-logs', { params }),
 
+  pageAuditLogs: (params?: {
+    action?: string
+    resourceType?: string
+    operatorUid?: ApiId
+    startDate?: string
+    endDate?: string
+    page?: number
+    pageSize?: number
+  }): Promise<Result<PaginatedResponse<AdminAuditLog>>> =>
+    client.get('/api/v1/ops/audit-logs/page', { params }),
+
   migrationStatus: (): Promise<Result<MigrationStatus>> =>
     client.get('/api/v1/ops/migration/status'),
 
+
+  searchAnalytics: (params?: { days?: number; limit?: number }): Promise<Result<SearchAnalytics>> =>
+    client.get('/api/v1/ops/search/analytics', { params }),
   listModerationKeywords: (params?: { keyword?: string; scope?: string; limit?: number }): Promise<Result<ModerationKeyword[]>> =>
     client.get('/api/v1/ops/moderation/keywords', { params }),
+
+  listModerationHits: (params?: { scope?: string; action?: string; uid?: ApiId; keyword?: string; limit?: number }): Promise<Result<ModerationKeywordHit[]>> =>
+    client.get('/api/v1/ops/moderation/hits', { params }),
 
   createModerationKeyword: (data: Partial<ModerationKeyword>): Promise<Result<ModerationKeyword>> =>
     client.post('/api/v1/ops/moderation/keywords', data),
@@ -186,8 +270,17 @@ export const opsApi = {
   saveModerationUser: (data: { uid: ApiId; muteHours?: number; banHours?: number; reason?: string }): Promise<Result<UserModerationState>> =>
     client.post('/api/v1/ops/moderation/users', data),
 
+  clearModerationMute: (uid: ApiId): Promise<Result<UserModerationState>> =>
+    client.post(`/api/v1/ops/moderation/users/${uid}/clear-mute`),
+
+  clearModerationBan: (uid: ApiId): Promise<Result<UserModerationState>> =>
+    client.post(`/api/v1/ops/moderation/users/${uid}/clear-ban`),
+
   listAiTasks: (params?: { status?: number; limit?: number }): Promise<Result<AiExtractTask[]>> =>
     client.get('/api/v1/admin/ai-tasks', { params }),
+
+  getAiTaskDetail: (id: ApiId): Promise<Result<AiExtractTaskDetail>> =>
+    client.get(`/api/v1/admin/ai-tasks/${id}`),
 
   retryAiTask: (id: ApiId): Promise<Result<AiExtractTask>> =>
     client.post(`/api/v1/admin/ai-tasks/${id}/retry`),
@@ -216,7 +309,18 @@ export const opsApi = {
   listQuestions: (params?: { status?: number; limit?: number }): Promise<Result<Question[]>> =>
     client.get('/api/v1/admin/questions', { params }),
 
-  pageQuestions: (params?: { status?: number; page?: number; pageSize?: number }): Promise<Result<PaginatedResponse<Question>>> =>
+  pageQuestions: (params?: {
+    status?: number
+    keyword?: string
+    company?: string
+    position?: string
+    minQualityScore?: number
+    maxQualityScore?: number
+    sourcePostId?: ApiId
+    taskStatus?: number
+    page?: number
+    pageSize?: number
+  }): Promise<Result<PaginatedResponse<Question>>> =>
     client.get('/api/v1/admin/questions/page', { params }),
 
   questionSummary: (): Promise<Result<{ pending: number; approved: number; hidden: number; total: number }>> =>
@@ -225,8 +329,23 @@ export const opsApi = {
   updateQuestion: (id: ApiId, data: Partial<Question> & { status?: number }): Promise<Result<Question>> =>
     client.post(`/api/v1/admin/questions/${id}`, data),
 
+  getQuestionDuplicateGroup: (id: ApiId): Promise<Result<QuestionDuplicateGroup>> =>
+    client.get(`/api/v1/admin/questions/${id}/duplicates`),
+
+  setQuestionDuplicateCanonical: (id: ApiId, canonicalQuestionId: ApiId): Promise<Result<QuestionDuplicateGroup>> =>
+    client.post(`/api/v1/admin/questions/${id}/duplicates/canonical`, { canonicalQuestionId }),
+
+  mergeQuestionDuplicateCandidate: (id: ApiId, candidateQuestionId: ApiId): Promise<Result<QuestionDuplicateGroup>> =>
+    client.post(`/api/v1/admin/questions/${id}/duplicates/merge-candidate`, { candidateQuestionId }),
+
+  hideQuestionDuplicates: (id: ApiId, ids: ApiId[]): Promise<Result<QuestionDuplicateGroup>> =>
+    client.post(`/api/v1/admin/questions/${id}/duplicates/hide`, { ids }),
+
   listCompanyAliases: (params?: { keyword?: string; limit?: number }): Promise<Result<CompanyAlias[]>> =>
     client.get('/api/v1/admin/company-aliases', { params }),
+
+  listCompanyAliasCandidates: (params?: { limit?: number }): Promise<Result<CompanyAliasCandidate[]>> =>
+    client.get('/api/v1/admin/company-aliases/candidates', { params }),
 
   createCompanyAlias: (data: { canonicalCompany: string; alias: string; status?: number }): Promise<Result<CompanyAlias>> =>
     client.post('/api/v1/admin/company-aliases', data),

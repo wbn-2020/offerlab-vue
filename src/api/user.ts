@@ -25,6 +25,11 @@ export interface IntentReq {
 
 export interface PrivacySetting {
   profileVisibility: 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE'
+  likeNotification: boolean
+  commentNotification: boolean
+  followNotification: boolean
+  favoriteNotification: boolean
+  mentionNotification: boolean
   intentVisibility: 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE'
   searchable: boolean
   interactionNotification: boolean

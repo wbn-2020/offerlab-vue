@@ -124,6 +124,12 @@ const validateForm = () => {
   }
 }
 
+const safeRedirect = (value: unknown) => {
+  if (typeof value !== 'string') return '/'
+  if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/'
+  return value
+}
+
 const handleSubmit = async () => {
   if (!validateForm()) return
 
@@ -131,8 +137,7 @@ const handleSubmit = async () => {
   try {
     await login(form.email, form.password)
     toast.success('登录成功')
-    const redirect = route.query.redirect as string
-    router.push(redirect || '/')
+    router.push(safeRedirect(route.query.redirect))
   } catch (error: any) {
     const message = getErrorMessage(error, '登录失败，请检查账号和密码')
     toast.error(message)

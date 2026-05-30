@@ -1,6 +1,6 @@
 import client, { Result } from './client'
-import type { ApiId, PaginatedResponse, Post, PostReport, PostReportReq, PostReportReviewReq, Tag } from './types'
-import { adaptPage, adaptPost, adaptPostReport, adaptTag } from './adapters'
+import type { ApiId, PaginatedResponse, Post, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, Tag } from './types'
+import { adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptTag } from './adapters'
 
 export interface PostCreateReq {
   postType: number
@@ -11,6 +11,7 @@ export interface PostCreateReq {
   extJson?: string
   tagIds?: ApiId[]
   tagNames?: string[]
+  draftId?: ApiId
 }
 
 export interface PostUpdateReq {
@@ -21,10 +22,63 @@ export interface PostUpdateReq {
   extJson?: string
   tagIds?: ApiId[]
   tagNames?: string[]
+  draftId?: ApiId
+}
+
+export interface PostCreateResult {
+  postId: ApiId
+  reviewRequired?: boolean
+}
+
+export interface PostDraft {
+  id: ApiId
+  uid: ApiId
+  sourcePostId?: ApiId
+  postType: number
+  title?: string
+  content?: string
+  coverUrl?: string
+  visibility?: number
+  extJson?: string
+  tagIds: ApiId[]
+  tagNames: string[]
+  createTime?: string
+  updateTime?: string
+}
+
+export interface PostDraftReq {
+  id?: ApiId
+  sourcePostId?: ApiId
+  postType?: number
+  title?: string
+  content?: string
+  coverUrl?: string
+  visibility?: number
+  extJson?: string
+  tagIds?: ApiId[]
+  tagNames?: string[]
+}
+
+function adaptPostDraft(raw: any): PostDraft {
+  return {
+    id: String(raw?.id ?? ''),
+    uid: String(raw?.uid ?? ''),
+    sourcePostId: raw?.sourcePostId ? String(raw.sourcePostId) : undefined,
+    postType: Number(raw?.postType ?? 1),
+    title: raw?.title || undefined,
+    content: raw?.content || undefined,
+    coverUrl: raw?.coverUrl || undefined,
+    visibility: raw?.visibility,
+    extJson: raw?.extJson || undefined,
+    tagIds: Array.isArray(raw?.tagIds) ? raw.tagIds.map(String) : [],
+    tagNames: Array.isArray(raw?.tagNames) ? raw.tagNames.map(String) : [],
+    createTime: raw?.createTime,
+    updateTime: raw?.updateTime,
+  }
 }
 
 export const postApi = {
-  create: (req: PostCreateReq): Promise<Result<{ postId: ApiId }>> =>
+  create: (req: PostCreateReq): Promise<Result<PostCreateResult>> =>
     client.post('/api/v1/posts', req),
 
   getDetail: async (postId: ApiId): Promise<Result<Post>> => {
@@ -32,8 +86,38 @@ export const postApi = {
     return { ...res, data: res.data ? adaptPost(res.data) : null }
   },
 
-  update: (postId: ApiId, req: PostUpdateReq): Promise<Result<void>> =>
+
+  listVersions: async (postId: ApiId, limit = 10): Promise<Result<PostVersionHistory[]>> => {
+    const res = await client.get(`/api/v1/posts/${postId}/versions`, { params: { limit } }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostVersionHistory) : [] }
+  },
+  update: (postId: ApiId, req: PostUpdateReq): Promise<Result<PostCreateResult>> =>
     client.put(`/api/v1/posts/${postId}`, req),
+
+  listDrafts: async (limit = 10): Promise<Result<PostDraft[]>> => {
+    const res = await client.get('/api/v1/post-drafts', { params: { limit } }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostDraft) : [] }
+  },
+
+  getDraft: async (id: ApiId): Promise<Result<PostDraft>> => {
+    const res = await client.get(`/api/v1/post-drafts/${id}`) as Result<any>
+    return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+  },
+
+  getLatestDraftBySourcePost: async (sourcePostId: ApiId): Promise<Result<PostDraft>> => {
+    const res = await client.get('/api/v1/post-drafts/latest', { params: { sourcePostId } }) as Result<any>
+    return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+  },
+
+  saveDraft: async (req: PostDraftReq): Promise<Result<PostDraft>> => {
+    const res = req.id
+      ? await client.put(`/api/v1/post-drafts/${req.id}`, req) as Result<any>
+      : await client.post('/api/v1/post-drafts', req) as Result<any>
+    return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+  },
+
+  deleteDraft: (id: ApiId): Promise<Result<{ id: ApiId; deleted: boolean }>> =>
+    client.delete(`/api/v1/post-drafts/${id}`),
 
   delete: (postId: ApiId): Promise<Result<void>> =>
     client.delete(`/api/v1/posts/${postId}`),

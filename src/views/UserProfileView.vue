@@ -105,10 +105,12 @@ import { getErrorMessage } from '@/api/client'
 import { userApi } from '@/api/user'
 import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import type { Post, User, UserIntent } from '@/api/types'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const { requireLogin } = useLoginRedirect()
 const user = ref<User | null>(null)
 const userIntent = ref<UserIntent | null>(null)
 const posts = ref<Post[]>([])
@@ -149,10 +151,7 @@ const loadProfile = async () => {
 
 const toggleFollow = async () => {
   if (!user.value) return
-  if (!authStore.isLoggedIn) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   try {
     if (user.value.isFollowing) {
       await userApi.unfollow(user.value.uid)

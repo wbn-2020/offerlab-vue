@@ -2,6 +2,11 @@ import client, { Result } from './client'
 import type { ApiId, Comment, CommentReport, PaginatedResponse, PostReportReq, PostReportReviewReq } from './types'
 import { adaptComment, adaptCommentReport, adaptPage } from './adapters'
 
+export interface CommentCreateResult {
+  commentId: ApiId
+  reviewRequired?: boolean
+}
+
 export const interactionApi = {
   like: (postId: ApiId): Promise<Result<{ liked: boolean; likeCount?: number }>> =>
     client.post(`/api/v1/posts/${postId}/like`),
@@ -18,7 +23,7 @@ export const interactionApi = {
   getPostInteraction: (postId: ApiId): Promise<Result<{ liked: boolean; favorited: boolean }>> =>
     client.get(`/api/v1/posts/${postId}/interaction`),
 
-  comment: (postId: ApiId, content: string, parentId?: ApiId, replyToUid?: ApiId): Promise<Result<any>> =>
+  comment: (postId: ApiId, content: string, parentId?: ApiId, replyToUid?: ApiId): Promise<Result<CommentCreateResult>> =>
     client.post(`/api/v1/posts/${postId}/comments`, { content, parentId, replyToUid }),
 
   getComments: async (postId: ApiId, cursor?: string, size = 20): Promise<Result<PaginatedResponse<Comment>>> => {

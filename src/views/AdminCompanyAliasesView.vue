@@ -106,6 +106,46 @@
             </div>
           </form>
         </aside>
+
+        <article class="panel lg:col-span-2">
+          <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">候选推荐</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">从面经和题库公司字段聚合相似名称，确认后写入别名表。</p>
+            </div>
+            <button type="button" class="secondary-button" :disabled="isCandidateLoading" @click="loadCandidates">
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isCandidateLoading }" />
+              刷新候选
+            </button>
+          </div>
+          <div v-if="isCandidateLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">正在分析候选...</div>
+          <EmptyState v-else-if="candidates.length === 0" title="暂无候选" description="当面经或题库中出现疑似同义公司名时，这里会推荐给运营确认。" />
+          <div v-else class="candidate-grid">
+            <article v-for="item in candidates" :key="`${item.canonicalCompany}-${item.alias}`" class="candidate-card">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="status-pill status-ok">{{ item.canonicalCompany }}</span>
+                <ArrowRight class="h-4 w-4 text-slate-400" />
+                <strong>{{ item.alias }}</strong>
+              </div>
+              <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ item.reason || '疑似同一家公司名称' }}</p>
+              <div class="mt-3 grid gap-2 sm:grid-cols-4">
+                <div class="candidate-stat"><span>题库</span><strong>{{ item.questionSampleCount || 0 }}</strong></div>
+                <div class="candidate-stat"><span>面经</span><strong>{{ item.postSampleCount || 0 }}</strong></div>
+                <div class="candidate-stat"><span>标准名样本</span><strong>{{ item.canonicalSampleCount || 0 }}</strong></div>
+                <div class="candidate-stat"><span>别名样本</span><strong>{{ item.aliasSampleCount || 0 }}</strong></div>
+              </div>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button type="button" class="primary-button" :disabled="isSaving" @click="acceptCandidate(item)">
+                  <Save class="h-4 w-4" />
+                  一键加入
+                </button>
+                <button type="button" class="secondary-button" :disabled="isSaving" @click="fillCandidate(item)">
+                  填入表单
+                </button>
+              </div>
+            </article>
+          </div>
+        </article>
       </section>
     </main>
   </div>
@@ -114,17 +154,19 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ListChecks, Power, RefreshCw, Save, Search } from 'lucide-vue-next'
+import { ArrowRight, ListChecks, Power, RefreshCw, Save, Search } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { getErrorMessage } from '@/api/client'
-import { opsApi, type CompanyAlias } from '@/api/ops'
+import { opsApi, type CompanyAlias, type CompanyAliasCandidate } from '@/api/ops'
 
 const aliases = ref<CompanyAlias[]>([])
+const candidates = ref<CompanyAliasCandidate[]>([])
 const selectedAlias = ref<CompanyAlias | null>(null)
 const keyword = ref('')
 const isLoading = ref(false)
+const isCandidateLoading = ref(false)
 const isSaving = ref(false)
 const form = reactive({
   canonicalCompany: '',
@@ -149,6 +191,19 @@ const loadAliases = async () => {
   }
 }
 
+const loadCandidates = async () => {
+  isCandidateLoading.value = true
+  try {
+    const res = await opsApi.listCompanyAliasCandidates({ limit: 20 })
+    candidates.value = res.data || []
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '公司别名候选加载失败'))
+    candidates.value = []
+  } finally {
+    isCandidateLoading.value = false
+  }
+}
+
 const selectAlias = (item: CompanyAlias) => {
   selectedAlias.value = item
   form.canonicalCompany = item.canonicalCompany
@@ -160,6 +215,13 @@ const resetForm = () => {
   selectedAlias.value = null
   form.canonicalCompany = ''
   form.alias = ''
+  form.status = 1
+}
+
+const fillCandidate = (item: CompanyAliasCandidate) => {
+  selectedAlias.value = null
+  form.canonicalCompany = item.canonicalCompany
+  form.alias = item.alias
   form.status = 1
 }
 
@@ -195,12 +257,33 @@ const toggleStatus = async () => {
   }
 }
 
+const acceptCandidate = async (item: CompanyAliasCandidate) => {
+  isSaving.value = true
+  try {
+    const res = await opsApi.createCompanyAlias({
+      canonicalCompany: item.canonicalCompany,
+      alias: item.alias,
+      status: 1,
+    })
+    toast.success('候选别名已加入')
+    if (res.data) selectAlias(res.data)
+    await Promise.all([loadAliases(), loadCandidates()])
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '候选别名保存失败，可能已存在相同别名'))
+  } finally {
+    isSaving.value = false
+  }
+}
+
 const formatTime = (value?: string) => {
   if (!value) return '--'
   return new Date(value).toLocaleString()
 }
 
-onMounted(loadAliases)
+onMounted(() => {
+  loadAliases()
+  loadCandidates()
+})
 </script>
 
 <style scoped>
@@ -244,6 +327,49 @@ onMounted(loadAliases)
 .alias-list {
   display: grid;
   gap: 0.75rem;
+}
+
+.candidate-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.candidate-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1rem;
+}
+
+.candidate-card strong {
+  color: rgb(15 23 42);
+}
+
+.candidate-stat {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.65rem 0.75rem;
+}
+
+.candidate-stat span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(100 116 139);
+}
+
+.candidate-stat strong {
+  margin-top: 0.2rem;
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+@media (min-width: 1024px) {
+  .candidate-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .alias-row {
@@ -332,6 +458,20 @@ onMounted(loadAliases)
 :global(.dark) .alias-row-active {
   border-color: rgb(99 102 241);
   background: rgb(30 27 75);
+}
+
+:global(.dark) .candidate-card {
+  border-color: rgb(30 41 59);
+  background: rgb(2 6 23);
+}
+
+:global(.dark) .candidate-card strong {
+  color: rgb(248 250 252);
+}
+
+:global(.dark) .candidate-stat {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
 }
 
 :global(.dark) .canonical {

@@ -165,6 +165,28 @@
             </div>
             <input v-model="privacyForm.interactionNotification" type="checkbox" class="switch-input" />
           </label>
+          <div
+            class="notification-grid"
+            :class="{ 'notification-grid-disabled': !privacyForm.interactionNotification }"
+          >
+            <label
+              v-for="option in notificationPreferenceOptions"
+              :key="option.key"
+              class="notification-toggle"
+              :class="{ 'notification-toggle-disabled': !privacyForm.interactionNotification }"
+            >
+              <span>
+                <span class="notification-title">{{ option.label }}</span>
+                <span class="notification-desc">{{ option.description }}</span>
+              </span>
+              <input
+                v-model="privacyForm[option.key]"
+                type="checkbox"
+                class="switch-input"
+                :disabled="!privacyForm.interactionNotification"
+              />
+            </label>
+          </div>
 
           <label class="switch-row">
             <div>
@@ -218,13 +240,30 @@ const passwordForm = ref({
   confirmPassword: '',
 })
 
-const privacyForm = ref<PrivacySetting>({
+type InteractionNotificationKey = 'likeNotification' | 'commentNotification' | 'followNotification' | 'favoriteNotification' | 'mentionNotification'
+
+const defaultPrivacySetting = (): PrivacySetting => ({
   profileVisibility: 'PUBLIC',
   intentVisibility: 'PUBLIC',
   searchable: true,
   interactionNotification: true,
   systemNotification: true,
+  likeNotification: true,
+  commentNotification: true,
+  followNotification: true,
+  favoriteNotification: true,
+  mentionNotification: true,
 })
+
+const notificationPreferenceOptions: Array<{ key: InteractionNotificationKey, label: string, description: string }> = [
+  { key: 'likeNotification', label: '点赞', description: '收到帖子或评论点赞时提醒' },
+  { key: 'commentNotification', label: '评论', description: '收到评论、回复和讨论更新时提醒' },
+  { key: 'followNotification', label: '关注', description: '有用户关注你时提醒' },
+  { key: 'favoriteNotification', label: '收藏', description: '内容被收藏时提醒' },
+  { key: 'mentionNotification', label: '提及', description: '被 @ 或内容提及时提醒' },
+]
+
+const privacyForm = ref<PrivacySetting>(defaultPrivacySetting())
 
 const isUpdatingProfile = ref(false)
 const isChangingPassword = ref(false)
@@ -243,7 +282,7 @@ const loadPrivacy = async () => {
   try {
     const res = await userApi.getPrivacySettings()
     if (res.data) {
-      privacyForm.value = res.data
+      privacyForm.value = { ...defaultPrivacySetting(), ...res.data }
     }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '隐私设置加载失败'))
@@ -354,7 +393,7 @@ const updatePrivacy = async () => {
   try {
     const res = await userApi.updatePrivacySettings(privacyForm.value)
     if (res.data) {
-      privacyForm.value = res.data
+      privacyForm.value = { ...defaultPrivacySetting(), ...res.data }
     }
     toast.success('隐私设置已保存')
   } catch (error: any) {
@@ -499,6 +538,58 @@ const updatePrivacy = async () => {
   font-size: 0.875rem;
 }
 
+.notification-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  border-bottom: 1px solid rgb(241 245 249);
+  padding: 0 0 1.25rem 0;
+}
+
+.notification-grid-disabled {
+  opacity: 0.72;
+}
+
+.notification-toggle {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.875rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.notification-toggle:not(.notification-toggle-disabled):hover {
+  border-color: rgb(165 180 252);
+  background: white;
+}
+
+.notification-toggle-disabled {
+  cursor: not-allowed;
+}
+
+.notification-title,
+.notification-desc {
+  display: block;
+}
+
+.notification-title {
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.notification-desc {
+  margin-top: 0.2rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .switch-input {
   height: 1.25rem;
   width: 1.25rem;
@@ -541,6 +632,28 @@ const updatePrivacy = async () => {
   color: rgb(148 163 184);
 }
 
+:global(.dark) .notification-grid {
+  border-bottom-color: rgb(30 41 59);
+}
+
+:global(.dark) .notification-toggle {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+:global(.dark) .notification-toggle:not(.notification-toggle-disabled):hover {
+  border-color: rgb(99 102 241);
+  background: rgb(30 41 59);
+}
+
+:global(.dark) .notification-title {
+  color: rgb(226 232 240);
+}
+
+:global(.dark) .notification-desc {
+  color: rgb(148 163 184);
+}
+
 :global(.dark) .secondary-button:hover:not(:disabled) {
   background: rgb(30 41 59);
 }
@@ -568,6 +681,9 @@ const updatePrivacy = async () => {
 
   .form-select {
     max-width: none;
+  }
+  .notification-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

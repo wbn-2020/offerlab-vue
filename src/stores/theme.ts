@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { usePreferredDark } from '@vueuse/core'
+import { safeStorage } from '@/utils/safeStorage'
 
 export type ThemeMode = 'light' | 'dark' | 'auto'
 
 export const useThemeStore = defineStore('theme', () => {
   const prefersDark = usePreferredDark()
-  const mode = ref<ThemeMode>((localStorage.getItem('theme') as ThemeMode) || 'auto')
+  const storedMode = safeStorage.get('theme') as ThemeMode | null
+  const mode = ref<ThemeMode>(storedMode === 'light' || storedMode === 'dark' || storedMode === 'auto' ? storedMode : 'auto')
 
   const isDark = () => {
     if (mode.value === 'auto') {
@@ -17,7 +19,7 @@ export const useThemeStore = defineStore('theme', () => {
 
   const setMode = (newMode: ThemeMode) => {
     mode.value = newMode
-    localStorage.setItem('theme', newMode)
+    safeStorage.set('theme', newMode)
     updateDOM()
   }
 

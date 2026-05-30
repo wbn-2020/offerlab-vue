@@ -8,9 +8,10 @@
 
       <button
         type="button"
-        aria-label="点赞帖子"
+        :aria-label="likePending ? '点赞处理中' : '点赞帖子'"
+        :aria-busy="likePending"
+        :disabled="likePending"
         class="inline-flex items-center gap-2 transition-colors hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="!isLoggedIn"
         @click="handleLike"
       >
         <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-rose-600' : ''" />
@@ -24,9 +25,10 @@
 
       <button
         type="button"
-        aria-label="收藏帖子"
+        :aria-label="favoritePending ? '收藏处理中' : '收藏帖子'"
+        :aria-busy="favoritePending"
+        :disabled="favoritePending"
         class="inline-flex items-center gap-2 transition-colors hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="!isLoggedIn"
         @click="handleFavorite"
       >
         <Star class="h-4 w-4" :class="post.myInteraction?.favorited ? 'fill-current text-amber-500' : ''" />
@@ -42,15 +44,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Eye, Heart, MessageCircle, Share2, Star } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatNumber } from '@/lib/format'
-import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
+import { useLoginRedirect } from '@/composables/useLoginRedirect'
 
 const props = defineProps<{
   post: Post
+  likePending?: boolean
+  favoritePending?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -58,22 +61,15 @@ const emit = defineEmits<{
   favorite: [postId: Post['postId']]
 }>()
 
-const authStore = useAuthStore()
-const isLoggedIn = computed(() => authStore.isLoggedIn)
+const { requireLogin } = useLoginRedirect()
 
 const handleLike = () => {
-  if (!isLoggedIn.value) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   emit('like', props.post.postId)
 }
 
 const handleFavorite = () => {
-  if (!isLoggedIn.value) {
-    toast.error('请先登录')
-    return
-  }
+  if (!requireLogin()) return
   emit('favorite', props.post.postId)
 }
 

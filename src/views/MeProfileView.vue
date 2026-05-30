@@ -133,8 +133,8 @@ import PostCard from '@/components/post/PostCard.vue'
 import UserCard from '@/components/user/UserCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
-import { interactionApi } from '@/api/interaction'
 import { userApi } from '@/api/user'
+import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, PaginatedResponse, Post, User } from '@/api/types'
 
 type TabValue = 'posts' | 'favorites' | 'liked' | 'following' | 'followers'
@@ -259,6 +259,8 @@ const updatePostEverywhere = (postId: ApiId, updater: (post: Post) => void) => {
   })
 }
 
+const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePostEverywhere)
+
 const removeFromState = (state: ListState<Post>, postId: ApiId) => {
   state.items = state.items.filter((post) => String(post.postId) !== String(postId))
 }
@@ -267,17 +269,9 @@ const handleLike = async (postId: ApiId) => {
   const post = allPostStates.flatMap((state) => state.items).find((item) => String(item.postId) === String(postId))
   if (!post) return
   const liked = Boolean(post.myInteraction?.liked)
-  try {
-    liked ? await interactionApi.unlike(postId) : await interactionApi.like(postId)
-    updatePostEverywhere(postId, (item) => {
-      item.myInteraction = { ...(item.myInteraction ?? { favorited: false }), liked: !liked }
-      item.counter.like = Math.max(0, item.counter.like + (liked ? -1 : 1))
-    })
-    if (liked && activeTab.value === 'liked') {
-      removeFromState(likedPosts, postId)
-    }
-  } catch (error: any) {
-    toast.error(getErrorMessage(error, '点赞操作失败'))
+  const succeeded = await toggleLike(post)
+  if (succeeded && liked && activeTab.value === 'liked') {
+    removeFromState(likedPosts, postId)
   }
 }
 
@@ -285,17 +279,9 @@ const handleFavorite = async (postId: ApiId) => {
   const post = allPostStates.flatMap((state) => state.items).find((item) => String(item.postId) === String(postId))
   if (!post) return
   const favorited = Boolean(post.myInteraction?.favorited)
-  try {
-    favorited ? await interactionApi.unfavorite(postId) : await interactionApi.favorite(postId)
-    updatePostEverywhere(postId, (item) => {
-      item.myInteraction = { ...(item.myInteraction ?? { liked: false }), favorited: !favorited }
-      item.counter.favorite = Math.max(0, item.counter.favorite + (favorited ? -1 : 1))
-    })
-    if (favorited && activeTab.value === 'favorites') {
-      removeFromState(favorites, postId)
-    }
-  } catch (error: any) {
-    toast.error(getErrorMessage(error, '收藏操作失败'))
+  const succeeded = await toggleFavorite(post)
+  if (succeeded && favorited && activeTab.value === 'favorites') {
+    removeFromState(favorites, postId)
   }
 }
 
@@ -335,6 +321,8 @@ const PostList = defineComponent({
           ? props.state.items.map((post) => h(PostCard, {
               key: post.postId,
               post,
+              likePending: isActionPending('like', post.postId),
+              favoritePending: isActionPending('favorite', post.postId),
               onLike: (id: ApiId) => emit('like', id),
               onFavorite: (id: ApiId) => emit('favorite', id),
             }))
