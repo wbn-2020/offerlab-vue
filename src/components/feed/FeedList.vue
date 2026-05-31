@@ -4,7 +4,14 @@
       <LoadingSkeleton />
     </template>
     <template v-else-if="posts.length > 0">
-      <PostCard v-for="post in posts" :key="post.postId" :post="post" @like="$emit('like', post.postId)" @favorite="$emit('favorite', post.postId)" />
+      <PostCard
+        v-for="post in posts"
+        :key="post.postId"
+        :post="post"
+        @like="$emit('like', post.postId)"
+        @favorite="$emit('favorite', post.postId)"
+        @follow-change="(authorUid, following) => $emit('follow-change', authorUid, following)"
+      />
     </template>
     <template v-else>
       <EmptyState
@@ -56,5 +63,6 @@ defineEmits<{
   'load-more': []
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
+  'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
 </script>

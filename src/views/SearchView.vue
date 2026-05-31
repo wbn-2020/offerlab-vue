@@ -219,6 +219,7 @@
               :favorite-pending="isActionPending('favorite', post.postId)"
               @like="handleLike"
               @favorite="handleFavorite"
+              @follow-change="handlePostAuthorFollowChange"
             />
           </template>
 
@@ -796,6 +797,19 @@ const handleFavorite = async (postId: ApiId) => {
   const post = findPost(postId)
   if (!post) return
   await toggleFavorite(post)
+}
+
+const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
+  searchResults.value.forEach((post) => {
+    if (String(post.author.uid) === String(authorUid)) {
+      post.author.isFollowing = following
+    }
+  })
+  userResults.value.forEach((user) => {
+    if (String(user.uid) === String(authorUid)) {
+      user.isFollowing = following
+    }
+  })
 }
 
 onMounted(async () => {

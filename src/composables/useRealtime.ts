@@ -56,8 +56,23 @@ export function useRealtime() {
     }
   }
 
+  const resolveWebSocketUrl = (rawUrl: string | undefined) => {
+    const raw = rawUrl?.trim()
+    if (!raw) return ''
+    try {
+      const baseProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const base = `${baseProtocol}//${window.location.host}`
+      const url = new URL(raw, base)
+      if (window.location.protocol === 'https:' && url.protocol !== 'wss:') return ''
+      if (url.protocol !== 'ws:' && url.protocol !== 'wss:') return ''
+      return url.toString()
+    } catch {
+      return ''
+    }
+  }
+
   const connectWebSocket = () => {
-    const wsUrl = import.meta.env.VITE_WS_URL
+    const wsUrl = resolveWebSocketUrl(import.meta.env.VITE_WS_URL)
     if (!hasToken.value || !wsUrl || ws.value) return
 
     ws.value = new WebSocket(wsUrl)

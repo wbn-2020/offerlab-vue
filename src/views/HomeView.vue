@@ -166,6 +166,7 @@
                 @like="handleLike"
                 @favorite="handleFavorite"
                 @not-interested="handleRecommendFeedback"
+                @follow-change="handlePostAuthorFollowChange"
               />
             </template>
             <EmptyState
@@ -334,6 +335,19 @@ const handleFavorite = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
   await toggleFavorite(post)
+}
+
+const handlePostAuthorFollowChange = (authorUid: User['uid'], following: boolean) => {
+  posts.value.forEach((post) => {
+    if (String(post.author.uid) === String(authorUid)) {
+      post.author.isFollowing = following
+    }
+  })
+  recommendedUsers.value.forEach((user) => {
+    if (String(user.uid) === String(authorUid)) {
+      user.isFollowing = following
+    }
+  })
 }
 
 const handleRecommendFeedback = async (postId: Post['postId'], reason: string) => {
