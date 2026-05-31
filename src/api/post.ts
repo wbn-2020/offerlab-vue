@@ -1,4 +1,4 @@
-import client, { Result } from './client'
+import client, { BizException, Result } from './client'
 import type { ApiId, PaginatedResponse, Post, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, Tag } from './types'
 import { adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptTag } from './adapters'
 
@@ -77,6 +77,28 @@ function adaptPostDraft(raw: any): PostDraft {
   }
 }
 
+let serverDraftsAvailable = true
+
+const emptyResult = <T>(data: T | null): Result<T> => ({
+  code: 0,
+  message: serverDraftsAvailable ? 'ok' : 'server drafts unavailable',
+  data,
+})
+
+const shouldDisableServerDrafts = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10404 || error.code >= 20000
+  }
+  const status = (error as any)?.response?.status
+  return status === 404 || status === 405 || status >= 500
+}
+
+const rememberDraftFailure = (error: unknown) => {
+  if (shouldDisableServerDrafts(error)) {
+    serverDraftsAvailable = false
+  }
+}
+
 export const postApi = {
   create: (req: PostCreateReq): Promise<Result<PostCreateResult>> =>
     client.post('/api/v1/posts', req),
@@ -95,29 +117,68 @@ export const postApi = {
     client.put(`/api/v1/posts/${postId}`, req),
 
   listDrafts: async (limit = 10): Promise<Result<PostDraft[]>> => {
-    const res = await client.get('/api/v1/post-drafts', { params: { limit } }) as Result<any>
-    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostDraft) : [] }
+    if (!serverDraftsAvailable) return emptyResult([])
+    try {
+      const res = await client.get('/api/v1/post-drafts', { params: { limit } }) as Result<any>
+      return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostDraft) : [] }
+    } catch (error) {
+      rememberDraftFailure(error)
+      if (!serverDraftsAvailable) return emptyResult([])
+      throw error
+    }
   },
 
   getDraft: async (id: ApiId): Promise<Result<PostDraft>> => {
-    const res = await client.get(`/api/v1/post-drafts/${id}`) as Result<any>
-    return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+    if (!serverDraftsAvailable) return emptyResult<PostDraft>(null)
+    try {
+      const res = await client.get(`/api/v1/post-drafts/${id}`) as Result<any>
+      return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+    } catch (error) {
+      rememberDraftFailure(error)
+      if (!serverDraftsAvailable) return emptyResult<PostDraft>(null)
+      throw error
+    }
   },
 
   getLatestDraftBySourcePost: async (sourcePostId: ApiId): Promise<Result<PostDraft>> => {
-    const res = await client.get('/api/v1/post-drafts/latest', { params: { sourcePostId } }) as Result<any>
-    return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+    if (!serverDraftsAvailable) return emptyResult<PostDraft>(null)
+    try {
+      const res = await client.get('/api/v1/post-drafts/latest', { params: { sourcePostId } }) as Result<any>
+      return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+    } catch (error) {
+      rememberDraftFailure(error)
+      if (!serverDraftsAvailable) return emptyResult<PostDraft>(null)
+      throw error
+    }
   },
 
   saveDraft: async (req: PostDraftReq): Promise<Result<PostDraft>> => {
-    const res = req.id
-      ? await client.put(`/api/v1/post-drafts/${req.id}`, req) as Result<any>
-      : await client.post('/api/v1/post-drafts', req) as Result<any>
-    return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+    if (!serverDraftsAvailable) {
+      throw new BizException(20500, '服务端草稿暂不可用，已保留本地草稿')
+    }
+    try {
+      const res = req.id
+        ? await client.put(`/api/v1/post-drafts/${req.id}`, req) as Result<any>
+        : await client.post('/api/v1/post-drafts', req) as Result<any>
+      return { ...res, data: res.data ? adaptPostDraft(res.data) : null }
+    } catch (error) {
+      rememberDraftFailure(error)
+      throw error
+    }
   },
 
-  deleteDraft: (id: ApiId): Promise<Result<{ id: ApiId; deleted: boolean }>> =>
-    client.delete(`/api/v1/post-drafts/${id}`),
+  deleteDraft: async (id: ApiId): Promise<Result<{ id: ApiId; deleted: boolean }>> => {
+    if (!serverDraftsAvailable) {
+      return emptyResult({ id, deleted: false })
+    }
+    try {
+      return await client.delete(`/api/v1/post-drafts/${id}`)
+    } catch (error) {
+      rememberDraftFailure(error)
+      if (!serverDraftsAvailable) return emptyResult({ id, deleted: false })
+      throw error
+    }
+  },
 
   delete: (postId: ApiId): Promise<Result<void>> =>
     client.delete(`/api/v1/posts/${postId}`),

@@ -171,6 +171,7 @@ export interface NotificationRealtimeStatus {
   latestUnreadAt?: number
   serverTime: number
   pollIntervalSeconds: number
+  websocketEnabled: boolean
 }
 
 export interface PaginatedResponse<T> {

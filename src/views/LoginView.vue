@@ -69,7 +69,7 @@
       <!-- Demo Hint -->
       <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
         <p class="text-xs text-blue-700 dark:text-blue-300">
-          <strong>演示账号：</strong> admin / admin123，user1 / user123
+          <strong>演示账号：</strong> admin / 123456，user1 / 123456
         </p>
       </div>
     </div>

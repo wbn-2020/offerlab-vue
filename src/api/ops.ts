@@ -1,4 +1,4 @@
-import client, { Result } from './client'
+import client, { BizException, Result } from './client'
 import type { SearchStatus } from './search'
 import type { ApiId, PaginatedResponse } from './types'
 import type { Question } from './question'
@@ -198,6 +198,22 @@ export interface QuestionDuplicateGroup {
   }>
 }
 
+const okResult = <T>(data: T): Result<T> => ({ code: 0, message: 'degraded empty state', data })
+
+const optionalPanelUnavailable = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10404 || error.code >= 20000
+  }
+  const status = (error as any)?.response?.status
+  return status === 404 || status === 405 || status >= 500
+}
+
+const emptySearchAnalytics = (): SearchAnalytics => ({
+  hotKeywords: [],
+  noResultKeywords: [],
+  prepClicks: [],
+})
+
 export const opsApi = {
   status: (): Promise<Result<OpsStatus>> =>
     client.get('/api/v1/ops/status'),
@@ -232,7 +248,7 @@ export const opsApi = {
   listAuditLogs: (params?: { action?: string; resourceType?: string; limit?: number }): Promise<Result<AdminAuditLog[]>> =>
     client.get('/api/v1/ops/audit-logs', { params }),
 
-  pageAuditLogs: (params?: {
+  pageAuditLogs: async (params?: {
     action?: string
     resourceType?: string
     operatorUid?: ApiId
@@ -240,20 +256,55 @@ export const opsApi = {
     endDate?: string
     page?: number
     pageSize?: number
-  }): Promise<Result<PaginatedResponse<AdminAuditLog>>> =>
-    client.get('/api/v1/ops/audit-logs/page', { params }),
+  }): Promise<Result<PaginatedResponse<AdminAuditLog>>> => {
+    try {
+      return await client.get('/api/v1/ops/audit-logs/page', { params })
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      const fallback = await client.get('/api/v1/ops/audit-logs', {
+        params: {
+          action: params?.action,
+          resourceType: params?.resourceType,
+          limit: params?.pageSize || 20,
+        },
+      }) as Result<AdminAuditLog[]>
+      return okResult({
+        items: fallback.data || [],
+        hasMore: false,
+        total: fallback.data?.length || 0,
+      })
+    }
+  },
 
   migrationStatus: (): Promise<Result<MigrationStatus>> =>
     client.get('/api/v1/ops/migration/status'),
 
 
-  searchAnalytics: (params?: { days?: number; limit?: number }): Promise<Result<SearchAnalytics>> =>
-    client.get('/api/v1/ops/search/analytics', { params }),
-  listModerationKeywords: (params?: { keyword?: string; scope?: string; limit?: number }): Promise<Result<ModerationKeyword[]>> =>
-    client.get('/api/v1/ops/moderation/keywords', { params }),
+  searchAnalytics: async (params?: { days?: number; limit?: number }): Promise<Result<SearchAnalytics>> => {
+    try {
+      return await client.get('/api/v1/ops/search/analytics', { params })
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      return okResult(emptySearchAnalytics())
+    }
+  },
+  listModerationKeywords: async (params?: { keyword?: string; scope?: string; limit?: number }): Promise<Result<ModerationKeyword[]>> => {
+    try {
+      return await client.get('/api/v1/ops/moderation/keywords', { params })
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      return okResult([])
+    }
+  },
 
-  listModerationHits: (params?: { scope?: string; action?: string; uid?: ApiId; keyword?: string; limit?: number }): Promise<Result<ModerationKeywordHit[]>> =>
-    client.get('/api/v1/ops/moderation/hits', { params }),
+  listModerationHits: async (params?: { scope?: string; action?: string; uid?: ApiId; keyword?: string; limit?: number }): Promise<Result<ModerationKeywordHit[]>> => {
+    try {
+      return await client.get('/api/v1/ops/moderation/hits', { params })
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      return okResult([])
+    }
+  },
 
   createModerationKeyword: (data: Partial<ModerationKeyword>): Promise<Result<ModerationKeyword>> =>
     client.post('/api/v1/ops/moderation/keywords', data),
@@ -264,8 +315,14 @@ export const opsApi = {
   updateModerationKeywordStatus: (id: ApiId, enabled: number): Promise<Result<{ id: ApiId; enabled: number }>> =>
     client.post(`/api/v1/ops/moderation/keywords/${id}/status`, null, { params: { enabled } }),
 
-  listModerationUsers: (limit = 50): Promise<Result<UserModerationState[]>> =>
-    client.get('/api/v1/ops/moderation/users', { params: { limit } }),
+  listModerationUsers: async (limit = 50): Promise<Result<UserModerationState[]>> => {
+    try {
+      return await client.get('/api/v1/ops/moderation/users', { params: { limit } })
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      return okResult([])
+    }
+  },
 
   saveModerationUser: (data: { uid: ApiId; muteHours?: number; banHours?: number; reason?: string }): Promise<Result<UserModerationState>> =>
     client.post('/api/v1/ops/moderation/users', data),
@@ -344,8 +401,14 @@ export const opsApi = {
   listCompanyAliases: (params?: { keyword?: string; limit?: number }): Promise<Result<CompanyAlias[]>> =>
     client.get('/api/v1/admin/company-aliases', { params }),
 
-  listCompanyAliasCandidates: (params?: { limit?: number }): Promise<Result<CompanyAliasCandidate[]>> =>
-    client.get('/api/v1/admin/company-aliases/candidates', { params }),
+  listCompanyAliasCandidates: async (params?: { limit?: number }): Promise<Result<CompanyAliasCandidate[]>> => {
+    try {
+      return await client.get('/api/v1/admin/company-aliases/candidates', { params })
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      return okResult([])
+    }
+  },
 
   createCompanyAlias: (data: { canonicalCompany: string; alias: string; status?: number }): Promise<Result<CompanyAlias>> =>
     client.post('/api/v1/admin/company-aliases', data),

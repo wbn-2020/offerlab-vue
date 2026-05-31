@@ -16,7 +16,7 @@ assert.match(opsApi, /interface SearchAnalytics/, 'ops API must type search anal
 assert.match(opsApi, /hotKeywords:\s*SearchAnalyticsItem\[\]/, 'ops analytics must include hot keywords')
 assert.match(opsApi, /noResultKeywords:\s*SearchAnalyticsItem\[\]/, 'ops analytics must include no-result keywords')
 assert.match(opsApi, /prepClicks:\s*SearchAnalyticsItem\[\]/, 'ops analytics must include prep clicks')
-assert.match(opsApi, /searchAnalytics:\s*\(params\?: \{ days\?: number; limit\?: number \}\)/, 'ops API must expose searchAnalytics')
+assert.match(opsApi, /searchAnalytics:\s*(?:async\s*)?\(params\?: \{ days\?: number; limit\?: number \}\)/, 'ops API must expose searchAnalytics')
 assert.match(opsApi, /\/api\/v1\/ops\/search\/analytics/, 'ops API must call search analytics endpoint')
 
 assert.match(searchView, /@click="trackCompanyPrepClick"/, 'search no-result prep-pack link must track clicks')

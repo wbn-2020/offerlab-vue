@@ -78,11 +78,12 @@ npm run verify
 开发环境默认读取 `.env.development`：
 
 ```env
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=http://127.0.0.1:8080
 VITE_WS_URL=ws://localhost:9001/ws
 ```
 
-当前主要能力走 HTTP API。`VITE_WS_URL` 保留给后续 WebSocket/Netty 长连接能力。
+当前主要能力走 HTTP API。`VITE_WS_URL` 只有在后端
+`/api/v1/notifications/realtime-status` 返回 `websocketEnabled=true` 时才会被使用。
 
 ## 页面路由
 
