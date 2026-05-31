@@ -163,6 +163,7 @@ const emit = defineEmits<{
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
   notInterested: [postId: Post['postId'], reason: string]
+  'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
 
 const authStore = useAuthStore()
@@ -235,14 +236,15 @@ const handleNotInterested = (reason: string) => {
 const handleFollow = async () => {
   if (!requireLogin()) return
   isFollowing.value = true
+  const wasFollowing = Boolean(props.post.author.isFollowing)
   try {
-    if (props.post.author.isFollowing) {
+    if (wasFollowing) {
       await userApi.unfollow(props.post.author.uid)
-      props.post.author.isFollowing = false
+      emit('follow-change', props.post.author.uid, false)
       toast.success('已取消关注')
     } else {
       await userApi.follow(props.post.author.uid)
-      props.post.author.isFollowing = true
+      emit('follow-change', props.post.author.uid, true)
       toast.success('已关注')
     }
   } catch (error: any) {

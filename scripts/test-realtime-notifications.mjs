@@ -31,6 +31,9 @@ assert.match(composable, /schedulePolling/, 'useRealtime must schedule repeated 
 assert.match(composable, /MIN_POLL_INTERVAL_MS/, 'useRealtime must enforce a minimum polling interval')
 assert.match(composable, /pollInFlight/, 'useRealtime must prevent overlapping polls')
 assert.match(composable, /VITE_WS_URL/, 'useRealtime may still attach to WebSocket when configured')
+assert.match(composable, /resolveWebSocketUrl/, 'useRealtime must normalize configured WebSocket URLs')
+assert.match(composable, /window\.location\.protocol === 'https:' && url\.protocol !== 'wss:'/, 'HTTPS pages must not open insecure ws:// sockets')
+assert.match(composable, /new URL\(raw, base\)/, 'relative WebSocket URLs must resolve against the current origin')
 assert.match(composable, /ws\.value\.binaryType = 'arraybuffer'/, 'WebSocket packets must be decoded as ArrayBuffer')
 assert.match(composable, /watch\(\(\) => authStore\.token/, 'useRealtime must restart when auth changes')
 

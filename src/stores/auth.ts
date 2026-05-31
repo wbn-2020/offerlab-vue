@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User } from '@/api/types'
-import { safeStorage } from '@/utils/safeStorage'
+import { authTokenStore } from '@/utils/authTokenStore'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
-  const token = ref<string | null>(safeStorage.get('token'))
+  authTokenStore.clearLegacyLocalToken()
+  const token = ref<string | null>(authTokenStore.get())
 
   const isLoggedIn = computed(() => !!user.value && !!token.value)
 
@@ -15,13 +16,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   const setToken = (newToken: string) => {
     token.value = newToken
-    safeStorage.set('token', newToken)
+    authTokenStore.set(newToken)
   }
 
   const logout = () => {
     user.value = null
     token.value = null
-    safeStorage.remove('token')
+    authTokenStore.clear()
   }
 
   return {

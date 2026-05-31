@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
-import { safeStorage } from '@/utils/safeStorage'
+import { authTokenStore } from '@/utils/authTokenStore'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -97,7 +97,7 @@ const redirectToLogin = () => {
 
 // 请求拦截器
 client.interceptors.request.use((config) => {
-  const token = safeStorage.get('token')
+  const token = authTokenStore.get()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -121,7 +121,7 @@ client.interceptors.response.use(
   },
   (error: AxiosError) => {
     if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
-      safeStorage.remove('token')
+      authTokenStore.clear()
       redirectToLogin()
     }
     return Promise.reject(error)

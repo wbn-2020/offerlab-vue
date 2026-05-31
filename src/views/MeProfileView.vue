@@ -74,6 +74,7 @@
               @load-more="loadPosts(true)"
               @like="handleLike"
               @favorite="handleFavorite"
+              @follow-change="handlePostAuthorFollowChange"
             />
           </section>
 
@@ -85,6 +86,7 @@
               @load-more="loadFavorites(true)"
               @like="handleLike"
               @favorite="handleFavorite"
+              @follow-change="handlePostAuthorFollowChange"
             />
           </section>
 
@@ -96,6 +98,7 @@
               @load-more="loadLikedPosts(true)"
               @like="handleLike"
               @favorite="handleFavorite"
+              @follow-change="handlePostAuthorFollowChange"
             />
           </section>
 
@@ -285,6 +288,16 @@ const handleFavorite = async (postId: ApiId) => {
   }
 }
 
+const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
+  allPostStates.forEach((state) => {
+    state.items.forEach((post) => {
+      if (String(post.author.uid) === String(authorUid)) {
+        post.author.isFollowing = following
+      }
+    })
+  })
+}
+
 const EmptyPanel = defineComponent({
   props: {
     title: { type: String, required: true },
@@ -311,7 +324,7 @@ const PostList = defineComponent({
     emptyActionText: String,
     emptyActionHref: String,
   },
-  emits: ['load-more', 'like', 'favorite'],
+  emits: ['load-more', 'like', 'favorite', 'follow-change'],
   setup(props, { emit }) {
     return () => h('div', { class: 'space-y-4' }, [
       props.state.error ? h('div', { class: 'notice-error' }, props.state.error) : null,
@@ -325,6 +338,7 @@ const PostList = defineComponent({
               favoritePending: isActionPending('favorite', post.postId),
               onLike: (id: ApiId) => emit('like', id),
               onFavorite: (id: ApiId) => emit('favorite', id),
+              onFollowChange: (authorUid: ApiId, following: boolean) => emit('follow-change', authorUid, following),
             }))
           : h(EmptyPanel, {
               title: props.emptyTitle,
