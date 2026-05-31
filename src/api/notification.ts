@@ -18,6 +18,7 @@ const adaptRealtimeStatus = (raw: any): NotificationRealtimeStatus => ({
   latestUnreadAt: raw?.latestUnreadAt ? new Date(raw.latestUnreadAt).getTime() : undefined,
   serverTime: Number(raw?.serverTime || Date.now()),
   pollIntervalSeconds: Math.max(10, Number(raw?.pollIntervalSeconds || 20)),
+  websocketEnabled: raw?.websocketEnabled === true,
 })
 
 export const notificationApi = {

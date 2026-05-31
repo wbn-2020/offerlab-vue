@@ -19,6 +19,7 @@ export const useRealtimeStore = defineStore('realtime', () => {
   const latestUnreadAt = ref<number | undefined>()
   const lastSyncedAt = ref(0)
   const pollIntervalSeconds = ref(20)
+  const websocketEnabled = ref(false)
 
   const setConnected = (value: boolean) => {
     connected.value = value
@@ -34,6 +35,7 @@ export const useRealtimeStore = defineStore('realtime', () => {
     latestUnreadAt.value = status.latestUnreadAt
     lastSyncedAt.value = Date.now()
     pollIntervalSeconds.value = Math.max(10, status.pollIntervalSeconds || 20)
+    websocketEnabled.value = status.websocketEnabled === true
   }
 
   const reset = () => {
@@ -42,6 +44,7 @@ export const useRealtimeStore = defineStore('realtime', () => {
     latestUnreadAt.value = undefined
     lastSyncedAt.value = 0
     pollIntervalSeconds.value = 20
+    websocketEnabled.value = false
     connected.value = false
   }
 
@@ -65,6 +68,7 @@ export const useRealtimeStore = defineStore('realtime', () => {
     latestUnreadAt,
     lastSyncedAt,
     pollIntervalSeconds,
+    websocketEnabled,
     setConnected,
     setUnreadCount,
     setRealtimeStatus,

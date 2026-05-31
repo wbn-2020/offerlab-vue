@@ -6,6 +6,7 @@ import { encodePacket, decodePacket, Command } from '@/lib/packet-codec'
 
 const MIN_POLL_INTERVAL_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 20000
+const FALLBACK_POLL_INTERVAL_SECONDS = 60
 
 export function useRealtime() {
   const authStore = useAuthStore()
@@ -47,9 +48,27 @@ export function useRealtime() {
       const res = await notificationApi.getRealtimeStatus()
       if (res.code === 0 && res.data) {
         realtimeStore.setRealtimeStatus(res.data)
+        if (realtimeStore.websocketEnabled) {
+          connectWebSocket()
+        } else {
+          disconnectWebSocket()
+        }
       }
     } catch {
-      realtimeStore.setConnected(false)
+      try {
+        const fallback = await notificationApi.getUnreadCount()
+        if (fallback.code === 0 && fallback.data) {
+          realtimeStore.setRealtimeStatus({
+            unread: fallback.data,
+            serverTime: Date.now(),
+            pollIntervalSeconds: FALLBACK_POLL_INTERVAL_SECONDS,
+            websocketEnabled: false,
+          })
+        }
+      } catch {
+        realtimeStore.setConnected(false)
+      }
+      disconnectWebSocket()
     } finally {
       pollInFlight = false
       schedulePolling()
@@ -73,7 +92,7 @@ export function useRealtime() {
 
   const connectWebSocket = () => {
     const wsUrl = resolveWebSocketUrl(import.meta.env.VITE_WS_URL)
-    if (!hasToken.value || !wsUrl || ws.value) return
+    if (!hasToken.value || !realtimeStore.websocketEnabled || !wsUrl || ws.value) return
 
     ws.value = new WebSocket(wsUrl)
     ws.value.binaryType = 'arraybuffer'
@@ -125,7 +144,6 @@ export function useRealtime() {
       return
     }
     void pollRealtimeStatus()
-    connectWebSocket()
   }
 
   const stop = () => {
