@@ -19,4 +19,29 @@ assert.match(cardSource, /replace\(\/&lt;em&gt;\/g, '<mark class="question-searc
 assert.match(cardSource, /replace\(\/&lt;\\\/em&gt;\/g, '<\/mark>'\)/, 'QuestionCard must close converted mark tags safely')
 assert.match(cardSource, /question-search-highlight/, 'QuestionCard must style question search highlights')
 
+const escapeHtml = (value) => value
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+const renderSearchHighlight = (highlight, fallback) => {
+  if (!highlight) return escapeHtml(fallback || '')
+  const safe = escapeHtml(highlight)
+  return safe
+    .replace(/&lt;em&gt;/g, '<mark class="question-search-highlight">')
+    .replace(/&lt;\/em&gt;/g, '</mark>')
+}
+
+const maliciousHighlight = '<em>Java</em><img src=x onerror=alert(1)><a href="javascript:alert(1)">x</a>'
+const rendered = renderSearchHighlight(maliciousHighlight, 'fallback')
+
+assert.match(rendered, /<mark class="question-search-highlight">Java<\/mark>/, 'QuestionCard must convert backend em tags into safe mark tags')
+assert.doesNotMatch(rendered, /<img/i, 'QuestionCard must not render injected image tags from highlights')
+assert.doesNotMatch(rendered, /<[^>]+\sonerror=/i, 'QuestionCard must not render event handlers inside HTML tags')
+assert.doesNotMatch(rendered, /href="javascript:/i, 'QuestionCard must escape javascript links from highlights')
+assert.match(rendered, /&lt;img src=x onerror=alert\(1\)&gt;/, 'QuestionCard must keep non-em HTML escaped')
+assert.equal(renderSearchHighlight(undefined, '<em>Java</em>'), '&lt;em&gt;Java&lt;/em&gt;', 'Fallback text must be escaped and must not become highlight markup')
+
 console.log('question search highlight guard passed')

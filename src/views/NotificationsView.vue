@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-screen bg-slate-50 px-4 py-6 dark:bg-slate-950 sm:px-6">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="px-4 py-6 sm:px-6">
     <div class="mx-auto max-w-5xl">
       <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -136,6 +138,7 @@
         </div>
       </div>
     </div>
+    </main>
   </div>
 </template>
 
@@ -148,6 +151,7 @@ import { getErrorMessage } from '@/api/client'
 import { notificationApi } from '@/api/notification'
 import type { ApiId, Notification } from '@/api/types'
 import { formatTime } from '@/lib/format'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 
 const router = useRouter()

@@ -100,6 +100,14 @@ function emptyAuthor(authorId: any): User {
   }
 }
 
+function hasSearchHighlight(value: unknown) {
+  return typeof value === 'string' && /<\/?em>/i.test(value)
+}
+
+function stripSearchHighlight(value: unknown) {
+  return typeof value === 'string' ? value.replace(/<\/?em>/gi, '') : ''
+}
+
 export function adaptPost(raw: any): Post {
   const source = raw?.post
     ? {
@@ -112,14 +120,17 @@ export function adaptPost(raw: any): Post {
   const counter = source?.counter ?? {}
   const authorId = source?.authorId ?? source?.uid
   const myInteraction = source?.myInteraction ?? {}
+  const rawTitle = source?.title ?? ''
+  const rawSummary = source?.summary
+  const rawContent = source?.content ?? source?.summary ?? ''
   return {
     postId: adaptId(source?.postId ?? source?.id),
     postType: Number(source?.postType ?? 0),
-    title: source?.title ?? '',
-    content: source?.content ?? source?.summary ?? '',
-    summary: source?.summary,
-    highlightTitle: source?.highlightTitle,
-    highlightSummary: source?.highlightSummary,
+    title: stripSearchHighlight(rawTitle),
+    content: stripSearchHighlight(rawContent),
+    summary: rawSummary ? stripSearchHighlight(rawSummary) : undefined,
+    highlightTitle: source?.highlightTitle ?? (hasSearchHighlight(rawTitle) ? rawTitle : undefined),
+    highlightSummary: source?.highlightSummary ?? (hasSearchHighlight(rawSummary) ? rawSummary : undefined),
     coverUrl: source?.coverUrl,
     tags: Array.isArray(source?.tags) ? source.tags.map(adaptTag) : [],
     author: source?.author ? adaptUser(source.author) : emptyAuthor(authorId),

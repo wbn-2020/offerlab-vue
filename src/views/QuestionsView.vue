@@ -85,7 +85,22 @@
         <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">{{ listError }}</p>
         <button type="button" class="primary-action px-5 py-2.5" @click="fetchQuestions(false)">重试</button>
       </section>
-      <EmptyState v-else-if="questions.length === 0" title="暂无题目" description="换个关键词或公司试试。" />
+      <section v-else-if="questions.length === 0" class="surface-card question-empty-state px-6 py-12 text-center">
+        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">
+          {{ hasActiveFilters ? '没有匹配的题目' : '当前还没有可见题目' }}
+        </h3>
+        <p class="mx-auto mb-6 max-w-lg text-sm leading-6 text-slate-600 dark:text-slate-400">
+          {{ hasActiveFilters
+            ? '当前筛选条件没有命中题目，可以清空筛选或换一个公司、岗位、技术关键词。'
+            : '题库题目来自公开面经和提题任务；本地演示库为空时，可以先发布面经、去发现页浏览内容，或进入准备台添加目标。' }}
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <button v-if="hasActiveFilters" type="button" class="primary-action px-5 py-2.5" @click="resetFilters">清空筛选</button>
+          <RouterLink v-else to="/editor" class="primary-action inline-flex items-center justify-center px-5 py-2.5">发布面经</RouterLink>
+          <RouterLink to="/explore" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">去发现</RouterLink>
+          <RouterLink to="/me/prep" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">查看准备台</RouterLink>
+        </div>
+      </section>
       <section v-else class="grid gap-4 lg:grid-cols-2">
         <QuestionCard v-for="question in questions" :key="question.id" :question="question" />
       </section>
@@ -105,7 +120,6 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
 import QuestionCard from '@/components/question/QuestionCard.vue'
 import { questionApi, type Question } from '@/api/question'
 import { getErrorMessage } from '@/api/client'
@@ -141,6 +155,18 @@ const hasPersonalFilter = computed(() => Boolean(
 ))
 const requiresLoginForPersonalFilters = computed(() => hasPersonalFilter.value && !authStore.isLoggedIn)
 const loginRedirectTo = computed(() => ({ path: '/login', query: { redirect: route.fullPath } }))
+const hasActiveFilters = computed(() => Boolean(
+  filters.keyword
+    || filters.company
+    || filters.position
+    || filters.difficulty
+    || filters.mistakeReason
+    || filters.progressStatus
+    || filters.hasNote
+    || filters.hasAnswerDraft
+    || filters.hasStarStory
+    || (filters.sort && filters.sort !== 'latest'),
+))
 
 const syncFromRoute = () => {
   filters.keyword = String(route.query.keyword ?? route.query.q ?? '')
@@ -358,6 +384,10 @@ onMounted(() => {
   border-color: rgb(129 140 248);
   background: rgb(238 242 255);
   color: rgb(67 56 202);
+}
+
+.question-empty-state {
+  min-height: 18rem;
 }
 
 :global(.dark) .filter-input {

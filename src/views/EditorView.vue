@@ -1,7 +1,8 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
-    <!-- 顶部导航 -->
-    <div class="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+    <AppHeader />
+    <!-- 编辑工具条 -->
+    <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
       <div class="max-w-6xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-4">
           <button
@@ -44,7 +45,22 @@
     </div>
 
     <!-- 主体内容 -->
-    <div class="max-w-6xl mx-auto p-6">
+    <main v-if="isForbiddenEdit" class="mx-auto flex min-h-[calc(100vh-160px)] max-w-4xl items-center px-4 py-10">
+      <section class="w-full rounded-xl border border-amber-200 bg-white p-8 text-center shadow-sm dark:border-amber-900/60 dark:bg-slate-900">
+        <p class="text-sm font-semibold text-amber-600 dark:text-amber-400">无法编辑该帖子</p>
+        <h2 class="mt-3 text-2xl font-bold text-slate-950 dark:text-slate-50">只能编辑本人发布的内容</h2>
+        <p class="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+          当前账号不是这篇帖子的作者。你可以返回来源页面继续浏览，或回到个人主页管理自己的草稿和发布内容。
+        </p>
+        <div class="mt-6 flex flex-wrap justify-center gap-3">
+          <button type="button" class="forbidden-secondary-action" @click="goBack">返回来源页</button>
+          <RouterLink to="/me" class="forbidden-primary-action">我的主页</RouterLink>
+          <RouterLink to="/" class="forbidden-secondary-action">回到首页</RouterLink>
+        </div>
+      </section>
+    </main>
+
+    <div v-else class="max-w-6xl mx-auto p-6">
       <div class="space-y-6">
         <!-- 标题输入 -->
         <div class="flex flex-col gap-2">
@@ -174,6 +190,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownEditor from '@/components/post/MarkdownEditor.vue'
 import PostMeta from '@/components/post/PostMeta.vue'
 import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
@@ -208,12 +225,14 @@ const selectedTags = ref<string[]>([])
 const isPublishing = ref(false)
 const isEditing = ref(false)
 const isLoadingPost = ref(false)
+const isForbiddenEdit = ref(false)
 const fieldErrors = ref<Record<string, string>>({})
 const isSavingDraft = ref(false)
 const serverDraftId = ref('')
 const selectedDraftId = ref('')
 const serverDrafts = ref<PostDraft[]>([])
 const draftOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
+const fallbackReturnPath = computed(() => authStore.isLoggedIn ? '/me' : '/')
 
 type QualityCheck = {
   key: string
@@ -312,8 +331,9 @@ const focusFirstFieldError = () => {
 }
 
 const currentPostId = () => {
-  const value = Number(route.params.id)
-  return Number.isFinite(value) && value > 0 ? value : undefined
+  const raw = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
+  const value = String(raw ?? '').trim()
+  return /^[1-9]\d*$/.test(value) ? value : undefined
 }
 
 const localDraftKey = (owner = draftOwner.value) => {
@@ -397,7 +417,7 @@ const loadSelectedDraft = async () => {
   }
 }
 
-const loadLatestSourceDraft = async (postId: number) => {
+const loadLatestSourceDraft = async (postId: string) => {
   try {
     const res = await postApi.getLatestDraftBySourcePost(postId)
     if (res.data) {
@@ -444,17 +464,21 @@ watch(draftOwner, (_nextOwner, prevOwner) => {
   }
 })
 
-const loadPostForEdit = async (postId: number) => {
+const loadPostForEdit = async (postId: string) => {
   isLoadingPost.value = true
   try {
     const res = await postApi.getDetail(postId)
     if (res.code !== 0 || !res.data) {
       toast.error(getResultMessage(res, '帖子不存在或已被删除'))
-      router.push('/')
-      return
+      router.replace('/')
+      return false
     }
 
     const post = res.data
+    if (String(post.author?.uid ?? '') !== String(authStore.user?.uid ?? '')) {
+      redirectForbiddenEdit()
+      return false
+    }
     form.value = {
       postType: post.postType,
       title: post.title,
@@ -464,21 +488,34 @@ const loadPostForEdit = async (postId: number) => {
       coverUrl: post.coverUrl || ''
     }
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
+    return true
   } catch (error) {
-    toast.error(getErrorMessage(error, '加载帖子失败，请重试'))
-    router.push('/')
+    if (isForbiddenError(error)) {
+      redirectForbiddenEdit()
+    } else {
+      toast.error(getErrorMessage(error, '加载帖子失败，请重试'))
+      router.replace('/')
+    }
+    return false
   } finally {
     isLoadingPost.value = false
   }
 }
 
 onMounted(async () => {
-  const postId = route.params.id
+  const postId = currentPostId()
   if (postId) {
     isEditing.value = true
-    await loadPostForEdit(Number(postId))
-    const restoredServerDraft = await loadLatestSourceDraft(Number(postId))
+    const loaded = await loadPostForEdit(postId)
+    if (!loaded) return
+    const restoredServerDraft = await loadLatestSourceDraft(postId)
     if (!restoredServerDraft) restoreLocalDraft()
+    return
+  }
+
+  if (route.params.id) {
+    toast.error('帖子 ID 格式不正确')
+    router.replace('/')
     return
   }
 
@@ -542,10 +579,27 @@ const publishPost = async () => {
       draftId: serverDraftId.value || undefined,
     }
 
-    const postId = Number(route.params.id)
-    const res = isEditing.value
-      ? await postApi.update(postId, req)
-      : await postApi.create(req)
+    const postId = currentPostId()
+    if (isEditing.value) {
+      if (!postId) {
+        toast.error('帖子 ID 格式不正确')
+        return
+      }
+      const res = await postApi.update(postId, req)
+      if (res.code === 0) {
+        safeStorage.remove(localDraftKey())
+        serverDraftId.value = ''
+        selectedDraftId.value = ''
+        if (!isEditing.value) await loadServerDrafts()
+        const reviewRequired = Boolean(res.data?.reviewRequired)
+        toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
+        router.push(reviewRequired ? '/me' : `/post/${postId}`)
+      } else {
+        toast.error(getResultMessage(res, '保存失败'))
+      }
+      return
+    }
+    const res = await postApi.create(req)
     if (res.code === 0) {
       safeStorage.remove(localDraftKey())
       serverDraftId.value = ''
@@ -553,7 +607,7 @@ const publishPost = async () => {
       if (!isEditing.value) await loadServerDrafts()
       const reviewRequired = Boolean(res.data?.reviewRequired)
       toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
-      router.push(reviewRequired ? '/me' : `/post/${isEditing.value ? postId : res.data?.postId}`)
+      router.push(reviewRequired ? '/me' : `/post/${res.data?.postId}`)
     } else {
       toast.error(getResultMessage(res, `${isEditing.value ? '保存' : '发布'}失败`))
     }
@@ -569,8 +623,66 @@ const publishPost = async () => {
   }
 }
 
+const firstString = (value: unknown) => {
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : ''
+  return typeof value === 'string' ? value : ''
+}
+
+const errorCodeOf = (error: unknown) => {
+  if (error instanceof BizException) return error.code
+  const status = (error as any)?.response?.status
+  return typeof status === 'number' ? status : undefined
+}
+
+const isForbiddenError = (error: unknown) => {
+  const code = errorCodeOf(error)
+  return code === 10403 || code === 403
+}
+
+const redirectForbiddenEdit = () => {
+  isForbiddenEdit.value = true
+  toast.warning('只能编辑本人发布的内容')
+}
+
+const normalizeSameSitePath = (value: unknown) => {
+  const raw = firstString(value).trim()
+  if (!raw) return ''
+
+  let path = ''
+  if (raw.startsWith('/')) {
+    path = raw
+  } else if (typeof window !== 'undefined') {
+    try {
+      const url = new URL(raw)
+      if (url.origin !== window.location.origin) return ''
+      path = `${url.pathname}${url.search}${url.hash}`
+    } catch {
+      return ''
+    }
+  }
+
+  if (!path || path.startsWith('//')) return ''
+  if (/^\/editor(?:\/|$|\?)/.test(path)) return ''
+  if (path === route.fullPath) return ''
+  return path
+}
+
+const safeReturnPath = () => {
+  const state = typeof window !== 'undefined'
+    ? window.history.state as Record<string, unknown> | null
+    : null
+  const candidates = [
+    route.query.from,
+    route.query.returnTo,
+    route.query.redirect,
+    state?.back,
+    typeof document !== 'undefined' ? document.referrer : '',
+  ]
+  return candidates.map(normalizeSameSitePath).find(Boolean) || fallbackReturnPath.value
+}
+
 const goBack = () => {
-  router.back()
+  router.push(safeReturnPath())
 }
 </script>
 
@@ -591,6 +703,41 @@ const goBack = () => {
 .draft-select:focus {
   box-shadow: 0 0 0 2px rgb(14 165 233 / 0.25);
 }
+
+.forbidden-primary-action,
+.forbidden-secondary-action {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.forbidden-primary-action {
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.forbidden-primary-action:hover {
+  background: rgb(29 78 216);
+}
+
+.forbidden-secondary-action {
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.forbidden-secondary-action:hover {
+  border-color: rgb(191 219 254);
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
 .quality-score {
   display: inline-flex;
   min-height: 2rem;
@@ -695,6 +842,18 @@ const goBack = () => {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
+}
+
+:global(.dark) .forbidden-secondary-action {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .forbidden-secondary-action:hover {
+  border-color: rgb(59 130 246);
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
 }
 
 :global(.dark) .quality-row strong {

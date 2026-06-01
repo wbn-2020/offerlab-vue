@@ -2,13 +2,27 @@
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <AppHeader />
     <main class="mx-auto max-w-7xl px-4 py-8">
-      <LoadingSkeleton v-if="isLoading" />
+      <LoadingSkeleton v-if="isQuestionLoading" />
+      <section v-else-if="isQuestionNotFound" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
+        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">题目不存在或已被删除</h3>
+        <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
+          这道题可能已被下架、来源面经不可见，或本地演示数据还没有补到当前数据库。
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <RouterLink to="/questions" class="primary-action inline-flex items-center justify-center">返回题库</RouterLink>
+          <RouterLink :to="{ path: '/search', query: { q: questionId } }" class="secondary-action inline-flex items-center justify-center">搜索相似内容</RouterLink>
+          <RouterLink to="/" class="secondary-action inline-flex items-center justify-center">回到首页</RouterLink>
+        </div>
+      </section>
       <section v-else-if="isError" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
         <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">题目加载失败</h3>
         <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
           {{ getErrorMessage(error, '题目详情暂时无法加载，请稍后重试。') }}
         </p>
-        <button type="button" class="primary-action" @click="refetch()">重试</button>
+        <div class="flex flex-wrap justify-center gap-3">
+          <button type="button" class="primary-action" @click="refetch()">重试</button>
+          <RouterLink to="/questions" class="secondary-action inline-flex items-center justify-center">返回题库</RouterLink>
+        </div>
       </section>
       <EmptyState v-else-if="!detail || !question" title="题目不存在" description="这道题可能已隐藏、来源内容不可见，或当前题库还没有同步到详情页。" actionText="返回题库" actionHref="/questions" />
       <div v-else class="grid gap-8 lg:grid-cols-3">
@@ -213,7 +227,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { questionApi } from '@/api/question'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
-import { getErrorMessage } from '@/api/client'
+import { BizException, getErrorMessage } from '@/api/client'
 import { safeStorage } from '@/utils/safeStorage'
 import { buildQuestionAnswerCardMarkdown } from '@/utils/prepPackExport'
 
@@ -236,10 +250,18 @@ const { data, isLoading, isError, error, refetch } = useQuery({
   queryKey: computed(() => ['question', questionId.value]),
   queryFn: () => questionApi.detail(questionId.value),
   enabled: computed(() => Boolean(questionId.value)),
+  retry: false,
 })
 
 const detail = computed(() => data.value?.data || null)
 const question = computed(() => detail.value?.question ?? null)
+const questionErrorCode = computed(() => {
+  if (error.value instanceof BizException) return error.value.code
+  const status = (error.value as any)?.response?.status
+  return typeof status === 'number' ? status : undefined
+})
+const isQuestionNotFound = computed(() => questionErrorCode.value === 10404 || questionErrorCode.value === 404)
+const isQuestionLoading = computed(() => isLoading.value && !isError.value)
 const sourcePostCount = computed(() => question.value ? Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1) : 1)
 const isCanonicalRoot = computed(() => !question.value?.canonicalId || String(question.value.canonicalId) === String(question.value.id))
 const hasReviewSchedule = computed(() => Boolean(question.value?.nextReviewAt || question.value?.lastReviewedAt || (question.value?.reviewCount ?? 0) > 0))

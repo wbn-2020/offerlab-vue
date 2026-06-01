@@ -67,6 +67,19 @@
           <Moon v-else class="h-5 w-5" />
         </button>
 
+        <button
+          type="button"
+          class="rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white lg:hidden"
+          :aria-expanded="showMobileMenu"
+          aria-controls="mobile-main-nav"
+          :aria-label="showMobileMenu ? '关闭主导航' : '打开主导航'"
+          data-mobile-toggle
+          @click.stop="toggleMobileMenu"
+        >
+          <X v-if="showMobileMenu" class="h-5 w-5" />
+          <Menu v-else class="h-5 w-5" />
+        </button>
+
         <div class="relative" data-user-menu>
           <button
             type="button"
@@ -114,12 +127,82 @@
         </div>
       </div>
     </div>
+
+    <button
+      v-if="showMobileMenu"
+      type="button"
+      class="mobile-menu-backdrop"
+      aria-label="关闭主导航"
+      data-mobile-backdrop
+      @click="closeMobileMenu"
+    />
+
+    <div
+      v-if="showMobileMenu"
+      id="mobile-main-nav"
+      class="mobile-menu-panel border-t border-slate-200/75 bg-white px-4 py-4 shadow-lg shadow-slate-900/5 dark:border-slate-800/80 dark:bg-slate-950 lg:hidden"
+      data-mobile-menu
+    >
+      <div class="mx-auto max-w-7xl space-y-4">
+        <form class="relative" @submit.prevent="submitSearch">
+          <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            v-model="keyword"
+            type="search"
+            placeholder="搜索面经、公司、岗位..."
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-primary-700 dark:focus:ring-primary-950"
+          />
+        </form>
+
+        <nav class="grid gap-2" aria-label="移动主导航">
+          <RouterLink
+            v-for="item in navItems"
+            :key="item.to"
+            :to="item.to"
+            class="mobile-nav-link"
+            active-class="mobile-nav-link-active"
+            @click="closeMobileMenu"
+          >
+            <component :is="item.icon" class="h-4 w-4" />
+            <span>{{ item.label }}</span>
+          </RouterLink>
+        </nav>
+
+        <div class="grid grid-cols-2 gap-2">
+          <RouterLink to="/search" class="mobile-quick-action" @click="closeMobileMenu">
+            <Search class="h-4 w-4" />
+            搜索
+          </RouterLink>
+          <RouterLink to="/editor" class="mobile-quick-action mobile-quick-action-primary" @click="closeMobileMenu">
+            <PenLine class="h-4 w-4" />
+            发布
+          </RouterLink>
+          <RouterLink
+            v-if="authStore.token"
+            to="/me/notifications"
+            class="mobile-quick-action"
+            @click="closeMobileMenu"
+          >
+            <Bell class="h-4 w-4" />
+            通知
+          </RouterLink>
+          <RouterLink
+            :to="authStore.isLoggedIn ? '/me' : '/login'"
+            class="mobile-quick-action"
+            @click="closeMobileMenu"
+          >
+            <User class="h-4 w-4" />
+            {{ authStore.isLoggedIn ? '个人中心' : '登录' }}
+          </RouterLink>
+        </div>
+      </div>
+    </div>
   </header>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Bell, BookOpen, Compass, Flame, Mic, Moon, PenLine, Search, Sun, User } from 'lucide-vue-next'
+import { Bell, BookOpen, Compass, Flame, Menu, Mic, Moon, PenLine, Search, Sun, User, X } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { authApi } from '@/api/auth'
@@ -134,6 +217,7 @@ const realtimeStore = useRealtimeStore()
 const router = useRouter()
 
 const showUserMenu = ref(false)
+const showMobileMenu = ref(false)
 const keyword = ref('')
 const permissions = ref<MyAdminPermissions | null>(null)
 const unreadCount = computed(() => realtimeStore.unreadCount.total)
@@ -171,6 +255,7 @@ const loadPermissions = async () => {
 
 const submitSearch = () => {
   const q = keyword.value.trim()
+  closeMobileMenu()
   router.push({ path: '/search', query: q ? { q } : {} })
 }
 
@@ -178,9 +263,19 @@ const toggleTheme = () => {
   themeStore.setMode(themeStore.mode === 'dark' ? 'light' : 'dark')
 }
 
+const closeMobileMenu = () => {
+  showMobileMenu.value = false
+}
+
+const toggleMobileMenu = () => {
+  showMobileMenu.value = !showMobileMenu.value
+  if (showMobileMenu.value) showUserMenu.value = false
+}
+
 const handleDocumentClick = (e: MouseEvent) => {
   const target = e.target as HTMLElement | null
   if (!target?.closest('[data-user-menu]')) showUserMenu.value = false
+  if (!target?.closest('[data-mobile-menu]') && !target?.closest('[data-mobile-toggle]')) showMobileMenu.value = false
 }
 
 const handleLogout = async () => {
@@ -193,6 +288,7 @@ const handleLogout = async () => {
   realtimeStore.setUnreadCount(emptyUnreadCount())
   permissions.value = null
   showUserMenu.value = false
+  showMobileMenu.value = false
   toast.success('已退出登录')
   router.push('/login')
 }
@@ -231,6 +327,73 @@ watch(() => authStore.token, () => {
   border-top: 1px solid rgb(226 232 240);
 }
 
+.mobile-menu-backdrop {
+  position: fixed;
+  inset: 64px 0 0;
+  z-index: 30;
+  border: 0;
+  background: rgb(15 23 42 / 0.36);
+  backdrop-filter: blur(2px);
+}
+
+.mobile-menu-panel {
+  position: fixed;
+  inset: 64px 0 auto;
+  z-index: 40;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  box-shadow: 0 18px 45px rgb(15 23 42 / 0.18);
+}
+
+.mobile-nav-link,
+.mobile-quick-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.mobile-nav-link {
+  padding: 0.75rem;
+  border: 1px solid transparent;
+  color: rgb(30 41 59);
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link-active {
+  border-color: rgb(191 219 254);
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
+.mobile-quick-action {
+  justify-content: center;
+  border: 1px solid rgb(226 232 240);
+  padding: 0.7rem 0.85rem;
+  color: rgb(51 65 85);
+}
+
+.mobile-quick-action:hover {
+  border-color: rgb(191 219 254);
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
+}
+
+.mobile-quick-action-primary {
+  border-color: rgb(37 99 235);
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.mobile-quick-action-primary:hover {
+  border-color: rgb(29 78 216);
+  background: rgb(29 78 216);
+  color: white;
+}
+
 :global(.dark) .menu-item {
   color: rgb(203 213 225);
 }
@@ -242,5 +405,33 @@ watch(() => authStore.token, () => {
 
 :global(.dark) .menu-divider {
   border-color: rgb(30 41 59);
+}
+
+:global(.dark) .mobile-nav-link {
+  color: rgb(226 232 240);
+}
+
+:global(.dark) .mobile-nav-link:hover,
+:global(.dark) .mobile-nav-link-active {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+:global(.dark) .mobile-quick-action {
+  border-color: rgb(51 65 85);
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .mobile-quick-action:hover {
+  border-color: rgb(71 85 105);
+  background: rgb(30 41 59);
+  color: rgb(248 250 252);
+}
+
+:global(.dark) .mobile-quick-action-primary,
+:global(.dark) .mobile-quick-action-primary:hover {
+  border-color: rgb(37 99 235);
+  background: rgb(37 99 235);
+  color: white;
 }
 </style>

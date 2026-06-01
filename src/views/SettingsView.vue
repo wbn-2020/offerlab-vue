@@ -1,5 +1,7 @@
 <template>
-  <main class="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="px-4 py-8">
     <div class="mx-auto max-w-5xl space-y-6">
       <section class="flex flex-col gap-2">
         <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Account Settings</p>
@@ -202,7 +204,8 @@
         </form>
       </section>
     </div>
-  </main>
+    </main>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -213,6 +216,7 @@ import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { userApi, type PrivacySetting } from '@/api/user'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import IntentForm from '@/components/user/IntentForm.vue'
 
 const authStore = useAuthStore()

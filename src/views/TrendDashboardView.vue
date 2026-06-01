@@ -1,6 +1,7 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-6 dark:bg-slate-950">
-    <div class="mx-auto max-w-7xl space-y-6">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
       <section class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Community Insights</p>
@@ -87,7 +88,7 @@
           <RankPanel title="面试结果分布" unit="篇" :items="dashboard?.resultDistribution || []" color="amber" />
         </section>
       </template>
-    </div>
+    </main>
   </div>
 </template>
 
@@ -95,6 +96,7 @@
 import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
 import { getErrorMessage } from '@/api/client'
 import { dashboardApi, type RankedMetric, type TrendDashboard, type TrendRange } from '@/api/dashboard'
+import AppHeader from '@/components/layout/AppHeader.vue'
 
 const periods: Array<{ value: TrendRange; label: string }> = [
   { value: '7d', label: '近 7 天' },

@@ -74,7 +74,17 @@
       </section>
 
       <LoadingSkeleton v-if="isLoading" />
-      <EmptyState v-else-if="!overview" title="暂时无法加载准备台" description="稍后刷新页面重试；也可以先去题库收藏或标记几道题。" actionText="去题库看看" actionHref="/questions" />
+      <section v-else-if="isError" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
+        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">准备台加载失败</h3>
+        <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
+          {{ getErrorMessage(error, '暂时无法加载准备台，请稍后重试。') }}
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <button type="button" class="primary-action inline-flex items-center justify-center px-5 py-2.5" @click="refetch()">重试</button>
+          <RouterLink to="/questions" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">去题库看看</RouterLink>
+        </div>
+      </section>
+      <EmptyState v-else-if="!overview" title="暂时无法加载准备台" description="准备台数据还没有返回；你也可以先去题库收藏或标记几道题。" actionText="去题库看看" actionHref="/questions" />
       <template v-else>
         <section class="mb-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
           <div class="metric-card"><span>收藏</span><strong>{{ overview.favoriteCount }}</strong></div>
@@ -84,6 +94,22 @@
           <div class="metric-card"><span>待复习</span><strong>{{ overview.reviewCount }}</strong></div>
           <RouterLink to="/questions?hasNote=true&sort=latest" class="metric-card metric-link"><span>笔记题</span><strong>{{ overview.noteCount }}</strong></RouterLink>
           <div class="metric-card"><span>回答卡片</span><strong>{{ overview.answerDraftCount }}</strong></div>
+        </section>
+
+        <section v-if="isPrepStarterEmpty" class="starter-panel mb-6">
+          <div>
+            <p class="plan-kicker">Start Prep</p>
+            <h2 class="plan-title">先把准备台喂进第一批数据</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              当前账号还没有可见题目、目标和回答卡片。先添加一个目标或从题库开始，准备台就会汇总收藏、待复习、STAR 草稿和模拟面试表现。
+            </p>
+          </div>
+          <div class="starter-actions">
+            <a href="#prep-targets" class="primary-action inline-flex items-center justify-center px-5 py-2.5">添加目标</a>
+            <RouterLink to="/questions" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">去题库</RouterLink>
+            <RouterLink to="/editor" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">发布面经</RouterLink>
+            <RouterLink to="/mock-interview" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">模拟面试</RouterLink>
+          </div>
         </section>
 
         <section v-if="overview.reviewPlan && overview.reviewPlan.todayCount > 0" class="mb-6 due-review-alert">
@@ -228,8 +254,8 @@
 
         <div class="grid gap-6 lg:grid-cols-3">
           <section class="space-y-6 lg:col-span-2">
-            <section class="section-panel">
-              <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <section id="prep-targets" class="section-panel target-panel">
+              <div class="target-panel-head">
                 <div>
                   <h2 class="section-title mb-1">准备目标</h2>
                   <p class="text-sm text-slate-500 dark:text-slate-400">推荐题会优先匹配你的目标公司、岗位和技术标签。</p>
@@ -412,7 +438,7 @@ const isSubmittingTarget = ref(false)
 const deletingTargetId = ref<ApiId | null>(null)
 const reviewingQuestionId = ref<ApiId | null>(null)
 
-const { data, isLoading, refetch } = useQuery({
+const { data, isLoading, isError, error, refetch } = useQuery({
   queryKey: computed(() => ['me-prep-overview', prepOwner.value]),
   queryFn: () => questionApi.myPrepOverview(),
 })
@@ -432,6 +458,34 @@ const mockStats = computed(() => mockStatsData.value?.data || null)
 const weeklyReport = computed(() => weeklyReportData.value?.data || null)
 const starStoryQuestions = computed(() => (overview.value?.answerDraftQuestions || []).filter((question) => Boolean(question.starStory)))
 const maxFocusTagCount = computed(() => Math.max(1, ...(overview.value?.focusTagCounts || []).map((item) => item.count)))
+const isPrepStarterEmpty = computed(() => {
+  const value = overview.value
+  if (!value) return false
+  const counts = [
+    value.favoriteCount,
+    value.todoCount,
+    value.learningCount,
+    value.masteredCount,
+    value.reviewCount,
+    value.noteCount,
+    value.answerDraftCount,
+    value.reviewPlan?.todayCount,
+    value.reviewPlan?.weekTouchedCount,
+  ]
+  const lists = [
+    value.targets,
+    value.targetSummaries,
+    value.reviewQuestions,
+    value.answerDraftQuestions,
+    value.recommendedQuestions,
+    value.favoriteQuestions,
+    value.focusTagCounts,
+    value.mistakeReasonCounts,
+  ]
+  return counts.every((count) => Number(count || 0) === 0)
+    && lists.every((list) => !list || list.length === 0)
+    && Number(mockStats.value?.sessionCount || 0) === 0
+})
 
 const addTarget = async () => {
   if (!targetForm.targetValue) return
@@ -643,17 +697,30 @@ const reviewScheduleText = (question: Question) => {
 
 .target-form {
   display: grid;
-  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  gap: 0.65rem;
 }
 
 .target-input {
-  min-height: 38px;
+  min-height: 36px;
+  min-width: 0;
+  width: 100%;
   border-radius: 0.5rem;
   border: 1px solid rgb(226 232 240);
-  background: white;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  background: rgb(248 250 252);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8125rem;
   color: rgb(15 23 42);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.target-input:focus {
+  border-color: rgb(147 197 253);
+  background: white;
+  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.42);
+  outline: none;
 }
 
 .target-button,
@@ -683,10 +750,22 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .target-button {
-  min-height: 38px;
-  background: rgb(37 99 235);
-  padding: 0.5rem 1rem;
+  min-height: 36px;
+  width: 100%;
+  background: rgb(29 78 216);
+  padding: 0.45rem 0.9rem;
   color: white;
+  white-space: nowrap;
+}
+
+.target-panel {
+  overflow: hidden;
+}
+
+.target-panel-head {
+  margin-bottom: 1rem;
+  display: grid;
+  gap: 1rem;
 }
 
 .target-button:disabled,
@@ -774,6 +853,23 @@ const reviewScheduleText = (question: Question) => {
   background: white;
   padding: 1.25rem;
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.starter-panel {
+  display: grid;
+  gap: 1.25rem;
+  align-items: center;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.starter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .mock-stats-panel,
@@ -1044,7 +1140,15 @@ const reviewScheduleText = (question: Question) => {
 
 @media (min-width: 768px) {
   .target-form {
-    grid-template-columns: 96px minmax(200px, 1fr) 150px 132px minmax(220px, 1fr) auto;
+    grid-template-columns: minmax(92px, 0.55fr) minmax(180px, 1.15fr) minmax(140px, 0.8fr) minmax(124px, 0.72fr);
+  }
+
+  .target-note-input {
+    grid-column: span 3;
+  }
+
+  .target-button {
+    width: auto;
   }
 
   .target-chip-grid {
@@ -1077,12 +1181,40 @@ const reviewScheduleText = (question: Question) => {
   }
 }
 
+@media (min-width: 1280px) {
+  .target-panel-head {
+    grid-template-columns: minmax(220px, 0.4fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .target-form {
+    grid-template-columns: 96px minmax(180px, 1fr) 148px 132px minmax(220px, 1.1fr) auto;
+  }
+
+  .target-note-input {
+    grid-column: auto;
+  }
+}
+
 :global(.dark) .metric-card,
 :global(.dark) .section-panel,
 :global(.dark) .review-plan-card,
-:global(.dark) .target-input {
+:global(.dark) .starter-panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
+}
+
+:global(.dark) .target-input {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23 / 0.52);
+  color: rgb(226 232 240);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
+}
+
+:global(.dark) .target-input:focus {
+  border-color: rgb(96 165 250);
+  background: rgb(15 23 42);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.24);
 }
 
 :global(.dark) .mock-stats-panel {

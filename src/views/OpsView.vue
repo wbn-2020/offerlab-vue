@@ -1,6 +1,8 @@
 <template>
-  <main class="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950">
-    <div class="mx-auto max-w-7xl space-y-6">
+  <div class="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="px-4 py-8">
+      <div class="mx-auto max-w-7xl min-w-0 space-y-6">
       <section class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Admin Ops</p>
@@ -10,6 +12,9 @@
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
+          <RouterLink to="/" class="secondary-button">
+            返回首页
+          </RouterLink>
           <button type="button" class="secondary-button" :disabled="isLoading || isOutboxLoading" @click="refreshAll">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isOutboxLoading }" />
             刷新状态
@@ -25,6 +30,17 @@
         {{ loadError }}
       </section>
 
+      <section v-if="!permissions && loadError" class="panel text-center">
+        <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">权限状态未加载</h2>
+        <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+          你已进入运维页，但权限接口暂时不可用。刷新权限后会恢复对应的运维、审核和管理员面板。
+        </p>
+        <button type="button" class="primary-button mt-5" :disabled="isLoading || isOutboxLoading" @click="refreshAll">
+          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isOutboxLoading }" />
+          重新加载权限
+        </button>
+      </section>
+
       <section v-if="canOps" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <article class="metric-card">
           <div class="flex items-start justify-between gap-4">
@@ -32,44 +48,44 @@
               <p class="metric-label">搜索服务</p>
               <h2 class="metric-value">{{ searchOnlineText }}</h2>
             </div>
-            <span :class="['status-pill', status?.search.available ? 'status-ok' : 'status-warn']">
-              {{ status?.search.available ? 'Online' : 'Fallback' }}
+            <span :class="['status-pill', !status ? 'status-warn' : status.search.available ? 'status-ok' : 'status-warn']">
+              {{ !status ? '检测中' : status.search.available ? 'Online' : 'Fallback' }}
             </span>
           </div>
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            {{ status?.search.indexName || '--' }} / {{ status?.search.indexReady ? '索引可用' : '索引未就绪' }}
+            {{ textOrUnavailable(status?.search.indexName) }} / {{ !status ? '未加载' : status.search.indexReady ? '索引可用' : '索引未就绪' }}
           </p>
         </article>
 
         <article class="metric-card">
           <p class="metric-label">待投递 Outbox</p>
-          <h2 class="metric-value">{{ status?.outbox.byStatus.pending ?? '--' }}</h2>
+          <h2 class="metric-value">{{ countText(status?.outbox.byStatus.pending) }}</h2>
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            当前到期可投递 {{ status?.outbox.duePending ?? '--' }} 条
+            当前到期可投递 {{ countText(status?.outbox.duePending) }} 条
           </p>
         </article>
 
         <article class="metric-card">
           <p class="metric-label">失败 Outbox</p>
-          <h2 class="metric-value">{{ status?.outbox.byStatus.failed ?? '--' }}</h2>
+          <h2 class="metric-value">{{ countText(status?.outbox.byStatus.failed) }}</h2>
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            已发送 {{ status?.outbox.byStatus.sent ?? '--' }} 条
+            已发送 {{ countText(status?.outbox.byStatus.sent) }} 条
           </p>
         </article>
 
         <article class="metric-card">
           <p class="metric-label">ES 补偿失败</p>
-          <h2 class="metric-value">{{ status?.searchIndexRetry.byStatus.failed ?? '--' }}</h2>
+          <h2 class="metric-value">{{ countText(status?.searchIndexRetry.byStatus.failed) }}</h2>
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            到期可重试 {{ status?.searchIndexRetry.duePending ?? '--' }} 条
+            到期可重试 {{ countText(status?.searchIndexRetry.duePending) }} 条
           </p>
         </article>
 
         <article class="metric-card">
           <p class="metric-label">通知补偿失败</p>
-          <h2 class="metric-value">{{ status?.notificationRetry?.byStatus.failed ?? '--' }}</h2>
+          <h2 class="metric-value">{{ countText(status?.notificationRetry?.byStatus.failed) }}</h2>
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            到期可重放 {{ status?.notificationRetry?.duePending ?? '--' }} 条
+            到期可重放 {{ countText(status?.notificationRetry?.duePending) }} 条
           </p>
         </article>
       </section>
@@ -103,7 +119,7 @@
               </div>
               <div class="task-stat">
                 <span>索引</span>
-                <strong class="truncate text-sm">{{ task.indexName || '--' }}</strong>
+                <strong class="truncate text-sm">{{ textOrUnavailable(task.indexName) }}</strong>
               </div>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -137,7 +153,7 @@
             <div v-if="!searchAnalytics?.hotKeywords.length" class="analytics-empty">暂无搜索记录</div>
             <div v-else class="analytics-list">
               <div v-for="item in searchAnalytics.hotKeywords" :key="`hot-${item.keyword}`" class="analytics-row">
-                <span class="analytics-title">{{ item.keyword || '--' }}</span>
+                <span class="analytics-title">{{ textOrUnavailable(item.keyword, '暂无关键词') }}</span>
                 <span class="status-pill status-ok">{{ item.count }}</span>
               </div>
             </div>
@@ -151,7 +167,7 @@
             <div v-if="!searchAnalytics?.noResultKeywords.length" class="analytics-empty">暂无无结果记录</div>
             <div v-else class="analytics-list">
               <div v-for="item in searchAnalytics.noResultKeywords" :key="`zero-${item.keyword}`" class="analytics-row">
-                <span class="analytics-title">{{ item.keyword || '--' }}</span>
+                <span class="analytics-title">{{ textOrUnavailable(item.keyword, '暂无关键词') }}</span>
                 <span class="status-pill status-warn">{{ item.noResultCount || item.count }}</span>
               </div>
             </div>
@@ -165,7 +181,7 @@
             <div v-if="!searchAnalytics?.prepClicks.length" class="analytics-empty">暂无点击记录</div>
             <div v-else class="analytics-list">
               <div v-for="item in searchAnalytics.prepClicks" :key="`prep-${item.company}`" class="analytics-row">
-                <span class="analytics-title">{{ item.company || '--' }}</span>
+                <span class="analytics-title">{{ textOrUnavailable(item.company, '暂无公司') }}</span>
                 <span class="status-pill status-ok">{{ item.count }}</span>
               </div>
             </div>
@@ -302,7 +318,7 @@
                   </td>
                   <td class="max-w-[260px]">
                     <p class="font-semibold text-slate-800 dark:text-slate-100">{{ report.reason }}</p>
-                    <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '--' }}</p>
+                    <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '无补充说明' }}</p>
                     <p v-if="report.reviewNote" class="mt-1 truncate text-xs text-primary-600 dark:text-primary-300">处理备注：{{ report.reviewNote }}</p>
                   </td>
                   <td>
@@ -399,7 +415,7 @@
                     :checked="selectedFailedIds.includes(message.id)"
                     @change="toggleFailedSelection(message.id)"
                   />
-                  <span v-else>--</span>
+                  <span v-else class="text-xs text-slate-400">不可选</span>
                 </td>
                 <td class="font-mono text-xs">{{ message.id }}</td>
                 <td>{{ message.topic }}</td>
@@ -517,7 +533,7 @@
                 <span class="text-xs text-slate-500 dark:text-slate-400">{{ item.scene || '通知消费' }}</span>
               </div>
               <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                接收 {{ item.receiverUid }} · 发送 {{ item.senderUid }} · 目标 {{ item.targetId || '--' }} · {{ item.lastError || formatTime(item.updateTime || item.createTime) }}
+                接收 {{ item.receiverUid }} · 发送 {{ item.senderUid }} · 目标 {{ textOrUnavailable(item.targetId ? String(item.targetId) : '', '无目标') }} · {{ item.lastError || formatTime(item.updateTime || item.createTime) }}
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -628,7 +644,7 @@
               </div>
               <div class="task-stat">
                 <span>索引</span>
-                <strong class="truncate text-sm">{{ questionIndexTask.indexName || '--' }}</strong>
+                <strong class="truncate text-sm">{{ textOrUnavailable(questionIndexTask.indexName) }}</strong>
               </div>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -657,7 +673,7 @@
                     已索引 {{ item.indexed }} / {{ item.total }}，失败 {{ item.failed }} · {{ formatTime(item.updatedAt || item.createdAt) }}
                   </p>
                 </div>
-                <strong class="text-sm text-slate-700 dark:text-slate-200">{{ item.indexName || '--' }}</strong>
+                <strong class="text-sm text-slate-700 dark:text-slate-200">{{ textOrUnavailable(item.indexName) }}</strong>
               </div>
             </div>
           </div>
@@ -691,7 +707,7 @@
                   已索引 {{ item.indexed }} / {{ item.total }}，失败 {{ item.failed }} · {{ formatTime(item.updatedAt || item.createdAt) }}
                 </p>
               </div>
-              <strong class="text-sm text-slate-700 dark:text-slate-200">{{ item.indexName || '--' }}</strong>
+              <strong class="text-sm text-slate-700 dark:text-slate-200">{{ textOrUnavailable(item.indexName) }}</strong>
             </div>
           </div>
         </article>
@@ -747,7 +763,7 @@
                   </td>
                   <td class="max-w-[260px]">
                     <p class="font-semibold text-slate-800 dark:text-slate-100">{{ report.reason }}</p>
-                    <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '--' }}</p>
+                    <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '无补充说明' }}</p>
                     <p v-if="report.reviewNote" class="mt-1 truncate text-xs text-primary-600 dark:text-primary-300">处理备注：{{ report.reviewNote }}</p>
                   </td>
                   <td>
@@ -829,7 +845,7 @@
           <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
             <p class="font-semibold text-slate-900 dark:text-slate-100">{{ reviewContentTitle }}</p>
             <p class="mt-2 leading-6 text-slate-600 dark:text-slate-300">{{ reviewContentSummary }}</p>
-            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">举报原因：{{ reviewDialog.report?.reason || '--' }} · {{ reviewDialog.report?.detail || '无补充说明' }}</p>
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">举报原因：{{ reviewDialog.report?.reason || '未填写原因' }} · {{ reviewDialog.report?.detail || '无补充说明' }}</p>
           </div>
           <label class="block text-sm font-bold text-slate-700 dark:text-slate-200">
             审核备注
@@ -904,15 +920,18 @@
           </section>
         </div>
       </article>
-    </div>
-  </main>
+      </div>
+    </main>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next'
+import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import { opsApi, type AdminUserRole, type AiExtractTask, type AiExtractTaskDetail, type MyAdminPermissions, type NotificationRetryTask, type OpsStatus, type OutboxMessage, type QuestionIndexTask, type SearchAnalytics, type SearchIndexRetryTask } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
@@ -1003,12 +1022,12 @@ const canModerate = computed(() => Boolean(permissions.value?.contentModerator |
 const isTaskActive = computed(() => task.value?.status === 'PENDING' || task.value?.status === 'RUNNING')
 const isQuestionIndexTaskActive = computed(() => questionIndexTask.value?.status === 'PENDING' || questionIndexTask.value?.status === 'RUNNING')
 const searchOnlineText = computed(() => {
-  if (!status.value) return '--'
+  if (!status.value) return '未加载'
   if (!status.value.search.enabled) return '未启用'
   return status.value.search.available ? '在线' : '降级'
 })
 const adminModeText = computed(() => {
-  if (!status.value) return '--'
+  if (!status.value) return '未加载'
   if (status.value.adminMode === 'RBAC') return 'RBAC'
   if (status.value.adminMode === 'WHITELIST') return '白名单'
   if (status.value.adminMode === 'RBAC_EMPTY') return 'RBAC 未启用'
@@ -1021,6 +1040,85 @@ const adminModeClass = computed(() => {
   if (status.value.adminMode === 'LOCAL_OPEN' || status.value.adminMode === 'RBAC_EMPTY') return 'status-warn'
   return 'status-ok'
 })
+
+const normalizeOpsStatus = (raw?: OpsStatus | null): OpsStatus => {
+  const toCount = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0
+  const fallback: OpsStatus = {
+    adminWhitelistEnabled: false,
+    adminRoleEnabled: false,
+    adminMode: 'LOCKED',
+    search: {
+      indexReady: false,
+      indexExists: false,
+      indexName: '',
+      available: false,
+      enabled: false,
+    },
+    searchIndexRetry: {
+      byStatus: { pending: 0, done: 0, failed: 0, running: 0, unknown: 0 },
+      duePending: 0,
+    },
+    notificationRetry: {
+      byStatus: { pending: 0, done: 0, failed: 0, running: 0, unknown: 0 },
+      duePending: 0,
+    },
+    outbox: {
+      byStatus: { pending: 0, sent: 0, failed: 0, unknown: 0 },
+      duePending: 0,
+    },
+  }
+
+  if (!raw) return fallback
+
+  return {
+    ...fallback,
+    ...raw,
+    search: {
+      ...fallback.search,
+      ...raw.search,
+      indexReady: Boolean(raw.search?.indexReady),
+      indexExists: Boolean(raw.search?.indexExists),
+      indexName: String(raw.search?.indexName || ''),
+      available: Boolean(raw.search?.available),
+      enabled: Boolean(raw.search?.enabled),
+    },
+    searchIndexRetry: {
+      byStatus: {
+        ...fallback.searchIndexRetry.byStatus,
+        ...raw.searchIndexRetry?.byStatus,
+        pending: toCount(raw.searchIndexRetry?.byStatus?.pending),
+        done: toCount(raw.searchIndexRetry?.byStatus?.done),
+        failed: toCount(raw.searchIndexRetry?.byStatus?.failed),
+        running: toCount(raw.searchIndexRetry?.byStatus?.running),
+        unknown: toCount(raw.searchIndexRetry?.byStatus?.unknown),
+      },
+      duePending: toCount(raw.searchIndexRetry?.duePending),
+    },
+    notificationRetry: {
+      byStatus: {
+        ...fallback.notificationRetry.byStatus,
+        ...raw.notificationRetry?.byStatus,
+        pending: toCount(raw.notificationRetry?.byStatus?.pending),
+        done: toCount(raw.notificationRetry?.byStatus?.done),
+        failed: toCount(raw.notificationRetry?.byStatus?.failed),
+        running: toCount(raw.notificationRetry?.byStatus?.running),
+        unknown: toCount(raw.notificationRetry?.byStatus?.unknown),
+      },
+      duePending: toCount(raw.notificationRetry?.duePending),
+    },
+    outbox: {
+      byStatus: {
+        ...fallback.outbox.byStatus,
+        ...raw.outbox?.byStatus,
+        pending: toCount(raw.outbox?.byStatus?.pending),
+        sent: toCount(raw.outbox?.byStatus?.sent),
+        failed: toCount(raw.outbox?.byStatus?.failed),
+        unknown: toCount(raw.outbox?.byStatus?.unknown),
+      },
+      duePending: toCount(raw.outbox?.duePending),
+    },
+  }
+}
 const taskStatusClass = computed(() => {
   if (task.value?.status === 'SUCCEEDED') return 'status-ok'
   if (task.value?.status === 'FAILED') return 'status-danger'
@@ -1046,13 +1144,13 @@ const reviewDialogTitle = computed(() => {
 })
 const reviewContentTitle = computed(() => {
   const report = reviewDialog.report
-  if (!report) return '--'
+  if (!report) return '未选择内容'
   if (reviewDialog.type === 'comment') return (report as CommentReport).postTitle || `帖子 ${(report as CommentReport).postId}`
   return (report as PostReport).postTitle || `帖子 ${(report as PostReport).postId}`
 })
 const reviewContentSummary = computed(() => {
   const report = reviewDialog.report
-  if (!report) return '--'
+  if (!report) return '未选择内容'
   return reviewDialog.type === 'comment'
     ? ((report as CommentReport).commentSummary || '暂无评论摘要')
     : ((report as PostReport).postSummary || '暂无帖子摘要')
@@ -1064,7 +1162,6 @@ const loadPermissions = async () => {
     permissions.value = res.data
   } catch (error: any) {
     loadError.value = getErrorMessage(error, '管理权限接口暂不可用')
-    permissions.value = null
   }
 }
 
@@ -1074,7 +1171,7 @@ const loadStatus = async () => {
   loadError.value = ''
   try {
     const res = await opsApi.status()
-    status.value = res.data
+    status.value = normalizeOpsStatus(res.data)
   } catch (error: any) {
     loadError.value = getErrorMessage(error, '运维状态接口暂不可用')
   } finally {
@@ -1669,13 +1766,20 @@ const reportStatusClass = (value?: number) => {
   return 'status-warn'
 }
 
-const formatTime = (value?: string) => value ? value.replace('T', ' ').slice(0, 19) : '--'
+const countText = (value?: number | null) => value === null || value === undefined ? '未加载' : String(value)
+
+const textOrUnavailable = (value?: string | null, fallback = '不可用') => {
+  const text = value?.trim()
+  return text || fallback
+}
+
+const formatTime = (value?: string) => value ? value.replace('T', ' ').slice(0, 19) : '未加载'
 
 const formatPayload = (payload: string) => {
   try {
     return JSON.stringify(JSON.parse(payload), null, 2)
   } catch {
-    return payload || '--'
+    return payload || '暂无载荷'
   }
 }
 
@@ -1856,10 +1960,17 @@ onBeforeUnmount(() => {
 
 .metric-card,
 .panel {
+  min-width: 0;
+  overflow: hidden;
   border-radius: 0.75rem;
   border: 1px solid rgb(226 232 240);
   background: white;
   padding: 1.25rem;
+}
+
+.panel .overflow-x-auto {
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .metric-label {
@@ -1983,6 +2094,7 @@ onBeforeUnmount(() => {
 
 .admin-row {
   display: flex;
+  min-width: 0;
   min-height: 64px;
   align-items: center;
   justify-content: space-between;
@@ -2065,6 +2177,30 @@ onBeforeUnmount(() => {
 :global(.dark) .detail-section h4,
 :global(.dark) .task-stat strong {
   color: rgb(248 250 252);
+}
+
+.admin-row > * {
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .metric-card,
+  .panel {
+    padding: 1rem;
+  }
+
+  .admin-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ops-table {
+    min-width: 760px;
+  }
+
+  .report-table {
+    min-width: 820px;
+  }
 }
 
 :global(.dark) .task-stat,

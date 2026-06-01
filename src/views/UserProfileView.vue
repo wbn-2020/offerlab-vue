@@ -1,5 +1,7 @@
 <template>
-  <main class="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="px-4 py-8">
     <div class="mx-auto max-w-6xl space-y-6">
       <section v-if="isLoading" class="profile-panel py-20 text-center text-sm text-slate-500 dark:text-slate-400">
         正在加载用户主页...
@@ -94,7 +96,8 @@
         </template>
       </template>
     </div>
-  </main>
+    </main>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -106,6 +109,7 @@ import { userApi } from '@/api/user'
 import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import type { Post, User, UserIntent } from '@/api/types'
 
 const route = useRoute()

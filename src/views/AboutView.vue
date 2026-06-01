@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 p-8">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="p-8">
     <div class="max-w-4xl mx-auto">
       <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12">
         <h1 class="text-4xl font-bold text-slate-900 dark:text-slate-100 mb-6">关于面试圈</h1>
@@ -96,9 +98,10 @@
         </div>
       </div>
     </div>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-// 关于页面
+import AppHeader from '@/components/layout/AppHeader.vue'
 </script>
