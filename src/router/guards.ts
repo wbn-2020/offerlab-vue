@@ -1,6 +1,5 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { authApi } from '@/api/auth'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { adminPermissionRequirementText, hasAdminPermission, type AdminPermissionKey } from '@/utils/adminPermissions'
 
@@ -24,15 +23,10 @@ export function setupRouterGuards(router: Router) {
     const requiresAuth = to.meta.requiresAuth as boolean
     const adminPermission = to.meta.adminPermission as AdminPermissionKey | AdminPermissionKey[] | undefined
 
-    if (authStore.token && !authStore.user) {
-      try {
-        const me = await authApi.fetchMe()
-        if (me.data) {
-          authStore.setUser(me.data)
-        }
-      } catch {
-        authStore.logout()
-      }
+    if (authStore.token && !authStore.ready) {
+      await authStore.hydrate()
+    } else if (authStore.token && !authStore.user) {
+      await authStore.hydrate()
     }
 
     if (requiresAuth && !authStore.isLoggedIn) {

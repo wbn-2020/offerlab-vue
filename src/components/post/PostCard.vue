@@ -105,34 +105,40 @@
 
     <div class="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-        <span class="card-action">
+        <span class="card-action" title="浏览量">
           <Eye class="h-4 w-4" />
+          <span class="action-label">浏览</span>
           {{ formatNumber(post.counter.view) }}
         </span>
         <button
           type="button"
           class="card-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-55"
           :aria-label="likePending ? '点赞处理中' : '点赞帖子'"
+          :title="likePending ? '点赞处理中' : '点赞帖子'"
           :aria-busy="likePending"
           :disabled="likePending"
           @click.prevent="handleLike"
         >
           <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-rose-600' : ''" />
+          <span class="action-label">点赞</span>
           {{ formatNumber(post.counter.like) }}
         </button>
-        <span class="card-action">
+        <span class="card-action" title="评论数">
           <MessageCircle class="h-4 w-4" />
+          <span class="action-label">评论</span>
           {{ formatNumber(post.counter.comment) }}
         </span>
         <button
           type="button"
           class="card-action hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-55"
           :aria-label="favoritePending ? '收藏处理中' : '收藏帖子'"
+          :title="favoritePending ? '收藏处理中' : '收藏帖子'"
           :aria-busy="favoritePending"
           :disabled="favoritePending"
           @click.prevent="handleFavorite"
         >
           <Star class="h-4 w-4" :class="post.myInteraction?.favorited ? 'fill-current text-amber-500' : ''" />
+          <span class="action-label">收藏</span>
           {{ formatNumber(post.counter.favorite) }}
         </button>
       </div>
@@ -276,11 +282,29 @@ const handleFollow = async () => {
 .card-action {
   display: inline-flex;
   min-height: 2rem;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.35rem;
   border-radius: 999px;
   padding: 0.25rem 0.55rem;
+  white-space: nowrap;
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.action-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+@media (max-width: 420px) {
+  .card-action {
+    gap: 0.25rem;
+    padding: 0.25rem 0.45rem;
+  }
+
+  .action-label {
+    font-size: 0.7rem;
+  }
 }
 
 .card-action:hover {

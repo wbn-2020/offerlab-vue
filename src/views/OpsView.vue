@@ -25,7 +25,7 @@
         {{ loadError }}
       </section>
 
-      <section v-if="canOps" class="grid gap-4 md:grid-cols-3">
+      <section v-if="canOps" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <article class="metric-card">
           <div class="flex items-start justify-between gap-4">
             <div>
@@ -54,6 +54,22 @@
           <h2 class="metric-value">{{ status?.outbox.byStatus.failed ?? '--' }}</h2>
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
             已发送 {{ status?.outbox.byStatus.sent ?? '--' }} 条
+          </p>
+        </article>
+
+        <article class="metric-card">
+          <p class="metric-label">ES 补偿失败</p>
+          <h2 class="metric-value">{{ status?.searchIndexRetry.byStatus.failed ?? '--' }}</h2>
+          <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            到期可重试 {{ status?.searchIndexRetry.duePending ?? '--' }} 条
+          </p>
+        </article>
+
+        <article class="metric-card">
+          <p class="metric-label">通知补偿失败</p>
+          <h2 class="metric-value">{{ status?.notificationRetry?.byStatus.failed ?? '--' }}</h2>
+          <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            到期可重放 {{ status?.notificationRetry?.duePending ?? '--' }} 条
           </p>
         </article>
       </section>
@@ -415,6 +431,109 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section v-if="canOps" class="panel">
+        <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">搜索索引补偿任务</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">查看 ES 同步失败原因，失败任务可直接重试。</p>
+          </div>
+          <button type="button" class="icon-button" title="刷新搜索索引补偿任务" :disabled="isSearchIndexRetryTasksLoading" @click="loadSearchIndexRetryTasks">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isSearchIndexRetryTasksLoading }" />
+          </button>
+        </div>
+
+        <div v-if="isSearchIndexRetryTasksLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+          正在加载搜索索引补偿任务...
+        </div>
+        <div v-else-if="searchIndexRetryTasks.length === 0" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+          暂无搜索索引补偿任务记录。
+        </div>
+        <div v-else class="space-y-3 pt-5">
+          <div v-for="item in searchIndexRetryTasks" :key="item.id" class="admin-row task-row">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="truncate font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">{{ item.postId }}</span>
+                <span :class="['status-pill', searchIndexRetryTaskClass(item.taskStatus)]">{{ searchIndexRetryTaskText(item.taskStatus) }}</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">{{ item.operation }}</span>
+              </div>
+              <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                {{ item.lastError || formatTime(item.updateTime || item.createTime) }}
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs text-slate-500 dark:text-slate-400">重试 {{ item.retryCount }}</span>
+              <button
+                v-if="item.taskStatus === 2"
+                type="button"
+                class="secondary-button compact-action danger-action"
+                :disabled="replayingSearchIndexTaskId === item.id"
+                @click="replaySearchIndexRetryTask(item)"
+              >
+                <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': replayingSearchIndexTaskId === item.id }" />
+                重试
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="canOps" class="panel">
+        <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">通知补偿任务</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">查看通知消费失败原因，失败任务可重放。</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="secondary-button compact-action"
+              :disabled="failedNotificationRetryTaskIds.length === 0 || isBatchReplayingNotificationTasks"
+              @click="replayFailedNotificationRetryTasks"
+            >
+              <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': isBatchReplayingNotificationTasks }" />
+              批量重放 {{ failedNotificationRetryTaskIds.length || '' }}
+            </button>
+            <button type="button" class="icon-button" title="刷新通知补偿任务" :disabled="isNotificationRetryTasksLoading" @click="loadNotificationRetryTasks">
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isNotificationRetryTasksLoading }" />
+            </button>
+          </div>
+        </div>
+
+        <div v-if="isNotificationRetryTasksLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+          正在加载通知补偿任务...
+        </div>
+        <div v-else-if="notificationRetryTasks.length === 0" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+          暂无通知补偿任务记录。
+        </div>
+        <div v-else class="space-y-3 pt-5">
+          <div v-for="item in notificationRetryTasks" :key="item.id" class="admin-row task-row">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="truncate font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">{{ item.dedupKey || item.id }}</span>
+                <span :class="['status-pill', notificationRetryTaskClass(item.taskStatus)]">{{ notificationRetryTaskText(item.taskStatus) }}</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">{{ item.scene || '通知消费' }}</span>
+              </div>
+              <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                接收 {{ item.receiverUid }} · 发送 {{ item.senderUid }} · 目标 {{ item.targetId || '--' }} · {{ item.lastError || formatTime(item.updateTime || item.createTime) }}
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs text-slate-500 dark:text-slate-400">重试 {{ item.retryCount }}</span>
+              <button
+                v-if="item.taskStatus === 2"
+                type="button"
+                class="secondary-button compact-action danger-action"
+                :disabled="replayingNotificationRetryTaskId === item.id"
+                @click="replayNotificationRetryTask(item)"
+              >
+                <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': replayingNotificationRetryTaskId === item.id }" />
+                重放
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -794,7 +913,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
-import { opsApi, type AdminUserRole, type AiExtractTask, type AiExtractTaskDetail, type MyAdminPermissions, type OpsStatus, type OutboxMessage, type QuestionIndexTask, type SearchAnalytics } from '@/api/ops'
+import { opsApi, type AdminUserRole, type AiExtractTask, type AiExtractTaskDetail, type MyAdminPermissions, type NotificationRetryTask, type OpsStatus, type OutboxMessage, type QuestionIndexTask, type SearchAnalytics, type SearchIndexRetryTask } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
@@ -806,6 +925,8 @@ const permissions = ref<MyAdminPermissions | null>(null)
 const task = ref<SearchIndexTask | null>(null)
 const adminUsers = ref<AdminUserRole[]>([])
 const outboxMessages = ref<OutboxMessage[]>([])
+const searchIndexRetryTasks = ref<SearchIndexRetryTask[]>([])
+const notificationRetryTasks = ref<NotificationRetryTask[]>([])
 const aiTasks = ref<AiExtractTask[]>([])
 const recentTasks = ref<SearchIndexTask[]>([])
 const questionIndexTask = ref<QuestionIndexTask | null>(null)
@@ -823,6 +944,8 @@ const isLoading = ref(false)
 const isAdminsLoading = ref(false)
 const isAdminSubmitting = ref(false)
 const isOutboxLoading = ref(false)
+const isSearchIndexRetryTasksLoading = ref(false)
+const isNotificationRetryTasksLoading = ref(false)
 const isAiTasksLoading = ref(false)
 const isTasksLoading = ref(false)
 const isQuestionIndexTasksLoading = ref(false)
@@ -832,6 +955,9 @@ const isCommentReportsLoading = ref(false)
 const isSubmitting = ref(false)
 const adminActionUid = ref<ApiId | null>(null)
 const retryingId = ref<ApiId | null>(null)
+const replayingSearchIndexTaskId = ref<ApiId | null>(null)
+const replayingNotificationRetryTaskId = ref<ApiId | null>(null)
+const isBatchReplayingNotificationTasks = ref(false)
 const retryingAiTaskId = ref<ApiId | null>(null)
 const loadingAiTaskDetailId = ref<ApiId | null>(null)
 const reviewingReportId = ref<PostReport['reportId'] | null>(null)
@@ -913,6 +1039,7 @@ const questionIndexTaskTimeText = computed(() => {
   if (!questionIndexTask.value?.updatedAt) return '等待题库索引任务状态更新'
   return `最近更新：${questionIndexTask.value.updatedAt.replace('T', ' ')}`
 })
+const failedNotificationRetryTaskIds = computed(() => notificationRetryTasks.value.filter((item) => item.taskStatus === 2).map((item) => item.id))
 const reviewDialogTitle = computed(() => {
   const target = reviewDialog.type === 'comment' ? '评论举报' : '帖子举报'
   return `${reviewDialog.approved ? '通过' : '驳回'}${target}`
@@ -969,6 +1096,34 @@ const loadOutbox = async () => {
     outboxMessages.value = []
   } finally {
     isOutboxLoading.value = false
+  }
+}
+
+const loadSearchIndexRetryTasks = async () => {
+  if (!canOps.value) return
+  isSearchIndexRetryTasksLoading.value = true
+  try {
+    const res = await opsApi.listSearchIndexRetryTasks({ limit: 20 })
+    searchIndexRetryTasks.value = res.data || []
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '搜索索引补偿任务加载失败'))
+    searchIndexRetryTasks.value = []
+  } finally {
+    isSearchIndexRetryTasksLoading.value = false
+  }
+}
+
+const loadNotificationRetryTasks = async () => {
+  if (!canOps.value) return
+  isNotificationRetryTasksLoading.value = true
+  try {
+    const res = await opsApi.listNotificationRetryTasks({ limit: 20 })
+    notificationRetryTasks.value = res.data || []
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '通知补偿任务加载失败'))
+    notificationRetryTasks.value = []
+  } finally {
+    isNotificationRetryTasksLoading.value = false
   }
 }
 
@@ -1073,7 +1228,7 @@ const loadAdmins = async () => {
 const refreshAll = async () => {
   await loadPermissions()
   const loaders: Array<Promise<void>> = []
-  if (canOps.value) loaders.push(loadStatus(), loadOutbox(), loadTasks(), loadSearchAnalytics())
+  if (canOps.value) loaders.push(loadStatus(), loadOutbox(), loadSearchIndexRetryTasks(), loadNotificationRetryTasks(), loadTasks(), loadSearchAnalytics())
   if (canQuestion.value) loaders.push(loadAiTasks(), loadQuestionIndexTasks())
   if (canAdmin.value) loaders.push(loadAdmins())
   if (canModerate.value) loaders.push(loadReports(), loadCommentReports())
@@ -1180,6 +1335,47 @@ const retryMessage = async (message: OutboxMessage) => {
     toast.error(getErrorMessage(error, '重试失败消息失败'))
   } finally {
     retryingId.value = null
+  }
+}
+
+const replaySearchIndexRetryTask = async (task: SearchIndexRetryTask) => {
+  replayingSearchIndexTaskId.value = task.id
+  try {
+    await opsApi.replaySearchIndexRetryTask(task.id)
+    toast.success('搜索索引补偿任务已重置为待重试')
+    await Promise.all([loadStatus(), loadSearchIndexRetryTasks()])
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '搜索索引补偿任务重试失败'))
+  } finally {
+    replayingSearchIndexTaskId.value = null
+  }
+}
+
+const replayNotificationRetryTask = async (task: NotificationRetryTask) => {
+  replayingNotificationRetryTaskId.value = task.id
+  try {
+    await opsApi.replayNotificationRetryTask(task.id)
+    toast.success('通知补偿任务已重置为待重放')
+    await Promise.all([loadStatus(), loadNotificationRetryTasks()])
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '通知补偿任务重放失败'))
+  } finally {
+    replayingNotificationRetryTaskId.value = null
+  }
+}
+
+const replayFailedNotificationRetryTasks = async () => {
+  if (failedNotificationRetryTaskIds.value.length === 0) return
+  isBatchReplayingNotificationTasks.value = true
+  try {
+    const ids = failedNotificationRetryTaskIds.value
+    const res = await opsApi.replayNotificationRetryTasks(ids)
+    toast.success(`已重放 ${res.data?.replayed ?? 0} / ${res.data?.requested ?? ids.length} 条通知补偿任务`)
+    await Promise.all([loadStatus(), loadNotificationRetryTasks()])
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '批量重放通知补偿任务失败'))
+  } finally {
+    isBatchReplayingNotificationTasks.value = false
   }
 }
 
@@ -1399,6 +1595,34 @@ const outboxStatusText = (value: number) => {
 }
 
 const outboxStatusClass = (value: number) => {
+  if (value === 1) return 'status-ok'
+  if (value === 2) return 'status-danger'
+  return 'status-warn'
+}
+
+const searchIndexRetryTaskText = (value: number) => {
+  if (value === 0) return '待重试'
+  if (value === 1) return '已完成'
+  if (value === 2) return '失败'
+  if (value === 3) return '运行中'
+  return '未知'
+}
+
+const searchIndexRetryTaskClass = (value: number) => {
+  if (value === 1) return 'status-ok'
+  if (value === 2) return 'status-danger'
+  return 'status-warn'
+}
+
+const notificationRetryTaskText = (value: number) => {
+  if (value === 0) return '待重试'
+  if (value === 1) return '已完成'
+  if (value === 2) return '失败'
+  if (value === 3) return '运行中'
+  return '未知'
+}
+
+const notificationRetryTaskClass = (value: number) => {
   if (value === 1) return 'status-ok'
   if (value === 2) return 'status-danger'
   return 'status-warn'

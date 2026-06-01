@@ -11,6 +11,10 @@ assert.match(detail, /draftScope\s*=\s*computed/, 'QuestionDetailView must track
 assert.match(detail, /syncNoteEditor/, 'QuestionDetailView must reset note editor when detail changes')
 assert.doesNotMatch(detail, /isSavingNote\.value\s*\|\|\s*isNoteDirty\.value\)\s*return/, 'QuestionDetailView must not keep dirty notes when navigating to a different question')
 assert.match(detail, /v-else-if="isError"/, 'QuestionDetailView must distinguish load errors from not-found empty state')
+assert.match(detail, /detail\.value\?\.question \?\? null/, 'QuestionDetailView must treat missing question detail as a non-crashing empty state')
+assert.match(detail, /!detail \|\| !question/, 'QuestionDetailView template must render empty state when the adapted question is missing')
+assert.match(detail, /if \(!detail\.value \|\| !question\.value/, 'QuestionDetailView note actions must guard against missing adapted question data')
+assert.match(detail, /当前题库还没有同步到详情页/, 'QuestionDetailView empty state must explain backend/detail sync gaps')
 
 assert.match(search, /let searchRequestId\s*=\s*0/, 'SearchView must track latest search request')
 assert.match(search, /const requestId\s*=\s*\+\+searchRequestId/, 'SearchView must stamp each search request')

@@ -33,6 +33,15 @@
           >
             {{ isSavingAnswerCards ? '沉淀中...' : `沉淀 ${answerCardCount} 张回答卡` }}
           </button>
+          <button
+            v-if="session.status === 'completed' && aiReviewFailedCount > 0"
+            type="button"
+            class="secondary-action"
+            :disabled="isRetryingAiReview"
+            @click="$emit('retry-ai-review')"
+          >
+            {{ isRetryingAiReview ? '重试中...' : `重试 AI 评价 ${aiReviewFailedCount}` }}
+          </button>
           <div class="timer-card">
             <span>用时</span>
             <strong>{{ elapsedText }}</strong>
@@ -92,7 +101,21 @@
         />
       </label>
 
-      <div v-if="answer.aiReviewed" class="ai-review-box">
+      <div v-if="answer.aiReviewStatus === 'PENDING'" class="ai-review-box ai-review-pending">
+        <div class="ai-review-head">
+          <span>AI 评价生成中</span>
+          <strong>Pending</strong>
+        </div>
+        <p class="ai-review-message">复盘任务已进入队列，页面会自动刷新结果。</p>
+      </div>
+      <div v-else-if="answer.aiReviewStatus === 'FAILED'" class="ai-review-box ai-review-failed">
+        <div class="ai-review-head">
+          <span>AI 评价失败</span>
+          <strong>Failed</strong>
+        </div>
+        <p class="ai-review-message">{{ answer.aiReviewError || 'AI 评价暂时不可用，可以稍后重试。' }}</p>
+      </div>
+      <div v-else-if="answer.aiReviewed || answer.aiReviewStatus === 'SUCCEEDED'" class="ai-review-box">
         <div class="ai-review-head">
           <span>AI 评价</span>
           <strong>{{ answer.aiScore ?? 0 }} / 5</strong>
@@ -172,13 +195,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Copy, Download } from 'lucide-vue-next'
 import type { MockInterviewSession } from '@/api/question'
 import { answerHintText, answerMetaParts, answerQuestionText, difficultyText, sessionTitle, type MockInterviewReviewSuggestion } from '@/utils/mockInterviewFormat'
 
 type DraftAnswer = { answerText: string; selfReview: string; score: number }
 
-defineProps<{
+const props = defineProps<{
   session: MockInterviewSession | null
   draftAnswers: Record<string, DraftAnswer>
   elapsedText: string
@@ -191,6 +215,7 @@ defineProps<{
   aiReviewEnabled: boolean
   isMarkingWeakQuestions: boolean
   isSavingAnswerCards: boolean
+  isRetryingAiReview: boolean
 }>()
 
 defineEmits<{
@@ -199,8 +224,11 @@ defineEmits<{
   'toggle-ai-review': [enabled: boolean]
   'mark-weak-questions-review': []
   'save-answer-cards': []
+  'retry-ai-review': []
   submit: []
 }>()
+
+const aiReviewFailedCount = computed(() => props.session?.answers.filter((answer) => answer.aiReviewStatus === 'FAILED').length || 0)
 </script>
 
 <style scoped>
@@ -350,6 +378,23 @@ defineEmits<{
   padding: 0.15rem 0.6rem;
 }
 
+.ai-review-pending {
+  border-color: rgb(253 224 71);
+  background: rgb(254 252 232);
+}
+
+.ai-review-failed {
+  border-color: rgb(254 205 211);
+  background: rgb(255 241 242);
+}
+
+.ai-review-message {
+  margin-top: 0.65rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: rgb(71 85 105);
+}
+
 .ai-review-grid {
   margin-top: 0.8rem;
   display: grid;
@@ -491,6 +536,10 @@ defineEmits<{
 }
 
 :global(.dark) .ai-review-grid p {
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .ai-review-message {
   color: rgb(203 213 225);
 }
 

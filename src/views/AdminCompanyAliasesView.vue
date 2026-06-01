@@ -119,6 +119,13 @@
             </button>
           </div>
           <div v-if="isCandidateLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">正在分析候选...</div>
+          <div v-else-if="candidateError" class="candidate-error">
+            <div>
+              <strong>候选加载失败</strong>
+              <p>{{ candidateError }}</p>
+            </div>
+            <button type="button" class="secondary-button" @click="loadCandidates">重试</button>
+          </div>
           <EmptyState v-else-if="candidates.length === 0" title="暂无候选" description="当面经或题库中出现疑似同义公司名时，这里会推荐给运营确认。" />
           <div v-else class="candidate-grid">
             <article v-for="item in candidates" :key="`${item.canonicalCompany}-${item.alias}`" class="candidate-card">
@@ -168,6 +175,7 @@ const keyword = ref('')
 const isLoading = ref(false)
 const isCandidateLoading = ref(false)
 const isSaving = ref(false)
+const candidateError = ref('')
 const form = reactive({
   canonicalCompany: '',
   alias: '',
@@ -193,11 +201,13 @@ const loadAliases = async () => {
 
 const loadCandidates = async () => {
   isCandidateLoading.value = true
+  candidateError.value = ''
   try {
     const res = await opsApi.listCompanyAliasCandidates({ limit: 20 })
     candidates.value = res.data || []
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '公司别名候选加载失败'))
+    candidateError.value = getErrorMessage(error, '公司别名候选加载失败')
+    toast.error(candidateError.value)
     candidates.value = []
   } finally {
     isCandidateLoading.value = false
@@ -366,6 +376,29 @@ onMounted(() => {
   font-weight: 800;
 }
 
+.candidate-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(254 202 202);
+  background: rgb(254 242 242);
+  padding: 1rem;
+  color: rgb(127 29 29);
+}
+
+.candidate-error strong {
+  display: block;
+  font-weight: 900;
+}
+
+.candidate-error p {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 @media (min-width: 1024px) {
   .candidate-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -463,6 +496,12 @@ onMounted(() => {
 :global(.dark) .candidate-card {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
+}
+
+:global(.dark) .candidate-error {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10 / 0.35);
+  color: rgb(254 202 202);
 }
 
 :global(.dark) .candidate-card strong {

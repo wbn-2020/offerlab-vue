@@ -10,7 +10,7 @@
         </p>
         <button type="button" class="primary-action" @click="refetch()">重试</button>
       </section>
-      <EmptyState v-else-if="!detail" title="题目不存在" description="这道题可能已隐藏或来源内容不可见。" actionText="返回题库" actionHref="/questions" />
+      <EmptyState v-else-if="!detail || !question" title="题目不存在" description="这道题可能已隐藏、来源内容不可见，或当前题库还没有同步到详情页。" actionText="返回题库" actionHref="/questions" />
       <div v-else class="grid gap-8 lg:grid-cols-3">
         <article class="rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
           <div class="mb-5 flex flex-wrap gap-2">
@@ -239,17 +239,17 @@ const { data, isLoading, isError, error, refetch } = useQuery({
 })
 
 const detail = computed(() => data.value?.data || null)
-const question = computed(() => detail.value!.question)
-const sourcePostCount = computed(() => Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1))
-const isCanonicalRoot = computed(() => !question.value.canonicalId || String(question.value.canonicalId) === String(question.value.id))
-const hasReviewSchedule = computed(() => Boolean(question.value.nextReviewAt || question.value.lastReviewedAt || question.value.reviewCount > 0))
+const question = computed(() => detail.value?.question ?? null)
+const sourcePostCount = computed(() => question.value ? Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1) : 1)
+const isCanonicalRoot = computed(() => !question.value?.canonicalId || String(question.value.canonicalId) === String(question.value.id))
+const hasReviewSchedule = computed(() => Boolean(question.value?.nextReviewAt || question.value?.lastReviewedAt || (question.value?.reviewCount ?? 0) > 0))
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const noteDraftKey = computed(() => `offerlab:${storageOwner.value}:question-note-draft:${questionId.value}`)
 const draftScope = computed(() => `${storageOwner.value}:${questionId.value}`)
 const unsavedLeaveMessage = '你有未保存的题目笔记，离开后可从本地草稿恢复。确定要离开吗？'
 
 const markNoteDirty = () => {
-  if (!detail.value || isSavingNote.value) return
+  if (!detail.value || !question.value || isSavingNote.value) return
   isNoteDirty.value = noteText.value !== (question.value.note || '')
     || mistakeReason.value !== (question.value.mistakeReason || '')
     || answerDraft.value !== (question.value.answerDraft || '')
@@ -267,7 +267,7 @@ const markNoteDirty = () => {
 }
 
 const loadNoteDraft = () => {
-  if (!detail.value || draftLoadedFor.value === draftScope.value) return
+  if (!detail.value || !question.value || draftLoadedFor.value === draftScope.value) return
   draftLoadedFor.value = draftScope.value
   const raw = safeStorage.get(noteDraftKey.value)
   if (!raw) return
@@ -287,7 +287,7 @@ const loadNoteDraft = () => {
 }
 
 const syncNoteEditor = () => {
-  if (!detail.value) return
+  if (!detail.value || !question.value) return
   noteText.value = question.value.note || ''
   mistakeReason.value = question.value.mistakeReason || ''
   answerDraft.value = question.value.answerDraft || ''
@@ -297,8 +297,8 @@ const syncNoteEditor = () => {
 }
 
 watch(detail, (value) => {
-  if (!value) return
-  selectedProgress.value = value?.question.progressStatus || ''
+  if (!value?.question) return
+  selectedProgress.value = value.question.progressStatus || ''
   if (isSavingNote.value) return
   syncNoteEditor()
 }, { immediate: true })
@@ -310,7 +310,7 @@ const ensureLogin = () => {
 }
 
 const toggleFavorite = async () => {
-  if (!detail.value || !ensureLogin() || isTogglingFavorite.value) return
+  if (!detail.value || !question.value || !ensureLogin() || isTogglingFavorite.value) return
   isTogglingFavorite.value = true
   try {
     if (question.value.favorite) {
@@ -327,7 +327,7 @@ const toggleFavorite = async () => {
 }
 
 const updateProgress = async () => {
-  if (!detail.value || !selectedProgress.value || !ensureLogin() || isUpdatingProgress.value) return
+  if (!detail.value || !question.value || !selectedProgress.value || !ensureLogin() || isUpdatingProgress.value) return
   isUpdatingProgress.value = true
   try {
     await questionApi.updateProgress(question.value.id, selectedProgress.value)
@@ -348,7 +348,7 @@ const formatReviewDate = (value?: number) => {
 }
 
 const copyAnswerCard = async () => {
-  if (!detail.value) return
+  if (!detail.value || !question.value) return
   try {
     await navigator.clipboard.writeText(buildQuestionAnswerCardMarkdown({
       ...question.value,
@@ -364,7 +364,7 @@ const copyAnswerCard = async () => {
 }
 
 const saveNote = async () => {
-  if (!detail.value || !ensureLogin() || isSavingNote.value) return
+  if (!detail.value || !question.value || !ensureLogin() || isSavingNote.value) return
   isSavingNote.value = true
   try {
     await questionApi.updateNote(question.value.id, {

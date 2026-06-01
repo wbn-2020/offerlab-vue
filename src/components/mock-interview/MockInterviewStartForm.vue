@@ -31,8 +31,11 @@
           <option :value="8">8 题</option>
         </select>
       </label>
-      <button type="submit" class="primary-action w-full" :disabled="isStarting">
-        {{ isStarting ? '抽题中...' : '开始模拟面试' }}
+      <p v-if="serviceUnavailable" class="service-warning">
+        {{ unavailableMessage || '模拟面试服务暂时不可用，请稍后重试。' }}
+      </p>
+      <button type="submit" class="primary-action w-full" :disabled="isStarting || serviceUnavailable">
+        {{ isStarting ? '抽题中...' : serviceUnavailable ? '服务暂不可用' : '开始模拟面试' }}
       </button>
     </form>
   </section>
@@ -49,6 +52,8 @@ type StartFormModel = {
 
 defineProps<{
   isStarting: boolean
+  serviceUnavailable?: boolean
+  unavailableMessage?: string
 }>()
 
 defineEmits<{
@@ -107,6 +112,22 @@ const model = defineModel<StartFormModel>({ required: true })
   color: white;
 }
 
+.service-warning {
+  border-radius: 0.65rem;
+  border: 1px solid rgb(254 215 170);
+  background: rgb(255 247 237);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: rgb(154 52 18);
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 :global(.dark) .panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
@@ -120,5 +141,11 @@ const model = defineModel<StartFormModel>({ required: true })
 :global(.dark) .field-input {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
+}
+
+:global(.dark) .service-warning {
+  border-color: rgb(124 45 18);
+  background: rgb(67 20 7 / 0.45);
+  color: rgb(253 186 116);
 }
 </style>

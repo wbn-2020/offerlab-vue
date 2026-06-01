@@ -41,7 +41,7 @@ export interface Question {
 }
 
 export interface QuestionDetail {
-  question: Question
+  question: Question | null
   sourcePosts: Post[]
   relatedQuestions: Question[]
 }
@@ -207,6 +207,8 @@ export interface MockInterviewAnswer {
   selfReview: string
   score: number
   aiReviewed?: boolean
+  aiReviewStatus?: 'NOT_REQUESTED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | string
+  aiReviewError?: string
   aiScore?: number
   aiCompleteness?: string
   aiProjectExpression?: string
@@ -310,8 +312,9 @@ function adaptNameCount(raw: any): NameCount {
 }
 
 function adaptQuestionDetail(raw: any): QuestionDetail {
+  const rawQuestion = raw?.question ?? (raw?.id || raw?.questionId || raw?.questionText ? raw : null)
   return {
-    question: adaptQuestion(raw?.question),
+    question: rawQuestion ? adaptQuestion(rawQuestion) : null,
     sourcePosts: Array.isArray(raw?.sourcePosts) ? raw.sourcePosts.map(adaptPost) : [],
     relatedQuestions: Array.isArray(raw?.relatedQuestions) ? raw.relatedQuestions.map(adaptQuestion) : [],
   }
@@ -470,6 +473,8 @@ function adaptMockInterviewAnswer(raw: any): MockInterviewAnswer {
     selfReview: raw?.selfReview ?? '',
     score: Number(raw?.score ?? 0),
     aiReviewed: Boolean(raw?.aiReviewed),
+    aiReviewStatus: raw?.aiReviewStatus || (raw?.aiReviewed ? 'SUCCEEDED' : 'NOT_REQUESTED'),
+    aiReviewError: raw?.aiReviewError || undefined,
     aiScore: raw?.aiScore === undefined || raw?.aiScore === null ? undefined : Number(raw.aiScore),
     aiCompleteness: raw?.aiCompleteness || undefined,
     aiProjectExpression: raw?.aiProjectExpression || undefined,
@@ -596,6 +601,11 @@ export const questionApi = {
 
   submitMockInterview: async (id: ApiId, data: { durationSeconds: number; aiReviewEnabled?: boolean; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> => {
     const res = await client.post(`/api/v1/mock-interviews/${id}/submit`, data) as Result<any>
+    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
+  },
+
+  retryMockInterviewAiReview: async (id: ApiId): Promise<Result<MockInterviewSession>> => {
+    const res = await client.post(`/api/v1/mock-interviews/${id}/ai-review/retry`) as Result<any>
     return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
   },
 

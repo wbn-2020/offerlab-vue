@@ -18,7 +18,31 @@ export interface OpsStatus {
   adminRoleEnabled: boolean
   adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY' | 'LOCKED'
   search: SearchStatus
+  searchIndexRetry: SearchIndexRetryStatus
+  notificationRetry: NotificationRetryStatus
   outbox: OutboxStatus
+}
+
+export interface SearchIndexRetryStatus {
+  byStatus: {
+    pending: number
+    done: number
+    failed: number
+    running: number
+    unknown?: number
+  }
+  duePending: number
+}
+
+export interface NotificationRetryStatus {
+  byStatus: {
+    pending: number
+    done: number
+    failed: number
+    running: number
+    unknown?: number
+  }
+  duePending: number
 }
 
 export interface MyAdminPermissions {
@@ -159,8 +183,44 @@ export interface QuestionIndexTask {
   total: number
   indexName?: string
   message?: string
+  retryable?: boolean
   createdAt?: string
   updatedAt?: string
+}
+
+export interface SearchIndexRetryTask {
+  id: ApiId
+  dedupKey: string
+  postId: ApiId
+  operation: 'INDEX' | 'DELETE' | string
+  taskStatus: number
+  retryCount: number
+  nextRetryTime?: string
+  lockOwner?: string
+  lockUntil?: string
+  lastError?: string
+  createTime?: string
+  updateTime?: string
+}
+
+export interface NotificationRetryTask {
+  id: ApiId
+  dedupKey: string
+  scene?: string
+  receiverUid: ApiId
+  senderUid: ApiId
+  notifType?: number
+  targetType?: number
+  targetId?: ApiId
+  contentJson?: string
+  taskStatus: number
+  retryCount: number
+  nextRetryTime?: string
+  lockOwner?: string
+  lockUntil?: string
+  lastError?: string
+  createTime?: string
+  updateTime?: string
 }
 
 export interface CompanyAlias {
@@ -202,10 +262,10 @@ const okResult = <T>(data: T): Result<T> => ({ code: 0, message: 'degraded empty
 
 const optionalPanelUnavailable = (error: unknown) => {
   if (error instanceof BizException) {
-    return error.code === 10404 || error.code >= 20000
+    return error.code === 10404
   }
   const status = (error as any)?.response?.status
-  return status === 404 || status === 405 || status >= 500
+  return status === 404 || status === 405
 }
 
 const emptySearchAnalytics = (): SearchAnalytics => ({
@@ -357,6 +417,33 @@ export const opsApi = {
   listQuestionIndexTasks: (limit = 10): Promise<Result<QuestionIndexTask[]>> =>
     client.get('/api/v1/admin/questions/index-tasks', { params: { limit } }),
 
+  retryQuestionIndexTask: (taskId: string): Promise<Result<QuestionIndexTask>> =>
+    client.post(`/api/v1/admin/questions/index-tasks/${taskId}/retry`),
+
+  listSearchIndexRetryTasks: (params?: { status?: number; limit?: number }): Promise<Result<SearchIndexRetryTask[]>> =>
+    client.get('/api/v1/ops/search-index-retry-tasks', { params }),
+
+  getSearchIndexRetryTask: (id: ApiId): Promise<Result<SearchIndexRetryTask>> =>
+    client.get(`/api/v1/ops/search-index-retry-tasks/${id}`),
+
+  replaySearchIndexRetryTask: (id: ApiId): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
+    client.post(`/api/v1/ops/search-index-retry-tasks/${id}/replay`),
+
+  replaySearchIndexRetryTasks: (ids: ApiId[]): Promise<Result<{ requested: number; replayed: number }>> =>
+    client.post('/api/v1/ops/search-index-retry-tasks/replay-batch', { ids }),
+
+  listNotificationRetryTasks: (params?: { status?: number; limit?: number }): Promise<Result<NotificationRetryTask[]>> =>
+    client.get('/api/v1/ops/notification-retry-tasks', { params }),
+
+  getNotificationRetryTask: (id: ApiId): Promise<Result<NotificationRetryTask>> =>
+    client.get(`/api/v1/ops/notification-retry-tasks/${id}`),
+
+  replayNotificationRetryTask: (id: ApiId): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
+    client.post(`/api/v1/ops/notification-retry-tasks/${id}/replay`),
+
+  replayNotificationRetryTasks: (ids: ApiId[]): Promise<Result<{ requested: number; replayed: number }>> =>
+    client.post('/api/v1/ops/notification-retry-tasks/replay-batch', { ids }),
+
   reviewQuestion: (id: ApiId, status: number): Promise<Result<{ questionId: ApiId; status: number }>> =>
     client.post(`/api/v1/admin/questions/${id}/review`, null, { params: { status } }),
 
@@ -401,14 +488,8 @@ export const opsApi = {
   listCompanyAliases: (params?: { keyword?: string; limit?: number }): Promise<Result<CompanyAlias[]>> =>
     client.get('/api/v1/admin/company-aliases', { params }),
 
-  listCompanyAliasCandidates: async (params?: { limit?: number }): Promise<Result<CompanyAliasCandidate[]>> => {
-    try {
-      return await client.get('/api/v1/admin/company-aliases/candidates', { params })
-    } catch (error) {
-      if (!optionalPanelUnavailable(error)) throw error
-      return okResult([])
-    }
-  },
+  listCompanyAliasCandidates: (params?: { limit?: number }): Promise<Result<CompanyAliasCandidate[]>> =>
+    client.get('/api/v1/admin/company-aliases/candidates', { params }),
 
   createCompanyAlias: (data: { canonicalCompany: string; alias: string; status?: number }): Promise<Result<CompanyAlias>> =>
     client.post('/api/v1/admin/company-aliases', data),

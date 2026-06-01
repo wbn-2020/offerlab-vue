@@ -144,6 +144,12 @@
               <div v-if="isLoadingComments" class="rounded-lg border border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
                 正在加载评论...
               </div>
+              <div v-else-if="commentsErrorMessage" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-200">
+                <p class="font-semibold">{{ commentsErrorMessage }}</p>
+                <button type="button" class="mt-4 rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100 dark:hover:bg-amber-900/40" @click="loadComments(true)">
+                  重试
+                </button>
+              </div>
               <CommentTree
                 ref="commentTreeRef"
                 v-else
@@ -172,7 +178,7 @@
             </section>
           </template>
 
-          <EmptyState v-else title="帖子不存在" description="该帖子可能已被删除、下架或不可公开访问。" actionText="返回首页" actionHref="/" />
+          <EmptyState v-else :title="postUnavailableTitle" :description="postUnavailableDescription" actionText="返回首页" actionHref="/" />
         </div>
 
         <aside class="hidden lg:block">
@@ -320,7 +326,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
-import { getErrorMessage } from '@/api/client'
+import { BizException, getErrorMessage } from '@/api/client'
 import type { Comment, Post, PostVersionHistory } from '@/api/types'
 
 const route = useRoute()
@@ -351,11 +357,13 @@ const commentCursor = ref<string | undefined>()
 const hasMoreComments = ref(false)
 const isLoadingComments = ref(false)
 const isLoadingMoreComments = ref(false)
+const commentsErrorMessage = ref('')
 
-const { data: postData, isLoading } = useQuery({
+const { data: postData, isLoading, error: postError } = useQuery({
   queryKey: computed(() => ['post', postId.value]),
   queryFn: () => postApi.getDetail(postId.value),
   enabled: computed(() => Boolean(postId.value)),
+  retry: false,
 })
 
 const clonePost = (source?: Post | null): Post | null => {
@@ -374,6 +382,17 @@ const post = ref<Post | null>(null)
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(post.value?.author.uid ?? ''))
 const isContentModerator = computed(() => Boolean(adminPermissions.value?.contentModerator || adminPermissions.value?.admin))
 const canViewVersionHistory = computed(() => Boolean(authStore.isLoggedIn && post.value && (isOwnPost.value || isContentModerator.value)))
+const postErrorCode = computed(() => errorCodeOf(postError.value))
+const postUnavailableTitle = computed(() => postErrorCode.value === 10403 || postErrorCode.value === 403 ? '无权访问' : '内容不可见')
+const postUnavailableDescription = computed(() => postErrorCode.value === 10403 || postErrorCode.value === 403
+  ? '当前账号没有权限查看这篇帖子，评论也不会被公开展示。'
+  : '该帖子可能已被删除、下架，或当前不可公开访问。')
+
+const errorCodeOf = (error: unknown) => {
+  if (error instanceof BizException) return error.code
+  const status = (error as any)?.response?.status
+  return typeof status === 'number' ? status : undefined
+}
 
 const getResultClass = (result: number) => {
   const classes: Record<number, string> = {
@@ -618,6 +637,7 @@ const loadComments = async (reset = true) => {
   if (reset) {
     isLoadingComments.value = true
     commentCursor.value = undefined
+    commentsErrorMessage.value = ''
   } else {
     isLoadingMoreComments.value = true
   }
@@ -627,8 +647,18 @@ const loadComments = async (reset = true) => {
     comments.value = reset ? page?.items || [] : [...comments.value, ...(page?.items || [])]
     commentCursor.value = page?.nextCursor
     hasMoreComments.value = Boolean(page?.hasMore)
+    commentsErrorMessage.value = ''
   } catch (error) {
-    toast.error(getErrorMessage(error, reset ? '评论加载失败' : '加载更多评论失败'))
+    const message = getErrorMessage(error, reset ? '评论加载失败' : '加载更多评论失败')
+    if (reset) {
+      comments.value = []
+      hasMoreComments.value = false
+      commentsErrorMessage.value = errorCodeOf(error) === 10403 || errorCodeOf(error) === 403
+        ? '无权访问评论，内容不可见。'
+        : message
+    } else {
+      toast.error(message)
+    }
   } finally {
     isLoadingComments.value = false
     isLoadingMoreComments.value = false

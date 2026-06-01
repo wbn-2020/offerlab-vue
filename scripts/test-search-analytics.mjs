@@ -30,6 +30,6 @@ assert.match(opsView, /无结果词/, 'OpsView must show no-result keyword list'
 assert.match(opsView, /准备包点击/, 'OpsView must show prep click list')
 assert.match(opsView, /const loadSearchAnalytics\s*=\s*async \(\) =>/, 'OpsView must load analytics data')
 assert.match(opsView, /opsApi\.searchAnalytics\(\{ days: 30, limit: 8 \}\)/, 'OpsView must request bounded analytics summary')
-assert.match(opsView, /loadStatus\(\), loadOutbox\(\), loadTasks\(\), loadSearchAnalytics\(\)/, 'Ops refresh must include search analytics')
+assert.match(opsView, /loadStatus\(\), loadOutbox\(\), [\s\S]*loadSearchAnalytics\(\)/, 'Ops refresh must include search analytics')
 
 console.log('search analytics guard passed')

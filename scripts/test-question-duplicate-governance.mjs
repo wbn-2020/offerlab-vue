@@ -19,6 +19,10 @@ assert.match(opsApi, /\/duplicates\/merge-candidate/, 'semantic candidate merge 
 assert.match(opsApi, /\/duplicates\/hide/, 'hide API must call backend endpoint')
 
 assert.match(view, /重复题组治理/, 'admin questions view must render duplicate governance panel')
+assert.match(view, /hasRows\s*=\s*computed\(\(\) => questions\.value\.length > 0\)/, 'admin questions view must derive whether the current list has rows')
+assert.match(view, /v-if="hasRows" type="button" class="secondary-button"[\s\S]*批量通过/, 'admin questions view must hide batch approve when there are no rows')
+assert.match(view, /v-if="hasRows" type="button" class="secondary-button danger-action"[\s\S]*批量隐藏/, 'admin questions view must hide batch hide when there are no rows')
+assert.match(view, /批量操作会在有可选题目时出现/, 'admin questions empty state must explain why batch actions are hidden')
 assert.match(view, /duplicateGroup = ref<QuestionDuplicateGroup \| null>\(null\)/, 'admin questions view must keep duplicate group state')
 assert.match(view, /loadDuplicateGroup\(question\.id\)/, 'selecting a question must load duplicate group')
 assert.match(view, /opsApi\.getQuestionDuplicateGroup\(id\)/, 'duplicate panel must call group query')

@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 import { authTokenStore } from '@/utils/authTokenStore'
+import { useAuthStore } from '@/stores/auth'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -122,6 +123,11 @@ client.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
       authTokenStore.clear()
+      try {
+        useAuthStore().logout()
+      } catch {
+        // Pinia may not be active during very early boot; token cleanup above is still authoritative.
+      }
       redirectToLogin()
     }
     return Promise.reject(error)

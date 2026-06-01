@@ -74,7 +74,7 @@
       </section>
 
       <LoadingSkeleton v-if="isLoading" />
-      <EmptyState v-else-if="!overview" title="暂时无法加载准备台" description="稍后刷新页面重试。" />
+      <EmptyState v-else-if="!overview" title="暂时无法加载准备台" description="稍后刷新页面重试；也可以先去题库收藏或标记几道题。" actionText="去题库看看" actionHref="/questions" />
       <template v-else>
         <section class="mb-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
           <div class="metric-card"><span>收藏</span><strong>{{ overview.favoriteCount }}</strong></div>
@@ -250,7 +250,7 @@
                   </select>
                   <input v-model.trim="targetForm.note" class="target-input target-note-input" maxlength="300" placeholder="备注：如一面 / HR 面 / 重点系统设计" />
                   <button class="target-button" type="submit" :disabled="isSubmittingTarget || !targetForm.targetValue">
-                    添加
+                    添加备考目标
                   </button>
                 </form>
               </div>
@@ -271,7 +271,7 @@
                   <span class="target-chip-remove" aria-hidden="true">×</span>
                 </button>
               </div>
-              <EmptyState v-else title="还没有准备目标" description="先添加目标公司或岗位，推荐会更贴近你的面试方向。" />
+              <EmptyState v-else title="还没有准备目标" description="先添加目标公司、岗位或技术标签，推荐会更贴近你的面试方向。" />
             </section>
 
             <section v-if="overview.targetSummaries.length" class="section-panel">

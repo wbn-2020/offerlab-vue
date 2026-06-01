@@ -340,7 +340,7 @@ let suggestionRequestId = 0
 let searchRequestId = 0
 let isPushingQuery = false
 
-const canRebuildIndex = computed(() => hasAdminPermission(adminPermissions.value, ['ops', 'admin']))
+const canRebuildIndex = computed(() => hasAdminPermission(adminPermissions.value, 'admin'))
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const storageKey = (name: string) => `offerlab:${storageOwner.value}:${name}`
 const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)

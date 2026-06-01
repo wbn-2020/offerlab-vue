@@ -172,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import MarkdownEditor from '@/components/post/MarkdownEditor.vue'
 import PostMeta from '@/components/post/PostMeta.vue'
@@ -180,9 +180,12 @@ import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
 import { postApi, type PostDraft } from '@/api/post'
 import { toast } from 'vue-sonner'
 import { safeStorage } from '@/utils/safeStorage'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
+const LOCAL_DRAFT_TTL = 7 * 24 * 60 * 60 * 1000
 
 const postTypes = [
   { value: 1, label: '面经' },
@@ -210,6 +213,7 @@ const isSavingDraft = ref(false)
 const serverDraftId = ref('')
 const selectedDraftId = ref('')
 const serverDrafts = ref<PostDraft[]>([])
+const draftOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 
 type QualityCheck = {
   key: string
@@ -312,13 +316,15 @@ const currentPostId = () => {
   return Number.isFinite(value) && value > 0 ? value : undefined
 }
 
-const localDraftKey = () => {
+const localDraftKey = (owner = draftOwner.value) => {
   const postId = currentPostId()
-  return postId ? `post_draft_edit_${postId}` : 'post_draft'
+  return postId ? `post_draft:${owner}:edit:${postId}` : `post_draft:${owner}:new`
 }
 
 const persistLocalDraft = () => {
   safeStorage.set(localDraftKey(), JSON.stringify({
+    savedAt: Date.now(),
+    owner: draftOwner.value,
     ...form.value,
     selectedTags: selectedTags.value,
     serverDraftId: serverDraftId.value,
@@ -410,7 +416,17 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
   if (!draft || (onlyWhenNotEditing && isEditing.value)) return false
   try {
     const draftData = JSON.parse(draft)
-    const { selectedTags: draftTags, serverDraftId: savedServerDraftId, ...draftForm } = draftData
+    if (!draftData?.savedAt || Date.now() - Number(draftData.savedAt) > LOCAL_DRAFT_TTL || draftData.owner !== draftOwner.value) {
+      safeStorage.remove(localDraftKey())
+      return false
+    }
+    const draftForm = { ...draftData }
+    const draftTags = draftForm.selectedTags
+    const savedServerDraftId = draftForm.serverDraftId
+    delete draftForm.selectedTags
+    delete draftForm.serverDraftId
+    delete draftForm.savedAt
+    delete draftForm.owner
     form.value = { ...form.value, ...draftForm }
     selectedTags.value = draftTags || []
     serverDraftId.value = savedServerDraftId || ''
@@ -421,6 +437,12 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
     return false
   }
 }
+
+watch(draftOwner, (_nextOwner, prevOwner) => {
+  if (prevOwner) {
+    safeStorage.remove(localDraftKey(prevOwner))
+  }
+})
 
 const loadPostForEdit = async (postId: number) => {
   isLoadingPost.value = true

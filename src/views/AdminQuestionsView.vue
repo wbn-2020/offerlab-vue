@@ -11,10 +11,10 @@
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="secondary-button" :disabled="selectedIds.length === 0 || isBatching" @click="batchReview(1)">
+          <button v-if="hasRows" type="button" class="secondary-button" :disabled="selectedIds.length === 0 || isBatching" @click="batchReview(1)">
             批量通过
           </button>
-          <button type="button" class="secondary-button danger-action" :disabled="selectedIds.length === 0 || isBatching" @click="batchReview(2)">
+          <button v-if="hasRows" type="button" class="secondary-button danger-action" :disabled="selectedIds.length === 0 || isBatching" @click="batchReview(2)">
             批量隐藏
           </button>
           <button type="button" class="secondary-button" :disabled="isLoading" @click="loadQuestions">
@@ -29,6 +29,55 @@
         <div class="metric-card"><span>待审核</span><strong>{{ summary.pending }}</strong></div>
         <div class="metric-card"><span>已通过</span><strong>{{ summary.approved }}</strong></div>
         <div class="metric-card"><span>已隐藏</span><strong>{{ summary.hidden }}</strong></div>
+      </section>
+
+      <section class="mb-6 panel index-task-panel">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">题库索引任务</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">查看最近的 ES 重建任务、失败原因，并对失败任务发起重试。</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="secondary-button compact" :disabled="isLoadingIndexTasks" @click="loadQuestionIndexTasks">
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoadingIndexTasks }" />
+              刷新任务
+            </button>
+            <button type="button" class="primary-button compact" :disabled="isSubmittingIndexTask || Boolean(activeIndexTask)" @click="submitQuestionIndexTask">
+              {{ isSubmittingIndexTask ? '提交中...' : activeIndexTask ? '任务运行中' : '重建索引' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="isLoadingIndexTasks" class="mt-4 rounded-lg border border-slate-200 py-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          正在加载索引任务...
+        </div>
+        <EmptyState v-else-if="questionIndexTasks.length === 0" class="mt-4" title="暂无索引任务" description="点击重建索引后，这里会展示任务进度与失败原因。" />
+        <div v-else class="index-task-list mt-4">
+          <article v-for="task in questionIndexTasks" :key="task.taskId" class="index-task-row">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span :class="['status-pill', questionIndexTaskStatusClass(task.status)]">{{ questionIndexTaskStatusText(task.status) }}</span>
+                <span class="meta-chip">indexed {{ task.indexed || 0 }}</span>
+                <span class="meta-chip">failed {{ task.failed || 0 }}</span>
+                <span class="meta-chip">total {{ task.total || 0 }}</span>
+                <span v-if="task.indexName" class="meta-chip">{{ task.indexName }}</span>
+              </div>
+              <p class="mt-2 truncate text-xs font-mono text-slate-500 dark:text-slate-400">{{ task.taskId }}</p>
+              <p v-if="task.message" class="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:bg-rose-950/35 dark:text-rose-200">
+                {{ task.message }}
+              </p>
+            </div>
+            <button
+              v-if="task.retryable || task.status === 'FAILED'"
+              type="button"
+              class="secondary-button compact"
+              :disabled="retryingIndexTaskId === task.taskId || Boolean(activeIndexTask)"
+              @click="retryQuestionIndexTask(task.taskId)"
+            >
+              {{ retryingIndexTaskId === task.taskId ? '重试中...' : '重试' }}
+            </button>
+          </article>
+        </div>
       </section>
 
       <section class="mb-4 flex flex-wrap gap-2">
@@ -82,7 +131,7 @@
           <div v-if="isLoading" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
             正在加载题目...
           </div>
-          <EmptyState v-else-if="questions.length === 0" title="暂无题目" description="当前筛选条件下没有需要维护的题目。" />
+          <EmptyState v-else-if="questions.length === 0" title="暂无题目" description="当前筛选条件下没有需要维护的题目；批量操作会在有可选题目时出现。" />
           <div v-else class="space-y-3">
             <div
               v-for="question in questions"
@@ -224,7 +273,7 @@ import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { getErrorMessage } from '@/api/client'
-import { opsApi, type QuestionDuplicateGroup } from '@/api/ops'
+import { opsApi, type QuestionDuplicateGroup, type QuestionIndexTask } from '@/api/ops'
 import type { Question } from '@/api/question'
 
 const statusFilters = [
@@ -242,9 +291,13 @@ const isSaving = ref(false)
 const isBatching = ref(false)
 const isDuplicateLoading = ref(false)
 const isDuplicateSaving = ref(false)
+const isLoadingIndexTasks = ref(false)
+const isSubmittingIndexTask = ref(false)
+const retryingIndexTaskId = ref('')
 const selectedIds = ref<Array<Question['id']>>([])
 const duplicateSelection = ref<Array<Question['id']>>([])
 const duplicateGroup = ref<QuestionDuplicateGroup | null>(null)
+const questionIndexTasks = ref<QuestionIndexTask[]>([])
 const page = ref(1)
 const pageSize = 20
 const total = ref(0)
@@ -260,7 +313,9 @@ const filters = reactive({
   maxQualityScore: undefined as number | undefined,
 })
 const form = reactive({ questionText: '', answerHint: '', examPoint: '', referenceAnswer: '', sourceSnippet: '', qualityReason: '', company: '', position: '', interviewRound: '', difficulty: 'medium', status: 1 })
+const hasRows = computed(() => questions.value.length > 0)
 const allCurrentPageSelected = computed(() => questions.value.length > 0 && questions.value.every((item) => selectedIds.value.includes(item.id)))
+const activeIndexTask = computed(() => questionIndexTasks.value.find((task) => task.status === 'PENDING' || task.status === 'RUNNING'))
 const normalizedMinQuality = computed(() => typeof filters.minQualityScore === 'number' && Number.isFinite(filters.minQualityScore)
   ? Math.max(0, Math.min(100, filters.minQualityScore))
   : undefined)
@@ -305,6 +360,47 @@ const loadQuestions = async () => {
     questions.value = []
   } finally {
     isLoading.value = false
+  }
+}
+
+const loadQuestionIndexTasks = async () => {
+  isLoadingIndexTasks.value = true
+  try {
+    const res = await opsApi.listQuestionIndexTasks(10)
+    questionIndexTasks.value = res.data || []
+  } catch (error: any) {
+    questionIndexTasks.value = []
+    toast.error(getErrorMessage(error, '索引任务加载失败'))
+  } finally {
+    isLoadingIndexTasks.value = false
+  }
+}
+
+const submitQuestionIndexTask = async () => {
+  if (activeIndexTask.value) return
+  isSubmittingIndexTask.value = true
+  try {
+    const res = await opsApi.rebuildQuestionIndexTask()
+    toast.success(res.data?.taskId ? '索引重建任务已提交' : '索引重建任务已提交')
+    await loadQuestionIndexTasks()
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '索引重建任务提交失败'))
+  } finally {
+    isSubmittingIndexTask.value = false
+  }
+}
+
+const retryQuestionIndexTask = async (taskId: string) => {
+  if (!taskId || activeIndexTask.value) return
+  retryingIndexTaskId.value = taskId
+  try {
+    await opsApi.retryQuestionIndexTask(taskId)
+    toast.success('索引任务已重新提交')
+    await loadQuestionIndexTasks()
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '索引任务重试失败'))
+  } finally {
+    retryingIndexTaskId.value = ''
   }
 }
 
@@ -479,12 +575,30 @@ const mergeDuplicateCandidate = async (candidateQuestionId: Question['id']) => {
 const statusText = (status?: number) => status === 0 ? '待审核' : status === 2 ? '隐藏' : '通过'
 const statusClass = (status?: number) => status === 1 ? 'status-ok' : status === 2 ? 'status-danger' : 'status-warn'
 const difficultyText = (value?: string) => value === 'easy' ? '简单' : value === 'hard' ? '困难' : '中等'
+const questionIndexTaskStatusText = (status?: string) => {
+  const labels: Record<string, string> = {
+    PENDING: '待执行',
+    RUNNING: '运行中',
+    SUCCEEDED: '成功',
+    FAILED: '失败',
+  }
+  return labels[status || ''] || (status || '未知')
+}
+const questionIndexTaskStatusClass = (status?: string) => status === 'SUCCEEDED'
+  ? 'status-ok'
+  : status === 'FAILED'
+    ? 'status-danger'
+    : 'status-warn'
 
-onMounted(loadQuestions)
+onMounted(() => {
+  loadQuestions()
+  loadQuestionIndexTasks()
+})
 </script>
 
 <style scoped>
 .primary-button,.secondary-button,.filter-button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:.5rem;border-radius:.5rem;padding:.5rem .9rem;font-size:.875rem;font-weight:700}.primary-button{background:rgb(37 99 235);color:white}.secondary-button,.filter-button{border:1px solid rgb(226 232 240);background:white;color:rgb(51 65 85)}.compact{min-height:32px;padding:.35rem .7rem}.filter-button-active{border-color:rgb(79 70 229);background:rgb(238 242 255);color:rgb(67 56 202)}.danger-action{color:rgb(185 28 28)}.primary-button:disabled,.secondary-button:disabled,.filter-button:disabled{cursor:not-allowed;opacity:.6}.metric-card,.panel{border-radius:.75rem;border:1px solid rgb(226 232 240);background:white;padding:1.25rem}.compact-filter-panel{padding:1rem}.filter-grid{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:center}.metric-card span{display:block;font-size:.8125rem;font-weight:700;color:rgb(100 116 139)}.metric-card strong{margin-top:.45rem;display:block;font-size:1.6rem;font-weight:800;color:rgb(15 23 42)}.question-row{display:flex;width:100%;cursor:pointer;gap:.85rem;border-radius:.75rem;border:1px solid rgb(226 232 240);background:rgb(248 250 252);padding:1rem;transition:border-color .15s ease,background-color .15s ease}.question-row:hover,.question-row-active{border-color:rgb(129 140 248);background:rgb(238 242 255)}.row-check{display:flex;min-height:1.5rem;align-items:flex-start;padding-top:.15rem}.row-check input{height:1rem;width:1rem;accent-color:rgb(37 99 235)}.selection-hint{display:inline-flex;min-height:38px;align-items:center;border-radius:999px;background:rgb(239 246 255);padding:0 .85rem;font-size:.8125rem;font-weight:800;color:rgb(29 78 216)}.status-pill,.meta-chip{display:inline-flex;align-items:center;border-radius:999px;padding:.25rem .6rem;font-size:.75rem;font-weight:700}.meta-chip{background:white;color:rgb(71 85 105)}.status-ok{background:rgb(220 252 231);color:rgb(21 128 61)}.status-warn{background:rgb(254 243 199);color:rgb(180 83 9)}.status-danger{background:rgb(254 226 226);color:rgb(185 28 28)}.field-label{display:grid;gap:.4rem;font-size:.8125rem;font-weight:700;color:rgb(71 85 105)}.field-input{width:100%;border-radius:.5rem;border:1px solid rgb(226 232 240);background:white;padding:.65rem .75rem;font-size:.875rem;color:rgb(15 23 42);outline:none}.field-input:focus{border-color:rgb(79 70 229);box-shadow:0 0 0 3px rgb(199 210 254 / .7)}.duplicate-panel{margin-top:1.25rem;border-top:1px solid rgb(226 232 240);padding-top:1rem}.duplicate-title{font-size:.95rem;font-weight:800;color:rgb(15 23 42)}.duplicate-summary{display:flex;flex-wrap:wrap;gap:.5rem;color:rgb(100 116 139);font-size:.75rem;font-weight:800}.duplicate-summary span{border-radius:999px;background:rgb(241 245 249);padding:.25rem .6rem}.duplicate-row{display:flex;align-items:flex-start;gap:.65rem;border-radius:.65rem;border:1px solid rgb(226 232 240);background:rgb(248 250 252);padding:.75rem}:global(.dark) .metric-card,:global(.dark) .panel,:global(.dark) .secondary-button,:global(.dark) .filter-button,:global(.dark) .field-input{border-color:rgb(30 41 59);background:rgb(15 23 42);color:rgb(203 213 225)}:global(.dark) .metric-card strong,:global(.dark) .duplicate-title{color:rgb(248 250 252)}:global(.dark) .question-row,:global(.dark) .duplicate-row{border-color:rgb(30 41 59);background:rgb(2 6 23)}:global(.dark) .question-row:hover,:global(.dark) .question-row-active,:global(.dark) .filter-button-active{border-color:rgb(99 102 241);background:rgb(30 27 75)}:global(.dark) .meta-chip,:global(.dark) .duplicate-summary span{background:rgb(30 41 59);color:rgb(203 213 225)}:global(.dark) .selection-hint{background:rgb(30 58 138 / .35);color:rgb(147 197 253)}:global(.dark) .duplicate-panel{border-top-color:rgb(30 41 59)}
+.index-task-list{display:grid;gap:.75rem}.index-task-row{display:flex;align-items:flex-start;gap:.75rem;border-radius:.75rem;border:1px solid rgb(226 232 240);background:rgb(248 250 252);padding:1rem}:global(.dark) .index-task-row{border-color:rgb(30 41 59);background:rgb(2 6 23)}
 .question-row:focus-visible {
   border-color: rgb(79 70 229);
   box-shadow: 0 0 0 3px rgb(199 210 254 / 0.8);

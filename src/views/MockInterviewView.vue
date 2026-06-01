@@ -25,7 +25,13 @@
             @retry="loadStats"
             @mark-weak-answers-review="markStatsWeakAnswersForReview"
           />
-          <MockInterviewStartForm v-model="startForm" :is-starting="isStarting" @submit="startInterview" />
+          <MockInterviewStartForm
+            v-model="startForm"
+            :is-starting="isStarting"
+            :service-unavailable="isMockInterviewUnavailable"
+            :unavailable-message="statsError"
+            @submit="startInterview"
+          />
           <MockInterviewRecentList :sessions="recentSessions" @refresh="loadRecent" @select="selectSession" />
         </aside>
 
@@ -43,11 +49,13 @@
             :ai-review-enabled="aiReviewEnabled"
             :is-marking-weak-questions="isMarkingWeakQuestions"
             :is-saving-answer-cards="isSavingAnswerCards"
+            :is-retrying-ai-review="isRetryingAiReview"
             @copy-report="copyInterviewReport"
             @download-report="downloadInterviewReport"
             @toggle-ai-review="aiReviewEnabled = $event"
             @mark-weak-questions-review="markWeakQuestionsForReview"
             @save-answer-cards="saveMockAnswersAsAnswerCards"
+            @retry-ai-review="retryAiReview"
             @submit="submitInterview"
           />
         </section>
@@ -95,6 +103,7 @@ const aiReviewEnabled = ref(true)
 const isStatsLoading = ref(false)
 const isMarkingWeakQuestions = ref(false)
 const isSavingAnswerCards = ref(false)
+const isRetryingAiReview = ref(false)
 const reviewMarkedQuestionIds = ref<Set<string | number>>(new Set())
 const answerCardSavedQuestionIds = ref<Set<string | number>>(new Set())
 const statsError = ref('')
@@ -103,6 +112,7 @@ let selectRequestId = 0
 let draftSaveInFlight = false
 let pendingServerDraft = false
 let lastServerDraftPayload = ''
+let aiReviewPollTimer: ReturnType<typeof setTimeout> | null = null
 
 const draftStorageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const answeredCount = computed(() => Object.values(draftAnswers).filter((item) => item.answerText.trim()).length)
@@ -119,6 +129,8 @@ const statsForPanel = computed<MockInterviewStats | null>(() => {
     weakAnswers: stats.value.weakAnswers.filter((answer) => !reviewMarkedQuestionIds.value.has(answer.questionId)),
   }
 })
+const isMockInterviewUnavailable = computed(() => Boolean(statsError.value && !isStatsLoading.value))
+const hasPendingAiReview = computed(() => currentSession.value?.answers.some((answer) => answer.aiReviewStatus === 'PENDING') || false)
 
 const statsWeakReviewQuestionIds = computed(() => {
   if (!statsForPanel.value) return []
@@ -178,6 +190,7 @@ const selectSession = async (session: MockInterviewSession) => {
     answerCardSavedQuestionIds.value = new Set()
     lastServerDraftPayload = ''
     hydrateDrafts(detail)
+    scheduleAiReviewRefresh()
   } catch {
     if (requestId !== selectRequestId) return
     currentSession.value = session
@@ -185,10 +198,15 @@ const selectSession = async (session: MockInterviewSession) => {
     answerCardSavedQuestionIds.value = new Set()
     lastServerDraftPayload = ''
     hydrateDrafts(session)
+    scheduleAiReviewRefresh()
   }
 }
 
 const startInterview = async () => {
+  if (isMockInterviewUnavailable.value) {
+    toast.error(statsError.value || '模拟面试服务暂时不可用，请稍后重试')
+    return
+  }
   isStarting.value = true
   try {
     const res = await questionApi.startMockInterview({
@@ -202,9 +220,10 @@ const startInterview = async () => {
       clearStoredDraft(res.data.id)
       currentSession.value = res.data
       reviewMarkedQuestionIds.value = new Set()
-    answerCardSavedQuestionIds.value = new Set()
+      answerCardSavedQuestionIds.value = new Set()
       lastServerDraftPayload = ''
       hydrateDrafts(res.data)
+      stopAiReviewRefresh()
       toast.success('模拟面试已开始')
       await loadRecent()
       await loadStats()
@@ -241,8 +260,9 @@ const submitInterview = async () => {
       lastServerDraftPayload = ''
       currentSession.value = res.data
       reviewMarkedQuestionIds.value = new Set()
-    answerCardSavedQuestionIds.value = new Set()
+      answerCardSavedQuestionIds.value = new Set()
       hydrateDrafts(res.data)
+      scheduleAiReviewRefresh()
       toast.success('复盘已保存')
       await loadRecent()
       await loadStats()
@@ -251,6 +271,50 @@ const submitInterview = async () => {
     toast.error(getErrorMessage(error, '提交模拟面试失败'))
   } finally {
     isSubmitting.value = false
+  }
+}
+
+const refreshCurrentSession = async () => {
+  if (!currentSession.value) return
+  const sessionId = currentSession.value.id
+  try {
+    const res = await questionApi.mockInterviewDetail(sessionId)
+    if (res.data && currentSession.value?.id === sessionId) {
+      currentSession.value = res.data
+      hydrateDrafts(res.data)
+    }
+  } finally {
+    scheduleAiReviewRefresh()
+  }
+}
+
+const scheduleAiReviewRefresh = () => {
+  stopAiReviewRefresh()
+  if (!hasPendingAiReview.value) return
+  aiReviewPollTimer = setTimeout(refreshCurrentSession, 3000)
+}
+
+const stopAiReviewRefresh = () => {
+  if (!aiReviewPollTimer) return
+  clearTimeout(aiReviewPollTimer)
+  aiReviewPollTimer = null
+}
+
+const retryAiReview = async () => {
+  if (!currentSession.value || isRetryingAiReview.value) return
+  isRetryingAiReview.value = true
+  try {
+    const res = await questionApi.retryMockInterviewAiReview(currentSession.value.id)
+    if (res.data) {
+      currentSession.value = res.data
+      hydrateDrafts(res.data)
+      scheduleAiReviewRefresh()
+      toast.success('AI 评价重试已提交')
+    }
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, 'AI 评价重试失败'))
+  } finally {
+    isRetryingAiReview.value = false
   }
 }
 
@@ -484,6 +548,7 @@ watch(elapsedSeconds, (value) => {
 onBeforeUnmount(() => {
   saveCurrentDraft()
   saveCurrentDraftToServer()
+  stopAiReviewRefresh()
   if (timer) clearInterval(timer)
 })
 </script>

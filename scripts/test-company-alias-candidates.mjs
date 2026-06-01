@@ -10,9 +10,13 @@ for (const field of ['canonicalCompany', 'alias', 'questionSampleCount', 'postSa
 }
 assert.match(opsApi, /listCompanyAliasCandidates/, 'ops API must expose candidate query')
 assert.match(opsApi, /\/api\/v1\/admin\/company-aliases\/candidates/, 'candidate query must call backend endpoint')
+assert.doesNotMatch(opsApi, /listCompanyAliasCandidates:[\s\S]*optionalPanelUnavailable/, 'candidate query must not silently swallow backend failures')
 
 assert.match(view, /候选推荐/, 'company alias view must render candidate panel')
 assert.match(view, /candidates = ref<CompanyAliasCandidate\[\]>\(\[\]\)/, 'company alias view must keep candidate state')
+assert.match(view, /candidateError\s*=\s*ref\(''\)/, 'company alias view must keep an explicit candidate error state')
+assert.match(view, /v-else-if="candidateError"/, 'candidate panel must render backend failures separately from an empty candidate list')
+assert.match(view, /@click="loadCandidates"/, 'candidate error state must provide a retry action')
 assert.match(view, /loadCandidates/, 'company alias view must load candidates')
 assert.match(view, /opsApi\.listCompanyAliasCandidates\(\{ limit: 20 \}\)/, 'candidate panel must use candidate API')
 assert.match(view, /一键加入/, 'candidate panel must support one-click acceptance')
