@@ -54,7 +54,7 @@
           <button
             type="submit"
             :disabled="isLoading"
-            class="w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            class="auth-submit w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
           >
             {{ isLoading ? '注册中...' : '注册' }}
           </button>
@@ -73,7 +73,7 @@
         <!-- Login Link -->
         <p class="text-center text-sm text-slate-600 dark:text-slate-400">
           已有账号？
-          <RouterLink to="/login" class="text-primary-600 hover:text-primary-700 font-medium">
+          <RouterLink to="/login" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
             立即登录
           </RouterLink>
         </p>
@@ -151,3 +151,15 @@ const handleSubmit = async () => {
 }
 </script>
 
+<style scoped>
+.auth-inline-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding-inline: 0.25rem;
+}
+
+.auth-submit {
+  min-height: 44px;
+}
+</style>

@@ -1,7 +1,6 @@
 <template>
-  <RouterLink
-    :to="`/post/${post.postId}`"
-    class="group block rounded-xl border border-slate-200/80 bg-white/92 p-5 shadow-[var(--shadow-soft)] backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[var(--shadow-card)] dark:border-slate-800/80 dark:bg-slate-900/85 dark:hover:border-primary-800"
+  <article
+    class="group rounded-xl border border-slate-200/80 bg-white/92 p-5 shadow-[var(--shadow-soft)] backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[var(--shadow-card)] dark:border-slate-800/80 dark:bg-slate-900/85 dark:hover:border-primary-800"
   >
     <div class="mb-4 flex items-center justify-between gap-4">
       <div class="flex min-w-0 items-center gap-3">
@@ -59,49 +58,55 @@
       </div>
     </div>
 
-    <h3
-      class="mb-2 line-clamp-2 text-lg font-bold text-slate-900 dark:text-slate-100"
-      v-html="displayTitle"
-    />
+    <RouterLink
+      :to="`/post/${post.postId}`"
+      class="post-detail-link"
+      :aria-label="`查看帖子：${post.title}`"
+    >
+      <h3
+        class="mb-2 line-clamp-2 text-lg font-bold text-slate-900 dark:text-slate-100"
+        v-html="displayTitle"
+      />
 
-    <p
-      class="mb-4 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400"
-      v-html="displaySummary"
-    />
+      <p
+        class="mb-4 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400"
+        v-html="displaySummary"
+      />
 
-    <div v-if="props.showRecommendFeedback && post.recommendationReasons?.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
-      <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-        <Lightbulb class="h-3.5 w-3.5" />
-        为什么推荐
+      <div v-if="props.showRecommendFeedback && post.recommendationReasons?.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
+        <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+          <Lightbulb class="h-3.5 w-3.5" />
+          为什么推荐
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <span
+            v-for="reason in post.recommendationReasons.slice(0, 3)"
+            :key="reason"
+            class="rounded-full bg-white px-2 py-1 text-xs text-indigo-700 dark:bg-slate-900 dark:text-indigo-200"
+          >
+            {{ reason }}
+          </span>
+        </div>
       </div>
-      <div class="flex flex-wrap gap-1.5">
-        <span
-          v-for="reason in post.recommendationReasons.slice(0, 3)"
-          :key="reason"
-          class="rounded-full bg-white px-2 py-1 text-xs text-indigo-700 dark:bg-slate-900 dark:text-indigo-200"
-        >
-          {{ reason }}
+
+      <div v-if="post.extension" class="mb-3 flex flex-wrap gap-2">
+        <span v-if="post.extension.company" class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+          {{ post.extension.company }}
+        </span>
+        <span v-if="post.extension.position" class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+          {{ post.extension.position }}
+        </span>
+        <span v-if="post.extension.interviewResult" class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="getResultClass(post.extension.interviewResult)">
+          {{ getResultText(post.extension.interviewResult) }}
         </span>
       </div>
-    </div>
 
-    <div v-if="post.extension" class="mb-3 flex flex-wrap gap-2">
-      <span v-if="post.extension.company" class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-        {{ post.extension.company }}
-      </span>
-      <span v-if="post.extension.position" class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
-        {{ post.extension.position }}
-      </span>
-      <span v-if="post.extension.interviewResult" class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="getResultClass(post.extension.interviewResult)">
-        {{ getResultText(post.extension.interviewResult) }}
-      </span>
-    </div>
-
-    <div v-if="post.tags.length" class="mb-4 flex flex-wrap gap-2">
-      <span v-for="tag in post.tags" :key="tag.id" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-        {{ tag.name }}
-      </span>
-    </div>
+      <div v-if="post.tags.length" class="mb-4 flex flex-wrap gap-2">
+        <span v-for="tag in post.tags" :key="tag.id" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          {{ tag.name }}
+        </span>
+      </div>
+    </RouterLink>
 
     <div class="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -143,7 +148,7 @@
         </button>
       </div>
     </div>
-  </RouterLink>
+  </article>
 </template>
 
 <script setup lang="ts">
@@ -299,6 +304,7 @@ const handleFollow = async () => {
 @media (max-width: 420px) {
   .card-action {
     gap: 0.25rem;
+    min-height: 44px;
     padding: 0.25rem 0.45rem;
   }
 
@@ -309,6 +315,16 @@ const handleFollow = async () => {
 
 .card-action:hover {
   background: rgb(248 250 252);
+}
+
+.post-detail-link {
+  display: block;
+  border-radius: 0.75rem;
+  outline: none;
+}
+
+.post-detail-link:focus-visible {
+  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.85);
 }
 
 :deep(.search-highlight) {

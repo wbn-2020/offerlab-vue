@@ -179,4 +179,8 @@ export interface PaginatedResponse<T> {
   nextCursor?: string
   hasMore: boolean
   total?: number
+  source?: string
+  degraded?: boolean
+  fallbackReason?: string
+  scanLimit?: number
 }

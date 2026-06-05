@@ -33,13 +33,26 @@
           >
             {{ isSavingDraft ? '保存中...' : '保存草稿' }}
           </button>
-          <button
-            @click="publishPost"
-            :disabled="isPublishing || isLoadingPost || blockingQualityIssues.length > 0"
-            class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-          >
-            {{ isPublishing ? (isEditing ? '保存中...' : '发布中...') : (isEditing ? '保存修改' : '发布') }}
-          </button>
+          <div class="publish-action-group">
+            <button
+              @click="publishPost"
+              :disabled="isPublishDisabled"
+              :title="publishDisabledReason || undefined"
+              :aria-describedby="publishDisabledReason ? 'publish-disabled-reason' : undefined"
+              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              {{ isPublishing ? (isEditing ? '保存中...' : '发布中...') : (isEditing ? '保存修改' : '发布') }}
+            </button>
+            <p
+              v-if="publishDisabledReason && !isPublishing"
+              id="publish-disabled-reason"
+              class="publish-hint"
+              role="status"
+              aria-live="polite"
+            >
+              {{ publishDisabledReason }}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -300,6 +313,12 @@ const qualityChecks = computed<QualityCheck[]>(() => [
 ])
 const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) => item.required && !item.passed))
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
+const publishDisabledReason = computed(() => {
+  if (isLoadingPost.value) return '帖子内容加载完成后才能发布'
+  if (blockingQualityIssues.value.length === 0) return ''
+  return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
+})
+const isPublishDisabled = computed(() => isPublishing.value || isLoadingPost.value || blockingQualityIssues.value.length > 0)
 const metaErrorMessages = computed(() => ['company', 'position', 'interviewRound', 'round', 'yearsOfExp', 'interviewResult', 'interviewRounds', 'extension']
   .map((field) => fieldErrors.value[field])
   .filter(Boolean))
@@ -388,9 +407,24 @@ const applyDraft = (draft: PostDraft) => {
 }
 
 const draftTitle = (draft: PostDraft) => {
-  const title = draft.title?.trim() || draft.content?.trim().slice(0, 18) || '未命名草稿'
+  const title = visibleDraftText(draft.title, 32)
+    || visibleDraftText(draft.content, 18)
+    || '未命名草稿'
   const time = draft.updateTime ? new Date(draft.updateTime).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
   return time ? `${title} · ${time}` : title
+}
+
+const visibleDraftText = (value?: string | null, maxLength = 32) => {
+  const normalized = String(value ?? '').replace(/\s+/g, ' ').trim()
+  if (!normalized || isLowQualityVisibleText(normalized)) return ''
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized
+}
+
+const isLowQualityVisibleText = (value: string) => {
+  if (/[\uFFFD\u93C3\u7481\u752F\u93BF\u9410\u7487\u9359\u5BB8\u951B\u9286\u9225]/.test(value)) return true
+  const compact = value.replace(/\s+/g, '')
+  const questionMarks = (compact.match(/\?/g) || []).length
+  return questionMarks >= 2 && questionMarks / Math.max(compact.length, 1) >= 0.35
 }
 
 const loadServerDrafts = async () => {
@@ -704,6 +738,21 @@ const goBack = () => {
   box-shadow: 0 0 0 2px rgb(14 165 233 / 0.25);
 }
 
+.publish-action-group {
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
+}
+
+.publish-hint {
+  max-width: min(22rem, 70vw);
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: rgb(180 83 9);
+}
+
 .forbidden-primary-action,
 .forbidden-secondary-action {
   display: inline-flex;
@@ -854,6 +903,10 @@ const goBack = () => {
   border-color: rgb(59 130 246);
   background: rgb(30 41 59);
   color: rgb(191 219 254);
+}
+
+:global(.dark) .publish-hint {
+  color: rgb(251 191 36);
 }
 
 :global(.dark) .quality-row strong {

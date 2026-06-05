@@ -2,6 +2,11 @@ import client, { Result } from './client'
 import type { ApiId, Post, PaginatedResponse } from './types'
 import { adaptPage, adaptPost } from './adapters'
 
+const cleanRemark = (remark?: string | null) => {
+  const value = remark?.trim()
+  return value ? { remark: value } : undefined
+}
+
 export interface SearchParams {
   q?: string
   company?: string
@@ -57,8 +62,8 @@ export const searchApi = {
   status: (): Promise<Result<SearchStatus>> =>
     client.get('/api/v1/search/status'),
 
-  rebuildIndex: (): Promise<Result<SearchIndexTask>> =>
-    client.post('/api/v1/search/admin/rebuild'),
+  rebuildIndex: (remark?: string): Promise<Result<SearchIndexTask>> =>
+    client.post('/api/v1/search/admin/rebuild', cleanRemark(remark)),
 
   getRebuildTask: (taskId: string): Promise<Result<SearchIndexTask>> =>
     client.get(`/api/v1/search/admin/tasks/${taskId}`),

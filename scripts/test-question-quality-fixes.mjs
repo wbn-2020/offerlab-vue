@@ -21,6 +21,7 @@ assert.match(detail, /detail\.value\?\.question \?\? null/, 'QuestionDetailView 
 assert.match(detail, /!detail \|\| !question/, 'QuestionDetailView template must render empty state when the adapted question is missing')
 assert.match(detail, /if \(!detail\.value \|\| !question\.value/, 'QuestionDetailView note actions must guard against missing adapted question data')
 assert.match(detail, /当前题库还没有同步到详情页/, 'QuestionDetailView empty state must explain backend/detail sync gaps')
+assert.match(detail, /\.pill \{[\s\S]*min-height:\s*44px;/, 'QuestionDetailView company/detail pills must keep a touchable mobile target')
 
 assert.match(search, /let searchRequestId\s*=\s*0/, 'SearchView must track latest search request')
 assert.match(search, /const requestId\s*=\s*\+\+searchRequestId/, 'SearchView must stamp each search request')

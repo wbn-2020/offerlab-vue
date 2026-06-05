@@ -49,15 +49,19 @@
             </div>
           </div>
 
-          <button
-            type="button"
-            @click="markAllAsRead"
-            :disabled="isMutating || unread.total === 0"
-            class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <CheckCheck class="h-4 w-4" />
-            全部已读
-          </button>
+          <div class="mark-read-actions">
+            <button
+              type="button"
+              @click="markAllAsRead"
+              :disabled="markAllDisabled"
+              :title="markAllHint"
+              class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <CheckCheck class="h-4 w-4" />
+              {{ isMutating ? '处理中...' : unread.total === 0 ? '暂无未读' : '全部已读' }}
+            </button>
+            <p v-if="unread.total === 0" class="mark-read-hint">当前没有未读通知</p>
+          </div>
         </div>
       </section>
 
@@ -93,7 +97,12 @@
               ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
               : 'border-primary-200 bg-primary-50 dark:border-slate-700 dark:bg-slate-800'
           ]"
+          :role="notif.targetPath ? 'button' : undefined"
+          :tabindex="notif.targetPath ? 0 : undefined"
+          :aria-label="notificationActionLabel(notif)"
           @click="openNotification(notif)"
+          @keydown.enter.prevent="openNotification(notif)"
+          @keydown.space.prevent="openNotification(notif)"
         >
           <div class="flex items-start gap-4">
             <div :class="['flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full', iconClass(notif.type)]">
@@ -180,6 +189,8 @@ const tabs = computed(() => [
 
 const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
 const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
+const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
+const markAllHint = computed(() => unread.value.total === 0 ? '当前没有未读通知' : '将所有通知标记为已读')
 
 const iconFor = (type: string) => {
   if (type === 'like') return Heart
@@ -279,6 +290,7 @@ const markAllAsRead = async () => {
     await notificationApi.markAllAsRead()
     notifications.value = notifications.value.map(item => ({ ...item, read: true }))
     await loadUnread()
+    toast.success('已全部标为已读')
   } catch (error) {
     toast.error(getErrorMessage(error, '全部标记已读失败'))
   } finally {
@@ -289,6 +301,10 @@ const markAllAsRead = async () => {
 const openNotification = async (notif: Notification) => {
   if (!notif.read) await markAsRead(notif.notificationId)
   if (notif.targetPath) router.push(notif.targetPath)
+}
+
+const notificationActionLabel = (notif: Notification) => {
+  return notif.targetPath ? `${notif.title}，查看通知详情` : undefined
 }
 
 onMounted(async () => {
@@ -356,6 +372,18 @@ onMounted(async () => {
   color: white;
 }
 
+.mark-read-actions {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+}
+
+.mark-read-hint {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(100 116 139);
+}
+
 :global(.dark) .metric-card {
   border-color: rgb(51 65 85);
 }
@@ -381,5 +409,9 @@ onMounted(async () => {
 :global(.dark) .tab-button-idle:hover {
   background: rgb(30 41 59);
   color: rgb(248 250 252);
+}
+
+:global(.dark) .mark-read-hint {
+  color: rgb(148 163 184);
 }
 </style>

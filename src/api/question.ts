@@ -60,6 +60,10 @@ export interface QuestionNoteResult extends QuestionNotePayload {
 export interface PostQuestionBlock {
   taskStatus: 'none' | 'pending' | 'running' | 'succeeded' | 'failed' | string
   questions: Question[]
+  extractedCount: number
+  visibleCount: number
+  pendingReviewCount: number
+  reviewHint?: string
   errorVisible: boolean
   errorMessage?: string
   canRetry: boolean
@@ -324,6 +328,10 @@ function adaptPostQuestionBlock(raw: any): PostQuestionBlock {
   return {
     taskStatus: raw?.taskStatus ?? 'none',
     questions: Array.isArray(raw?.questions) ? raw.questions.map(adaptQuestion) : [],
+    extractedCount: Number(raw?.extractedCount ?? raw?.questionCount ?? 0),
+    visibleCount: Number(raw?.visibleCount ?? raw?.questions?.length ?? 0),
+    pendingReviewCount: Number(raw?.pendingReviewCount ?? raw?.pendingCount ?? 0),
+    reviewHint: raw?.reviewHint || undefined,
     errorVisible: Boolean(raw?.errorVisible),
     errorMessage: raw?.errorMessage,
     canRetry: Boolean(raw?.canRetry),

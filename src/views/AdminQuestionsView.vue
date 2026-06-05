@@ -262,6 +262,11 @@
         </aside>
       </section>
     </main>
+    <RiskConfirmDialog
+      :state="riskConfirmState"
+      @confirm="resolveRiskConfirm"
+      @cancel="cancelRiskConfirm"
+    />
   </div>
 </template>
 
@@ -270,10 +275,12 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { getErrorMessage } from '@/api/client'
 import { opsApi, type QuestionDuplicateGroup, type QuestionIndexTask } from '@/api/ops'
+import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
 import type { Question } from '@/api/question'
 
 const statusFilters = [
@@ -334,6 +341,10 @@ const questionQueryParams = computed(() => ({
   page: page.value,
   pageSize,
 }))
+const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
+const riskObjects = (items: Array<Question['id'] | string>, limit = 8) => items.slice(0, limit).map((item) => String(item))
+const riskContext = (...items: Array<string | false | undefined>) => items.filter(Boolean) as string[]
+const requireRiskConfirm = (request: RiskConfirmRequest) => confirmRisk(request)
 
 const loadSummary = async () => {
   const res = await opsApi.questionSummary()
@@ -378,9 +389,19 @@ const loadQuestionIndexTasks = async () => {
 
 const submitQuestionIndexTask = async () => {
   if (activeIndexTask.value) return
+  const note = await requireRiskConfirm({
+    title: '提交题库索引重建任务',
+    level: 'critical',
+    reversible: false,
+    impactCount: total.value || '题库索引',
+    objects: riskObjects(['question-index']),
+    context: riskContext(`当前筛选状态：${statusFilter.value === undefined ? '全部' : statusText(statusFilter.value)}`, `当前页：${questions.value.length} 题`, `总数：${total.value}`),
+    confirmText: '确认提交索引任务',
+  })
+  if (note === null) return
   isSubmittingIndexTask.value = true
   try {
-    const res = await opsApi.rebuildQuestionIndexTask()
+    const res = await opsApi.rebuildQuestionIndexTask(note)
     toast.success(res.data?.taskId ? '索引重建任务已提交' : '索引重建任务已提交')
     await loadQuestionIndexTasks()
   } catch (error: any) {
@@ -392,9 +413,20 @@ const submitQuestionIndexTask = async () => {
 
 const retryQuestionIndexTask = async (taskId: string) => {
   if (!taskId || activeIndexTask.value) return
+  const task = questionIndexTasks.value.find((item) => item.taskId === taskId)
+  const note = await requireRiskConfirm({
+    title: '重试题库索引任务',
+    level: 'high',
+    reversible: true,
+    impactCount: task?.total || 1,
+    objects: riskObjects([taskId, task?.indexName || 'question-index']),
+    context: riskContext(task ? `状态：${questionIndexTaskStatusText(task.status)}` : undefined, task?.message ? `错误：${task.message}` : undefined),
+    confirmText: '确认重试索引任务',
+  })
+  if (note === null) return
   retryingIndexTaskId.value = taskId
   try {
-    await opsApi.retryQuestionIndexTask(taskId)
+    await opsApi.retryQuestionIndexTask(taskId, note)
     toast.success('索引任务已重新提交')
     await loadQuestionIndexTasks()
   } catch (error: any) {
@@ -469,11 +501,13 @@ const loadDuplicateGroup = async (id: Question['id']) => {
   }
 }
 
-const saveQuestion = async () => {
+const saveQuestion = async (remarkOrEvent?: string | Event) => {
   if (!selectedQuestion.value) return
+  const remark = typeof remarkOrEvent === 'string' ? remarkOrEvent : undefined
   isSaving.value = true
   try {
-    const res = await opsApi.updateQuestion(selectedQuestion.value.id, { ...form })
+    const payload = remark ? { ...form, remark } : { ...form }
+    const res = await opsApi.updateQuestion(selectedQuestion.value.id, payload)
     toast.success('题目已保存')
     if (res.data) selectQuestion(res.data)
     await loadQuestions()
@@ -485,8 +519,19 @@ const saveQuestion = async () => {
 }
 
 const quickReview = async (status: number) => {
+  if (!selectedQuestion.value) return
+  const note = await requireRiskConfirm({
+    title: status === 2 ? '隐藏题目' : '通过题目审核',
+    level: status === 2 ? 'high' : 'medium',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([selectedQuestion.value.id, selectedQuestion.value.questionText]),
+    context: riskContext(`来源帖子：${selectedQuestion.value.sourcePostId || '--'}`, `当前状态：${statusText(selectedQuestion.value.status)}`),
+    confirmText: status === 2 ? '确认隐藏' : '确认通过',
+  })
+  if (note === null) return
   form.status = status
-  await saveQuestion()
+  await saveQuestion(note)
 }
 
 const toggleSelection = (id: Question['id']) => {
@@ -501,10 +546,20 @@ const toggleCurrentPageSelection = () => {
 
 const batchReview = async (status: number) => {
   if (selectedIds.value.length === 0) return
+  const ids = [...selectedIds.value]
+  const note = await requireRiskConfirm({
+    title: status === 2 ? '批量隐藏题目' : '批量通过题目',
+    level: status === 2 ? 'critical' : 'high',
+    reversible: true,
+    impactCount: ids.length,
+    objects: riskObjects(ids),
+    context: riskContext(`筛选状态：${statusFilter.value === undefined ? '全部' : statusText(statusFilter.value)}`, `关键词：${filters.keyword || '无'}`, `公司：${filters.company || '全部'}`, `当前页：${page.value}`),
+    confirmText: status === 2 ? '确认批量隐藏' : '确认批量通过',
+  })
+  if (note === null) return
   isBatching.value = true
   try {
-    const ids = [...selectedIds.value]
-    const res = await opsApi.batchReviewQuestions(ids, status)
+    const res = await opsApi.batchReviewQuestions(ids, status, note)
     toast.success(`已处理 ${res.data?.reviewed || ids.length} 道题`)
     if (selectedQuestion.value && ids.includes(selectedQuestion.value.id)) {
       selectedQuestion.value = null
@@ -542,9 +597,20 @@ const setDuplicateCanonical = async (canonicalQuestionId: Question['id']) => {
 
 const hideSelectedDuplicates = async () => {
   if (!selectedQuestion.value || duplicateSelection.value.length === 0) return
+  const ids = [...duplicateSelection.value]
+  const note = await requireRiskConfirm({
+    title: '隐藏选中重复题',
+    level: 'critical',
+    reversible: true,
+    impactCount: ids.length,
+    objects: riskObjects(ids),
+    context: riskContext(`题组：${duplicateGroup.value?.normalizedHash || selectedQuestion.value.id}`, `主问题：${duplicateGroup.value?.canonicalId || selectedQuestion.value.id}`),
+    confirmText: '确认隐藏重复题',
+  })
+  if (note === null) return
   isDuplicateSaving.value = true
   try {
-    const res = await opsApi.hideQuestionDuplicates(selectedQuestion.value.id, [...duplicateSelection.value])
+    const res = await opsApi.hideQuestionDuplicates(selectedQuestion.value.id, ids, note)
     duplicateGroup.value = res.data || null
     duplicateSelection.value = []
     toast.success('重复题已隐藏')
@@ -608,5 +674,25 @@ onMounted(() => {
 :global(.dark) .question-row:focus-visible {
   border-color: rgb(129 140 248);
   box-shadow: 0 0 0 3px rgb(67 56 202 / 0.55);
+}
+
+@media (max-width: 640px) {
+  .primary-button,
+  .secondary-button,
+  .filter-button,
+  .compact,
+  .selection-hint {
+    min-height: 44px;
+  }
+
+  .row-check {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .row-check input {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
 }
 </style>

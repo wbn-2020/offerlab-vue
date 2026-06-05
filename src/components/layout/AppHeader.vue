@@ -1,7 +1,7 @@
 <template>
   <header class="sticky top-0 z-40 border-b border-slate-200/75 bg-white/88 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/82">
     <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-      <RouterLink to="/" class="group flex flex-shrink-0 items-center gap-2.5 text-slate-950 dark:text-white" aria-label="OfferLab 首页">
+      <RouterLink to="/" class="brand-link group flex flex-shrink-0 items-center gap-2.5 text-slate-950 dark:text-white" aria-label="OfferLab 首页">
         <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-sm font-black text-white shadow-sm shadow-primary-600/20 transition-transform group-hover:-translate-y-0.5">
           OL
         </span>
@@ -45,7 +45,7 @@
         <RouterLink
           v-if="authStore.token"
           to="/me/notifications"
-          class="relative rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          class="header-icon-button relative rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           title="通知"
         >
           <Bell class="h-5 w-5" />
@@ -60,7 +60,7 @@
         <button
           type="button"
           @click="toggleTheme"
-          class="rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          class="header-icon-button rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           :title="themeStore.isDark() ? '切换亮色模式' : '切换暗色模式'"
         >
           <Sun v-if="themeStore.isDark()" class="h-5 w-5" />
@@ -69,7 +69,7 @@
 
         <button
           type="button"
-          class="rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white lg:hidden"
+          class="header-icon-button rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white lg:hidden"
           :aria-expanded="showMobileMenu"
           aria-controls="mobile-main-nav"
           :aria-label="showMobileMenu ? '关闭主导航' : '打开主导航'"
@@ -84,7 +84,7 @@
           <button
             type="button"
             @click.stop="showUserMenu = !showUserMenu"
-            class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-sky-500 font-semibold text-white shadow-sm shadow-primary-600/20 transition-all hover:-translate-y-0.5 hover:shadow-md"
+            class="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-sky-500 font-semibold text-white shadow-sm shadow-primary-600/20 transition-all hover:-translate-y-0.5 hover:shadow-md"
             aria-label="用户菜单"
           >
             <span v-if="authStore.isLoggedIn">{{ authStore.user?.nickname?.[0] || 'U' }}</span>
@@ -159,7 +159,10 @@
             v-for="item in navItems"
             :key="item.to"
             :to="item.to"
-            class="mobile-nav-link"
+            :class="[
+              'mobile-nav-link',
+              themeStore.isDark() ? 'mobile-nav-link-dark' : ''
+            ]"
             active-class="mobile-nav-link-active"
             @click="closeMobileMenu"
           >
@@ -169,18 +172,29 @@
         </nav>
 
         <div class="grid grid-cols-2 gap-2">
-          <RouterLink to="/search" class="mobile-quick-action" @click="closeMobileMenu">
+          <RouterLink
+            to="/search"
+            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
+            @click="closeMobileMenu"
+          >
             <Search class="h-4 w-4" />
             搜索
           </RouterLink>
-          <RouterLink to="/editor" class="mobile-quick-action mobile-quick-action-primary" @click="closeMobileMenu">
+          <RouterLink
+            to="/editor"
+            :class="[
+              'mobile-quick-action mobile-quick-action-primary',
+              themeStore.isDark() ? 'mobile-quick-action-primary-dark' : ''
+            ]"
+            @click="closeMobileMenu"
+          >
             <PenLine class="h-4 w-4" />
             发布
           </RouterLink>
           <RouterLink
             v-if="authStore.token"
             to="/me/notifications"
-            class="mobile-quick-action"
+            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
             @click="closeMobileMenu"
           >
             <Bell class="h-4 w-4" />
@@ -188,7 +202,7 @@
           </RouterLink>
           <RouterLink
             :to="authStore.isLoggedIn ? '/me' : '/login'"
-            class="mobile-quick-action"
+            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
             @click="closeMobileMenu"
           >
             <User class="h-4 w-4" />
@@ -232,7 +246,7 @@ const adminLinks = computed(() => {
   if (!value) return []
   const links: Array<{ to: string; label: string }> = []
   if (value.ops || value.questionOperator || value.contentModerator || value.admin) links.push({ to: '/admin/ops', label: '运维中心' })
-  if (value.questionOperator) {
+  if (value.questionOperator || value.admin) {
     links.push({ to: '/admin/questions', label: '题目审核' })
     links.push({ to: '/admin/company-aliases', label: '公司别名维护' })
   }
@@ -309,12 +323,25 @@ watch(() => authStore.token, () => {
 
 <style scoped>
 .menu-item {
-  display: block;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
   padding: 0.625rem 1rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: rgb(51 65 85);
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.brand-link,
+.header-icon-button {
+  min-height: 44px;
+}
+
+.header-icon-button {
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
 }
 
 .menu-item:hover {
@@ -348,6 +375,7 @@ watch(() => authStore.token, () => {
 .mobile-nav-link,
 .mobile-quick-action {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
   gap: 0.5rem;
   border-radius: 0.5rem;
@@ -358,15 +386,32 @@ watch(() => authStore.token, () => {
 
 .mobile-nav-link {
   padding: 0.75rem;
-  border: 1px solid transparent;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
   color: rgb(30 41 59);
 }
 
 .mobile-nav-link:hover,
+.mobile-nav-link:focus-visible,
 .mobile-nav-link-active {
   border-color: rgb(191 219 254);
   background: rgb(239 246 255);
   color: rgb(29 78 216);
+  outline: none;
+}
+
+.mobile-nav-link-dark {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.mobile-nav-link-dark:hover,
+.mobile-nav-link-dark:focus-visible,
+.mobile-nav-link-active.mobile-nav-link-dark {
+  border-color: rgb(96 165 250);
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
 }
 
 .mobile-quick-action {
@@ -394,6 +439,32 @@ watch(() => authStore.token, () => {
   color: white;
 }
 
+.mobile-quick-action-dark {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23);
+  color: rgb(226 232 240);
+}
+
+.mobile-quick-action-dark:hover,
+.mobile-quick-action-dark:focus-visible {
+  border-color: rgb(71 85 105);
+  background: rgb(15 23 42);
+  color: rgb(248 250 252);
+}
+
+.mobile-quick-action-primary-dark {
+  border-color: rgb(37 99 235);
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.mobile-quick-action-primary-dark:hover,
+.mobile-quick-action-primary-dark:focus-visible {
+  border-color: rgb(29 78 216);
+  background: rgb(29 78 216);
+  color: white;
+}
+
 :global(.dark) .menu-item {
   color: rgb(203 213 225);
 }
@@ -407,31 +478,4 @@ watch(() => authStore.token, () => {
   border-color: rgb(30 41 59);
 }
 
-:global(.dark) .mobile-nav-link {
-  color: rgb(226 232 240);
-}
-
-:global(.dark) .mobile-nav-link:hover,
-:global(.dark) .mobile-nav-link-active {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
-}
-
-:global(.dark) .mobile-quick-action {
-  border-color: rgb(51 65 85);
-  color: rgb(203 213 225);
-}
-
-:global(.dark) .mobile-quick-action:hover {
-  border-color: rgb(71 85 105);
-  background: rgb(30 41 59);
-  color: rgb(248 250 252);
-}
-
-:global(.dark) .mobile-quick-action-primary,
-:global(.dark) .mobile-quick-action-primary:hover {
-  border-color: rgb(37 99 235);
-  background: rgb(37 99 235);
-  color: white;
-}
 </style>

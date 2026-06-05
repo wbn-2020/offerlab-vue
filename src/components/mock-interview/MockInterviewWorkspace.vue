@@ -190,12 +190,24 @@
           {{ isMarkingWeakQuestions ? '加入中...' : '加入待复习' }}
         </button>
       </div>
+      <div v-if="session.status === 'completed'" class="learning-loop-box">
+        <div>
+          <strong>下一步</strong>
+          <p>把本场复盘回流到准备台，再集中处理待复习题或继续专项模拟。</p>
+        </div>
+        <div class="learning-loop-actions">
+          <RouterLink to="/me/prep" class="secondary-action">查看准备台</RouterLink>
+          <RouterLink to="/questions?progressStatus=review&sort=latest" class="secondary-action">查看待复习题库</RouterLink>
+          <RouterLink :to="nextMockInterviewLink" class="primary-action">继续专项练习</RouterLink>
+        </div>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { Copy, Download } from 'lucide-vue-next'
 import type { MockInterviewSession } from '@/api/question'
 import { answerHintText, answerMetaParts, answerQuestionText, difficultyText, sessionTitle, type MockInterviewReviewSuggestion } from '@/utils/mockInterviewFormat'
@@ -229,6 +241,15 @@ defineEmits<{
 }>()
 
 const aiReviewFailedCount = computed(() => props.session?.answers.filter((answer) => answer.aiReviewStatus === 'FAILED').length || 0)
+const nextMockInterviewLink = computed(() => ({
+  path: '/mock-interview',
+  query: {
+    company: props.session?.company || undefined,
+    position: props.session?.position || undefined,
+    focusTag: props.session?.focusTag || undefined,
+    questionCount: props.session?.questionCount || 5,
+  },
+}))
 </script>
 
 <style scoped>
@@ -496,6 +517,38 @@ const aiReviewFailedCount = computed(() => props.session?.answers.filter((answer
   color: rgb(136 19 55);
 }
 
+.learning-loop-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.learning-loop-box strong {
+  display: block;
+  font-size: 0.9rem;
+  color: rgb(30 64 175);
+}
+
+.learning-loop-box p {
+  margin-top: 0.25rem;
+  max-width: 34rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: rgb(30 64 175);
+}
+
+.learning-loop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
 :global(.dark) .panel,
 :global(.dark) .secondary-action {
   border-color: rgb(30 41 59);
@@ -560,11 +613,21 @@ const aiReviewFailedCount = computed(() => props.session?.answers.filter((answer
   background: rgb(76 5 25);
 }
 
+:global(.dark) .learning-loop-box {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
 :global(.dark) .weak-review-box strong {
   color: rgb(255 228 230);
 }
 
 :global(.dark) .weak-review-box p {
   color: rgb(253 164 175);
+}
+
+:global(.dark) .learning-loop-box strong,
+:global(.dark) .learning-loop-box p {
+  color: rgb(191 219 254);
 }
 </style>

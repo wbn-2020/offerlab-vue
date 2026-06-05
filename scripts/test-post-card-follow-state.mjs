@@ -20,6 +20,14 @@ if (!postCard.includes("'follow-change'")) {
   failures.push('PostCard must emit follow-change after follow/unfollow succeeds')
 }
 
+if (!/<article[\s\S]*class="group/.test(postCard) || !/class="post-detail-link"/.test(postCard)) {
+  failures.push('PostCard must split the card container from the detail RouterLink so action buttons are not nested inside a link')
+}
+
+if (/<RouterLink[\s\S]*<button[\s\S]*<\/RouterLink>/.test(postCard)) {
+  failures.push('PostCard detail RouterLink must not wrap follow, feedback, like, or favorite buttons')
+}
+
 if (!postCard.includes("emit('follow-change', props.post.author.uid, false)")
   || !postCard.includes("emit('follow-change', props.post.author.uid, true)")) {
   failures.push('PostCard must emit both follow and unfollow state changes')

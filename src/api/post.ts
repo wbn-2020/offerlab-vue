@@ -218,7 +218,7 @@ export const postApi = {
   report: (postId: ApiId, req: PostReportReq): Promise<Result<{ reportId?: ApiId }>> =>
     client.post(`/api/v1/posts/${postId}/reports`, req),
 
-  listAdminReports: async (params?: { status?: number; limit?: number }): Promise<Result<PostReport[]>> => {
+  listAdminReports: async (params?: { status?: number; limit?: number; includeTestData?: boolean }): Promise<Result<PostReport[]>> => {
     const res = await client.get('/api/v1/posts/admin/reports', { params }) as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostReport) : [] }
   },

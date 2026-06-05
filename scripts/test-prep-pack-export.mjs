@@ -7,6 +7,13 @@ const exporter = readFileSync(new URL('../src/utils/prepPackExport.ts', import.m
 
 assert.match(mePrep, /复制备考包/, 'MePrepView must expose a prep pack copy action')
 assert.match(mePrep, /下载备考包/, 'MePrepView must expose a prep pack download action')
+assert.match(mePrep, /prep-hero-actions/, 'MePrepView must keep the prep page hero actions grouped')
+assert.match(mePrep, /<details v-if="hasExportActions" class="prep-export-menu">/, 'MePrepView must tuck export actions into a secondary menu')
+assert.match(mePrep, /prep-export-trigger/, 'MePrepView must render a compact export menu trigger')
+assert.match(mePrep, /prep-export-list/, 'MePrepView must render export actions inside a menu list')
+assert.match(mePrep, /prep-export-item/, 'MePrepView export controls must use secondary menu item styling')
+assert.match(mePrep, /\.prep-export-menu:not\(\[open\]\) \.prep-export-list[\s\S]*display:\s*none/, 'MePrepView must keep export menu items hidden until the menu opens')
+assert.doesNotMatch(mePrep, /class="prep-export-button"/, 'MePrepView must not spread export buttons across the first-screen hero')
 assert.match(mePrep, /buildUserPrepPackMarkdown/, 'MePrepView must use the shared user prep pack exporter')
 assert.match(mePrep, /navigator\.clipboard\.writeText/, 'User prep pack export must copy generated content to clipboard')
 assert.match(mePrep, /downloadMarkdownFile\(buildUserPrepPackMarkdown\(overview\.value\)/, 'User prep pack export must download the same generated Markdown')

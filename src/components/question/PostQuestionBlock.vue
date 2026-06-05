@@ -45,12 +45,17 @@
       <strong>题目整理失败</strong>
       <span>{{ block.errorVisible && block.errorMessage ? block.errorMessage : '后台已经记录失败状态，管理员可以在后台或此处重新提取。' }}</span>
     </div>
+    <div v-else-if="hasPendingReviewQuestions" class="state-panel state-warning">
+      <strong>题目待审核发布</strong>
+      <span>{{ block.reviewHint || `已提取 ${extractedCount} 道题，其中 ${pendingReviewCount} 道待审核发布。` }}</span>
+    </div>
     <div v-else-if="block.questions.length === 0" class="state-panel state-neutral">
-      暂未整理出明确题目。可以补充更清晰的面试问题列表后再次保存面经。
+      {{ block.reviewHint || '暂未整理出明确题目。可以补充更清晰的面试问题列表后再次保存面经。' }}
     </div>
     <div v-else class="space-y-3">
       <div class="result-summary">
-        <span>已整理 {{ block.questions.length }} 道题</span>
+        <span>已整理 {{ visibleCount }} 道题</span>
+        <span v-if="pendingReviewCount > 0">{{ pendingReviewCount }} 道待审核发布</span>
         <span>可进入题库、准备台和公司准备包复习</span>
       </div>
       <RouterLink
@@ -91,6 +96,10 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null
 const normalizedStatus = computed(() => String(block.value?.taskStatus || 'none').toLowerCase())
 const isProcessing = computed(() => normalizedStatus.value === 'pending' || normalizedStatus.value === 'running')
 const isFailed = computed(() => normalizedStatus.value === 'failed')
+const extractedCount = computed(() => Number(block.value?.extractedCount ?? 0))
+const visibleCount = computed(() => Number(block.value?.visibleCount ?? block.value?.questions.length ?? 0))
+const pendingReviewCount = computed(() => Number(block.value?.pendingReviewCount ?? 0))
+const hasPendingReviewQuestions = computed(() => pendingReviewCount.value > 0 && block.value?.questions.length === 0)
 const statusMeta = computed(() => {
   if (!block.value) {
     return { label: '未加载', className: 'status-neutral', description: '系统会把面经里的问题整理成结构化题目。' }
@@ -101,8 +110,11 @@ const statusMeta = computed(() => {
   if (isFailed.value) {
     return { label: '失败', className: 'status-danger', description: '本次自动提取没有成功，管理员可以重新提取。' }
   }
+  if (pendingReviewCount.value > 0 && block.value.questions.length === 0) {
+    return { label: '待审核', className: 'status-warning', description: block.value.reviewHint || `已提取 ${extractedCount.value} 道题，待审核发布。` }
+  }
   if (block.value.questions.length > 0) {
-    return { label: '已完成', className: 'status-ok', description: `已整理出 ${block.value.questions.length} 道可复习题目。` }
+    return { label: '已完成', className: 'status-ok', description: `已整理出 ${visibleCount.value} 道可复习题目。` }
   }
   return { label: '暂无题目', className: 'status-neutral', description: '系统暂未识别出明确题目。' }
 })
@@ -215,6 +227,11 @@ onBeforeUnmount(clearPoll)
   color: rgb(22 101 52);
 }
 
+.status-warning {
+  background: rgb(254 243 199);
+  color: rgb(146 64 14);
+}
+
 .status-danger {
   background: rgb(254 226 226);
   color: rgb(190 18 60);
@@ -253,6 +270,12 @@ onBeforeUnmount(clearPoll)
   border-color: rgb(254 205 211);
   background: rgb(255 241 242);
   color: rgb(190 18 60);
+}
+
+.state-warning {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235);
+  color: rgb(146 64 14);
 }
 
 .state-neutral {
@@ -325,5 +348,11 @@ onBeforeUnmount(clearPoll)
 :global(.dark) .state-danger {
   background: rgb(127 29 29 / 0.45);
   color: rgb(254 202 202);
+}
+
+:global(.dark) .status-warning,
+:global(.dark) .state-warning {
+  background: rgb(113 63 18 / 0.45);
+  color: rgb(253 230 138);
 }
 </style>

@@ -120,6 +120,7 @@ const copyLink = async () => {
 
   .interaction-action {
     gap: 0.25rem;
+    min-height: 44px;
     padding-inline: 0.35rem;
   }
 

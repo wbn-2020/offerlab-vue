@@ -167,6 +167,14 @@
             </div>
           </section>
 
+          <section v-if="searchUndoAction" class="undo-panel" role="status" aria-live="polite">
+            <span>{{ searchUndoAction.message }}</span>
+            <div class="undo-actions">
+              <button type="button" @click="restoreSearchUndo">撤销</button>
+              <button type="button" @click="dismissSearchUndo">关闭</button>
+            </div>
+          </section>
+
           <section class="side-panel">
             <div class="flex items-start justify-between gap-3">
               <div>
@@ -177,9 +185,6 @@
                 {{ searchStatus?.available ? 'ES' : '降级' }}
               </span>
             </div>
-            <button v-if="canRebuildIndex" type="button" class="secondary-button mt-3 w-full" :disabled="isRebuilding" @click="rebuildIndex">
-              {{ isRebuilding ? '已提交重建...' : '重建帖子索引' }}
-            </button>
           </section>
         </aside>
 
@@ -192,6 +197,14 @@
           <div v-if="!isLoading && resultCount > 0" class="result-summary">
             <span>{{ searchMode === 'posts' ? `找到 ${resultCount} 条内容` : `找到 ${resultCount} 位用户` }}</span>
             <span v-if="searchMode === 'posts'">排序: {{ activeSortLabel }}</span>
+          </div>
+
+          <div
+            v-if="searchMode === 'posts' && searchResultMeta && !isLoading"
+            :class="['search-source-notice', searchResultMeta.degraded ? 'source-degraded' : 'source-normal']"
+          >
+            <strong>{{ searchSourceTitle }}</strong>
+            <span>{{ searchSourceDescription }}</span>
           </div>
 
           <div v-if="isLoading && resultCount === 0" class="loading-panel">正在搜索...</div>
@@ -272,13 +285,11 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
-import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { searchApi, type SearchStatus } from '@/api/search'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, Post, User } from '@/api/types'
-import { hasAdminPermission } from '@/utils/adminPermissions'
 import { safeStorage } from '@/utils/safeStorage'
 
 type SortValue = 'relevance' | 'latest' | 'hot'
@@ -293,6 +304,19 @@ type SearchSnapshot = {
   type?: number
   sort: SortValue
   updatedAt: number
+}
+
+type SearchUndoAction = {
+  id: number
+  message: string
+  restore: () => void
+}
+
+type SearchResultMeta = {
+  source?: string
+  degraded?: boolean
+  fallbackReason?: string
+  scanLimit?: number
 }
 
 const RECENT_SEARCH_KEY = 'recent-searches'
@@ -327,20 +351,20 @@ const hotWords = ref<string[]>([])
 const suggestions = ref<string[]>([])
 const recentSearches = ref<SearchSnapshot[]>([])
 const savedSearches = ref<SearchSnapshot[]>([])
+const searchUndoAction = ref<SearchUndoAction | null>(null)
 const editingSavedSearchId = ref('')
 const editingSavedSearchLabel = ref('')
 const searchStatus = ref<SearchStatus | null>(null)
-const adminPermissions = ref<MyAdminPermissions | null>(null)
+const searchResultMeta = ref<SearchResultMeta | null>(null)
 const isLoading = ref(false)
-const isRebuilding = ref(false)
 const errorMessage = ref('')
 let suggestionTimer: ReturnType<typeof setTimeout> | null = null
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let searchUndoTimer: ReturnType<typeof setTimeout> | null = null
 let suggestionRequestId = 0
 let searchRequestId = 0
 let isPushingQuery = false
 
-const canRebuildIndex = computed(() => hasAdminPermission(adminPermissions.value, 'admin'))
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const storageKey = (name: string) => `offerlab:${storageOwner.value}:${name}`
 const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
@@ -371,11 +395,36 @@ const relaxActions = computed(() => {
 })
 const searchStatusText = computed(() => {
   if (!searchStatus.value) return '正在检测搜索状态'
-  if (!searchStatus.value.enabled) return 'ES 未启用，当前使用数据库搜索'
-  if (!searchStatus.value.available) return 'ES 不可用，当前使用数据库降级搜索'
+  if (!searchStatus.value.enabled) return 'ES 未启用，当前使用数据库搜索，结果可能不完整，排序能力受限'
+  if (!searchStatus.value.available) return 'ES 不可用，当前使用数据库降级搜索，结果可能不完整，排序能力受限'
   if (!searchStatus.value.indexExists) return `索引 ${searchStatus.value.indexName} 尚未创建`
   return `索引 ${searchStatus.value.indexName} 已就绪`
 })
+const searchSourceTitle = computed(() => {
+  const meta = searchResultMeta.value
+  if (!meta) return ''
+  if (meta.source === 'elasticsearch' && !meta.degraded) return '本次结果来自 Elasticsearch'
+  if (meta.source === 'mysql' && meta.degraded) return '本次为数据库降级搜索'
+  if (meta.source === 'mysql') return '本次结果来自数据库搜索'
+  return `本次搜索来源：${meta.source || '未知'}`
+})
+const searchSourceDescription = computed(() => {
+  const meta = searchResultMeta.value
+  if (!meta) return ''
+  const scan = meta.scanLimit ? `扫描上限 ${meta.scanLimit} 条。` : ''
+  if (!meta.degraded) return `索引可用，按当前筛选和排序返回。${scan}`
+  return `${fallbackReasonText(meta.fallbackReason)}，召回完整性和排序可能受限。${scan}`
+})
+
+const fallbackReasonText = (reason?: string) => {
+  const labels: Record<string, string> = {
+    elasticsearch_empty: 'ES 当前没有召回可见结果，已切换到数据库结果',
+    elasticsearch_visibility_filtered: 'ES 结果经过可见性过滤后不足，已切换到数据库结果',
+    elasticsearch_unavailable: 'ES 当前不可用',
+    hot_sort_mysql: '热门排序使用数据库热度计算',
+  }
+  return labels[reason || ''] || '搜索服务处于降级模式'
+}
 
 const syncFromRoute = () => {
   filters.q = typeof route.query.q === 'string' ? route.query.q : ''
@@ -458,6 +507,35 @@ const writeSnapshots = (key: string, snapshots: SearchSnapshot[]) => {
   safeStorage.set(storageKey(key), JSON.stringify(snapshots))
 }
 
+const clearSearchUndoTimer = () => {
+  if (searchUndoTimer) {
+    clearTimeout(searchUndoTimer)
+    searchUndoTimer = null
+  }
+}
+
+const scheduleSearchUndo = (message: string, restore: () => void) => {
+  clearSearchUndoTimer()
+  const action = { id: Date.now(), message, restore }
+  searchUndoAction.value = action
+  searchUndoTimer = setTimeout(() => {
+    if (searchUndoAction.value?.id === action.id) searchUndoAction.value = null
+  }, 8000)
+}
+
+const dismissSearchUndo = () => {
+  clearSearchUndoTimer()
+  searchUndoAction.value = null
+}
+
+const restoreSearchUndo = () => {
+  const action = searchUndoAction.value
+  if (!action) return
+  action.restore()
+  dismissSearchUndo()
+  toast.success('已撤销删除')
+}
+
 const loadSearchSnapshots = () => {
   recentSearches.value = readSnapshots(RECENT_SEARCH_KEY).slice(0, MAX_RECENT_SEARCHES)
   savedSearches.value = readSnapshots(SAVED_SEARCH_KEY).slice(0, MAX_SAVED_SEARCHES)
@@ -506,30 +584,56 @@ const confirmRenameSavedSearch = (snapshot: SearchSnapshot) => {
 }
 
 const deleteSavedSearch = (id: string) => {
+  const previous = savedSearches.value
+  const deleted = previous.find((item) => item.id === id)
+  if (!deleted) return
   const next = savedSearches.value.filter((item) => item.id !== id)
   savedSearches.value = next
   writeSnapshots(SAVED_SEARCH_KEY, next)
   if (editingSavedSearchId.value === id) cancelRenameSavedSearch()
+  scheduleSearchUndo(`已删除保存搜索「${deleted.label}」`, () => {
+    savedSearches.value = previous
+    writeSnapshots(SAVED_SEARCH_KEY, previous)
+  })
   toast.success('保存搜索已删除')
 }
 
 const clearSavedSearches = () => {
+  const previous = savedSearches.value
+  if (!previous.length) return
   savedSearches.value = []
   writeSnapshots(SAVED_SEARCH_KEY, [])
   cancelRenameSavedSearch()
+  scheduleSearchUndo(`已清空 ${previous.length} 条保存搜索`, () => {
+    savedSearches.value = previous
+    writeSnapshots(SAVED_SEARCH_KEY, previous)
+  })
   toast.success('保存搜索已清空')
 }
 
 const deleteRecentSearch = (id: string) => {
+  const previous = recentSearches.value
+  const deleted = previous.find((item) => item.id === id)
+  if (!deleted) return
   const next = recentSearches.value.filter((item) => item.id !== id)
   recentSearches.value = next
   writeSnapshots(RECENT_SEARCH_KEY, next)
+  scheduleSearchUndo(`已删除最近搜索「${deleted.label}」`, () => {
+    recentSearches.value = previous
+    writeSnapshots(RECENT_SEARCH_KEY, previous)
+  })
   toast.success('最近搜索已删除')
 }
 
 const clearRecentSearches = () => {
+  const previous = recentSearches.value
+  if (!previous.length) return
   recentSearches.value = []
   writeSnapshots(RECENT_SEARCH_KEY, [])
+  scheduleSearchUndo(`已清空 ${previous.length} 条最近搜索`, () => {
+    recentSearches.value = previous
+    writeSnapshots(RECENT_SEARCH_KEY, previous)
+  })
   toast.success('最近搜索已清空')
 }
 
@@ -613,6 +717,7 @@ const runSearch = async (append = false, syncRoute = true) => {
       cursor.value = undefined
       hasMore.value = false
       searchResults.value = []
+      searchResultMeta.value = null
       if (!filters.q) {
         userResults.value = []
         return
@@ -637,6 +742,12 @@ const runSearch = async (append = false, syncRoute = true) => {
     if (requestId !== searchRequestId) return
     searchResults.value = append ? [...searchResults.value, ...(page?.items || [])] : (page?.items || [])
     userResults.value = []
+    searchResultMeta.value = page ? {
+      source: page.source,
+      degraded: page.degraded,
+      fallbackReason: page.fallbackReason,
+      scanLimit: page.scanLimit,
+    } : null
     cursor.value = page?.nextCursor
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
     if (!append) rememberRecentSearch()
@@ -646,6 +757,7 @@ const runSearch = async (append = false, syncRoute = true) => {
     if (!append) {
       searchResults.value = []
       userResults.value = []
+      searchResultMeta.value = null
       cursor.value = undefined
       hasMore.value = false
     }
@@ -666,6 +778,7 @@ const resetFilters = async () => {
   suggestions.value = []
   searchResults.value = []
   userResults.value = []
+  searchResultMeta.value = null
   cursor.value = undefined
   hasMore.value = false
   errorMessage.value = ''
@@ -676,6 +789,7 @@ const resetResults = () => {
   suggestions.value = []
   searchResults.value = []
   userResults.value = []
+  searchResultMeta.value = null
   cursor.value = undefined
   hasMore.value = false
   errorMessage.value = ''
@@ -750,36 +864,6 @@ const loadSearchStatus = async () => {
   }
 }
 
-const loadAdminPermissions = async () => {
-  if (!authStore.token) {
-    adminPermissions.value = null
-    return
-  }
-  try {
-    const res = await opsApi.myPermissions({ skipAuthRedirect: true })
-    adminPermissions.value = res.data || null
-  } catch {
-    adminPermissions.value = null
-  }
-}
-
-const rebuildIndex = async () => {
-  if (!canRebuildIndex.value) {
-    toast.error('当前账号没有权限执行该操作')
-    return
-  }
-  isRebuilding.value = true
-  try {
-    const res = await searchApi.rebuildIndex()
-    toast.success(res.data?.taskId ? `索引重建任务已提交: ${res.data.taskId}` : '索引重建任务已提交')
-    await loadSearchStatus()
-  } catch (error: any) {
-    toast.error(getErrorMessage(error, '索引重建提交失败'))
-  } finally {
-    isRebuilding.value = false
-  }
-}
-
 const findPost = (postId: ApiId) => searchResults.value.find((item) => String(item.postId) === String(postId))
 const updatePost = (postId: ApiId, updater: (post: Post) => void) => {
   const post = findPost(postId)
@@ -817,7 +901,6 @@ onMounted(async () => {
   syncFromRoute()
   await Promise.all([
     loadSearchStatus(),
-    authStore.token ? loadAdminPermissions() : Promise.resolve(),
     searchApi.hotSearches().then((res) => { hotWords.value = res.data || [] }).catch(() => { hotWords.value = [] }),
   ])
   if (hasQuery.value || searchMode.value === 'users') {
@@ -844,6 +927,7 @@ watch(storageOwner, () => {
 onBeforeUnmount(() => {
   if (suggestionTimer) clearTimeout(suggestionTimer)
   clearSearchDebounce()
+  clearSearchUndoTimer()
 })
 </script>
 
@@ -851,6 +935,7 @@ onBeforeUnmount(() => {
 .search-shell,
 .side-panel,
 .result-summary,
+.search-source-notice,
 .loading-panel,
 .empty-panel,
 .user-row {
@@ -965,6 +1050,31 @@ onBeforeUnmount(() => {
   color: rgb(71 85 105);
 }
 
+.search-source-notice {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.82rem;
+}
+
+.search-source-notice strong {
+  color: rgb(15 23 42);
+}
+
+.search-source-notice span {
+  color: rgb(100 116 139);
+}
+
+.source-normal {
+  border-color: rgb(191 219 254);
+  background: rgb(239 246 255);
+}
+
+.source-degraded {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235);
+}
+
 .status-pill {
   display: inline-flex;
   border-radius: 999px;
@@ -1046,8 +1156,8 @@ onBeforeUnmount(() => {
 
 .mini-icon-button {
   display: inline-flex;
-  min-height: 2rem;
-  min-width: 2rem;
+  min-height: 2.5rem;
+  min-width: 2.5rem;
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
@@ -1061,6 +1171,42 @@ onBeforeUnmount(() => {
   border-color: rgb(147 197 253);
   background: rgb(239 246 255);
   color: rgb(29 78 216);
+}
+
+.undo-panel {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.75rem;
+  background: rgb(239 246 255);
+  padding: 0.85rem 1rem;
+  color: rgb(30 64 175);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.undo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.undo-actions button {
+  min-height: 2.25rem;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.undo-actions button:first-child {
+  background: rgb(29 78 216);
+  color: white;
+}
+
+.undo-actions button:last-child {
+  background: white;
+  color: rgb(30 64 175);
 }
 
 .saved-search:hover {
@@ -1134,6 +1280,23 @@ onBeforeUnmount(() => {
   color: rgb(29 78 216);
 }
 
+@media (max-width: 640px) {
+  .primary-button,
+  .secondary-button,
+  .segment-button,
+  .chip-button,
+  .tag-button,
+  .mini-icon-button,
+  .recommend-chip,
+  .undo-actions button {
+    min-height: 44px;
+  }
+
+  .mini-icon-button {
+    min-width: 44px;
+  }
+}
+
 .user-row {
   display: flex;
   align-items: center;
@@ -1170,6 +1333,7 @@ onBeforeUnmount(() => {
 :global(.dark) .search-shell,
 :global(.dark) .side-panel,
 :global(.dark) .result-summary,
+:global(.dark) .search-source-notice,
 :global(.dark) .loading-panel,
 :global(.dark) .empty-panel,
 :global(.dark) .user-row,
@@ -1184,6 +1348,17 @@ onBeforeUnmount(() => {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
+}
+
+:global(.dark) .undo-panel {
+  border-color: rgb(30 64 175);
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+:global(.dark) .undo-actions button:last-child {
+  background: rgb(15 23 42);
+  color: rgb(191 219 254);
 }
 
 :global(.dark) .mini-count {
@@ -1203,8 +1378,23 @@ onBeforeUnmount(() => {
 
 :global(.dark) .side-title,
 :global(.dark) .field-label,
-:global(.dark) .empty-panel h2 {
+:global(.dark) .empty-panel h2,
+:global(.dark) .search-source-notice strong {
   color: rgb(248 250 252);
+}
+
+:global(.dark) .search-source-notice span {
+  color: rgb(148 163 184);
+}
+
+:global(.dark) .source-normal {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+}
+
+:global(.dark) .source-degraded {
+  border-color: rgb(146 64 14);
+  background: rgb(69 26 3 / 0.6);
 }
 
 :global(.dark) .recommend-chip {

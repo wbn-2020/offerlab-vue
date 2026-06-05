@@ -173,6 +173,18 @@
               <option value="review">待复习</option>
             </select>
             <RouterLink
+              :to="mockInterviewLink"
+              class="secondary-action inline-flex items-center justify-center"
+            >
+              加入模拟面试
+            </RouterLink>
+            <RouterLink
+              :to="prepReturnLink"
+              class="secondary-action inline-flex items-center justify-center"
+            >
+              回准备台
+            </RouterLink>
+            <RouterLink
               v-if="detail.sourcePosts.length"
               :to="`/post/${detail.sourcePosts[0].postId}`"
               class="secondary-action inline-flex items-center justify-center"
@@ -265,6 +277,18 @@ const isQuestionLoading = computed(() => isLoading.value && !isError.value)
 const sourcePostCount = computed(() => question.value ? Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1) : 1)
 const isCanonicalRoot = computed(() => !question.value?.canonicalId || String(question.value.canonicalId) === String(question.value.id))
 const hasReviewSchedule = computed(() => Boolean(question.value?.nextReviewAt || question.value?.lastReviewedAt || (question.value?.reviewCount ?? 0) > 0))
+const primaryFocusTag = computed(() => question.value?.tags?.[0]?.name || question.value?.examPoint || '')
+const mockInterviewLink = computed(() => ({
+  path: '/mock-interview',
+  query: {
+    company: question.value?.company || undefined,
+    position: question.value?.position || undefined,
+    difficulty: question.value?.difficulty || undefined,
+    focusTag: primaryFocusTag.value || undefined,
+    questionCount: 5,
+  },
+}))
+const prepReturnLink = computed(() => question.value?.company ? `/companies/${encodeURIComponent(question.value.company)}/prep` : '/me/prep')
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const noteDraftKey = computed(() => `offerlab:${storageOwner.value}:question-note-draft:${questionId.value}`)
 const draftScope = computed(() => `${storageOwner.value}:${questionId.value}`)
@@ -428,9 +452,13 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .pill {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   background: rgb(248 250 252);
-  padding: 0.35rem 0.75rem;
+  padding: 0.45rem 0.8rem;
   font-size: 0.8rem;
   font-weight: 700;
   color: rgb(71 85 105);

@@ -15,11 +15,11 @@
           <RouterLink to="/" class="secondary-button">
             返回首页
           </RouterLink>
-          <button type="button" class="secondary-button" :disabled="isLoading || isOutboxLoading" @click="refreshAll">
-            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isOutboxLoading }" />
+          <button type="button" class="secondary-button" :disabled="isLoading || isReadinessLoading || isOutboxLoading" @click="refreshAll">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isReadinessLoading || isOutboxLoading }" />
             刷新状态
           </button>
-          <button v-if="canOps" type="button" class="primary-button" :disabled="isSubmitting || isTaskActive" @click="submitRebuild">
+          <button v-if="canAdmin" type="button" class="primary-button desktop-risk-action" :disabled="isSubmitting || isTaskActive" @click="submitRebuild">
             <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': isSubmitting || isTaskActive }" />
             {{ isTaskActive ? '重建中' : '重建索引' }}
           </button>
@@ -30,15 +30,99 @@
         {{ loadError }}
       </section>
 
+      <section v-if="canOps" class="mobile-ops-summary">
+        <div class="mobile-ops-head">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wide text-primary-600 dark:text-primary-300">移动待办</p>
+            <h2>只读优先</h2>
+          </div>
+          <span class="status-pill status-muted">高风险操作请在桌面端处理</span>
+        </div>
+        <div class="mobile-ops-grid">
+          <article v-for="item in mobileOpsTodoCards" :key="item.label" class="mobile-ops-card">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.detail }}</small>
+          </article>
+        </div>
+      </section>
+
       <section v-if="!permissions && loadError" class="panel text-center">
         <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">权限状态未加载</h2>
         <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
           你已进入运维页，但权限接口暂时不可用。刷新权限后会恢复对应的运维、审核和管理员面板。
         </p>
-        <button type="button" class="primary-button mt-5" :disabled="isLoading || isOutboxLoading" @click="refreshAll">
-          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isOutboxLoading }" />
+        <button type="button" class="primary-button mt-5" :disabled="isLoading || isReadinessLoading || isOutboxLoading" @click="refreshAll">
+          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading || isReadinessLoading || isOutboxLoading }" />
           重新加载权限
         </button>
+      </section>
+
+      <section v-if="canOps" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <article class="metric-card">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="metric-label">整体 Readiness</p>
+              <h2 class="metric-value">{{ readinessHeadline }}</h2>
+            </div>
+            <span :class="['status-pill', readinessStatusClass]">{{ readinessBadge }}</span>
+          </div>
+          <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            关闭的可选组件不会拉低整体状态，已启用但不可达会显示降级。
+          </p>
+        </article>
+
+        <article class="metric-card">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="metric-label">环境 / 权限模式</p>
+              <h2 class="metric-value">{{ adminModeText }}</h2>
+            </div>
+            <span :class="['status-pill', adminModeClass]">{{ status?.adminMode || '检测中' }}</span>
+          </div>
+          <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {{ adminModeDetailText }}
+          </p>
+        </article>
+
+        <article class="metric-card">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="metric-label">Kafka 消息队列</p>
+              <h2 class="metric-value">{{ componentHeadline(kafkaHealth) }}</h2>
+            </div>
+            <span :class="['status-pill', componentStatusClass(kafkaHealth)]">{{ componentBadgeText(kafkaHealth) }}</span>
+          </div>
+          <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {{ componentDetail(kafkaHealth, 'Kafka broker') }}
+          </p>
+        </article>
+
+        <article class="metric-card">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="metric-label">Redis 缓存 / 收件箱</p>
+              <h2 class="metric-value">{{ componentHeadline(redisHealth) }}</h2>
+            </div>
+            <span :class="['status-pill', componentStatusClass(redisHealth)]">{{ componentBadgeText(redisHealth) }}</span>
+          </div>
+          <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {{ componentDetail(redisHealth, 'Redis') }}
+          </p>
+        </article>
+
+        <article class="metric-card">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="metric-label">Elasticsearch</p>
+              <h2 class="metric-value">{{ componentHeadline(elasticsearchHealth) }}</h2>
+            </div>
+            <span :class="['status-pill', componentStatusClass(elasticsearchHealth)]">{{ componentBadgeText(elasticsearchHealth) }}</span>
+          </div>
+          <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {{ componentDetail(elasticsearchHealth, '搜索服务') }}
+          </p>
+        </article>
       </section>
 
       <section v-if="canOps" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -54,6 +138,9 @@
           </div>
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
             {{ textOrUnavailable(status?.search.indexName) }} / {{ !status ? '未加载' : status.search.indexReady ? '索引可用' : '索引未就绪' }}
+          </p>
+          <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {{ searchFallbackDetailText }}
           </p>
         </article>
 
@@ -79,6 +166,9 @@
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
             到期可重试 {{ countText(status?.searchIndexRetry.duePending) }} 条
           </p>
+          <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {{ searchRetryImpactText }}
+          </p>
         </article>
 
         <article class="metric-card">
@@ -91,7 +181,7 @@
       </section>
 
       <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <article v-if="canOps" class="panel">
+        <article v-if="canAdmin" class="panel">
           <div class="flex flex-col gap-2 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">索引重建任务</h2>
@@ -136,9 +226,15 @@
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">搜索运营统计</h2>
             <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">近 30 天热门搜索、无结果词和公司准备包点击。</p>
           </div>
-          <button type="button" class="icon-button" title="刷新搜索统计" :disabled="isSearchAnalyticsLoading" @click="loadSearchAnalytics">
-            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isSearchAnalyticsLoading }" />
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="test-data-toggle" title="默认隐藏 E2E、SMOKE、CODEX 等测试数据">
+              <input v-model="includeTestData" type="checkbox" @change="reloadGovernanceData" />
+              <span>测试数据</span>
+            </label>
+            <button type="button" class="icon-button" title="刷新搜索统计" :disabled="isSearchAnalyticsLoading" @click="loadSearchAnalytics">
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isSearchAnalyticsLoading }" />
+            </button>
+          </div>
         </div>
 
         <div v-if="isSearchAnalyticsLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
@@ -279,6 +375,10 @@
               >
                 {{ item.label }}
               </button>
+              <label class="test-data-toggle" title="默认隐藏 E2E、SMOKE、CODEX 等测试数据">
+                <input v-model="includeTestData" type="checkbox" @change="reloadGovernanceData" />
+                <span>测试数据</span>
+              </label>
               <button type="button" class="icon-button" title="刷新评论举报" :disabled="isCommentReportsLoading" @click="loadCommentReports">
                 <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isCommentReportsLoading }" />
               </button>
@@ -291,68 +391,128 @@
           <div v-else-if="commentReports.length === 0" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
             当前筛选下暂无评论举报。
           </div>
-          <div v-else class="overflow-x-auto pt-4">
-            <table class="ops-table report-table">
-              <thead>
-                <tr>
-                  <th>举报</th>
-                  <th>评论</th>
-                  <th>所属帖子</th>
-                  <th>说明</th>
-                  <th>状态</th>
-                  <th>时间</th>
-                  <th class="text-right">审核</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="report in commentReports" :key="report.reportId">
-                  <td class="font-mono text-xs">{{ report.reportId }}</td>
-                  <td class="max-w-[260px]">
-                    <p class="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100">{{ report.commentId }}</p>
-                    <p class="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{{ report.commentSummary || '暂无评论摘要' }}</p>
-                  </td>
-                  <td>
-                    <RouterLink class="font-mono text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400" :to="`/post/${report.postId}`">
-                      {{ report.postTitle || report.postId }}
+          <div v-else class="comment-report-region">
+            <div class="comment-report-desktop-table overflow-x-auto pt-4">
+              <table class="ops-table report-table">
+                <thead>
+                  <tr>
+                    <th>举报</th>
+                    <th>评论</th>
+                    <th>所属帖子</th>
+                    <th>说明</th>
+                    <th>状态</th>
+                    <th>时间</th>
+                    <th class="text-right">审核</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="report in commentReports" :key="report.reportId">
+                    <td class="font-mono text-xs">{{ report.reportId }}</td>
+                    <td class="max-w-[260px]">
+                      <p class="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100">{{ report.commentId }}</p>
+                      <p class="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{{ report.commentSummary || '暂无评论摘要' }}</p>
+                    </td>
+                    <td>
+                      <RouterLink class="font-mono text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400" :to="`/post/${report.postId}`">
+                        {{ report.postTitle || report.postId }}
+                      </RouterLink>
+                    </td>
+                    <td class="max-w-[260px]">
+                      <p class="font-semibold text-slate-800 dark:text-slate-100">{{ report.reason }}</p>
+                      <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '无补充说明' }}</p>
+                      <p v-if="report.reviewNote" class="mt-1 truncate text-xs text-primary-600 dark:text-primary-300">处理备注：{{ report.reviewNote }}</p>
+                    </td>
+                    <td>
+                      <span :class="['status-pill', reportStatusClass(report.reportStatus)]">
+                        {{ reportStatusText(report.reportStatus) }}
+                      </span>
+                    </td>
+                    <td>{{ formatTime(report.createTime) }}</td>
+                    <td>
+                      <div v-if="report.reportStatus === 0" class="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          class="secondary-button compact-action danger-action"
+                          :disabled="reviewingCommentReportId === report.reportId"
+                          @click="openReviewDialog('comment', report, true)"
+                        >
+                          通过隐藏
+                        </button>
+                        <button
+                          type="button"
+                          class="secondary-button compact-action"
+                          :disabled="reviewingCommentReportId === report.reportId"
+                          @click="openReviewDialog('comment', report, false)"
+                        >
+                          驳回
+                        </button>
+                      </div>
+                      <span v-else class="block text-right text-xs text-slate-500 dark:text-slate-400">
+                        {{ formatTime(report.reviewTime) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="comment-report-mobile-list" aria-label="评论举报移动端审核列表">
+              <article v-for="report in commentReports" :key="`comment-card-${report.reportId}`" class="comment-report-card">
+                <div class="comment-report-card-head">
+                  <div class="min-w-0">
+                    <p class="comment-report-eyebrow">举报 #{{ report.reportId }}</p>
+                    <RouterLink class="comment-report-title" :to="`/post/${report.postId}`">
+                      {{ report.postTitle || `帖子 ${report.postId}` }}
                     </RouterLink>
-                  </td>
-                  <td class="max-w-[260px]">
-                    <p class="font-semibold text-slate-800 dark:text-slate-100">{{ report.reason }}</p>
-                    <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ report.detail || '无补充说明' }}</p>
-                    <p v-if="report.reviewNote" class="mt-1 truncate text-xs text-primary-600 dark:text-primary-300">处理备注：{{ report.reviewNote }}</p>
-                  </td>
-                  <td>
-                    <span :class="['status-pill', reportStatusClass(report.reportStatus)]">
-                      {{ reportStatusText(report.reportStatus) }}
-                    </span>
-                  </td>
-                  <td>{{ formatTime(report.createTime) }}</td>
-                  <td>
-                    <div v-if="report.reportStatus === 0" class="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        class="secondary-button compact-action danger-action"
-                        :disabled="reviewingCommentReportId === report.reportId"
-                        @click="openReviewDialog('comment', report, true)"
-                      >
-                        通过隐藏
-                      </button>
-                      <button
-                        type="button"
-                        class="secondary-button compact-action"
-                        :disabled="reviewingCommentReportId === report.reportId"
-                        @click="openReviewDialog('comment', report, false)"
-                      >
-                        驳回
-                      </button>
-                    </div>
-                    <span v-else class="block text-right text-xs text-slate-500 dark:text-slate-400">
-                      {{ formatTime(report.reviewTime) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+                  <span :class="['status-pill', reportStatusClass(report.reportStatus)]">
+                    {{ reportStatusText(report.reportStatus) }}
+                  </span>
+                </div>
+
+                <section class="comment-report-object" aria-label="举报对象">
+                  <span class="comment-report-label">举报对象</span>
+                  <p class="comment-report-object-id">评论 {{ report.commentId }}</p>
+                  <p class="comment-report-summary">{{ report.commentSummary || '暂无评论摘要' }}</p>
+                </section>
+
+                <dl class="comment-report-facts">
+                  <div class="comment-report-fact">
+                    <dt>原因</dt>
+                    <dd>{{ report.reason || '未填写原因' }}</dd>
+                  </div>
+                  <div class="comment-report-fact">
+                    <dt>时间</dt>
+                    <dd>
+                      <time :datetime="String(report.createTime || '')">{{ formatTime(report.createTime) }}</time>
+                    </dd>
+                  </div>
+                </dl>
+
+                <p class="comment-report-detail">{{ report.detail || '无补充说明' }}</p>
+                <p v-if="report.reviewNote" class="comment-report-note">处理备注：{{ report.reviewNote }}</p>
+
+                <div v-if="report.reportStatus === 0" class="comment-report-card-actions">
+                  <button
+                    type="button"
+                    class="primary-button compact-action danger-primary"
+                    :disabled="reviewingCommentReportId === report.reportId"
+                    @click="openReviewDialog('comment', report, true)"
+                  >
+                    通过隐藏
+                  </button>
+                  <button
+                    type="button"
+                    class="secondary-button compact-action"
+                    :disabled="reviewingCommentReportId === report.reportId"
+                    @click="openReviewDialog('comment', report, false)"
+                  >
+                    驳回
+                  </button>
+                </div>
+                <p v-else class="comment-report-reviewed">处理时间：{{ formatTime(report.reviewTime) }}</p>
+              </article>
+            </div>
           </div>
         </article>
       </section>
@@ -391,8 +551,9 @@
         <div v-else-if="outboxMessages.length === 0" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
           当前筛选下暂无消息。
         </div>
-        <div v-else class="overflow-x-auto">
-          <table class="ops-table">
+        <div v-else class="outbox-list-region">
+          <div class="outbox-desktop-table overflow-x-auto">
+          <table class="ops-table outbox-table">
             <thead>
               <tr>
                 <th>选择</th>
@@ -447,6 +608,57 @@
               </tr>
             </tbody>
           </table>
+          </div>
+
+          <div class="outbox-mobile-list" aria-label="Outbox 移动端消息列表">
+            <article v-for="message in outboxMessages" :key="`mobile-${message.id}`" class="outbox-card">
+              <div class="outbox-card-topline">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <span :class="['status-pill', outboxStatusClass(message.msgStatus)]">
+                    {{ outboxStatusText(message.msgStatus) }}
+                  </span>
+                  <span class="outbox-retry-count">重试 {{ message.retryCount }}</span>
+                </div>
+                <div class="outbox-card-actions">
+                  <label v-if="message.msgStatus === 2" class="outbox-select-label" title="选择失败消息">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 accent-indigo-600"
+                      :checked="selectedFailedIds.includes(message.id)"
+                      @change="toggleFailedSelection(message.id)"
+                    />
+                    <span>选中</span>
+                  </label>
+                  <button type="button" class="icon-button" title="查看详情" @click="openOutboxDetail(message)">
+                    <FileText class="h-4 w-4" />
+                  </button>
+                  <button
+                    v-if="message.msgStatus === 2"
+                    type="button"
+                    class="icon-button danger-action"
+                    title="重试失败消息"
+                    :disabled="retryingId === message.id"
+                    @click="retryMessage(message)"
+                  >
+                    <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': retryingId === message.id }" />
+                  </button>
+                </div>
+              </div>
+
+              <div class="outbox-card-main">
+                <p class="outbox-topic">{{ message.topic }}</p>
+                <p class="outbox-aggregate">{{ message.aggregateType }} / {{ message.aggregateId }}</p>
+              </div>
+
+              <div class="outbox-card-meta">
+                <time :datetime="String(message.createTime)">{{ formatTime(message.createTime) }}</time>
+                <details class="outbox-id-detail">
+                  <summary>ID</summary>
+                  <span>{{ message.id }}</span>
+                </details>
+              </div>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -456,9 +668,20 @@
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">搜索索引补偿任务</h2>
             <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">查看 ES 同步失败原因，失败任务可直接重试。</p>
           </div>
-          <button type="button" class="icon-button" title="刷新搜索索引补偿任务" :disabled="isSearchIndexRetryTasksLoading" @click="loadSearchIndexRetryTasks">
-            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isSearchIndexRetryTasksLoading }" />
-          </button>
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="secondary-button compact-action"
+              :disabled="failedSearchIndexRetryTaskIds.length === 0 || isBatchReplayingSearchIndexTasks"
+              @click="replayFailedSearchIndexRetryTasks"
+            >
+              <RotateCcw class="h-4 w-4" :class="{ 'animate-spin': isBatchReplayingSearchIndexTasks }" />
+              批量重试 {{ failedSearchIndexRetryTaskIds.length || '' }}
+            </button>
+            <button type="button" class="icon-button" title="刷新搜索索引补偿任务" :disabled="isSearchIndexRetryTasksLoading" @click="loadSearchIndexRetryTasks">
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isSearchIndexRetryTasksLoading }" />
+            </button>
+          </div>
         </div>
 
         <div v-if="isSearchIndexRetryTasksLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
@@ -569,9 +792,45 @@
                 <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isQuestionIndexRebuilding }" />
                 重建索引
               </button>
-              <button type="button" class="icon-button" title="刷新 AI 任务" :disabled="isAiTasksLoading" @click="loadAiTasks">
-                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isAiTasksLoading }" />
+              <button type="button" class="icon-button" title="刷新 AI 任务" :disabled="isAiTasksLoading || isAiTaskMetricsLoading" @click="loadAiOps">
+                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isAiTasksLoading || isAiTaskMetricsLoading }" />
               </button>
+            </div>
+          </div>
+
+          <div class="ai-metrics-grid">
+            <div class="task-stat">
+              <span>Provider</span>
+              <strong>{{ aiProviderText(topAiProvider?.name) }}</strong>
+              <small>{{ countText(topAiProvider?.count) }} 次</small>
+            </div>
+            <div class="task-stat">
+              <span>Fallback</span>
+              <strong>{{ aiFallbackSummary }}</strong>
+              <small>规则回退率</small>
+            </div>
+            <div class="task-stat">
+              <span>P95 耗时</span>
+              <strong>{{ formatDurationMs(aiTaskMetrics?.p95DurationMs) }}</strong>
+              <small>平均 {{ formatDurationMs(aiTaskMetrics?.avgDurationMs) }}</small>
+            </div>
+            <div class="task-stat">
+              <span>Token</span>
+              <strong>{{ formatTokens(aiTaskMetrics?.totalTokens) }}</strong>
+              <small>Prompt {{ formatTokens(aiTaskMetrics?.totalPromptTokens) }} / Completion {{ formatTokens(aiTaskMetrics?.totalCompletionTokens) }}</small>
+            </div>
+            <div class="task-stat">
+              <span>估算成本</span>
+              <strong>{{ formatCostMicros(aiTaskMetrics?.estimatedCostMicros) }}</strong>
+              <small>{{ topAiError ? `Top error ${topAiError.name}` : '暂无错误码' }}</small>
+            </div>
+          </div>
+
+          <div v-if="aiTaskMetrics?.providerStats?.length" class="ai-provider-list" aria-label="AI provider 指标">
+            <div v-for="item in aiTaskMetrics.providerStats" :key="item.name" class="ai-provider-row">
+              <span>{{ aiProviderText(item.name) }}</span>
+              <strong>{{ item.count }}</strong>
+              <small>Fallback {{ item.fallbackCount }} · {{ formatDurationMs(item.avgDurationMs) }} · Tokens {{ formatTokens(item.totalTokens) }}</small>
             </div>
           </div>
 
@@ -591,7 +850,7 @@
                   <span :class="['status-pill', aiTaskStatusClass(item.taskStatus)]">{{ aiTaskStatusText(item.taskStatus) }}</span>
                 </div>
                 <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                  题目 {{ item.questionCount }} · 重试 {{ item.retryCount }} · {{ item.errorMessage || formatTime(item.updateTime || item.createTime) }}
+                  题目 {{ item.questionCount }} · 重试 {{ item.retryCount }} · {{ aiProviderText(item.provider) }} · {{ aiFallbackText(item.fallbackUsed) }} · {{ formatDurationMs(item.durationMs) }} · Tokens {{ formatTokens(item.totalTokens) }} · {{ item.errorCode || item.errorMessage || formatTime(item.updateTime || item.createTime) }}
                 </p>
               </div>
               <div class="flex flex-wrap justify-end gap-2">
@@ -679,7 +938,7 @@
           </div>
         </article>
 
-        <article v-if="canOps" class="panel">
+        <article v-if="canAdmin" class="panel">
           <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">最近索引任务</h2>
@@ -728,6 +987,10 @@
               >
                 {{ item.label }}
               </button>
+              <label class="test-data-toggle" title="默认隐藏 E2E、SMOKE、CODEX 等测试数据">
+                <input v-model="includeTestData" type="checkbox" @change="reloadGovernanceData" />
+                <span>测试数据</span>
+              </label>
               <button type="button" class="icon-button" title="刷新举报列表" :disabled="isReportsLoading" @click="loadReports">
                 <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isReportsLoading }" />
               </button>
@@ -880,6 +1143,14 @@
             <div class="task-stat"><span>更新时间</span><strong class="text-sm">{{ formatTime(selectedAiTaskDetail.task.updateTime || selectedAiTaskDetail.task.createTime) }}</strong></div>
           </div>
 
+          <div class="grid gap-3 sm:grid-cols-5">
+            <div class="task-stat"><span>Provider</span><strong>{{ aiProviderText(selectedAiTaskDetail.task.provider) }}</strong></div>
+            <div class="task-stat"><span>Fallback</span><strong>{{ aiFallbackText(selectedAiTaskDetail.task.fallbackUsed) }}</strong></div>
+            <div class="task-stat"><span>耗时</span><strong>{{ formatDurationMs(selectedAiTaskDetail.task.durationMs) }}</strong></div>
+            <div class="task-stat"><span>Token</span><strong>{{ formatTokens(selectedAiTaskDetail.task.totalTokens) }}</strong></div>
+            <div class="task-stat"><span>成本</span><strong>{{ formatCostMicros(selectedAiTaskDetail.task.estimatedCostMicros) }}</strong></div>
+          </div>
+
           <section class="detail-section">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <h4>来源帖子</h4>
@@ -891,6 +1162,7 @@
 
           <section class="detail-section">
             <h4>错误信息</h4>
+            <p class="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">错误码：{{ selectedAiTaskDetail.task.errorCode || '无' }}</p>
             <pre class="payload-box">{{ selectedAiTaskDetail.task.errorMessage || '暂无错误信息' }}</pre>
           </section>
 
@@ -908,7 +1180,7 @@
                     <span :class="['status-pill', aiTaskStatusClass(record.taskStatus)]">{{ aiTaskStatusText(record.taskStatus) }}</span>
                   </div>
                   <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                    题目 {{ record.questionCount }} · 重试 {{ record.retryCount }} · {{ record.errorMessage || formatTime(record.updateTime || record.createTime) }}
+                    题目 {{ record.questionCount }} · 重试 {{ record.retryCount }} · {{ aiProviderText(record.provider) }} · {{ aiFallbackText(record.fallbackUsed) }} · {{ formatDurationMs(record.durationMs) }} · Tokens {{ formatTokens(record.totalTokens) }} · {{ record.errorCode || record.errorMessage || formatTime(record.updateTime || record.createTime) }}
                   </p>
                 </div>
                 <button v-if="record.taskStatus === 3" type="button" class="secondary-button compact-action danger-action" :disabled="retryingAiTaskId === record.id" @click="retryAiTask(record)">
@@ -922,6 +1194,11 @@
       </article>
       </div>
     </main>
+    <RiskConfirmDialog
+      :state="riskConfirmState"
+      @confirm="resolveRiskConfirm"
+      @cancel="cancelRiskConfirm"
+    />
   </div>
 </template>
 
@@ -931,15 +1208,18 @@ import { FileText, Power, RefreshCw, RotateCcw, UserPlus } from 'lucide-vue-next
 import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
+import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
-import { opsApi, type AdminUserRole, type AiExtractTask, type AiExtractTaskDetail, type MyAdminPermissions, type NotificationRetryTask, type OpsStatus, type OutboxMessage, type QuestionIndexTask, type SearchAnalytics, type SearchIndexRetryTask } from '@/api/ops'
+import { opsApi, type AdminUserRole, type AiExtractTask, type AiExtractTaskDetail, type AiTaskMetrics, type BatchActionPreview, type HealthComponentStatus, type MyAdminPermissions, type NotificationRetryTask, type OpsStatus, type OutboxMessage, type QuestionIndexTask, type ReadinessStatus, type SearchAnalytics, type SearchIndexRetryTask } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
+import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
 import type { ApiId, CommentReport, PostReport } from '@/api/types'
 
 const status = ref<OpsStatus | null>(null)
+const readiness = ref<ReadinessStatus | null>(null)
 const permissions = ref<MyAdminPermissions | null>(null)
 const task = ref<SearchIndexTask | null>(null)
 const adminUsers = ref<AdminUserRole[]>([])
@@ -947,6 +1227,7 @@ const outboxMessages = ref<OutboxMessage[]>([])
 const searchIndexRetryTasks = ref<SearchIndexRetryTask[]>([])
 const notificationRetryTasks = ref<NotificationRetryTask[]>([])
 const aiTasks = ref<AiExtractTask[]>([])
+const aiTaskMetrics = ref<AiTaskMetrics | null>(null)
 const recentTasks = ref<SearchIndexTask[]>([])
 const questionIndexTask = ref<QuestionIndexTask | null>(null)
 const recentQuestionIndexTasks = ref<QuestionIndexTask[]>([])
@@ -958,14 +1239,17 @@ const searchAnalytics = ref<SearchAnalytics | null>(null)
 const outboxStatusFilter = ref<number | undefined>(undefined)
 const reportStatusFilter = ref<number | undefined>(0)
 const commentReportStatusFilter = ref<number | undefined>(0)
+const includeTestData = ref(false)
 const adminForm = ref({ uid: '', roleCode: 'ADMIN', remark: '' })
 const isLoading = ref(false)
+const isReadinessLoading = ref(false)
 const isAdminsLoading = ref(false)
 const isAdminSubmitting = ref(false)
 const isOutboxLoading = ref(false)
 const isSearchIndexRetryTasksLoading = ref(false)
 const isNotificationRetryTasksLoading = ref(false)
 const isAiTasksLoading = ref(false)
+const isAiTaskMetricsLoading = ref(false)
 const isTasksLoading = ref(false)
 const isQuestionIndexTasksLoading = ref(false)
 const isReportsLoading = ref(false)
@@ -976,6 +1260,7 @@ const adminActionUid = ref<ApiId | null>(null)
 const retryingId = ref<ApiId | null>(null)
 const replayingSearchIndexTaskId = ref<ApiId | null>(null)
 const replayingNotificationRetryTaskId = ref<ApiId | null>(null)
+const isBatchReplayingSearchIndexTasks = ref(false)
 const isBatchReplayingNotificationTasks = ref(false)
 const retryingAiTaskId = ref<ApiId | null>(null)
 const loadingAiTaskDetailId = ref<ApiId | null>(null)
@@ -998,6 +1283,7 @@ const reviewDialog = reactive<{
   error: string
 }>({ open: false, type: 'post', report: null, approved: false, note: '', error: '' })
 const isReviewSubmitting = ref(false)
+const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
 let pollTimer: number | undefined
 let questionIndexPollTimer: number | undefined
 
@@ -1021,10 +1307,70 @@ const canQuestion = computed(() => Boolean(permissions.value?.questionOperator |
 const canModerate = computed(() => Boolean(permissions.value?.contentModerator || permissions.value?.admin))
 const isTaskActive = computed(() => task.value?.status === 'PENDING' || task.value?.status === 'RUNNING')
 const isQuestionIndexTaskActive = computed(() => questionIndexTask.value?.status === 'PENDING' || questionIndexTask.value?.status === 'RUNNING')
+const redisHealth = computed(() => readiness.value?.components?.redis || null)
+const kafkaHealth = computed(() => readiness.value?.components?.kafka || null)
+const elasticsearchHealth = computed(() => readiness.value?.components?.elasticsearch || null)
+const readinessHeadline = computed(() => {
+  if (isReadinessLoading.value && !readiness.value) return '检测中'
+  if (!readiness.value) return '未加载'
+  if (readiness.value.status === 'UP') return '可用'
+  if (readiness.value.status === 'DEGRADED') return '降级'
+  return readiness.value.status || '未知'
+})
+const readinessBadge = computed(() => readiness.value?.status || (isReadinessLoading.value ? '检测中' : '未加载'))
+const readinessStatusClass = computed(() => {
+  if (!readiness.value) return 'status-warn'
+  if (readiness.value.status === 'UP') return 'status-ok'
+  if (readiness.value.status === 'DISABLED' || readiness.value.status === 'UNKNOWN') return 'status-muted'
+  if (readiness.value.status === 'DEGRADED') return 'status-warn'
+  return 'status-danger'
+})
 const searchOnlineText = computed(() => {
   if (!status.value) return '未加载'
   if (!status.value.search.enabled) return '未启用'
   return status.value.search.available ? '在线' : '降级'
+})
+const countText = (value?: number | null) => value === null || value === undefined ? '未加载' : String(value)
+const mobileOpsTodoCards = computed(() => [
+  {
+    label: '整体状态',
+    value: readinessHeadline.value,
+    detail: '查看核心依赖是否可用',
+  },
+  {
+    label: '失败 Outbox',
+    value: countText(status.value?.outbox.byStatus.failed),
+    detail: `到期待投递 ${countText(status.value?.outbox.duePending)} 条`,
+  },
+  {
+    label: 'ES 补偿失败',
+    value: countText(status.value?.searchIndexRetry.byStatus.failed),
+    detail: `待处理 ${countText(status.value?.searchIndexRetry.byStatus.pending)} 条`,
+  },
+  {
+    label: '通知补偿失败',
+    value: countText(status.value?.notificationRetry.byStatus.failed),
+    detail: `待处理 ${countText(status.value?.notificationRetry.byStatus.pending)} 条`,
+  },
+])
+const searchFallbackDetailText = computed(() => {
+  if (!status.value) return '等待读取 /api/v1/ops/status'
+  if (!status.value.search.enabled) {
+    return '搜索服务未启用，公开搜索使用数据库 fallback；失败补偿不会阻断用户搜索入口。'
+  }
+  if (status.value.search.available && status.value.search.indexReady) {
+    return 'ES 索引在线，公开搜索优先使用索引；失败补偿用于修复后续同步。'
+  }
+  return 'ES 当前不可用或索引未就绪，公开搜索会走数据库 fallback；searchIndexRetry 失败数不等同于公开搜索不可用。'
+})
+const searchRetryImpactText = computed(() => {
+  if (!status.value) return '等待读取补偿任务状态'
+  const failed = status.value.searchIndexRetry.byStatus.failed || 0
+  if (failed <= 0) return '暂无失败补偿任务，索引同步队列没有待人工处理项。'
+  if (!status.value.search.available || !status.value.search.indexReady) {
+    return `已记录 ${failed} 条失败任务；当前公开搜索由 DB fallback 兜底，用户可继续搜索，建议恢复 ES 后批量重放。`
+  }
+  return `已记录 ${failed} 条失败任务；用户搜索仍可用，建议从下方失败列表重放以补齐索引。`
 })
 const adminModeText = computed(() => {
   if (!status.value) return '未加载'
@@ -1032,7 +1378,8 @@ const adminModeText = computed(() => {
   if (status.value.adminMode === 'WHITELIST') return '白名单'
   if (status.value.adminMode === 'RBAC_EMPTY') return 'RBAC 未启用'
   if (status.value.adminMode === 'LOCKED') return '未开放'
-  return '本地宽松模式'
+  if (status.value.adminMode === 'LOCAL_OPEN') return '本地开放'
+  return status.value.adminMode
 })
 const adminModeClass = computed(() => {
   if (!status.value) return 'status-warn'
@@ -1040,6 +1387,51 @@ const adminModeClass = computed(() => {
   if (status.value.adminMode === 'LOCAL_OPEN' || status.value.adminMode === 'RBAC_EMPTY') return 'status-warn'
   return 'status-ok'
 })
+const adminModeDetailText = computed(() => {
+  if (!status.value) return '等待读取 /api/v1/ops/status'
+  if (status.value.adminMode === 'LOCAL_OPEN') return 'LOCAL_OPEN 仅限本机开发验证；demo、staging 和生产环境应使用 RBAC 或白名单。'
+  if (status.value.adminMode === 'RBAC') return '当前使用数据库 RBAC，按用户角色授予后台权限。'
+  if (status.value.adminMode === 'WHITELIST') return '当前使用 UID 白名单，适合小范围运维兜底。'
+  if (status.value.adminMode === 'RBAC_EMPTY') return 'RBAC 已开启但暂无管理员记录，请先配置管理员后再开放操作。'
+  if (status.value.adminMode === 'LOCKED') return '当前未开放后台权限。'
+  return '请确认当前 profile 与权限配置是否符合预期。'
+})
+
+const componentHeadline = (component?: HealthComponentStatus | null) => {
+  if (!component) return isReadinessLoading.value ? '检测中' : '未加载'
+  if (component.status === 'DISABLED') return '未启用'
+  if (component.status === 'UP') return '可达'
+  if (component.status === 'DEGRADED') return '降级'
+  if (component.status === 'DOWN') return '不可达'
+  return component.status || '未知'
+}
+
+const componentBadgeText = (component?: HealthComponentStatus | null) => {
+  if (!component) return isReadinessLoading.value ? '检测中' : '未加载'
+  if (component.status === 'DISABLED') return 'Disabled'
+  if (component.status === 'UP') return 'Reachable'
+  if (component.status === 'DEGRADED') return 'Degraded'
+  if (component.status === 'DOWN') return 'Down'
+  return component.status || 'Unknown'
+}
+
+const componentStatusClass = (component?: HealthComponentStatus | null) => {
+  if (!component) return 'status-warn'
+  if (component.status === 'UP') return 'status-ok'
+  if (component.status === 'DISABLED' || component.status === 'UNKNOWN') return 'status-muted'
+  if (component.status === 'DEGRADED') return 'status-warn'
+  return 'status-danger'
+}
+
+const componentDetail = (component: HealthComponentStatus | null | undefined, label: string) => {
+  if (!component) return '等待读取 health/readiness'
+  if (component.status === 'DISABLED') return '当前 profile 已关闭，不参与 readiness 失败判定'
+  if (component.configured === false) return `${label} 未配置连接地址`
+  if (component.reachable === false || component.available === false) return String(component.message || `${label} 已配置但当前不可达`)
+  if (typeof component.brokerCount === 'number') return `已连接 ${component.brokerCount} 个 broker`
+  if (typeof component.bootstrapServers === 'string' && component.bootstrapServers) return `连接 ${component.bootstrapServers}`
+  return String(component.message || '状态正常')
+}
 
 const normalizeOpsStatus = (raw?: OpsStatus | null): OpsStatus => {
   const toCount = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0
@@ -1137,7 +1529,37 @@ const questionIndexTaskTimeText = computed(() => {
   if (!questionIndexTask.value?.updatedAt) return '等待题库索引任务状态更新'
   return `最近更新：${questionIndexTask.value.updatedAt.replace('T', ' ')}`
 })
+const failedSearchIndexRetryTaskIds = computed(() => searchIndexRetryTasks.value.filter((item) => item.taskStatus === 2).map((item) => item.id))
 const failedNotificationRetryTaskIds = computed(() => notificationRetryTasks.value.filter((item) => item.taskStatus === 2).map((item) => item.id))
+const topAiProvider = computed(() => [...(aiTaskMetrics.value?.providerStats || [])].sort((a, b) => b.count - a.count)[0] || null)
+const topAiError = computed(() => [...(aiTaskMetrics.value?.errorStats || [])].sort((a, b) => b.count - a.count)[0] || null)
+const aiFallbackSummary = computed(() => {
+  if (!aiTaskMetrics.value) return '未加载'
+  return `${aiTaskMetrics.value.fallbackCount} / ${aiTaskMetrics.value.totalTasks} (${formatPercent(aiTaskMetrics.value.fallbackRate)})`
+})
+const riskObjects = (items: Array<ApiId | string>, limit = 8) => items.slice(0, limit).map((item) => String(item))
+const riskContext = (...items: Array<string | false | undefined>) => items.filter(Boolean) as string[]
+const previewReasonText = (reason?: string, fallback?: string) => {
+  if (fallback) return fallback
+  if (reason === 'NOT_FOUND') return '不存在'
+  if (reason === 'STATUS_NOT_FAILED') return '状态不是失败'
+  if (reason === 'READY') return '可执行'
+  return reason || '不可执行'
+}
+const batchPreviewObjects = (preview: BatchActionPreview, fallbackIds: ApiId[]) => {
+  const items = preview.items?.length
+    ? preview.items.map((item) => `${item.id}:${item.eligible ? '可执行' : previewReasonText(item.reason, item.reasonText)}`)
+    : fallbackIds
+  return riskObjects(items)
+}
+const batchPreviewContext = (preview: BatchActionPreview, ...items: Array<string | false | undefined>) => {
+  const skipped = preview.items
+    ?.filter((item) => !item.eligible)
+    .slice(0, 3)
+    .map((item) => `跳过 ${item.id}：${previewReasonText(item.reason, item.reasonText)}`) || []
+  return riskContext(...items, `后端预览：可执行 ${preview.eligible} / ${preview.requested}，跳过 ${preview.skipped}`, ...skipped)
+}
+const requireRiskConfirm = (request: RiskConfirmRequest) => confirmRisk(request)
 const reviewDialogTitle = computed(() => {
   const target = reviewDialog.type === 'comment' ? '评论举报' : '帖子举报'
   return `${reviewDialog.approved ? '通过' : '驳回'}${target}`
@@ -1176,6 +1598,19 @@ const loadStatus = async () => {
     loadError.value = getErrorMessage(error, '运维状态接口暂不可用')
   } finally {
     isLoading.value = false
+  }
+}
+
+const loadReadiness = async () => {
+  if (!canOps.value) return
+  isReadinessLoading.value = true
+  try {
+    readiness.value = await opsApi.readiness()
+  } catch (error: any) {
+    readiness.value = null
+    toast.error(getErrorMessage(error, 'readiness 状态接口暂不可用'))
+  } finally {
+    isReadinessLoading.value = false
   }
 }
 
@@ -1238,8 +1673,26 @@ const loadAiTasks = async () => {
   }
 }
 
+const loadAiTaskMetrics = async () => {
+  if (!canQuestion.value) return
+  isAiTaskMetricsLoading.value = true
+  try {
+    const res = await opsApi.getAiTaskMetrics(100)
+    aiTaskMetrics.value = res.data || null
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, 'AI 任务指标加载失败'))
+    aiTaskMetrics.value = null
+  } finally {
+    isAiTaskMetricsLoading.value = false
+  }
+}
+
+const loadAiOps = async () => {
+  await Promise.all([loadAiTasks(), loadAiTaskMetrics()])
+}
+
 const loadTasks = async () => {
-  if (!canOps.value) return
+  if (!canAdmin.value) return
   isTasksLoading.value = true
   try {
     const res = await searchApi.listRebuildTasks(10)
@@ -1256,7 +1709,7 @@ const loadSearchAnalytics = async () => {
   if (!canOps.value) return
   isSearchAnalyticsLoading.value = true
   try {
-    const res = await opsApi.searchAnalytics({ days: 30, limit: 8 })
+    const res = await opsApi.searchAnalytics({ days: 30, limit: 8, includeTestData: includeTestData.value })
     searchAnalytics.value = res.data || { hotKeywords: [], noResultKeywords: [], prepClicks: [] }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '搜索统计加载失败'))
@@ -1284,7 +1737,7 @@ const loadReports = async () => {
   if (!canModerate.value) return
   isReportsLoading.value = true
   try {
-    const res = await postApi.listAdminReports({ status: reportStatusFilter.value, limit: 20 })
+    const res = await postApi.listAdminReports({ status: reportStatusFilter.value, limit: 20, includeTestData: includeTestData.value })
     postReports.value = res.data || []
   } catch (error: any) {
     toast.error(getErrorMessage(error, '举报列表加载失败'))
@@ -1298,7 +1751,7 @@ const loadCommentReports = async () => {
   if (!canModerate.value) return
   isCommentReportsLoading.value = true
   try {
-    const res = await interactionApi.listAdminCommentReports({ status: commentReportStatusFilter.value, limit: 20 })
+    const res = await interactionApi.listAdminCommentReports({ status: commentReportStatusFilter.value, limit: 20, includeTestData: includeTestData.value })
     commentReports.value = res.data || []
   } catch (error: any) {
     toast.error(getErrorMessage(error, '评论举报列表加载失败'))
@@ -1325,9 +1778,16 @@ const loadAdmins = async () => {
 const refreshAll = async () => {
   await loadPermissions()
   const loaders: Array<Promise<void>> = []
-  if (canOps.value) loaders.push(loadStatus(), loadOutbox(), loadSearchIndexRetryTasks(), loadNotificationRetryTasks(), loadTasks(), loadSearchAnalytics())
-  if (canQuestion.value) loaders.push(loadAiTasks(), loadQuestionIndexTasks())
-  if (canAdmin.value) loaders.push(loadAdmins())
+  if (canOps.value) loaders.push(loadStatus(), loadReadiness(), loadOutbox(), loadSearchIndexRetryTasks(), loadNotificationRetryTasks(), loadSearchAnalytics())
+  if (canQuestion.value) loaders.push(loadAiOps(), loadQuestionIndexTasks())
+  if (canAdmin.value) loaders.push(loadAdmins(), loadTasks())
+  if (canModerate.value) loaders.push(loadReports(), loadCommentReports())
+  await Promise.all(loaders)
+}
+
+const reloadGovernanceData = async () => {
+  const loaders: Array<Promise<void>> = []
+  if (canOps.value) loaders.push(loadSearchAnalytics())
   if (canModerate.value) loaders.push(loadReports(), loadCommentReports())
   await Promise.all(loaders)
 }
@@ -1394,9 +1854,20 @@ const pollQuestionIndexTask = (taskId: string) => {
 }
 
 const submitRebuild = async () => {
+  if (!canAdmin.value) return
+  const note = await requireRiskConfirm({
+    title: '重建搜索索引',
+    level: 'critical',
+    reversible: false,
+    impactCount: status.value?.search.indexName || '全量索引',
+    objects: riskObjects([status.value?.search.indexName || 'search-index']),
+    context: riskContext('范围：帖子搜索索引全量重建', `当前状态：${searchOnlineText.value}`),
+    confirmText: '确认重建索引',
+  })
+  if (note === null) return
   isSubmitting.value = true
   try {
-    const res = await searchApi.rebuildIndex()
+    const res = await searchApi.rebuildIndex(note)
     task.value = res.data
     if (res.data?.taskId) {
       pollTask(res.data.taskId)
@@ -1423,9 +1894,19 @@ const closeOutboxDetail = () => {
 }
 
 const retryMessage = async (message: OutboxMessage) => {
+  const note = await requireRiskConfirm({
+    title: '重试单条 Outbox 消息',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([message.id, `${message.topic}:${message.aggregateId}`]),
+    context: riskContext(`Topic：${message.topic}`, `聚合：${message.aggregateType}/${message.aggregateId}`, `重试次数：${message.retryCount}`),
+    confirmText: '确认重试',
+  })
+  if (note === null) return
   retryingId.value = message.id
   try {
-    await opsApi.retryOutbox(message.id)
+    await opsApi.retryOutbox(message.id, note)
     toast.success('失败消息已重置为待投递')
     await refreshAll()
   } catch (error: any) {
@@ -1436,9 +1917,19 @@ const retryMessage = async (message: OutboxMessage) => {
 }
 
 const replaySearchIndexRetryTask = async (task: SearchIndexRetryTask) => {
+  const note = await requireRiskConfirm({
+    title: '重放搜索索引补偿任务',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([task.id, `post:${task.postId}`, task.operation]),
+    context: riskContext(`Dedup：${task.dedupKey}`, `重试次数：${task.retryCount}`, task.lastError ? `错误：${task.lastError}` : undefined),
+    confirmText: '确认重放',
+  })
+  if (note === null) return
   replayingSearchIndexTaskId.value = task.id
   try {
-    await opsApi.replaySearchIndexRetryTask(task.id)
+    await opsApi.replaySearchIndexRetryTask(task.id, note)
     toast.success('搜索索引补偿任务已重置为待重试')
     await Promise.all([loadStatus(), loadSearchIndexRetryTasks()])
   } catch (error: any) {
@@ -1448,10 +1939,50 @@ const replaySearchIndexRetryTask = async (task: SearchIndexRetryTask) => {
   }
 }
 
+const replayFailedSearchIndexRetryTasks = async () => {
+  if (failedSearchIndexRetryTaskIds.value.length === 0) return
+  const ids = [...failedSearchIndexRetryTaskIds.value]
+  isBatchReplayingSearchIndexTasks.value = true
+  try {
+    const preview = (await opsApi.previewSearchIndexRetryTasks(ids)).data
+    if (!preview || preview.eligible <= 0) {
+      toast.warning('后端预览显示没有可重放的搜索索引补偿任务')
+      return
+    }
+    const note = await requireRiskConfirm({
+      title: '批量重放搜索索引补偿任务',
+      level: 'critical',
+      reversible: true,
+      impactCount: preview.eligible,
+      objects: batchPreviewObjects(preview, ids),
+      context: batchPreviewContext(preview, '范围：当前失败搜索索引补偿任务', `当前列表：${searchIndexRetryTasks.value.length} 条`),
+      confirmText: '确认批量重试',
+    })
+    if (note === null) return
+    const res = await opsApi.replaySearchIndexRetryTasks(ids, note)
+    toast.success(`已重试 ${res.data?.replayed ?? 0} / ${res.data?.requested ?? ids.length} 条搜索索引补偿任务`)
+    await Promise.all([loadStatus(), loadSearchIndexRetryTasks()])
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '批量重试搜索索引补偿任务失败'))
+  } finally {
+    isBatchReplayingSearchIndexTasks.value = false
+  }
+}
+
 const replayNotificationRetryTask = async (task: NotificationRetryTask) => {
+  const note = await requireRiskConfirm({
+    title: '重放单条通知补偿任务',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([task.id, `receiver:${task.receiverUid}`, task.targetId ? `target:${task.targetId}` : task.dedupKey]),
+    context: riskContext(`场景：${task.scene || '未标注'}`, `重试次数：${task.retryCount}`, task.lastError ? `错误：${task.lastError}` : undefined),
+    confirmText: '确认重放',
+  })
+  if (note === null) return
   replayingNotificationRetryTaskId.value = task.id
   try {
-    await opsApi.replayNotificationRetryTask(task.id)
+    await opsApi.replayNotificationRetryTask(task.id, note)
     toast.success('通知补偿任务已重置为待重放')
     await Promise.all([loadStatus(), loadNotificationRetryTasks()])
   } catch (error: any) {
@@ -1463,10 +1994,25 @@ const replayNotificationRetryTask = async (task: NotificationRetryTask) => {
 
 const replayFailedNotificationRetryTasks = async () => {
   if (failedNotificationRetryTaskIds.value.length === 0) return
+  const ids = [...failedNotificationRetryTaskIds.value]
   isBatchReplayingNotificationTasks.value = true
   try {
-    const ids = failedNotificationRetryTaskIds.value
-    const res = await opsApi.replayNotificationRetryTasks(ids)
+    const preview = (await opsApi.previewNotificationRetryTasks(ids)).data
+    if (!preview || preview.eligible <= 0) {
+      toast.warning('后端预览显示没有可重放的通知补偿任务')
+      return
+    }
+    const note = await requireRiskConfirm({
+      title: '批量重放通知补偿任务',
+      level: 'critical',
+      reversible: true,
+      impactCount: preview.eligible,
+      objects: batchPreviewObjects(preview, ids),
+      context: batchPreviewContext(preview, '范围：当前失败通知补偿任务', `当前列表：${notificationRetryTasks.value.length} 条`),
+      confirmText: '确认批量重放',
+    })
+    if (note === null) return
+    const res = await opsApi.replayNotificationRetryTasks(ids, note)
     toast.success(`已重放 ${res.data?.replayed ?? 0} / ${res.data?.requested ?? ids.length} 条通知补偿任务`)
     await Promise.all([loadStatus(), loadNotificationRetryTasks()])
   } catch (error: any) {
@@ -1477,9 +2023,19 @@ const replayFailedNotificationRetryTasks = async () => {
 }
 
 const retryAiTask = async (task: AiExtractTask) => {
+  const note = await requireRiskConfirm({
+    title: '重试 AI 提取任务',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([task.id, `post:${task.postId}`]),
+    context: riskContext(`任务类型：${task.taskType}`, `题目数：${task.questionCount}`, `重试次数：${task.retryCount}`),
+    confirmText: '确认重试 AI',
+  })
+  if (note === null) return
   retryingAiTaskId.value = task.id
   try {
-    const res = await opsApi.retryAiTask(task.id)
+    const res = await opsApi.retryAiTask(task.id, note)
     toast.success('AI 提取任务已重试')
     if (selectedAiTaskDetail.value && selectedAiTaskDetail.value.sourcePostId === task.postId) {
       selectedAiTaskDetail.value = {
@@ -1488,7 +2044,7 @@ const retryAiTask = async (task: AiExtractTask) => {
         retryRecords: selectedAiTaskDetail.value.retryRecords.map((record) => record.id === task.id ? (res.data || record) : record),
       }
     }
-    await loadAiTasks()
+    await loadAiOps()
   } catch (error: any) {
     toast.error(getErrorMessage(error, 'AI 任务重试失败'))
   } finally {
@@ -1513,11 +2069,21 @@ const closeAiTaskDetail = () => {
 }
 
 const rebuildQuestions = async () => {
+  const note = await requireRiskConfirm({
+    title: '重建题库任务',
+    level: 'critical',
+    reversible: false,
+    impactCount: 100,
+    objects: riskObjects(['question-rebuild-limit:100']),
+    context: riskContext('范围：提交最多 100 个题库重建任务', `AI 任务列表：${aiTasks.value.length} 条`),
+    confirmText: '确认重建题库',
+  })
+  if (note === null) return
   isQuestionRebuilding.value = true
   try {
-    const res = await opsApi.rebuildQuestions(100)
+    const res = await opsApi.rebuildQuestions(100, note)
     toast.success(`已提交 ${res.data?.submitted ?? 0} 个题库重建任务`)
-    await loadAiTasks()
+    await loadAiOps()
   } catch (error: any) {
     toast.error(getErrorMessage(error, '题库重建任务提交失败'))
   } finally {
@@ -1526,9 +2092,19 @@ const rebuildQuestions = async () => {
 }
 
 const rebuildQuestionIndex = async () => {
+  const note = await requireRiskConfirm({
+    title: '重建题库索引',
+    level: 'critical',
+    reversible: false,
+    impactCount: questionIndexTask.value?.total || '题库索引',
+    objects: riskObjects([questionIndexTask.value?.taskId || 'question-index']),
+    context: riskContext('范围：题库 ES 索引任务', questionIndexTask.value?.indexName ? `索引：${questionIndexTask.value.indexName}` : undefined),
+    confirmText: '确认重建题库索引',
+  })
+  if (note === null) return
   isQuestionIndexRebuilding.value = true
   try {
-    const res = await opsApi.rebuildQuestionIndexTask()
+    const res = await opsApi.rebuildQuestionIndexTask(note)
     questionIndexTask.value = res.data
     if (res.data?.taskId) {
       pollQuestionIndexTask(res.data.taskId)
@@ -1550,10 +2126,26 @@ const toggleFailedSelection = (id: ApiId) => {
 
 const retrySelectedMessages = async () => {
   if (selectedFailedIds.value.length === 0) return
+  const ids = [...selectedFailedIds.value]
   isBatchRetrying.value = true
   try {
-    const res = await opsApi.retryOutboxBatch(selectedFailedIds.value)
-    toast.success(`已重置 ${res.data?.retried ?? 0} / ${res.data?.requested ?? selectedFailedIds.value.length} 条失败消息`)
+    const preview = (await opsApi.previewOutboxRetryBatch(ids)).data
+    if (!preview || preview.eligible <= 0) {
+      toast.warning('后端预览显示没有可重试的失败消息')
+      return
+    }
+    const note = await requireRiskConfirm({
+      title: '批量重试 Outbox 消息',
+      level: 'critical',
+      reversible: true,
+      impactCount: preview.eligible,
+      objects: batchPreviewObjects(preview, ids),
+      context: batchPreviewContext(preview, `Outbox 筛选：${outboxStatusFilter.value === undefined ? '全部' : outboxStatusText(outboxStatusFilter.value)}`, `当前列表：${outboxMessages.value.length} 条`),
+      confirmText: '确认批量重试',
+    })
+    if (note === null) return
+    const res = await opsApi.retryOutboxBatch(ids, note)
+    toast.success(`已重置 ${res.data?.retried ?? 0} / ${res.data?.requested ?? ids.length} 条失败消息`)
     selectedFailedIds.value = []
     await refreshAll()
   } catch (error: any) {
@@ -1655,9 +2247,19 @@ const addAdmin = async () => {
     toast.error('请输入有效 UID')
     return
   }
+  const note = await requireRiskConfirm({
+    title: '启用管理员权限',
+    level: 'critical',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([`uid:${uid}`, adminForm.value.roleCode]),
+    context: riskContext('范围：管理员/RBAC 权限变更', adminForm.value.remark ? `备注：${adminForm.value.remark}` : undefined),
+    confirmText: '确认启用管理员',
+  })
+  if (note === null) return
   isAdminSubmitting.value = true
   try {
-    await opsApi.addAdmin({ uid, roleCode: adminForm.value.roleCode, remark: adminForm.value.remark })
+    await opsApi.addAdmin({ uid, roleCode: adminForm.value.roleCode, remark: adminForm.value.remark, auditRemark: note })
     toast.success('管理员已启用')
     adminForm.value = { uid: '', roleCode: 'ADMIN', remark: '' }
     await refreshAll()
@@ -1669,10 +2271,20 @@ const addAdmin = async () => {
 }
 
 const toggleAdmin = async (admin: AdminUserRole) => {
-  adminActionUid.value = admin.uid
   const nextEnabled = !isAdminEnabled(admin)
+  const note = await requireRiskConfirm({
+    title: nextEnabled ? '启用管理员' : '禁用管理员',
+    level: 'critical',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([`uid:${admin.uid}`, admin.roleCode]),
+    context: riskContext('范围：管理员/RBAC 状态变更', admin.remark ? `备注：${admin.remark}` : undefined),
+    confirmText: nextEnabled ? '确认启用' : '确认禁用',
+  })
+  if (note === null) return
+  adminActionUid.value = admin.uid
   try {
-    await opsApi.updateAdminStatus(admin.uid, { enabled: nextEnabled, roleCode: admin.roleCode, remark: admin.remark || '' })
+    await opsApi.updateAdminStatus(admin.uid, { enabled: nextEnabled, roleCode: admin.roleCode, remark: admin.remark || '', auditRemark: note })
     toast.success(nextEnabled ? '管理员已启用' : '管理员已禁用')
     await refreshAll()
   } catch (error: any) {
@@ -1766,11 +2378,43 @@ const reportStatusClass = (value?: number) => {
   return 'status-warn'
 }
 
-const countText = (value?: number | null) => value === null || value === undefined ? '未加载' : String(value)
-
 const textOrUnavailable = (value?: string | null, fallback = '不可用') => {
   const text = value?.trim()
   return text || fallback
+}
+
+const aiProviderText = (value?: string | null) => {
+  const text = value?.trim()
+  if (!text) return '未记录'
+  if (text === 'deepseek') return 'Deepseek'
+  if (text === 'rules') return 'Rules'
+  if (text === 'none') return 'None'
+  return text
+}
+
+const aiFallbackText = (value?: boolean | null) => value ? '已回退' : '未回退'
+
+const formatPercent = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '未加载'
+  return `${Math.round(Number(value) * 1000) / 10}%`
+}
+
+const formatDurationMs = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '未加载'
+  const ms = Math.max(0, Number(value))
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`
+}
+
+const formatTokens = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '未加载'
+  const count = Math.max(0, Number(value))
+  return count >= 10000 ? `${(count / 10000).toFixed(1)}w` : String(Math.round(count))
+}
+
+const formatCostMicros = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '未加载'
+  const micros = Math.max(0, Number(value))
+  return micros <= 0 ? '0.0000' : (micros / 1_000_000).toFixed(4)
 }
 
 const formatTime = (value?: string) => value ? value.replace('T', ' ').slice(0, 19) : '未加载'
@@ -1837,6 +2481,26 @@ onBeforeUnmount(() => {
 .filter-button {
   min-height: 34px;
   padding: 0.4rem 0.75rem;
+}
+
+.test-data-toggle {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: rgb(71 85 105);
+}
+
+.test-data-toggle input {
+  height: 0.875rem;
+  width: 0.875rem;
+  accent-color: rgb(79 70 229);
 }
 
 .filter-button-active {
@@ -1932,6 +2596,46 @@ onBeforeUnmount(() => {
   font-size: 0.875rem;
 }
 
+.ai-metrics-grid {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+}
+
+.ai-provider-list {
+  margin-top: 0.875rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ai-provider-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.8fr) auto minmax(0, 2fr);
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.625rem 0.75rem;
+}
+
+.ai-provider-row span,
+.ai-provider-row strong {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.ai-provider-row small,
+.task-stat small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+}
+
 .detail-section {
   border-radius: 0.625rem;
   border: 1px solid rgb(226 232 240);
@@ -2006,9 +2710,73 @@ onBeforeUnmount(() => {
   color: rgb(180 83 9);
 }
 
+.status-muted {
+  background: rgb(226 232 240);
+  color: rgb(71 85 105);
+}
+
 .status-danger {
   background: rgb(254 226 226);
   color: rgb(185 28 28);
+}
+
+.mobile-ops-summary {
+  display: none;
+  min-width: 0;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 1rem;
+}
+
+.mobile-ops-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mobile-ops-head h2 {
+  margin-top: 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.mobile-ops-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.875rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mobile-ops-card {
+  min-width: 0;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.75rem;
+}
+
+.mobile-ops-card span,
+.mobile-ops-card small {
+  display: block;
+  font-size: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.mobile-ops-card strong {
+  display: block;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  font-size: 1.125rem;
+  color: rgb(15 23 42);
+}
+
+.mobile-ops-card small {
+  margin-top: 0.25rem;
+  line-height: 1.4;
 }
 
 .task-stat {
@@ -2112,6 +2880,254 @@ onBeforeUnmount(() => {
   min-width: 980px;
 }
 
+.comment-report-mobile-list {
+  display: none;
+}
+
+.comment-report-card {
+  min-width: 0;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.875rem;
+}
+
+.comment-report-card-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.comment-report-eyebrow,
+.comment-report-label,
+.comment-report-fact dt,
+.comment-report-reviewed {
+  font-size: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.comment-report-eyebrow {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 700;
+}
+
+.comment-report-title {
+  margin-top: 0.3rem;
+  display: block;
+  overflow-wrap: anywhere;
+  color: rgb(79 70 229);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.comment-report-object {
+  margin-top: 0.85rem;
+  min-width: 0;
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.75rem;
+}
+
+.comment-report-label,
+.comment-report-fact dt {
+  display: block;
+  font-weight: 800;
+}
+
+.comment-report-object-id {
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.comment-report-summary,
+.comment-report-detail,
+.comment-report-note {
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.comment-report-summary {
+  margin-top: 0.35rem;
+  color: rgb(71 85 105);
+}
+
+.comment-report-facts {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.625rem;
+}
+
+.comment-report-fact {
+  min-width: 0;
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.625rem 0.75rem;
+}
+
+.comment-report-fact dd {
+  margin-top: 0.3rem;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: rgb(30 41 59);
+}
+
+.comment-report-detail {
+  margin-top: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.comment-report-note {
+  margin-top: 0.45rem;
+  font-weight: 700;
+  color: rgb(79 70 229);
+}
+
+.comment-report-card-actions {
+  margin-top: 0.875rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 0.5rem;
+}
+
+.comment-report-card-actions .primary-button,
+.comment-report-card-actions .secondary-button {
+  width: 100%;
+  min-width: 0;
+}
+
+.comment-report-reviewed {
+  margin-top: 0.875rem;
+  text-align: right;
+}
+
+.outbox-table {
+  min-width: 820px;
+}
+
+.outbox-mobile-list {
+  display: none;
+}
+
+.outbox-card {
+  min-width: 0;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.875rem;
+}
+
+.outbox-card-topline,
+.outbox-card-actions,
+.outbox-card-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.outbox-card-topline {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.outbox-card-actions {
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.outbox-select-label {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  padding: 0 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(71 85 105);
+}
+
+.outbox-retry-count,
+.outbox-card-meta,
+.outbox-aggregate,
+.outbox-id-detail {
+  font-size: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.outbox-card-main {
+  margin-top: 0.75rem;
+  min-width: 0;
+}
+
+.outbox-topic {
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: rgb(15 23 42);
+}
+
+.outbox-aggregate {
+  margin-top: 0.3rem;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.outbox-card-meta {
+  margin-top: 0.75rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  line-height: 1.4;
+}
+
+.outbox-card-meta time {
+  overflow-wrap: anywhere;
+}
+
+.outbox-id-detail {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.outbox-id-detail summary {
+  display: inline-flex;
+  min-height: 40px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: flex-end;
+  border-radius: 0.5rem;
+  padding: 0 0.5rem;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+
+.outbox-id-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.outbox-id-detail span {
+  display: block;
+  max-width: min(16rem, 62vw);
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
 .compact-action {
   min-height: 32px;
   padding: 0.35rem 0.65rem;
@@ -2121,11 +3137,21 @@ onBeforeUnmount(() => {
   .admin-form {
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) auto;
   }
+
+  .ai-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 768px) {
   .analytics-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1180px) {
+  .ai-metrics-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -2135,7 +3161,14 @@ onBeforeUnmount(() => {
 :global(.dark) .field-textarea,
 :global(.dark) .admin-input,
 :global(.dark) .metric-card,
+:global(.dark) .mobile-ops-summary,
+:global(.dark) .mobile-ops-card,
+:global(.dark) .comment-report-card,
+:global(.dark) .test-data-toggle,
+:global(.dark) .outbox-card,
+:global(.dark) .outbox-select-label,
 :global(.dark) .analytics-column,
+:global(.dark) .ai-provider-row,
 :global(.dark) .detail-section,
 :global(.dark) .panel {
   border-color: rgb(30 41 59);
@@ -2147,6 +3180,7 @@ onBeforeUnmount(() => {
 :global(.dark) .icon-button,
 :global(.dark) .field-textarea,
 :global(.dark) .admin-input,
+:global(.dark) .test-data-toggle,
 :global(.dark) .ops-table td {
   color: rgb(203 213 225);
 }
@@ -2165,18 +3199,46 @@ onBeforeUnmount(() => {
 
 :global(.dark) .metric-label,
 :global(.dark) .task-stat span,
+:global(.dark) .task-stat small,
 :global(.dark) .analytics-empty,
+:global(.dark) .ai-provider-row small,
 :global(.dark) .analytics-column-head strong,
+:global(.dark) .mobile-ops-card span,
+:global(.dark) .mobile-ops-card small,
+:global(.dark) .comment-report-eyebrow,
+:global(.dark) .comment-report-label,
+:global(.dark) .comment-report-fact dt,
+:global(.dark) .comment-report-reviewed,
 :global(.dark) .ops-table th {
   color: rgb(148 163 184);
 }
 
 :global(.dark) .metric-value,
+:global(.dark) .ai-provider-row span,
+:global(.dark) .ai-provider-row strong,
 :global(.dark) .analytics-column-head span,
 :global(.dark) .analytics-title,
+:global(.dark) .mobile-ops-head h2,
+:global(.dark) .mobile-ops-card strong,
+:global(.dark) .comment-report-object-id,
+:global(.dark) .outbox-topic,
 :global(.dark) .detail-section h4,
 :global(.dark) .task-stat strong {
   color: rgb(248 250 252);
+}
+
+:global(.dark) .comment-report-summary,
+:global(.dark) .comment-report-detail {
+  color: rgb(148 163 184);
+}
+
+:global(.dark) .comment-report-fact dd {
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .comment-report-title,
+:global(.dark) .comment-report-note {
+  color: rgb(129 140 248);
 }
 
 .admin-row > * {
@@ -2203,8 +3265,56 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (max-width: 720px) {
+  .mobile-ops-summary {
+    display: block;
+  }
+
+  .comment-report-desktop-table,
+  .outbox-desktop-table {
+    display: none;
+  }
+
+  .comment-report-mobile-list,
+  .outbox-mobile-list {
+    display: grid;
+    gap: 0.75rem;
+    padding-top: 1rem;
+  }
+
+  .icon-button {
+    height: 44px;
+    width: 44px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .filter-button,
+  .test-data-toggle,
+  .compact-action {
+    min-height: 44px;
+  }
+
+  .outbox-select-label {
+    min-height: 44px;
+  }
+
+  .desktop-risk-action,
+  .compact-action {
+    display: none !important;
+  }
+
+  .ai-provider-row {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
+
 :global(.dark) .task-stat,
 :global(.dark) .analytics-column,
+:global(.dark) .ai-provider-row,
+:global(.dark) .comment-report-object,
+:global(.dark) .comment-report-fact,
 :global(.dark) .detail-section {
   background: rgb(2 6 23);
 }

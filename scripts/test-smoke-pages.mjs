@@ -8,10 +8,13 @@ const criticalRoutes = [
   { path: '/search', view: 'SearchView.vue' },
   { path: '/post/:id', view: 'PostDetailView.vue' },
   { path: '/editor', view: 'EditorView.vue' },
+  { path: '/me/prep', view: 'MePrepView.vue' },
   { path: '/me/settings', view: 'SettingsView.vue' },
   { path: '/mock-interview', view: 'MockInterviewView.vue' },
   { path: '/admin/ops', view: 'OpsView.vue' },
   { path: '/admin/questions', view: 'AdminQuestionsView.vue' },
+  { path: '/admin/company-aliases', view: 'AdminCompanyAliasesView.vue' },
+  { path: '/admin/governance', view: 'AdminGovernanceView.vue' },
   { path: '/403', view: 'ForbiddenView.vue' },
 ]
 

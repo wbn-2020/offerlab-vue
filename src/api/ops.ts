@@ -1,7 +1,47 @@
-import client, { BizException, Result } from './client'
+import axios from 'axios'
+import client, { apiBaseURL, BizException, Result } from './client'
 import type { SearchStatus } from './search'
 import type { ApiId, PaginatedResponse } from './types'
 import type { Question } from './question'
+
+const rawClient = axios.create({
+  baseURL: apiBaseURL,
+  timeout: 10000,
+  withCredentials: true,
+})
+
+const cleanRemark = (remark?: string | null) => {
+  const value = remark?.trim()
+  return value || undefined
+}
+
+const withRemark = <T extends Record<string, unknown>>(data: T, remark?: string | null) => {
+  const value = cleanRemark(remark)
+  return value ? { ...data, remark: value } : data
+}
+
+const reasonPayload = (reason?: string | null) => {
+  const value = cleanRemark(reason)
+  return value ? { reason: value } : undefined
+}
+
+export interface HealthComponentStatus {
+  status?: string
+  enabled?: boolean
+  configured?: boolean
+  reachable?: boolean
+  available?: boolean
+  mode?: string
+  message?: string
+  bootstrapServers?: string
+  brokerCount?: number
+  [key: string]: unknown
+}
+
+export interface ReadinessStatus {
+  status: string
+  components: Record<string, HealthComponentStatus>
+}
 
 export interface OutboxStatus {
   byStatus: {
@@ -83,6 +123,26 @@ export interface OutboxRetryBatchResp {
   retried: number
 }
 
+export interface BatchActionPreviewItem {
+  id: ApiId
+  eligible: boolean
+  reason?: string
+  reasonText?: string
+  status?: number
+  statusText?: string
+  objectLabel?: string
+  retryCount?: number
+  [key: string]: unknown
+}
+
+export interface BatchActionPreview {
+  operation: string
+  requested: number
+  eligible: number
+  skipped: number
+  items: BatchActionPreviewItem[]
+}
+
 export interface AdminAuditLog {
   id: ApiId
   operatorUid?: ApiId
@@ -159,9 +219,43 @@ export interface AiExtractTask {
   taskStatus: number
   retryCount: number
   questionCount: number
+  provider?: string
+  fallbackUsed?: boolean
+  durationMs?: number
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  estimatedCostMicros?: number
+  errorCode?: string
   errorMessage?: string
   createTime?: string
   updateTime?: string
+}
+
+export interface AiTaskMetricBucket {
+  name: string
+  count: number
+  fallbackCount: number
+  avgDurationMs: number
+  totalTokens: number
+  estimatedCostMicros: number
+}
+
+export interface AiTaskMetrics {
+  totalTasks: number
+  successCount: number
+  failedCount: number
+  runningCount: number
+  fallbackCount: number
+  fallbackRate: number
+  avgDurationMs: number
+  p95DurationMs: number
+  totalPromptTokens: number
+  totalCompletionTokens: number
+  totalTokens: number
+  estimatedCostMicros: number
+  providerStats: AiTaskMetricBucket[]
+  errorStats: AiTaskMetricBucket[]
 }
 
 export interface AiExtractTaskDetail {
@@ -278,6 +372,11 @@ export const opsApi = {
   status: (): Promise<Result<OpsStatus>> =>
     client.get('/api/v1/ops/status'),
 
+  readiness: async (): Promise<ReadinessStatus> => {
+    const res = await rawClient.get('/api/v1/health/readiness')
+    return res.data as ReadinessStatus
+  },
+
   myPermissions: (options?: { skipAuthRedirect?: boolean }): Promise<Result<MyAdminPermissions>> =>
     client.get('/api/v1/ops/me/permissions', { skipAuthRedirect: options?.skipAuthRedirect }),
 
@@ -287,21 +386,24 @@ export const opsApi = {
   getOutbox: (id: ApiId): Promise<Result<OutboxMessage>> =>
     client.get(`/api/v1/ops/outbox/${id}`),
 
-  retryOutbox: (id: ApiId): Promise<Result<{ id: ApiId; retried: boolean }>> =>
-    client.post(`/api/v1/ops/outbox/${id}/retry`),
+  retryOutbox: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; retried: boolean }>> =>
+    client.post(`/api/v1/ops/outbox/${id}/retry`, withRemark({}, remark)),
 
-  retryOutboxBatch: (ids: ApiId[]): Promise<Result<OutboxRetryBatchResp>> =>
-    client.post('/api/v1/ops/outbox/retry-batch', { ids }),
+  retryOutboxBatch: (ids: ApiId[], remark?: string): Promise<Result<OutboxRetryBatchResp>> =>
+    client.post('/api/v1/ops/outbox/retry-batch', withRemark({ ids }, remark)),
+
+  previewOutboxRetryBatch: (ids: ApiId[]): Promise<Result<BatchActionPreview>> =>
+    client.post('/api/v1/ops/outbox/retry-batch/preview', { ids }),
 
   listAdmins: (params?: { limit?: number }): Promise<Result<AdminUserRole[]>> =>
     client.get('/api/v1/ops/admins', { params }),
 
-  addAdmin: (data: { uid: ApiId; roleCode?: string; remark?: string }): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
+  addAdmin: (data: { uid: ApiId; roleCode?: string; remark?: string; auditRemark?: string }): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
     client.post('/api/v1/ops/admins', data),
 
   updateAdminStatus: (
     uid: ApiId,
-    data: { enabled: boolean; roleCode?: string; remark?: string },
+    data: { enabled: boolean; roleCode?: string; remark?: string; auditRemark?: string },
   ): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
     client.post(`/api/v1/ops/admins/${uid}/status`, data),
 
@@ -340,7 +442,7 @@ export const opsApi = {
     client.get('/api/v1/ops/migration/status'),
 
 
-  searchAnalytics: async (params?: { days?: number; limit?: number }): Promise<Result<SearchAnalytics>> => {
+  searchAnalytics: async (params?: { days?: number; limit?: number; includeTestData?: boolean }): Promise<Result<SearchAnalytics>> => {
     try {
       return await client.get('/api/v1/ops/search/analytics', { params })
     } catch (error) {
@@ -384,32 +486,35 @@ export const opsApi = {
     }
   },
 
-  saveModerationUser: (data: { uid: ApiId; muteHours?: number; banHours?: number; reason?: string }): Promise<Result<UserModerationState>> =>
+  saveModerationUser: (data: { uid: ApiId; muteHours?: number; banHours?: number; reason?: string; auditRemark?: string }): Promise<Result<UserModerationState>> =>
     client.post('/api/v1/ops/moderation/users', data),
 
-  clearModerationMute: (uid: ApiId): Promise<Result<UserModerationState>> =>
-    client.post(`/api/v1/ops/moderation/users/${uid}/clear-mute`),
+  clearModerationMute: (uid: ApiId, reason?: string): Promise<Result<UserModerationState>> =>
+    client.post(`/api/v1/ops/moderation/users/${uid}/clear-mute`, reasonPayload(reason)),
 
-  clearModerationBan: (uid: ApiId): Promise<Result<UserModerationState>> =>
-    client.post(`/api/v1/ops/moderation/users/${uid}/clear-ban`),
+  clearModerationBan: (uid: ApiId, reason?: string): Promise<Result<UserModerationState>> =>
+    client.post(`/api/v1/ops/moderation/users/${uid}/clear-ban`, reasonPayload(reason)),
 
   listAiTasks: (params?: { status?: number; limit?: number }): Promise<Result<AiExtractTask[]>> =>
     client.get('/api/v1/admin/ai-tasks', { params }),
 
+  getAiTaskMetrics: (limit = 100): Promise<Result<AiTaskMetrics>> =>
+    client.get('/api/v1/admin/ai-tasks/metrics', { params: { limit } }),
+
   getAiTaskDetail: (id: ApiId): Promise<Result<AiExtractTaskDetail>> =>
     client.get(`/api/v1/admin/ai-tasks/${id}`),
 
-  retryAiTask: (id: ApiId): Promise<Result<AiExtractTask>> =>
-    client.post(`/api/v1/admin/ai-tasks/${id}/retry`),
+  retryAiTask: (id: ApiId, remark?: string): Promise<Result<AiExtractTask>> =>
+    client.post(`/api/v1/admin/ai-tasks/${id}/retry`, withRemark({}, remark)),
 
-  rebuildQuestions: (limit = 100): Promise<Result<{ requested: number; submitted: number }>> =>
-    client.post('/api/v1/admin/questions/rebuild', null, { params: { limit } }),
+  rebuildQuestions: (limit = 100, remark?: string): Promise<Result<{ requested: number; submitted: number }>> =>
+    client.post('/api/v1/admin/questions/rebuild', withRemark({}, remark), { params: { limit } }),
 
-  rebuildQuestionIndex: (): Promise<Result<{ accepted: boolean; indexed: number; failed: number; total?: number; indexName: string }>> =>
-    client.post('/api/v1/admin/questions/rebuild-index'),
+  rebuildQuestionIndex: (remark?: string): Promise<Result<{ accepted: boolean; indexed: number; failed: number; total?: number; indexName: string }>> =>
+    client.post('/api/v1/admin/questions/rebuild-index', withRemark({}, remark)),
 
-  rebuildQuestionIndexTask: (): Promise<Result<QuestionIndexTask>> =>
-    client.post('/api/v1/admin/questions/rebuild-index-task'),
+  rebuildQuestionIndexTask: (remark?: string): Promise<Result<QuestionIndexTask>> =>
+    client.post('/api/v1/admin/questions/rebuild-index-task', withRemark({}, remark)),
 
   getQuestionIndexTask: (taskId: string): Promise<Result<QuestionIndexTask>> =>
     client.get(`/api/v1/admin/questions/index-tasks/${taskId}`),
@@ -417,8 +522,8 @@ export const opsApi = {
   listQuestionIndexTasks: (limit = 10): Promise<Result<QuestionIndexTask[]>> =>
     client.get('/api/v1/admin/questions/index-tasks', { params: { limit } }),
 
-  retryQuestionIndexTask: (taskId: string): Promise<Result<QuestionIndexTask>> =>
-    client.post(`/api/v1/admin/questions/index-tasks/${taskId}/retry`),
+  retryQuestionIndexTask: (taskId: string, remark?: string): Promise<Result<QuestionIndexTask>> =>
+    client.post(`/api/v1/admin/questions/index-tasks/${taskId}/retry`, withRemark({}, remark)),
 
   listSearchIndexRetryTasks: (params?: { status?: number; limit?: number }): Promise<Result<SearchIndexRetryTask[]>> =>
     client.get('/api/v1/ops/search-index-retry-tasks', { params }),
@@ -426,11 +531,14 @@ export const opsApi = {
   getSearchIndexRetryTask: (id: ApiId): Promise<Result<SearchIndexRetryTask>> =>
     client.get(`/api/v1/ops/search-index-retry-tasks/${id}`),
 
-  replaySearchIndexRetryTask: (id: ApiId): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
-    client.post(`/api/v1/ops/search-index-retry-tasks/${id}/replay`),
+  replaySearchIndexRetryTask: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
+    client.post(`/api/v1/ops/search-index-retry-tasks/${id}/replay`, withRemark({}, remark)),
 
-  replaySearchIndexRetryTasks: (ids: ApiId[]): Promise<Result<{ requested: number; replayed: number }>> =>
-    client.post('/api/v1/ops/search-index-retry-tasks/replay-batch', { ids }),
+  replaySearchIndexRetryTasks: (ids: ApiId[], remark?: string): Promise<Result<{ requested: number; replayed: number }>> =>
+    client.post('/api/v1/ops/search-index-retry-tasks/replay-batch', withRemark({ ids }, remark)),
+
+  previewSearchIndexRetryTasks: (ids: ApiId[]): Promise<Result<BatchActionPreview>> =>
+    client.post('/api/v1/ops/search-index-retry-tasks/replay-batch/preview', { ids }),
 
   listNotificationRetryTasks: (params?: { status?: number; limit?: number }): Promise<Result<NotificationRetryTask[]>> =>
     client.get('/api/v1/ops/notification-retry-tasks', { params }),
@@ -438,17 +546,20 @@ export const opsApi = {
   getNotificationRetryTask: (id: ApiId): Promise<Result<NotificationRetryTask>> =>
     client.get(`/api/v1/ops/notification-retry-tasks/${id}`),
 
-  replayNotificationRetryTask: (id: ApiId): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
-    client.post(`/api/v1/ops/notification-retry-tasks/${id}/replay`),
+  replayNotificationRetryTask: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
+    client.post(`/api/v1/ops/notification-retry-tasks/${id}/replay`, withRemark({}, remark)),
 
-  replayNotificationRetryTasks: (ids: ApiId[]): Promise<Result<{ requested: number; replayed: number }>> =>
-    client.post('/api/v1/ops/notification-retry-tasks/replay-batch', { ids }),
+  replayNotificationRetryTasks: (ids: ApiId[], remark?: string): Promise<Result<{ requested: number; replayed: number }>> =>
+    client.post('/api/v1/ops/notification-retry-tasks/replay-batch', withRemark({ ids }, remark)),
 
-  reviewQuestion: (id: ApiId, status: number): Promise<Result<{ questionId: ApiId; status: number }>> =>
-    client.post(`/api/v1/admin/questions/${id}/review`, null, { params: { status } }),
+  previewNotificationRetryTasks: (ids: ApiId[]): Promise<Result<BatchActionPreview>> =>
+    client.post('/api/v1/ops/notification-retry-tasks/replay-batch/preview', { ids }),
 
-  batchReviewQuestions: (ids: ApiId[], status: number): Promise<Result<{ requested: number; reviewed: number; status: number }>> =>
-    client.post('/api/v1/admin/questions/batch-review', { ids, status }),
+  reviewQuestion: (id: ApiId, status: number, remark?: string): Promise<Result<{ questionId: ApiId; status: number }>> =>
+    client.post(`/api/v1/admin/questions/${id}/review`, withRemark({}, remark), { params: { status } }),
+
+  batchReviewQuestions: (ids: ApiId[], status: number, remark?: string): Promise<Result<{ requested: number; reviewed: number; status: number }>> =>
+    client.post('/api/v1/admin/questions/batch-review', withRemark({ ids, status }, remark)),
 
   listQuestions: (params?: { status?: number; limit?: number }): Promise<Result<Question[]>> =>
     client.get('/api/v1/admin/questions', { params }),
@@ -470,7 +581,7 @@ export const opsApi = {
   questionSummary: (): Promise<Result<{ pending: number; approved: number; hidden: number; total: number }>> =>
     client.get('/api/v1/admin/questions/summary'),
 
-  updateQuestion: (id: ApiId, data: Partial<Question> & { status?: number }): Promise<Result<Question>> =>
+  updateQuestion: (id: ApiId, data: Partial<Question> & { status?: number; remark?: string }): Promise<Result<Question>> =>
     client.post(`/api/v1/admin/questions/${id}`, data),
 
   getQuestionDuplicateGroup: (id: ApiId): Promise<Result<QuestionDuplicateGroup>> =>
@@ -482,8 +593,8 @@ export const opsApi = {
   mergeQuestionDuplicateCandidate: (id: ApiId, candidateQuestionId: ApiId): Promise<Result<QuestionDuplicateGroup>> =>
     client.post(`/api/v1/admin/questions/${id}/duplicates/merge-candidate`, { candidateQuestionId }),
 
-  hideQuestionDuplicates: (id: ApiId, ids: ApiId[]): Promise<Result<QuestionDuplicateGroup>> =>
-    client.post(`/api/v1/admin/questions/${id}/duplicates/hide`, { ids }),
+  hideQuestionDuplicates: (id: ApiId, ids: ApiId[], remark?: string): Promise<Result<QuestionDuplicateGroup>> =>
+    client.post(`/api/v1/admin/questions/${id}/duplicates/hide`, withRemark({ ids }, remark)),
 
   listCompanyAliases: (params?: { keyword?: string; limit?: number }): Promise<Result<CompanyAlias[]>> =>
     client.get('/api/v1/admin/company-aliases', { params }),
@@ -491,12 +602,12 @@ export const opsApi = {
   listCompanyAliasCandidates: (params?: { limit?: number }): Promise<Result<CompanyAliasCandidate[]>> =>
     client.get('/api/v1/admin/company-aliases/candidates', { params }),
 
-  createCompanyAlias: (data: { canonicalCompany: string; alias: string; status?: number }): Promise<Result<CompanyAlias>> =>
+  createCompanyAlias: (data: { canonicalCompany: string; alias: string; status?: number; remark?: string }): Promise<Result<CompanyAlias>> =>
     client.post('/api/v1/admin/company-aliases', data),
 
-  updateCompanyAlias: (id: ApiId, data: { canonicalCompany: string; alias: string; status?: number }): Promise<Result<CompanyAlias>> =>
+  updateCompanyAlias: (id: ApiId, data: { canonicalCompany: string; alias: string; status?: number; remark?: string }): Promise<Result<CompanyAlias>> =>
     client.post(`/api/v1/admin/company-aliases/${id}`, data),
 
-  updateCompanyAliasStatus: (id: ApiId, status: number): Promise<Result<{ id: ApiId; status: number }>> =>
-    client.post(`/api/v1/admin/company-aliases/${id}/status`, null, { params: { status } }),
+  updateCompanyAliasStatus: (id: ApiId, status: number, remark?: string): Promise<Result<{ id: ApiId; status: number }>> =>
+    client.post(`/api/v1/admin/company-aliases/${id}/status`, withRemark({}, remark), { params: { status } }),
 }

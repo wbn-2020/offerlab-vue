@@ -31,9 +31,9 @@ assert.match(adminQuestionsView, /questionIndexTasks = ref<QuestionIndexTask\[\]
 assert.match(adminQuestionsView, /loadQuestionIndexTasks/, 'AdminQuestionsView must load question index tasks')
 assert.match(adminQuestionsView, /opsApi\.listQuestionIndexTasks\(10\)/, 'AdminQuestionsView must call the question index task list API')
 assert.match(adminQuestionsView, /submitQuestionIndexTask/, 'AdminQuestionsView must submit rebuild tasks')
-assert.match(adminQuestionsView, /opsApi\.rebuildQuestionIndexTask\(\)/, 'AdminQuestionsView must call the rebuild task API')
+assert.match(adminQuestionsView, /opsApi\.rebuildQuestionIndexTask\([^)]*\)/, 'AdminQuestionsView must call the rebuild task API')
 assert.match(adminQuestionsView, /retryQuestionIndexTask/, 'AdminQuestionsView must expose retry action for failed tasks')
-assert.match(adminQuestionsView, /opsApi\.retryQuestionIndexTask\(taskId\)/, 'AdminQuestionsView retry must call the retry API')
+assert.match(adminQuestionsView, /opsApi\.retryQuestionIndexTask\(taskId[^)]*\)/, 'AdminQuestionsView retry must call the retry API')
 assert.match(adminQuestionsView, /task\.message/, 'AdminQuestionsView must show failure reasons')
 
 console.log('question index task ops guard passed')

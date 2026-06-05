@@ -8,73 +8,88 @@
             <h1 class="text-3xl font-bold text-slate-950 dark:text-slate-50">我的准备台</h1>
             <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">维护目标公司和岗位，集中复习收藏题与待复习题。</p>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-if="overview"
-              type="button"
-              class="prep-export-button"
-              @click="copyPrepPack"
-            >
-              <Copy class="h-4 w-4" aria-hidden="true" />
-              复制备考包
-            </button>
-            <button
-              v-if="overview"
-              type="button"
-              class="prep-export-button"
-              @click="downloadPrepPack"
-            >
-              <Download class="h-4 w-4" aria-hidden="true" />
-              下载备考包
-            </button>
-            <button
-              v-if="weeklyReport"
-              type="button"
-              class="prep-export-button"
-              @click="copyWeeklyReport"
-            >
-              <Copy class="h-4 w-4" aria-hidden="true" />
-              复制周复盘
-            </button>
-            <button
-              v-if="weeklyReport"
-              type="button"
-              class="prep-export-button"
-              @click="downloadWeeklyReport"
-            >
-              <Download class="h-4 w-4" aria-hidden="true" />
-              下载周复盘
-            </button>
-            <button
-              v-if="starStoryQuestions.length"
-              type="button"
-              class="prep-export-button"
-              @click="copyStarLibrary"
-            >
-              <Copy class="h-4 w-4" aria-hidden="true" />
-              复制 STAR 素材库
-            </button>
-            <button
-              v-if="starStoryQuestions.length"
-              type="button"
-              class="prep-export-button"
-              @click="downloadStarLibrary"
-            >
-              <Download class="h-4 w-4" aria-hidden="true" />
-              下载 STAR 素材库
-            </button>
-            <RouterLink to="/mock-interview" class="prep-export-button">
-              模拟面试
-            </RouterLink>
-            <RouterLink to="/questions" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
+          <div class="prep-hero-actions">
+            <RouterLink to="/questions" class="prep-primary-action">
               继续刷题
             </RouterLink>
+            <RouterLink to="/mock-interview" class="prep-secondary-action">
+              模拟面试
+            </RouterLink>
+            <details v-if="hasExportActions" class="prep-export-menu">
+              <summary class="prep-export-trigger">
+                <Download class="h-4 w-4" aria-hidden="true" />
+                导出
+                <ChevronDown class="h-4 w-4" aria-hidden="true" />
+              </summary>
+              <div class="prep-export-list">
+                <button
+                  v-if="overview"
+                  type="button"
+                  class="prep-export-item"
+                  @click="copyPrepPack"
+                >
+                  <Copy class="h-4 w-4" aria-hidden="true" />
+                  复制备考包
+                </button>
+                <button
+                  v-if="overview"
+                  type="button"
+                  class="prep-export-item"
+                  @click="downloadPrepPack"
+                >
+                  <Download class="h-4 w-4" aria-hidden="true" />
+                  下载备考包
+                </button>
+                <button
+                  v-if="weeklyReport"
+                  type="button"
+                  class="prep-export-item"
+                  @click="copyWeeklyReport"
+                >
+                  <Copy class="h-4 w-4" aria-hidden="true" />
+                  复制周复盘
+                </button>
+                <button
+                  v-if="weeklyReport"
+                  type="button"
+                  class="prep-export-item"
+                  @click="downloadWeeklyReport"
+                >
+                  <Download class="h-4 w-4" aria-hidden="true" />
+                  下载周复盘
+                </button>
+                <button
+                  v-if="starStoryQuestions.length"
+                  type="button"
+                  class="prep-export-item"
+                  @click="copyStarLibrary"
+                >
+                  <Copy class="h-4 w-4" aria-hidden="true" />
+                  复制 STAR 素材库
+                </button>
+                <button
+                  v-if="starStoryQuestions.length"
+                  type="button"
+                  class="prep-export-item"
+                  @click="downloadStarLibrary"
+                >
+                  <Download class="h-4 w-4" aria-hidden="true" />
+                  下载 STAR 素材库
+                </button>
+              </div>
+            </details>
           </div>
         </div>
       </section>
 
-      <LoadingSkeleton v-if="isLoading" />
-      <section v-else-if="isError" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
+      <section v-if="showFullPageSkeleton" class="prep-loading-shell" aria-busy="true">
+        <div class="prep-load-hint prep-load-hint-primary">
+          <strong>正在加载准备数据</strong>
+          <span>准备目标、复习提醒和回答卡片会在数据返回后自动补齐。</span>
+        </div>
+        <LoadingSkeleton />
+      </section>
+      <section v-else-if="isError && !overview" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
         <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">准备台加载失败</h3>
         <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
           {{ getErrorMessage(error, '暂时无法加载准备台，请稍后重试。') }}
@@ -84,8 +99,37 @@
           <RouterLink to="/questions" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">去题库看看</RouterLink>
         </div>
       </section>
+      <section v-else-if="isInitialLoadingWithoutData" class="prep-loading-shell" aria-busy="true">
+        <div v-if="showPrepTimeoutHint" class="prep-load-hint">
+          <strong>准备台还在加载</strong>
+          <span>先展示关键入口，数据返回后会自动补齐。</span>
+          <button type="button" @click="refetch()">重试</button>
+        </div>
+        <section class="mb-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+          <div v-for="item in metricPlaceholders" :key="item" class="metric-card metric-card-pending">
+            <span>{{ item }}</span>
+            <strong class="metric-skeleton" aria-hidden="true"></strong>
+          </div>
+        </section>
+        <section class="starter-panel mb-6">
+          <div>
+            <p class="plan-kicker">Start Prep</p>
+            <h2 class="plan-title">先把准备台跑起来</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              你可以先进入题库或模拟面试；准备台数据完成后会自动刷新当前页面。
+            </p>
+          </div>
+          <div class="starter-actions">
+            <RouterLink to="/questions" class="primary-action inline-flex items-center justify-center px-5 py-2.5">去题库</RouterLink>
+            <RouterLink to="/mock-interview" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">模拟面试</RouterLink>
+          </div>
+        </section>
+      </section>
       <EmptyState v-else-if="!overview" title="暂时无法加载准备台" description="准备台数据还没有返回；你也可以先去题库收藏或标记几道题。" actionText="去题库看看" actionHref="/questions" />
       <template v-else>
+        <section v-if="isServingCachedOverview || isRefreshingOverview" class="prep-refresh-banner">
+          <span>{{ isServingCachedOverview ? '已先展示本地快照，正在刷新最新数据。' : '准备台数据刷新中。' }}</span>
+        </section>
         <section class="mb-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
           <div class="metric-card"><span>收藏</span><strong>{{ overview.favoriteCount }}</strong></div>
           <div class="metric-card"><span>待学习</span><strong>{{ overview.todoCount }}</strong></div>
@@ -281,21 +325,26 @@
                 </form>
               </div>
               <div v-if="overview.targets.length" class="target-chip-grid">
-                <button
+                <div
                   v-for="target in overview.targets"
                   :key="target.id"
-                  type="button"
                   class="target-chip"
-                  :disabled="deletingTargetId === target.id"
-                  @click="deleteTarget(target.id)"
                 >
                   <span class="target-chip-main">
                     <strong>{{ targetTypeText(target.targetType) }} · {{ target.targetValue }}</strong>
                     <small>{{ targetScheduleText(target) }} · {{ targetPriorityText(target.priority) }}</small>
                     <small v-if="target.note" class="line-clamp-1">{{ target.note }}</small>
                   </span>
-                  <span class="target-chip-remove" aria-hidden="true">×</span>
-                </button>
+                  <button
+                    type="button"
+                    class="target-chip-remove"
+                    :disabled="deletingTargetId === target.id"
+                    :aria-label="`移除准备目标 ${target.targetValue}`"
+                    @click.stop="deleteTarget(target.id)"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
               <EmptyState v-else title="还没有准备目标" description="先添加目标公司、岗位或技术标签，推荐会更贴近你的面试方向。" />
             </section>
@@ -410,35 +459,84 @@
         </div>
       </template>
     </main>
+    <RiskConfirmDialog
+      :state="riskConfirmState"
+      @confirm="resolveRiskConfirm"
+      @cancel="cancelRiskConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
-import { Copy, Download } from 'lucide-vue-next'
+import { ChevronDown, Copy, Download } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import PrepPanel from '@/components/common/PrepPanel.vue'
 import QuestionCard from '@/components/question/QuestionCard.vue'
 import { questionApi } from '@/api/question'
 import type { ApiId } from '@/api/types'
-import type { PrepTarget, Question, TargetPrepSummary } from '@/api/question'
+import type { PrepTarget, Question, TargetPrepSummary, UserPrepOverview } from '@/api/question'
 import { useAuthStore } from '@/stores/auth'
+import { useRiskConfirm } from '@/composables/useRiskConfirm'
 import { buildStarStoryLibraryMarkdown, buildUserPrepPackMarkdown, buildWeeklyPrepReportMarkdown, downloadMarkdownFile, mistakeReasonText, progressText, targetTypeText } from '@/utils/prepPackExport'
+import { safeStorage } from '@/utils/safeStorage'
 
 const authStore = useAuthStore()
+const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
 const prepOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
+const PREP_OVERVIEW_CACHE_PREFIX = 'offerlab:me-prep-overview:'
+const PREP_FIRST_SCREEN_TIMEOUT_MS = 1500
+const metricPlaceholders = ['收藏', '待学习', '学习中', '已掌握', '待复习', '笔记题', '回答卡片']
 const targetForm = reactive({ targetType: 'company', targetValue: '', interviewDate: '', priority: 'medium', note: '' })
 const isSubmittingTarget = ref(false)
 const deletingTargetId = ref<ApiId | null>(null)
 const reviewingQuestionId = ref<ApiId | null>(null)
+const hasWaitedBeyondFirstPaint = ref(false)
 
-const { data, isLoading, isError, error, refetch } = useQuery({
+let firstScreenTimer: ReturnType<typeof setTimeout> | null = null
+
+const prepOverviewCacheKey = (owner: string) => `${PREP_OVERVIEW_CACHE_PREFIX}${owner}`
+
+const readCachedPrepOverview = (owner: string): UserPrepOverview | null => {
+  try {
+    const raw = safeStorage.sessionGet(prepOverviewCacheKey(owner))
+    return raw ? JSON.parse(raw) as UserPrepOverview : null
+  } catch {
+    return null
+  }
+}
+
+const writeCachedPrepOverview = (owner: string, value: UserPrepOverview) => {
+  try {
+    safeStorage.sessionSet(prepOverviewCacheKey(owner), JSON.stringify(value))
+  } catch {
+    // Cache is only a first-screen fallback; storage failures should not block the page.
+  }
+}
+
+const scheduleFirstScreenTimer = () => {
+  if (firstScreenTimer) clearTimeout(firstScreenTimer)
+  hasWaitedBeyondFirstPaint.value = false
+  firstScreenTimer = setTimeout(() => {
+    hasWaitedBeyondFirstPaint.value = true
+  }, PREP_FIRST_SCREEN_TIMEOUT_MS)
+}
+
+scheduleFirstScreenTimer()
+onBeforeUnmount(() => {
+  if (firstScreenTimer) clearTimeout(firstScreenTimer)
+})
+
+const cachedOverview = ref<UserPrepOverview | null>(readCachedPrepOverview(prepOwner.value))
+
+const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
   queryKey: computed(() => ['me-prep-overview', prepOwner.value]),
   queryFn: () => questionApi.myPrepOverview(),
 })
@@ -453,10 +551,16 @@ const { data: weeklyReportData } = useQuery({
   queryFn: () => questionApi.myWeeklyPrepReport(),
 })
 
-const overview = computed(() => data.value?.data || null)
+const overview = computed(() => data.value?.data || cachedOverview.value || null)
 const mockStats = computed(() => mockStatsData.value?.data || null)
 const weeklyReport = computed(() => weeklyReportData.value?.data || null)
+const isServingCachedOverview = computed(() => Boolean(cachedOverview.value && !data.value?.data))
+const isInitialLoadingWithoutData = computed(() => Boolean(isLoading.value && !overview.value))
+const showFullPageSkeleton = computed(() => Boolean(isInitialLoadingWithoutData.value && !hasWaitedBeyondFirstPaint.value))
+const showPrepTimeoutHint = computed(() => Boolean(isInitialLoadingWithoutData.value && hasWaitedBeyondFirstPaint.value))
+const isRefreshingOverview = computed(() => Boolean(isFetching.value && overview.value && !isServingCachedOverview.value))
 const starStoryQuestions = computed(() => (overview.value?.answerDraftQuestions || []).filter((question) => Boolean(question.starStory)))
+const hasExportActions = computed(() => Boolean(overview.value) || Boolean(weeklyReport.value) || starStoryQuestions.value.length > 0)
 const maxFocusTagCount = computed(() => Math.max(1, ...(overview.value?.focusTagCounts || []).map((item) => item.count)))
 const isPrepStarterEmpty = computed(() => {
   const value = overview.value
@@ -487,6 +591,21 @@ const isPrepStarterEmpty = computed(() => {
     && Number(mockStats.value?.sessionCount || 0) === 0
 })
 
+watch(prepOwner, (owner) => {
+  cachedOverview.value = readCachedPrepOverview(owner)
+  scheduleFirstScreenTimer()
+})
+
+watch(
+  () => data.value?.data,
+  (value) => {
+    if (!value) return
+    cachedOverview.value = value
+    writeCachedPrepOverview(prepOwner.value, value)
+  },
+  { immediate: true },
+)
+
 const addTarget = async () => {
   if (!targetForm.targetValue) return
   isSubmittingTarget.value = true
@@ -512,6 +631,23 @@ const addTarget = async () => {
 }
 
 const deleteTarget = async (id: ApiId) => {
+  const target = overview.value?.targets.find((item) => item.id === id)
+  const confirmed = await confirmRisk({
+    title: '移除准备目标',
+    level: 'medium',
+    reversible: false,
+    impactCount: 1,
+    objects: [target ? `${targetTypeText(target.targetType)}: ${target.targetValue}` : `target:${id}`],
+    context: target
+      ? [
+          targetScheduleText(target),
+          targetPriorityText(target.priority),
+          target.note ? `备注：${target.note}` : '删除后推荐题会停止优先匹配该目标。',
+        ]
+      : ['删除后推荐题会停止优先匹配该目标。'],
+    confirmText: '确认移除',
+  })
+  if (confirmed === null) return
   deletingTargetId.value = id
   try {
     await questionApi.deletePrepTarget(id)
@@ -689,6 +825,73 @@ const reviewScheduleText = (question: Question) => {
   background: rgb(239 246 255);
 }
 
+.prep-loading-shell {
+  display: block;
+}
+
+.prep-load-hint,
+.prep-refresh-banner {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 0.85rem 1rem;
+  color: rgb(30 64 175);
+}
+
+.prep-load-hint-primary {
+  align-items: flex-start;
+}
+
+.prep-load-hint strong {
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.prep-load-hint span,
+.prep-refresh-banner span {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.prep-load-hint button {
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgb(147 197 253);
+  background: white;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: rgb(29 78 216);
+}
+
+.metric-card-pending {
+  min-height: 105px;
+}
+
+.metric-skeleton {
+  width: 58%;
+  height: 2rem;
+  border-radius: 0.45rem;
+  background: linear-gradient(90deg, rgb(226 232 240), rgb(248 250 252), rgb(226 232 240));
+  background-size: 180% 100%;
+  animation: prepSkeletonPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes prepSkeletonPulse {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -80% 0;
+  }
+}
+
 .section-title {
   font-size: 1.05rem;
   font-weight: 800;
@@ -734,19 +937,98 @@ const reviewScheduleText = (question: Question) => {
   min-width: 0;
 }
 
-.prep-export-button {
+.prep-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.65rem;
+}
+
+.prep-primary-action,
+.prep-secondary-action,
+.prep-export-trigger,
+.prep-export-item {
   display: inline-flex;
   min-height: 38px;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
   border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.prep-primary-action {
+  background: rgb(37 99 235);
+  padding: 0.5rem 1.05rem;
+  color: white;
+}
+
+.prep-primary-action:hover {
+  background: rgb(29 78 216);
+}
+
+.prep-secondary-action,
+.prep-export-trigger {
   border: 1px solid rgb(191 219 254);
   background: rgb(239 246 255);
   padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 800;
   color: rgb(29 78 216);
+}
+
+.prep-secondary-action:hover,
+.prep-export-trigger:hover {
+  border-color: rgb(147 197 253);
+  background: rgb(219 234 254);
+}
+
+.prep-export-menu {
+  position: relative;
+}
+
+.prep-export-trigger {
+  cursor: pointer;
+  list-style: none;
+}
+
+.prep-export-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.prep-export-menu:not([open]) .prep-export-list {
+  display: none;
+}
+
+.prep-export-list {
+  position: absolute;
+  right: 0;
+  z-index: 20;
+  margin-top: 0.5rem;
+  display: grid;
+  min-width: 13rem;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.35rem;
+  box-shadow: 0 18px 42px rgb(15 23 42 / 0.16);
+}
+
+.prep-export-item {
+  width: 100%;
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+  padding: 0.6rem 0.7rem;
+  color: rgb(51 65 85);
+  text-align: left;
+}
+
+.prep-export-item:hover,
+.prep-export-item:focus-visible {
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+  outline: none;
 }
 
 .target-button {
@@ -769,7 +1051,7 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .target-button:disabled,
-.target-chip:disabled {
+.target-chip-remove:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -809,8 +1091,29 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .target-chip-remove {
+  display: inline-flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.72);
+  color: rgb(67 56 202);
   font-size: 1rem;
+  font-weight: 900;
   line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.target-chip-remove:hover,
+.target-chip-remove:focus-visible {
+  background: rgb(224 231 255);
+  color: rgb(49 46 129);
+  outline: none;
+}
+
+.target-chip-remove:active {
+  transform: scale(0.96);
 }
 
 .target-summary {
@@ -1217,6 +1520,24 @@ const reviewScheduleText = (question: Question) => {
   box-shadow: 0 0 0 3px rgb(37 99 235 / 0.24);
 }
 
+:global(.dark) .prep-load-hint,
+:global(.dark) .prep-refresh-banner {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
+}
+
+:global(.dark) .prep-load-hint button {
+  border-color: rgb(59 130 246);
+  background: rgb(15 23 42);
+  color: rgb(191 219 254);
+}
+
+:global(.dark) .metric-skeleton {
+  background: linear-gradient(90deg, rgb(30 41 59), rgb(51 65 85), rgb(30 41 59));
+  background-size: 180% 100%;
+}
+
 :global(.dark) .mock-stats-panel {
   border-color: rgb(30 64 175);
   background: linear-gradient(135deg, rgb(23 37 84), rgb(15 23 42));
@@ -1292,9 +1613,52 @@ const reviewScheduleText = (question: Question) => {
   color: rgb(165 180 252);
 }
 
-:global(.dark) .prep-export-button {
+:global(.dark) .target-chip-remove {
+  background: rgb(49 46 129);
+  color: rgb(224 231 255);
+}
+
+:global(.dark) .target-chip-remove:hover,
+:global(.dark) .target-chip-remove:focus-visible {
+  background: rgb(67 56 202);
+  color: white;
+}
+
+:global(.dark) .prep-primary-action {
+  background: rgb(37 99 235);
+  color: white;
+}
+
+:global(.dark) .prep-primary-action:hover {
+  background: rgb(29 78 216);
+}
+
+:global(.dark) .prep-secondary-action,
+:global(.dark) .prep-export-trigger {
   border-color: rgb(30 64 175);
   background: rgb(23 37 84);
+  color: rgb(191 219 254);
+}
+
+:global(.dark) .prep-secondary-action:hover,
+:global(.dark) .prep-export-trigger:hover {
+  border-color: rgb(59 130 246);
+  background: rgb(30 64 175);
+}
+
+:global(.dark) .prep-export-list {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 0.32);
+}
+
+:global(.dark) .prep-export-item {
+  color: rgb(203 213 225);
+}
+
+:global(.dark) .prep-export-item:hover,
+:global(.dark) .prep-export-item:focus-visible {
+  background: rgb(30 41 59);
   color: rgb(191 219 254);
 }
 

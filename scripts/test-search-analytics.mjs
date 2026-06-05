@@ -16,7 +16,7 @@ assert.match(opsApi, /interface SearchAnalytics/, 'ops API must type search anal
 assert.match(opsApi, /hotKeywords:\s*SearchAnalyticsItem\[\]/, 'ops analytics must include hot keywords')
 assert.match(opsApi, /noResultKeywords:\s*SearchAnalyticsItem\[\]/, 'ops analytics must include no-result keywords')
 assert.match(opsApi, /prepClicks:\s*SearchAnalyticsItem\[\]/, 'ops analytics must include prep clicks')
-assert.match(opsApi, /searchAnalytics:\s*(?:async\s*)?\(params\?: \{ days\?: number; limit\?: number \}\)/, 'ops API must expose searchAnalytics')
+assert.match(opsApi, /searchAnalytics:\s*(?:async\s*)?\(params\?: \{ days\?: number; limit\?: number; includeTestData\?: boolean \}\)/, 'ops API must expose searchAnalytics with an explicit test-data switch')
 assert.match(opsApi, /\/api\/v1\/ops\/search\/analytics/, 'ops API must call search analytics endpoint')
 
 assert.match(searchView, /@click="trackCompanyPrepClick"/, 'search no-result prep-pack link must track clicks')
@@ -28,8 +28,11 @@ assert.match(opsView, /搜索运营统计/, 'OpsView must render search analytic
 assert.match(opsView, /热门搜索词/, 'OpsView must show hot keyword list')
 assert.match(opsView, /无结果词/, 'OpsView must show no-result keyword list')
 assert.match(opsView, /准备包点击/, 'OpsView must show prep click list')
+assert.match(opsView, /const includeTestData = ref\(false\)/, 'OpsView must hide test data by default')
+assert.match(opsView, /测试数据/, 'OpsView must expose a compact test-data toggle')
 assert.match(opsView, /const loadSearchAnalytics\s*=\s*async \(\) =>/, 'OpsView must load analytics data')
-assert.match(opsView, /opsApi\.searchAnalytics\(\{ days: 30, limit: 8 \}\)/, 'OpsView must request bounded analytics summary')
-assert.match(opsView, /loadStatus\(\), loadOutbox\(\), [\s\S]*loadSearchAnalytics\(\)/, 'Ops refresh must include search analytics')
+assert.match(opsView, /opsApi\.searchAnalytics\(\{ days: 30, limit: 8, includeTestData: includeTestData\.value \}\)/, 'OpsView must request bounded analytics summary with the test-data switch')
+assert.match(opsView, /loaders\.push\([\s\S]*loadStatus\(\)[\s\S]*loadOutbox\(\)[\s\S]*loadSearchAnalytics\(\)/, 'Ops refresh must include search analytics')
+assert.match(opsView, /reloadGovernanceData/, 'OpsView must reload analytics and reports when toggling test data')
 
 console.log('search analytics guard passed')

@@ -523,6 +523,10 @@ const syncStartFormFromRoute = () => {
   if (typeof route.query.position === 'string') startForm.position = route.query.position
   if (typeof route.query.difficulty === 'string') startForm.difficulty = route.query.difficulty
   if (typeof route.query.focusTag === 'string') startForm.focusTag = route.query.focusTag
+  if (typeof route.query.questionCount === 'string') {
+    const count = Number(route.query.questionCount)
+    if (Number.isFinite(count)) startForm.questionCount = Math.max(3, Math.min(10, Math.round(count)))
+  }
 }
 
 onMounted(() => {

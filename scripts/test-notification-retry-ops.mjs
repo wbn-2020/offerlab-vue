@@ -13,14 +13,16 @@ assert.match(opsApi, /listNotificationRetryTasks/, 'ops API must list notificati
 assert.match(opsApi, /getNotificationRetryTask/, 'ops API must fetch a notification retry task by id')
 assert.match(opsApi, /replayNotificationRetryTask/, 'ops API must replay a single notification retry task')
 assert.match(opsApi, /replayNotificationRetryTasks/, 'ops API must replay a batch of notification retry tasks')
+assert.match(opsApi, /previewNotificationRetryTasks/, 'ops API must preview a batch of notification retry tasks before replay')
 
 assert.match(view, /notificationRetryTasks = ref<NotificationRetryTask\[\]>\(\[\]\)/, 'OpsView must keep notification retry history')
 assert.match(view, /isNotificationRetryTasksLoading/, 'OpsView must track notification retry loading state')
 assert.match(view, /loadNotificationRetryTasks/, 'OpsView must load notification retry tasks')
 assert.match(view, /opsApi\.listNotificationRetryTasks\(\{ limit: 20 \}\)/, 'OpsView must call the notification retry list API')
 assert.match(view, /replayNotificationRetryTask\(item\)/, 'OpsView must expose a retry button for failed notification tasks')
-assert.match(view, /opsApi\.replayNotificationRetryTask\(task\.id\)/, 'OpsView replay must call the single notification replay API')
-assert.match(view, /opsApi\.replayNotificationRetryTasks\(ids\)/, 'OpsView must expose batch notification replay')
+assert.match(view, /opsApi\.replayNotificationRetryTask\(task\.id,\s*note\)/, 'OpsView replay must call the single notification replay API with the risk note')
+assert.match(view, /opsApi\.replayNotificationRetryTasks\(ids,\s*note\)/, 'OpsView must expose batch notification replay with the risk note')
+assert.match(view, /opsApi\.previewNotificationRetryTasks\(ids\)[\s\S]*requireRiskConfirm[\s\S]*opsApi\.replayNotificationRetryTasks\(ids,\s*note\)/, 'OpsView batch notification replay must preview before risk confirmation and replay')
 assert.match(view, /status\?\.(?:notificationRetry\?\.|notificationRetry\.)byStatus\.failed/, 'OpsView must surface failed notification retry counts')
 assert.match(view, /status\?\.(?:notificationRetry\?\.|notificationRetry\.)duePending/, 'OpsView must surface due notification retry counts')
 

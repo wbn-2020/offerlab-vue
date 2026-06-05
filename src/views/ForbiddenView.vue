@@ -4,9 +4,9 @@
     <main class="mx-auto flex min-h-[calc(100vh-76px)] max-w-5xl items-center px-4 py-10">
       <section class="w-full rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p class="text-sm font-semibold text-amber-600 dark:text-amber-400">403 Forbidden</p>
-        <h1 class="mt-3 text-3xl font-bold text-slate-950 dark:text-slate-50">当前账号没有访问权限</h1>
+        <h1 class="mt-3 text-3xl font-bold text-slate-950 dark:text-slate-50">{{ pageTitle }}</h1>
         <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-          这个入口需要 {{ roleText }}。如果你刚刚被授予角色，请稍后刷新；如果仍然无法访问，请让系统管理员检查 RBAC 配置。
+          {{ pageText }}
         </p>
 
         <div class="mt-6 grid gap-3 rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-950 sm:grid-cols-2">
@@ -22,7 +22,8 @@
 
         <div class="mt-7 flex flex-wrap gap-3">
           <RouterLink to="/" class="primary-button">返回首页</RouterLink>
-          <RouterLink to="/me" class="secondary-button">查看我的主页</RouterLink>
+          <RouterLink v-if="!authStore.isLoggedIn" :to="{ path: '/login', query: { redirect: fromPath } }" class="secondary-button">去登录</RouterLink>
+          <RouterLink v-else to="/me" class="secondary-button">查看我的主页</RouterLink>
         </div>
       </section>
     </main>
@@ -33,10 +34,16 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const fromPath = computed(() => String(route.query.from || '/admin'))
 const roleText = computed(() => String(route.query.role || '对应的管理角色'))
+const pageTitle = computed(() => authStore.isLoggedIn ? '当前账号没有访问权限' : '请先登录或切换到有权限的账号')
+const pageText = computed(() => authStore.isLoggedIn
+  ? `这个入口需要 ${roleText.value}。如果你刚刚被授予角色，请稍后刷新；如果仍然无法访问，请让系统管理员检查 RBAC 配置。`
+  : `这个入口需要 ${roleText.value}。登录后如果仍然看到此页面，说明当前账号缺少对应角色。`)
 </script>
 
 <style scoped>

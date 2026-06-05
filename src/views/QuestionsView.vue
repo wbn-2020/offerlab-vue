@@ -26,16 +26,16 @@
         </div>
 
         <form class="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-6" @submit.prevent="applyFilters">
-          <input v-model.trim="filters.keyword" class="filter-input lg:col-span-2" placeholder="关键词 / 题目正文" />
-          <input v-model.trim="filters.company" class="filter-input" placeholder="公司" />
-          <input v-model.trim="filters.position" class="filter-input" placeholder="岗位" />
-          <select v-model="filters.difficulty" class="filter-input">
+          <input v-model.trim="filters.keyword" class="filter-input lg:col-span-2" aria-label="题库关键词或题目正文" placeholder="关键词 / 题目正文" />
+          <input v-model.trim="filters.company" class="filter-input" aria-label="题库公司筛选" placeholder="公司" />
+          <input v-model.trim="filters.position" class="filter-input" aria-label="题库岗位筛选" placeholder="岗位" />
+          <select v-model="filters.difficulty" class="filter-input" aria-label="题库难度筛选">
             <option value="">全部难度</option>
             <option value="easy">简单</option>
             <option value="medium">中等</option>
             <option value="hard">困难</option>
           </select>
-          <select v-model="filters.mistakeReason" class="filter-input">
+          <select v-model="filters.mistakeReason" class="filter-input" aria-label="题库错因筛选">
             <option value="">全部错因</option>
             <option value="any">任意错因</option>
             <option value="concept">概念不熟</option>
@@ -45,14 +45,14 @@
             <option value="careless">粗心失误</option>
             <option value="other">其他错因</option>
           </select>
-          <select v-model="filters.progressStatus" class="filter-input">
+          <select v-model="filters.progressStatus" class="filter-input" aria-label="题库学习状态筛选">
             <option value="">全部状态</option>
             <option value="todo">待学习</option>
             <option value="learning">学习中</option>
             <option value="mastered">已掌握</option>
             <option value="review">待复习</option>
           </select>
-          <select v-model="filters.sort" class="filter-input">
+          <select v-model="filters.sort" class="filter-input" aria-label="题库排序方式">
             <option value="latest">最新</option>
             <option value="appear">出现次数</option>
             <option value="hot">热度</option>
@@ -378,6 +378,12 @@ onMounted(() => {
   font-size: 0.8rem;
   font-weight: 800;
   color: rgb(71 85 105);
+}
+
+@media (max-width: 640px) {
+  .quick-filter {
+    min-height: 44px;
+  }
 }
 
 .quick-filter-active {

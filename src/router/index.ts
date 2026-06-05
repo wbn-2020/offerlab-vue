@@ -109,13 +109,13 @@ const routes = [
     path: '/admin/questions',
     name: 'AdminQuestions',
     component: () => import('@/views/AdminQuestionsView.vue'),
-    meta: { title: '题目审核', requiresAuth: true, adminPermission: 'questionOperator' },
+    meta: { title: '题目审核', requiresAuth: true, adminPermission: ['questionOperator', 'admin'] },
   },
   {
     path: '/admin/company-aliases',
     name: 'AdminCompanyAliases',
     component: () => import('@/views/AdminCompanyAliasesView.vue'),
-    meta: { title: '公司别名维护', requiresAuth: true, adminPermission: 'questionOperator' },
+    meta: { title: '公司别名维护', requiresAuth: true, adminPermission: ['questionOperator', 'admin'] },
   },
   {
     path: '/admin/governance',
@@ -151,7 +151,7 @@ const routes = [
     path: '/403',
     name: 'Forbidden',
     component: () => import('@/views/ForbiddenView.vue'),
-    meta: { title: '无权访问', requiresAuth: true },
+    meta: { title: '无权访问' },
   },
   {
     path: '/:pathMatch(.*)*',

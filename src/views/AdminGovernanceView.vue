@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-8">
+    <main class="mx-auto max-w-7xl min-w-0 px-4 py-8">
       <section class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Governance</p>
@@ -16,27 +16,31 @@
         </button>
       </section>
 
+      <section v-if="loadError" class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+        {{ loadError }}
+      </section>
+
       <section class="mb-6 grid gap-4 md:grid-cols-4">
-        <article class="metric-card">
+        <article v-if="canOps" class="metric-card">
           <span>迁移状态</span>
           <strong :class="migration?.ready ? 'text-emerald-600' : 'text-amber-600'">{{ migration?.ready ? 'Ready' : 'Check' }}</strong>
         </article>
-        <article class="metric-card">
+        <article v-if="canModerate" class="metric-card">
           <span>关键词</span>
           <strong>{{ keywords.length }}</strong>
         </article>
-        <article class="metric-card">
+        <article v-if="canModerate" class="metric-card">
           <span>受限用户</span>
           <strong>{{ users.length }}</strong>
         </article>
-        <article class="metric-card">
+        <article v-if="canModerate" class="metric-card">
           <span>敏感词命中</span>
           <strong>{{ hits.length }}</strong>
         </article>
       </section>
 
       <section class="tabs">
-        <button v-for="tab in tabs" :key="tab.value" type="button" :class="['tab-button', activeTab === tab.value ? 'tab-active' : '']" @click="activeTab = tab.value">
+        <button v-for="tab in visibleTabs" :key="tab.value" type="button" :class="['tab-button', activeTab === tab.value ? 'tab-active' : '']" @click="activeTab = tab.value">
           {{ tab.label }}
         </button>
       </section>
@@ -150,8 +154,8 @@
           <h2 class="panel-title">设置限制</h2>
           <form class="space-y-3" @submit.prevent="saveUserState">
             <input v-model.trim="userForm.uid" class="field-input" inputmode="numeric" placeholder="用户 UID" />
-            <input v-model.number="userForm.muteHours" class="field-input" type="number" min="0" placeholder="禁言小时数，0 为清除" />
-            <input v-model.number="userForm.banHours" class="field-input" type="number" min="0" placeholder="封禁小时数，0 为清除" />
+            <input v-model.number="userForm.muteHours" class="field-input" type="number" min="0" placeholder="禁言小时数，至少 1 小时" />
+            <input v-model.number="userForm.banHours" class="field-input" type="number" min="0" placeholder="封禁小时数，至少 1 小时" />
             <textarea v-model.trim="userForm.reason" class="field-input min-h-[90px]" placeholder="原因" />
             <button type="submit" class="primary-button" :disabled="isSaving || !userForm.uid">保存</button>
           </form>
@@ -246,6 +250,12 @@
       </section>
     </main>
 
+    <RiskConfirmDialog
+      :state="riskConfirmState"
+      @confirm="resolveRiskConfirm"
+      @cancel="cancelRiskConfirm"
+    />
+
     <div v-if="selectedAudit" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="closeAuditDetail">
       <article class="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="audit-detail-title" tabindex="-1">
         <div class="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
@@ -280,25 +290,29 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
 import { AlertTriangle, CircleUserRound, RefreshCw, ShieldOff, Unlock } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { getErrorMessage } from '@/api/client'
-import { opsApi, type AdminAuditLog, type MigrationStatus, type ModerationKeyword, type ModerationKeywordHit, type UserModerationState } from '@/api/ops'
+import { opsApi, type AdminAuditLog, type MigrationStatus, type ModerationKeyword, type ModerationKeywordHit, type MyAdminPermissions, type UserModerationState } from '@/api/ops'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
+import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
 
 const tabs = [
-  { label: '迁移检查', value: 'migration' },
-  { label: '敏感词', value: 'keywords' },
-  { label: '命中日志', value: 'hits' },
-  { label: '用户限制', value: 'users' },
-  { label: '审计日志', value: 'audit' },
+  { label: '迁移检查', value: 'migration', scope: 'ops' },
+  { label: '敏感词', value: 'keywords', scope: 'moderation' },
+  { label: '命中日志', value: 'hits', scope: 'moderation' },
+  { label: '用户限制', value: 'users', scope: 'moderation' },
+  { label: '审计日志', value: 'audit', scope: 'ops' },
 ]
 
 const activeTab = ref('migration')
 const isLoading = ref(false)
 const isSaving = ref(false)
+const loadError = ref('')
+const permissions = ref<MyAdminPermissions | null>(null)
 const migration = ref<MigrationStatus | null>(null)
 const keywords = ref<ModerationKeyword[]>([])
 const hits = ref<ModerationKeywordHit[]>([])
@@ -316,6 +330,11 @@ const auditTotal = ref(0)
 const auditHasMore = ref(false)
 const moderationActionKey = ref('')
 const userForm = reactive({ uid: '', muteHours: 0, banHours: 0, reason: '' })
+const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
+
+const canOps = computed(() => Boolean(permissions.value?.ops || permissions.value?.admin))
+const canModerate = computed(() => Boolean(permissions.value?.contentModerator || permissions.value?.admin))
+const visibleTabs = computed(() => tabs.filter((tab) => tab.scope === 'ops' ? canOps.value : canModerate.value))
 
 const StatusList = defineComponent({
   props: { title: String, items: { type: Object, required: true } },
@@ -332,26 +351,60 @@ const StatusList = defineComponent({
   },
 })
 
+const loadPermissions = async () => {
+  const res = await opsApi.myPermissions()
+  permissions.value = res.data
+}
+
+const ensureActiveTab = () => {
+  if (visibleTabs.value.some((tab) => tab.value === activeTab.value)) return
+  activeTab.value = visibleTabs.value[0]?.value || ''
+}
+
+const clearOpsState = () => {
+  migration.value = null
+  auditLogs.value = []
+  auditTotal.value = 0
+  auditHasMore.value = false
+}
+
+const clearModerationState = () => {
+  keywords.value = []
+  hits.value = []
+  users.value = []
+}
+
 const refreshAll = async () => {
   isLoading.value = true
+  loadError.value = ''
   try {
-    const [migrationRes, keywordRes, hitRes, userRes, auditRes] = await Promise.allSettled([
-      opsApi.migrationStatus(),
-      opsApi.listModerationKeywords({ limit: 80 }),
-      opsApi.listModerationHits({ limit: 80 }),
-      opsApi.listModerationUsers(80),
-      opsApi.pageAuditLogs(auditQueryParams()),
-    ])
-    if (migrationRes.status === 'fulfilled') migration.value = migrationRes.value.data
-    if (keywordRes.status === 'fulfilled') keywords.value = keywordRes.value.data || []
-    if (hitRes.status === 'fulfilled') hits.value = hitRes.value.data || []
-    if (userRes.status === 'fulfilled') users.value = userRes.value.data || []
-    if (auditRes.status === 'fulfilled') applyAuditPageResult(auditRes.value.data)
-    if ([migrationRes, keywordRes, hitRes, userRes, auditRes].every((item) => item.status === 'rejected')) {
+    await loadPermissions()
+    ensureActiveTab()
+    const loaders: Array<Promise<void>> = []
+    if (canOps.value) {
+      loaders.push(opsApi.migrationStatus().then((res) => { migration.value = res.data }))
+      loaders.push(opsApi.pageAuditLogs(auditQueryParams()).then((res) => applyAuditPageResult(res.data)))
+    } else {
+      clearOpsState()
+    }
+    if (canModerate.value) {
+      loaders.push(opsApi.listModerationKeywords({ limit: 80 }).then((res) => { keywords.value = res.data || [] }))
+      loaders.push(opsApi.listModerationHits({ limit: 80 }).then((res) => { hits.value = res.data || [] }))
+      loaders.push(opsApi.listModerationUsers(80).then((res) => { users.value = res.data || [] }))
+    } else {
+      clearModerationState()
+    }
+    if (!loaders.length) {
+      loadError.value = '当前账号没有治理中心可用权限'
+      return
+    }
+    const results = await Promise.allSettled(loaders)
+    if (results.every((item) => item.status === 'rejected')) {
       toast.error('治理数据加载失败')
     }
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '治理数据加载失败'))
+    loadError.value = getErrorMessage(error, '治理数据加载失败')
+    toast.error(loadError.value)
   } finally {
     isLoading.value = false
   }
@@ -374,6 +427,7 @@ const applyAuditPageResult = (pageData: Awaited<ReturnType<typeof opsApi.pageAud
 }
 
 const loadAuditLogs = async () => {
+  if (!canOps.value) return
   isLoading.value = true
   try {
     const res = await opsApi.pageAuditLogs(auditQueryParams())
@@ -409,6 +463,7 @@ useAccessibleDialog(() => Boolean(selectedAudit.value), {
 })
 
 const loadHits = async () => {
+  if (!canModerate.value) return
   isLoading.value = true
   try {
     const res = await opsApi.listModerationHits({
@@ -446,13 +501,40 @@ const resetKeyword = () => {
   keywordForm.remark = ''
 }
 
+const riskObjects = (items: Array<string | number | undefined | null>, limit = 8) => items.filter((item) => item !== undefined && item !== null && String(item).length > 0).slice(0, limit).map((item) => String(item))
+const riskContext = (...items: Array<string | false | undefined>) => items.filter(Boolean) as string[]
+const requireRiskConfirm = (request: RiskConfirmRequest) => confirmRisk(request)
+
 const saveKeyword = async () => {
+  if (!canModerate.value) {
+    toast.error('当前账号没有内容治理权限')
+    return
+  }
+  const payload = { ...keywordForm }
+  const note = await requireRiskConfirm({
+    title: selectedKeyword.value ? '保存敏感词配置' : '新增敏感词配置',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([selectedKeyword.value ? `keyword-id:${selectedKeyword.value.id}` : `keyword:${payload.keyword}`]),
+    context: riskContext(
+      `关键词：${payload.keyword}`,
+      `范围：${payload.scope}`,
+      `匹配：${payload.matchType}`,
+      `动作：${payload.action}`,
+      `状态：${Number(payload.enabled) === 1 ? '启用' : '停用'}`,
+      payload.remark ? `备注：${payload.remark}` : '备注：未填写',
+      '可恢复：可再次编辑或停用',
+    ),
+    confirmText: '确认保存关键词',
+  })
+  if (note === null) return
+  const payloadWithAudit = { ...payload, auditRemark: note }
   isSaving.value = true
   try {
-    const payload = { ...keywordForm }
     selectedKeyword.value
-      ? await opsApi.updateModerationKeyword(selectedKeyword.value.id, payload)
-      : await opsApi.createModerationKeyword(payload)
+      ? await opsApi.updateModerationKeyword(selectedKeyword.value.id, payloadWithAudit)
+      : await opsApi.createModerationKeyword(payloadWithAudit)
     toast.success('关键词已保存')
     resetKeyword()
     await refreshAll()
@@ -464,13 +546,40 @@ const saveKeyword = async () => {
 }
 
 const saveUserState = async () => {
+  if (!canModerate.value) {
+    toast.error('当前账号没有内容治理权限')
+    return
+  }
+  const uid = userForm.uid
+  const muteHours = Math.max(0, Number(userForm.muteHours || 0))
+  const banHours = Math.max(0, Number(userForm.banHours || 0))
+  if (muteHours <= 0 && banHours <= 0) {
+    toast.error('保存用户限制需至少设置一个大于 0 的时长；清除限制请使用解除禁言/解除封禁按钮')
+    return
+  }
+  const note = await requireRiskConfirm({
+    title: '保存用户限制',
+    level: banHours > 0 ? 'critical' : 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([`uid:${uid}`]),
+    context: riskContext(
+      `禁言时长：${muteHours} 小时`,
+      `封禁时长：${banHours} 小时`,
+      userForm.reason ? `原因：${userForm.reason}` : '原因：未填写',
+      '清除限制请使用独立的解除禁言/解除封禁按钮',
+    ),
+    confirmText: '确认保存限制',
+  })
+  if (note === null) return
   isSaving.value = true
   try {
     await opsApi.saveModerationUser({
-      uid: userForm.uid,
-      muteHours: Number(userForm.muteHours || 0),
-      banHours: Number(userForm.banHours || 0),
-      reason: userForm.reason,
+      uid,
+      muteHours,
+      banHours,
+      reason: userForm.reason || note,
+      auditRemark: note,
     })
     toast.success('用户限制已保存')
     userForm.uid = ''
@@ -502,9 +611,23 @@ const replaceUserState = (state?: UserModerationState | null) => {
 }
 
 const clearUserMute = async (item: UserModerationState) => {
+  const note = await requireRiskConfirm({
+    title: '解除用户禁言',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([`uid:${item.uid}`]),
+    context: riskContext(
+      `当前禁言至：${formatTime(item.mutedUntil)}`,
+      item.reason ? `原因：${item.reason}` : '原因：未记录',
+      item.recentViolationKeyword ? `最近命中：${item.recentViolationKeyword}` : undefined,
+    ),
+    confirmText: '确认解除禁言',
+  })
+  if (note === null) return
   moderationActionKey.value = actionKey(item.uid, 'mute')
   try {
-    const res = await opsApi.clearModerationMute(item.uid)
+    const res = await opsApi.clearModerationMute(item.uid, note)
     replaceUserState(res.data)
     toast.success('已解除禁言')
   } catch (error: any) {
@@ -515,9 +638,23 @@ const clearUserMute = async (item: UserModerationState) => {
 }
 
 const clearUserBan = async (item: UserModerationState) => {
+  const note = await requireRiskConfirm({
+    title: '解除用户封禁',
+    level: 'critical',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([`uid:${item.uid}`]),
+    context: riskContext(
+      `当前封禁至：${formatTime(item.bannedUntil)}`,
+      item.reason ? `原因：${item.reason}` : '原因：未记录',
+      item.recentViolationKeyword ? `最近命中：${item.recentViolationKeyword}` : undefined,
+    ),
+    confirmText: '确认解除封禁',
+  })
+  if (note === null) return
   moderationActionKey.value = actionKey(item.uid, 'ban')
   try {
-    const res = await opsApi.clearModerationBan(item.uid)
+    const res = await opsApi.clearModerationBan(item.uid, note)
     replaceUserState(res.data)
     toast.success('已解除封禁')
   } catch (error: any) {
@@ -546,7 +683,7 @@ onMounted(refreshAll)
 .secondary-button,
 .tab-button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 40px;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -569,6 +706,13 @@ onMounted(refreshAll)
 }
 
 .text-button {
+  display: inline-flex;
+  min-height: 40px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0 0.5rem;
   font-size: 0.8125rem;
   font-weight: 800;
   color: rgb(37 99 235);
@@ -589,6 +733,8 @@ onMounted(refreshAll)
 
 .metric-card,
 .panel {
+  min-width: 0;
+  overflow: hidden;
   border-radius: 0.75rem;
   border: 1px solid rgb(226 232 240);
   background: white;
@@ -691,12 +837,30 @@ onMounted(refreshAll)
 }
 
 .status-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  align-items: center;
+  column-gap: 1rem;
+  row-gap: 0.35rem;
   border-top: 1px solid rgb(226 232 240);
   padding: 0.65rem 0;
   font-size: 0.875rem;
+}
+
+.status-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.status-row strong {
+  white-space: nowrap;
+}
+
+.panel .overflow-x-auto {
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .status-pill,
@@ -825,6 +989,30 @@ onMounted(refreshAll)
   padding: 1rem;
   color: rgb(226 232 240);
   font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .primary-button,
+  .secondary-button,
+  .tab-button,
+  .text-button {
+    min-height: 44px;
+  }
+
+  .metric-card,
+  .panel {
+    padding: 1rem;
+  }
+
+  .data-table {
+    min-width: 640px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.65rem;
+    font-size: 0.8125rem;
+  }
 }
 
 :global(.dark) .panel,

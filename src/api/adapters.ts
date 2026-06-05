@@ -19,6 +19,10 @@ export function adaptPage<T>(raw: any, itemAdapter: (item: any) => T): Paginated
     nextCursor: raw?.nextCursor ? String(raw.nextCursor) : undefined,
     hasMore: Boolean(raw?.hasMore),
     total: Number(raw?.total ?? items.length),
+    source: raw?.source ? String(raw.source) : undefined,
+    degraded: raw?.degraded === undefined || raw?.degraded === null ? undefined : Boolean(raw.degraded),
+    fallbackReason: raw?.fallbackReason ? String(raw.fallbackReason) : undefined,
+    scanLimit: raw?.scanLimit === undefined || raw?.scanLimit === null ? undefined : Number(raw.scanLimit),
   }
 }
 

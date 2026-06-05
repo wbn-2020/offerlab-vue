@@ -33,7 +33,7 @@
           <div class="mt-6 grid gap-3 sm:grid-cols-3">
             <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
               <span class="metric-label">今日可读内容</span>
-              <strong>{{ visiblePosts.length }}</strong>
+              <strong>{{ readableContentCount }}</strong>
             </div>
             <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
               <span class="metric-label">热门标签</span>
@@ -155,6 +155,15 @@
 
           <div class="space-y-4">
             <LoadingSkeleton v-if="isLoading" />
+            <div v-else-if="isError" class="surface-card flex flex-col items-start gap-4 p-6">
+              <div>
+                <h3 class="text-lg font-black text-slate-950 dark:text-slate-100">信息流加载失败</h3>
+                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{{ feedErrorText }}</p>
+              </div>
+              <button type="button" class="secondary-action px-5" @click="() => refetch()">
+                重试
+              </button>
+            </div>
             <template v-else-if="visiblePosts.length">
               <PostCard
                 v-for="post in visiblePosts"
@@ -171,9 +180,9 @@
             </template>
             <EmptyState
               v-else
-              :title="activeFeed === 'following' ? '还没有关注动态' : '暂时没有内容'"
-              :description="activeFeed === 'following' ? '去发现页看看可以关注的作者。' : '发布第一篇面经或切换其他信息流。'"
-              actionText="去发现"
+              :title="emptyFeedTitle"
+              :description="emptyFeedDescription"
+              :actionText="emptyFeedActionText"
               actionHref="/explore"
             />
           </div>
@@ -277,7 +286,7 @@ const authStore = useAuthStore()
 const router = useRouter()
 const { requireLogin } = useLoginRedirect()
 
-const activeFeed = ref<FeedType>('latest')
+const activeFeed = ref<FeedType>('recommend')
 const heroKeyword = ref('')
 const feedTabs: FeedType[] = ['following', 'recommend', 'latest', 'hot']
 const feedLabels: Record<FeedType, string> = {
@@ -301,9 +310,10 @@ const feedDescriptions: Record<FeedType, string> = {
 
 const tags = ref<PostTag[]>([])
 const recommendedUsers = ref<User[]>([])
+const sampledFeedContentCount = ref(0)
 const followingBusyIds = ref(new Set<string>())
 const locallyHiddenPostIds = ref(new Set<string>())
-const { posts, fetchNextPage, hasNextPage, isFetching, isLoading } = useInfiniteFeed(activeFeed)
+const { posts, error: feedError, fetchNextPage, hasNextPage, isError, isFetching, isLoading, refetch } = useInfiniteFeed(activeFeed)
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
 const topTags = computed(() => sortedTags.value.slice(0, 10))
@@ -311,6 +321,19 @@ const trendingTags = computed(() => sortedTags.value.slice(0, 6))
 const visiblePosts = computed(() => activeFeed.value === 'recommend'
   ? posts.value.filter((post) => !locallyHiddenPostIds.value.has(String(post.postId)))
   : posts.value)
+const readableContentCount = computed(() => Math.max(visiblePosts.value.length, sampledFeedContentCount.value))
+const feedErrorText = computed(() => getErrorMessage(feedError.value, '当前信息流暂时不可用，请稍后重试。'))
+const emptyFeedTitle = computed(() => {
+  if (activeFeed.value === 'following') return '还没有关注动态'
+  if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '最新暂时没有新内容'
+  return '暂时没有内容'
+})
+const emptyFeedDescription = computed(() => {
+  if (activeFeed.value === 'following') return '去发现页看看可以关注的作者。'
+  if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '推荐和热门里还有可读内容，可以切换其他信息流继续浏览。'
+  return '发布第一篇面经或切换其他信息流。'
+})
+const emptyFeedActionText = computed(() => activeFeed.value === 'following' ? '去发现' : undefined)
 
 const findPost = (postId: Post['postId']) => posts.value.find((item) => String(item.postId) === String(postId))
 const isSelf = (user: User) => Boolean(authStore.user && String(authStore.user.uid) === String(user.uid))
@@ -385,9 +408,12 @@ const toggleFollowUser = async (user: User) => {
 }
 
 onMounted(async () => {
-  const [tagRes, userRes] = await Promise.allSettled([
+  const [tagRes, userRes, latestRes, hotRes, recommendRes] = await Promise.allSettled([
     postApi.getTags(),
     userApi.searchUsers('', 6),
+    feedApi.getLatest(undefined, 6),
+    feedApi.getHot(undefined, 6),
+    feedApi.getRecommend(undefined, 6),
   ])
   if (tagRes.status === 'fulfilled') {
     tags.value = tagRes.value.data || []
@@ -395,6 +421,10 @@ onMounted(async () => {
   if (userRes.status === 'fulfilled') {
     recommendedUsers.value = userRes.value.data || []
   }
+  const feedCounts = [latestRes, hotRes, recommendRes]
+    .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
+    .map((res) => Number(res.value.data?.total ?? res.value.data?.items?.length ?? 0))
+  sampledFeedContentCount.value = Math.max(0, ...feedCounts)
 })
 </script>
 

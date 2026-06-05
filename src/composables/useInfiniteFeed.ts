@@ -10,10 +10,13 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest') {
 
   const {
     data,
+    error,
     fetchNextPage,
     hasNextPage,
+    isError,
     isFetching,
     isLoading,
+    refetch,
   } = useInfiniteQuery({
     queryKey: computed(() => ['feed', currentFeed.value]),
     queryFn: ({ pageParam }) => {
@@ -35,9 +38,12 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest') {
 
   return {
     posts,
+    error,
     fetchNextPage,
     hasNextPage,
+    isError,
     isFetching,
     isLoading,
+    refetch,
   }
 }

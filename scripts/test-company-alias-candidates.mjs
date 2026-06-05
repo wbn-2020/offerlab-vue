@@ -13,6 +13,11 @@ assert.match(opsApi, /\/api\/v1\/admin\/company-aliases\/candidates/, 'candidate
 assert.doesNotMatch(opsApi, /listCompanyAliasCandidates:[\s\S]*optionalPanelUnavailable/, 'candidate query must not silently swallow backend failures')
 
 assert.match(view, /候选推荐/, 'company alias view must render candidate panel')
+assert.match(view, /max-w-7xl min-w-0/, 'company alias view must keep the main container shrinkable on mobile')
+assert.match(view, /class="alias-actions"/, 'company alias rows must expose explicit action buttons instead of making the whole card ambiguous')
+assert.match(view, /toggleAliasStatus\(item\)/, 'company alias rows must support explicit enable/disable actions')
+assert.match(view, /\.alias-row[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) auto/, 'company alias rows must keep actions separate on wider screens')
+assert.match(view, /\.alias-row p,[\s\S]*\.canonical[\s\S]*overflow-wrap:\s*anywhere/, 'company alias rows must wrap long company names and aliases')
 assert.match(view, /candidates = ref<CompanyAliasCandidate\[\]>\(\[\]\)/, 'company alias view must keep candidate state')
 assert.match(view, /candidateError\s*=\s*ref\(''\)/, 'company alias view must keep an explicit candidate error state')
 assert.match(view, /v-else-if="candidateError"/, 'candidate panel must render backend failures separately from an empty candidate list')
