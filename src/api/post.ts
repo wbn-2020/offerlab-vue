@@ -4,6 +4,7 @@ import { adaptCommunityTopic, adaptPage, adaptPost, adaptPostReport, adaptPostVe
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 
 export interface PostCreateReq {
+  domain?: number
   postType: number
   title: string
   content: string
@@ -16,6 +17,7 @@ export interface PostCreateReq {
 }
 
 export interface PostUpdateReq {
+  domain?: number
   title?: string
   content?: string
   coverUrl?: string
@@ -290,6 +292,7 @@ export const postApi = {
     tag?: ApiId
     type?: number
     featured?: boolean
+    domain?: number
     includeTestData?: boolean
     cursor?: string
     size?: number
