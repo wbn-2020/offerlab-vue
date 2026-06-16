@@ -119,6 +119,19 @@
           </button>
         </section>
 
+        <!-- 领域选择 -->
+        <div class="px-4 flex flex-col gap-2">
+          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">领域</label>
+          <select
+            v-model="selectedDomain"
+            class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option v-for="d in DOMAIN_OPTIONS" :key="d.value" :value="d.value">
+              {{ d.icon }} {{ d.label }} — {{ d.description }}
+            </option>
+          </select>
+        </div>
+
         <!-- 内容元数据 -->
         <div class="px-4">
           <PostMeta v-model="form.extension" :type="form.postType" />
@@ -279,6 +292,7 @@ import {
   isLegacyInterviewType,
 } from '@/utils/contentTypes'
 import type { PostTypeValue } from '@/utils/contentTypes'
+import { DOMAIN, DOMAIN_OPTIONS } from '@/utils/domains'
 
 const router = useRouter()
 const route = useRoute()
@@ -320,6 +334,7 @@ const form = ref<EditorForm>({
 
 const tagInput = ref('')
 const selectedTags = ref<string[]>([])
+const selectedDomain = ref<number>(DOMAIN.TECH)
 const isPublishing = ref(false)
 const isEditing = ref(false)
 const isLoadingPost = ref(false)
@@ -1004,6 +1019,7 @@ const publishPost = async () => {
   isPublishing.value = true
   try {
     const req = {
+      domain: selectedDomain.value,
       postType: form.value.postType,
       title: normalizedTitle.value,
       content: normalizedContent.value,

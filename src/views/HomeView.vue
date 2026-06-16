@@ -7,15 +7,15 @@
           <div class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div class="max-w-2xl">
               <div class="mb-3 flex flex-wrap gap-2">
-                <span class="muted-pill">技术文章</span>
-                <span class="muted-pill">项目复盘</span>
-                <span class="muted-pill">踩坑记录</span>
+                <span class="muted-pill">兴趣主题</span>
+                <span class="muted-pill">内容标签</span>
+                <span class="muted-pill">推荐理由</span>
               </div>
               <h1 class="text-2xl font-black tracking-normal text-slate-950 dark:text-white sm:text-3xl">
-                沉淀每一次真实工程经验
+                找到更适合你的社区内容
               </h1>
               <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-                浏览开发者分享的技术文章、项目复盘、踩坑记录和工具资源，把零散经验沉淀成可复用的知识资产。
+                浏览开发者分享的社区经验、兴趣话题、问答讨论和工具推荐，把零散内容沉淀成可复用的知识流。
               </p>
             </div>
             <div class="flex flex-wrap gap-3">
@@ -50,7 +50,7 @@
           <div class="flex items-center justify-between gap-3">
             <div>
               <h2 class="text-sm font-black text-slate-950 dark:text-white">快速搜索</h2>
-              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">按技术栈、场景或作者定位内容</p>
+              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">按兴趣、频道和内容形式快速定位</p>
             </div>
             <Search class="h-5 w-5 text-primary-500" />
           </div>
@@ -68,6 +68,20 @@
             </button>
           </form>
         </section>
+      </section>
+
+      <!-- 领域筛选 -->
+      <section class="mb-6 flex flex-wrap gap-2">
+        <router-link
+          v-for="d in DOMAIN_OPTIONS"
+          :key="d.value"
+          :to="d.value === activeDomain ? '/' : { path: '/', query: { domain: d.value } }"
+          class="domain-chip inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:hover:bg-primary-950"
+          :class="d.value === activeDomain ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/50 dark:border-primary-700' : 'bg-white dark:bg-slate-900'"
+        >
+          <span>{{ d.icon }}</span>
+          <span>{{ d.label }}</span>
+        </router-link>
       </section>
 
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
@@ -150,6 +164,9 @@
             </div>
             <p class="px-3 pb-2 pt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
               {{ feedDescriptions[activeFeed] }}
+              <span v-if="activeFeed === 'recommend'" class="mt-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                推荐理由会结合兴趣标签、内容形式和社区热度一起计算。
+              </span>
             </p>
             <div class="border-t border-slate-100 px-3 py-3 dark:border-slate-800">
               <div class="mb-2 flex items-center gap-2 text-xs font-black text-slate-500 dark:text-slate-400">
@@ -352,6 +369,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { CommunityTopic, Post, Tag as PostTag, User } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
+import { DOMAIN_OPTIONS } from '@/utils/domains'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
 
@@ -363,6 +381,7 @@ const { requireLogin } = useLoginRedirect()
 const activeFeed = ref<FeedType>('recommend')
 const heroKeyword = ref('')
 const activeContentType = ref<number | undefined>()
+const activeDomain = computed(() => { const q = Number(route.query.domain); return Number.isNaN(q) ? undefined : q })
 const feedTabs: FeedType[] = ['following', 'recommend', 'latest', 'hot', 'featured']
 const feedLabels: Record<FeedType, string> = {
   following: '关注',
@@ -379,8 +398,8 @@ const feedShortDescriptions: Record<FeedType, string> = {
   featured: '人工挑选',
 }
 const feedDescriptions: Record<FeedType, string> = {
-  following: '只看你关注作者的最新动态，适合持续追踪熟悉的技术方向。',
-  recommend: '结合技术标签、内容结构、互动热度和近期活跃度重排，优先展示更贴近工程场景的经验。',
+  following: '只看你关注作者的最新动态，适合持续追踪熟悉的社区内容。',
+  recommend: '结合你的兴趣主题、内容标签、阅读偏好和互动热度重排，优先展示更贴近你关注点的社区推荐。',
   latest: '按发布时间倒序展示公开内容，适合快速浏览新发布的文章、复盘和问答。',
   hot: '按浏览、点赞、收藏、评论和发布时间计算热度，适合查看正在升温的社区内容。',
   featured: '展示管理员或运营标记的高质量内容，适合作为首页精选和专题沉淀入口。',
@@ -392,7 +411,7 @@ const recommendedUsers = ref<User[]>([])
 const sampledFeedContentCount = ref(0)
 const followingBusyIds = ref(new Set<string>())
 const locallyHiddenPostIds = ref(new Set<string>())
-const { posts, error: feedError, fetchNextPage, hasNextPage, isError, isFetching, isLoading, refetch } = useInfiniteFeed(activeFeed)
+const { posts, error: feedError, fetchNextPage, hasNextPage, isError, isFetching, isLoading, refetch } = useInfiniteFeed(activeFeed, activeDomain)
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
 const topTags = computed(() => sortedTags.value.slice(0, 10))
@@ -542,9 +561,9 @@ onMounted(async () => {
     postApi.getTags(),
     postApi.listTopics({ featured: true, limit: 6 }),
     userApi.searchUsers('', 6),
-    feedApi.getLatest(undefined, 6),
-    feedApi.getHot(undefined, 6),
-    feedApi.getRecommend(undefined, 6),
+    feedApi.getLatest(undefined, 6, activeDomain.value),
+    feedApi.getHot(undefined, 6, activeDomain.value),
+    feedApi.getRecommend(undefined, 6, activeDomain.value),
   ])
   if (tagRes.status === 'fulfilled') {
     tags.value = filterPublicContent(tagRes.value.data || [])

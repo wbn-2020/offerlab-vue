@@ -34,6 +34,9 @@
             <article class="mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
               <div class="mb-4 flex flex-wrap items-center gap-3">
                 <span class="content-type-pill">{{ contentTypeLabel }}</span>
+                <span v-if="post.domain" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
+                  {{ getDomainIcon(post.domain) }} {{ getDomainLabel(post.domain) }}
+                </span>
                 <span v-if="post.extension?.difficulty" class="meta-pill">{{ post.extension.difficulty }}</span>
                 <span v-if="post.extension?.scenario" class="meta-pill">{{ post.extension.scenario }}</span>
               </div>
@@ -546,6 +549,7 @@ import { toast } from 'vue-sonner'
 import { BizException, getErrorMessage } from '@/api/client'
 import type { Comment, Post, PostPublishStatus, PostVersionHistory } from '@/api/types'
 import { getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
+import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 
 const route = useRoute()
 const router = useRouter()

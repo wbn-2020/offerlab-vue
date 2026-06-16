@@ -22,6 +22,26 @@
           <component :is="item.icon" class="h-4 w-4" />
           {{ item.label }}
         </RouterLink>
+        <div class="relative domain-menu-container" @click.stop>
+          <button @click="showDomainMenu = !showDomainMenu"
+            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white">
+            <Grid3x3 class="h-4 w-4" />
+            领域
+            <ChevronDown class="h-3 w-3" />
+          </button>
+          <div v-if="showDomainMenu" class="absolute left-0 z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <router-link v-for="d in DOMAIN_OPTIONS" :key="d.value"
+              :to="{ path: '/', query: { domain: d.value } }"
+              class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+              @click="showDomainMenu = false">
+              <span class="text-lg">{{ d.icon }}</span>
+              <div>
+                <div class="font-semibold">{{ d.label }}</div>
+                <div class="text-xs text-slate-500">{{ d.description }}</div>
+              </div>
+            </router-link>
+          </div>
+        </div>
       </nav>
 
       <form class="hidden max-w-sm flex-1 items-center gap-2 md:flex" @submit.prevent="submitSearch">
@@ -216,7 +236,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Bell, Compass, Flame, Library, Menu, Moon, PenLine, Search, Sun, Tags, User, X } from 'lucide-vue-next'
+import { Bell, ChevronDown, Compass, Flame, Grid3x3, Library, Menu, Moon, PenLine, Search, Sun, Tags, User, X } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { authApi } from '@/api/auth'
@@ -225,6 +245,7 @@ import { useAuthStore } from '@/stores/auth'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 import { useThemeStore } from '@/stores/theme'
 import { isSyntheticVisibleText } from '@/utils/textQuality'
+import { DOMAIN_OPTIONS } from '@/utils/domains'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
@@ -232,6 +253,7 @@ const realtimeStore = useRealtimeStore()
 const router = useRouter()
 
 const showUserMenu = ref(false)
+const showDomainMenu = ref(false)
 const showMobileMenu = ref(false)
 const keyword = ref('')
 const permissions = ref<MyAdminPermissions | null>(null)
@@ -298,6 +320,7 @@ const handleDocumentClick = (e: MouseEvent) => {
   const target = e.target as HTMLElement | null
   if (!target?.closest('[data-user-menu]')) showUserMenu.value = false
   if (!target?.closest('[data-mobile-menu]') && !target?.closest('[data-mobile-toggle]')) showMobileMenu.value = false
+  if (!target?.closest('.domain-menu-container')) showDomainMenu.value = false
 }
 
 const handleLogout = async () => {

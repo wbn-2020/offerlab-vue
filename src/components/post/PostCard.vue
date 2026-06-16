@@ -16,6 +16,9 @@
           <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <span>{{ formatTime(post.createdAt) }}</span>
             <span class="content-type-pill">{{ contentTypeLabel }}</span>
+            <span v-if="post.domain" class="domain-badge inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
+              {{ getDomainIcon(post.domain) }} {{ getDomainLabel(post.domain) }}
+            </span>
           </div>
         </div>
       </div>
@@ -175,6 +178,7 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { getContentTypeShortLabel, isLegacyInterviewType } from '@/utils/contentTypes'
+import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 
 const props = defineProps<{
   post: Post

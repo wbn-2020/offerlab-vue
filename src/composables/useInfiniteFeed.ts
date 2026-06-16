@@ -4,9 +4,10 @@ import { feedApi } from '@/api/feed'
 
 export type FeedType = 'following' | 'recommend' | 'latest' | 'hot' | 'featured'
 
-export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest') {
+export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest', domain?: MaybeRef<number | undefined>) {
   const pageSize = 20
   const currentFeed = computed(() => unref(feedType))
+  const currentDomain = computed(() => unref(domain))
 
   const {
     data,
@@ -18,7 +19,7 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest') {
     isLoading,
     refetch,
   } = useInfiniteQuery({
-    queryKey: computed(() => ['feed', currentFeed.value]),
+    queryKey: computed(() => ['feed', currentFeed.value, currentDomain.value]),
     queryFn: ({ pageParam }) => {
       const apiMap = {
         following: feedApi.getFollowing,
@@ -27,7 +28,7 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest') {
         hot: feedApi.getHot,
         featured: feedApi.getFeatured,
       }
-      return apiMap[currentFeed.value](pageParam, pageSize)
+      return apiMap[currentFeed.value](pageParam, pageSize, currentDomain.value)
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.data?.nextCursor,
