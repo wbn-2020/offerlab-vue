@@ -21,9 +21,12 @@
         </div>
 
         <div class="mt-7 flex flex-wrap gap-3">
-          <RouterLink to="/" class="primary-button">返回首页</RouterLink>
+          <RouterLink :to="fromPath" class="primary-button">返回来源页</RouterLink>
+          <RouterLink to="/" class="secondary-button">返回首页</RouterLink>
           <RouterLink v-if="!authStore.isLoggedIn" :to="{ path: '/login', query: { redirect: fromPath } }" class="secondary-button">去登录</RouterLink>
-          <RouterLink v-else to="/me" class="secondary-button">查看我的主页</RouterLink>
+          <RouterLink v-else :to="{ path: '/login', query: { redirect: fromPath, switchAccount: '1' } }" class="secondary-button">切换账号</RouterLink>
+          <RouterLink v-if="authStore.isLoggedIn" :to="adminRecoveryPath" class="secondary-button">去可访问后台</RouterLink>
+          <RouterLink v-if="authStore.isLoggedIn" to="/me" class="secondary-button">查看我的主页</RouterLink>
         </div>
       </section>
     </main>
@@ -35,14 +38,28 @@ import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { useAuthStore } from '@/stores/auth'
+import { safeRedirect } from '@/utils/navigation'
 
 const route = useRoute()
 const authStore = useAuthStore()
-const fromPath = computed(() => String(route.query.from || '/admin'))
+const fromPath = computed(() => safeRedirect(route.query.from, '/admin'))
 const roleText = computed(() => String(route.query.role || '对应的管理角色'))
-const pageTitle = computed(() => authStore.isLoggedIn ? '当前账号没有访问权限' : '请先登录或切换到有权限的账号')
+const permissionCheckFailed = computed(() => route.query.reason === 'permission_check_failed')
+const adminRecoveryPath = computed(() => {
+  const source = fromPath.value
+  if (source.startsWith('/admin/questions')) return '/admin/questions'
+  if (source.startsWith('/admin/company-aliases')) return '/admin/company-aliases'
+  if (source.startsWith('/admin/governance') || source.startsWith('/admin/tags')) return '/admin/governance'
+  return '/admin/ops'
+})
+const pageTitle = computed(() => {
+  if (permissionCheckFailed.value) return '权限状态暂时无法确认'
+  return authStore.isLoggedIn ? '当前账号没有访问权限' : '请先登录或切换到有权限的账号'
+})
 const pageText = computed(() => authStore.isLoggedIn
-  ? `这个入口需要 ${roleText.value}。如果你刚刚被授予角色，请稍后刷新；如果仍然无法访问，请让系统管理员检查 RBAC 配置。`
+  ? permissionCheckFailed.value
+    ? '刚才权限检查接口没有返回可信结果。你可以返回来源页重试，或切换账号重新登录。'
+    : `这个入口需要 ${roleText.value}。如果你刚刚被授予角色，请稍后刷新；如果仍然无法访问，请让系统管理员检查 RBAC 配置。`
   : `这个入口需要 ${roleText.value}。登录后如果仍然看到此页面，说明当前账号缺少对应角色。`)
 </script>
 
@@ -70,7 +87,7 @@ const pageText = computed(() => authStore.isLoggedIn
   color: rgb(51 65 85);
 }
 
-:global(.dark) .secondary-button {
+.dark .secondary-button {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);

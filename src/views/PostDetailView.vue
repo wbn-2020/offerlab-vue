@@ -32,13 +32,50 @@
             </section>
 
             <article class="mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+              <div class="mb-4 flex flex-wrap items-center gap-3">
+                <span class="content-type-pill">{{ contentTypeLabel }}</span>
+                <span v-if="post.extension?.difficulty" class="meta-pill">{{ post.extension.difficulty }}</span>
+                <span v-if="post.extension?.scenario" class="meta-pill">{{ post.extension.scenario }}</span>
+              </div>
               <h1 class="mb-4 text-3xl font-bold leading-tight text-slate-900 dark:text-slate-100">{{ post.title }}</h1>
+              <div
+                v-if="searchEntryNotice"
+                class="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-800 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-200"
+                role="status"
+                aria-live="polite"
+              >
+                {{ searchEntryNotice }}
+              </div>
+
+              <div
+                v-if="publishStatusItems.length"
+                class="publish-status-bar mb-6"
+                role="status"
+                aria-live="polite"
+              >
+                <div class="publish-status-head">
+                  <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">发布状态</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400">{{ publishStatusSummary }}</span>
+                </div>
+                <div class="publish-status-grid">
+                  <span
+                    v-for="item in publishStatusItems"
+                    :key="item.key"
+                    :class="['publish-status-pill', item.ok ? 'publish-status-ok' : 'publish-status-warn']"
+                    :title="item.detail"
+                  >
+                    <span class="publish-status-dot" />
+                    {{ item.label }}
+                  </span>
+                </div>
+              </div>
 
               <div v-if="post.extension" class="mb-6 flex flex-wrap gap-3 border-b border-slate-200 pb-6 dark:border-slate-800">
-                <span v-if="post.extension.company" class="meta-pill">公司：{{ post.extension.company }}</span>
-                <span v-if="post.extension.position" class="meta-pill">岗位：{{ post.extension.position }}</span>
-                <span v-if="post.extension.yearsOfExp" class="meta-pill">年限：{{ post.extension.yearsOfExp }} 年</span>
-                <span v-if="post.extension.interviewResult" class="rounded px-2 py-1 text-xs font-medium" :class="getResultClass(post.extension.interviewResult)">
+                <span v-for="stack in visibleTechStacks" :key="stack" class="meta-pill">技术栈：{{ stack }}</span>
+                <span v-if="isLegacyInterview && post.extension.company" class="meta-pill">公司：{{ post.extension.company }}</span>
+                <span v-if="isLegacyInterview && post.extension.position" class="meta-pill">岗位：{{ post.extension.position }}</span>
+                <span v-if="isLegacyInterview && post.extension.yearsOfExp" class="meta-pill">年限：{{ post.extension.yearsOfExp }} 年</span>
+                <span v-if="isLegacyInterview && post.extension.interviewResult" class="rounded px-2 py-1 text-xs font-medium" :class="getResultClass(post.extension.interviewResult)">
                   {{ getResultText(post.extension.interviewResult) }}
                 </span>
               </div>
@@ -47,7 +84,179 @@
                 <MarkdownRenderer :content="post.content" />
               </div>
 
-              <PostQuestionBlock v-if="post.postType === 1" :post-id="post.postId" />
+              <section v-if="knowledgeSummary || knowledgeTags.length || knowledgeFaqs.length || knowledgeCardItems.length" class="knowledge-panel mb-8">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <h2 class="text-base font-bold text-slate-950 dark:text-slate-50">知识沉淀</h2>
+                  <span class="ai-pill">AI 辅助</span>
+                </div>
+                <div v-if="knowledgeTags.length" class="mb-4 flex flex-wrap gap-2">
+                  <RouterLink
+                    v-for="tag in knowledgeTags"
+                    :key="tag"
+                    :to="{ path: '/search', query: { q: tag, sort: 'relevance' } }"
+                    class="knowledge-tag"
+                  >
+                    {{ tag }}
+                  </RouterLink>
+                </div>
+                <p v-if="knowledgeSummary" class="text-sm leading-6 text-slate-600 dark:text-slate-300">{{ knowledgeSummary }}</p>
+                <div v-if="knowledgeCardItems.length" class="mt-4 grid gap-3 md:grid-cols-2">
+                  <div v-for="item in knowledgeCardItems" :key="item.label" class="knowledge-card">
+                    <strong>{{ item.label }}</strong>
+                    <p>{{ item.value }}</p>
+                  </div>
+                </div>
+                <div v-if="knowledgeFaqs.length" class="mt-4 space-y-3">
+                  <article v-for="faq in knowledgeFaqs" :key="faq.q || faq.question" class="knowledge-card">
+                    <strong>{{ faq.q || faq.question }}</strong>
+                    <p>{{ faq.a || faq.answer }}</p>
+                  </article>
+                </div>
+              </section>
+
+              <section class="ai-knowledge-assistant mb-8" aria-label="AI 知识助手">
+                <div class="ai-knowledge-head">
+                  <div>
+                    <p>AI 知识助手</p>
+                    <h2>把这篇经验整理成可复用资产</h2>
+                  </div>
+                  <span :class="['ai-confidence-pill', aiKnowledgeConfidenceTone]">{{ aiKnowledgeConfidenceText }}</span>
+                </div>
+                <div class="ai-knowledge-grid">
+                  <article v-for="item in aiKnowledgeInsights" :key="item.label" class="ai-knowledge-card">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value }}</strong>
+                    <p>{{ item.detail }}</p>
+                  </article>
+                </div>
+                <div class="ai-knowledge-actions">
+                  <RouterLink :to="{ path: '/questions', query: knowledgeTopicQuery }">查看结构化知识卡</RouterLink>
+                  <RouterLink :to="{ path: '/search', query: knowledgeSearchQuery }">合并相似经验</RouterLink>
+                  <RouterLink to="/me/prep">生成个人复盘建议</RouterLink>
+                </div>
+              </section>
+
+              <section class="interview-material-panel mb-8" aria-label="面试素材包">
+                <div class="interview-material-head">
+                  <div>
+                    <p class="plan-kicker">面试素材包</p>
+                    <h2>把真实经历整理成可讲的项目故事</h2>
+                    <span>{{ materialPack ? materialStatusText : '从正文、标签和结构化字段生成 STAR、简历 bullet 和追问清单' }}</span>
+                  </div>
+                  <div class="interview-material-actions">
+                    <button
+                      type="button"
+                      class="interview-material-primary"
+                      :disabled="isGeneratingMaterial"
+                      @click="handleGenerateMaterial"
+                    >
+                      {{ isGeneratingMaterial ? '生成中...' : materialPack ? '重新生成' : '生成素材' }}
+                    </button>
+                    <button
+                      v-if="materialPack"
+                      type="button"
+                      class="interview-material-secondary"
+                      :disabled="isSavingMaterial"
+                      @click="handleSaveMaterial"
+                    >
+                      {{ isSavingMaterial ? '保存中...' : '保存编辑' }}
+                    </button>
+                    <button
+                      v-if="materialPack"
+                      type="button"
+                      class="interview-material-secondary"
+                      :disabled="isSavingMaterialToPrep || materialPack.savedToPrep"
+                      @click="handleSaveMaterialToPrep"
+                    >
+                      {{ materialPack.savedToPrep ? '已归档' : isSavingMaterialToPrep ? '归档中...' : '归档到备战' }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="!authStore.isLoggedIn" class="interview-material-empty">
+                  <strong>登录后可生成个人素材包</strong>
+                  <p>素材包默认只保存到你的个人空间，后续可在备战页按公司、岗位和技术栈回看。</p>
+                  <button type="button" @click="requireLogin()">去登录</button>
+                </div>
+                <div v-else-if="isLoadingMaterial" class="interview-material-empty">
+                  <strong>正在加载素材包</strong>
+                  <p>已有素材会自动带出，方便继续编辑。</p>
+                </div>
+                <div v-else-if="materialErrorMessage" class="interview-material-error">
+                  <span>{{ materialErrorMessage }}</span>
+                  <button type="button" @click="loadInterviewMaterial">重试</button>
+                </div>
+                <div v-else-if="materialPack" class="interview-material-form">
+                  <div class="star-grid">
+                    <label>
+                      <span>S 情境</span>
+                      <textarea v-model="materialForm.starSituation" rows="4" maxlength="2000" />
+                    </label>
+                    <label>
+                      <span>T 任务</span>
+                      <textarea v-model="materialForm.starTask" rows="4" maxlength="2000" />
+                    </label>
+                    <label>
+                      <span>A 行动</span>
+                      <textarea v-model="materialForm.starAction" rows="5" maxlength="3000" />
+                    </label>
+                    <label>
+                      <span>R 结果</span>
+                      <textarea v-model="materialForm.starResult" rows="5" maxlength="2000" />
+                    </label>
+                  </div>
+                  <div class="material-list-grid">
+                    <label>
+                      <span>简历 bullet</span>
+                      <textarea v-model="materialForm.resumeBulletsText" rows="5" placeholder="每行一条" />
+                    </label>
+                    <label>
+                      <span>面试官追问</span>
+                      <textarea v-model="materialForm.followUpQuestionsText" rows="5" placeholder="每行一条" />
+                    </label>
+                    <label>
+                      <span>技术亮点</span>
+                      <textarea v-model="materialForm.technicalHighlightsText" rows="5" placeholder="每行一条" />
+                    </label>
+                    <label>
+                      <span>素材缺口</span>
+                      <textarea v-model="materialForm.missingHintsText" rows="5" placeholder="每行一条" />
+                    </label>
+                  </div>
+                  <label class="material-note-field">
+                    <span>个人备注</span>
+                    <textarea v-model="materialForm.userNote" rows="3" maxlength="1000" placeholder="补充你要在面试中强调的表达口径" />
+                  </label>
+                </div>
+                <div v-else class="interview-material-empty">
+                  <strong>还没有素材包</strong>
+                  <p>建议先生成一版，再补充指标、取舍和复盘结论。</p>
+                </div>
+              </section>
+
+              <section class="knowledge-path-panel mb-8" aria-label="知识资产路径">
+                <div>
+                  <p class="knowledge-path-kicker">知识资产路径</p>
+                  <h2>从经验帖到可复用知识</h2>
+                  <p>
+                    这篇内容会沿着摘要、知识卡、主题路径和个人复盘空间继续沉淀，方便后续搜索、讨论和回看。
+                  </p>
+                </div>
+                <div class="knowledge-path-steps">
+                  <article v-for="step in knowledgePathSteps" :key="step.title" class="knowledge-path-step">
+                    <span>{{ step.index }}</span>
+                    <strong>{{ step.title }}</strong>
+                    <p>{{ step.description }}</p>
+                  </article>
+                </div>
+                <div class="knowledge-path-actions">
+                  <RouterLink :to="{ path: '/questions', query: knowledgeTopicQuery }">查看知识卡</RouterLink>
+                  <RouterLink :to="{ path: '/search', query: knowledgeSearchQuery }">发现相似经验</RouterLink>
+                  <RouterLink to="/me/prep">加入个人复盘空间</RouterLink>
+                </div>
+              </section>
+
+              <PostQuestionBlock :post-id="post.postId" />
 
               <div v-if="post.tags.length" class="mb-8 flex flex-wrap gap-2 border-b border-slate-200 pb-8 dark:border-slate-800">
                 <RouterLink
@@ -67,6 +276,14 @@
                 @like="handleLike"
                 @favorite="handleFavorite"
               />
+              <p
+                v-if="interactionFeedback"
+                class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200"
+                role="status"
+                aria-live="polite"
+              >
+                {{ interactionFeedback }}
+              </p>
 
               <div v-if="authStore.isLoggedIn" class="mt-4 flex justify-end gap-3">
                 <template v-if="isOwnPost">
@@ -293,7 +510,7 @@
                 </div>
               </div>
               <div v-if="item.editorUid" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                UID {{ item.editorUid }}
+                编辑者编号 {{ item.editorUid }}
               </div>
             </div>
             <p class="mt-3 line-clamp-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{{ item.contentSummary || item.content }}</p>
@@ -311,7 +528,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
-import { postApi } from '@/api/post'
+import { postApi, type InterviewMaterialPack } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import { userApi } from '@/api/user'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
@@ -327,7 +544,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
 import { BizException, getErrorMessage } from '@/api/client'
-import type { Comment, Post, PostVersionHistory } from '@/api/types'
+import type { Comment, Post, PostPublishStatus, PostVersionHistory } from '@/api/types'
+import { getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 
 const route = useRoute()
 const router = useRouter()
@@ -346,6 +564,7 @@ const isReporting = ref(false)
 const isDeletingPost = ref(false)
 const isTogglingLike = ref(false)
 const isTogglingFavorite = ref(false)
+const interactionFeedback = ref('')
 const isReportDialogOpen = ref(false)
 const isFollowingAuthor = ref(false)
 const reportForm = ref({ reason: 'OTHER', detail: '' })
@@ -358,10 +577,34 @@ const hasMoreComments = ref(false)
 const isLoadingComments = ref(false)
 const isLoadingMoreComments = ref(false)
 const commentsErrorMessage = ref('')
+const materialPack = ref<InterviewMaterialPack | null>(null)
+const isLoadingMaterial = ref(false)
+const isGeneratingMaterial = ref(false)
+const isSavingMaterial = ref(false)
+const isSavingMaterialToPrep = ref(false)
+const materialErrorMessage = ref('')
+const materialForm = ref({
+  starSituation: '',
+  starTask: '',
+  starAction: '',
+  starResult: '',
+  resumeBulletsText: '',
+  followUpQuestionsText: '',
+  technicalHighlightsText: '',
+  missingHintsText: '',
+  userNote: '',
+})
 
 const { data: postData, isLoading, error: postError } = useQuery({
   queryKey: computed(() => ['post', postId.value]),
   queryFn: () => postApi.getDetail(postId.value),
+  enabled: computed(() => Boolean(postId.value)),
+  retry: false,
+})
+
+const { data: publishStatusData } = useQuery({
+  queryKey: computed(() => ['post-publish-status', postId.value]),
+  queryFn: () => postApi.getPublishStatus(postId.value),
   enabled: computed(() => Boolean(postId.value)),
   retry: false,
 })
@@ -379,7 +622,237 @@ const clonePost = (source?: Post | null): Post | null => {
 }
 
 const post = ref<Post | null>(null)
+const publishStatus = computed<PostPublishStatus | null>(() => publishStatusData.value?.data || null)
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(post.value?.author.uid ?? ''))
+const safeSearchFallbackReason = (reason: string) => {
+  const labels: Record<string, string> = {
+    elasticsearch_empty: '索引首屏无可见结果，已补充数据库结果',
+    elasticsearch_visibility_filtered: '索引结果经可见性过滤后不足，已补充数据库结果',
+    elasticsearch_unavailable: 'Elasticsearch 不可用',
+    hot_sort_mysql: '热门排序使用数据库热度',
+    search_api_error: '搜索请求失败',
+  }
+  return labels[reason] || ''
+}
+const searchEntryNotice = computed(() => {
+  if (route.query.from !== 'search') return ''
+  const source = typeof route.query.source === 'string' ? route.query.source : ''
+  const degraded = route.query.degraded === '1'
+  const fallbackReason = typeof route.query.fallbackReason === 'string' ? route.query.fallbackReason : ''
+  const scanLimit = typeof route.query.scanLimit === 'string' && /^\d+$/.test(route.query.scanLimit)
+    ? route.query.scanLimit
+    : ''
+  const testDataMode = route.query.includeTestData === '1'
+  const sourceText = source === 'elasticsearch'
+    ? '来自实时搜索索引'
+    : source === 'mysql'
+      ? '来自数据库兜底搜索'
+      : source === 'client_fallback'
+        ? '来自客户端兜底入口'
+        : '来自搜索结果'
+  const parts = [sourceText]
+  if (degraded) parts.push('本次搜索处于降级链路')
+  const reasonText = safeSearchFallbackReason(fallbackReason)
+  if (reasonText) parts.push(`原因：${reasonText}`)
+  if (scanLimit) parts.push(`扫描上限 ${scanLimit} 条`)
+  if (testDataMode) parts.push('已开启测试数据模式')
+  return parts.join('，')
+})
+const publishStatusItems = computed(() => {
+  const status = publishStatus.value
+  if (!status) return []
+  const outboxLatest = status.outbox?.latest
+  const retryTask = status.index?.retryTask
+  return [
+    {
+      key: 'database',
+      label: status.database?.landed ? '已落库' : '未确认落库',
+      ok: Boolean(status.database?.landed),
+      detail: status.database?.publiclyVisible ? '公开列表可见' : status.database?.visibleWithTestData ? '仅测试数据模式可见' : '数据库暂未返回公开可见记录',
+    },
+    {
+      key: 'index',
+      label: status.index?.documentFound ? '索引已写入' : retryTask ? '索引待补偿' : '索引待确认',
+      ok: Boolean(status.index?.documentFound) || Boolean(retryTask),
+      detail: retryTask
+        ? `补偿任务 ${(retryTask.statusText || retryTask.status) ?? 'unknown'}，重试 ${retryTask.retryCount ?? 0} 次`
+        : (status.index?.documentFound ? 'Elasticsearch 文档可读' : '可能存在索引延迟或降级'),
+    },
+    {
+      key: 'search',
+      label: status.search?.visible ? '搜索可见' : '搜索待同步',
+      ok: Boolean(status.search?.visible),
+      detail: status.search?.fallbackReason ? `搜索来源 ${status.search?.source || '-'}，原因 ${status.search.fallbackReason}` : `搜索来源 ${status.search?.source || '-'}`,
+    },
+    {
+      key: 'outbox',
+      label: outboxLatest ? `Outbox ${outboxLatest.statusText || (outboxLatest.status ?? 'unknown')}` : 'Outbox 未发现',
+      ok: !outboxLatest || outboxLatest.statusText === 'sent',
+      detail: outboxLatest ? `topic ${outboxLatest.topic || '-'}，重试 ${outboxLatest.retryCount ?? 0} 次` : '未找到该帖子最近事务消息',
+    },
+  ]
+})
+const publishStatusSummary = computed(() => {
+  const status = publishStatus.value
+  if (!status) return ''
+  if (status.ready) return '搜索链路已闭环'
+  if (status.search?.degraded) return '当前通过降级链路可诊断'
+  return '如刚发布，索引和 Outbox 可能有短暂延迟'
+})
+const contentTypeLabel = computed(() => getContentTypeLabel(post.value?.postType))
+const isLegacyInterview = computed(() => isLegacyInterviewType(post.value?.postType))
+const visibleTechStacks = computed(() => Array.isArray(post.value?.extension?.techStacks)
+  ? post.value.extension.techStacks.map(String).filter(Boolean).slice(0, 8)
+  : [])
+const knowledgeSummary = computed(() => post.value?.extension?.summary || post.value?.summary || '')
+const knowledgeTags = computed(() => {
+  const extension = post.value?.extension || {}
+  const rawTags = [
+    ...(Array.isArray(extension.aiTags) ? extension.aiTags : []),
+    ...(Array.isArray(extension.suggestedTags) ? extension.suggestedTags : []),
+    ...(Array.isArray(extension.techStacks) ? extension.techStacks : []),
+  ]
+  return Array.from(new Set(rawTags.map(String).map((item) => item.trim()).filter(Boolean))).slice(0, 8)
+})
+const parseJsonValue = (value: unknown) => {
+  if (!value) return null
+  if (typeof value === 'object') return value
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+const knowledgeFaqs = computed(() => {
+  const parsed = parseJsonValue(post.value?.extension?.faqJson)
+  return Array.isArray(parsed) ? parsed : []
+})
+const knowledgeCardItems = computed(() => {
+  const parsed = parseJsonValue(post.value?.extension?.knowledgeCardJson)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return []
+  const labels: Record<string, string> = {
+    problem: '问题',
+    cause: '原因',
+    solution: '方案',
+    caveat: '注意事项',
+    result: '结果',
+  }
+  return Object.entries(parsed as Record<string, unknown>)
+    .map(([key, value]) => ({ label: labels[key] || key, value: String(value || '') }))
+    .filter((item) => item.value)
+})
+const commentThreadItems = (items: Comment[]): Comment[] => items.flatMap((item) => [item, ...commentThreadItems(item.replies || [])])
+const highValueComment = computed(() => {
+  return commentThreadItems(comments.value)
+    .filter((item) => item.content?.trim())
+    .sort((a, b) => {
+      const score = (item: Comment) => (item.likeCount || 0) * 2 + Math.min(item.content.length, 160) / 40 + (/[？?]/.test(item.content) ? 1 : 0)
+      return score(b) - score(a)
+    })[0]
+})
+const aiKnowledgeCompletenessScore = computed(() => {
+  const contentLength = post.value?.content?.length || 0
+  const base = [
+    knowledgeSummary.value ? 18 : 0,
+    knowledgeTags.value.length ? 14 : 0,
+    knowledgeCardItems.value.length ? 22 : 0,
+    knowledgeFaqs.value.length ? 18 : 0,
+    relatedPosts.value.length ? 12 : 0,
+    highValueComment.value ? 8 : 0,
+    contentLength > 800 ? 8 : contentLength > 300 ? 5 : 0,
+  ].reduce((sum, value) => sum + value, 0)
+  return Math.min(100, Math.round(base))
+})
+const aiKnowledgeConfidenceText = computed(() => {
+  if (aiKnowledgeCompletenessScore.value >= 78) return '高可信'
+  if (aiKnowledgeCompletenessScore.value >= 48) return '可参考'
+  return '待补充'
+})
+const aiKnowledgeConfidenceTone = computed(() => {
+  if (aiKnowledgeCompletenessScore.value >= 78) return 'ai-confidence-high'
+  if (aiKnowledgeCompletenessScore.value >= 48) return 'ai-confidence-mid'
+  return 'ai-confidence-low'
+})
+const aiKnowledgeInsights = computed(() => [
+  {
+    label: '帖子质量评分',
+    value: `${aiKnowledgeCompletenessScore.value} / 100`,
+    detail: knowledgeSummary.value
+      ? '已具备摘要、标签或结构化字段，可进入社区知识沉淀链路。'
+      : '建议补充摘要和关键结论，让读者更快判断经验价值。',
+  },
+  {
+    label: '结构化提炼',
+    value: knowledgeCardItems.value.length || knowledgeFaqs.value.length
+      ? `${knowledgeCardItems.value.length + knowledgeFaqs.value.length} 条知识片段`
+      : '等待整理',
+    detail: knowledgeCardItems.value.length || knowledgeFaqs.value.length
+      ? '问题、原因、方案、FAQ 已可作为知识卡被搜索和复用。'
+      : '发布后可由 AI 或运营把正文整理成摘要、FAQ 和知识卡。',
+  },
+  {
+    label: '相似内容聚合',
+    value: relatedPosts.value.length ? `${relatedPosts.value.length} 篇相似经验` : '待发现',
+    detail: relatedPosts.value.length
+      ? `已基于「${primaryKnowledgeTopic.value}」发现可继续合并阅读的社区内容。`
+      : '相同技术栈或主题下的内容会在这里形成经验簇，减少重复踩坑。',
+  },
+  {
+    label: '评论高价值问答',
+    value: highValueComment.value ? '已发现线索' : '暂无线索',
+    detail: highValueComment.value
+      ? `评论区已有可沉淀问答：“${highValueComment.value.content.slice(0, 42)}${highValueComment.value.content.length > 42 ? '...' : ''}”`
+      : '有赞同、追问或补充方案的评论，会成为后续 FAQ 候选。',
+  },
+  {
+    label: '个人复盘建议',
+    value: post.value?.myInteraction?.favorited ? '已加入回看' : '可加入回看',
+    detail: post.value?.myInteraction?.favorited
+      ? '这篇经验已进入你的收藏线索，可继续沉淀为个人知识资产。'
+      : '收藏或评论后，可在个人复盘空间集中回看同主题知识卡。',
+  },
+])
+const primaryKnowledgeTopic = computed(() => {
+  return knowledgeTags.value[0]
+    || visibleTechStacks.value[0]
+    || post.value?.tags?.[0]?.name
+    || post.value?.extension?.scenario
+    || post.value?.title
+    || '技术经验'
+})
+const knowledgeTopicQuery = computed(() => ({ q: primaryKnowledgeTopic.value }))
+const knowledgeSearchQuery = computed(() => ({ q: primaryKnowledgeTopic.value, sort: 'relevance' }))
+const knowledgePathSteps = computed(() => [
+  {
+    index: '01',
+    title: knowledgeSummary.value ? '摘要已沉淀' : '等待摘要沉淀',
+    description: knowledgeSummary.value
+      ? '核心背景、问题和结论已进入帖子元信息，可被搜索和推荐复用。'
+      : '补充摘要后，读者可以更快判断这篇经验是否值得继续阅读。',
+  },
+  {
+    index: '02',
+    title: knowledgeCardItems.value.length || knowledgeFaqs.value.length ? '知识卡已生成' : '知识卡待整理',
+    description: '结构化知识卡会承接问题、原因、方案和注意事项，方便进入知识库长期复用。',
+  },
+  {
+    index: '03',
+    title: '主题路径可发现',
+    description: `围绕「${primaryKnowledgeTopic.value}」继续发现相似经验、相关知识卡和讨论。`,
+  },
+  {
+    index: '04',
+    title: '个人复盘可追踪',
+    description: '收藏、评论和知识复盘会回流到个人学习空间，形成自己的技术知识资产。',
+  },
+])
+const materialStatusText = computed(() => {
+  if (!materialPack.value) return ''
+  const saved = materialPack.value.savedToPrep ? '已归档到备战空间' : '可继续编辑后归档'
+  const time = materialPack.value.updateTime ? `，更新于 ${formatTime(materialPack.value.updateTime)}` : ''
+  return `${saved}${time}`
+})
 const isContentModerator = computed(() => Boolean(adminPermissions.value?.contentModerator || adminPermissions.value?.admin))
 const canViewVersionHistory = computed(() => Boolean(authStore.isLoggedIn && post.value && (isOwnPost.value || isContentModerator.value)))
 const postErrorCode = computed(() => errorCodeOf(postError.value))
@@ -405,9 +878,9 @@ const getResultClass = (result: number) => {
 
 const getResultText = (result: number) => {
   const texts: Record<number, string> = {
-    1: '已 offer',
-    2: '待结果',
-    3: '已挂',
+    1: '已通过',
+    2: '待反馈',
+    3: '未通过',
   }
   return texts[result] || '未知结果'
 }
@@ -424,6 +897,13 @@ const handleLike = async () => {
     }
     post.value.myInteraction = { ...(post.value.myInteraction ?? { favorited: false }), liked: !liked }
     post.value.counter.like = Math.max(0, post.value.counter.like + (liked ? -1 : 1))
+    const message = liked
+      ? '已取消点赞'
+      : isOwnPost.value
+        ? '已点赞自己的帖子，计数已更新'
+        : '已点赞'
+    interactionFeedback.value = message
+    toast.success(message)
   } catch (error: any) {
     toast.error(getErrorMessage(error, '点赞操作失败'))
   } finally {
@@ -443,6 +923,13 @@ const handleFavorite = async () => {
     }
     post.value.myInteraction = { ...(post.value.myInteraction ?? { liked: false }), favorited: !favorited }
     post.value.counter.favorite = Math.max(0, post.value.counter.favorite + (favorited ? -1 : 1))
+    const message = favorited
+      ? '已取消收藏'
+      : isOwnPost.value
+        ? '已收藏自己的帖子，已加入回看'
+        : '已收藏到回看'
+    interactionFeedback.value = message
+    toast.success(message)
   } catch (error: any) {
     toast.error(getErrorMessage(error, '收藏操作失败'))
   } finally {
@@ -752,6 +1239,105 @@ const changeSummaryText = (summary?: string) => {
   return values.length ? values.join(' / ') : '内容更新'
 }
 
+const listToText = (items?: string[]) => (items || []).join('\n')
+
+const textToList = (value: string) => value
+  .split(/\r?\n/)
+  .map((item) => item.trim())
+  .filter(Boolean)
+  .slice(0, 12)
+
+const applyMaterialToForm = (pack?: InterviewMaterialPack | null) => {
+  materialForm.value = {
+    starSituation: pack?.starSituation || '',
+    starTask: pack?.starTask || '',
+    starAction: pack?.starAction || '',
+    starResult: pack?.starResult || '',
+    resumeBulletsText: listToText(pack?.resumeBullets),
+    followUpQuestionsText: listToText(pack?.followUpQuestions),
+    technicalHighlightsText: listToText(pack?.technicalHighlights),
+    missingHintsText: listToText(pack?.missingHints),
+    userNote: pack?.userNote || '',
+  }
+}
+
+const loadInterviewMaterial = async () => {
+  if (!authStore.isLoggedIn || !post.value?.postId) {
+    materialPack.value = null
+    applyMaterialToForm(null)
+    materialErrorMessage.value = ''
+    return
+  }
+  isLoadingMaterial.value = true
+  materialErrorMessage.value = ''
+  try {
+    const res = await postApi.getInterviewMaterials(post.value.postId)
+    materialPack.value = res.data || null
+    applyMaterialToForm(materialPack.value)
+  } catch (error: any) {
+    materialErrorMessage.value = getErrorMessage(error, '素材包加载失败')
+  } finally {
+    isLoadingMaterial.value = false
+  }
+}
+
+const handleGenerateMaterial = async () => {
+  if (!post.value?.postId) return
+  if (!requireLogin()) return
+  isGeneratingMaterial.value = true
+  materialErrorMessage.value = ''
+  try {
+    const res = await postApi.generateInterviewMaterials(post.value.postId)
+    materialPack.value = res.data || null
+    applyMaterialToForm(materialPack.value)
+    toast.success('面试素材包已生成')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '素材包生成失败'))
+  } finally {
+    isGeneratingMaterial.value = false
+  }
+}
+
+const handleSaveMaterial = async () => {
+  if (!materialPack.value?.id) return
+  isSavingMaterial.value = true
+  try {
+    const res = await postApi.updateInterviewMaterial(materialPack.value.id, {
+      starSituation: materialForm.value.starSituation,
+      starTask: materialForm.value.starTask,
+      starAction: materialForm.value.starAction,
+      starResult: materialForm.value.starResult,
+      resumeBullets: textToList(materialForm.value.resumeBulletsText),
+      followUpQuestions: textToList(materialForm.value.followUpQuestionsText),
+      technicalHighlights: textToList(materialForm.value.technicalHighlightsText),
+      missingHints: textToList(materialForm.value.missingHintsText),
+      userNote: materialForm.value.userNote,
+    })
+    materialPack.value = res.data || materialPack.value
+    applyMaterialToForm(materialPack.value)
+    toast.success('素材包已保存')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '素材包保存失败'))
+  } finally {
+    isSavingMaterial.value = false
+  }
+}
+
+const handleSaveMaterialToPrep = async () => {
+  if (!materialPack.value?.id || materialPack.value.savedToPrep) return
+  isSavingMaterialToPrep.value = true
+  try {
+    const res = await postApi.saveInterviewMaterialToPrep(materialPack.value.id)
+    materialPack.value = res.data || materialPack.value
+    applyMaterialToForm(materialPack.value)
+    toast.success('已归档到个人备战空间')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '归档失败'))
+  } finally {
+    isSavingMaterialToPrep.value = false
+  }
+}
+
 watch(() => postData.value?.data, (value) => {
   post.value = clonePost(value)
 }, { immediate: true })
@@ -759,6 +1345,7 @@ watch(() => postData.value?.data, (value) => {
 watch(post, () => {
   loadRelatedPosts()
   loadInteractionState()
+  loadInterviewMaterial()
 })
 
 watch(postId, () => {
@@ -774,6 +1361,7 @@ onMounted(() => {
 
 watch(() => authStore.token, () => {
   loadAdminPermissions()
+  loadInterviewMaterial()
 })
 
 watch(canViewVersionHistory, (allowed) => {
@@ -790,9 +1378,591 @@ watch(canViewVersionHistory, (allowed) => {
   color: rgb(51 65 85);
 }
 
-:global(.dark) .meta-pill {
+.content-type-pill,
+.ai-pill {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.content-type-pill {
+  background: rgb(239 246 255);
+  color: rgb(37 99 235);
+}
+
+.ai-pill {
+  background: rgb(236 253 245);
+  color: rgb(4 120 87);
+}
+
+.publish-status-bar {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.9rem;
+}
+
+.publish-status-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.publish-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.publish-status-pill {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(203 213 225);
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: rgb(51 65 85);
+}
+
+.publish-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.publish-status-ok {
+  border-color: rgb(167 243 208);
+  background: rgb(236 253 245);
+  color: rgb(4 120 87);
+}
+
+.publish-status-warn {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235);
+  color: rgb(180 83 9);
+}
+
+.knowledge-panel,
+.knowledge-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+}
+
+.knowledge-panel {
+  padding: 1.25rem;
+}
+
+.knowledge-card {
+  padding: 0.9rem;
+}
+
+.knowledge-card strong {
+  display: block;
+  color: rgb(15 23 42);
+}
+
+.knowledge-card p {
+  margin-top: 0.4rem;
+  color: rgb(71 85 105);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.knowledge-tag {
+  border-radius: 999px;
+  background: rgb(238 242 255);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(67 56 202);
+}
+
+.ai-knowledge-assistant {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 1.25rem;
+}
+
+.ai-knowledge-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ai-knowledge-head p {
+  color: rgb(37 99 235);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.ai-knowledge-head h2 {
+  margin-top: 0.25rem;
+  color: rgb(15 23 42);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.ai-confidence-pill {
+  display: inline-flex;
+  min-height: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.ai-confidence-high {
+  background: rgb(220 252 231);
+  color: rgb(22 101 52);
+}
+
+.ai-confidence-mid {
+  background: rgb(254 249 195);
+  color: rgb(133 77 14);
+}
+
+.ai-confidence-low {
+  background: rgb(241 245 249);
+  color: rgb(71 85 105);
+}
+
+.ai-knowledge-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ai-knowledge-card {
+  min-width: 0;
+  border-radius: 0.625rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 0.9rem;
+}
+
+.ai-knowledge-card span {
+  color: rgb(37 99 235);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.ai-knowledge-card strong {
+  display: block;
+  margin-top: 0.3rem;
+  overflow-wrap: anywhere;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.ai-knowledge-card p {
+  margin-top: 0.4rem;
+  overflow-wrap: anywhere;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.ai-knowledge-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ai-knowledge-actions a {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 0.5rem 0.85rem;
+  color: rgb(29 78 216);
+  font-size: 0.8125rem;
+  font-weight: 900;
+}
+
+.interview-material-panel {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: linear-gradient(180deg, rgb(239 246 255), rgb(255 255 255));
+  padding: 1.25rem;
+}
+
+.interview-material-head {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.interview-material-head h2 {
+  margin-top: 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.interview-material-head span {
+  margin-top: 0.35rem;
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgb(71 85 105);
+}
+
+.interview-material-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.interview-material-primary,
+.interview-material-secondary,
+.interview-material-empty button,
+.interview-material-error button {
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.interview-material-primary {
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.interview-material-secondary,
+.interview-material-empty button,
+.interview-material-error button {
+  border: 1px solid rgb(147 197 253);
+  color: rgb(29 78 216);
+}
+
+.interview-material-primary:disabled,
+.interview-material-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.interview-material-empty,
+.interview-material-error {
+  margin-top: 1rem;
+  border-radius: 0.75rem;
+  border: 1px dashed rgb(147 197 253);
+  background: rgb(248 250 252);
+  padding: 1rem;
+}
+
+.interview-material-empty strong,
+.interview-material-error span {
+  display: block;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.interview-material-empty p {
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgb(71 85 105);
+}
+
+.interview-material-empty button,
+.interview-material-error button {
+  margin-top: 0.75rem;
+}
+
+.interview-material-form {
+  margin-top: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.star-grid,
+.material-list-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.interview-material-form label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.interview-material-form label span {
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: rgb(51 65 85);
+}
+
+.interview-material-form textarea {
+  width: 100%;
+  resize: vertical;
+  border-radius: 0.65rem;
+  border: 1px solid rgb(203 213 225);
+  background: rgb(255 255 255);
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgb(15 23 42);
+  outline: none;
+}
+
+.interview-material-form textarea:focus {
+  border-color: rgb(37 99 235);
+  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.7);
+}
+
+.knowledge-path-panel {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1.25rem;
+}
+
+.knowledge-path-kicker {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(37 99 235);
+}
+
+.knowledge-path-panel h2 {
+  margin-top: 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.knowledge-path-panel > div > p:not(.knowledge-path-kicker) {
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: rgb(71 85 105);
+}
+
+.knowledge-path-steps {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.knowledge-path-step {
+  border-radius: 0.625rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.85rem;
+}
+
+.knowledge-path-step span {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: rgb(37 99 235);
+}
+
+.knowledge-path-step strong {
+  margin-top: 0.2rem;
+  display: block;
+  color: rgb(15 23 42);
+}
+
+.knowledge-path-step p {
+  margin-top: 0.3rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgb(71 85 105);
+}
+
+.knowledge-path-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.knowledge-path-actions a {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 900;
+  color: rgb(29 78 216);
+}
+
+.dark .meta-pill {
   background: rgb(15 23 42);
   color: rgb(203 213 225);
+}
+
+.dark .content-type-pill {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .ai-pill {
+  background: rgb(6 78 59);
+  color: rgb(167 243 208);
+}
+
+.dark .publish-status-bar {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .publish-status-pill {
+  border-color: rgb(51 65 85);
+  color: rgb(203 213 225);
+}
+
+.dark .publish-status-ok {
+  border-color: rgb(6 95 70);
+  background: rgb(6 78 59 / 0.35);
+  color: rgb(167 243 208);
+}
+
+.dark .publish-status-warn {
+  border-color: rgb(146 64 14);
+  background: rgb(120 53 15 / 0.35);
+  color: rgb(253 230 138);
+}
+
+.dark .knowledge-panel,
+.dark .knowledge-card {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .knowledge-card strong {
+  color: rgb(248 250 252);
+}
+
+.dark .knowledge-card p {
+  color: rgb(203 213 225);
+}
+
+.dark .knowledge-tag {
+  background: rgb(49 46 129 / 0.45);
+  color: rgb(199 210 254);
+}
+
+.dark .ai-knowledge-assistant,
+.dark .ai-knowledge-card,
+.dark .ai-knowledge-actions a {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .ai-knowledge-head h2,
+.dark .ai-knowledge-card strong {
+  color: rgb(248 250 252);
+}
+
+.dark .ai-knowledge-card p {
+  color: rgb(203 213 225);
+}
+
+.dark .ai-knowledge-actions a {
+  color: rgb(191 219 254);
+}
+
+.dark .ai-confidence-high {
+  background: rgb(20 83 45 / 0.7);
+  color: rgb(187 247 208);
+}
+
+.dark .ai-confidence-mid {
+  background: rgb(113 63 18 / 0.72);
+  color: rgb(254 240 138);
+}
+
+.dark .ai-confidence-low {
+  background: rgb(51 65 85);
+  color: rgb(203 213 225);
+}
+
+.dark .interview-material-panel {
+  border-color: rgb(30 64 175);
+  background: linear-gradient(180deg, rgb(15 23 42), rgb(2 6 23));
+}
+
+.dark .interview-material-head h2,
+.dark .interview-material-empty strong,
+.dark .interview-material-error span,
+.dark .interview-material-form label span {
+  color: rgb(248 250 252);
+}
+
+.dark .interview-material-head span,
+.dark .interview-material-empty p {
+  color: rgb(203 213 225);
+}
+
+.dark .interview-material-empty,
+.dark .interview-material-error {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .interview-material-form textarea {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23);
+  color: rgb(248 250 252);
+}
+
+.dark .interview-material-secondary,
+.dark .interview-material-empty button,
+.dark .interview-material-error button {
+  border-color: rgb(30 64 175);
+  color: rgb(147 197 253);
+}
+
+.dark .knowledge-path-panel,
+.dark .knowledge-path-step,
+.dark .knowledge-path-actions a {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .knowledge-path-panel h2,
+.dark .knowledge-path-step strong {
+  color: rgb(248 250 252);
+}
+
+.dark .knowledge-path-panel > div > p:not(.knowledge-path-kicker),
+.dark .knowledge-path-step p {
+  color: rgb(203 213 225);
+}
+
+.dark .knowledge-path-actions a {
+  color: rgb(191 219 254);
 }
 
 .version-dialog {
@@ -817,8 +1987,39 @@ watch(canViewVersionHistory, (allowed) => {
   margin-top: 0.75rem;
 }
 
-:global(.dark) .version-item {
+.dark .version-item {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
+}
+
+@media (max-width: 640px) {
+  .ai-knowledge-head {
+    flex-direction: column;
+  }
+
+  .interview-material-head {
+    flex-direction: column;
+  }
+
+  .interview-material-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .interview-material-actions button {
+    flex: 1 1 100%;
+  }
+
+  .ai-knowledge-grid,
+  .star-grid,
+  .material-list-grid,
+  .knowledge-path-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-knowledge-actions a,
+  .knowledge-path-actions a {
+    width: 100%;
+  }
 }
 </style>

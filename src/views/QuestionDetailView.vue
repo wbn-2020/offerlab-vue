@@ -6,10 +6,10 @@
       <section v-else-if="isQuestionNotFound" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
         <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">题目不存在或已被删除</h3>
         <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
-          这道题可能已被下架、来源面经不可见，或本地演示数据还没有补到当前数据库。
+          这张知识卡可能已被下架、来源内容不可见，或本地演示数据还没有补到当前数据库。
         </p>
         <div class="flex flex-wrap justify-center gap-3">
-          <RouterLink to="/questions" class="primary-action inline-flex items-center justify-center">返回题库</RouterLink>
+          <RouterLink to="/questions" class="primary-action inline-flex items-center justify-center">返回知识库</RouterLink>
           <RouterLink :to="{ path: '/search', query: { q: questionId } }" class="secondary-action inline-flex items-center justify-center">搜索相似内容</RouterLink>
           <RouterLink to="/" class="secondary-action inline-flex items-center justify-center">回到首页</RouterLink>
         </div>
@@ -21,10 +21,10 @@
         </p>
         <div class="flex flex-wrap justify-center gap-3">
           <button type="button" class="primary-action" @click="refetch()">重试</button>
-          <RouterLink to="/questions" class="secondary-action inline-flex items-center justify-center">返回题库</RouterLink>
+          <RouterLink to="/questions" class="secondary-action inline-flex items-center justify-center">返回知识库</RouterLink>
         </div>
       </section>
-      <EmptyState v-else-if="!detail || !question" title="题目不存在" description="这道题可能已隐藏、来源内容不可见，或当前题库还没有同步到详情页。" actionText="返回题库" actionHref="/questions" />
+      <EmptyState v-else-if="!detail || !question" title="知识卡不存在" description="这张知识卡可能已隐藏、来源内容不可见，或当前知识库还没有同步到详情页。" actionText="返回知识库" actionHref="/questions" />
       <div v-else class="grid gap-8 lg:grid-cols-3">
         <article class="rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
           <div class="mb-5 flex flex-wrap gap-2">
@@ -176,20 +176,20 @@
               :to="mockInterviewLink"
               class="secondary-action inline-flex items-center justify-center"
             >
-              加入模拟面试
+              加入知识复盘
             </RouterLink>
             <RouterLink
               :to="prepReturnLink"
               class="secondary-action inline-flex items-center justify-center"
             >
-              回准备台
+              回学习空间
             </RouterLink>
             <RouterLink
               v-if="detail.sourcePosts.length"
               :to="`/post/${detail.sourcePosts[0].postId}`"
               class="secondary-action inline-flex items-center justify-center"
             >
-              查看来源面经
+              查看来源内容
             </RouterLink>
             <button
               v-else
@@ -197,14 +197,14 @@
               type="button"
               disabled
             >
-              暂无可跳转面经
+              暂无可跳转来源
             </button>
           </div>
         </article>
 
         <aside class="space-y-6">
           <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">来源面经</h2>
+            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">来源内容</h2>
             <div v-if="detail.sourcePosts.length" class="space-y-3">
               <RouterLink v-for="post in detail.sourcePosts" :key="post.postId" :to="`/post/${post.postId}`" class="block rounded-lg bg-slate-50 p-3 hover:bg-primary-50 dark:bg-slate-950 dark:hover:bg-primary-950/30">
                 <div class="line-clamp-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{{ post.title }}</div>
@@ -215,7 +215,7 @@
           </section>
 
           <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">相似题目</h2>
+            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">相似知识卡</h2>
             <div v-if="detail.relatedQuestions.length" class="space-y-3">
               <RouterLink v-for="item in detail.relatedQuestions" :key="item.id" :to="`/questions/${item.id}`" class="block rounded-lg bg-slate-50 p-3 text-sm font-semibold text-slate-800 hover:bg-primary-50 hover:text-primary-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-primary-950/30">
                 {{ item.questionText }}
@@ -565,36 +565,36 @@ onBeforeUnmount(() => {
   border-color: rgb(37 99 235);
   box-shadow: 0 0 0 3px rgb(191 219 254 / 0.65);
 }
-:global(.dark) .pill,
-:global(.dark) .insight-tile,
-:global(.dark) .structured-panel,
-:global(.dark) .secondary-action,
-:global(.dark) .state-select,
-:global(.dark) .reason-select,
-:global(.dark) .note-input {
+.dark .pill,
+.dark .insight-tile,
+.dark .structured-panel,
+.dark .secondary-action,
+.dark .state-select,
+.dark .reason-select,
+.dark .note-input {
   border-color: rgb(51 65 85);
   background: rgb(30 41 59);
   color: rgb(203 213 225);
 }
-:global(.dark) .insight-tile span {
+.dark .insight-tile span {
   color: rgb(148 163 184);
 }
-:global(.dark) .insight-tile strong {
+.dark .insight-tile strong {
   color: rgb(248 250 252);
 }
-:global(.dark) .schedule-tile {
+.dark .schedule-tile {
   background: rgb(69 26 3 / 0.35);
 }
-:global(.dark) .schedule-tile span {
+.dark .schedule-tile span {
   color: rgb(253 230 138);
 }
-:global(.dark) .schedule-tile strong {
+.dark .schedule-tile strong {
   color: rgb(254 243 199);
 }
-:global(.dark) .structured-panel h2 {
+.dark .structured-panel h2 {
   color: rgb(148 163 184);
 }
-:global(.dark) .structured-panel p {
+.dark .structured-panel p {
   color: rgb(203 213 225);
 }
 </style>

@@ -1,6 +1,7 @@
 import client, { Result } from './client'
 import type { ApiId, PaginatedResponse, User, UserBrief, UserIntent } from './types'
 import { adaptPage, adaptUser, adaptUserIntent } from './adapters'
+import type { ContributionSummary } from '@/utils/communityMetrics'
 
 export interface UserProfileReq {
   nickname?: string
@@ -41,6 +42,29 @@ export interface ChangePasswordReq {
   newPassword: string
 }
 
+export interface UserContribution extends ContributionSummary {
+  uid?: ApiId
+  source?: 'backend_aggregate' | 'profile_restricted' | 'frontend_estimate' | string
+  estimated?: boolean
+  profileVisible?: boolean
+}
+
+const adaptContribution = (raw: any): UserContribution => ({
+  uid: raw?.uid,
+  score: Number(raw?.score || 0),
+  level: String(raw?.level || 'L1 新作者'),
+  badge: String(raw?.badge || '开始沉淀'),
+  postCount: Number(raw?.postCount || 0),
+  featuredCount: Number(raw?.featuredCount || 0),
+  likeCount: Number(raw?.likeCount || 0),
+  favoriteCount: Number(raw?.favoriteCount || 0),
+  commentCount: Number(raw?.commentCount || 0),
+  viewCount: Number(raw?.viewCount || 0),
+  source: raw?.source || 'backend_aggregate',
+  estimated: Boolean(raw?.estimated),
+  profileVisible: raw?.profileVisible !== false,
+})
+
 export const userApi = {
   getProfile: async (uid: ApiId): Promise<Result<User>> => {
     const res = await client.get(`/api/v1/users/${uid}`) as Result<any>
@@ -50,6 +74,16 @@ export const userApi = {
   getIntent: async (uid: ApiId): Promise<Result<UserIntent | null>> => {
     const res = await client.get(`/api/v1/users/${uid}/intent`) as Result<any>
     return { ...res, data: adaptUserIntent(res.data) }
+  },
+
+  getContribution: async (uid: ApiId): Promise<Result<UserContribution>> => {
+    const res = await client.get(`/api/v1/users/${uid}/contribution`) as Result<any>
+    return { ...res, data: res.data ? adaptContribution(res.data) : adaptContribution({}) }
+  },
+
+  getMyContribution: async (): Promise<Result<UserContribution>> => {
+    const res = await client.get('/api/v1/users/me/contribution') as Result<any>
+    return { ...res, data: res.data ? adaptContribution(res.data) : adaptContribution({}) }
   },
 
   searchUsers: async (q: string, size = 20): Promise<Result<UserBrief[]>> => {

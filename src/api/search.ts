@@ -7,6 +7,11 @@ const cleanRemark = (remark?: string | null) => {
   return value ? { remark: value } : undefined
 }
 
+const riskConfirmPayload = (remark?: string | null) => ({
+  ...(cleanRemark(remark) || {}),
+  confirmationPhrase: 'CONFIRM',
+})
+
 export interface SearchParams {
   q?: string
   company?: string
@@ -16,14 +21,27 @@ export interface SearchParams {
   sort?: 'relevance' | 'latest' | 'hot'
   cursor?: string
   size?: number
+  includeTestData?: boolean
 }
 
 export interface SearchStatus {
+  status?: string
   enabled: boolean
   available: boolean
   indexName: string
   indexExists: boolean
   indexReady: boolean
+  publicSearchAvailable?: boolean
+  publicSearchDegraded?: boolean
+  publicSearchSource?: string
+  dbFallbackAvailable?: boolean
+  fallbackSource?: string
+  fallbackMode?: string
+  fallbackScanLimit?: number
+  fallbackSchemaReady?: boolean
+  message?: string
+  diagnosticMessage?: string
+  action?: string
 }
 
 export interface SearchIndexTask {
@@ -42,9 +60,10 @@ export interface SearchIndexTask {
 }
 
 export interface SearchAnalyticsTrackReq {
-  eventType: 'PREP_CLICK'
+  eventType: 'PREP_CLICK' | 'COMMUNITY_RECOMMEND_CLICK'
   keyword?: string
   company?: string
+  target?: string
 }
 
 export const searchApi = {
@@ -63,7 +82,7 @@ export const searchApi = {
     client.get('/api/v1/search/status'),
 
   rebuildIndex: (remark?: string): Promise<Result<SearchIndexTask>> =>
-    client.post('/api/v1/search/admin/rebuild', cleanRemark(remark)),
+    client.post('/api/v1/search/admin/rebuild', riskConfirmPayload(remark)),
 
   getRebuildTask: (taskId: string): Promise<Result<SearchIndexTask>> =>
     client.get(`/api/v1/search/admin/tasks/${taskId}`),

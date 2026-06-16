@@ -4,7 +4,7 @@
     <main class="flex min-h-[calc(100vh-4.25rem)] items-center justify-center p-8">
     <div class="text-center">
       <div class="text-8xl font-bold text-primary-600 mb-4">404</div>
-      <h1 class="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">页面去面试了</h1>
+      <h1 class="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">页面走丢了</h1>
       <p class="text-lg text-slate-600 dark:text-slate-400 mb-8">
         抱歉，你访问的页面不存在或已被删除
       </p>

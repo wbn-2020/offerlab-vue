@@ -20,10 +20,10 @@ assert.match(view, /dataUpdatedText/, 'CompanyPrepView must show data freshness'
 assert.match(view, /样本偏少/, 'CompanyPrepView must warn when data is sparse')
 assert.match(view, /formatDate\(prep\.value\.dataUpdatedAt, 'YYYY-MM-DD HH:mm'\)/, 'CompanyPrepView must format dataUpdatedAt consistently')
 
-assert.match(exporter, /题目样本: \$\{data\.questionSampleCount\}/, 'Markdown export must include question sample count')
-assert.match(exporter, /面经样本: \$\{data\.postSampleCount\}/, 'Markdown export must include post sample count')
-assert.match(exporter, /结果样本: \$\{data\.resultSampleCount\}/, 'Markdown export must include result sample count')
-assert.match(exporter, /近 30 天结果样本: \$\{data\.recentResultSampleCount\}/, 'Markdown export must include recent result sample count')
+assert.match(exporter, /知识卡样本: \$\{data\.questionSampleCount\}/, 'Markdown export must include knowledge-card sample count')
+assert.match(exporter, /经验样本: \$\{data\.postSampleCount\}/, 'Markdown export must include experience sample count')
+assert.match(exporter, /反馈样本: \$\{data\.resultSampleCount\}/, 'Markdown export must include feedback sample count')
+assert.match(exporter, /近 30 天反馈样本: \$\{data\.recentResultSampleCount\}/, 'Markdown export must include recent feedback sample count')
 assert.match(exporter, /data\.dataUpdatedAt \? formatDate\(data\.dataUpdatedAt, 'YYYY-MM-DD HH:mm'\) : '暂无记录'/, 'Markdown export must include data freshness')
 
 console.log('company prep confidence guard passed')

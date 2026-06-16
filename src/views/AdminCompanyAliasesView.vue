@@ -4,10 +4,10 @@
     <main class="mx-auto max-w-7xl min-w-0 px-4 py-8">
       <section class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Question Ops</p>
-          <h1 class="mt-2 text-2xl font-bold text-slate-950 dark:text-slate-50">公司别名维护</h1>
+          <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Entity Ops</p>
+          <h1 class="mt-2 text-2xl font-bold text-slate-950 dark:text-slate-50">实体别名维护</h1>
           <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-            维护公司简称、品牌名和历史名称，让题库搜索、公司备战包和推荐目标指向同一个标准公司名。
+            维护主题、组织、产品或技术栈的别名，让知识库搜索、主题学习包和推荐目标指向同一个标准实体。
           </p>
         </div>
         <RouterLink to="/admin/questions" class="secondary-button">
@@ -20,7 +20,7 @@
         <article class="panel">
           <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <form class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row" @submit.prevent="loadAliases">
-              <input v-model.trim="keyword" class="field-input" placeholder="搜索标准公司名或别名" />
+              <input v-model.trim="keyword" class="field-input" placeholder="搜索标准实体名或别名" />
               <button type="submit" class="secondary-button" :disabled="isLoading">
                 <Search class="h-4 w-4" />
                 搜索
@@ -35,7 +35,7 @@
           <div v-if="isLoading" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
             正在加载别名...
           </div>
-          <EmptyState v-else-if="aliases.length === 0" title="暂无公司别名" description="新增别名后，公司备战页会自动按标准公司名聚合。" />
+          <EmptyState v-else-if="aliases.length === 0" title="暂无实体别名" description="新增别名后，主题学习页会自动按标准实体名聚合。" />
           <div v-else class="alias-list">
             <article
               v-for="item in aliases"
@@ -81,7 +81,7 @@
 
           <form class="space-y-4" @submit.prevent="saveAlias">
             <label class="field-label">
-              标准公司名
+              标准实体名
               <input v-model.trim="form.canonicalCompany" class="field-input" placeholder="例如 字节跳动" />
             </label>
             <label class="field-label">
@@ -123,7 +123,7 @@
           <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">候选推荐</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">从面经和题库公司字段聚合相似名称，确认后写入别名表。</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">从知识库和历史内容字段聚合相似名称，确认后写入别名表。</p>
             </div>
             <button type="button" class="secondary-button" :disabled="isCandidateLoading" @click="loadCandidates">
               <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isCandidateLoading }" />
@@ -138,7 +138,7 @@
             </div>
             <button type="button" class="secondary-button" @click="loadCandidates">重试</button>
           </div>
-          <EmptyState v-else-if="candidates.length === 0" title="暂无候选" description="当面经或题库中出现疑似同义公司名时，这里会推荐给运营确认。" />
+          <EmptyState v-else-if="candidates.length === 0" title="暂无候选" description="当知识库或历史内容中出现疑似同义实体名时，这里会推荐给运营确认。" />
           <div v-else class="candidate-grid">
             <article v-for="item in candidates" :key="`${item.canonicalCompany}-${item.alias}`" class="candidate-card">
               <div class="flex flex-wrap items-center gap-2">
@@ -148,8 +148,8 @@
               </div>
               <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ item.reason || '疑似同一家公司名称' }}</p>
               <div class="mt-3 grid gap-2 sm:grid-cols-4">
-                <div class="candidate-stat"><span>题库</span><strong>{{ item.questionSampleCount || 0 }}</strong></div>
-                <div class="candidate-stat"><span>面经</span><strong>{{ item.postSampleCount || 0 }}</strong></div>
+                <div class="candidate-stat"><span>知识库</span><strong>{{ item.questionSampleCount || 0 }}</strong></div>
+                <div class="candidate-stat"><span>历史内容</span><strong>{{ item.postSampleCount || 0 }}</strong></div>
                 <div class="candidate-stat"><span>标准名样本</span><strong>{{ item.canonicalSampleCount || 0 }}</strong></div>
                 <div class="candidate-stat"><span>别名样本</span><strong>{{ item.aliasSampleCount || 0 }}</strong></div>
               </div>
@@ -215,7 +215,7 @@ const loadAliases = async () => {
       refreshed ? selectAlias(refreshed) : resetForm()
     }
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '公司别名加载失败'))
+    toast.error(getErrorMessage(error, '实体别名加载失败'))
     aliases.value = []
   } finally {
     isLoading.value = false
@@ -229,7 +229,7 @@ const loadCandidates = async () => {
     const res = await opsApi.listCompanyAliasCandidates({ limit: 20 })
     candidates.value = res.data || []
   } catch (error: any) {
-    candidateError.value = getErrorMessage(error, '公司别名候选加载失败')
+    candidateError.value = getErrorMessage(error, '实体别名候选加载失败')
     toast.error(candidateError.value)
     candidates.value = []
   } finally {
@@ -259,17 +259,28 @@ const fillCandidate = (item: CompanyAliasCandidate) => {
 }
 
 const saveAlias = async () => {
+  const isUpdate = Boolean(selectedAlias.value)
+  const note = await requireRiskConfirm({
+    title: isUpdate ? '保存实体别名修改' : '新增实体别名',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([selectedAlias.value?.id || 'new', form.canonicalCompany, form.alias]),
+    context: riskContext(`当前搜索：${keyword.value || '全部'}`, `状态：${form.status === 1 ? '启用' : '停用'}`),
+    confirmText: isUpdate ? '确认保存' : '确认新增',
+  })
+  if (note === null) return
   isSaving.value = true
   try {
-    const payload = { ...form }
+    const payload = { ...form, remark: note }
     const res = selectedAlias.value
       ? await opsApi.updateCompanyAlias(selectedAlias.value.id, payload)
       : await opsApi.createCompanyAlias(payload)
-    toast.success('公司别名已保存')
+    toast.success('实体别名已保存')
     if (res.data) selectAlias(res.data)
     await loadAliases()
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '公司别名保存失败，可能已存在相同别名'))
+    toast.error(getErrorMessage(error, '实体别名保存失败，可能已存在相同别名'))
   } finally {
     isSaving.value = false
   }
@@ -278,7 +289,7 @@ const saveAlias = async () => {
 const toggleAliasStatus = async (item: CompanyAlias) => {
   const nextStatus = item.status === 1 ? 0 : 1
   const note = await requireRiskConfirm({
-    title: nextStatus === 1 ? '启用公司别名' : '停用公司别名',
+    title: nextStatus === 1 ? '启用实体别名' : '停用实体别名',
     level: 'high',
     reversible: true,
     impactCount: 1,
@@ -306,15 +317,15 @@ const toggleStatus = async () => {
 
 const acceptCandidate = async (item: CompanyAliasCandidate) => {
   const note = await requireRiskConfirm({
-    title: '一键接收公司别名候选',
+    title: '一键接收实体别名候选',
     level: 'high',
     reversible: true,
     impactCount: 1,
     objects: riskObjects([item.canonicalCompany, item.alias]),
     context: riskContext(
       item.reason ? `原因：${item.reason}` : undefined,
-      `题库样本：${item.questionSampleCount || 0}`,
-      `面经样本：${item.postSampleCount || 0}`,
+      `知识库样本：${item.questionSampleCount || 0}`,
+      `历史内容样本：${item.postSampleCount || 0}`,
       `标准名样本：${item.canonicalSampleCount || 0}`,
       `别名样本：${item.aliasSampleCount || 0}`,
     ),
@@ -580,46 +591,46 @@ onMounted(() => {
   color: rgb(37 99 235);
 }
 
-:global(.dark) .panel,
-:global(.dark) .secondary-button,
-:global(.dark) .field-input {
+.dark .panel,
+.dark .secondary-button,
+.dark .field-input {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .alias-row {
+.dark .alias-row {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
 }
 
-:global(.dark) .alias-row:hover,
-:global(.dark) .alias-row-active {
+.dark .alias-row:hover,
+.dark .alias-row-active {
   border-color: rgb(99 102 241);
   background: rgb(30 27 75);
 }
 
-:global(.dark) .candidate-card {
+.dark .candidate-card {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
 }
 
-:global(.dark) .candidate-error {
+.dark .candidate-error {
   border-color: rgb(127 29 29);
   background: rgb(69 10 10 / 0.35);
   color: rgb(254 202 202);
 }
 
-:global(.dark) .candidate-card strong {
+.dark .candidate-card strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .candidate-stat {
+.dark .candidate-stat {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .canonical {
+.dark .canonical {
   color: rgb(248 250 252);
 }
 </style>

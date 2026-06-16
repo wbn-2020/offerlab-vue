@@ -2,8 +2,11 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const source = readFileSync(new URL('../src/router/index.ts', import.meta.url), 'utf8')
+const guards = readFileSync(new URL('../src/router/guards.ts', import.meta.url), 'utf8')
 const appHeader = readFileSync(new URL('../src/components/layout/AppHeader.vue', import.meta.url), 'utf8')
 const editor = readFileSync(new URL('../src/views/EditorView.vue', import.meta.url), 'utf8')
+const settings = readFileSync(new URL('../src/views/SettingsView.vue', import.meta.url), 'utf8')
+const mojibakeTitleMarkers = /[\uFFFD\u00C3\u00C2\u00E6\u93C3\u7481\u752F\u93BF\u9410\u7487\u9359\u5BB8\u93C6\u93C8\u951B\u9427\u6769\u7459\u93BB\u9286\u9225]/
 
 function routeBlock(path) {
   const marker = `path: '${path}'`
@@ -22,16 +25,25 @@ function adminPermissionsFor(path) {
 
 const adminRoles = ['ops', 'questionOperator', 'contentModerator', 'admin']
 const adminRouteAccess = {
+  '/admin': { ops: true, questionOperator: true, contentModerator: true, admin: true },
   '/admin/ops': { ops: true, questionOperator: true, contentModerator: true, admin: true },
   '/admin/questions': { ops: false, questionOperator: true, contentModerator: false, admin: true },
   '/admin/company-aliases': { ops: false, questionOperator: true, contentModerator: false, admin: true },
   '/admin/governance': { ops: true, questionOperator: false, contentModerator: true, admin: true },
+  '/admin/tags': { ops: false, questionOperator: false, contentModerator: true, admin: true },
 }
 
 const routedAdminPaths = [...source.matchAll(/path:\s*'([^']+)'/g)]
   .map((match) => match[1])
-  .filter((path) => path.startsWith('/admin/'))
+  .filter((path) => path === '/admin' || path.startsWith('/admin/'))
   .sort()
+
+const routeTitles = [...source.matchAll(/title:\s*'([^']*)'/g)].map((match) => match[1])
+assert.ok(routeTitles.length >= 20, 'router must declare visible page titles for the main routes')
+for (const title of routeTitles) {
+  assert.doesNotMatch(title, mojibakeTitleMarkers, `route title must not contain mojibake markers: ${title}`)
+  assert.doesNotMatch(title, /\?{2,}/, `route title must not contain placeholder question marks: ${title}`)
+}
 
 assert.deepEqual(routedAdminPaths, Object.keys(adminRouteAccess).sort(), 'every admin route must be covered by the access matrix')
 
@@ -62,8 +74,11 @@ for (const path of ['/login', '/register']) {
   assert.doesNotMatch(block, /adminPermission:/, `${path} must not require admin permissions`)
 }
 
-for (const label of ['信息流', '发现', '题库', '模拟面试']) {
+for (const label of ['首页', '发现', '趋势', '搜索']) {
   assert.match(appHeader, new RegExp(label), `mobile/desktop navigation must expose ${label}`)
+}
+for (const label of ['资源库', '题库', '模拟面试']) {
+  assert.doesNotMatch(appHeader, new RegExp(`label:\\s*'${label}'`), `core navigation must not expose ${label}`)
 }
 
 assert.match(appHeader, /showMobileMenu/, 'AppHeader must keep a mobile menu state')
@@ -77,6 +92,9 @@ assert.match(appHeader, /themeStore\.isDark\(\) \? 'mobile-quick-action-dark'/, 
 assert.match(appHeader, /\.mobile-nav-link-dark[\s\S]*background:\s*rgb\(15 23 42\)/, 'mobile navigation links must not become transparent in dark mode')
 assert.match(appHeader, /\.mobile-nav-link-dark[\s\S]*color:\s*rgb\(203 213 225\)/, 'mobile navigation links must keep readable dark-mode text')
 assert.match(appHeader, /\.mobile-nav-link-active\.mobile-nav-link-dark[\s\S]*color:\s*rgb\(191 219 254\)/, 'active mobile navigation must keep a distinct dark-mode highlight')
+assert.match(settings, /useThemeStore/, 'settings page must expose the shared theme store')
+assert.match(settings, /value: 'theme'/, 'settings page must expose a theme settings tab')
+assert.match(settings, /themeStore\.setMode\(option\.value\)/, 'settings page must let users choose light, dark, or system theme')
 assert.match(appHeader, /to="\/search"/, 'mobile header menu must expose search')
 assert.match(appHeader, /to="\/editor"/, 'mobile header menu must expose publishing')
 assert.match(appHeader, /to="\/me\/notifications"/, 'mobile header menu must expose notifications when logged in')
@@ -105,6 +123,11 @@ assert.match(editor, /isForbiddenEdit\.value = true/, 'EditorView forbidden redi
 const forbidden = readFileSync(new URL('../src/views/ForbiddenView.vue', import.meta.url), 'utf8')
 assert.match(forbidden, /useAuthStore/, 'ForbiddenView must distinguish unauthenticated users from logged-in users without enough permission')
 assert.match(forbidden, /path: '\/login'[\s\S]*redirect: fromPath/, 'ForbiddenView must offer login with the blocked path preserved')
+assert.match(forbidden, /switchAccount: '1'/, 'ForbiddenView must offer a switch-account recovery path')
+assert.match(forbidden, /permission_check_failed/, 'ForbiddenView must explain temporary permission-check failures')
+assert.match(forbidden, /adminRecoveryPath/, 'ForbiddenView must route admins back to a likely accessible admin entry')
+assert.match(forbidden, /safeRedirect\(route\.query\.from, '\/admin'\)/, 'ForbiddenView must sanitize the blocked source path')
 assert.match(forbidden, /当前账号缺少对应角色/, 'ForbiddenView must explain post-login permission failures')
+assert.match(guards, /reason: 'permission_check_failed'/, 'router guard must mark permission API failures distinctly from missing roles')
 
 console.log('route meta guard passed')

@@ -12,7 +12,7 @@ assert.match(opsApi, /listQuestionIndexTasks/, 'ops API must list recent questio
 assert.match(opsApi, /retryQuestionIndexTask/, 'ops API must retry failed question index tasks')
 assert.match(opsApi, /retryable\?:\s*boolean/, 'ops API must expose question index task retryability')
 
-assert.match(view, /题库索引任务/, 'OpsView must render a dedicated question index task panel')
+assert.match(view, /知识卡索引任务/, 'OpsView must render a dedicated question index task panel')
 assert.match(view, /questionIndexTask = ref<QuestionIndexTask \| null>\(null\)/, 'OpsView must keep the active question index task')
 assert.match(view, /recentQuestionIndexTasks = ref<QuestionIndexTask\[\]>\(\[\]\)/, 'OpsView must keep recent question index tasks')
 assert.match(view, /isQuestionIndexTaskActive/, 'OpsView must track active question index rebuild state')
@@ -26,7 +26,7 @@ assert.match(view, /questionIndexTask\.failed/, 'OpsView must show failed count'
 assert.match(view, /questionIndexTask\.total/, 'OpsView must show total count')
 assert.match(view, /stopQuestionIndexPolling\(\)/, 'OpsView must stop question index polling on completion and unmount')
 
-assert.match(adminQuestionsView, /题库索引任务/, 'AdminQuestionsView must render question index task status')
+assert.match(adminQuestionsView, /知识库索引任务/, 'AdminQuestionsView must render question index task status')
 assert.match(adminQuestionsView, /questionIndexTasks = ref<QuestionIndexTask\[\]>\(\[\]\)/, 'AdminQuestionsView must keep question index task history')
 assert.match(adminQuestionsView, /loadQuestionIndexTasks/, 'AdminQuestionsView must load question index tasks')
 assert.match(adminQuestionsView, /opsApi\.listQuestionIndexTasks\(10\)/, 'AdminQuestionsView must call the question index task list API')

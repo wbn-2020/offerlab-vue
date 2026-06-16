@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const editor = readFileSync(new URL('../src/views/EditorView.vue', import.meta.url), 'utf8')
+const markdownEditor = readFileSync(new URL('../src/components/post/MarkdownEditor.vue', import.meta.url), 'utf8')
 const notifications = readFileSync(new URL('../src/views/NotificationsView.vue', import.meta.url), 'utf8')
 const login = readFileSync(new URL('../src/views/LoginView.vue', import.meta.url), 'utf8')
+const navigation = readFileSync(new URL('../src/utils/navigation.ts', import.meta.url), 'utf8')
 const adapters = readFileSync(new URL('../src/api/adapters.ts', import.meta.url), 'utf8')
 
 assert.match(editor, /getErrorMessage/, 'EditorView must use centralized error messages')
@@ -15,8 +17,22 @@ assert.match(editor, /aria-live="polite"/, 'EditorView publish disabled reason m
 assert.match(editor, /hasCompany/, 'Interview posts must validate company metadata before publishing')
 assert.match(editor, /hasPosition/, 'Interview posts must validate position metadata before publishing')
 assert.match(editor, /normalizedTags\.value\.length >= \(isInterviewPost\.value \? 2 : 1\)/, 'EditorView must require meaningful tags before publishing')
+assert.match(editor, /publishFailure/, 'EditorView must keep publish failure state for failed saves')
+assert.match(editor, /草稿已保护/, 'EditorView publish failure UI must reassure users that the draft is protected')
+assert.match(editor, /保留文本标签重试/, 'EditorView publish failure UI must offer a safe tag text retry action')
+assert.match(editor, /retryWithTextTagsOnly/, 'EditorView tag retry must keep tag names while clearing stale tag ids')
+assert.match(editor, /form\.value\.tags = \[\]/, 'EditorView tag retry must clear stale backend tag ids')
+assert.match(editor, /const textTags = normalizedTags\.value[\s\S]*if \(!textTags\.length\)[\s\S]*selectedTags\.value = textTags/, 'EditorView tag retry must preserve visible tag text so publish validation still passes')
+assert.match(editor, /检查标签治理/, 'EditorView publish failure UI must link tag governance troubleshooting')
 assert.doesNotMatch(editor, /alert\(/, 'EditorView must not use blocking alert feedback')
 assert.doesNotMatch(editor, /console\.error/, 'EditorView must not log user-facing failures instead of showing feedback')
+
+assert.match(markdownEditor, /role="tablist"/, 'MarkdownEditor must expose edit and preview modes as accessible tabs')
+assert.match(markdownEditor, /aria-selected/, 'MarkdownEditor tabs must expose selected state')
+assert.match(markdownEditor, /min-height:\s*2\.5rem/, 'MarkdownEditor mobile tab controls must keep a 40px touch target')
+assert.match(markdownEditor, /min-height:\s*clamp\(16rem, 54dvh, 28rem\)/, 'MarkdownEditor mobile textarea must use a viewport-aware stable height')
+assert.match(markdownEditor, /font-size:\s*16px/, 'MarkdownEditor mobile textarea must avoid small-text zoom and improve typing comfort')
+assert.match(markdownEditor, /overflow-x:\s*auto/, 'MarkdownEditor preview must keep long Markdown content from causing mobile overflow')
 
 assert.match(notifications, /getErrorMessage/, 'NotificationsView must use centralized error messages')
 assert.match(notifications, /toast\.error/, 'NotificationsView mutations must show failures')
@@ -26,7 +42,7 @@ assert.match(notifications, /toast\.success\('已全部标为已读'\)/, 'Notifi
 assert.doesNotMatch(notifications, /console\.error/, 'NotificationsView must not hide failures in console only')
 
 assert.match(login, /router\.replace\(safeRedirect\(route\.query\.redirect\)\)/, 'LoginView must replace the login page after successful login')
-assert.match(login, /\^\\\/\(\?:login\|register\)/, 'LoginView must not redirect authenticated users back to auth pages')
+assert.match(navigation, /\^\\\/\(\?:login\|register\)/, 'shared navigation guard must not redirect authenticated users back to auth pages')
 assert.match(login, /authStore\.isLoggedIn/, 'LoginView must redirect already authenticated visitors away from login')
 
 assert.match(adapters, /notificationHeading\(type, content, sender\?\.nickname\)/, 'notification adapter must derive titles from system content')

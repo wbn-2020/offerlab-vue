@@ -166,12 +166,12 @@ const addToReviewQueue = async () => {
   color: rgb(67 56 202);
 }
 
-:global(.dark) .meta-chip {
+.dark .meta-chip {
   background: rgb(30 41 59);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .meta-company {
+.dark .meta-company {
   background: rgb(30 27 75);
   color: rgb(199 210 254);
 }
@@ -212,17 +212,17 @@ const addToReviewQueue = async () => {
   opacity: 0.65;
 }
 
-:global(.dark) .signal-chip {
+.dark .signal-chip {
   background: rgb(30 41 59);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .signal-strong {
+.dark .signal-strong {
   background: rgb(6 78 59);
   color: rgb(167 243 208);
 }
 
-:global(.dark) .review-action {
+.dark .review-action {
   border-color: rgb(30 64 175);
   background: rgb(23 37 84);
   color: rgb(191 219 254);
@@ -235,7 +235,7 @@ const addToReviewQueue = async () => {
   color: rgb(113 63 18);
 }
 
-:global(.dark) :deep(.question-search-highlight) {
+.dark :deep(.question-search-highlight) {
   background: rgb(133 77 14);
   color: rgb(254 243 199);
 }

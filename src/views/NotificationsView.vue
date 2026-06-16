@@ -86,7 +86,7 @@
         </RouterLink>
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="notification-list space-y-3">
         <article
           v-for="notif in notifications"
           :key="notif.notificationId"
@@ -104,7 +104,7 @@
           @keydown.enter.prevent="openNotification(notif)"
           @keydown.space.prevent="openNotification(notif)"
         >
-          <div class="flex items-start gap-4">
+          <div class="notification-item-inner flex items-start gap-4">
             <div :class="['flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full', iconClass(notif.type)]">
               <component :is="iconFor(notif.type)" class="h-5 w-5" />
             </div>
@@ -127,7 +127,7 @@
               type="button"
               @click.stop="markAsRead(notif.notificationId)"
               :disabled="isMutating"
-              class="flex-shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+              class="notification-read-button flex-shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
             >
               标记已读
             </button>
@@ -176,6 +176,8 @@ const hasMore = ref(false)
 const unread = ref(emptyUnreadCount())
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
+const notificationUnreadKeys = ['like', 'comment', 'favorite', 'follower', 'mention', 'system'] as const
+type NotificationUnreadKey = typeof notificationUnreadKeys[number]
 
 const tabs = computed(() => [
   { value: 'all', label: '全部', count: unread.value.total, icon: Bell },
@@ -191,6 +193,9 @@ const interactionUnread = computed(() => unread.value.like + unread.value.commen
 const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
 const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
 const markAllHint = computed(() => unread.value.total === 0 ? '当前没有未读通知' : '将所有通知标记为已读')
+const isNotificationUnreadKey = (type: string): type is NotificationUnreadKey => {
+  return notificationUnreadKeys.includes(type as NotificationUnreadKey)
+}
 
 const iconFor = (type: string) => {
   if (type === 'like') return Heart
@@ -269,18 +274,42 @@ const switchTab = async (type: NotificationType | string) => {
   await loadNotifications()
 }
 
-const markAsRead = async (id: ApiId) => {
-  isMutating.value = true
+type MarkReadOptions = {
+  background?: boolean
+}
+
+const applyReadLocally = (id: ApiId) => {
+  const original = notifications.value.find(item => item.notificationId === id)
+  if (!original || original.read) return null
+  notifications.value = notifications.value.map(item =>
+    item.notificationId === id ? { ...item, read: true } : item
+  )
+  const nextUnread = { ...unread.value, total: Math.max(0, unread.value.total - 1) }
+  if (isNotificationUnreadKey(original.type)) {
+    nextUnread[original.type] = Math.max(0, nextUnread[original.type] - 1)
+  }
+  syncUnread(nextUnread)
+  return original
+}
+
+const restoreReadLocally = (original: Notification) => {
+  notifications.value = notifications.value.map(item =>
+    item.notificationId === original.notificationId ? original : item
+  )
+}
+
+const markAsRead = async (id: ApiId, options: MarkReadOptions = {}) => {
+  if (!options.background) isMutating.value = true
+  const original = applyReadLocally(id)
   try {
     await notificationApi.markAsRead([id])
-    notifications.value = notifications.value.map(item =>
-      item.notificationId === id ? { ...item, read: true } : item
-    )
     await loadUnread()
   } catch (error) {
+    if (original) restoreReadLocally(original)
+    await loadUnread().catch(() => {})
     toast.error(getErrorMessage(error, '标记已读失败'))
   } finally {
-    isMutating.value = false
+    if (!options.background) isMutating.value = false
   }
 }
 
@@ -298,9 +327,13 @@ const markAllAsRead = async () => {
   }
 }
 
-const openNotification = async (notif: Notification) => {
-  if (!notif.read) await markAsRead(notif.notificationId)
-  if (notif.targetPath) router.push(notif.targetPath)
+const openNotification = (notif: Notification) => {
+  if (notif.targetPath) {
+    router.push(notif.targetPath)
+    if (!notif.read) void markAsRead(notif.notificationId, { background: true })
+    return
+  }
+  if (!notif.read) void markAsRead(notif.notificationId)
 }
 
 const notificationActionLabel = (notif: Notification) => {
@@ -384,34 +417,75 @@ onMounted(async () => {
   color: rgb(100 116 139);
 }
 
-:global(.dark) .metric-card {
+.dark .metric-card {
   border-color: rgb(51 65 85);
 }
 
-:global(.dark) .metric-card span {
+.dark .metric-card span {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .metric-card strong {
+.dark .metric-card strong {
   color: rgb(241 245 249);
 }
 
-:global(.dark) .tab-button-active {
+.dark .tab-button-active {
   border-color: rgb(67 56 202);
   background: rgb(30 27 75);
   color: rgb(199 210 254);
 }
 
-:global(.dark) .tab-button-idle {
+.dark .tab-button-idle {
   color: rgb(203 213 225);
 }
 
-:global(.dark) .tab-button-idle:hover {
+.dark .tab-button-idle:hover {
   background: rgb(30 41 59);
   color: rgb(248 250 252);
 }
 
-:global(.dark) .mark-read-hint {
+.dark .mark-read-hint {
   color: rgb(148 163 184);
+}
+
+@media (max-width: 640px) {
+  .metric-card {
+    min-width: 0;
+    padding: 0.65rem;
+  }
+
+  .metric-card strong {
+    font-size: 1.1rem;
+    line-height: 1.35rem;
+  }
+
+  .tab-button {
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  .mark-read-actions {
+    width: 100%;
+  }
+
+  .mark-read-actions button {
+    width: 100%;
+  }
+
+  .notification-list article {
+    padding: 0.875rem;
+  }
+
+  .notification-item-inner {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .notification-read-button {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    width: 100%;
+  }
 }
 </style>

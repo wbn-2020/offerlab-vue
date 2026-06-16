@@ -27,6 +27,9 @@ export interface UserIntent {
   targetCity?: string
   yearsOfExp?: number
   techStack?: string[]
+  interestTopics?: string[]
+  interestTags?: string[]
+  contentPreferences?: string[]
 }
 
 export interface Post {
@@ -48,6 +51,7 @@ export interface Post {
     favorite: number
   }
   extension?: Record<string, any>
+  domain?: number
   recommendationReasons?: string[]
   myInteraction?: {
     liked: boolean
@@ -55,6 +59,48 @@ export interface Post {
   }
   createdAt: number
   updatedAt: number
+}
+
+export interface PostPublishStatus {
+  postId: ApiId
+  ready?: boolean
+  database?: {
+    landed?: boolean
+    publiclyVisible?: boolean
+    visibleWithTestData?: boolean
+    postType?: number
+    title?: string
+  }
+  index?: {
+    documentFound?: boolean
+    status?: Record<string, unknown>
+    retryTask?: {
+      id?: ApiId
+      operation?: string
+      status?: number
+      statusText?: string
+      retryCount?: number
+      updateTime?: string
+    } | null
+  }
+  search?: {
+    visible?: boolean
+    source?: string
+    degraded?: boolean
+    fallbackReason?: string
+    diagnostics?: Record<string, unknown>
+  }
+  outbox?: {
+    latest?: {
+      id?: ApiId
+      topic?: string
+      status?: number
+      statusText?: string
+      retryCount?: number
+      nextRetryTime?: string
+      updateTime?: string
+    } | null
+  }
 }
 
 export interface PostVersionHistory {
@@ -81,6 +127,42 @@ export interface Tag {
   slug: string
   category?: string
   count?: number
+  tagType?: number
+  status?: number
+  recommended?: boolean
+  official?: boolean
+  mergeTargetId?: ApiId
+  synonyms?: string[]
+}
+
+export interface ContentTypeOption {
+  value: number
+  code: string
+  label: string
+  shortLabel: string
+  description: string
+  placeholder: string
+  minContentLength: number
+  legacy?: boolean
+}
+
+export interface CommunityTopic {
+  id: ApiId
+  slug: string
+  name: string
+  description?: string
+  topicType?: string
+  coverUrl?: string
+  sortOrder?: number
+  featured?: boolean
+  status?: number
+  postCount?: number
+  followerCount?: number
+  followed?: boolean
+  virtualTopic?: boolean
+  tags: Tag[]
+  createdAt?: number
+  updatedAt?: number
 }
 
 export interface Comment {
@@ -183,4 +265,5 @@ export interface PaginatedResponse<T> {
   degraded?: boolean
   fallbackReason?: string
   scanLimit?: number
+  diagnostics?: Record<string, unknown>
 }

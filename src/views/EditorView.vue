@@ -3,19 +3,19 @@
     <AppHeader />
     <!-- 编辑工具条 -->
     <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
-      <div class="max-w-6xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-4">
+      <div class="editor-toolbar-inner max-w-6xl mx-auto flex items-center justify-between">
+        <div class="editor-toolbar-title flex items-center gap-4">
           <button
             @click="goBack"
-            class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            class="editor-back-button p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
             ← 返回
           </button>
-          <h1 class="text-xl font-bold text-slate-900 dark:text-slate-100">
-            {{ isEditing ? '编辑帖子' : '发布新帖子' }}
+          <h1 class="editor-heading text-xl font-bold text-slate-900 dark:text-slate-100">
+            {{ isEditing ? '编辑技术经验' : '发布技术经验' }}
           </h1>
         </div>
-        <div class="flex flex-wrap items-center justify-end gap-3">
+        <div class="editor-toolbar-actions flex flex-wrap items-center justify-end gap-3">
           <select
             v-if="!isEditing && serverDrafts.length"
             v-model="selectedDraftId"
@@ -73,16 +73,16 @@
       </section>
     </main>
 
-    <div v-else class="max-w-6xl mx-auto p-6">
+    <div v-else class="editor-main-shell max-w-6xl mx-auto p-6">
       <div class="space-y-6">
         <!-- 标题输入 -->
         <div class="flex flex-col gap-2">
           <input
             v-model="form.title"
             type="text"
-            placeholder="输入标题..."
+            :placeholder="activePostType.placeholder"
             data-field="title"
-            class="text-3xl font-bold px-4 py-3 border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
+            class="editor-title-input text-3xl font-bold px-4 py-3 border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
           />
           <p v-if="fieldErrors.title" class="field-error px-4">{{ fieldErrors.title }}</p>
           <div class="text-sm text-slate-500 dark:text-slate-400 px-4">
@@ -90,15 +90,15 @@
           </div>
         </div>
 
-        <!-- 帖子类型 Tab -->
-        <div class="flex gap-2 border-b border-slate-200 dark:border-slate-800 px-4">
+        <!-- 内容类型 Tab -->
+        <div class="content-type-tabs flex gap-2 border-b border-slate-200 dark:border-slate-800 px-4">
           <button
             v-for="type in postTypes"
             :key="type.value"
             @click="form.postType = type.value"
             :disabled="isEditing"
             :class="[
-              'px-4 py-3 font-medium text-sm transition-colors border-b-2',
+              'content-type-tab px-4 py-3 font-medium text-sm transition-colors border-b-2',
               form.postType === type.value
                 ? 'text-primary-600 border-primary-600'
                 : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
@@ -108,8 +108,19 @@
           </button>
         </div>
 
-        <!-- 面经元数据 -->
-        <div v-if="form.postType === 1" class="px-4">
+        <section class="template-helper mx-4">
+          <div>
+            <p>发布模板</p>
+            <strong>{{ activeTemplate.title }}</strong>
+            <span>{{ activeTemplate.description }}</span>
+          </div>
+          <button type="button" :disabled="Boolean(form.content.trim())" @click="applyActiveTemplate">
+            {{ form.content.trim() ? '正文已有内容' : '套用模板' }}
+          </button>
+        </section>
+
+        <!-- 内容元数据 -->
+        <div class="px-4">
           <PostMeta v-model="form.extension" :type="form.postType" />
           <div v-if="metaErrorMessages.length" data-field="company" class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
             <p v-for="message in metaErrorMessages" :key="message">{{ message }}</p>
@@ -120,7 +131,7 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-sm font-extrabold text-slate-900 dark:text-slate-100">发布检查</h2>
-              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">这些检查会影响面经沉淀、自动提题和搜索质量。</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">这些检查会影响内容可读性、搜索质量和后续 AI 知识沉淀。</p>
             </div>
             <span :class="['quality-score', blockingQualityIssues.length ? 'quality-score-warn' : 'quality-score-ok']">
               {{ passedQualityCount }}/{{ qualityChecks.length }}
@@ -137,10 +148,38 @@
           </div>
         </section>
 
+        <section class="knowledge-assist mx-4">
+          <div class="knowledge-assist-head">
+            <div>
+              <h2>知识沉淀辅助</h2>
+              <p>发布前先把内容整理成社区可搜索、可讨论、可复用的知识资产。</p>
+            </div>
+            <span>{{ knowledgeAssistReadiness }}</span>
+          </div>
+          <div class="knowledge-assist-grid">
+            <article>
+              <strong>摘要建议</strong>
+              <p>{{ knowledgeSummary }}</p>
+            </article>
+            <article>
+              <strong>FAQ 候选</strong>
+              <p>{{ knowledgeFaqHint }}</p>
+            </article>
+            <article>
+              <strong>知识卡候选</strong>
+              <p>{{ knowledgeCardHint }}</p>
+            </article>
+          </div>
+          <div class="knowledge-assist-actions">
+            <button type="button" @click="copyKnowledgeAssist">复制沉淀草稿</button>
+            <button type="button" @click="fillSummaryFromAssist">写入摘要字段</button>
+          </div>
+        </section>
+
         <!-- 标签输入 -->
         <div class="px-4 flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-700 dark:text-slate-300">标签</label>
-          <div class="flex gap-2 mb-2">
+          <div class="tag-entry-row flex gap-2 mb-2">
             <input
               v-model="tagInput"
               type="text"
@@ -178,9 +217,27 @@
 
         <!-- Markdown 编辑器 -->
         <div class="px-4" data-field="content">
-          <MarkdownEditor v-model="form.content" />
+          <MarkdownEditor v-model="form.content" :max-length="CONTENT_MAX_LENGTH" />
           <p v-if="fieldErrors.content" class="field-error mt-2">{{ fieldErrors.content }}</p>
         </div>
+
+        <section v-if="publishFailure" class="publish-diagnostic mx-4" role="alert">
+          <div>
+            <p class="publish-diagnostic-kicker">发布未完成，草稿已保护</p>
+            <h2>{{ publishFailure.title }}</h2>
+            <p>{{ publishFailure.message }}</p>
+            <span v-if="publishFailure.traceId">Trace: {{ publishFailure.traceId }}</span>
+          </div>
+          <ul>
+            <li v-for="item in publishFailure.actions" :key="item">{{ item }}</li>
+          </ul>
+          <div class="publish-diagnostic-actions">
+            <button type="button" @click="saveDraft">再保存一次草稿</button>
+            <button v-if="canRetryWithTextTagsOnly" type="button" @click="retryWithTextTagsOnly">保留文本标签重试</button>
+            <RouterLink to="/admin/tags">检查标签治理</RouterLink>
+            <RouterLink to="/me">查看我的草稿</RouterLink>
+          </div>
+        </section>
 
         <!-- 封面图 -->
         <div class="px-4 flex flex-col gap-2">
@@ -201,8 +258,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, ref, onBeforeUnmount, onMounted, watch } from 'vue'
+import { onBeforeRouteLeave, useRouter, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownEditor from '@/components/post/MarkdownEditor.vue'
 import PostMeta from '@/components/post/PostMeta.vue'
@@ -210,25 +267,53 @@ import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
 import { postApi, type PostDraft } from '@/api/post'
 import { toast } from 'vue-sonner'
 import { safeStorage } from '@/utils/safeStorage'
+import { hasLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 import { useAuthStore } from '@/stores/auth'
+import {
+  ALL_CONTENT_TYPES,
+  COMMUNITY_CONTENT_TYPES,
+  DEFAULT_POST_TYPE,
+  LEGACY_CONTENT_TYPES,
+  contentTypeCodeOf,
+  getContentTypeOption,
+  isLegacyInterviewType,
+} from '@/utils/contentTypes'
+import type { PostTypeValue } from '@/utils/contentTypes'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const LOCAL_DRAFT_TTL = 7 * 24 * 60 * 60 * 1000
+const CONTENT_MAX_LENGTH = 50000
+const AUTO_SAVE_DEBOUNCE_MS = 1500
 
-const postTypes = [
-  { value: 1, label: '面经' },
-  { value: 2, label: '技术博客' },
-  { value: 3, label: '题解' },
-  { value: 4, label: '求职问答' }
-]
+const postTypes = computed(() => {
+  const active = Number(form.value.postType)
+  const legacyActive = LEGACY_CONTENT_TYPES.some((item) => item.value === active)
+  return legacyActive ? ALL_CONTENT_TYPES : COMMUNITY_CONTENT_TYPES
+})
 
-const form = ref({
-  postType: 1,
+type EditorForm = {
+  postType: PostTypeValue
+  title: string
+  content: string
+  tags: number[]
+  extension: Record<string, any>
+  coverUrl: string
+}
+
+type PublishFailure = {
+  title: string
+  message: string
+  traceId: string
+  actions: string[]
+}
+
+const form = ref<EditorForm>({
+  postType: DEFAULT_POST_TYPE,
   title: '',
   content: '',
-  tags: [] as number[],
+  tags: [],
   extension: {},
   coverUrl: ''
 })
@@ -240,12 +325,15 @@ const isEditing = ref(false)
 const isLoadingPost = ref(false)
 const isForbiddenEdit = ref(false)
 const fieldErrors = ref<Record<string, string>>({})
+const publishFailure = ref<PublishFailure | null>(null)
 const isSavingDraft = ref(false)
 const serverDraftId = ref('')
 const selectedDraftId = ref('')
 const serverDrafts = ref<PostDraft[]>([])
+const lastDraftSignature = ref('')
 const draftOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const fallbackReturnPath = computed(() => authStore.isLoggedIn ? '/me' : '/')
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 type QualityCheck = {
   key: string
@@ -255,17 +343,192 @@ type QualityCheck = {
   required: boolean
 }
 
+type PublishTemplate = {
+  title: string
+  description: string
+  content: string
+}
+
+const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
+  TECH_ARTICLE: {
+    title: '技术文章模板',
+    description: '适合沉淀方案、源码阅读、架构实践和技术总结。',
+    content: `## 背景
+
+## 核心问题
+
+## 方案设计
+
+## 关键实现
+
+## 效果与复盘
+`,
+  },
+  PROJECT_REVIEW: {
+    title: '项目复盘模板',
+    description: '突出背景、目标、架构、难点、取舍、指标和结果。',
+    content: `## 背景
+
+## 目标
+
+## 架构与技术栈
+
+## 难点与取舍
+
+## 落地过程
+
+## 指标与结果
+
+## 复盘
+`,
+  },
+  SYSTEM_DESIGN: {
+    title: '系统设计模板',
+    description: '适合拆解目标、容量、模块边界、数据模型、取舍和演进。',
+    content: `## 业务目标
+
+## 核心场景与约束
+
+## 容量估算
+
+## 架构方案
+
+## 数据模型
+
+## 关键取舍
+
+## 风险与演进
+`,
+  },
+  INTERVIEW_RECAP: {
+    title: '面试复盘模板',
+    description: '记录问题、追问、回答卡点、可复用素材和后续补强。',
+    content: `## 面试背景
+
+## 被问到的问题
+
+## 追问路径
+
+## 回答卡点
+
+## 可复用 STAR 素材
+
+## 后续补强计划
+`,
+  },
+  PITFALL: {
+    title: '线上故障/踩坑模板',
+    description: '适合记录现象、影响范围、时间线、根因、修复和防复发。',
+    content: `## 现象
+
+## 影响范围
+
+## 时间线
+
+## 根因
+
+## 修复方案
+
+## 监控与防复发
+
+## 复盘
+`,
+  },
+  QUESTION: {
+    title: '技术问答模板',
+    description: '把问题、上下文、已尝试方案和期望结果说清楚。',
+    content: `## 问题
+
+## 上下文
+
+## 已尝试方案
+
+## 期望结果
+`,
+  },
+  RESOURCE: {
+    title: '资源分享模板',
+    description: '说明资源适用人群、使用方式、优缺点和实践建议。',
+    content: `## 资源简介
+
+## 适用场景
+
+## 使用方式
+
+## 优点与限制
+
+## 推荐实践
+`,
+  },
+  NOTE: {
+    title: '经验笔记模板',
+    description: '快速记录场景、做法、命令配置和注意事项。',
+    content: `## 场景
+
+## 做法
+
+## 命令或配置
+
+## 注意事项
+`,
+  },
+}
+
 const extensionValue = computed<Record<string, any>>(() => form.value.extension && typeof form.value.extension === 'object'
   ? form.value.extension as Record<string, any>
   : {})
 const normalizedTitle = computed(() => form.value.title.trim())
 const normalizedContent = computed(() => form.value.content.trim())
 const normalizedTags = computed(() => selectedTags.value.map((tag) => tag.trim()).filter(Boolean))
-const isInterviewPost = computed(() => Number(form.value.postType) === 1)
+const contentLength = computed(() => form.value.content.length)
+const isContentOverLimit = computed(() => contentLength.value > CONTENT_MAX_LENGTH)
+const activePostType = computed(() => getContentTypeOption(form.value.postType))
+const activeTypeCode = computed(() => contentTypeCodeOf(form.value.postType))
+const activeTemplate = computed(() => PUBLISH_TEMPLATES[activeTypeCode.value] || PUBLISH_TEMPLATES.TECH_ARTICLE)
+const isInterviewPost = computed(() => isLegacyInterviewType(form.value.postType))
 const hasCompany = computed(() => Boolean(String(extensionValue.value.company || '').trim()))
 const hasPosition = computed(() => Boolean(String(extensionValue.value.position || '').trim()))
 const hasInterviewRound = computed(() => Number(extensionValue.value.interviewRounds || 0) > 0)
 const hasInterviewResult = computed(() => Number(extensionValue.value.interviewResult || 0) > 0)
+const hasContentAny = (keywords: string[]) => keywords.some((keyword) => normalizedContent.value.includes(keyword))
+const requiresStructuredExperience = computed(() => ['PROJECT_REVIEW', 'PITFALL'].includes(activeTypeCode.value))
+const hasBackgroundSection = computed(() => hasContentAny(['背景', '现象', '上下文']))
+const hasProblemSection = computed(() => hasContentAny(['难点', '根因', '问题', '挑战', '瓶颈']))
+const hasSolutionSection = computed(() => hasContentAny(['方案', '修复', '实现', '设计', '落地']))
+const hasResultSection = computed(() => hasContentAny(['结果', '指标', '收益', '提升', '降低', '复盘']))
+const structuredQualityChecks = computed<QualityCheck[]>(() => {
+  if (!requiresStructuredExperience.value) return []
+  return [
+    {
+      key: 'structured-background',
+      title: '背景或现象',
+      description: '项目复盘/故障记录需要交代背景、现象或上下文。',
+      passed: hasBackgroundSection.value,
+      required: true,
+    },
+    {
+      key: 'structured-problem',
+      title: '难点或根因',
+      description: '需要说明关键难点、根因、瓶颈或主要挑战。',
+      passed: hasProblemSection.value,
+      required: true,
+    },
+    {
+      key: 'structured-solution',
+      title: '方案与落地',
+      description: '需要写清方案、修复、实现或落地过程。',
+      passed: hasSolutionSection.value,
+      required: true,
+    },
+    {
+      key: 'structured-result',
+      title: '结果或指标',
+      description: '需要补充结果、指标、收益、提升或复盘结论。',
+      passed: hasResultSection.value,
+      required: true,
+    },
+  ]
+})
 
 const qualityChecks = computed<QualityCheck[]>(() => [
   {
@@ -278,38 +541,39 @@ const qualityChecks = computed<QualityCheck[]>(() => [
   {
     key: 'content',
     title: '正文完整',
-    description: isInterviewPost.value ? '面经正文至少 120 个字符，建议包含轮次、问题和复盘。' : '正文至少 40 个字符。',
-    passed: normalizedContent.value.length >= (isInterviewPost.value ? 120 : 40),
+    description: `${activePostType.value.label}正文至少 ${activePostType.value.minContentLength} 个字符，且不超过 ${CONTENT_MAX_LENGTH} 字。`,
+    passed: normalizedContent.value.length >= activePostType.value.minContentLength && !isContentOverLimit.value,
     required: true,
   },
   {
     key: 'company',
-    title: '公司信息',
-    description: '面经需要公司字段，后续才能进入公司准备包。',
+    title: '实体信息',
+    description: '旧版经验需要实体字段，便于历史知识库和主题包兼容。',
     passed: !isInterviewPost.value || hasCompany.value,
     required: isInterviewPost.value,
   },
   {
     key: 'position',
-    title: '岗位信息',
-    description: '面经需要岗位字段，便于公司包和题库按岗位筛选。',
+    title: '场景信息',
+    description: '旧版经验需要场景字段，便于历史知识库按场景筛选。',
     passed: !isInterviewPost.value || hasPosition.value,
     required: isInterviewPost.value,
   },
   {
     key: 'tags',
     title: '技术标签',
-    description: '至少 1 个标签；面经建议 2 个以上，帮助自动提题匹配考察点。',
+    description: '至少 1 个标签；项目复盘和踩坑记录建议补充技术栈标签。',
     passed: normalizedTags.value.length >= (isInterviewPost.value ? 2 : 1),
     required: true,
   },
   {
     key: 'round',
     title: '轮次或结果',
-    description: '补充轮次或面试结果，能增强趋势看板和准备包可信度。',
+    description: '旧版经验补充轮次或结果，可增强历史趋势和知识库可信度。',
     passed: !isInterviewPost.value || hasInterviewRound.value || hasInterviewResult.value,
     required: false,
   },
+  ...structuredQualityChecks.value,
 ])
 const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) => item.required && !item.passed))
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
@@ -319,12 +583,87 @@ const publishDisabledReason = computed(() => {
   return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
 })
 const isPublishDisabled = computed(() => isPublishing.value || isLoadingPost.value || blockingQualityIssues.value.length > 0)
+const canRetryWithTextTagsOnly = computed(() => normalizedTags.value.length > 0 && form.value.tags.length > 0)
 const metaErrorMessages = computed(() => ['company', 'position', 'interviewRound', 'round', 'yearsOfExp', 'interviewResult', 'interviewRounds', 'extension']
   .map((field) => fieldErrors.value[field])
   .filter(Boolean))
+const cleanContentLines = computed(() => normalizedContent.value
+  .replace(/```[\s\S]*?```/g, ' ')
+  .split(/\r?\n+/)
+  .map((line) => line.replace(/[#>*`_\-[\]()]/g, ' ').replace(/\s+/g, ' ').trim())
+  .filter((line) => line.length >= 8)
+  .slice(0, 8))
+const knowledgeSummary = computed(() => {
+  const explicitSummary = sanitizeVisibleText(extensionValue.value.summary)
+  if (explicitSummary) return explicitSummary
+  const source = cleanContentLines.value[0] || normalizedTitle.value
+  if (!source) return '正文完善后会自动给出摘要建议。'
+  return source.length > 90 ? `${source.slice(0, 90)}...` : source
+})
+const knowledgeFaqHint = computed(() => {
+  const questionLine = cleanContentLines.value.find((line) => /[？?]|怎么|如何|为什么|排查|解决/.test(line))
+  if (questionLine) return questionLine.length > 80 ? `${questionLine.slice(0, 80)}...` : questionLine
+  if (normalizedTitle.value) return `可以围绕“${normalizedTitle.value.slice(0, 36)}”补一个问题和结论。`
+  return '补充一个真实问题、排查过程和最终结论后，可沉淀为 FAQ。'
+})
+const knowledgeCardHint = computed(() => {
+  const techTags = normalizedTags.value.slice(0, 4).join('、') || '技术栈'
+  if (normalizedContent.value.length >= activePostType.value.minContentLength) {
+    return `${activePostType.value.label} · ${techTags} · 可沉淀为摘要、FAQ 和相似内容推荐素材。`
+  }
+  return `继续补充背景、过程、结论和复盘，发布后可形成 ${activePostType.value.label} 知识卡。`
+})
+const knowledgeAssistReadiness = computed(() => blockingQualityIssues.value.length ? '待补齐' : '可沉淀')
+const knowledgeAssistMarkdown = computed(() => [
+  `# ${normalizedTitle.value || '待补充标题的技术经验'}`,
+  '',
+  `内容类型：${activePostType.value.label}`,
+  normalizedTags.value.length ? `技术标签：${normalizedTags.value.join('、')}` : '技术标签：待补充',
+  '',
+  '## 摘要建议',
+  knowledgeSummary.value,
+  '',
+  '## FAQ 候选',
+  knowledgeFaqHint.value,
+  '',
+  '## 知识卡候选',
+  knowledgeCardHint.value,
+].join('\n'))
 
 const clearFieldErrors = () => {
   fieldErrors.value = {}
+  publishFailure.value = null
+}
+
+const applyActiveTemplate = () => {
+  if (form.value.content.trim()) return
+  form.value.content = activeTemplate.value.content
+  if (!extensionValue.value.contentType) {
+    form.value.extension = {
+      ...extensionValue.value,
+      contentType: activeTypeCode.value,
+    }
+  }
+  scheduleAutoSave()
+  toast.success('已套用发布模板')
+}
+
+const copyKnowledgeAssist = async () => {
+  try {
+    await navigator.clipboard.writeText(knowledgeAssistMarkdown.value)
+    toast.success('已复制知识沉淀草稿')
+  } catch {
+    toast.error('复制失败，请手动选择内容')
+  }
+}
+
+const fillSummaryFromAssist = () => {
+  form.value.extension = {
+    ...extensionValue.value,
+    summary: knowledgeSummary.value,
+  }
+  scheduleAutoSave()
+  toast.success('已写入摘要字段')
 }
 
 const extractFieldErrors = (error: unknown): Record<string, string> => {
@@ -360,6 +699,30 @@ const localDraftKey = (owner = draftOwner.value) => {
   return postId ? `post_draft:${owner}:edit:${postId}` : `post_draft:${owner}:new`
 }
 
+const currentDraftSignature = computed(() => JSON.stringify({
+  postType: form.value.postType,
+  title: form.value.title,
+  content: form.value.content,
+  coverUrl: form.value.coverUrl,
+  extension: form.value.extension,
+  selectedTags: selectedTags.value,
+  serverDraftId: serverDraftId.value,
+}))
+
+const hasMeaningfulDraft = computed(() => Boolean(
+  form.value.title.trim()
+  || form.value.content.trim()
+  || form.value.coverUrl.trim()
+  || selectedTags.value.length
+  || Object.keys(extensionValue.value).length,
+))
+
+const hasUnsavedDraft = computed(() => hasMeaningfulDraft.value && currentDraftSignature.value !== lastDraftSignature.value)
+
+const markDraftClean = () => {
+  lastDraftSignature.value = currentDraftSignature.value
+}
+
 const persistLocalDraft = () => {
   safeStorage.set(localDraftKey(), JSON.stringify({
     savedAt: Date.now(),
@@ -368,6 +731,24 @@ const persistLocalDraft = () => {
     selectedTags: selectedTags.value,
     serverDraftId: serverDraftId.value,
   }))
+  markDraftClean()
+}
+
+const clearAutoSaveTimer = () => {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+}
+
+const scheduleAutoSave = () => {
+  clearAutoSaveTimer()
+  if (isLoadingPost.value || isForbiddenEdit.value || isPublishing.value || !hasMeaningfulDraft.value) return
+  autoSaveTimer = setTimeout(() => {
+    if (!isLoadingPost.value && !isForbiddenEdit.value && !isPublishing.value && hasMeaningfulDraft.value) {
+      persistLocalDraft()
+    }
+  }, AUTO_SAVE_DEBOUNCE_MS)
 }
 
 const currentDraftReq = () => ({
@@ -382,11 +763,16 @@ const currentDraftReq = () => ({
   tagNames: normalizedTags.value,
   extJson: JSON.stringify({
     ...form.value.extension,
+    contentType: contentTypeCodeOf(form.value.postType),
     tags: normalizedTags.value,
   }),
 })
 
-const applyDraft = (draft: PostDraft) => {
+const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
+  if (hasUnsafeDraftPayload(draft)) {
+    toast.warning(`${sourceLabel}疑似包含乱码或测试数据，已跳过恢复`)
+    return false
+  }
   serverDraftId.value = String(draft.id)
   selectedDraftId.value = String(draft.id)
   let extension: Record<string, any> = {}
@@ -396,7 +782,7 @@ const applyDraft = (draft: PostDraft) => {
     extension = {}
   }
   form.value = {
-    postType: draft.postType || 1,
+    postType: getContentTypeOption(draft.postType || DEFAULT_POST_TYPE).value,
     title: draft.title || '',
     content: draft.content || '',
     tags: draft.tagIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)),
@@ -404,27 +790,30 @@ const applyDraft = (draft: PostDraft) => {
     coverUrl: draft.coverUrl || '',
   }
   selectedTags.value = draft.tagNames || []
+  markDraftClean()
+  return true
 }
 
 const draftTitle = (draft: PostDraft) => {
   const title = visibleDraftText(draft.title, 32)
     || visibleDraftText(draft.content, 18)
-    || '未命名草稿'
+    || '待补充标题的草稿'
   const time = draft.updateTime ? new Date(draft.updateTime).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
   return time ? `${title} · ${time}` : title
 }
 
 const visibleDraftText = (value?: string | null, maxLength = 32) => {
-  const normalized = String(value ?? '').replace(/\s+/g, ' ').trim()
-  if (!normalized || isLowQualityVisibleText(normalized)) return ''
+  const normalized = sanitizePublicVisibleText(value)
+  if (!normalized) return ''
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized
 }
 
-const isLowQualityVisibleText = (value: string) => {
-  if (/[\uFFFD\u93C3\u7481\u752F\u93BF\u9410\u7487\u9359\u5BB8\u951B\u9286\u9225]/.test(value)) return true
-  const compact = value.replace(/\s+/g, '')
-  const questionMarks = (compact.match(/\?/g) || []).length
-  return questionMarks >= 2 && questionMarks / Math.max(compact.length, 1) >= 0.35
+const hasLowQualityDraftPayload = (draft: { title?: unknown; content?: unknown }) => {
+  return hasLowQualityVisibleText([draft.title, draft.content])
+}
+
+const hasUnsafeDraftPayload = (draft: { title?: unknown; content?: unknown }) => {
+  return hasLowQualityDraftPayload(draft) || [draft.title, draft.content].some(isSyntheticVisibleText)
 }
 
 const loadServerDrafts = async () => {
@@ -443,7 +832,7 @@ const loadSelectedDraft = async () => {
     const localDraft = serverDrafts.value.find((draft) => String(draft.id) === selectedDraftId.value)
     const draft = localDraft || (await postApi.getDraft(selectedDraftId.value)).data
     if (!draft) return
-    applyDraft(draft)
+    if (!applyDraft(draft, '服务端草稿')) return
     persistLocalDraft()
     toast.success('已恢复服务端草稿')
   } catch (error) {
@@ -455,7 +844,7 @@ const loadLatestSourceDraft = async (postId: string) => {
   try {
     const res = await postApi.getLatestDraftBySourcePost(postId)
     if (res.data) {
-      applyDraft(res.data)
+      if (!applyDraft(res.data, '未发布编辑草稿')) return false
       toast.success('已恢复未发布编辑草稿')
       return true
     }
@@ -475,6 +864,10 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
       return false
     }
     const draftForm = { ...draftData }
+    if (hasUnsafeDraftPayload(draftForm)) {
+      toast.warning('本地草稿疑似包含乱码或测试数据，已跳过恢复')
+      return false
+    }
     const draftTags = draftForm.selectedTags
     const savedServerDraftId = draftForm.serverDraftId
     delete draftForm.selectedTags
@@ -485,6 +878,7 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
     selectedTags.value = draftTags || []
     serverDraftId.value = savedServerDraftId || ''
     selectedDraftId.value = savedServerDraftId || ''
+    markDraftClean()
     return true
   } catch {
     toast.warning('本地草稿已损坏，已忽略')
@@ -514,7 +908,7 @@ const loadPostForEdit = async (postId: string) => {
       return false
     }
     form.value = {
-      postType: post.postType,
+      postType: getContentTypeOption(post.postType || DEFAULT_POST_TYPE).value,
       title: post.title,
       content: post.content,
       tags: post.tags?.map(tag => Number(tag.id)).filter(tagId => !Number.isNaN(tagId)) || [],
@@ -522,6 +916,7 @@ const loadPostForEdit = async (postId: string) => {
       coverUrl: post.coverUrl || ''
     }
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
+    markDraftClean()
     return true
   } catch (error) {
     if (isForbiddenError(error)) {
@@ -572,6 +967,10 @@ const removeTag = (idx: number) => {
 
 const saveDraft = async () => {
   persistLocalDraft()
+  if (isContentOverLimit.value) {
+    toast.warning(`正文不能超过 ${CONTENT_MAX_LENGTH} 字，已先保存为本地草稿`)
+    return
+  }
   isSavingDraft.value = true
   try {
     const res = await postApi.saveDraft(currentDraftReq())
@@ -591,6 +990,12 @@ const saveDraft = async () => {
 
 const publishPost = async () => {
   clearFieldErrors()
+  if (isContentOverLimit.value) {
+    fieldErrors.value = { content: `正文不能超过 ${CONTENT_MAX_LENGTH} 字` }
+    requestAnimationFrame(focusFirstFieldError)
+    toast.error(`正文不能超过 ${CONTENT_MAX_LENGTH} 字`)
+    return
+  }
   if (blockingQualityIssues.value.length > 0) {
     toast.error(`请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`)
     return
@@ -608,6 +1013,7 @@ const publishPost = async () => {
       tagNames: normalizedTags.value,
       extJson: JSON.stringify({
         ...form.value.extension,
+        contentType: contentTypeCodeOf(form.value.postType),
         tags: normalizedTags.value
       }),
       draftId: serverDraftId.value || undefined,
@@ -624,10 +1030,11 @@ const publishPost = async () => {
         safeStorage.remove(localDraftKey())
         serverDraftId.value = ''
         selectedDraftId.value = ''
+        markDraftClean()
         if (!isEditing.value) await loadServerDrafts()
         const reviewRequired = Boolean(res.data?.reviewRequired)
         toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
-        router.push(reviewRequired ? '/me' : `/post/${postId}`)
+        router.push(reviewRequired ? '/me' : { path: `/post/${postId}`, query: { published: '1' } })
       } else {
         toast.error(getResultMessage(res, '保存失败'))
       }
@@ -638,20 +1045,23 @@ const publishPost = async () => {
       safeStorage.remove(localDraftKey())
       serverDraftId.value = ''
       selectedDraftId.value = ''
+      markDraftClean()
       if (!isEditing.value) await loadServerDrafts()
       const reviewRequired = Boolean(res.data?.reviewRequired)
       toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
-      router.push(reviewRequired ? '/me' : `/post/${res.data?.postId}`)
+      router.push(reviewRequired ? '/me' : { path: `/post/${res.data?.postId}`, query: { published: '1' } })
     } else {
       toast.error(getResultMessage(res, `${isEditing.value ? '保存' : '发布'}失败`))
     }
   } catch (error) {
+    persistLocalDraft()
     const errors = extractFieldErrors(error)
     if (Object.keys(errors).length > 0) {
       fieldErrors.value = errors
       requestAnimationFrame(focusFirstFieldError)
     }
-    toast.error(getErrorMessage(error, `${isEditing.value ? '保存' : '发布'}失败，请重试`))
+    publishFailure.value = buildPublishFailure(error)
+    toast.error(`${getErrorMessage(error, `${isEditing.value ? '保存' : '发布'}失败，请重试`)}，草稿已保存`)
   } finally {
     isPublishing.value = false
   }
@@ -671,6 +1081,60 @@ const errorCodeOf = (error: unknown) => {
 const isForbiddenError = (error: unknown) => {
   const code = errorCodeOf(error)
   return code === 10403 || code === 403
+}
+
+const traceIdOf = (error: unknown) => {
+  if (error instanceof BizException) return error.traceId || ''
+  const traceId = (error as any)?.response?.data?.traceId
+    || (error as any)?.response?.headers?.['x-trace-id']
+    || (error as any)?.config?.headers?.['X-Trace-Id']
+  return typeof traceId === 'string' ? traceId : ''
+}
+
+const publishFailureTitle = (error: unknown) => {
+  const code = errorCodeOf(error)
+  if (code === 400 || code === 10001) return '内容字段没有通过校验'
+  if (code === 403 || code === 10403) return '当前账号暂时不能发布这篇内容'
+  if (code === 404 || code === 10404) return '发布接口或关联资源不存在'
+  if (code === 409 || code === 30002) return '内容状态已变化，请刷新后确认'
+  if (code === 20000 || code === 20001 || code === 500 || code === 503) return '服务端暂时无法完成发布'
+  return '发布请求没有成功完成'
+}
+
+const buildPublishFailure = (error: unknown): PublishFailure => {
+  const code = errorCodeOf(error)
+  const actions = [
+    '当前内容已保存为本地草稿，可以稍后从编辑器或个人主页恢复。',
+    '如果错误与标签有关，可先保留标签文本并移除旧标签 ID 后重试，或到标签治理页检查是否存在未合并标签。',
+  ]
+  if (code === 20000 || code === 20001 || code === 500 || code === 503) {
+    actions.push('数据库迁移可能未补齐，请确认 20260608 社区、标签治理和审核队列迁移已执行。')
+  }
+  if (Object.keys(fieldErrors.value).length > 0) {
+    actions.push('请优先修正页面上标红的字段，再重新发布。')
+  }
+  return {
+    title: publishFailureTitle(error),
+    message: getErrorMessage(error, `${isEditing.value ? '保存' : '发布'}失败，请重试`),
+    traceId: traceIdOf(error),
+    actions,
+  }
+}
+
+const retryWithTextTagsOnly = () => {
+  const textTags = normalizedTags.value
+  if (!textTags.length) {
+    toast.warning('当前没有可保留的标签文本，请先补充至少 1 个标签再重试')
+    return
+  }
+  selectedTags.value = textTags
+  form.value.tags = []
+  if (fieldErrors.value.tags) {
+    const { tags: _tags, ...rest } = fieldErrors.value
+    fieldErrors.value = rest
+  }
+  persistLocalDraft()
+  toast.success('已改为使用标签文本并保存本地草稿，可以重新发布')
 }
 
 const redirectForbiddenEdit = () => {
@@ -718,9 +1182,83 @@ const safeReturnPath = () => {
 const goBack = () => {
   router.push(safeReturnPath())
 }
+
+watch([form, selectedTags], scheduleAutoSave, { deep: true })
+
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (!hasUnsavedDraft.value || isPublishing.value || isForbiddenEdit.value) return
+  persistLocalDraft()
+  event.preventDefault()
+  event.returnValue = '内容已保存到本地草稿，确认离开编辑器？'
+}
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (!hasUnsavedDraft.value || isPublishing.value || isForbiddenEdit.value) {
+    next()
+    return
+  }
+  persistLocalDraft()
+  if (window.confirm('内容已自动保存到本地草稿，确认离开编辑器？')) {
+    next()
+  } else {
+    next(false)
+  }
+})
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+  clearAutoSaveTimer()
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
 </script>
 
 <style scoped>
+.editor-toolbar-inner,
+.editor-toolbar-title,
+.editor-toolbar-actions,
+.editor-main-shell {
+  min-width: 0;
+}
+
+.editor-heading {
+  min-width: 0;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.editor-back-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.editor-title-input {
+  width: 100%;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.content-type-tabs {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.content-type-tab {
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tag-entry-row input {
+  min-width: 0;
+}
+
 .draft-select {
   min-height: 2.5rem;
   width: min(18rem, 42vw);
@@ -751,6 +1289,200 @@ const goBack = () => {
   font-weight: 700;
   line-height: 1.4;
   color: rgb(180 83 9);
+}
+
+.publish-diagnostic {
+  display: grid;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(254 202 202);
+  background: rgb(255 241 242);
+  padding: 1rem;
+  color: rgb(127 29 29);
+}
+
+.publish-diagnostic-kicker {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(220 38 38);
+}
+
+.publish-diagnostic h2 {
+  margin-top: 0.25rem;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.publish-diagnostic p {
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.publish-diagnostic span {
+  margin-top: 0.4rem;
+  display: inline-flex;
+  border-radius: 999px;
+  background: white;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.publish-diagnostic ul {
+  display: grid;
+  gap: 0.4rem;
+  padding-left: 1.1rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.publish-diagnostic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.publish-diagnostic-actions button,
+.publish-diagnostic-actions a {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(252 165 165);
+  background: white;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(185 28 28);
+}
+
+.template-helper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(219 234 254);
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.template-helper p {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(37 99 235);
+}
+
+.template-helper strong {
+  margin-top: 0.15rem;
+  display: block;
+  color: rgb(15 23 42);
+}
+
+.template-helper span {
+  margin-top: 0.25rem;
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgb(71 85 105);
+}
+
+.template-helper button {
+  flex: 0 0 auto;
+  border-radius: 0.5rem;
+  background: rgb(37 99 235);
+  padding: 0.55rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: white;
+}
+
+.template-helper button:disabled {
+  cursor: not-allowed;
+  background: rgb(148 163 184);
+}
+
+.knowledge-assist {
+  display: grid;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.knowledge-assist-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.knowledge-assist h2 {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: rgb(30 64 175);
+}
+
+.knowledge-assist p {
+  margin-top: 0.3rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgb(51 65 85);
+}
+
+.knowledge-assist-head > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: white;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(29 78 216);
+}
+
+.knowledge-assist-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.knowledge-assist-grid article {
+  min-width: 0;
+  border-radius: 0.65rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 0.85rem;
+}
+
+.knowledge-assist-grid strong {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 900;
+  color: rgb(30 64 175);
+}
+
+.knowledge-assist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.knowledge-assist-actions button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(147 197 253);
+  background: white;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(29 78 216);
 }
 
 .forbidden-primary-action,
@@ -868,62 +1600,239 @@ const goBack = () => {
   color: rgb(225 29 72);
 }
 
-:global(.dark) .quality-score-ok {
+.dark .quality-score-ok {
   background: rgb(20 83 45);
   color: rgb(187 247 208);
 }
 
-:global(.dark) .quality-score-warn {
+.dark .quality-score-warn {
   background: rgb(113 63 18);
   color: rgb(254 240 138);
 }
 
-:global(.dark) .quality-row {
+.dark .quality-row {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .quality-row > span {
+.dark .quality-row > span {
   background: rgb(2 6 23);
 }
 
-:global(.dark) .draft-select {
+.dark .draft-select {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .forbidden-secondary-action {
+.dark .forbidden-secondary-action {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .forbidden-secondary-action:hover {
+.dark .forbidden-secondary-action:hover {
   border-color: rgb(59 130 246);
   background: rgb(30 41 59);
   color: rgb(191 219 254);
 }
 
-:global(.dark) .publish-hint {
+.dark .publish-hint {
   color: rgb(251 191 36);
 }
 
-:global(.dark) .quality-row strong {
+.dark .publish-diagnostic {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10 / 0.55);
+  color: rgb(254 202 202);
+}
+
+.dark .publish-diagnostic-kicker,
+.dark .publish-diagnostic h2 {
+  color: rgb(254 202 202);
+}
+
+.dark .publish-diagnostic span {
+  background: rgb(127 29 29 / 0.55);
+}
+
+.dark .publish-diagnostic-actions button,
+.dark .publish-diagnostic-actions a {
+  border-color: rgb(153 27 27);
+  background: rgb(15 23 42);
+  color: rgb(254 202 202);
+}
+
+.dark .template-helper {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .template-helper strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .quality-row p {
+.dark .template-helper span {
+  color: rgb(203 213 225);
+}
+
+.dark .knowledge-assist {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84 / 0.5);
+}
+
+.dark .knowledge-assist h2,
+.dark .knowledge-assist-grid strong {
+  color: rgb(191 219 254);
+}
+
+.dark .knowledge-assist p {
+  color: rgb(203 213 225);
+}
+
+.dark .knowledge-assist-head > span {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .knowledge-assist-grid article,
+.dark .knowledge-assist-actions button {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+  color: rgb(191 219 254);
+}
+
+.dark .quality-row strong {
+  color: rgb(248 250 252);
+}
+
+.dark .quality-row p {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .quality-row-ok {
+.dark .quality-row-ok {
   border-color: rgb(22 101 52);
   background: rgb(5 46 22);
 }
 
-:global(.dark) .quality-row-blocking {
+.dark .quality-row-blocking {
   border-color: rgb(161 98 7);
   background: rgb(69 26 3);
+}
+
+@media (max-width: 640px) {
+  .editor-toolbar-inner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .editor-toolbar-title {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .editor-back-button {
+    min-height: 44px;
+    padding-inline: 0.75rem;
+  }
+
+  .editor-heading {
+    flex: 1 1 auto;
+    font-size: 1.25rem;
+  }
+
+  .editor-toolbar-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .draft-select {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .editor-main-shell {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .editor-title-input {
+    padding-inline: 0.25rem;
+    font-size: 1.75rem;
+  }
+
+  .content-type-tabs {
+    margin-inline: -0.75rem;
+    padding-inline: 0.75rem;
+  }
+
+  .content-type-tab {
+    padding: 0.75rem 0.9rem;
+  }
+
+  .tag-entry-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .publish-action-group {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .publish-action-group button {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .publish-hint {
+    max-width: none;
+    text-align: left;
+  }
+
+  .publish-diagnostic {
+    margin-inline: 0;
+  }
+
+  .template-helper {
+    margin-inline: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .template-helper button {
+    min-height: 44px;
+  }
+
+  .knowledge-assist {
+    margin-inline: 0;
+  }
+
+  .knowledge-assist-head {
+    flex-direction: column;
+  }
+
+  .knowledge-assist-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .publish-diagnostic-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .publish-diagnostic-actions button,
+  .publish-diagnostic-actions a,
+  .knowledge-assist-actions button,
+  .forbidden-primary-action,
+  .forbidden-secondary-action {
+    min-height: 44px;
+    width: 100%;
+  }
 }
 </style>

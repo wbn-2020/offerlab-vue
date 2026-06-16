@@ -1,13 +1,13 @@
 <template>
   <form @submit.prevent="handleSubmit" class="space-y-6">
-    <!-- 目标公司 -->
+    <!-- 关注领域 -->
     <div class="flex flex-col gap-2">
-      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">目标公司</label>
+      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">关注领域</label>
       <div class="flex gap-2 mb-2">
         <input
           v-model="companyInput"
           type="text"
-          placeholder="输入公司名称，按 Enter 添加"
+          placeholder="输入领域名称，按 Enter 添加"
           @keydown.enter="addCompany"
           class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
@@ -37,14 +37,14 @@
       </div>
     </div>
 
-    <!-- 目标岗位 -->
+    <!-- 技术方向 -->
     <div class="flex flex-col gap-2">
-      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">目标岗位</label>
+      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">技术方向</label>
       <div class="flex gap-2 mb-2">
         <input
           v-model="positionInput"
           type="text"
-          placeholder="输入岗位名称，按 Enter 添加"
+          placeholder="输入方向名称，按 Enter 添加"
           @keydown.enter="addPosition"
           class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
@@ -74,9 +74,9 @@
       </div>
     </div>
 
-    <!-- 工作年限 -->
+    <!-- 实战年限 -->
     <div class="flex flex-col gap-2">
-      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">工作年限</label>
+      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">实战年限</label>
       <input
         v-model.number="form.yearsOfExp"
         type="number"
@@ -87,9 +87,9 @@
       />
     </div>
 
-    <!-- 期望城市 -->
+    <!-- 所在城市 -->
     <div class="flex flex-col gap-2">
-      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">期望城市</label>
+      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">所在城市</label>
       <input
         v-model="form.expectedCity"
         type="text"
@@ -135,10 +135,10 @@
       </div>
     </div>
 
-    <!-- 期望薪资 -->
+    <!-- 预算偏好 -->
     <div class="grid grid-cols-3 gap-4">
       <div class="flex flex-col gap-2">
-        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">最低薪资</label>
+        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">最低预算</label>
         <input
           v-model.number="form.expectedSalaryRange.min"
           type="number"
@@ -148,7 +148,7 @@
         />
       </div>
       <div class="flex flex-col gap-2">
-        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">最高薪资</label>
+        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">最高预算</label>
         <input
           v-model.number="form.expectedSalaryRange.max"
           type="number"
@@ -176,7 +176,7 @@
         :disabled="isSubmitting"
         class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
       >
-        {{ isSubmitting ? '保存中...' : '保存求职意向' }}
+        {{ isSubmitting ? '保存中...' : '保存关注方向' }}
       </button>
       <button
         type="button"

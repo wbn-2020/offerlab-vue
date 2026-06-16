@@ -3,7 +3,7 @@
     <div class="question-block-head">
       <div>
         <div class="title-row">
-          <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">本篇面经提到的题目</h2>
+          <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">内容知识结构化</h2>
           <span v-if="block" :class="['status-badge', statusMeta.className]">{{ statusMeta.label }}</span>
         </div>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -26,37 +26,37 @@
           :disabled="isRetrying"
           @click="retry"
         >
-          {{ isRetrying ? '重提取中...' : '重新提取' }}
+          {{ isRetrying ? '重新结构化中...' : '重新结构化' }}
         </button>
       </div>
     </div>
 
     <div v-if="isLoading && !block" class="state-panel state-neutral">
-      正在读取题目整理状态...
+      正在读取知识结构化状态...
     </div>
     <div v-else-if="!block" class="state-panel state-neutral">
-      暂未获取到题目整理结果，可以稍后刷新页面。
+      暂未获取到知识结构化结果，可以稍后刷新页面。
     </div>
     <div v-else-if="isProcessing" class="state-panel state-info">
-      <strong>题目整理中</strong>
-      <span>系统正在从面经正文中提取问题，完成后会自动出现在题库和公司准备包。</span>
+      <strong>知识结构化中</strong>
+      <span>系统正在从正文中提炼问题、FAQ 和复习线索，完成后会同步到知识库。</span>
     </div>
     <div v-else-if="isFailed" class="state-panel state-danger">
-      <strong>题目整理失败</strong>
-      <span>{{ block.errorVisible && block.errorMessage ? block.errorMessage : '后台已经记录失败状态，管理员可以在后台或此处重新提取。' }}</span>
+      <strong>知识结构化失败</strong>
+      <span>{{ block.errorVisible && block.errorMessage ? block.errorMessage : '后台已经记录失败状态，管理员可以在后台或此处重新结构化。' }}</span>
     </div>
     <div v-else-if="hasPendingReviewQuestions" class="state-panel state-warning">
-      <strong>题目待审核发布</strong>
-      <span>{{ block.reviewHint || `已提取 ${extractedCount} 道题，其中 ${pendingReviewCount} 道待审核发布。` }}</span>
+      <strong>结构化结果待审核</strong>
+      <span>{{ block.reviewHint || `已提炼 ${extractedCount} 条问题，其中 ${pendingReviewCount} 条待审核发布。` }}</span>
     </div>
     <div v-else-if="block.questions.length === 0" class="state-panel state-neutral">
-      {{ block.reviewHint || '暂未整理出明确题目。可以补充更清晰的面试问题列表后再次保存面经。' }}
+      {{ block.reviewHint || '暂未整理出明确问题。可以补充更清晰的问题、步骤或结论后再次保存内容。' }}
     </div>
     <div v-else class="space-y-3">
       <div class="result-summary">
-        <span>已整理 {{ visibleCount }} 道题</span>
-        <span v-if="pendingReviewCount > 0">{{ pendingReviewCount }} 道待审核发布</span>
-        <span>可进入题库、准备台和公司准备包复习</span>
+        <span>已结构化 {{ visibleCount }} 条问题</span>
+        <span v-if="pendingReviewCount > 0">{{ pendingReviewCount }} 条待审核发布</span>
+        <span>可进入知识库复习和复用</span>
       </div>
       <RouterLink
         v-for="question in block.questions"
@@ -98,25 +98,32 @@ const isProcessing = computed(() => normalizedStatus.value === 'pending' || norm
 const isFailed = computed(() => normalizedStatus.value === 'failed')
 const extractedCount = computed(() => Number(block.value?.extractedCount ?? 0))
 const visibleCount = computed(() => Number(block.value?.visibleCount ?? block.value?.questions.length ?? 0))
-const pendingReviewCount = computed(() => Number(block.value?.pendingReviewCount ?? 0))
+const pendingReviewCount = computed(() => {
+  const explicitCount = Number(block.value?.pendingReviewCount ?? 0)
+  if (explicitCount > 0) return explicitCount
+  if (normalizedStatus.value === 'succeeded' && extractedCount.value > 0 && visibleCount.value === 0) {
+    return extractedCount.value
+  }
+  return 0
+})
 const hasPendingReviewQuestions = computed(() => pendingReviewCount.value > 0 && block.value?.questions.length === 0)
 const statusMeta = computed(() => {
   if (!block.value) {
-    return { label: '未加载', className: 'status-neutral', description: '系统会把面经里的问题整理成结构化题目。' }
+    return { label: '未加载', className: 'status-neutral', description: '系统会把内容里的问题、FAQ 和复习线索整理成结构化知识。' }
   }
   if (isProcessing.value) {
-    return { label: '整理中', className: 'status-info', description: '题目正在自动提取，完成后会同步到题库和准备台。' }
+    return { label: '结构化中', className: 'status-info', description: '知识点正在自动提炼，完成后会同步到知识库。' }
   }
   if (isFailed.value) {
-    return { label: '失败', className: 'status-danger', description: '本次自动提取没有成功，管理员可以重新提取。' }
+    return { label: '失败', className: 'status-danger', description: '本次自动结构化没有成功，管理员可以重新结构化。' }
   }
   if (pendingReviewCount.value > 0 && block.value.questions.length === 0) {
-    return { label: '待审核', className: 'status-warning', description: block.value.reviewHint || `已提取 ${extractedCount.value} 道题，待审核发布。` }
+    return { label: '待审核', className: 'status-warning', description: block.value.reviewHint || `已提炼 ${extractedCount.value} 条问题，待审核发布。` }
   }
   if (block.value.questions.length > 0) {
-    return { label: '已完成', className: 'status-ok', description: `已整理出 ${visibleCount.value} 道可复习题目。` }
+    return { label: '已完成', className: 'status-ok', description: `已结构化出 ${visibleCount.value} 条可复习问题。` }
   }
-  return { label: '暂无题目', className: 'status-neutral', description: '系统暂未识别出明确题目。' }
+  return { label: '暂无问题', className: 'status-neutral', description: '系统暂未识别出明确问题。' }
 })
 
 const clearPoll = () => {
@@ -152,13 +159,19 @@ const load = async (options: { silent?: boolean } = {}) => {
 const refresh = () => load()
 
 const retry = async () => {
+  const remark = window.prompt('请输入重新结构化原因，后台会记录到审计日志。')
+  const cleanRemark = remark?.trim()
+  if (!cleanRemark) {
+    toast.error('请填写重新结构化原因')
+    return
+  }
   isRetrying.value = true
   try {
-    await questionApi.extractPostQuestions(props.postId)
-    toast.success('已提交重新提取任务')
+    await questionApi.extractPostQuestions(props.postId, cleanRemark)
+    toast.success('已提交重新结构化任务')
     await load()
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '重新提取失败'))
+    toast.error(getErrorMessage(error, '重新结构化失败'))
   } finally {
     isRetrying.value = false
   }
@@ -311,47 +324,47 @@ onBeforeUnmount(clearPoll)
   background: rgb(238 242 255 / 0.45);
 }
 
-:global(.dark) .question-block {
+.dark .question-block {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .secondary-action,
-:global(.dark) .question-row {
+.dark .secondary-action,
+.dark .question-row {
   border-color: rgb(51 65 85);
 }
 
-:global(.dark) .secondary-action:hover:not(:disabled),
-:global(.dark) .result-summary,
-:global(.dark) .question-row,
-:global(.dark) .state-neutral {
+.dark .secondary-action:hover:not(:disabled),
+.dark .result-summary,
+.dark .question-row,
+.dark .state-neutral {
   background: rgb(15 23 42);
 }
 
-:global(.dark) .status-neutral {
+.dark .status-neutral {
   background: rgb(30 41 59);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .status-info,
-:global(.dark) .state-info {
+.dark .status-info,
+.dark .state-info {
   background: rgb(30 58 138 / 0.45);
   color: rgb(191 219 254);
 }
 
-:global(.dark) .status-ok {
+.dark .status-ok {
   background: rgb(20 83 45);
   color: rgb(187 247 208);
 }
 
-:global(.dark) .status-danger,
-:global(.dark) .state-danger {
+.dark .status-danger,
+.dark .state-danger {
   background: rgb(127 29 29 / 0.45);
   color: rgb(254 202 202);
 }
 
-:global(.dark) .status-warning,
-:global(.dark) .state-warning {
+.dark .status-warning,
+.dark .state-warning {
   background: rgb(113 63 18 / 0.45);
   color: rgb(253 230 138);
 }

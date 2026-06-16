@@ -331,20 +331,20 @@ useAccessibleDialog(() => props.state.open, {
   }
 }
 
-:global(.dark) .risk-summary-item,
-:global(.dark) .risk-section,
-:global(.dark) .risk-secondary-button,
-:global(.dark) .risk-note {
+.dark .risk-summary-item,
+.dark .risk-section,
+.dark .risk-secondary-button,
+.dark .risk-note {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .risk-summary-item strong {
+.dark .risk-summary-item strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .risk-object-list span {
+.dark .risk-object-list span {
   background: rgb(30 41 59);
   color: rgb(203 213 225);
 }

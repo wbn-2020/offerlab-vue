@@ -1,13 +1,13 @@
 <template>
   <header class="sticky top-0 z-40 border-b border-slate-200/75 bg-white/88 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/82">
     <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-      <RouterLink to="/" class="brand-link group flex flex-shrink-0 items-center gap-2.5 text-slate-950 dark:text-white" aria-label="OfferLab 首页">
+      <RouterLink to="/" class="brand-link group flex flex-shrink-0 items-center gap-2.5 text-slate-950 dark:text-white" aria-label="OfferLab 技术社区首页">
         <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-sm font-black text-white shadow-sm shadow-primary-600/20 transition-transform group-hover:-translate-y-0.5">
           OL
         </span>
         <span class="hidden leading-tight sm:block">
           <span class="block text-base font-black tracking-normal">OfferLab</span>
-          <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">面试经验社区</span>
+          <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">技术经验社区</span>
         </span>
       </RouterLink>
 
@@ -30,7 +30,7 @@
           <input
             v-model="keyword"
             type="search"
-            placeholder="搜索面经、公司、岗位..."
+            placeholder="搜索技术经验、项目复盘、踩坑记录或作者"
             class="w-full rounded-lg border border-slate-200 bg-slate-50/90 py-2.5 pl-9 pr-3 text-sm text-slate-900 shadow-inner shadow-slate-200/30 transition-colors placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:focus:border-primary-700 dark:focus:bg-slate-900 dark:focus:ring-primary-950"
           />
         </div>
@@ -39,7 +39,7 @@
       <div class="flex items-center gap-2 sm:gap-3">
         <RouterLink to="/editor" class="primary-action hidden sm:inline-flex">
           <PenLine class="h-4 w-4" />
-          发布内容
+          发布经验
         </RouterLink>
 
         <RouterLink
@@ -61,6 +61,7 @@
           type="button"
           @click="toggleTheme"
           class="header-icon-button rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          data-theme-toggle
           :title="themeStore.isDark() ? '切换亮色模式' : '切换暗色模式'"
         >
           <Sun v-if="themeStore.isDark()" class="h-5 w-5" />
@@ -98,11 +99,10 @@
             <template v-if="authStore.isLoggedIn">
               <div class="px-4 py-3">
                 <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ authStore.user?.nickname || 'OfferLab 用户' }}</div>
-                <div class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{{ authStore.user?.signature || '继续完善你的求职档案' }}</div>
+                <div class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{{ userMenuSignature }}</div>
               </div>
               <div class="menu-divider" />
               <RouterLink to="/me" class="menu-item" @click="showUserMenu = false">个人主页</RouterLink>
-              <RouterLink to="/me/prep" class="menu-item" @click="showUserMenu = false">我的准备台</RouterLink>
               <RouterLink to="/me/notifications" class="menu-item" @click="showUserMenu = false">通知中心</RouterLink>
               <RouterLink to="/me/settings" class="menu-item" @click="showUserMenu = false">设置</RouterLink>
               <div v-if="adminLinks.length" class="menu-divider" />
@@ -149,7 +149,7 @@
           <input
             v-model="keyword"
             type="search"
-            placeholder="搜索面经、公司、岗位..."
+            placeholder="搜索技术经验、项目复盘、踩坑记录或作者"
             class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-primary-700 dark:focus:ring-primary-950"
           />
         </form>
@@ -216,7 +216,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Bell, BookOpen, Compass, Flame, Menu, Mic, Moon, PenLine, Search, Sun, User, X } from 'lucide-vue-next'
+import { Bell, Compass, Flame, Library, Menu, Moon, PenLine, Search, Sun, Tags, User, X } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { authApi } from '@/api/auth'
@@ -224,6 +224,7 @@ import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { useAuthStore } from '@/stores/auth'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 import { useThemeStore } from '@/stores/theme'
+import { isSyntheticVisibleText } from '@/utils/textQuality'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
@@ -235,11 +236,17 @@ const showMobileMenu = ref(false)
 const keyword = ref('')
 const permissions = ref<MyAdminPermissions | null>(null)
 const unreadCount = computed(() => realtimeStore.unreadCount.total)
+const userMenuSignature = computed(() => {
+  const signature = authStore.user?.signature?.trim()
+  return signature && !isSyntheticVisibleText(signature)
+    ? signature
+    : '沉淀你的技术经验和项目复盘'
+})
 const navItems = [
-  { to: '/', label: '信息流', icon: Flame },
+  { to: '/', label: '首页', icon: Flame },
   { to: '/explore', label: '发现', icon: Compass },
-  { to: '/questions', label: '题库', icon: BookOpen },
-  { to: '/mock-interview', label: '模拟面试', icon: Mic },
+  { to: '/trend', label: '趋势', icon: Tags },
+  { to: '/search', label: '搜索', icon: Library },
 ]
 const adminLinks = computed(() => {
   const value = permissions.value
@@ -247,10 +254,11 @@ const adminLinks = computed(() => {
   const links: Array<{ to: string; label: string }> = []
   if (value.ops || value.questionOperator || value.contentModerator || value.admin) links.push({ to: '/admin/ops', label: '运维中心' })
   if (value.questionOperator || value.admin) {
-    links.push({ to: '/admin/questions', label: '题目审核' })
-    links.push({ to: '/admin/company-aliases', label: '公司别名维护' })
+    links.push({ to: '/admin/questions', label: '结构化内容审核' })
+    links.push({ to: '/admin/company-aliases', label: '实体别名维护' })
   }
   if (value.contentModerator || value.ops || value.admin) links.push({ to: '/admin/governance', label: '治理中心' })
+  if (value.contentModerator || value.admin) links.push({ to: '/admin/tags', label: '标签治理' })
   return links
 })
 
@@ -274,7 +282,7 @@ const submitSearch = () => {
 }
 
 const toggleTheme = () => {
-  themeStore.setMode(themeStore.mode === 'dark' ? 'light' : 'dark')
+  themeStore.toggleExplicitMode()
 }
 
 const closeMobileMenu = () => {
@@ -465,16 +473,16 @@ watch(() => authStore.token, () => {
   color: white;
 }
 
-:global(.dark) .menu-item {
+.dark .menu-item {
   color: rgb(203 213 225);
 }
 
-:global(.dark) .menu-item:hover {
+.dark .menu-item:hover {
   background: rgb(30 41 59);
   color: rgb(248 250 252);
 }
 
-:global(.dark) .menu-divider {
+.dark .menu-divider {
   border-color: rgb(30 41 59);
 }
 

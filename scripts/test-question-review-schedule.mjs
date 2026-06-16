@@ -18,7 +18,9 @@ assert.match(mePrep, /formatScheduleTime\(question\.lastReviewedAt\)/, 'MePrep w
 assert.match(mePrep, /question\.nextReviewAt/, 'MePrep schedule helper must use nextReviewAt')
 assert.match(mePrep, /question\.reviewCount/, 'MePrep schedule helper must use reviewCount')
 assert.match(mePrep, new RegExp('\u5230\u671f\u590d\u4e60\u63d0\u9192'), 'MePrep must surface due review reminders near the top')
-assert.match(mePrep, /overview\.reviewPlan\.todayQuestions\.slice\(0, 3\)/, 'Due review reminder must render due questions')
+assert.match(mePrep, /const todayReviewQuestions = computed\(\(\) => publicQuestions\(overview\.value\?\.reviewPlan\?\.todayQuestions\)\)/, 'Due review source must be filtered through public content quality gate')
+assert.match(mePrep, /const todayReviewPreview = computed\(\(\) => todayReviewQuestions\.value\.slice\(0, 5\)\)/, 'Due review preview must be derived from due questions')
+assert.match(mePrep, /todayReviewPreview\.slice\(0, 3\)/, 'Due review reminder must render due questions')
 assert.match(mePrep, /:to="'\/questions\/' \+ question\.id"/, 'Due review items must deep-link to the question detail page')
 assert.match(mePrep, /\/questions\?progressStatus=review&sort=latest/, 'Due review reminder must link to the review queue')
 

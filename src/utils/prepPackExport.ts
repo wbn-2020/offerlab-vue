@@ -1,6 +1,6 @@
 import type { CompanyPrep, MockInterviewSession, Question, UserPrepOverview, UserWeeklyPrepReport } from '@/api/question'
 import { formatDate } from '@/lib/format'
-import { answerHintText, answerMetaParts, answerQuestionText, buildMockInterviewReviewSuggestions } from '@/utils/mockInterviewFormat'
+import { aiReviewProviderText, aiReviewTitle, aiReviewTransparencyItems, answerHintText, answerMetaParts, answerQuestionText, buildMockInterviewReviewSuggestions, hasAiReviewTrace } from '@/utils/mockInterviewFormat'
 
 export function downloadMarkdownFile(markdown: string, filename: string) {
   if (typeof document === 'undefined') return
@@ -64,9 +64,18 @@ export const difficultyText = (value?: string) => {
   return map[value || ''] || value || '不限'
 }
 
+export const knowledgeReviewCopy = (value: unknown) => {
+  return normalizeText(value)
+    .replace(/专项练习/g, '知识复盘')
+    .replace(/专项表现/g, '主题表现')
+    .replace(/专项标签/g, '复盘标签')
+    .replace(/专项训练/g, '复盘练习')
+    .replace(/专项:/g, '主题:')
+}
+
 export function buildUserPrepPackMarkdown(data: UserPrepOverview) {
   const lines = [
-    '# OfferLab 面试备考包',
+    '# OfferLab 学习包',
     '',
     `- 收藏题: ${data.favoriteCount}`,
     `- 待学习: ${data.todoCount}`,
@@ -74,10 +83,10 @@ export function buildUserPrepPackMarkdown(data: UserPrepOverview) {
     `- 已掌握: ${data.masteredCount}`,
     `- 待复习: ${data.reviewCount}`,
     '',
-    '## 准备目标',
+    '## 学习目标',
   ]
   if (data.targets.length) {
-    data.targets.forEach((target) => lines.push(`- ${targetTypeText(target.targetType)}: ${inlineText(target.targetValue, '未命名目标')}`))
+    data.targets.forEach((target) => lines.push(`- ${targetTypeText(target.targetType)}: ${inlineText(target.targetValue, '待整理目标')}`))
   } else {
     lines.push('- 暂无目标')
   }
@@ -99,7 +108,7 @@ export function buildUserPrepPackMarkdown(data: UserPrepOverview) {
 
 export function buildWeeklyPrepReportMarkdown(data: UserWeeklyPrepReport) {
   const lines = [
-    '# OfferLab 本周备考复盘',
+    '# OfferLab 本周学习复盘',
     '',
     `- 时间范围: ${formatDate(data.windowStart, 'YYYY-MM-DD')} ~ ${formatDate(data.windowEnd, 'YYYY-MM-DD')}`,
     `- 本周触达题目: ${data.touchedQuestionCount}`,
@@ -107,7 +116,7 @@ export function buildWeeklyPrepReportMarkdown(data: UserWeeklyPrepReport) {
     `- 当前待复习: ${data.reviewQuestionCount}`,
     `- 新增笔记: ${data.noteCount}`,
     `- 回答卡片: ${data.answerDraftCount}`,
-    `- 模拟面试: ${data.mockCompletedCount}/${data.mockSessionCount} 场完成，答题 ${data.mockAnsweredQuestionCount} 道，平均分 ${data.mockAverageScorePercent}%`,
+    `- 知识复盘: ${data.mockCompletedCount}/${data.mockSessionCount} 场完成，答题 ${data.mockAnsweredQuestionCount} 道，平均分 ${data.mockAverageScorePercent}%`,
     '',
     '## 本周复习题目',
   ]
@@ -122,56 +131,56 @@ export function buildWeeklyPrepReportMarkdown(data: UserWeeklyPrepReport) {
   appendNameCountList(lines, data.focusTagCounts)
   lines.push('', '## 下周动作')
   if (data.nextActions.length) {
-    data.nextActions.forEach((action) => lines.push(`- ${inlineText(action, '继续保持练习节奏')}`))
+    data.nextActions.forEach((action) => lines.push(`- ${inlineText(knowledgeReviewCopy(action), '继续保持复习节奏')}`))
   } else {
-    lines.push('- 继续保持复习节奏，完成一次专项模拟面试')
+    lines.push('- 继续保持复习节奏，完成一次知识复盘')
   }
   return `${lines.join('\n')}\n`
 }
 
 export function buildCompanyPrepPackMarkdown(data: CompanyPrep) {
   const lines = [
-    `# ${inlineText(data.company, '公司')} 面试准备包`,
+    `# ${inlineText(data.company, '主题')} 学习主题包`,
     '',
-    `- 准备分: ${data.prepScore}%`,
-    `- 高频题: ${data.topQuestions.length}`,
-    `- 近期面经: ${data.recentPosts.length}`,
-    `- 热门岗位: ${data.hotPositions.length}`,
-    `- 相关岗位数: ${data.relatedPositionCount}`,
-    `- 题目样本: ${data.questionSampleCount}`,
-    `- 面经样本: ${data.postSampleCount}`,
-    `- 结果样本: ${data.resultSampleCount}`,
-    `- 近 30 天结果样本: ${data.recentResultSampleCount}`,
+    `- 学习分: ${data.prepScore}%`,
+    `- 高频知识卡: ${data.topQuestions.length}`,
+    `- 近期经验: ${data.recentPosts.length}`,
+    `- 热门方向: ${data.hotPositions.length}`,
+    `- 相关方向数: ${data.relatedPositionCount}`,
+    `- 知识卡样本: ${data.questionSampleCount}`,
+    `- 经验样本: ${data.postSampleCount}`,
+    `- 反馈样本: ${data.resultSampleCount}`,
+    `- 近 30 天反馈样本: ${data.recentResultSampleCount}`,
     `- 数据更新: ${data.dataUpdatedAt ? formatDate(data.dataUpdatedAt, 'YYYY-MM-DD HH:mm') : '暂无记录'}`,
   ]
   if (data.aliases.length) {
-    lines.push(`- 公司别名: ${data.aliases.map((alias) => inlineText(alias)).filter(Boolean).join('、')}`)
+    lines.push(`- 主题别名: ${data.aliases.map((alias) => inlineText(alias)).filter(Boolean).join('、')}`)
   }
-  lines.push('', '## 准备清单')
+  lines.push('', '## 学习清单')
   if (data.checklist.length) {
     data.checklist.forEach((item) => {
-      lines.push(`- ${item.done ? '[x]' : '[ ]'} ${inlineText(item.title, '未命名清单项')}: ${item.current}/${item.target}`)
+      lines.push(`- ${item.done ? '[x]' : '[ ]'} ${inlineText(item.title, '待整理清单项')}: ${item.current}/${item.target}`)
     })
   } else {
     lines.push('- 暂无清单')
   }
   lines.push('', '## 下一步建议')
   if (data.nextActions.length) {
-    data.nextActions.forEach((action) => lines.push(`- ${inlineText(action, '继续补充准备材料')}`))
+    data.nextActions.forEach((action) => lines.push(`- ${inlineText(knowledgeReviewCopy(action), '继续补充学习材料')}`))
   } else {
-    lines.push('- 当前清单已完成，可以继续补充近期面经或复盘高频题')
+    lines.push('- 当前清单已完成，可以继续补充近期经验或复盘高频知识卡')
   }
-  lines.push('', '## 高频面试题')
+  lines.push('', '## 高频知识卡')
   appendQuestionList(lines, data.topQuestions)
   if (data.recommendedQuestions.length) {
-    lines.push('', '## 优先刷这些')
+    lines.push('', '## 优先学习这些')
     appendQuestionList(lines, data.recommendedQuestions)
   }
   lines.push('', '## 高频技术标签')
   appendNameCountList(lines, data.topTags)
-  lines.push('', '## 热门岗位')
+  lines.push('', '## 热门方向')
   appendNameCountList(lines, data.hotPositions)
-  lines.push('', '## 面试结果趋势')
+  lines.push('', '## 反馈趋势')
   lines.push('### 近 30 天')
   appendNameCountList(lines, data.recentResultDistribution)
   lines.push('', '### 全部样本')
@@ -184,7 +193,7 @@ export function buildQuestionAnswerCardMarkdown(question: Question) {
     .filter(Boolean)
     .join(' / ')
   const lines = [
-    `# ${inlineText(question.questionText, '面试题回答卡片')}`,
+    `# ${inlineText(question.questionText, '知识卡回答卡片')}`,
   ]
   if (meta) {
     lines.push('', `- 题目上下文: ${inlineText(meta)}`)
@@ -220,7 +229,7 @@ export function buildStarStoryLibraryMarkdown(questions: Question[]) {
     return `${lines.join('\n')}\n`
   }
   cards.forEach((question, index) => {
-    lines.push('', `## ${index + 1}. ${inlineText(question.questionText, '未命名题目')}`)
+    lines.push('', `## ${index + 1}. ${inlineText(question.questionText, '待整理题目')}`)
     const meta = [question.company, question.position, question.interviewRound]
       .filter(Boolean)
       .join(' / ')
@@ -243,12 +252,12 @@ export function buildStarStoryLibraryMarkdown(questions: Question[]) {
 }
 
 export function buildMockInterviewReportMarkdown(session: MockInterviewSession) {
-  const title = [session.focusTag ? `专项:${session.focusTag}` : '', session.company, session.position, session.difficulty ? difficultyText(session.difficulty) : '']
+  const title = [session.focusTag ? `主题:${session.focusTag}` : '', session.company, session.position, session.difficulty ? difficultyText(session.difficulty) : '']
     .filter(Boolean)
     .map((item) => inlineText(item))
-    .join(' / ') || '综合模拟面试'
+    .join(' / ') || '综合知识复盘'
   const lines = [
-    `# OfferLab 模拟面试复盘 - ${title}`,
+    `# OfferLab 知识复盘报告 - ${title}`,
     '',
     `- 状态: ${session.status === 'completed' ? '已完成' : '进行中'}`,
     `- 题数: ${session.answeredCount}/${session.questionCount}`,
@@ -256,10 +265,10 @@ export function buildMockInterviewReportMarkdown(session: MockInterviewSession) 
     `- 用时: ${formatDuration(session.durationSeconds)}`,
   ]
   if (!session.answers.length) {
-    lines.push('', '暂无面试题目。')
+    lines.push('', '暂无练习题目。')
     return `${lines.join('\n')}\n`
   }
-  lines.push('', '## 模拟面试下一步建议')
+  lines.push('', '## 知识复盘下一步建议')
   buildMockInterviewReviewSuggestions(session).forEach((item) => {
     lines.push(`- ${inlineText(item.title)}: ${inlineText(item.action)}`)
   })
@@ -274,12 +283,26 @@ export function buildMockInterviewReportMarkdown(session: MockInterviewSession) 
     lines.push(blockText(answer.answerText, '- 暂无回答'))
     lines.push('', '### 复盘备注')
     lines.push(blockText(answer.selfReview, '- 暂无复盘备注'))
-    if (answer.aiReviewed) {
-      lines.push('', '### AI 评价')
-      lines.push(`- AI 分: ${answer.aiScore ?? 0}/5`)
-      lines.push(`- 完整度: ${inlineText(answer.aiCompleteness, '暂无评价')}`)
-      lines.push(`- 项目表达: ${inlineText(answer.aiProjectExpression, '暂无评价')}`)
-      lines.push(`- 追问建议: ${inlineText(answer.aiFollowUpSuggestion, '暂无建议')}`)
+    if (hasAiReviewTrace(answer)) {
+      const hasAiReviewFeedback = answer.aiReviewed
+        || answer.aiReviewStatus === 'SUCCEEDED'
+        || answer.aiScore !== undefined
+        || Boolean(answer.aiCompleteness || answer.aiProjectExpression || answer.aiFollowUpSuggestion)
+      lines.push('', `### ${aiReviewTitle(answer)}`)
+      lines.push(`- Provider: ${inlineText(aiReviewProviderText(answer.aiReviewProvider, answer.aiReviewFallbackUsed))}`)
+      aiReviewTransparencyItems(answer).forEach((item) => lines.push(`- ${inlineText(item)}`))
+      if (hasAiReviewFeedback) {
+        lines.push(`- ${aiReviewTitle(answer)}分: ${answer.aiScore ?? 0}/5`)
+        lines.push(`- 完整度: ${inlineText(answer.aiCompleteness, '暂无评价')}`)
+        lines.push(`- 项目表达: ${inlineText(answer.aiProjectExpression, '暂无评价')}`)
+        lines.push(`- 追问建议: ${inlineText(answer.aiFollowUpSuggestion, '暂无建议')}`)
+      } else if (answer.aiReviewStatus === 'PENDING') {
+        lines.push(`- 评价结果: ${aiReviewTitle(answer)}仍在生成中，请稍后回到页面刷新或重新导出。`)
+      } else if (answer.aiReviewStatus === 'FAILED') {
+        lines.push(`- 评价结果: ${aiReviewTitle(answer)}失败，可回到页面发起重试。`)
+      } else {
+        lines.push('- 评价结果: 暂无可用 AI/规则评价结果。')
+      }
     }
     const hint = answerHintText(answer)
     if (hint) {
@@ -316,6 +339,7 @@ function escapeBlockLine(line: string) {
   }
   return `${indent}${body.replace(/^(\d+)([.)])(\s+)/, '$1\\$2$3')}`
 }
+
 function formatDuration(seconds: number) {
   const safe = Math.max(0, Math.floor(seconds || 0))
   const min = Math.floor(safe / 60)
@@ -333,7 +357,7 @@ function appendQuestionList(lines: string[], questions: Question[]) {
       .filter(Boolean)
       .join(' / ')
     const suffix = meta ? `（${inlineText(meta)}）` : ''
-    lines.push(`- ${inlineText(question.questionText, '未命名题目')}${suffix}`)
+    lines.push(`- ${inlineText(question.questionText, '待整理题目')}${suffix}`)
   })
 }
 
@@ -342,5 +366,5 @@ function appendNameCountList(lines: string[], items: Array<{ name: string; count
     lines.push('- 暂无数据')
     return
   }
-  items.slice(0, 8).forEach((item) => lines.push(`- ${inlineText(item.name, '未命名标签')}: ${item.count}`))
+  items.slice(0, 8).forEach((item) => lines.push(`- ${inlineText(item.name, '未归类主题')}: ${item.count}`))
 }

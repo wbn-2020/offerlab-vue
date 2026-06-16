@@ -4,6 +4,8 @@ import type { SearchStatus } from './search'
 import type { ApiId, PaginatedResponse } from './types'
 import type { Question } from './question'
 
+export const OPS_BATCH_RETRY_LIMIT = 50
+
 const rawClient = axios.create({
   baseURL: apiBaseURL,
   timeout: 10000,
@@ -20,9 +22,34 @@ const withRemark = <T extends Record<string, unknown>>(data: T, remark?: string 
   return value ? { ...data, remark: value } : data
 }
 
-const reasonPayload = (reason?: string | null) => {
+const withRiskConfirm = <T extends Record<string, unknown>>(data: T, remark?: string | null) => ({
+  ...withRemark(data, remark),
+  confirmationPhrase: 'CONFIRM',
+})
+
+const batchIdempotencyKey = (operation: string, ids: ApiId[]) => {
+  const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `${operation}:${ids.length}:${random}`.slice(0, 80)
+}
+
+const withBatchRiskConfirm = <T extends { ids: ApiId[] }>(
+  operation: string,
+  data: T,
+  remark?: string | null,
+  previewNonce?: string | null,
+) => ({
+  ...withRiskConfirm(data, remark),
+  idempotencyKey: batchIdempotencyKey(operation, data.ids),
+  ...(previewNonce ? { previewNonce } : {}),
+})
+
+type RiskRemark = { remark: string }
+
+const actionRemarkPayload = (reason?: string | null) => {
   const value = cleanRemark(reason)
-  return value ? { reason: value } : undefined
+  return value ? { remark: value, reason: value } : undefined
 }
 
 export interface HealthComponentStatus {
@@ -43,7 +70,48 @@ export interface ReadinessStatus {
   components: Record<string, HealthComponentStatus>
 }
 
+export interface KafkaPathStatus {
+  path: string
+  exists: boolean
+  directory: boolean
+  readable: boolean
+  writable: boolean
+}
+
+export interface KafkaLocalCheck {
+  mode: 'read-only' | string
+  bootstrapServers: string
+  topic: string
+  consumerGroup: string
+  configPath: string
+  configExists: boolean
+  storage: {
+    logDir: KafkaPathStatus
+    metadataDir: KafkaPathStatus
+  }
+  tcpReachable: boolean
+  endpoint?: string | null
+  adminProbe: {
+    attempted: boolean
+    topicExists: boolean
+    consumerGroupSeen: boolean
+    topicCount?: number
+    consumerGroupCount?: number
+    message?: string
+    error?: string
+    [key: string]: unknown
+  }
+  readyForOutboxReplay: boolean
+  safeGuide: string[]
+  blockedOperations: string[]
+}
+
 export interface OutboxStatus {
+  status?: string
+  available?: boolean
+  attentionRequired?: boolean
+  message?: string
+  action?: string
   byStatus: {
     pending: number
     sent: number
@@ -61,9 +129,30 @@ export interface OpsStatus {
   searchIndexRetry: SearchIndexRetryStatus
   notificationRetry: NotificationRetryStatus
   outbox: OutboxStatus
+  opsWindow?: OpsWindowStatus
+}
+
+export interface OpsWindowStatus {
+  windowMinutes: number
+  thresholdBreached: boolean
+  failedTotal: number
+  dueTotal: number
+  pendingTotal: number
+  impact?: string
+  suggestedAction?: string
+  thresholds?: {
+    failedTotalWarn?: number
+    dueTotalWarn?: number
+    pendingQueueWarn?: number
+  }
 }
 
 export interface SearchIndexRetryStatus {
+  status?: string
+  available?: boolean
+  attentionRequired?: boolean
+  message?: string
+  action?: string
   byStatus: {
     pending: number
     done: number
@@ -75,6 +164,11 @@ export interface SearchIndexRetryStatus {
 }
 
 export interface NotificationRetryStatus {
+  status?: string
+  available?: boolean
+  attentionRequired?: boolean
+  message?: string
+  action?: string
   byStatus: {
     pending: number
     done: number
@@ -137,9 +231,16 @@ export interface BatchActionPreviewItem {
 
 export interface BatchActionPreview {
   operation: string
+  previewNonce?: string
   requested: number
   eligible: number
   skipped: number
+  estimatedImpact?: number
+  maxBatchSize?: number
+  previewExpiresInSeconds?: number
+  requiresAuditReason?: boolean
+  confirmationPhrase?: string
+  riskReason?: string
   items: BatchActionPreviewItem[]
 }
 
@@ -164,6 +265,7 @@ export interface MigrationStatus {
 export interface SearchAnalyticsItem {
   keyword?: string
   company?: string
+  target?: string
   count: number
   noResultCount?: number
   lastResultCount?: number
@@ -174,6 +276,25 @@ export interface SearchAnalytics {
   hotKeywords: SearchAnalyticsItem[]
   noResultKeywords: SearchAnalyticsItem[]
   prepClicks: SearchAnalyticsItem[]
+  recommendClicks: SearchAnalyticsItem[]
+}
+
+export interface PostSearchDiagnostics {
+  post?: {
+    id: ApiId
+    found: boolean
+    publiclyVisible?: boolean
+    visibleWithTestData?: boolean
+    synthetic?: boolean
+    postType?: number
+    title?: string
+    createTime?: string
+    [key: string]: unknown
+  }
+  elasticsearch?: Record<string, unknown>
+  applicationSearch?: Record<string, unknown>
+  latestRetryTask?: Record<string, unknown> | null
+  recommendation?: string
 }
 
 export interface ModerationKeyword {
@@ -256,6 +377,51 @@ export interface AiTaskMetrics {
   estimatedCostMicros: number
   providerStats: AiTaskMetricBucket[]
   errorStats: AiTaskMetricBucket[]
+}
+
+export type ReviewQueueRiskLevel = 'critical' | 'high' | 'medium' | 'low'
+export type ReviewQueueStatus = 'pending' | 'claimed' | 'approved' | 'rejected' | 'closed'
+
+export interface ReviewQueueItem {
+  id: ApiId
+  sourceType: string
+  sourceId?: ApiId
+  title: string
+  summary?: string
+  riskLevel: ReviewQueueRiskLevel
+  queueStatus: ReviewQueueStatus
+  assigneeUid?: ApiId
+  creatorUid?: ApiId
+  priority?: number
+  dueTime?: string
+  handledTime?: string
+  handleResult?: string
+  handleNote?: string
+  extJson?: string
+  createTime?: string
+  updateTime?: string
+}
+
+export interface ReviewQueueCreateReq {
+  sourceType: string
+  sourceId?: ApiId
+  title: string
+  summary?: string
+  riskLevel?: ReviewQueueRiskLevel
+  priority?: number
+  extJson?: string
+  note?: string
+}
+
+export interface ReviewQueueActionReq {
+  note?: string
+  confirmationPhrase?: string
+}
+
+export interface ReviewQueueStatusResp {
+  available: boolean
+  status: string
+  byStatus: Record<string, number>
 }
 
 export interface AiExtractTaskDetail {
@@ -354,6 +520,22 @@ export interface QuestionDuplicateGroup {
 
 const okResult = <T>(data: T): Result<T> => ({ code: 0, message: 'degraded empty state', data })
 
+const normalizePage = <T>(raw: any, itemAdapter: (item: any) => T = (item) => item as T): PaginatedResponse<T> => {
+  const items = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : []
+  return {
+    items: items.map(itemAdapter),
+    nextCursor: raw?.nextCursor ? String(raw.nextCursor) : undefined,
+    hasMore: Boolean(raw?.hasMore),
+    total: Number(raw?.total ?? items.length),
+  }
+}
+
+const arrayFallbackPage = <T>(items: T[]): PaginatedResponse<T> => ({
+  items,
+  hasMore: false,
+  total: items.length,
+})
+
 const optionalPanelUnavailable = (error: unknown) => {
   if (error instanceof BizException) {
     return error.code === 10404
@@ -366,6 +548,7 @@ const emptySearchAnalytics = (): SearchAnalytics => ({
   hotKeywords: [],
   noResultKeywords: [],
   prepClicks: [],
+  recommendClicks: [],
 })
 
 export const opsApi = {
@@ -377,11 +560,27 @@ export const opsApi = {
     return res.data as ReadinessStatus
   },
 
+  getKafkaLocalCheck: (): Promise<Result<KafkaLocalCheck>> =>
+    client.get('/api/v1/ops/kafka/local-check'),
+
   myPermissions: (options?: { skipAuthRedirect?: boolean }): Promise<Result<MyAdminPermissions>> =>
     client.get('/api/v1/ops/me/permissions', { skipAuthRedirect: options?.skipAuthRedirect }),
 
   listOutbox: (params?: { status?: number; limit?: number }): Promise<Result<OutboxMessage[]>> =>
     client.get('/api/v1/ops/outbox', { params }),
+
+  pageOutbox: async (params?: { status?: number; page?: number; pageSize?: number; limit?: number }): Promise<Result<PaginatedResponse<OutboxMessage>>> => {
+    try {
+      const res = await client.get('/api/v1/ops/outbox/page', { params }) as Result<any>
+      return { ...res, data: normalizePage<OutboxMessage>(res.data) }
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      const fallback = await client.get('/api/v1/ops/outbox', {
+        params: { status: params?.status, limit: params?.pageSize || params?.limit || 20 },
+      }) as Result<OutboxMessage[]>
+      return okResult(arrayFallbackPage(fallback.data || []))
+    }
+  },
 
   getOutbox: (id: ApiId): Promise<Result<OutboxMessage>> =>
     client.get(`/api/v1/ops/outbox/${id}`),
@@ -389,8 +588,8 @@ export const opsApi = {
   retryOutbox: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; retried: boolean }>> =>
     client.post(`/api/v1/ops/outbox/${id}/retry`, withRemark({}, remark)),
 
-  retryOutboxBatch: (ids: ApiId[], remark?: string): Promise<Result<OutboxRetryBatchResp>> =>
-    client.post('/api/v1/ops/outbox/retry-batch', withRemark({ ids }, remark)),
+  retryOutboxBatch: (ids: ApiId[], remark?: string, previewNonce?: string): Promise<Result<OutboxRetryBatchResp>> =>
+    client.post('/api/v1/ops/outbox/retry-batch', withBatchRiskConfirm('outbox-retry', { ids }, remark, previewNonce)),
 
   previewOutboxRetryBatch: (ids: ApiId[]): Promise<Result<BatchActionPreview>> =>
     client.post('/api/v1/ops/outbox/retry-batch/preview', { ids }),
@@ -399,13 +598,13 @@ export const opsApi = {
     client.get('/api/v1/ops/admins', { params }),
 
   addAdmin: (data: { uid: ApiId; roleCode?: string; remark?: string; auditRemark?: string }): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
-    client.post('/api/v1/ops/admins', data),
+    client.post('/api/v1/ops/admins', { ...data, confirmationPhrase: 'CONFIRM' }),
 
   updateAdminStatus: (
     uid: ApiId,
     data: { enabled: boolean; roleCode?: string; remark?: string; auditRemark?: string },
   ): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
-    client.post(`/api/v1/ops/admins/${uid}/status`, data),
+    client.post(`/api/v1/ops/admins/${uid}/status`, { ...data, confirmationPhrase: 'CONFIRM' }),
 
   listAuditLogs: (params?: { action?: string; resourceType?: string; limit?: number }): Promise<Result<AdminAuditLog[]>> =>
     client.get('/api/v1/ops/audit-logs', { params }),
@@ -450,6 +649,10 @@ export const opsApi = {
       return okResult(emptySearchAnalytics())
     }
   },
+
+  getPostSearchDiagnostics: (postId: ApiId): Promise<Result<PostSearchDiagnostics>> =>
+    client.get(`/api/v1/ops/search/post-diagnostics/${postId}`),
+
   listModerationKeywords: async (params?: { keyword?: string; scope?: string; limit?: number }): Promise<Result<ModerationKeyword[]>> => {
     try {
       return await client.get('/api/v1/ops/moderation/keywords', { params })
@@ -474,8 +677,8 @@ export const opsApi = {
   updateModerationKeyword: (id: ApiId, data: Partial<ModerationKeyword>): Promise<Result<ModerationKeyword>> =>
     client.post(`/api/v1/ops/moderation/keywords/${id}`, data),
 
-  updateModerationKeywordStatus: (id: ApiId, enabled: number): Promise<Result<{ id: ApiId; enabled: number }>> =>
-    client.post(`/api/v1/ops/moderation/keywords/${id}/status`, null, { params: { enabled } }),
+  updateModerationKeywordStatus: (id: ApiId, enabled: number, remark?: string): Promise<Result<{ id: ApiId; enabled: number }>> =>
+    client.post(`/api/v1/ops/moderation/keywords/${id}/status`, withRemark({}, remark), { params: { enabled } }),
 
   listModerationUsers: async (limit = 50): Promise<Result<UserModerationState[]>> => {
     try {
@@ -490,13 +693,37 @@ export const opsApi = {
     client.post('/api/v1/ops/moderation/users', data),
 
   clearModerationMute: (uid: ApiId, reason?: string): Promise<Result<UserModerationState>> =>
-    client.post(`/api/v1/ops/moderation/users/${uid}/clear-mute`, reasonPayload(reason)),
+    client.post(`/api/v1/ops/moderation/users/${uid}/clear-mute`, actionRemarkPayload(reason)),
 
   clearModerationBan: (uid: ApiId, reason?: string): Promise<Result<UserModerationState>> =>
-    client.post(`/api/v1/ops/moderation/users/${uid}/clear-ban`, reasonPayload(reason)),
+    client.post(`/api/v1/ops/moderation/users/${uid}/clear-ban`, actionRemarkPayload(reason)),
 
   listAiTasks: (params?: { status?: number; limit?: number }): Promise<Result<AiExtractTask[]>> =>
     client.get('/api/v1/admin/ai-tasks', { params }),
+
+  listReviewQueue: (params?: { status?: ReviewQueueStatus | ''; sourceType?: string; riskLevel?: ReviewQueueRiskLevel | ''; limit?: number }): Promise<Result<ReviewQueueItem[]>> =>
+    client.get('/api/v1/admin/review-queue', { params }),
+
+  reviewQueueStatus: (): Promise<Result<ReviewQueueStatusResp>> =>
+    client.get('/api/v1/admin/review-queue/status'),
+
+  createReviewQueueItem: (data: ReviewQueueCreateReq): Promise<Result<ReviewQueueItem>> =>
+    client.post('/api/v1/admin/review-queue', data),
+
+  claimReviewQueueItem: (id: ApiId): Promise<Result<ReviewQueueItem>> =>
+    client.post(`/api/v1/admin/review-queue/${id}/claim`),
+
+  releaseReviewQueueItem: (id: ApiId, note?: string): Promise<Result<ReviewQueueItem>> =>
+    client.post(`/api/v1/admin/review-queue/${id}/release`, { note }),
+
+  approveReviewQueueItem: (id: ApiId, note?: string): Promise<Result<ReviewQueueItem>> =>
+    client.post(`/api/v1/admin/review-queue/${id}/approve`, { note, confirmationPhrase: 'CONFIRM' }),
+
+  rejectReviewQueueItem: (id: ApiId, note: string): Promise<Result<ReviewQueueItem>> =>
+    client.post(`/api/v1/admin/review-queue/${id}/reject`, { note, confirmationPhrase: 'CONFIRM' }),
+
+  closeReviewQueueItem: (id: ApiId, note: string): Promise<Result<ReviewQueueItem>> =>
+    client.post(`/api/v1/admin/review-queue/${id}/close`, { note, confirmationPhrase: 'CONFIRM' }),
 
   getAiTaskMetrics: (limit = 100): Promise<Result<AiTaskMetrics>> =>
     client.get('/api/v1/admin/ai-tasks/metrics', { params: { limit } }),
@@ -508,13 +735,13 @@ export const opsApi = {
     client.post(`/api/v1/admin/ai-tasks/${id}/retry`, withRemark({}, remark)),
 
   rebuildQuestions: (limit = 100, remark?: string): Promise<Result<{ requested: number; submitted: number }>> =>
-    client.post('/api/v1/admin/questions/rebuild', withRemark({}, remark), { params: { limit } }),
+    client.post('/api/v1/admin/questions/rebuild', withRiskConfirm({}, remark), { params: { limit } }),
 
   rebuildQuestionIndex: (remark?: string): Promise<Result<{ accepted: boolean; indexed: number; failed: number; total?: number; indexName: string }>> =>
-    client.post('/api/v1/admin/questions/rebuild-index', withRemark({}, remark)),
+    client.post('/api/v1/admin/questions/rebuild-index', withRiskConfirm({}, remark)),
 
   rebuildQuestionIndexTask: (remark?: string): Promise<Result<QuestionIndexTask>> =>
-    client.post('/api/v1/admin/questions/rebuild-index-task', withRemark({}, remark)),
+    client.post('/api/v1/admin/questions/rebuild-index-task', withRiskConfirm({}, remark)),
 
   getQuestionIndexTask: (taskId: string): Promise<Result<QuestionIndexTask>> =>
     client.get(`/api/v1/admin/questions/index-tasks/${taskId}`),
@@ -528,14 +755,27 @@ export const opsApi = {
   listSearchIndexRetryTasks: (params?: { status?: number; limit?: number }): Promise<Result<SearchIndexRetryTask[]>> =>
     client.get('/api/v1/ops/search-index-retry-tasks', { params }),
 
+  pageSearchIndexRetryTasks: async (params?: { status?: number; page?: number; pageSize?: number; limit?: number }): Promise<Result<PaginatedResponse<SearchIndexRetryTask>>> => {
+    try {
+      const res = await client.get('/api/v1/ops/search-index-retry-tasks/page', { params }) as Result<any>
+      return { ...res, data: normalizePage<SearchIndexRetryTask>(res.data) }
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      const fallback = await client.get('/api/v1/ops/search-index-retry-tasks', {
+        params: { status: params?.status, limit: params?.pageSize || params?.limit || 20 },
+      }) as Result<SearchIndexRetryTask[]>
+      return okResult(arrayFallbackPage(fallback.data || []))
+    }
+  },
+
   getSearchIndexRetryTask: (id: ApiId): Promise<Result<SearchIndexRetryTask>> =>
     client.get(`/api/v1/ops/search-index-retry-tasks/${id}`),
 
   replaySearchIndexRetryTask: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
     client.post(`/api/v1/ops/search-index-retry-tasks/${id}/replay`, withRemark({}, remark)),
 
-  replaySearchIndexRetryTasks: (ids: ApiId[], remark?: string): Promise<Result<{ requested: number; replayed: number }>> =>
-    client.post('/api/v1/ops/search-index-retry-tasks/replay-batch', withRemark({ ids }, remark)),
+  replaySearchIndexRetryTasks: (ids: ApiId[], remark?: string, previewNonce?: string): Promise<Result<{ requested: number; replayed: number }>> =>
+    client.post('/api/v1/ops/search-index-retry-tasks/replay-batch', withBatchRiskConfirm('search-replay', { ids }, remark, previewNonce)),
 
   previewSearchIndexRetryTasks: (ids: ApiId[]): Promise<Result<BatchActionPreview>> =>
     client.post('/api/v1/ops/search-index-retry-tasks/replay-batch/preview', { ids }),
@@ -543,14 +783,27 @@ export const opsApi = {
   listNotificationRetryTasks: (params?: { status?: number; limit?: number }): Promise<Result<NotificationRetryTask[]>> =>
     client.get('/api/v1/ops/notification-retry-tasks', { params }),
 
+  pageNotificationRetryTasks: async (params?: { status?: number; page?: number; pageSize?: number; limit?: number }): Promise<Result<PaginatedResponse<NotificationRetryTask>>> => {
+    try {
+      const res = await client.get('/api/v1/ops/notification-retry-tasks/page', { params }) as Result<any>
+      return { ...res, data: normalizePage<NotificationRetryTask>(res.data) }
+    } catch (error) {
+      if (!optionalPanelUnavailable(error)) throw error
+      const fallback = await client.get('/api/v1/ops/notification-retry-tasks', {
+        params: { status: params?.status, limit: params?.pageSize || params?.limit || 20 },
+      }) as Result<NotificationRetryTask[]>
+      return okResult(arrayFallbackPage(fallback.data || []))
+    }
+  },
+
   getNotificationRetryTask: (id: ApiId): Promise<Result<NotificationRetryTask>> =>
     client.get(`/api/v1/ops/notification-retry-tasks/${id}`),
 
   replayNotificationRetryTask: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
     client.post(`/api/v1/ops/notification-retry-tasks/${id}/replay`, withRemark({}, remark)),
 
-  replayNotificationRetryTasks: (ids: ApiId[], remark?: string): Promise<Result<{ requested: number; replayed: number }>> =>
-    client.post('/api/v1/ops/notification-retry-tasks/replay-batch', withRemark({ ids }, remark)),
+  replayNotificationRetryTasks: (ids: ApiId[], remark?: string, previewNonce?: string): Promise<Result<{ requested: number; replayed: number }>> =>
+    client.post('/api/v1/ops/notification-retry-tasks/replay-batch', withBatchRiskConfirm('notif-replay', { ids }, remark, previewNonce)),
 
   previewNotificationRetryTasks: (ids: ApiId[]): Promise<Result<BatchActionPreview>> =>
     client.post('/api/v1/ops/notification-retry-tasks/replay-batch/preview', { ids }),
@@ -559,7 +812,7 @@ export const opsApi = {
     client.post(`/api/v1/admin/questions/${id}/review`, withRemark({}, remark), { params: { status } }),
 
   batchReviewQuestions: (ids: ApiId[], status: number, remark?: string): Promise<Result<{ requested: number; reviewed: number; status: number }>> =>
-    client.post('/api/v1/admin/questions/batch-review', withRemark({ ids, status }, remark)),
+    client.post('/api/v1/admin/questions/batch-review', withRiskConfirm({ ids, status }, remark)),
 
   listQuestions: (params?: { status?: number; limit?: number }): Promise<Result<Question[]>> =>
     client.get('/api/v1/admin/questions', { params }),
@@ -581,20 +834,20 @@ export const opsApi = {
   questionSummary: (): Promise<Result<{ pending: number; approved: number; hidden: number; total: number }>> =>
     client.get('/api/v1/admin/questions/summary'),
 
-  updateQuestion: (id: ApiId, data: Partial<Question> & { status?: number; remark?: string }): Promise<Result<Question>> =>
+  updateQuestion: (id: ApiId, data: Partial<Question> & { status?: number } & RiskRemark): Promise<Result<Question>> =>
     client.post(`/api/v1/admin/questions/${id}`, data),
 
   getQuestionDuplicateGroup: (id: ApiId): Promise<Result<QuestionDuplicateGroup>> =>
     client.get(`/api/v1/admin/questions/${id}/duplicates`),
 
-  setQuestionDuplicateCanonical: (id: ApiId, canonicalQuestionId: ApiId): Promise<Result<QuestionDuplicateGroup>> =>
-    client.post(`/api/v1/admin/questions/${id}/duplicates/canonical`, { canonicalQuestionId }),
+  setQuestionDuplicateCanonical: (id: ApiId, canonicalQuestionId: ApiId, remark?: string): Promise<Result<QuestionDuplicateGroup>> =>
+    client.post(`/api/v1/admin/questions/${id}/duplicates/canonical`, withRiskConfirm({ canonicalQuestionId }, remark)),
 
-  mergeQuestionDuplicateCandidate: (id: ApiId, candidateQuestionId: ApiId): Promise<Result<QuestionDuplicateGroup>> =>
-    client.post(`/api/v1/admin/questions/${id}/duplicates/merge-candidate`, { candidateQuestionId }),
+  mergeQuestionDuplicateCandidate: (id: ApiId, candidateQuestionId: ApiId, remark?: string): Promise<Result<QuestionDuplicateGroup>> =>
+    client.post(`/api/v1/admin/questions/${id}/duplicates/merge-candidate`, withRiskConfirm({ candidateQuestionId }, remark)),
 
   hideQuestionDuplicates: (id: ApiId, ids: ApiId[], remark?: string): Promise<Result<QuestionDuplicateGroup>> =>
-    client.post(`/api/v1/admin/questions/${id}/duplicates/hide`, withRemark({ ids }, remark)),
+    client.post(`/api/v1/admin/questions/${id}/duplicates/hide`, withRiskConfirm({ ids }, remark)),
 
   listCompanyAliases: (params?: { keyword?: string; limit?: number }): Promise<Result<CompanyAlias[]>> =>
     client.get('/api/v1/admin/company-aliases', { params }),
@@ -602,10 +855,10 @@ export const opsApi = {
   listCompanyAliasCandidates: (params?: { limit?: number }): Promise<Result<CompanyAliasCandidate[]>> =>
     client.get('/api/v1/admin/company-aliases/candidates', { params }),
 
-  createCompanyAlias: (data: { canonicalCompany: string; alias: string; status?: number; remark?: string }): Promise<Result<CompanyAlias>> =>
+  createCompanyAlias: (data: { canonicalCompany: string; alias: string; status?: number } & RiskRemark): Promise<Result<CompanyAlias>> =>
     client.post('/api/v1/admin/company-aliases', data),
 
-  updateCompanyAlias: (id: ApiId, data: { canonicalCompany: string; alias: string; status?: number; remark?: string }): Promise<Result<CompanyAlias>> =>
+  updateCompanyAlias: (id: ApiId, data: { canonicalCompany: string; alias: string; status?: number } & RiskRemark): Promise<Result<CompanyAlias>> =>
     client.post(`/api/v1/admin/company-aliases/${id}`, data),
 
   updateCompanyAliasStatus: (id: ApiId, status: number, remark?: string): Promise<Result<{ id: ApiId; status: number }>> =>

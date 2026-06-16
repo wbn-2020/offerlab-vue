@@ -8,6 +8,9 @@ const sourceRoot = resolve(root, 'src')
 const authApi = readFileSync(resolve(sourceRoot, 'api/auth.ts'), 'utf8')
 const clientApi = readFileSync(resolve(sourceRoot, 'api/client.ts'), 'utf8')
 const opsApi = readFileSync(resolve(sourceRoot, 'api/ops.ts'), 'utf8')
+const loginView = readFileSync(resolve(sourceRoot, 'views/LoginView.vue'), 'utf8')
+const registerView = readFileSync(resolve(sourceRoot, 'views/RegisterView.vue'), 'utf8')
+const navigation = readFileSync(resolve(sourceRoot, 'utils/navigation.ts'), 'utf8')
 
 function collectSourceFiles(dir) {
   const entries = readdirSync(dir, { withFileTypes: true })
@@ -19,7 +22,9 @@ function collectSourceFiles(dir) {
   })
 }
 
-assert.match(authApi, /client\.post\('\/api\/v1\/auth\/login',\s*req\)/, 'login must call backend /api/v1/auth/login')
+assert.match(authApi, /export interface LoginReq \{[\s\S]*account: string[\s\S]*email\?: string[\s\S]*password: string[\s\S]*\}/, 'login request must use account while keeping email compatibility')
+assert.match(authApi, /client\.post\('\/api\/v1\/auth\/login',\s*\{ \.\.\.req, email: req\.email \|\| req\.account \}\)/, 'login must call backend /api/v1/auth/login with account plus email compatibility payload')
+assert.doesNotMatch(authApi, /client\.post\('\/api\/v1\/auth\/login',\s*req\)/, 'login must not keep the old email-only request contract')
 assert.match(authApi, /client\.post\('\/api\/v1\/auth\/register',\s*req\)/, 'register must call backend /api/v1/auth/register')
 assert.match(authApi, /client\.post\('\/api\/v1\/auth\/logout'\)/, 'logout must call backend /api/v1/auth/logout')
 assert.match(clientApi, /const isDevLocalBackend = \(value: string\) =>/, 'API client must normalize local dev backend URLs')
@@ -28,6 +33,14 @@ assert.match(clientApi, /export const apiBaseURL = isDevLocalBackend\(rawApiBase
 assert.match(clientApi, /baseURL:\s*apiBaseURL/, 'main API client must use the normalized base URL')
 assert.match(opsApi, /import client, \{ apiBaseURL, BizException, Result \} from '\.\/client'/, 'ops raw client must share the normalized base URL')
 assert.match(opsApi, /baseURL:\s*apiBaseURL/, 'ops raw client must use the normalized base URL')
+assert.match(navigation, /export const safeRedirect/, 'auth recovery must share safe same-site redirect logic')
+assert.match(navigation, /\/\(\?:login\|register\)/, 'safe redirect must reject auth-loop targets')
+assert.match(loginView, /redirectQuery\(route\.query\.redirect\)/, 'login register link must preserve safe redirect query')
+assert.match(loginView, /route\.query\.switchAccount === '1'[\s\S]*authStore\.logout\(\)/, 'login must support explicit switch-account recovery')
+assert.match(registerView, /useRoute/, 'register must read redirect query')
+assert.match(registerView, /redirectQuery\(route\.query\.redirect\)/, 'register login link must preserve safe redirect query')
+assert.match(registerView, /router\.replace\(safeRedirect\(route\.query\.redirect\)\)/, 'register success must return to the protected task')
+assert.match(registerView, /to="\/"[\s\S]*返回首页/, 'register must expose the same lightweight home navigation as login')
 
 const violations = []
 for (const file of collectSourceFiles(sourceRoot)) {

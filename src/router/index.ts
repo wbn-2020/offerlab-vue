@@ -24,19 +24,19 @@ const routes = [
     path: '/questions',
     name: 'Questions',
     component: () => import('@/views/QuestionsView.vue'),
-    meta: { title: '面试题库' },
+    meta: { title: '知识库' },
   },
   {
     path: '/questions/:id',
     name: 'QuestionDetail',
     component: () => import('@/views/QuestionDetailView.vue'),
-    meta: { title: '题目详情' },
+    meta: { title: '知识卡详情' },
   },
   {
     path: '/companies/:company/prep',
     name: 'CompanyPrep',
     component: () => import('@/views/CompanyPrepView.vue'),
-    meta: { title: '公司准备包' },
+    meta: { title: '主题学习包' },
   },
   {
     path: '/post/:id',
@@ -48,13 +48,13 @@ const routes = [
     path: '/editor',
     name: 'Editor',
     component: () => import('@/views/EditorView.vue'),
-    meta: { title: '发布帖子', requiresAuth: true },
+    meta: { title: '发布技术经验', requiresAuth: true },
   },
   {
     path: '/editor/:id',
     name: 'PostEditor',
     component: () => import('@/views/EditorView.vue'),
-    meta: { title: '编辑帖子', requiresAuth: true },
+    meta: { title: '编辑技术经验', requiresAuth: true },
   },
   {
     path: '/u/:uid',
@@ -72,13 +72,13 @@ const routes = [
     path: '/me/prep',
     name: 'MePrep',
     component: () => import('@/views/MePrepView.vue'),
-    meta: { title: '我的准备台', requiresAuth: true },
+    meta: { title: '个人学习空间', requiresAuth: true },
   },
   {
     path: '/mock-interview',
     name: 'MockInterview',
     component: () => import('@/views/MockInterviewView.vue'),
-    meta: { title: '模拟面试', requiresAuth: true },
+    meta: { title: '个人练习归档', requiresAuth: true },
   },
   {
     path: '/me/notifications',
@@ -100,6 +100,12 @@ const routes = [
     meta: { title: '搜索' },
   },
   {
+    path: '/admin',
+    name: 'Admin',
+    redirect: '/admin/ops',
+    meta: { title: '后台中心', requiresAuth: true, adminPermission: ['ops', 'questionOperator', 'contentModerator', 'admin'] },
+  },
+  {
     path: '/admin/ops',
     name: 'AdminOps',
     component: () => import('@/views/OpsView.vue'),
@@ -109,13 +115,13 @@ const routes = [
     path: '/admin/questions',
     name: 'AdminQuestions',
     component: () => import('@/views/AdminQuestionsView.vue'),
-    meta: { title: '题目审核', requiresAuth: true, adminPermission: ['questionOperator', 'admin'] },
+    meta: { title: '结构化内容审核', requiresAuth: true, adminPermission: ['questionOperator', 'admin'] },
   },
   {
     path: '/admin/company-aliases',
     name: 'AdminCompanyAliases',
     component: () => import('@/views/AdminCompanyAliasesView.vue'),
-    meta: { title: '公司别名维护', requiresAuth: true, adminPermission: ['questionOperator', 'admin'] },
+    meta: { title: '实体别名维护', requiresAuth: true, adminPermission: ['questionOperator', 'admin'] },
   },
   {
     path: '/admin/governance',
@@ -124,10 +130,22 @@ const routes = [
     meta: { title: '治理中心', requiresAuth: true, adminPermission: ['contentModerator', 'ops', 'admin'] },
   },
   {
+    path: '/admin/tags',
+    name: 'AdminTags',
+    component: () => import('@/views/AdminGovernanceView.vue'),
+    meta: { title: '标签治理', requiresAuth: true, adminPermission: ['contentModerator', 'admin'], governanceTab: 'tags' },
+  },
+  {
     path: '/tag/:slug',
     name: 'TagDetail',
     component: () => import('@/views/TagDetailView.vue'),
     meta: { title: '标签详情' },
+  },
+  {
+    path: '/topics/:slug',
+    name: 'TopicDetail',
+    component: () => import('@/views/TopicDetailView.vue'),
+    meta: { title: '专题详情' },
   },
   {
     path: '/login',

@@ -63,16 +63,16 @@ withDefaults(defineProps<Props>(), {
   color: rgb(29 78 216);
 }
 
-:global(.dark) .prep-panel {
+.dark .prep-panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .prep-panel-title {
+.dark .prep-panel-title {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .prep-panel-action {
+.dark .prep-panel-action {
   color: rgb(147 197 253);
 }
 </style>

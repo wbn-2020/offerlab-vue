@@ -3,13 +3,16 @@
     <div class="w-full max-w-md">
       <!-- Card -->
       <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-        <RouterLink to="/" class="auth-nav-link mb-6 inline-flex items-center text-sm font-semibold text-slate-500 transition-colors hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-300">
-          返回首页
-        </RouterLink>
+        <div class="auth-nav-row mb-6">
+          <RouterLink to="/" class="auth-nav-link text-sm font-semibold text-slate-500 transition-colors hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-300">
+            返回首页
+          </RouterLink>
+          <AuthThemeToggle />
+        </div>
         <!-- Header -->
         <div class="text-center mb-8">
-          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">登录面试圈</h1>
-          <p class="text-sm text-slate-600 dark:text-slate-400">分享面试经验，获取求职机会</p>
+          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">登录 OfferLab</h1>
+          <p class="text-sm text-slate-600 dark:text-slate-400">分享技术经验，沉淀项目知识</p>
         </div>
 
         <!-- Form -->
@@ -71,7 +74,7 @@
         <!-- Register Link -->
         <p class="text-center text-sm text-slate-600 dark:text-slate-400">
           还没有账号？
-          <RouterLink to="/register" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
+          <RouterLink :to="{ path: '/register', query: redirectQuery(route.query.redirect) }" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
             立即注册
           </RouterLink>
         </p>
@@ -94,6 +97,8 @@ import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
+import { redirectQuery, safeRedirect } from '@/utils/navigation'
+import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
 import { z } from 'zod'
 
 const router = useRouter()
@@ -138,14 +143,6 @@ const validateForm = () => {
   }
 }
 
-const safeRedirect = (value: unknown) => {
-  const target = Array.isArray(value) ? value[0] : value
-  if (typeof target !== 'string') return '/'
-  if (!target.startsWith('/') || target.startsWith('//') || target.startsWith('/\\')) return '/'
-  if (/^\/(?:login|register)(?:[/?#]|$)/.test(target)) return '/'
-  return target
-}
-
 const handleSubmit = async () => {
   if (!validateForm()) return
 
@@ -163,6 +160,10 @@ const handleSubmit = async () => {
 }
 
 onMounted(async () => {
+  if (route.query.switchAccount === '1') {
+    authStore.logout()
+    return
+  }
   if (authStore.token && !authStore.user) {
     await authStore.hydrate()
   }
@@ -177,6 +178,17 @@ onMounted(async () => {
 .auth-inline-link {
   min-height: 44px;
   align-items: center;
+}
+
+.auth-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.auth-nav-link {
+  display: inline-flex;
 }
 
 .auth-inline-link {

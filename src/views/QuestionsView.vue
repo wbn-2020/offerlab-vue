@@ -5,11 +5,11 @@
       <section class="surface-card mb-6 p-6">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-slate-950 dark:text-slate-50">面试题库</h1>
-            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">从真实面经中沉淀的结构化题目，按公司、岗位和技术标签快速筛选。</p>
+            <h1 class="text-3xl font-bold text-slate-950 dark:text-slate-50">知识库</h1>
+            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">从社区内容中沉淀的结构化问题，按技术栈、场景和标签快速筛选。</p>
           </div>
           <RouterLink to="/search" class="secondary-action">
-            搜索面经
+            搜索内容
           </RouterLink>
         </div>
 
@@ -25,40 +25,47 @@
           </button>
         </div>
 
-        <form class="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-6" @submit.prevent="applyFilters">
-          <input v-model.trim="filters.keyword" class="filter-input lg:col-span-2" aria-label="题库关键词或题目正文" placeholder="关键词 / 题目正文" />
-          <input v-model.trim="filters.company" class="filter-input" aria-label="题库公司筛选" placeholder="公司" />
-          <input v-model.trim="filters.position" class="filter-input" aria-label="题库岗位筛选" placeholder="岗位" />
-          <select v-model="filters.difficulty" class="filter-input" aria-label="题库难度筛选">
-            <option value="">全部难度</option>
-            <option value="easy">简单</option>
-            <option value="medium">中等</option>
-            <option value="hard">困难</option>
-          </select>
-          <select v-model="filters.mistakeReason" class="filter-input" aria-label="题库错因筛选">
-            <option value="">全部错因</option>
-            <option value="any">任意错因</option>
-            <option value="concept">概念不熟</option>
-            <option value="project">项目表达弱</option>
-            <option value="memory">需要记忆</option>
-            <option value="expression">表达不清</option>
-            <option value="careless">粗心失误</option>
-            <option value="other">其他错因</option>
-          </select>
-          <select v-model="filters.progressStatus" class="filter-input" aria-label="题库学习状态筛选">
-            <option value="">全部状态</option>
-            <option value="todo">待学习</option>
-            <option value="learning">学习中</option>
-            <option value="mastered">已掌握</option>
-            <option value="review">待复习</option>
-          </select>
-          <select v-model="filters.sort" class="filter-input" aria-label="题库排序方式">
-            <option value="latest">最新</option>
-            <option value="appear">出现次数</option>
-            <option value="hot">热度</option>
-            <option value="relevance">相关度</option>
-          </select>
-          <div class="flex gap-2 md:col-span-2 lg:col-span-6">
+        <form class="question-filter-form mt-6" @submit.prevent="applyFilters">
+          <div class="question-filter-primary">
+            <input v-model.trim="filters.keyword" class="filter-input" aria-label="知识库关键词或知识卡正文" placeholder="关键词 / 知识卡正文" />
+            <button type="button" class="secondary-action mobile-filter-toggle px-4 py-2.5" @click="showMobileFilters = !showMobileFilters">
+              {{ showMobileFilters ? '收起条件' : '筛选条件' }}
+            </button>
+          </div>
+          <div :class="['question-filter-advanced', showMobileFilters ? 'question-filter-advanced-open' : '']">
+            <input v-model.trim="filters.company" class="filter-input" aria-label="知识库技术栈筛选" placeholder="技术栈" />
+            <input v-model.trim="filters.position" class="filter-input" aria-label="知识库场景筛选" placeholder="场景" />
+            <select v-model="filters.difficulty" class="filter-input" aria-label="知识库难度筛选">
+              <option value="">全部难度</option>
+              <option value="easy">简单</option>
+              <option value="medium">中等</option>
+              <option value="hard">困难</option>
+            </select>
+            <select v-model="filters.mistakeReason" class="filter-input" aria-label="知识库错因筛选">
+              <option value="">全部错因</option>
+              <option value="any">任意错因</option>
+              <option value="concept">概念不熟</option>
+              <option value="project">项目表达弱</option>
+              <option value="memory">需要记忆</option>
+              <option value="expression">表达不清</option>
+              <option value="careless">粗心失误</option>
+              <option value="other">其他错因</option>
+            </select>
+            <select v-model="filters.progressStatus" class="filter-input" aria-label="知识库学习状态筛选">
+              <option value="">全部状态</option>
+              <option value="todo">待学习</option>
+              <option value="learning">学习中</option>
+              <option value="mastered">已掌握</option>
+              <option value="review">待复习</option>
+            </select>
+            <select v-model="filters.sort" class="filter-input" aria-label="知识库排序方式">
+              <option value="latest">最新</option>
+              <option value="appear">出现次数</option>
+              <option value="hot">热度</option>
+              <option value="relevance">相关度</option>
+            </select>
+          </div>
+          <div class="question-filter-actions">
             <button type="submit" class="primary-action px-5 py-2.5">筛选</button>
             <button type="button" class="secondary-action px-5 py-2.5" @click="resetFilters">
               清空
@@ -69,9 +76,9 @@
 
       <LoadingSkeleton v-if="isLoading" />
       <section v-else-if="requiresLoginForPersonalFilters" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
-        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">登录后查看个人题库</h3>
+        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">登录后查看个人知识库</h3>
         <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
-          当前筛选包含你的学习进度、错因、笔记或回答卡片。登录后才能读取这些个人备考数据。
+          当前筛选包含你的学习进度、错因、笔记或回答卡片。登录后才能读取这些个人学习数据。
         </p>
         <div class="flex flex-wrap justify-center gap-3">
           <RouterLink :to="loginRedirectTo" class="primary-action px-5 py-2.5">去登录</RouterLink>
@@ -81,7 +88,7 @@
         </div>
       </section>
       <section v-else-if="listError" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
-        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">题库加载失败</h3>
+        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">知识库加载失败</h3>
         <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">{{ listError }}</p>
         <button type="button" class="primary-action px-5 py-2.5" @click="fetchQuestions(false)">重试</button>
       </section>
@@ -91,14 +98,14 @@
         </h3>
         <p class="mx-auto mb-6 max-w-lg text-sm leading-6 text-slate-600 dark:text-slate-400">
           {{ hasActiveFilters
-            ? '当前筛选条件没有命中题目，可以清空筛选或换一个公司、岗位、技术关键词。'
-            : '题库题目来自公开面经和提题任务；本地演示库为空时，可以先发布面经、去发现页浏览内容，或进入准备台添加目标。' }}
+            ? '当前筛选条件没有命中题目，可以清空筛选或换一个技术栈、场景关键词。'
+            : '知识卡来自公开技术内容和结构化任务；本地演示库为空时，可以先发布技术内容，或去发现页浏览社区内容。' }}
         </p>
         <div class="flex flex-wrap justify-center gap-3">
           <button v-if="hasActiveFilters" type="button" class="primary-action px-5 py-2.5" @click="resetFilters">清空筛选</button>
-          <RouterLink v-else to="/editor" class="primary-action inline-flex items-center justify-center px-5 py-2.5">发布面经</RouterLink>
+          <RouterLink v-else to="/editor" class="primary-action inline-flex items-center justify-center px-5 py-2.5">发布内容</RouterLink>
           <RouterLink to="/explore" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">去发现</RouterLink>
-          <RouterLink to="/me/prep" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">查看准备台</RouterLink>
+          <RouterLink to="/me/prep" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">查看学习台</RouterLink>
         </div>
       </section>
       <section v-else class="grid gap-4 lg:grid-cols-2">
@@ -124,6 +131,7 @@ import QuestionCard from '@/components/question/QuestionCard.vue'
 import { questionApi, type Question } from '@/api/question'
 import { getErrorMessage } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { filterPublicContent } from '@/utils/textQuality'
 
 const route = useRoute()
 const router = useRouter()
@@ -148,6 +156,7 @@ const isLoading = ref(false)
 const isLoadingMore = ref(false)
 const listError = ref('')
 const loadMoreError = ref('')
+const showMobileFilters = ref(false)
 let listRequestId = 0
 
 const hasPersonalFilter = computed(() => Boolean(
@@ -218,13 +227,13 @@ const fetchQuestions = async (append = false, targetPage = page.value) => {
       pageSize: 20,
     })
     if (requestId !== listRequestId) return
-    const items = res.data?.items || []
+    const items = filterPublicContent(res.data?.items || [])
     questions.value = append ? [...questions.value, ...items] : items
     hasMore.value = Boolean(res.data?.hasMore)
     page.value = targetPage
   } catch (error: any) {
     if (requestId !== listRequestId) return
-    const message = getErrorMessage(error, '题库暂时无法加载，请稍后重试。')
+    const message = getErrorMessage(error, '知识库暂时无法加载，请稍后重试。')
     if (append) {
       loadMoreError.value = message
     } else {
@@ -352,6 +361,31 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.question-filter-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.question-filter-primary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+.question-filter-advanced {
+  display: none;
+  gap: 0.75rem;
+}
+
+.question-filter-advanced-open {
+  display: grid;
+}
+
+.question-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .filter-input {
   border-radius: 0.75rem;
   border: 1px solid rgb(203 213 225);
@@ -367,6 +401,40 @@ onMounted(() => {
   border-color: rgb(129 140 248);
   background: white;
   box-shadow: 0 0 0 3px rgb(224 231 255 / 0.8);
+}
+
+@media (min-width: 768px) {
+  .question-filter-primary {
+    grid-template-columns: minmax(0, 2fr);
+  }
+
+  .mobile-filter-toggle {
+    display: none;
+  }
+
+  .question-filter-advanced {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .question-filter-form {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .question-filter-primary {
+    grid-column: span 2 / span 2;
+  }
+
+  .question-filter-advanced {
+    grid-column: span 4 / span 4;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .question-filter-actions {
+    grid-column: span 6 / span 6;
+  }
 }
 
 .quick-filter {
@@ -396,19 +464,19 @@ onMounted(() => {
   min-height: 18rem;
 }
 
-:global(.dark) .filter-input {
+.dark .filter-input {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
   color: rgb(241 245 249);
 }
 
-:global(.dark) .quick-filter {
+.dark .quick-filter {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .quick-filter-active {
+.dark .quick-filter-active {
   border-color: rgb(67 56 202);
   background: rgb(30 27 75);
   color: rgb(199 210 254);

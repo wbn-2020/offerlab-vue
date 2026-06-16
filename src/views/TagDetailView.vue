@@ -6,15 +6,37 @@
       <section class="tag-header">
         <div class="tag-icon">{{ tagName.charAt(0).toUpperCase() }}</div>
         <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">Tag</p>
+          <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">专题 / 技术栈</p>
           <h1 class="mt-1 truncate text-2xl font-bold text-slate-950 dark:text-slate-50">{{ tagName }}</h1>
           <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            汇总这个标签下的面经、讨论和求职复盘。
+            汇总这个标签下的技术文章、项目复盘、踩坑记录和讨论。
           </p>
         </div>
         <div class="tag-count">
           <strong>{{ displayCount }}</strong>
           <span>篇内容</span>
+        </div>
+      </section>
+
+      <section class="filter-panel">
+        <div>
+          <h2>专题筛选</h2>
+          <p>{{ typeSummary }}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" :class="['filter-chip', !activeType ? 'filter-chip-active' : '']" @click="setType(undefined)">全部</button>
+          <button
+            v-for="type in contentTypeChannels"
+            :key="type.value"
+            type="button"
+            :class="['filter-chip', activeType === type.value ? 'filter-chip-active' : '']"
+            @click="setType(type.value)"
+          >
+            {{ type.shortLabel }}
+          </button>
+          <button type="button" :class="['filter-chip', featuredOnly ? 'filter-chip-active' : '']" @click="toggleFeatured">
+            只看精选
+          </button>
         </div>
       </section>
 
@@ -63,6 +85,8 @@ import PostCard from '@/components/post/PostCard.vue'
 import { postApi } from '@/api/post'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, Post, Tag } from '@/api/types'
+import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
+import { postTypeSummary } from '@/utils/communityMetrics'
 
 const route = useRoute()
 const tagName = ref('标签')
@@ -73,8 +97,12 @@ const cursor = ref<string | undefined>()
 const hasMore = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
+const activeType = ref<number | undefined>()
+const featuredOnly = ref(false)
 
 const displayCount = computed(() => declaredCount.value || posts.value.length)
+const contentTypeChannels = COMMUNITY_CONTENT_TYPES
+const typeSummary = computed(() => postTypeSummary(posts.value))
 const emptyTitle = computed(() => tagId.value ? '这个标签下还没有内容' : '没有找到这个标签')
 const emptyDescription = computed(() => tagId.value
   ? '等第一篇相关内容发布后，它会出现在这里。'
@@ -119,7 +147,10 @@ const loadPosts = async (append = false) => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await postApi.getTagPosts(tagId.value, append ? cursor.value : undefined, 10)
+    const res = await postApi.getTagPosts(tagId.value, append ? cursor.value : undefined, 10, {
+      type: activeType.value,
+      featured: featuredOnly.value ? true : undefined,
+    })
     const page = res.data
     posts.value = append ? [...posts.value, ...(page?.items || [])] : (page?.items || [])
     cursor.value = page?.nextCursor
@@ -130,6 +161,20 @@ const loadPosts = async (append = false) => {
   } finally {
     isLoading.value = false
   }
+}
+
+const setType = async (type?: number) => {
+  activeType.value = type
+  cursor.value = undefined
+  hasMore.value = false
+  await loadPosts(false)
+}
+
+const toggleFeatured = async () => {
+  featuredOnly.value = !featuredOnly.value
+  cursor.value = undefined
+  hasMore.value = false
+  await loadPosts(false)
 }
 
 const handleLike = async (postId: ApiId) => {
@@ -203,6 +248,46 @@ onMounted(loadTag)
   color: rgb(100 116 139);
 }
 
+.filter-panel {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 1rem;
+}
+
+.filter-panel h2 {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.filter-panel p {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: rgb(100 116 139);
+}
+
+.filter-chip {
+  border-radius: 999px;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(71 85 105);
+}
+
+.filter-chip-active,
+.filter-chip:hover {
+  border-color: rgb(199 210 254);
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+}
+
 .primary-button,
 .secondary-button {
   display: inline-flex;
@@ -264,20 +349,45 @@ onMounted(loadTag)
     flex-direction: row;
     align-items: center;
   }
+
+  .filter-panel {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 
-:global(.dark) .tag-header,
-:global(.dark) .tag-count,
-:global(.dark) .secondary-button,
-:global(.dark) .empty-panel,
-:global(.dark) .loading-panel {
+.dark .tag-header,
+.dark .tag-count,
+.dark .filter-panel,
+.dark .secondary-button,
+.dark .empty-panel,
+.dark .loading-panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .tag-count strong,
-:global(.dark) .empty-panel h2 {
+.dark .tag-count strong,
+.dark .filter-panel h2,
+.dark .empty-panel h2 {
   color: rgb(248 250 252);
+}
+
+.dark .filter-panel p {
+  color: rgb(148 163 184);
+}
+
+.dark .filter-chip {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .filter-chip-active,
+.dark .filter-chip:hover {
+  border-color: rgb(67 56 202);
+  background: rgb(49 46 129 / 0.45);
+  color: rgb(199 210 254);
 }
 </style>

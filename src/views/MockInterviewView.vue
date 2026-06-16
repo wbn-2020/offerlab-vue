@@ -5,13 +5,13 @@
       <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p class="text-xs font-black uppercase tracking-wide text-primary-600 dark:text-primary-300">Mock Interview</p>
-            <h1 class="mt-2 text-3xl font-black text-slate-950 dark:text-slate-50">模拟面试</h1>
+            <p class="text-xs font-black tracking-normal text-primary-600 dark:text-primary-300">个人练习归档</p>
+            <h1 class="mt-2 text-3xl font-black text-slate-950 dark:text-slate-50">知识复盘</h1>
             <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              从题库抽取一组题，按真实面试节奏作答、计时、自评分，并沉淀一份复盘记录。
+              从知识库抽取一组知识卡，按复盘节奏作答、计时、自评分，并沉淀一份个人复盘记录。
             </p>
           </div>
-          <RouterLink to="/me/prep" class="secondary-action">回到准备台</RouterLink>
+          <RouterLink to="/me/prep" class="secondary-action">回到学习空间</RouterLink>
         </div>
       </section>
 
@@ -26,7 +26,7 @@
             @mark-weak-answers-review="markStatsWeakAnswersForReview"
           />
           <MockInterviewStartForm
-            v-model="startForm"
+            :model-value="startForm"
             :is-starting="isStarting"
             :service-unavailable="isMockInterviewUnavailable"
             :unavailable-message="statsError"
@@ -78,6 +78,7 @@ import { useAuthStore } from '@/stores/auth'
 import { buildMockInterviewReportMarkdown, downloadMarkdownFile } from '@/utils/prepPackExport'
 import { buildMockInterviewReviewSuggestions, formatDuration, isWeakMockInterviewAnswer } from '@/utils/mockInterviewFormat'
 import { safeStorage } from '@/utils/safeStorage'
+import { filterPublicContent } from '@/utils/textQuality'
 
 type DraftAnswer = { answerText: string; selfReview: string; score: number }
 type StoredInterviewDraft = { elapsedSeconds?: number; answers?: Record<string, DraftAnswer> }
@@ -122,11 +123,26 @@ const reviewSuggestions = computed(() => {
   const session = currentReportSession()
   return session ? buildMockInterviewReviewSuggestions(session) : []
 })
-const statsForPanel = computed<MockInterviewStats | null>(() => {
-  if (!stats.value) return null
+const visibleMockSessions = (sessions?: MockInterviewSession[] | null) => filterPublicContent(sessions || [])
+const visibleMockAnswers = (answers?: MockInterviewAnswer[] | null) => filterPublicContent(answers || [])
+const visibleMockStats = (value: MockInterviewStats | null): MockInterviewStats | null => {
+  if (!value) return null
   return {
-    ...stats.value,
-    weakAnswers: stats.value.weakAnswers.filter((answer) => !reviewMarkedQuestionIds.value.has(answer.questionId)),
+    ...value,
+    lastSession: value.lastSession && filterPublicContent([value.lastSession]).length ? value.lastSession : undefined,
+    recentSessions: visibleMockSessions(value.recentSessions),
+    weakAnswers: visibleMockAnswers(value.weakAnswers),
+    focusTagInsights: value.focusTagInsights.filter((item) => filterPublicContent([item]).length > 0),
+    companyInsights: value.companyInsights.filter((item) => filterPublicContent([item]).length > 0),
+    positionInsights: value.positionInsights.filter((item) => filterPublicContent([item]).length > 0),
+  }
+}
+const statsForPanel = computed<MockInterviewStats | null>(() => {
+  const cleanStats = visibleMockStats(stats.value)
+  if (!cleanStats) return null
+  return {
+    ...cleanStats,
+    weakAnswers: cleanStats.weakAnswers.filter((answer) => !reviewMarkedQuestionIds.value.has(answer.questionId)),
   }
 })
 const isMockInterviewUnavailable = computed(() => Boolean(statsError.value && !isStatsLoading.value))
@@ -204,7 +220,7 @@ const selectSession = async (session: MockInterviewSession) => {
 
 const startInterview = async () => {
   if (isMockInterviewUnavailable.value) {
-    toast.error(statsError.value || '模拟面试服务暂时不可用，请稍后重试')
+    toast.error(statsError.value || '知识复盘服务暂时不可用，请稍后重试')
     return
   }
   isStarting.value = true
@@ -224,12 +240,12 @@ const startInterview = async () => {
       lastServerDraftPayload = ''
       hydrateDrafts(res.data)
       stopAiReviewRefresh()
-      toast.success('模拟面试已开始')
+      toast.success('知识复盘已开始')
       await loadRecent()
       await loadStats()
     }
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '开始模拟面试失败'))
+    toast.error(getErrorMessage(error, '开始知识复盘失败'))
   } finally {
     isStarting.value = false
   }
@@ -268,7 +284,7 @@ const submitInterview = async () => {
       await loadStats()
     }
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '提交模拟面试失败'))
+    toast.error(getErrorMessage(error, '提交知识复盘失败'))
   } finally {
     isSubmitting.value = false
   }
@@ -339,9 +355,9 @@ const copyInterviewReport = async () => {
   if (!session) return
   try {
     await navigator.clipboard.writeText(buildMockInterviewReportMarkdown(session))
-    toast.success('模拟面试复盘报告已复制')
+    toast.success('知识复盘报告已复制')
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '复制模拟面试复盘报告失败'))
+    toast.error(getErrorMessage(error, '复制知识复盘报告失败'))
   }
 }
 
@@ -349,10 +365,10 @@ const downloadInterviewReport = () => {
   const session = currentReportSession()
   if (!session) return
   try {
-    downloadMarkdownFile(buildMockInterviewReportMarkdown(session), `offerlab-模拟面试复盘-${exportDateText()}.md`)
-    toast.success('模拟面试复盘报告已下载')
+    downloadMarkdownFile(buildMockInterviewReportMarkdown(session), `offerlab-知识复盘-${exportDateText()}.md`)
+    toast.success('知识复盘报告已下载')
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '下载模拟面试复盘报告失败'))
+    toast.error(getErrorMessage(error, '下载知识复盘报告失败'))
   }
 }
 
@@ -374,9 +390,9 @@ const mergeAnswerCardText = (existing: string | undefined, incoming: string | un
 const buildAnswerCardPayload = (question: Question, answer: MockInterviewAnswer): QuestionNotePayload => {
   const sectionDate = new Date().toLocaleDateString('zh-CN')
   return {
-    note: mergeAnswerCardText(question.note, answer.selfReview, `模拟面试复盘 ${sectionDate}`, 4000),
+    note: mergeAnswerCardText(question.note, answer.selfReview, `知识复盘记录 ${sectionDate}`, 4000),
     mistakeReason: question.mistakeReason || '',
-    answerDraft: mergeAnswerCardText(question.answerDraft, answer.answerText, `模拟面试回答 ${sectionDate}`, 4000),
+    answerDraft: mergeAnswerCardText(question.answerDraft, answer.answerText, `知识复盘回答 ${sectionDate}`, 4000),
     starStory: question.starStory || '',
   }
 }
@@ -399,7 +415,7 @@ const saveMockAnswersAsAnswerCards = async () => {
       answerCardSavedQuestionIds.value = new Set([...answerCardSavedQuestionIds.value, ...succeededAnswers.map((answer) => answer.questionId)])
     }
     if (succeededAnswers.length === answers.length) {
-      toast.success(`${answers.length} 张回答卡已沉淀到题库`)
+      toast.success(`${answers.length} 张回答卡已沉淀到知识库`)
     } else if (succeededAnswers.length) {
       toast.warning(`${succeededAnswers.length} 张回答卡已沉淀，剩余回答可稍后重试`)
     } else {
@@ -442,7 +458,7 @@ const markStatsWeakAnswersForReview = async () => {
 const loadRecent = async () => {
   try {
     const res = await questionApi.recentMockInterviews(5)
-    recentSessions.value = res.data || []
+    recentSessions.value = visibleMockSessions(res.data)
   } catch {
     recentSessions.value = []
   }
@@ -456,7 +472,7 @@ const loadStats = async () => {
     stats.value = res.data || null
   } catch (error: any) {
     stats.value = null
-    statsError.value = getErrorMessage(error, '模拟面试统计加载失败')
+    statsError.value = getErrorMessage(error, '知识复盘统计加载失败')
   } finally {
     isStatsLoading.value = false
   }
@@ -572,7 +588,7 @@ onBeforeUnmount(() => {
   color: rgb(51 65 85);
 }
 
-:global(.dark) .secondary-action {
+.dark .secondary-action {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }

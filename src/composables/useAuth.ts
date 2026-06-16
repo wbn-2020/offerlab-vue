@@ -4,8 +4,8 @@ import { authApi } from '@/api/auth'
 export function useAuth() {
   const authStore = useAuthStore()
 
-  const login = async (email: string, password: string) => {
-    const result = await authApi.login({ email, password })
+  const login = async (account: string, password: string) => {
+    const result = await authApi.login({ account, password })
     const token = result.data?.token
     if (!token) {
       throw new Error('登录响应缺少 token')

@@ -3,10 +3,21 @@
     <div class="w-full max-w-md">
       <!-- Card -->
       <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+        <div class="auth-nav-row mb-6">
+          <RouterLink to="/" class="auth-nav-link text-sm font-semibold text-slate-500 transition-colors hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-300">
+            返回首页
+          </RouterLink>
+          <div class="auth-nav-actions">
+            <RouterLink :to="{ path: '/login', query: redirectQuery(route.query.redirect) }" class="auth-nav-link text-sm font-semibold text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200">
+              登录
+            </RouterLink>
+            <AuthThemeToggle />
+          </div>
+        </div>
         <!-- Header -->
         <div class="text-center mb-8">
-          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">加入面试圈</h1>
-          <p class="text-sm text-slate-600 dark:text-slate-400">创建账号，开始分享面试经验</p>
+          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">加入 OfferLab</h1>
+          <p class="text-sm text-slate-600 dark:text-slate-400">创建账号，开始分享技术经验</p>
         </div>
 
         <!-- Form -->
@@ -73,7 +84,7 @@
         <!-- Login Link -->
         <p class="text-center text-sm text-slate-600 dark:text-slate-400">
           已有账号？
-          <RouterLink to="/login" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
+          <RouterLink :to="{ path: '/login', query: redirectQuery(route.query.redirect) }" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
             立即登录
           </RouterLink>
         </p>
@@ -84,13 +95,16 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
+import { redirectQuery, safeRedirect } from '@/utils/navigation'
+import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
 import { z } from 'zod'
 
 const router = useRouter()
+const route = useRoute()
 const { register } = useAuth()
 
 const isLoading = ref(false)
@@ -141,7 +155,7 @@ const handleSubmit = async () => {
   try {
     await register(form.email, form.password, form.nickname)
     toast.success('注册成功')
-    router.push('/')
+    await router.replace(safeRedirect(route.query.redirect))
   } catch (error: any) {
     const message = getErrorMessage(error, '注册失败，请稍后重试')
     toast.error(message)
@@ -152,6 +166,25 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped>
+.auth-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.auth-nav-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-nav-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+
 .auth-inline-link {
   display: inline-flex;
   min-height: 44px;

@@ -7,7 +7,7 @@
           <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Community Insights</p>
           <h1 class="mt-2 text-2xl font-bold text-slate-950 dark:text-slate-50">趋势看板</h1>
           <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            基于真实公开帖子、标签和面经扩展字段生成统计，不再展示演示数据。
+            基于真实公开帖子、标签和社区扩展字段生成统计，用来观察技术方向和内容场景变化。
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -38,7 +38,7 @@
           <strong>{{ dashboard?.totalPosts ?? '--' }}</strong>
         </article>
         <article class="metric-card">
-          <span>热门公司</span>
+          <span>热门技术方向</span>
           <strong>{{ dashboard?.topCompanies.length ?? '--' }}</strong>
         </article>
         <article class="metric-card">
@@ -46,8 +46,12 @@
           <strong>{{ dashboard?.topTags.length ?? '--' }}</strong>
         </article>
         <article class="metric-card">
-          <span>统计周期</span>
-          <strong>{{ dashboard?.days ?? '--' }} 天</strong>
+          <span>精选内容</span>
+          <strong>{{ dashboard?.featuredPosts ?? '--' }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>活跃作者</span>
+          <strong>{{ dashboard?.activeAuthors ?? '--' }}</strong>
         </article>
       </section>
 
@@ -57,8 +61,13 @@
 
       <template v-else>
         <section class="grid gap-6 lg:grid-cols-2">
-          <RankPanel title="热门公司 Top 10" unit="篇" :items="dashboard?.topCompanies || []" color="primary" />
+          <RankPanel title="热门技术方向 Top 10" unit="篇" :items="dashboard?.topCompanies || []" color="primary" />
           <RankPanel title="高频标签 Top 10" unit="次" :items="dashboard?.topTags || []" color="blue" />
+        </section>
+
+        <section class="grid gap-6 lg:grid-cols-2">
+          <RankPanel title="内容类型分布" unit="篇" :items="dashboard?.contentTypeDistribution || []" color="green" show-percentage />
+          <RankPanel title="精选内容互动 Top 8" unit="互动" :items="dashboard?.featuredContent || []" color="amber" />
         </section>
 
         <section class="panel">
@@ -84,8 +93,8 @@
         </section>
 
         <section class="grid gap-6 lg:grid-cols-2">
-          <RankPanel title="岗位分布" unit="篇" :items="dashboard?.positionDistribution || []" color="green" show-percentage />
-          <RankPanel title="面试结果分布" unit="篇" :items="dashboard?.resultDistribution || []" color="amber" />
+          <RankPanel title="场景分布" unit="篇" :items="dashboard?.positionDistribution || []" color="green" show-percentage />
+          <RankPanel title="历史内容反馈分布" unit="篇" :items="dashboard?.resultDistribution || []" color="amber" />
         </section>
       </template>
     </main>
@@ -219,21 +228,21 @@ watch(activeRange, loadDashboard)
   color: rgb(100 116 139);
 }
 
-:global(.dark) .metric-card,
-:global(.dark) .panel {
+.dark .metric-card,
+.dark .panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .metric-card span {
+.dark .metric-card span {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .metric-card strong {
+.dark .metric-card strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .empty-state {
+.dark .empty-state {
   border-color: rgb(51 65 85);
   color: rgb(148 163 184);
 }

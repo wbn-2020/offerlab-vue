@@ -5,10 +5,12 @@ import { safeStorage } from '@/utils/safeStorage'
 
 export type ThemeMode = 'light' | 'dark' | 'auto'
 
+const isThemeMode = (value: string | null): value is ThemeMode => value === 'light' || value === 'dark' || value === 'auto'
+
 export const useThemeStore = defineStore('theme', () => {
   const prefersDark = usePreferredDark()
   const storedMode = safeStorage.get('theme') as ThemeMode | null
-  const mode = ref<ThemeMode>(storedMode === 'light' || storedMode === 'dark' || storedMode === 'auto' ? storedMode : 'auto')
+  const mode = ref<ThemeMode>(isThemeMode(storedMode) ? storedMode : 'auto')
 
   const isDark = () => {
     if (mode.value === 'auto') {
@@ -17,26 +19,30 @@ export const useThemeStore = defineStore('theme', () => {
     return mode.value === 'dark'
   }
 
+  const updateDOM = () => {
+    if (typeof document === 'undefined') return
+    document.documentElement.classList.toggle('dark', isDark())
+  }
+
   const setMode = (newMode: ThemeMode) => {
     mode.value = newMode
     safeStorage.set('theme', newMode)
     updateDOM()
   }
 
-  const updateDOM = () => {
-    if (isDark()) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
+  const toggleExplicitMode = () => {
+    setMode(isDark() ? 'light' : 'dark')
   }
 
-  watch(mode, updateDOM)
-  watch(prefersDark, updateDOM)
+  const initialize = () => updateDOM()
+
+  watch([mode, prefersDark], updateDOM, { immediate: true })
 
   return {
     mode,
     isDark,
     setMode,
+    toggleExplicitMode,
+    initialize,
   }
 })

@@ -1,4 +1,5 @@
-import type { Comment, CommentReport, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
+import type { Comment, CommentReport, CommunityTopic, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
+import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 
 export function adaptId(value: any): string {
   if (value === null || value === undefined || value === '') return ''
@@ -23,16 +24,24 @@ export function adaptPage<T>(raw: any, itemAdapter: (item: any) => T): Paginated
     degraded: raw?.degraded === undefined || raw?.degraded === null ? undefined : Boolean(raw.degraded),
     fallbackReason: raw?.fallbackReason ? String(raw.fallbackReason) : undefined,
     scanLimit: raw?.scanLimit === undefined || raw?.scanLimit === null ? undefined : Number(raw.scanLimit),
+    diagnostics: raw?.diagnostics && typeof raw.diagnostics === 'object' ? raw.diagnostics : undefined,
   }
+}
+
+function safeSameSitePath(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const path = value.trim()
+  if (!path || !path.startsWith('/') || path.startsWith('//') || /\s/.test(path)) return undefined
+  return path
 }
 
 export function adaptUser(raw: any): User {
   return {
     uid: adaptId(raw?.uid ?? raw?.id),
     email: raw?.email,
-    nickname: raw?.nickname ?? '',
+    nickname: safeVisibleText(raw?.nickname, '未知用户'),
     avatar: raw?.avatar ?? raw?.avatarUrl ?? '',
-    signature: raw?.signature ?? raw?.bio ?? '',
+    signature: sanitizeVisibleText(raw?.signature ?? raw?.bio),
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
     isFollowing: raw?.isFollowing ?? false,
     isBigV: raw?.isBigV ?? false,
@@ -46,7 +55,7 @@ export function adaptUser(raw: any): User {
 }
 
 function toStringArray(value: any): string[] {
-  if (Array.isArray(value)) return value.map(String).filter(Boolean)
+  if (Array.isArray(value)) return value.map((item) => sanitizeVisibleText(item)).filter(Boolean)
   if (typeof value === 'string') {
     return value
       .split(/[,，、]/)
@@ -69,17 +78,47 @@ export function adaptUserIntent(raw: any): UserIntent | null {
     targetCity: raw?.targetCity ?? raw?.expectedCity ?? raw?.city,
     yearsOfExp: Number(raw?.yearsOfExp ?? raw?.experienceYears ?? 0),
     techStack: toStringArray(raw?.techStack ?? raw?.skills),
+    interestTopics: toStringArray(raw?.interestTopics),
+    interestTags: toStringArray(raw?.interestTags),
+    contentPreferences: toStringArray(raw?.contentPreferences),
   }
 }
 
 export function adaptTag(raw: any): Tag {
-  const name = raw?.name ?? raw?.tagName ?? ''
+  const name = safeVisibleText(raw?.name ?? raw?.tagName, '未归类主题')
   return {
     id: adaptId(raw?.id ?? raw?.tagId ?? raw?.slug ?? name),
     name,
     slug: raw?.slug ?? raw?.code ?? String(name).toLowerCase(),
-    category: raw?.category,
+    category: sanitizeVisibleText(raw?.category) || undefined,
     count: Number(raw?.count ?? raw?.postCount ?? raw?.useCount ?? 0),
+    tagType: raw?.tagType === undefined ? undefined : Number(raw.tagType),
+    status: raw?.status ?? raw?.tagStatus,
+    recommended: raw?.recommended === undefined ? undefined : Boolean(raw.recommended),
+    official: raw?.official === undefined ? undefined : Boolean(raw.official),
+    mergeTargetId: raw?.mergeTargetId === undefined || raw?.mergeTargetId === null ? undefined : adaptId(raw.mergeTargetId),
+    synonyms: Array.isArray(raw?.synonyms) ? raw.synonyms.map((item: unknown) => sanitizeVisibleText(item)).filter(Boolean) : [],
+  }
+}
+
+export function adaptCommunityTopic(raw: any): CommunityTopic {
+  return {
+    id: adaptId(raw?.id ?? raw?.topicId),
+    slug: raw?.slug ?? adaptId(raw?.id ?? raw?.topicId),
+    name: safeVisibleText(raw?.name ?? raw?.topicName, '待整理专题'),
+    description: sanitizeVisibleText(raw?.description) || undefined,
+    topicType: sanitizeVisibleText(raw?.topicType || raw?.type) || undefined,
+    coverUrl: raw?.coverUrl || undefined,
+    sortOrder: Number(raw?.sortOrder ?? 0),
+    featured: Boolean(raw?.featured),
+    status: raw?.status ?? raw?.topicStatus,
+    postCount: Number(raw?.postCount ?? raw?.count ?? 0),
+    followerCount: Number(raw?.followerCount ?? 0),
+    followed: Boolean(raw?.followed),
+    virtualTopic: Boolean(raw?.virtualTopic),
+    tags: Array.isArray(raw?.tags) ? raw.tags.map(adaptTag) : [],
+    createdAt: raw?.createdAt || raw?.createTime ? adaptTime(raw?.createdAt ?? raw?.createTime) : undefined,
+    updatedAt: raw?.updatedAt || raw?.updateTime ? adaptTime(raw?.updatedAt ?? raw?.updateTime) : undefined,
   }
 }
 
@@ -130,9 +169,10 @@ export function adaptPost(raw: any): Post {
   return {
     postId: adaptId(source?.postId ?? source?.id),
     postType: Number(source?.postType ?? 0),
-    title: stripSearchHighlight(rawTitle),
-    content: stripSearchHighlight(rawContent),
-    summary: rawSummary ? stripSearchHighlight(rawSummary) : undefined,
+    domain: source?.domain ? Number(source.domain) : undefined,
+    title: safeVisibleText(stripSearchHighlight(rawTitle), '内容编码异常，已隐藏标题'),
+    content: safeVisibleText(stripSearchHighlight(rawContent), '内容编码异常，已隐藏原文'),
+    summary: rawSummary ? sanitizeVisibleText(stripSearchHighlight(rawSummary), '内容编码异常，已隐藏摘要') : undefined,
     highlightTitle: source?.highlightTitle ?? (hasSearchHighlight(rawTitle) ? rawTitle : undefined),
     highlightSummary: source?.highlightSummary ?? (hasSearchHighlight(rawSummary) ? rawSummary : undefined),
     coverUrl: source?.coverUrl,
@@ -146,9 +186,9 @@ export function adaptPost(raw: any): Post {
     },
     extension: parseExtension(source),
     recommendationReasons: Array.isArray(raw?.recommendationReasons)
-      ? raw.recommendationReasons.map(String).filter(Boolean)
+      ? raw.recommendationReasons.map((item: unknown) => sanitizeVisibleText(item)).filter(Boolean)
       : Array.isArray(source?.recommendationReasons)
-        ? source.recommendationReasons.map(String).filter(Boolean)
+        ? source.recommendationReasons.map((item: unknown) => sanitizeVisibleText(item)).filter(Boolean)
         : undefined,
     myInteraction: {
       liked: Boolean(myInteraction.liked ?? source?.liked ?? false),
@@ -166,15 +206,15 @@ export function adaptPostVersionHistory(raw: any): PostVersionHistory {
     authorId: raw?.authorId ? adaptId(raw.authorId) : undefined,
     editorUid: raw?.editorUid ? adaptId(raw.editorUid) : undefined,
     baseVersion: Number(raw?.baseVersion ?? 0),
-    title: raw?.title ?? '',
-    content: raw?.content ?? '',
-    contentSummary: raw?.contentSummary ?? raw?.summary ?? '',
+    title: safeVisibleText(raw?.title, '内容编码异常，已隐藏标题'),
+    content: safeVisibleText(raw?.content, '内容编码异常，已隐藏原文'),
+    contentSummary: sanitizeVisibleText(raw?.contentSummary ?? raw?.summary, '内容编码异常，已隐藏摘要'),
     coverUrl: raw?.coverUrl || undefined,
     visibility: raw?.visibility,
     postStatus: raw?.postStatus,
     extension: parseExtension(raw),
     tags: Array.isArray(raw?.tags) ? raw.tags.map(adaptTag) : [],
-    changeSummary: raw?.changeSummary || undefined,
+    changeSummary: sanitizeVisibleText(raw?.changeSummary) || undefined,
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
   }
 }
@@ -183,7 +223,7 @@ export function adaptComment(raw: any): Comment {
   return {
     commentId: adaptId(raw?.commentId ?? raw?.id),
     postId: adaptId(raw?.postId),
-    content: raw?.content ?? '',
+    content: safeVisibleText(raw?.content, '评论编码异常，已隐藏原文'),
     author: raw?.author ? adaptUser(raw.author) : emptyAuthor(raw?.authorId),
     rootId: raw?.rootId ? adaptId(raw.rootId) : undefined,
     parentId: raw?.parentId ? adaptId(raw.parentId) : undefined,
@@ -201,14 +241,14 @@ export function adaptPostReport(raw: any): PostReport {
   return {
     reportId: adaptId(raw?.reportId ?? raw?.id),
     postId: adaptId(raw?.postId),
-    postTitle: raw?.postTitle || undefined,
-    postSummary: raw?.postSummary || undefined,
+    postTitle: sanitizeVisibleText(raw?.postTitle) || undefined,
+    postSummary: sanitizeVisibleText(raw?.postSummary) || undefined,
     reporterUid: raw?.reporterUid ? adaptId(raw.reporterUid) : undefined,
-    reason: raw?.reason ?? raw?.reasonType ?? '',
-    detail: raw?.detail ?? raw?.reasonText ?? '',
+    reason: safeVisibleText(raw?.reason ?? raw?.reasonType, '举报原因编码异常'),
+    detail: sanitizeVisibleText(raw?.detail ?? raw?.reasonText),
     reportStatus: raw?.reportStatus ?? raw?.status,
     reviewerUid: raw?.reviewerUid ? adaptId(raw.reviewerUid) : undefined,
-    reviewNote: raw?.reviewNote ?? raw?.reviewRemark ?? raw?.remark,
+    reviewNote: sanitizeVisibleText(raw?.reviewNote ?? raw?.reviewRemark ?? raw?.remark),
     createTime: raw?.createTime ?? raw?.createdAt,
     reviewTime: raw?.reviewTime ?? raw?.updatedAt,
   }
@@ -219,14 +259,14 @@ export function adaptCommentReport(raw: any): CommentReport {
     reportId: adaptId(raw?.reportId ?? raw?.id),
     commentId: adaptId(raw?.commentId),
     postId: adaptId(raw?.postId),
-    postTitle: raw?.postTitle || undefined,
-    commentSummary: raw?.commentSummary || undefined,
+    postTitle: sanitizeVisibleText(raw?.postTitle) || undefined,
+    commentSummary: sanitizeVisibleText(raw?.commentSummary) || undefined,
     reporterUid: raw?.reporterUid ? adaptId(raw.reporterUid) : undefined,
-    reason: raw?.reason ?? raw?.reasonType ?? '',
-    detail: raw?.detail ?? raw?.reasonText ?? '',
+    reason: safeVisibleText(raw?.reason ?? raw?.reasonType, '举报原因编码异常'),
+    detail: sanitizeVisibleText(raw?.detail ?? raw?.reasonText),
     reportStatus: raw?.reportStatus ?? raw?.status,
     reviewerUid: raw?.reviewerUid ? adaptId(raw.reviewerUid) : undefined,
-    reviewNote: raw?.reviewNote ?? raw?.reviewRemark ?? raw?.remark,
+    reviewNote: sanitizeVisibleText(raw?.reviewNote ?? raw?.reviewRemark ?? raw?.remark),
     createTime: raw?.createTime ?? raw?.createdAt,
     reviewTime: raw?.reviewTime ?? raw?.updatedAt,
   }
@@ -236,8 +276,17 @@ export function adaptNotification(raw: any): Notification {
   const content = typeof raw?.content === 'object' && raw.content ? raw.content : {}
   const type = raw?.type ?? 'system'
   const targetId = raw?.targetId ?? content.postId ?? content.commentId ?? content.userId
-  const postId = content.postId ?? (['like', 'favorite', 'mention'].includes(type) && raw?.targetType === 1 ? raw?.targetId : undefined)
+  const postId = content.postId ?? (
+    (type === 'system' && content.action === 'topic_post_published')
+      || (['like', 'favorite', 'mention'].includes(type) && raw?.targetType === 1)
+      ? raw?.targetId
+      : undefined
+  )
   const userId = type === 'follower' ? content.userId ?? raw?.senderUid ?? raw?.targetId : undefined
+  const targetPath = safeSameSitePath(raw?.targetPath)
+    ?? safeSameSitePath(raw?.jumpPath)
+    ?? safeSameSitePath(content.targetPath)
+    ?? safeSameSitePath(content.jumpPath)
   const sender = raw?.sender ? adaptUser(raw.sender) : undefined
   return {
     notificationId: adaptId(raw?.notificationId ?? raw?.id),
@@ -247,19 +296,20 @@ export function adaptNotification(raw: any): Notification {
     sender,
     senderUid: raw?.senderUid ? adaptId(raw.senderUid) : undefined,
     relatedId: targetId ? adaptId(targetId) : undefined,
-    targetPath: userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined,
+    targetPath: targetPath ?? (userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined),
     read: Boolean(raw?.read ?? raw?.isRead ?? false),
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
   }
 }
 
 function displayName(name?: string): string {
-  return name?.trim() || '有人'
+  return sanitizeVisibleText(name, '有人')
 }
 
 function notificationHeading(type: string, content: Record<string, any>, senderName?: string): string {
   if (type === 'system' && content.action === 'question_extract_succeeded') return '题目已整理完成'
   if (type === 'system' && content.action === 'question_extract_failed') return '题目整理失败'
+  if (type === 'system' && content.action === 'topic_post_published') return '关注专题有新内容'
   return notificationTitle(type, senderName)
 }
 
@@ -284,12 +334,21 @@ function notificationTitle(type: string, senderName?: string): string {
 function notificationContent(type: string, content: Record<string, any>, senderName?: string): string {
   if (type === 'system' && content.action === 'question_extract_succeeded') {
     const count = Number(content.questionCount || 0)
-    const title = content.postTitle ? `《${content.postTitle}》` : '这篇面经'
-    return count > 0 ? `${title}已整理出 ${count} 道面试题，点击查看来源帖子。` : `${title}已完成整理，但暂未提取到可用题目。`
+    const postTitle = sanitizeVisibleText(content.postTitle)
+    const title = postTitle ? `《${postTitle}》` : '这篇内容'
+    return count > 0 ? `${title}已整理出 ${count} 张知识卡，点击查看来源内容。` : `${title}已完成整理，但暂未提取到可用知识卡。`
   }
   if (type === 'system' && content.action === 'question_extract_failed') {
-    const title = content.postTitle ? `《${content.postTitle}》` : '这篇面经'
-    return `${title}题目整理失败，请稍后重试或联系运营。`
+    const postTitle = sanitizeVisibleText(content.postTitle)
+    const title = postTitle ? `《${postTitle}》` : '这篇内容'
+    return `${title}知识卡整理失败，请稍后重试或联系运营。`
+  }
+  if (type === 'system' && content.action === 'topic_post_published') {
+    const rawTopicName = sanitizeVisibleText(content.topicName)
+    const rawPostTitle = sanitizeVisibleText(content.postTitle)
+    const topicName = rawTopicName ? `「${rawTopicName}」` : '你关注的专题'
+    const title = rawPostTitle ? `《${rawPostTitle}》` : '一篇新内容'
+    return `${topicName}更新了：${title}`
   }
   return notificationText(type, content, senderName)
 }

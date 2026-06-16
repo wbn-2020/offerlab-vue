@@ -1,6 +1,7 @@
 import client, { BizException, Result } from './client'
-import type { ApiId, PaginatedResponse, Post, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, Tag } from './types'
-import { adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptTag } from './adapters'
+import type { ApiId, CommunityTopic, ContentTypeOption, PaginatedResponse, Post, PostPublishStatus, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, Tag } from './types'
+import { adaptCommunityTopic, adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptTag, adaptTime } from './adapters'
+import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 
 export interface PostCreateReq {
   postType: number
@@ -65,15 +66,115 @@ function adaptPostDraft(raw: any): PostDraft {
     uid: String(raw?.uid ?? ''),
     sourcePostId: raw?.sourcePostId ? String(raw.sourcePostId) : undefined,
     postType: Number(raw?.postType ?? 1),
-    title: raw?.title || undefined,
-    content: raw?.content || undefined,
+    title: sanitizeVisibleText(raw?.title) || undefined,
+    content: sanitizeVisibleText(raw?.content) || undefined,
     coverUrl: raw?.coverUrl || undefined,
     visibility: raw?.visibility,
     extJson: raw?.extJson || undefined,
     tagIds: Array.isArray(raw?.tagIds) ? raw.tagIds.map(String) : [],
-    tagNames: Array.isArray(raw?.tagNames) ? raw.tagNames.map(String) : [],
+    tagNames: Array.isArray(raw?.tagNames) ? raw.tagNames.map((item: unknown) => safeVisibleText(item, '未归类主题')).filter(Boolean) : [],
     createTime: raw?.createTime,
     updateTime: raw?.updateTime,
+  }
+}
+
+export interface CommunityTopicReq {
+  slug?: string
+  name?: string
+  description?: string
+  topicType?: string
+  coverUrl?: string
+  sortOrder?: number
+  featured?: boolean
+  status?: number
+  tagIds?: ApiId[]
+  tagNames?: string[]
+  note?: string
+}
+
+export interface TagGovernanceReq {
+  name?: string
+  tagType?: number
+  status?: number
+  recommended?: boolean
+  mergeTargetId?: ApiId
+  synonyms?: string[]
+  note?: string
+  confirmationPhrase?: string
+}
+
+export interface PostKnowledgeReviewReq {
+  summary?: string
+  faqJson?: string
+  knowledgeCardJson?: string
+  techStacks?: string[]
+  suggestedTags?: string[]
+  note?: string
+}
+
+export interface InterviewMaterialPack {
+  id: ApiId
+  uid: ApiId
+  postId: ApiId
+  sourcePostVersion?: number
+  generationStatus?: string
+  starSituation?: string
+  starTask?: string
+  starAction?: string
+  starResult?: string
+  resumeBullets: string[]
+  followUpQuestions: string[]
+  technicalHighlights: string[]
+  missingHints: string[]
+  userNote?: string
+  savedToPrep: boolean
+  provider?: string
+  fallbackUsed?: boolean
+  sourcePost?: Post
+  createTime?: number
+  updateTime?: number
+}
+
+export interface InterviewMaterialUpdateReq {
+  starSituation?: string
+  starTask?: string
+  starAction?: string
+  starResult?: string
+  resumeBullets?: string[]
+  followUpQuestions?: string[]
+  technicalHighlights?: string[]
+  missingHints?: string[]
+  userNote?: string
+}
+
+const adaptStringList = (value: unknown): string[] => (
+  Array.isArray(value)
+    ? value.map((item) => sanitizeVisibleText(item)).filter(Boolean)
+    : []
+)
+
+export function adaptInterviewMaterialPack(raw: any): InterviewMaterialPack {
+  return {
+    id: String(raw?.id ?? ''),
+    uid: String(raw?.uid ?? ''),
+    postId: String(raw?.postId ?? ''),
+    sourcePostVersion: raw?.sourcePostVersion == null ? undefined : Number(raw.sourcePostVersion),
+    generationStatus: sanitizeVisibleText(raw?.generationStatus) || undefined,
+    starSituation: sanitizeVisibleText(raw?.starSituation) || undefined,
+    starTask: sanitizeVisibleText(raw?.starTask) || undefined,
+    starAction: sanitizeVisibleText(raw?.starAction) || undefined,
+    starResult: sanitizeVisibleText(raw?.starResult) || undefined,
+    resumeBullets: adaptStringList(raw?.resumeBullets),
+    followUpQuestions: adaptStringList(raw?.followUpQuestions),
+    technicalHighlights: adaptStringList(raw?.technicalHighlights),
+    missingHints: adaptStringList(raw?.missingHints),
+    userNote: sanitizeVisibleText(raw?.userNote) || undefined,
+    savedToPrep: Boolean(raw?.savedToPrep),
+    provider: sanitizeVisibleText(raw?.provider) || undefined,
+    fallbackUsed: Boolean(raw?.fallbackUsed),
+    sourcePost: raw?.sourcePost ? adaptPost(raw.sourcePost) : undefined,
+    createTime: adaptTime(raw?.createTime),
+    updateTime: adaptTime(raw?.updateTime),
   }
 }
 
@@ -188,6 +289,8 @@ export const postApi = {
     tagId?: ApiId
     tag?: ApiId
     type?: number
+    featured?: boolean
+    includeTestData?: boolean
     cursor?: string
     size?: number
   }): Promise<Result<PaginatedResponse<Post>>> => {
@@ -195,14 +298,133 @@ export const postApi = {
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 
+  getContentTypes: async (): Promise<Result<ContentTypeOption[]>> => {
+    const res = await client.get('/api/v1/posts/content-types') as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data : [] }
+  },
+
+  getPublishStatus: async (postId: ApiId): Promise<Result<PostPublishStatus>> => {
+    const res = await client.get(`/api/v1/search/posts/${postId}/publish-status`, { skipAuthRedirect: true }) as Result<any>
+    return { ...res, data: res.data || null }
+  },
+
+  getInterviewMaterials: async (postId: ApiId): Promise<Result<InterviewMaterialPack>> => {
+    const res = await client.get(`/api/v1/posts/${postId}/interview-materials`) as Result<any>
+    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
+  },
+
+  generateInterviewMaterials: async (postId: ApiId): Promise<Result<InterviewMaterialPack>> => {
+    const res = await client.post(`/api/v1/posts/${postId}/interview-materials/generate`) as Result<any>
+    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
+  },
+
+  updateInterviewMaterial: async (id: ApiId, req: InterviewMaterialUpdateReq): Promise<Result<InterviewMaterialPack>> => {
+    const res = await client.put(`/api/v1/interview-materials/${id}`, req) as Result<any>
+    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
+  },
+
+  saveInterviewMaterialToPrep: async (id: ApiId): Promise<Result<InterviewMaterialPack>> => {
+    const res = await client.post(`/api/v1/interview-materials/${id}/save-to-prep`) as Result<any>
+    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
+  },
+
   getTags: async (): Promise<Result<Tag[]>> => {
     const res = await client.get('/api/v1/tags') as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptTag) : [] }
   },
 
-  getTagPosts: async (tagId: ApiId, cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> => {
-    const res = await client.get(`/api/v1/tags/${tagId}/posts`, { params: { cursor, size } }) as Result<any>
+  listAdminTags: async (params?: { status?: number; recommended?: boolean; keyword?: string; limit?: number }): Promise<Result<Tag[]>> => {
+    const res = await client.get('/api/v1/tags/admin', { params }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptTag) : [] }
+  },
+
+  updateTag: async (tagId: ApiId, req: TagGovernanceReq): Promise<Result<Tag>> => {
+    const res = await client.put(`/api/v1/tags/admin/${tagId}`, req) as Result<any>
+    return { ...res, data: res.data ? adaptTag(res.data) : null }
+  },
+
+  updateTagStatus: async (tagId: ApiId, status: number, note?: string): Promise<Result<Tag>> => {
+    const res = await client.post(`/api/v1/tags/admin/${tagId}/status`, { status, note }) as Result<any>
+    return { ...res, data: res.data ? adaptTag(res.data) : null }
+  },
+
+  updateTagRecommended: async (tagId: ApiId, recommended: boolean, note?: string): Promise<Result<Tag>> => {
+    const res = await client.post(`/api/v1/tags/admin/${tagId}/recommend`, { recommended, note }) as Result<any>
+    return { ...res, data: res.data ? adaptTag(res.data) : null }
+  },
+
+  updateTagSynonyms: async (tagId: ApiId, synonyms: string[], note?: string): Promise<Result<Tag>> => {
+    const res = await client.post(`/api/v1/tags/admin/${tagId}/synonyms`, { synonyms, note }) as Result<any>
+    return { ...res, data: res.data ? adaptTag(res.data) : null }
+  },
+
+  mergeTag: async (tagId: ApiId, mergeTargetId: ApiId, note?: string): Promise<Result<Tag>> => {
+    const res = await client.post(`/api/v1/tags/admin/${tagId}/merge`, {
+      mergeTargetId,
+      note,
+      confirmationPhrase: 'CONFIRM',
+    }) as Result<any>
+    return { ...res, data: res.data ? adaptTag(res.data) : null }
+  },
+
+  getTagPosts: async (tagId: ApiId, cursor?: string, size = 20, params?: { type?: number; featured?: boolean }): Promise<Result<PaginatedResponse<Post>>> => {
+    const res = await client.get(`/api/v1/tags/${tagId}/posts`, { params: { cursor, size, ...params } }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
+  },
+
+  listTopics: async (params?: { featured?: boolean; limit?: number }): Promise<Result<CommunityTopic[]>> => {
+    const res = await client.get('/api/v1/topics', { params }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptCommunityTopic) : [] }
+  },
+
+  getTopic: async (slug: string): Promise<Result<CommunityTopic>> => {
+    const res = await client.get(`/api/v1/topics/${encodeURIComponent(slug)}`) as Result<any>
+    return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
+  },
+
+  getTopicFollowStatus: async (slug: string): Promise<Result<CommunityTopic>> => {
+    const res = await client.get(`/api/v1/topics/${encodeURIComponent(slug)}/follow-status`, { skipAuthRedirect: true }) as Result<any>
+    return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
+  },
+
+  followTopic: async (slug: string): Promise<Result<CommunityTopic>> => {
+    const res = await client.post(`/api/v1/topics/${encodeURIComponent(slug)}/follow`) as Result<any>
+    return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
+  },
+
+  unfollowTopic: async (slug: string): Promise<Result<CommunityTopic>> => {
+    const res = await client.delete(`/api/v1/topics/${encodeURIComponent(slug)}/follow`) as Result<any>
+    return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
+  },
+
+  listFollowingTopics: async (cursor?: string, size = 20): Promise<Result<PaginatedResponse<CommunityTopic>>> => {
+    const res = await client.get('/api/v1/topics/me/following', { params: { cursor, size } }) as Result<any>
+    return { ...res, data: res.data ? adaptPage(res.data, adaptCommunityTopic) : null }
+  },
+
+  getTopicPosts: async (slug: string, cursor?: string, size = 20, params?: { type?: number; featured?: boolean }): Promise<Result<PaginatedResponse<Post>>> => {
+    const res = await client.get(`/api/v1/topics/${encodeURIComponent(slug)}/posts`, { params: { cursor, size, ...params } }) as Result<any>
+    return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
+  },
+
+  listAdminTopics: async (params?: { status?: number; keyword?: string; limit?: number }): Promise<Result<CommunityTopic[]>> => {
+    const res = await client.get('/api/v1/topics/admin', { params }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptCommunityTopic) : [] }
+  },
+
+  createTopic: async (req: CommunityTopicReq): Promise<Result<CommunityTopic>> => {
+    const res = await client.post('/api/v1/topics/admin', req) as Result<any>
+    return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
+  },
+
+  updateTopic: async (topicId: ApiId, req: CommunityTopicReq): Promise<Result<CommunityTopic>> => {
+    const res = await client.put(`/api/v1/topics/admin/${topicId}`, req) as Result<any>
+    return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
+  },
+
+  updateTopicStatus: async (topicId: ApiId, status: number, note?: string): Promise<Result<CommunityTopic>> => {
+    const res = await client.post(`/api/v1/topics/admin/${topicId}/status`, { status, note }) as Result<any>
+    return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
   },
 
   getMyFavorites: async (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> => {
@@ -228,4 +450,17 @@ export const postApi = {
     req: PostReportReviewReq,
   ): Promise<Result<void>> =>
     client.post(`/api/v1/posts/admin/reports/${reportId}/review`, req),
+
+  updateFeatured: (
+    postId: ApiId,
+    featured: boolean,
+    note?: string,
+  ): Promise<Result<{ postId: ApiId; featured: boolean; extJson?: string }>> =>
+    client.post(`/api/v1/posts/admin/featured/${postId}`, { featured, note }),
+
+  reviewKnowledge: (
+    postId: ApiId,
+    req: PostKnowledgeReviewReq,
+  ): Promise<Result<{ postId: ApiId; extJson?: string; knowledgeReviewed?: boolean }>> =>
+    client.post(`/api/v1/posts/admin/knowledge/${postId}/review`, req),
 }

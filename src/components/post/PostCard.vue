@@ -13,7 +13,10 @@
             <span class="truncate font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</span>
             <span v-if="post.author.isBigV" class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">大V</span>
           </div>
-          <div class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(post.createdAt) }}</div>
+          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>{{ formatTime(post.createdAt) }}</span>
+            <span class="content-type-pill">{{ contentTypeLabel }}</span>
+          </div>
         </div>
       </div>
 
@@ -59,7 +62,7 @@
     </div>
 
     <RouterLink
-      :to="`/post/${post.postId}`"
+      :to="detailTo"
       class="post-detail-link"
       :aria-label="`查看帖子：${post.title}`"
     >
@@ -73,14 +76,14 @@
         v-html="displaySummary"
       />
 
-      <div v-if="props.showRecommendFeedback && post.recommendationReasons?.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
+      <div v-if="props.showRecommendFeedback && displayRecommendationReasons.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
         <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
           <Lightbulb class="h-3.5 w-3.5" />
           为什么推荐
         </div>
         <div class="flex flex-wrap gap-1.5">
           <span
-            v-for="reason in post.recommendationReasons.slice(0, 3)"
+            v-for="reason in displayRecommendationReasons"
             :key="reason"
             class="rounded-full bg-white px-2 py-1 text-xs text-indigo-700 dark:bg-slate-900 dark:text-indigo-200"
           >
@@ -90,19 +93,28 @@
       </div>
 
       <div v-if="post.extension" class="mb-3 flex flex-wrap gap-2">
-        <span v-if="post.extension.company" class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+        <span v-if="post.extension.difficulty" class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          {{ post.extension.difficulty }}
+        </span>
+        <span v-if="post.extension.scenario" class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+          {{ post.extension.scenario }}
+        </span>
+        <span v-for="stack in visibleTechStacks" :key="stack" class="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
+          {{ stack }}
+        </span>
+        <span v-if="isLegacyInterview && post.extension.company" class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
           {{ post.extension.company }}
         </span>
-        <span v-if="post.extension.position" class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+        <span v-if="isLegacyInterview && post.extension.position" class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
           {{ post.extension.position }}
         </span>
-        <span v-if="post.extension.interviewResult" class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="getResultClass(post.extension.interviewResult)">
+        <span v-if="isLegacyInterview && post.extension.interviewResult" class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="getResultClass(post.extension.interviewResult)">
           {{ getResultText(post.extension.interviewResult) }}
         </span>
       </div>
 
-      <div v-if="post.tags.length" class="mb-4 flex flex-wrap gap-2">
-        <span v-for="tag in post.tags" :key="tag.id" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+      <div v-if="visibleTags.length" class="mb-4 flex flex-wrap gap-2">
+        <span v-for="tag in visibleTags" :key="tag.id" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
           {{ tag.name }}
         </span>
       </div>
@@ -162,12 +174,14 @@ import { userApi } from '@/api/user'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
+import { getContentTypeShortLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 
 const props = defineProps<{
   post: Post
   showRecommendFeedback?: boolean
   likePending?: boolean
   favoritePending?: boolean
+  detailQuery?: Record<string, string | number | boolean | undefined>
 }>()
 
 const emit = defineEmits<{
@@ -192,8 +206,30 @@ const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(pr
 const displayTitle = computed(() => renderSearchHighlight(props.post.highlightTitle, props.post.title))
 const displaySummary = computed(() => renderSearchHighlight(
   props.post.highlightSummary,
-  props.post.summary || props.post.content.substring(0, 100),
+  props.post.summary || props.post.extension?.summary || props.post.content.substring(0, 100),
 ))
+const normalizedDetailQuery = computed(() => Object.fromEntries(
+  Object.entries(props.detailQuery || {})
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => [key, typeof value === 'boolean' ? (value ? '1' : '0') : value]),
+))
+const detailTo = computed(() => ({
+  path: `/post/${props.post.postId}`,
+  query: normalizedDetailQuery.value,
+}))
+const contentTypeLabel = computed(() => getContentTypeShortLabel(props.post.postType))
+const isLegacyInterview = computed(() => isLegacyInterviewType(props.post.postType))
+const visibleTechStacks = computed(() => Array.isArray(props.post.extension?.techStacks)
+  ? props.post.extension.techStacks.map(String).filter(Boolean).slice(0, 3)
+  : [])
+const visibleTags = computed(() => props.post.tags.slice(0, 4))
+const displayRecommendationReasons = computed(() => {
+  const reasons = props.post.recommendationReasons || []
+  return reasons
+    .map(normalizeRecommendationReason)
+    .filter(Boolean)
+    .slice(0, 3)
+})
 
 const escapeHtml = (value: string) => value
   .replace(/&/g, '&amp;')
@@ -210,6 +246,21 @@ const renderSearchHighlight = (highlight: string | undefined, fallback: string) 
     .replace(/&lt;\/em&gt;/g, '</mark>')
 }
 
+const normalizeRecommendationReason = (reason: string) => {
+  const text = reason.trim()
+  if (!text) return ''
+  if (/目标公司|公司偏好|匹配.*公司|相似公司|目标岗位|岗位偏好|匹配.*岗位/.test(text)) {
+    return '贴近你的技术方向'
+  }
+  if (/面试|求职|Offer|offer/.test(text)) {
+    return '来自可复用工程经验'
+  }
+  if (/AI|智能/.test(text)) {
+    return '基于规则和内容信号推荐'
+  }
+  return text
+}
+
 const getResultClass = (result: number) => {
   const classes: Record<number, string> = {
     1: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
@@ -221,9 +272,9 @@ const getResultClass = (result: number) => {
 
 const getResultText = (result: number) => {
   const texts: Record<number, string> = {
-    1: '已 offer',
-    2: '待结果',
-    3: '已挂',
+    1: '已通过',
+    2: '待反馈',
+    3: '未通过',
   }
   return texts[result] || '未知'
 }
@@ -301,7 +352,20 @@ const handleFollow = async () => {
   font-weight: 700;
 }
 
+.content-type-pill {
+  display: inline-flex;
+  border-radius: 999px;
+  background: rgb(239 246 255);
+  padding: 0.1rem 0.45rem;
+  font-weight: 800;
+  color: rgb(37 99 235);
+}
+
 @media (max-width: 420px) {
+  article {
+    padding: 1rem;
+  }
+
   .card-action {
     gap: 0.25rem;
     min-height: 44px;
@@ -309,7 +373,7 @@ const handleFollow = async () => {
   }
 
   .action-label {
-    font-size: 0.7rem;
+    display: none;
   }
 }
 
@@ -334,20 +398,20 @@ const handleFollow = async () => {
   color: rgb(113 63 18);
 }
 
-:global(.dark) .feedback-menu-item {
+.dark .feedback-menu-item {
   color: rgb(203 213 225);
 }
 
-:global(.dark) .feedback-menu-item:hover {
+.dark .feedback-menu-item:hover {
   background: rgb(30 41 59);
   color: rgb(248 250 252);
 }
 
-:global(.dark) .card-action:hover {
+.dark .card-action:hover {
   background: rgb(30 41 59);
 }
 
-:global(.dark) :deep(.search-highlight) {
+.dark :deep(.search-highlight) {
   background: rgb(133 77 14);
   color: rgb(254 243 199);
 }

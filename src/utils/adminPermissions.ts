@@ -16,7 +16,7 @@ export const adminPermissionLabel = (key: AdminPermissionKey) => {
   if (key === 'admin') return '系统管理员'
   if (key === 'ops') return '运维管理员'
   if (key === 'contentModerator') return '内容审核员'
-  return '题库运营员'
+  return '知识库运营员'
 }
 
 export const adminPermissionRequirementText = (required?: AdminPermissionKey | AdminPermissionKey[]) => {

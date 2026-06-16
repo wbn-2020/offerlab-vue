@@ -9,9 +9,13 @@
   --primary-600: #4f46e5;
   --primary-700: #4338ca;
   --surface: #ffffff;
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
   --surface-soft: #f8fafc;
   --surface-muted: #f1f5f9;
   --border-subtle: #e2e8f0;
+  --text-primary: #0f172a;
   --text-strong: #0f172a;
   --text-muted: #64748b;
   --accent-500: #f59e0b;
@@ -30,6 +34,20 @@ html.dark {
   --border-color: #27272a;
   --text-primary: #e4e4e7;
   --text-secondary: #a1a1aa;
+  --surface: #0f172a;
+  --surface-1: #020617;
+  --surface-2: #0f172a;
+  --surface-3: #1e293b;
+  --surface-soft: #111827;
+  --surface-muted: #1e293b;
+  --surface-raised: #172033;
+  --border-subtle: #1e293b;
+  --text-strong: #f8fafc;
+  --text-muted: #94a3b8;
+  --warning-surface: rgba(120, 53, 15, 0.34);
+  --danger-surface: rgba(127, 29, 29, 0.32);
+  --shadow-card: 0 18px 45px rgba(0, 0, 0, 0.3);
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.24);
 }
 
 html {
@@ -66,15 +84,28 @@ code, pre {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-100 dark:bg-slate-900;
+  background-color: rgb(241 245 249);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+  border-radius: 9999px;
+  background-color: rgb(203 213 225);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400 dark:bg-slate-600;
+  background-color: rgb(148 163 184);
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background-color: rgb(15 23 42);
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background-color: rgb(51 65 85);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(71 85 105);
 }
 
 /* 选中文本 */
@@ -148,10 +179,10 @@ html.dark :is(
   .search-input,
   .quick-input
 ) {
-  border-color: rgb(51 65 85) !important;
-  background-color: rgba(2, 6, 23, 0.62) !important;
-  color: rgb(226 232 240) !important;
-  box-shadow: none !important;
+  border-color: rgb(51 65 85);
+  background-color: rgba(2, 6, 23, 0.62);
+  color: rgb(226 232 240);
+  box-shadow: none;
   color-scheme: dark;
 }
 
@@ -165,7 +196,7 @@ html.dark :is(
   .search-input,
   .quick-input
 )::placeholder {
-  color: rgb(100 116 139) !important;
+  color: rgb(100 116 139);
 }
 
 html.dark :is(
@@ -178,9 +209,9 @@ html.dark :is(
   .search-input,
   .quick-input
 ):focus {
-  border-color: rgba(129, 140, 248, 0.72) !important;
-  background-color: rgba(15, 23, 42, 0.92) !important;
-  box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.28) !important;
+  border-color: rgba(129, 140, 248, 0.72);
+  background-color: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.28);
 }
 
 html.dark select:is(
@@ -206,4 +237,115 @@ html.dark select {
 html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"])::placeholder,
 html.dark textarea::placeholder {
   color: rgb(100 116 139);
+}
+
+html.dark :is(
+  .surface-card,
+  .surface-panel,
+  .metric-card,
+  .panel,
+  .profile-panel,
+  .community-growth-panel,
+  .score-card,
+  .growth-stat,
+  .side-panel,
+  .search-shell,
+  .search-aside,
+  .search-results,
+  .filter-panel,
+  .question-block,
+  .question-row,
+  .question-card,
+  .quality-row,
+  .alias-row,
+  .result-summary,
+  .stat-card,
+  .section-panel,
+  .target-panel,
+  .target-panel-head,
+  .target-form,
+  .tag-header,
+  .topic-header,
+  .review-plan-card,
+  .mobile-ops-summary,
+  .mobile-ops-card,
+  .analytics-column,
+  .analytics-list,
+  .task-stat,
+  .detail-section,
+  .ai-provider-row,
+  .admin-row,
+  .outbox-card,
+  .comment-report-card,
+  .post-report-card,
+  .empty-card,
+  .empty-panel,
+  .loading-panel,
+  .undo-panel,
+  .saved-search,
+  .saved-search-input,
+  .notice-error,
+  .test-data-toggle,
+  .secondary-button,
+  .secondary-action,
+  .filter-button,
+  .icon-button
+) {
+  border-color: var(--border-subtle);
+  background-color: rgb(15 23 42 / 0.86);
+  color: rgb(226 232 240);
+  box-shadow: none;
+}
+
+html.dark :is(
+  .target-panel-head,
+  .target-form,
+  .question-row,
+  .quality-row,
+  .alias-row,
+  .analytics-list,
+  .task-stat,
+  .detail-section,
+  .ai-provider-row,
+  .mobile-ops-card,
+  .saved-search:hover,
+  .filter-button:hover,
+  .secondary-button:hover,
+  .secondary-action:hover,
+  .icon-button:hover
+) {
+  background-color: rgba(2, 6, 23, 0.64);
+}
+
+html.dark :is(
+  .metric-label,
+  .field-label,
+  .side-title,
+  .setting-desc,
+  .saved-search-meta,
+  .comment-report-label,
+  .comment-report-summary,
+  .comment-report-detail,
+  .outbox-aggregate,
+  .outbox-card-meta,
+  .analytics-empty,
+  .empty-panel p,
+  .empty-panel span
+) {
+  color: rgb(148 163 184);
+}
+
+html.dark :is(
+  .metric-value,
+  .setting-title,
+  .notification-title,
+  .outbox-topic,
+  .analytics-title
+) {
+  color: rgb(248 250 252);
+}
+
+html.dark .notice-error-status {
+  background-color: rgb(127 29 29 / 0.55);
+  color: rgb(254 202 202);
 }

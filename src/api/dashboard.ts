@@ -17,9 +17,13 @@ export interface TrendDashboard {
   range: TrendRange
   days: number
   totalPosts: number
+  featuredPosts?: number
+  activeAuthors?: number
   publishTrend: TrendPoint[]
   topCompanies: RankedMetric[]
   topTags: RankedMetric[]
+  contentTypeDistribution?: RankedMetric[]
+  featuredContent?: RankedMetric[]
   positionDistribution: RankedMetric[]
   resultDistribution: RankedMetric[]
 }

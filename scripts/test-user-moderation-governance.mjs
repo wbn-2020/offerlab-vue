@@ -19,6 +19,9 @@ assert.match(opsApi, /clearModerationMute/, 'ops API must expose clear mute acti
 assert.match(opsApi, /clearModerationBan/, 'ops API must expose clear ban action')
 assert.match(opsApi, /\/api\/v1\/ops\/moderation\/users\/\$\{uid\}\/clear-mute/, 'clear mute action must call backend endpoint')
 assert.match(opsApi, /\/api\/v1\/ops\/moderation\/users\/\$\{uid\}\/clear-ban/, 'clear ban action must call backend endpoint')
+assert.match(opsApi, /const actionRemarkPayload[\s\S]*\{ remark: value, reason: value \}/, 'clear mute/ban requests must send backend-required remark while keeping reason compatibility')
+assert.match(opsApi, /clearModerationMute[\s\S]*actionRemarkPayload\(reason\)/, 'clear mute action must send an action remark body')
+assert.match(opsApi, /clearModerationBan[\s\S]*actionRemarkPayload\(reason\)/, 'clear ban action must send an action remark body')
 
 assert.match(view, /item\.nickname \|\| `用户 \$\{item\.uid\}`/, 'Governance view must show nickname fallback')
 assert.match(view, /max-w-7xl min-w-0/, 'Governance view must keep the main container shrinkable on mobile')

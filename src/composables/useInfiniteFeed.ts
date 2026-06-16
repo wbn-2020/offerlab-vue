@@ -2,7 +2,7 @@ import { computed, unref, type MaybeRef } from 'vue'
 import { useInfiniteQuery } from '@tanstack/vue-query'
 import { feedApi } from '@/api/feed'
 
-export type FeedType = 'following' | 'recommend' | 'latest' | 'hot'
+export type FeedType = 'following' | 'recommend' | 'latest' | 'hot' | 'featured'
 
 export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest') {
   const pageSize = 20
@@ -25,6 +25,7 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest') {
         recommend: feedApi.getRecommend,
         latest: feedApi.getLatest,
         hot: feedApi.getHot,
+        featured: feedApi.getFeatured,
       }
       return apiMap[currentFeed.value](pageParam, pageSize)
     },

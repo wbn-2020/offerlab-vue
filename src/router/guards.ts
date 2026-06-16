@@ -46,7 +46,7 @@ export function setupRouterGuards(router: Router) {
             return
           }
         } catch {
-          next({ name: 'Forbidden', query: { from: to.fullPath } })
+          next({ name: 'Forbidden', query: { from: to.fullPath, reason: 'permission_check_failed' } })
           return
         }
       }
@@ -56,6 +56,6 @@ export function setupRouterGuards(router: Router) {
 
   router.afterEach((to) => {
     const title = to.meta.title as string
-    document.title = title ? `${title} - 面试圈` : '面试圈'
+    document.title = title ? `${title} - OfferLab 技术社区` : 'OfferLab 技术社区'
   })
 }

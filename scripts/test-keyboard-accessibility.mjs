@@ -92,7 +92,7 @@ const interactionBar = read('src/components/post/InteractionBar.vue')
 assert(interactionBar.includes('@media (max-width: 420px)') && interactionBar.includes('min-height: 44px'), 'post detail interaction actions must keep 44px touch targets on narrow screens')
 
 const questionsView = read('src/views/QuestionsView.vue')
-for (const label of ['题库关键词或题目正文', '题库公司筛选', '题库岗位筛选', '题库难度筛选', '题库错因筛选', '题库学习状态筛选', '题库排序方式']) {
+for (const label of ['知识库关键词或知识卡正文', '知识库技术栈筛选', '知识库场景筛选', '知识库难度筛选', '知识库错因筛选', '知识库学习状态筛选', '知识库排序方式']) {
   assert(questionsView.includes(`aria-label="${label}"`), `QuestionsView filter must expose aria-label ${label}`)
 }
 assert(questionsView.includes('.quick-filter') && questionsView.includes('min-height: 44px'), 'QuestionsView quick filters must keep 44px touch targets on mobile')

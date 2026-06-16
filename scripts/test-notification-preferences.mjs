@@ -35,7 +35,7 @@ for (const cssClass of ['.notification-grid', '.notification-toggle', '.notifica
   assert.match(settings, new RegExp(cssClass.replace('.', '\\.')), `settings must style ${cssClass}`)
 }
 
-assert.match(settings, /:global\(\.dark\) \.notification-toggle/, 'granular toggles must support dark mode')
+assert.match(settings, /\.dark \.notification-toggle/, 'granular toggles must support dark mode')
 assert.match(settings, /@media \(max-width: 640px\)[\s\S]*\.notification-grid[\s\S]*grid-template-columns: 1fr/, 'granular grid must collapse on small screens')
 
 console.log('notification preferences guard passed')

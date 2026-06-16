@@ -36,7 +36,7 @@ assert.match(viewSource, /useAuthStore/, 'QuestionsView must read auth state bef
 assert.match(viewSource, /hasPersonalFilter\s*=\s*computed/, 'QuestionsView must identify personal-only filters')
 assert.match(viewSource, /requiresLoginForPersonalFilters\s*=\s*computed/, 'QuestionsView must gate anonymous personal filters')
 assert.match(viewSource, /v-else-if="requiresLoginForPersonalFilters"/, 'QuestionsView must show a dedicated login prompt for anonymous personal filters')
-assert.match(viewSource, /登录后查看个人题库/, 'QuestionsView anonymous personal filter prompt must explain why data is hidden')
+assert.match(viewSource, /登录后查看个人知识库/, 'QuestionsView anonymous personal filter prompt must explain why data is hidden')
 assert.match(viewSource, /loginRedirectTo/, 'QuestionsView anonymous personal filter prompt must preserve redirect to the current query')
 assert.match(viewSource, /const clearPersonalFilters/, 'QuestionsView must provide a way to clear personal filters')
 assert.match(viewSource, /if \(!append && requiresLoginForPersonalFilters\.value\)/, 'QuestionsView must not request personal-filtered data while anonymous')
