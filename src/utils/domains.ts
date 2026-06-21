@@ -28,6 +28,18 @@ DOMAIN_OPTIONS.forEach((d) => domainByValue.set(d.value, d))
 
 export const DEFAULT_DOMAIN = DOMAIN.TECH
 
+export const isKnownDomain = (domain?: number | string | null): domain is DomainValue => {
+  const value = Number(domain)
+  return Number.isFinite(value) && domainByValue.has(value as DomainValue)
+}
+
+export const normalizeDomain = (domain?: number | string | null): DomainValue => {
+  const value = Number(domain)
+  return Number.isFinite(value) && domainByValue.has(value as DomainValue)
+    ? (value as DomainValue)
+    : DEFAULT_DOMAIN
+}
+
 export const getDomainOption = (domain?: number | null): DomainOption => {
   return domainByValue.get(Number(domain) as DomainValue) ?? domainByValue.get(DEFAULT_DOMAIN)!
 }

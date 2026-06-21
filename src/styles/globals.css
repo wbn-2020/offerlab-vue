@@ -110,14 +110,19 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 
 /* 选中文本 */
 ::selection {
-  @apply bg-primary-500 text-white;
+  background-color: var(--primary-500);
+  color: #fff;
 }
 
 /* 链接 */
 a {
-  @apply text-primary-600 dark:text-primary-400;
+  color: var(--primary-600);
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
+}
+
+html.dark a {
+  color: #818cf8;
 }
 
 a:hover {
@@ -157,11 +162,26 @@ select:focus-visible {
   }
 
   .primary-action {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60;
+    background-color: var(--primary-600);
+  }
+
+  .primary-action:hover:not(:disabled) {
+    background-color: var(--primary-700);
   }
 
   .secondary-action {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-primary-800 dark:hover:bg-slate-800;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-all hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+  }
+
+  .secondary-action:hover {
+    border-color: #c7d2fe;
+    background-color: var(--primary-50);
+    color: var(--primary-700);
+  }
+
+  html.dark .secondary-action:hover {
+    border-color: #3730a3;
   }
 
   .muted-pill {

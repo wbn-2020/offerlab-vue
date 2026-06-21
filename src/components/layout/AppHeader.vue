@@ -279,7 +279,7 @@ const adminLinks = computed(() => {
     links.push({ to: '/admin/questions', label: '结构化内容审核' })
     links.push({ to: '/admin/company-aliases', label: '实体别名维护' })
   }
-  if (value.contentModerator || value.ops || value.admin) links.push({ to: '/admin/governance', label: '治理中心' })
+  if (value.contentModerator || value.domainModerator || value.ops || value.admin) links.push({ to: '/admin/governance', label: '治理中心' })
   if (value.contentModerator || value.admin) links.push({ to: '/admin/tags', label: '标签治理' })
   return links
 })

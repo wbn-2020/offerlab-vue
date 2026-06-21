@@ -1,4 +1,5 @@
 import type { Comment, CommentReport, CommunityTopic, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
+import { normalizeDomain } from '@/utils/domains'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 
 export function adaptId(value: any): string {
@@ -143,6 +144,22 @@ function emptyAuthor(authorId: any): User {
   }
 }
 
+function anonymousAuthor(): User {
+  return {
+    uid: '0',
+    nickname: '匿名用户',
+    avatar: '',
+    signature: '',
+    createdAt: Date.now(),
+    followerCount: 0,
+    followingCount: 0,
+    postCount: 0,
+    profileVisible: false,
+    intentVisible: false,
+    privacyReason: '匿名发布',
+  }
+}
+
 function hasSearchHighlight(value: unknown) {
   return typeof value === 'string' && /<\/?em>/i.test(value)
 }
@@ -166,10 +183,19 @@ export function adaptPost(raw: any): Post {
   const rawTitle = source?.title ?? ''
   const rawSummary = source?.summary
   const rawContent = source?.content ?? source?.summary ?? ''
+  const extension = parseExtension(source)
+  const domain = normalizeDomain(source?.domain ?? extension?.domain)
+  const anonymous = Boolean(source?.anonymous ?? extension?.anonymous ?? false)
+  const adaptedAuthor = source?.author ? adaptUser(source.author) : emptyAuthor(authorId)
+  const author = anonymous
+    && (adaptedAuthor.uid === '' || String(adaptedAuthor.uid) === '0' || adaptedAuthor.profileVisible === false)
+    ? anonymousAuthor()
+    : adaptedAuthor
   return {
     postId: adaptId(source?.postId ?? source?.id),
     postType: Number(source?.postType ?? 0),
-    domain: source?.domain ? Number(source.domain) : undefined,
+    domain,
+    anonymous,
     title: safeVisibleText(stripSearchHighlight(rawTitle), '内容编码异常，已隐藏标题'),
     content: safeVisibleText(stripSearchHighlight(rawContent), '内容编码异常，已隐藏原文'),
     summary: rawSummary ? sanitizeVisibleText(stripSearchHighlight(rawSummary), '内容编码异常，已隐藏摘要') : undefined,
@@ -177,14 +203,14 @@ export function adaptPost(raw: any): Post {
     highlightSummary: source?.highlightSummary ?? (hasSearchHighlight(rawSummary) ? rawSummary : undefined),
     coverUrl: source?.coverUrl,
     tags: Array.isArray(source?.tags) ? source.tags.map(adaptTag) : [],
-    author: source?.author ? adaptUser(source.author) : emptyAuthor(authorId),
+    author,
     counter: {
       view: Number(counter.view ?? counter.viewCount ?? source?.viewCount ?? 0),
       like: Number(counter.like ?? counter.likeCount ?? source?.likeCount ?? 0),
       comment: Number(counter.comment ?? counter.commentCount ?? source?.commentCount ?? 0),
       favorite: Number(counter.favorite ?? counter.favoriteCount ?? source?.favoriteCount ?? 0),
     },
-    extension: parseExtension(source),
+    extension,
     recommendationReasons: Array.isArray(raw?.recommendationReasons)
       ? raw.recommendationReasons.map((item: unknown) => sanitizeVisibleText(item)).filter(Boolean)
       : Array.isArray(source?.recommendationReasons)

@@ -127,7 +127,14 @@ const routes = [
     path: '/admin/governance',
     name: 'AdminGovernance',
     component: () => import('@/views/AdminGovernanceView.vue'),
-    meta: { title: '治理中心', requiresAuth: true, adminPermission: ['contentModerator', 'ops', 'admin'] },
+    meta: {
+      title: '治理中心',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'ops', 'admin'],
+      governanceDomainTabs: ['featured', 'queue', 'review'],
+      governanceGlobalTabs: ['keywords', 'hits', 'users', 'topics', 'tags'],
+      governanceOpsTabs: ['migration', 'audit'],
+    },
   },
   {
     path: '/admin/tags',

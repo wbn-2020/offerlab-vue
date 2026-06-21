@@ -22,8 +22,10 @@ export const feedApi = {
   getHot: (cursor?: string, size = 20, domain?: number): Promise<Result<PaginatedResponse<Post>>> =>
     getFeed('/api/v1/feeds/hot', cursor, size, domain),
 
-  getFeatured: async (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> => {
-    const res = await client.get('/api/v1/posts', { params: { cursor, size, featured: true } }) as Result<any>
+  getFeatured: async (cursor?: string, size = 20, domain?: number): Promise<Result<PaginatedResponse<Post>>> => {
+    const params: Record<string, unknown> = { cursor, size, featured: true }
+    if (domain != null) params.domain = domain
+    const res = await client.get('/api/v1/posts', { params }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 

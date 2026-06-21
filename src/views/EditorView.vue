@@ -132,6 +132,17 @@
           </select>
         </div>
 
+        <section v-if="selectedDomain === DOMAIN.CAREER" class="anonymous-career-toggle mx-4">
+          <div>
+            <p>匿名发布</p>
+            <span>适合不便公开身份的职场内容，作者信息由服务端按权限处理。</span>
+          </div>
+          <label class="anonymous-career-switch">
+            <input v-model="anonymousCareerPost" type="checkbox" aria-label="匿名发布职场内容" />
+            <span></span>
+          </label>
+        </section>
+
         <!-- 内容元数据 -->
         <div class="px-4">
           <PostMeta v-model="form.extension" :type="form.postType" />
@@ -292,7 +303,7 @@ import {
   isLegacyInterviewType,
 } from '@/utils/contentTypes'
 import type { PostTypeValue } from '@/utils/contentTypes'
-import { DOMAIN, DOMAIN_OPTIONS } from '@/utils/domains'
+import { DOMAIN, DOMAIN_OPTIONS, normalizeDomain } from '@/utils/domains'
 
 const router = useRouter()
 const route = useRoute()
@@ -335,6 +346,7 @@ const form = ref<EditorForm>({
 const tagInput = ref('')
 const selectedTags = ref<string[]>([])
 const selectedDomain = ref<number>(DOMAIN.TECH)
+const anonymousCareerPost = ref(false)
 const isPublishing = ref(false)
 const isEditing = ref(false)
 const isLoadingPost = ref(false)
@@ -721,6 +733,8 @@ const currentDraftSignature = computed(() => JSON.stringify({
   coverUrl: form.value.coverUrl,
   extension: form.value.extension,
   selectedTags: selectedTags.value,
+  selectedDomain: selectedDomain.value,
+  anonymousCareerPost: anonymousCareerPost.value,
   serverDraftId: serverDraftId.value,
 }))
 
@@ -744,6 +758,8 @@ const persistLocalDraft = () => {
     owner: draftOwner.value,
     ...form.value,
     selectedTags: selectedTags.value,
+    selectedDomain: selectedDomain.value,
+    anonymousCareerPost: anonymousCareerPost.value,
     serverDraftId: serverDraftId.value,
   }))
   markDraftClean()
@@ -770,6 +786,8 @@ const currentDraftReq = () => ({
   id: serverDraftId.value || undefined,
   sourcePostId: isEditing.value ? currentPostId() : undefined,
   postType: form.value.postType,
+  domain: selectedDomain.value,
+  anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
   title: form.value.title,
   content: form.value.content,
   coverUrl: form.value.coverUrl,
@@ -778,6 +796,8 @@ const currentDraftReq = () => ({
   tagNames: normalizedTags.value,
   extJson: JSON.stringify({
     ...form.value.extension,
+    domain: selectedDomain.value,
+    anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
     contentType: contentTypeCodeOf(form.value.postType),
     tags: normalizedTags.value,
   }),
@@ -796,6 +816,7 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
   } catch {
     extension = {}
   }
+  selectedDomain.value = normalizeDomain(draft.domain ?? extension.domain ?? (extension.anonymous ? DOMAIN.CAREER : DOMAIN.TECH))
   form.value = {
     postType: getContentTypeOption(draft.postType || DEFAULT_POST_TYPE).value,
     title: draft.title || '',
@@ -804,6 +825,7 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
     extension,
     coverUrl: draft.coverUrl || '',
   }
+  anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(draft.anonymous ?? extension.anonymous) : false
   selectedTags.value = draft.tagNames || []
   markDraftClean()
   return true
@@ -884,12 +906,22 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
       return false
     }
     const draftTags = draftForm.selectedTags
+    const savedSelectedDomain = draftForm.selectedDomain ?? draftForm.extension?.domain
+    const savedAnonymousCareerPost = Boolean(draftForm.anonymousCareerPost ?? draftForm.extension?.anonymous)
     const savedServerDraftId = draftForm.serverDraftId
     delete draftForm.selectedTags
+    delete draftForm.selectedDomain
+    delete draftForm.anonymousCareerPost
     delete draftForm.serverDraftId
     delete draftForm.savedAt
     delete draftForm.owner
     form.value = { ...form.value, ...draftForm }
+    selectedDomain.value = savedSelectedDomain != null
+      ? normalizeDomain(savedSelectedDomain)
+      : savedAnonymousCareerPost
+        ? DOMAIN.CAREER
+        : selectedDomain.value
+    anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? savedAnonymousCareerPost : false
     selectedTags.value = draftTags || []
     serverDraftId.value = savedServerDraftId || ''
     selectedDraftId.value = savedServerDraftId || ''
@@ -930,6 +962,8 @@ const loadPostForEdit = async (postId: string) => {
       extension: post.extension || {},
       coverUrl: post.coverUrl || ''
     }
+    selectedDomain.value = normalizeDomain(post.domain ?? (post.anonymous ? DOMAIN.CAREER : DOMAIN.TECH))
+    anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
     markDraftClean()
     return true
@@ -1020,6 +1054,7 @@ const publishPost = async () => {
   try {
     const req = {
       domain: selectedDomain.value,
+      anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
       postType: form.value.postType,
       title: normalizedTitle.value,
       content: normalizedContent.value,
@@ -1029,6 +1064,7 @@ const publishPost = async () => {
       tagNames: normalizedTags.value,
       extJson: JSON.stringify({
         ...form.value.extension,
+        anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
         contentType: contentTypeCodeOf(form.value.postType),
         tags: normalizedTags.value
       }),
@@ -1199,7 +1235,11 @@ const goBack = () => {
   router.push(safeReturnPath())
 }
 
-watch([form, selectedTags], scheduleAutoSave, { deep: true })
+watch(selectedDomain, (domain) => {
+  if (domain !== DOMAIN.CAREER) anonymousCareerPost.value = false
+})
+
+watch([form, selectedTags, selectedDomain, anonymousCareerPost], scheduleAutoSave, { deep: true })
 
 const handleBeforeUnload = (event: BeforeUnloadEvent) => {
   if (!hasUnsavedDraft.value || isPublishing.value || isForbiddenEdit.value) return

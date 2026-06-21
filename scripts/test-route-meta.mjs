@@ -23,14 +23,14 @@ function adminPermissionsFor(path) {
   return [...match[1].matchAll(/'([^']+)'/g)].map((permission) => permission[1])
 }
 
-const adminRoles = ['ops', 'questionOperator', 'contentModerator', 'admin']
+const adminRoles = ['ops', 'questionOperator', 'contentModerator', 'domainModerator', 'admin']
 const adminRouteAccess = {
-  '/admin': { ops: true, questionOperator: true, contentModerator: true, admin: true },
-  '/admin/ops': { ops: true, questionOperator: true, contentModerator: true, admin: true },
-  '/admin/questions': { ops: false, questionOperator: true, contentModerator: false, admin: true },
-  '/admin/company-aliases': { ops: false, questionOperator: true, contentModerator: false, admin: true },
-  '/admin/governance': { ops: true, questionOperator: false, contentModerator: true, admin: true },
-  '/admin/tags': { ops: false, questionOperator: false, contentModerator: true, admin: true },
+  '/admin': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
+  '/admin/ops': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
+  '/admin/questions': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
+  '/admin/company-aliases': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
+  '/admin/governance': { ops: true, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
+  '/admin/tags': { ops: false, questionOperator: false, contentModerator: true, domainModerator: false, admin: true },
 }
 
 const routedAdminPaths = [...source.matchAll(/path:\s*'([^']+)'/g)]
@@ -56,6 +56,12 @@ for (const [path, expectedAccess] of Object.entries(adminRouteAccess)) {
     expectedAccess,
     `${path} must keep the expected admin role access matrix`,
   )
+}
+
+{
+  const block = routeBlock('/admin/governance')
+  assert.match(block, /governanceDomainTabs:\s*\[[^\]]*'featured'[^\]]*'queue'[^\]]*'review'[^\]]*\]/, '/admin/governance must declare domain moderator visible tabs')
+  assert.match(block, /governanceGlobalTabs:\s*\[[^\]]*'keywords'[^\]]*'users'[^\]]*'topics'[^\]]*'tags'[^\]]*\]/, '/admin/governance must declare global-only governance tabs')
 }
 
 for (const path of ['/editor', '/editor/:id', '/me', '/me/prep', '/me/notifications', '/me/settings']) {

@@ -25,7 +25,7 @@
 
       <div class="flex shrink-0 items-center gap-2">
         <button
-          v-if="!isOwnPost"
+          v-if="canFollowAuthor"
           type="button"
           class="rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-bold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-primary-800 dark:bg-primary-950 dark:text-primary-300 dark:hover:bg-primary-900/50"
           :disabled="isFollowing"
@@ -95,24 +95,39 @@
         </div>
       </div>
 
-      <div v-if="post.extension" class="mb-3 flex flex-wrap gap-2">
-        <span v-if="post.extension.difficulty" class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-          {{ post.extension.difficulty }}
+      <div
+        v-if="domainCardSurface.imageUrl"
+        class="domain-card-media mb-3"
+        :class="`domain-card-media--${domainCardSurface.tone}`"
+      >
+        <img :src="domainCardSurface.imageUrl" :alt="domainCardSurface.imageAlt || post.title" />
+      </div>
+
+      <div v-if="domainCardSurface.chips.length" class="mb-3 flex flex-wrap gap-2">
+        <span
+          v-for="chip in domainCardSurface.chips"
+          :key="`${chip.tone}-${chip.label}`"
+          class="domain-card-chip"
+          :class="`domain-card-chip--${chip.tone}`"
+        >
+          {{ chip.label }}
         </span>
-        <span v-if="post.extension.scenario" class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
-          {{ post.extension.scenario }}
+      </div>
+
+      <div v-if="isLegacyInterview && legacyInterviewChips.length" class="mb-3 flex flex-wrap gap-2">
+        <span
+          v-for="chip in legacyInterviewChips"
+          :key="chip.label"
+          class="domain-card-chip domain-card-chip--career"
+        >
+          {{ chip.label }}
         </span>
-        <span v-for="stack in visibleTechStacks" :key="stack" class="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
-          {{ stack }}
-        </span>
-        <span v-if="isLegacyInterview && post.extension.company" class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-          {{ post.extension.company }}
-        </span>
-        <span v-if="isLegacyInterview && post.extension.position" class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
-          {{ post.extension.position }}
-        </span>
-        <span v-if="isLegacyInterview && post.extension.interviewResult" class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="getResultClass(post.extension.interviewResult)">
-          {{ getResultText(post.extension.interviewResult) }}
+        <span
+          v-if="legacyInterviewResultText"
+          class="rounded-full px-2.5 py-1 text-xs font-semibold"
+          :class="getResultClass(post.extension?.interviewResult)"
+        >
+          {{ legacyInterviewResultText }}
         </span>
       </div>
 
@@ -178,6 +193,7 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { getContentTypeShortLabel, isLegacyInterviewType } from '@/utils/contentTypes'
+import { buildDomainCardSurface } from '@/utils/domainPostSurfaces'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 
 const props = defineProps<{
@@ -206,7 +222,15 @@ const feedbackReasons = [
 ]
 
 const authorInitial = computed(() => props.post.author.nickname?.charAt(0) || '?')
+const authorUid = computed(() => String(props.post.author.uid ?? ''))
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(props.post.author.uid))
+const isAnonymousMaskedAuthor = computed(() => Boolean(props.post.anonymous)
+  && (authorUid.value === '' || authorUid.value === '0' || props.post.author.profileVisible === false))
+const canFollowAuthor = computed(() => !isOwnPost.value
+  && !isAnonymousMaskedAuthor.value
+  && props.post.author.profileVisible !== false
+  && authorUid.value !== ''
+  && authorUid.value !== '0')
 const displayTitle = computed(() => renderSearchHighlight(props.post.highlightTitle, props.post.title))
 const displaySummary = computed(() => renderSearchHighlight(
   props.post.highlightSummary,
@@ -223,9 +247,24 @@ const detailTo = computed(() => ({
 }))
 const contentTypeLabel = computed(() => getContentTypeShortLabel(props.post.postType))
 const isLegacyInterview = computed(() => isLegacyInterviewType(props.post.postType))
-const visibleTechStacks = computed(() => Array.isArray(props.post.extension?.techStacks)
-  ? props.post.extension.techStacks.map(String).filter(Boolean).slice(0, 3)
-  : [])
+const domainCardSurface = computed(() => buildDomainCardSurface(props.post))
+const legacyInterviewChips = computed(() => {
+  if (!isLegacyInterview.value || !props.post.extension) return []
+  const chips: Array<{ label: string }> = []
+  const company = String(props.post.extension.company || '').trim()
+  const position = String(props.post.extension.position || '').trim()
+  const yearsOfExp = Number(props.post.extension.yearsOfExp || 0)
+  if (company) chips.push({ label: company })
+  if (position) chips.push({ label: position })
+  if (yearsOfExp > 0) chips.push({ label: `${yearsOfExp} 年` })
+  return chips
+})
+const legacyInterviewResultText = computed(() => {
+  if (!isLegacyInterview.value) return ''
+  const result = Number(props.post.extension?.interviewResult || 0)
+  if (!result) return ''
+  return getResultText(result)
+})
 const visibleTags = computed(() => props.post.tags.slice(0, 4))
 const displayRecommendationReasons = computed(() => {
   const reasons = props.post.recommendationReasons || []
@@ -300,6 +339,7 @@ const handleNotInterested = (reason: string) => {
 }
 
 const handleFollow = async () => {
+  if (!canFollowAuthor.value) return
   if (!requireLogin()) return
   isFollowing.value = true
   const wasFollowing = Boolean(props.post.author.isFollowing)
@@ -365,6 +405,61 @@ const handleFollow = async () => {
   color: rgb(37 99 235);
 }
 
+.domain-card-media {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  aspect-ratio: 16 / 9;
+}
+
+.domain-card-media img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.post-detail-link:hover .domain-card-media img {
+  transform: scale(1.025);
+}
+
+.domain-card-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1rem;
+}
+
+.domain-card-chip--tech {
+  background: rgb(236 254 255);
+  color: rgb(14 116 144);
+}
+
+.domain-card-chip--career {
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+}
+
+.domain-card-chip--reading {
+  background: rgb(240 253 244);
+  color: rgb(21 128 61);
+}
+
+.domain-card-chip--lifestyle {
+  background: rgb(253 242 248);
+  color: rgb(190 24 93);
+}
+
+.domain-card-chip--investment {
+  background: rgb(255 247 237);
+  color: rgb(194 65 12);
+}
+
 @media (max-width: 420px) {
   article {
     padding: 1rem;
@@ -413,6 +508,36 @@ const handleFollow = async () => {
 
 .dark .card-action:hover {
   background: rgb(30 41 59);
+}
+
+.dark .domain-card-media {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+}
+
+.dark .domain-card-chip--tech {
+  background: rgb(22 78 99 / 0.45);
+  color: rgb(103 232 249);
+}
+
+.dark .domain-card-chip--career {
+  background: rgb(49 46 129 / 0.5);
+  color: rgb(199 210 254);
+}
+
+.dark .domain-card-chip--reading {
+  background: rgb(20 83 45 / 0.45);
+  color: rgb(134 239 172);
+}
+
+.dark .domain-card-chip--lifestyle {
+  background: rgb(131 24 67 / 0.45);
+  color: rgb(249 168 212);
+}
+
+.dark .domain-card-chip--investment {
+  background: rgb(124 45 18 / 0.45);
+  color: rgb(253 186 116);
 }
 
 .dark :deep(.search-highlight) {

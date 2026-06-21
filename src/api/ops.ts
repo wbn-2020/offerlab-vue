@@ -45,6 +45,17 @@ const withBatchRiskConfirm = <T extends { ids: ApiId[] }>(
   ...(previewNonce ? { previewNonce } : {}),
 })
 
+const withSingleRetryRiskConfirm = (
+  operation: string,
+  id: ApiId,
+  remark?: string | null,
+  previewNonce?: string | null,
+) => ({
+  ...withRiskConfirm({}, remark),
+  idempotencyKey: batchIdempotencyKey(operation, [id]),
+  ...(previewNonce ? { previewNonce } : {}),
+})
+
 type RiskRemark = { remark: string }
 
 const actionRemarkPayload = (reason?: string | null) => {
@@ -185,6 +196,8 @@ export interface MyAdminPermissions {
   admin: boolean
   ops: boolean
   contentModerator: boolean
+  domainModerator: boolean
+  moderatedDomains: number[]
   questionOperator: boolean
   localOpen: boolean
 }
@@ -585,8 +598,13 @@ export const opsApi = {
   getOutbox: (id: ApiId): Promise<Result<OutboxMessage>> =>
     client.get(`/api/v1/ops/outbox/${id}`),
 
-  retryOutbox: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; retried: boolean }>> =>
-    client.post(`/api/v1/ops/outbox/${id}/retry`, withRemark({}, remark)),
+  retryOutbox: async (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; retried: boolean }>> => {
+    const preview = await opsApi.previewOutboxRetryBatch([id])
+    return client.post(
+      `/api/v1/ops/outbox/${id}/retry`,
+      withSingleRetryRiskConfirm('outbox-retry', id, remark, preview.data?.previewNonce),
+    )
+  },
 
   retryOutboxBatch: (ids: ApiId[], remark?: string, previewNonce?: string): Promise<Result<OutboxRetryBatchResp>> =>
     client.post('/api/v1/ops/outbox/retry-batch', withBatchRiskConfirm('outbox-retry', { ids }, remark, previewNonce)),
@@ -731,8 +749,16 @@ export const opsApi = {
   getAiTaskDetail: (id: ApiId): Promise<Result<AiExtractTaskDetail>> =>
     client.get(`/api/v1/admin/ai-tasks/${id}`),
 
-  retryAiTask: (id: ApiId, remark?: string): Promise<Result<AiExtractTask>> =>
-    client.post(`/api/v1/admin/ai-tasks/${id}/retry`, withRemark({}, remark)),
+  retryAiTask: async (id: ApiId, remark?: string): Promise<Result<AiExtractTask>> => {
+    const preview = await opsApi.previewAiTaskRetry(id)
+    return client.post(
+      `/api/v1/admin/ai-tasks/${id}/retry`,
+      withSingleRetryRiskConfirm('ai-task-retry', id, remark, preview.data?.previewNonce),
+    )
+  },
+
+  previewAiTaskRetry: (id: ApiId): Promise<Result<BatchActionPreview>> =>
+    client.post(`/api/v1/admin/ai-tasks/${id}/retry/preview`),
 
   rebuildQuestions: (limit = 100, remark?: string): Promise<Result<{ requested: number; submitted: number }>> =>
     client.post('/api/v1/admin/questions/rebuild', withRiskConfirm({}, remark), { params: { limit } }),
@@ -749,8 +775,16 @@ export const opsApi = {
   listQuestionIndexTasks: (limit = 10): Promise<Result<QuestionIndexTask[]>> =>
     client.get('/api/v1/admin/questions/index-tasks', { params: { limit } }),
 
-  retryQuestionIndexTask: (taskId: string, remark?: string): Promise<Result<QuestionIndexTask>> =>
-    client.post(`/api/v1/admin/questions/index-tasks/${taskId}/retry`, withRemark({}, remark)),
+  retryQuestionIndexTask: async (taskId: string, remark?: string): Promise<Result<QuestionIndexTask>> => {
+    const preview = await opsApi.previewQuestionIndexTaskRetry(taskId)
+    return client.post(
+      `/api/v1/admin/questions/index-tasks/${taskId}/retry`,
+      withSingleRetryRiskConfirm('question-index-task-retry', taskId, remark, preview.data?.previewNonce),
+    )
+  },
+
+  previewQuestionIndexTaskRetry: (taskId: string): Promise<Result<BatchActionPreview>> =>
+    client.post(`/api/v1/admin/questions/index-tasks/${taskId}/retry/preview`),
 
   listSearchIndexRetryTasks: (params?: { status?: number; limit?: number }): Promise<Result<SearchIndexRetryTask[]>> =>
     client.get('/api/v1/ops/search-index-retry-tasks', { params }),
@@ -771,8 +805,13 @@ export const opsApi = {
   getSearchIndexRetryTask: (id: ApiId): Promise<Result<SearchIndexRetryTask>> =>
     client.get(`/api/v1/ops/search-index-retry-tasks/${id}`),
 
-  replaySearchIndexRetryTask: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
-    client.post(`/api/v1/ops/search-index-retry-tasks/${id}/replay`, withRemark({}, remark)),
+  replaySearchIndexRetryTask: async (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; replayed: boolean }>> => {
+    const preview = await opsApi.previewSearchIndexRetryTasks([id])
+    return client.post(
+      `/api/v1/ops/search-index-retry-tasks/${id}/replay`,
+      withSingleRetryRiskConfirm('search-replay', id, remark, preview.data?.previewNonce),
+    )
+  },
 
   replaySearchIndexRetryTasks: (ids: ApiId[], remark?: string, previewNonce?: string): Promise<Result<{ requested: number; replayed: number }>> =>
     client.post('/api/v1/ops/search-index-retry-tasks/replay-batch', withBatchRiskConfirm('search-replay', { ids }, remark, previewNonce)),
@@ -799,8 +838,13 @@ export const opsApi = {
   getNotificationRetryTask: (id: ApiId): Promise<Result<NotificationRetryTask>> =>
     client.get(`/api/v1/ops/notification-retry-tasks/${id}`),
 
-  replayNotificationRetryTask: (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; replayed: boolean }>> =>
-    client.post(`/api/v1/ops/notification-retry-tasks/${id}/replay`, withRemark({}, remark)),
+  replayNotificationRetryTask: async (id: ApiId, remark?: string): Promise<Result<{ id: ApiId; replayed: boolean }>> => {
+    const preview = await opsApi.previewNotificationRetryTasks([id])
+    return client.post(
+      `/api/v1/ops/notification-retry-tasks/${id}/replay`,
+      withSingleRetryRiskConfirm('notif-replay', id, remark, preview.data?.previewNonce),
+    )
+  },
 
   replayNotificationRetryTasks: (ids: ApiId[], remark?: string, previewNonce?: string): Promise<Result<{ requested: number; replayed: number }>> =>
     client.post('/api/v1/ops/notification-retry-tasks/replay-batch', withBatchRiskConfirm('notif-replay', { ids }, remark, previewNonce)),

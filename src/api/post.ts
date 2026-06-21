@@ -2,9 +2,11 @@ import client, { BizException, Result } from './client'
 import type { ApiId, CommunityTopic, ContentTypeOption, PaginatedResponse, Post, PostPublishStatus, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, Tag } from './types'
 import { adaptCommunityTopic, adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptTag, adaptTime } from './adapters'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
+import { normalizeDomain } from '@/utils/domains'
 
 export interface PostCreateReq {
   domain?: number
+  anonymous?: boolean
   postType: number
   title: string
   content: string
@@ -18,6 +20,7 @@ export interface PostCreateReq {
 
 export interface PostUpdateReq {
   domain?: number
+  anonymous?: boolean
   title?: string
   content?: string
   coverUrl?: string
@@ -38,6 +41,8 @@ export interface PostDraft {
   uid: ApiId
   sourcePostId?: ApiId
   postType: number
+  domain?: number
+  anonymous?: boolean
   title?: string
   content?: string
   coverUrl?: string
@@ -53,6 +58,8 @@ export interface PostDraftReq {
   id?: ApiId
   sourcePostId?: ApiId
   postType?: number
+  domain?: number
+  anonymous?: boolean
   title?: string
   content?: string
   coverUrl?: string
@@ -63,11 +70,19 @@ export interface PostDraftReq {
 }
 
 function adaptPostDraft(raw: any): PostDraft {
+  let extension: Record<string, any> = {}
+  try {
+    extension = raw?.extJson ? JSON.parse(raw.extJson) : {}
+  } catch {
+    extension = {}
+  }
   return {
     id: String(raw?.id ?? ''),
     uid: String(raw?.uid ?? ''),
     sourcePostId: raw?.sourcePostId ? String(raw.sourcePostId) : undefined,
     postType: Number(raw?.postType ?? 1),
+    domain: normalizeDomain(raw?.domain ?? extension?.domain),
+    anonymous: Boolean(raw?.anonymous ?? extension?.anonymous),
     title: sanitizeVisibleText(raw?.title) || undefined,
     content: sanitizeVisibleText(raw?.content) || undefined,
     coverUrl: raw?.coverUrl || undefined,
@@ -112,6 +127,16 @@ export interface PostKnowledgeReviewReq {
   techStacks?: string[]
   suggestedTags?: string[]
   note?: string
+}
+
+export interface DomainModerator {
+  id?: ApiId
+  uid: ApiId
+  domain: number
+  enabled: boolean
+  createdBy?: ApiId
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface InterviewMaterialPack {
@@ -307,7 +332,7 @@ export const postApi = {
   },
 
   getPublishStatus: async (postId: ApiId): Promise<Result<PostPublishStatus>> => {
-    const res = await client.get(`/api/v1/search/posts/${postId}/publish-status`, { skipAuthRedirect: true }) as Result<any>
+    const res = await client.get(`/api/v1/search/posts/${postId}/publish-status`, { skipAuthRedirect: true }) as Result<PostPublishStatus>
     return { ...res, data: res.data || null }
   },
 
@@ -443,7 +468,7 @@ export const postApi = {
   report: (postId: ApiId, req: PostReportReq): Promise<Result<{ reportId?: ApiId }>> =>
     client.post(`/api/v1/posts/${postId}/reports`, req),
 
-  listAdminReports: async (params?: { status?: number; limit?: number; includeTestData?: boolean }): Promise<Result<PostReport[]>> => {
+  listAdminReports: async (params?: { status?: number; domain?: number; limit?: number; includeTestData?: boolean }): Promise<Result<PostReport[]>> => {
     const res = await client.get('/api/v1/posts/admin/reports', { params }) as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostReport) : [] }
   },
@@ -466,4 +491,16 @@ export const postApi = {
     req: PostKnowledgeReviewReq,
   ): Promise<Result<{ postId: ApiId; extJson?: string; knowledgeReviewed?: boolean }>> =>
     client.post(`/api/v1/posts/admin/knowledge/${postId}/review`, req),
+
+  listDomainModerators: (params?: { domain?: number; enabled?: boolean }): Promise<Result<DomainModerator[]>> =>
+    client.get('/api/v1/posts/admin/domain-moderators', { params }),
+
+  addDomainModerator: (data: { uid: ApiId; domain: number; note?: string }): Promise<Result<DomainModerator>> =>
+    client.post('/api/v1/posts/admin/domain-moderators', { ...data, confirmationPhrase: 'CONFIRM' }),
+
+  updateDomainModeratorStatus: (
+    uid: ApiId,
+    data: { domain: number; enabled: boolean; note?: string },
+  ): Promise<Result<DomainModerator>> =>
+    client.post(`/api/v1/posts/admin/domain-moderators/${uid}/status`, { ...data, confirmationPhrase: 'CONFIRM' }),
 }

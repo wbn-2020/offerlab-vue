@@ -110,7 +110,7 @@
       </section>
 
       <section v-if="activeTab === 'intent'" class="panel">
-        <IntentForm @submit="updateIntent" />
+        <IntentForm :initial-data="intentFormData || undefined" @submit="updateIntent" />
       </section>
 
       <section v-if="activeTab === 'theme'" class="panel space-y-6">
@@ -248,6 +248,7 @@ import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { userApi, type PrivacySetting } from '@/api/user'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import IntentForm from '@/components/user/IntentForm.vue'
+import type { UserIntent } from '@/api/types'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
@@ -263,6 +264,7 @@ const tabs = [
 
 const activeTab = ref('account')
 const user = ref(authStore.user)
+const intentFormData = ref<UserIntent | null>(null)
 
 const themeOptions: Array<{ value: ThemeMode, label: string, description: string }> = [
   { value: 'dark', label: '深色', description: '适合夜间和后台运维场景' },
@@ -335,6 +337,18 @@ const loadPrivacy = async () => {
   }
 }
 
+const loadIntent = async () => {
+  const uid = user.value?.uid
+  if (!uid) return
+
+  try {
+    const res = await userApi.getIntent(uid)
+    intentFormData.value = res.data ? { ...res.data } : null
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '关注方向加载失败'))
+  }
+}
+
 onMounted(() => {
   if (user.value) {
     profileForm.value = {
@@ -344,6 +358,7 @@ onMounted(() => {
     }
   }
   loadPrivacy()
+  loadIntent()
 })
 
 const updateProfile = async () => {
@@ -423,6 +438,16 @@ const updateIntent = async (intentData: any) => {
   try {
     const res = await userApi.updateIntent(intentData)
     if (res.code === 0) {
+      intentFormData.value = {
+        ...intentData,
+        targetCompanies: [...(intentData.targetCompanies || [])],
+        targetPositions: [...(intentData.targetPositions || [])],
+        techStack: [...(intentData.techStack || [])],
+        interestTopics: [...(intentData.interestTopics || [])],
+        interestTags: [...(intentData.interestTags || [])],
+        contentPreferences: [...(intentData.contentPreferences || [])],
+        expectedSalaryRange: intentData.expectedSalaryRange ? { ...intentData.expectedSalaryRange } : undefined,
+      }
       toast.success('关注方向已更新')
     } else {
       toast.error(getResultMessage(res, '关注方向更新失败'))

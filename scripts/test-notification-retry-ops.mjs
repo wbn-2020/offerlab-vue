@@ -52,7 +52,7 @@ assert.match(notificationOps, /AdminOperationIdempotencyService/, 'notification 
 assert.match(notificationOps, /result\.put\("previewNonce", idempotencyService\.issuePreview\(uid, "NOTIF_RETRY_REPLAY_BATCH", ids\)\)/, 'notification preview response must issue preview nonce')
 assert.match(notificationOps, /idempotencyService\.requirePreview\(uid, "NOTIF_RETRY_REPLAY_BATCH", ids, request\.previewNonce\(\)\)/, 'notification replay batch must require matching preview nonce before write')
 assert.match(notificationOps, /idempotencyService\.requireFresh\(uid, "NOTIF_RETRY_REPLAY_BATCH"/, 'notification replay batch must be blocked by idempotency before duplicate writes')
-assert.match(notificationOps, /String remark = RiskConfirmation\.requireHigh\(actionRemark\(request\)\)/, 'single notification replay must accept normalized audit reason text')
+assert.match(notificationOps, /String remark = RiskConfirmation\.requireCritical\(actionRemark\(request\),\s*request == null \? null : request\.confirmationPhrase\(\)\)/, 'single notification replay must require strict risk confirmation on normalized audit reason text')
 assert.match(notificationOps, /request\.reason\(\)/, 'single notification replay should keep reason-field compatibility')
 
 console.log('notification retry ops guard passed')

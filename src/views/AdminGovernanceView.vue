@@ -25,23 +25,23 @@
           <span>迁移状态</span>
           <strong :class="migration?.ready ? 'text-emerald-600' : 'text-amber-600'">{{ migrationStatusText }}</strong>
         </article>
-        <article v-if="canModerate" class="metric-card">
+        <article v-if="canGlobalModerate" class="metric-card">
           <span>关键词</span>
           <strong>{{ keywords.length }}</strong>
         </article>
-        <article v-if="canModerate" class="metric-card">
+        <article v-if="canGlobalModerate" class="metric-card">
           <span>受限用户</span>
           <strong>{{ users.length }}</strong>
         </article>
-        <article v-if="canModerate" class="metric-card">
+        <article v-if="canGlobalModerate" class="metric-card">
           <span>敏感词命中</span>
           <strong>{{ hits.length }}</strong>
         </article>
-        <article v-if="canModerate" class="metric-card">
+        <article v-if="canGlobalModerate" class="metric-card">
           <span>运营专题</span>
           <strong>{{ topics.length }}</strong>
         </article>
-        <article v-if="canModerate" class="metric-card">
+        <article v-if="canGlobalModerate" class="metric-card">
           <span>治理标签</span>
           <strong>{{ tags.length }}</strong>
         </article>
@@ -59,6 +59,30 @@
         <button v-for="tab in visibleTabs" :key="tab.value" type="button" :class="['tab-button', activeTab === tab.value ? 'tab-active' : '']" @click="activeTab = tab.value">
           {{ tab.label }}
         </button>
+      </section>
+
+      <section v-if="canModerate" class="domain-filter mb-6">
+        <div class="domain-filter-header">
+          <div>
+            <p class="text-xs font-bold uppercase text-slate-400">Domain scope</p>
+            <h2 class="text-base font-extrabold text-slate-950 dark:text-slate-50">领域治理范围</h2>
+          </div>
+          <p class="text-sm font-semibold text-slate-500">{{ domainScopeText }}</p>
+        </div>
+        <div class="domain-filter-actions">
+          <button v-if="canGlobalModerate" type="button" :class="['tab-button', selectedGovernanceDomain === '' ? 'tab-active' : '']" @click="setSelectedGovernanceDomain('')">
+            全部领域
+          </button>
+          <button
+            v-for="domain in governanceDomainOptions"
+            :key="domain.value"
+            type="button"
+            :class="['tab-button', Number(selectedGovernanceDomain) === domain.value ? 'tab-active' : '']"
+            @click="setSelectedGovernanceDomain(domain.value)"
+          >
+            {{ domain.icon }} {{ domain.label }}
+          </button>
+        </div>
       </section>
 
       <section v-if="activeTab === 'migration'" class="panel">
@@ -261,6 +285,55 @@
             <input v-model.trim="featuredForm.postId" class="field-input" inputmode="numeric" placeholder="帖子 ID" />
             <textarea v-model.trim="featuredForm.note" class="field-input min-h-[90px]" placeholder="精选原因，会写入审计备注" />
             <button type="submit" class="primary-button" :disabled="isSaving || !featuredForm.postId">设置精选</button>
+          </form>
+        </aside>
+      </section>
+
+      <section v-else-if="activeTab === 'moderators'" class="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <article class="panel">
+          <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 class="panel-title !mb-1">领域版主管理</h2>
+              <p class="text-sm text-slate-500">按领域分配治理人员，领域版主只能处理自己负责领域内的举报、精选和知识审核。</p>
+            </div>
+            <button type="button" class="secondary-button" :disabled="isLoading" @click="() => loadDomainModerators()">刷新版主</button>
+          </div>
+          <div v-if="domainModerators.length" class="space-y-3">
+            <div v-for="item in domainModerators" :key="`${item.uid}:${item.domain}`" class="row-card">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span :class="['status-pill', item.enabled ? 'status-ok' : 'status-muted']">{{ item.enabled ? '启用' : '停用' }}</span>
+                    <strong class="text-slate-950 dark:text-slate-50">UID {{ item.uid }}</strong>
+                    <span class="meta-chip">{{ domainLabel(item.domain) }}</span>
+                  </div>
+                  <p class="mt-2 text-sm text-slate-500">创建人 {{ item.createdBy || '--' }} · {{ formatTime(item.updatedAt || item.createdAt) }}</p>
+                </div>
+                <button
+                  v-if="canManageDomainModerators"
+                  type="button"
+                  :class="['secondary-button', item.enabled ? 'danger-button' : '']"
+                  :disabled="moderatorActionKey === moderatorKey(item)"
+                  @click="toggleDomainModeratorStatus(item)"
+                >
+                  {{ item.enabled ? '停用' : '启用' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-else class="empty-panel">当前领域暂无版主</div>
+        </article>
+
+        <aside class="panel h-fit">
+          <h2 class="panel-title">新增领域版主</h2>
+          <p v-if="!canManageDomainModerators" class="mb-3 text-sm font-semibold text-slate-500">只有超级管理员可以分配或停用领域版主。</p>
+          <form class="space-y-3" @submit.prevent="saveDomainModerator">
+            <input v-model.trim="moderatorForm.uid" class="field-input" inputmode="numeric" placeholder="用户 UID" :disabled="!canManageDomainModerators" />
+            <select v-model.number="moderatorForm.domain" class="field-input" :disabled="!canManageDomainModerators">
+              <option v-for="domain in DOMAIN_OPTIONS" :key="domain.value" :value="domain.value">{{ domain.icon }} {{ domain.label }}</option>
+            </select>
+            <textarea v-model.trim="moderatorForm.note" class="field-input min-h-[90px]" placeholder="分配原因，会写入审计" :disabled="!canManageDomainModerators" />
+            <button type="submit" class="primary-button" :disabled="isSaving || !canManageDomainModerators || !moderatorForm.uid">保存版主</button>
           </form>
         </aside>
       </section>
@@ -546,7 +619,7 @@
               <h2 class="panel-title !mb-1">内容审核总览</h2>
               <p class="text-sm text-slate-500">聚合举报、敏感词命中和后台审计，先形成治理台入口。</p>
             </div>
-                <RouterLink to="/admin/ops" class="secondary-button">进入运维审核</RouterLink>
+                <RouterLink v-if="canOps || canGlobalModerate" to="/admin/ops" class="secondary-button">进入运维审核</RouterLink>
           </div>
           <div class="grid gap-3 sm:grid-cols-3">
             <div class="review-metric"><span>待处理举报</span><strong>{{ pendingReportCount }}</strong></div>
@@ -664,26 +737,29 @@ import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { getErrorMessage } from '@/api/client'
 import { opsApi, type AdminAuditLog, type MigrationStatus, type ModerationKeyword, type ModerationKeywordHit, type MyAdminPermissions, type ReviewQueueItem as BackendReviewQueueItem, type ReviewQueueRiskLevel, type ReviewQueueStatus, type UserModerationState } from '@/api/ops'
-import { postApi } from '@/api/post'
+import { postApi, type DomainModerator } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import type { Question } from '@/api/question'
 import type { AiExtractTask } from '@/api/ops'
 import type { CommentReport, CommunityTopic, Post, PostReport, Tag } from '@/api/types'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
+import { DOMAIN_OPTIONS, getDomainLabel } from '@/utils/domains'
 
 const tabs = [
   { label: '迁移检查', value: 'migration', scope: 'ops' },
-  { label: '敏感词', value: 'keywords', scope: 'moderation' },
-  { label: '命中日志', value: 'hits', scope: 'moderation' },
-  { label: '用户限制', value: 'users', scope: 'moderation' },
-  { label: '精选管理', value: 'featured', scope: 'moderation' },
-  { label: '专题管理', value: 'topics', scope: 'moderation' },
-  { label: '标签治理', value: 'tags', scope: 'moderation' },
-  { label: '审核队列', value: 'queue', scope: 'moderation' },
-  { label: '审核总览', value: 'review', scope: 'moderation' },
+  { label: '敏感词', value: 'keywords', scope: 'globalModeration' },
+  { label: '命中日志', value: 'hits', scope: 'globalModeration' },
+  { label: '用户限制', value: 'users', scope: 'globalModeration' },
+  { label: '精选管理', value: 'featured', scope: 'domainModeration' },
+  { label: '专题管理', value: 'topics', scope: 'globalModeration' },
+  { label: '标签治理', value: 'tags', scope: 'globalModeration' },
+  { label: '审核队列', value: 'queue', scope: 'domainModeration' },
+  { label: '审核总览', value: 'review', scope: 'domainModeration' },
   { label: '审计日志', value: 'audit', scope: 'ops' },
 ]
+
+tabs.splice(tabs.findIndex((tab) => tab.value === 'topics'), 0, { label: '领域版主', value: 'moderators', scope: 'domainModeration' })
 
 const route = useRoute()
 
@@ -726,6 +802,7 @@ const keywords = ref<ModerationKeyword[]>([])
 const hits = ref<ModerationKeywordHit[]>([])
 const users = ref<UserModerationState[]>([])
 const featuredPosts = ref<Post[]>([])
+const domainModerators = ref<DomainModerator[]>([])
 const topics = ref<CommunityTopic[]>([])
 const tags = ref<Tag[]>([])
 const postReports = ref<PostReport[]>([])
@@ -750,6 +827,9 @@ const moderationActionKey = ref('')
 const userForm = reactive({ uid: '', muteHours: 0, banHours: 0, reason: '' })
 const featuredForm = reactive({ postId: '', note: '' })
 const featuredActionKey = ref('')
+const selectedGovernanceDomain = ref<number | ''>('')
+const moderatorForm = reactive({ uid: '', domain: DOMAIN_OPTIONS[0]?.value ?? 1, note: '' })
+const moderatorActionKey = ref('')
 const selectedTopic = ref<CommunityTopic | null>(null)
 const topicFilters = reactive({ status: '', keyword: '' })
 const topicForm = reactive({
@@ -775,9 +855,28 @@ const queueFilters = reactive({ sourceType: '', riskLevel: '' })
 const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
 
 const canOps = computed(() => Boolean(permissions.value?.ops || permissions.value?.admin))
-const canModerate = computed(() => Boolean(permissions.value?.contentModerator || permissions.value?.admin))
+const canGlobalModerate = computed(() => Boolean(permissions.value?.contentModerator || permissions.value?.admin))
+const canDomainModerate = computed(() => Boolean(permissions.value?.domainModerator && (permissions.value?.moderatedDomains || []).length > 0))
+const canModerate = computed(() => canGlobalModerate.value || canDomainModerate.value)
+const canManageDomainModerators = computed(() => Boolean(permissions.value?.admin))
 const canQuestionOps = computed(() => Boolean(permissions.value?.questionOperator || permissions.value?.admin))
-const visibleTabs = computed(() => tabs.filter((tab) => tab.scope === 'ops' ? canOps.value : canModerate.value))
+const visibleTabs = computed(() => tabs.filter((tab) => {
+  if (tab.scope === 'ops') return canOps.value
+  if (tab.scope === 'globalModeration') return canGlobalModerate.value
+  if (tab.scope === 'domainModeration') return canModerate.value
+  return false
+}))
+const governanceDomainOptions = computed(() => {
+  if (permissions.value?.admin || permissions.value?.contentModerator) return DOMAIN_OPTIONS
+  const domains = new Set((permissions.value?.moderatedDomains || []).map((item) => Number(item)))
+  return DOMAIN_OPTIONS.filter((item) => domains.has(item.value))
+})
+const selectedDomainParam = computed(() => selectedGovernanceDomain.value === '' ? undefined : Number(selectedGovernanceDomain.value))
+const domainScopeText = computed(() => {
+  if (permissions.value?.admin || permissions.value?.contentModerator) return '全域治理权限'
+  const domains = permissions.value?.moderatedDomains || []
+  return domains.length ? `领域版主：${domains.map((domain) => getDomainLabel(domain)).join(' / ')}` : '暂无领域治理权限'
+})
 const pendingPostReportCount = computed(() => postReports.value.filter((item) => Number(item.reportStatus ?? 0) === 0).length)
 const pendingCommentReportCount = computed(() => commentReports.value.filter((item) => Number(item.reportStatus ?? 0) === 0).length)
 const pendingReportCount = computed(() => pendingPostReportCount.value + pendingCommentReportCount.value)
@@ -978,6 +1077,26 @@ const loadPermissions = async () => {
   permissions.value = res.data
 }
 
+const normalizeGovernanceDomain = () => {
+  if (permissions.value?.admin || permissions.value?.contentModerator) return
+  const allowed = governanceDomainOptions.value
+  if (!allowed.length) {
+    selectedGovernanceDomain.value = ''
+    return
+  }
+  if (selectedGovernanceDomain.value === '' || !allowed.some((item) => item.value === Number(selectedGovernanceDomain.value))) {
+    selectedGovernanceDomain.value = allowed[0].value
+  }
+}
+
+const setSelectedGovernanceDomain = async (domain: number | '') => {
+  selectedGovernanceDomain.value = domain
+  normalizeGovernanceDomain()
+  await refreshAll()
+}
+
+const domainLabel = (domain?: number | null) => getDomainLabel(domain)
+
 const ensureActiveTab = () => {
   const requested = requestedGovernanceTab()
   if (requested && visibleTabs.value.some((tab) => tab.value === requested)) {
@@ -995,15 +1114,12 @@ const clearOpsState = () => {
   auditHasMore.value = false
 }
 
-const clearModerationState = () => {
+const clearGlobalModerationState = () => {
   keywords.value = []
   hits.value = []
   users.value = []
-  featuredPosts.value = []
   topics.value = []
   tags.value = []
-  postReports.value = []
-  commentReports.value = []
   pendingQuestions.value = []
   failedAiTasks.value = []
   backendReviewQueueItems.value = []
@@ -1011,11 +1127,62 @@ const clearModerationState = () => {
   reviewQueueLoadWarnings.value = []
 }
 
+const clearDomainModerationState = () => {
+  featuredPosts.value = []
+  domainModerators.value = []
+  postReports.value = []
+  commentReports.value = []
+}
+
+const clearModerationState = () => {
+  clearGlobalModerationState()
+  clearDomainModerationState()
+}
+
+const loadGlobalModerationData = (loaders: Array<Promise<void>>) => {
+  if (!canGlobalModerate.value) {
+    clearGlobalModerationState()
+    return
+  }
+  reviewQueueLoadWarnings.value = []
+  loaders.push(loadBackendReviewQueue(false))
+  loaders.push(opsApi.listModerationKeywords({ limit: 80 }).then((res) => { keywords.value = res.data || [] }))
+  loaders.push(opsApi.listModerationHits({ limit: 80 }).then((res) => { hits.value = res.data || [] }))
+  loaders.push(opsApi.listModerationUsers(80).then((res) => { users.value = res.data || [] }))
+  if (canQuestionOps.value) {
+    loaders.push(opsApi.listQuestions({ status: 0, limit: 20 }).then((res) => { pendingQuestions.value = res.data || [] }).catch(() => {
+      pendingQuestions.value = []
+      reviewQueueLoadWarnings.value.push('待审题目来源暂不可用，已保留其他审核待办。')
+    }))
+    loaders.push(opsApi.listAiTasks({ status: 3, limit: 20 }).then((res) => { failedAiTasks.value = res.data || [] }).catch(() => {
+      failedAiTasks.value = []
+      reviewQueueLoadWarnings.value.push('失败 AI 任务来源暂不可用，已保留其他审核待办。')
+    }))
+  } else {
+    pendingQuestions.value = []
+    failedAiTasks.value = []
+  }
+  loaders.push(loadTopics(false))
+  loaders.push(loadTags(false))
+}
+
+const loadDomainModerationData = (loaders: Array<Promise<void>>) => {
+  if (!canModerate.value) {
+    clearDomainModerationState()
+    return
+  }
+  loaders.push(postApi.listAdminReports({ status: 0, limit: 50, domain: selectedDomainParam.value }).then((res) => { postReports.value = res.data || [] }))
+  loaders.push(interactionApi.listAdminCommentReports({ status: 0, limit: 50, domain: selectedDomainParam.value }).then((res) => { commentReports.value = res.data || [] }))
+  loaders.push(loadFeaturedPosts(false))
+  loaders.push(loadDomainModerators(false))
+}
+
 const refreshAll = async () => {
   isLoading.value = true
   loadError.value = ''
   try {
     await loadPermissions()
+    normalizeGovernanceDomain()
     ensureActiveTab()
     const loaders: Array<Promise<void>> = []
     if (canOps.value) {
@@ -1025,29 +1192,8 @@ const refreshAll = async () => {
       clearOpsState()
     }
     if (canModerate.value) {
-      reviewQueueLoadWarnings.value = []
-      loaders.push(loadBackendReviewQueue(false))
-      loaders.push(opsApi.listModerationKeywords({ limit: 80 }).then((res) => { keywords.value = res.data || [] }))
-      loaders.push(opsApi.listModerationHits({ limit: 80 }).then((res) => { hits.value = res.data || [] }))
-      loaders.push(opsApi.listModerationUsers(80).then((res) => { users.value = res.data || [] }))
-      loaders.push(postApi.listAdminReports({ status: 0, limit: 50 }).then((res) => { postReports.value = res.data || [] }))
-      loaders.push(interactionApi.listAdminCommentReports({ status: 0, limit: 50 }).then((res) => { commentReports.value = res.data || [] }))
-      if (canQuestionOps.value) {
-        loaders.push(opsApi.listQuestions({ status: 0, limit: 20 }).then((res) => { pendingQuestions.value = res.data || [] }).catch(() => {
-          pendingQuestions.value = []
-          reviewQueueLoadWarnings.value.push('待审题目来源暂不可用，已保留其他审核待办。')
-        }))
-        loaders.push(opsApi.listAiTasks({ status: 3, limit: 20 }).then((res) => { failedAiTasks.value = res.data || [] }).catch(() => {
-          failedAiTasks.value = []
-          reviewQueueLoadWarnings.value.push('失败 AI 任务来源暂不可用，已保留其他审核待办。')
-        }))
-      } else {
-        pendingQuestions.value = []
-        failedAiTasks.value = []
-      }
-      loaders.push(loadFeaturedPosts(false))
-      loaders.push(loadTopics(false))
-      loaders.push(loadTags(false))
+      loadGlobalModerationData(loaders)
+      loadDomainModerationData(loaders)
     } else {
       clearModerationState()
     }
@@ -1071,6 +1217,11 @@ const loadReviewQueue = async () => {
   activeTab.value = 'queue'
   if (!canModerate.value) {
     await refreshAll()
+    return
+  }
+  if (!canGlobalModerate.value) {
+    reviewQueueSource.value = 'frontend-fallback'
+    backendReviewQueueItems.value = []
     return
   }
   isLoading.value = true
@@ -1168,6 +1319,11 @@ const toReviewQueueItem = (item: BackendReviewQueueItem): ReviewQueueItem => ({
 })
 
 const loadBackendReviewQueue = async (showToast = true) => {
+  if (!canGlobalModerate.value) {
+    backendReviewQueueItems.value = []
+    reviewQueueSource.value = 'frontend-fallback'
+    return
+  }
   try {
     const res = await opsApi.listReviewQueue({
       sourceType: queueFilters.sourceType || undefined,
@@ -1188,6 +1344,7 @@ const loadBackendReviewQueue = async (showToast = true) => {
 type ReviewQueueAction = 'claim' | 'release' | 'approve' | 'reject' | 'close'
 
 const canQueueAction = (item: ReviewQueueItem, action: ReviewQueueAction) => {
+  if (!canGlobalModerate.value) return false
   if (!item.backendItem || reviewQueueSource.value !== 'backend') return false
   if (action === 'claim') return item.queueStatus === 'pending' || item.queueStatus === 'claimed'
   if (action === 'release') return item.queueStatus === 'claimed'
@@ -1206,6 +1363,7 @@ const queueActionText = (action: ReviewQueueAction) => {
 }
 
 const handleReviewQueueAction = async (item: ReviewQueueItem, action: ReviewQueueAction) => {
+  if (!canGlobalModerate.value) return
   if (!item.backendItem) return
   const actionText = queueActionText(action)
   const note = await requireRiskConfirm({
@@ -1334,7 +1492,7 @@ useAccessibleDialog(() => Boolean(selectedAudit.value), {
 })
 
 const loadHits = async () => {
-  if (!canModerate.value) return
+  if (!canGlobalModerate.value) return
   isLoading.value = true
   try {
     const res = await opsApi.listModerationHits({
@@ -1379,15 +1537,90 @@ const requireRiskConfirm = (request: RiskConfirmRequest) => confirmRisk(request)
 const loadFeaturedPosts = async (showToast = true) => {
   if (!canModerate.value) return
   try {
-    const res = await postApi.list({ featured: true, size: 20 })
+    const res = await postApi.list({ featured: true, domain: selectedDomainParam.value, size: 20 })
     featuredPosts.value = res.data?.items || []
   } catch (error: any) {
     if (showToast) toast.error(getErrorMessage(error, '精选内容加载失败'))
   }
 }
 
-const loadTopics = async (showToast = true) => {
+const loadDomainModerators = async (showToast = true) => {
   if (!canModerate.value) return
+  try {
+    const res = await postApi.listDomainModerators({ domain: selectedDomainParam.value })
+    domainModerators.value = res.data || []
+  } catch (error: any) {
+    domainModerators.value = []
+    if (showToast) toast.error(getErrorMessage(error, '领域版主加载失败'))
+  }
+}
+
+const moderatorKey = (item: DomainModerator) => `${item.uid}:${item.domain}`
+
+const saveDomainModerator = async () => {
+  if (!canManageDomainModerators.value) {
+    toast.error('只有超级管理员可以分配领域版主')
+    return
+  }
+  const note = await requireRiskConfirm({
+    title: '分配领域版主',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([`uid:${moderatorForm.uid}`, `domain:${moderatorForm.domain}`]),
+    context: riskContext(
+      `领域：${domainLabel(moderatorForm.domain)}`,
+      moderatorForm.note ? `原因：${moderatorForm.note}` : '原因：未填写',
+      '该用户将获得指定领域内的举报、精选和知识审核权限',
+    ),
+    confirmText: '确认分配版主',
+  })
+  if (note === null) return
+  isSaving.value = true
+  try {
+    await postApi.addDomainModerator({ uid: moderatorForm.uid, domain: Number(moderatorForm.domain), note: note || moderatorForm.note })
+    moderatorForm.uid = ''
+    moderatorForm.note = ''
+    toast.success('领域版主已保存')
+    await loadDomainModerators(false)
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '领域版主保存失败'))
+  } finally {
+    isSaving.value = false
+  }
+}
+
+const toggleDomainModeratorStatus = async (item: DomainModerator) => {
+  if (!canManageDomainModerators.value) return
+  const nextEnabled = !item.enabled
+  const note = await requireRiskConfirm({
+    title: nextEnabled ? '启用领域版主' : '停用领域版主',
+    level: nextEnabled ? 'high' : 'critical',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([`uid:${item.uid}`, `domain:${item.domain}`]),
+    context: riskContext(
+      `领域：${domainLabel(item.domain)}`,
+      `目标状态：${nextEnabled ? '启用' : '停用'}`,
+      nextEnabled ? '该用户将恢复领域治理权限' : '该用户将失去该领域治理权限',
+    ),
+    confirmText: nextEnabled ? '确认启用版主' : '确认停用版主',
+  })
+  if (note === null) return
+  moderatorActionKey.value = moderatorKey(item)
+  try {
+    await postApi.updateDomainModeratorStatus(item.uid, { domain: item.domain, enabled: nextEnabled, note })
+    toast.success(nextEnabled ? '领域版主已启用' : '领域版主已停用')
+    await loadDomainModerators(false)
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '领域版主状态更新失败'))
+  } finally {
+    moderatorActionKey.value = ''
+  }
+}
+
+const loadTopics = async (showToast = true) => {
+  if (!canGlobalModerate.value) return
   try {
     const res = await postApi.listAdminTopics({
       status: topicFilters.status === '' ? undefined : Number(topicFilters.status),
@@ -1410,7 +1643,7 @@ watch(() => [tagFilters.status, tagFilters.recommended, tagFilters.keyword] as c
 })
 
 const loadTags = async (showToast = true) => {
-  if (!canModerate.value) return
+  if (!canGlobalModerate.value) return
   try {
     const res = await postApi.listAdminTags({
       status: tagFilters.status === '' ? undefined : Number(tagFilters.status),
@@ -1480,7 +1713,7 @@ const topicTagNames = () => topicForm.tagNames
   .filter(Boolean)
 
 const saveTopic = async () => {
-  if (!canModerate.value) {
+  if (!canGlobalModerate.value) {
     toast.error('当前账号没有内容治理权限')
     return
   }
@@ -1578,7 +1811,7 @@ const tagCategoryText = (tagType?: number) => {
 }
 
 const saveTag = async () => {
-  if (!canModerate.value || !selectedTag.value) {
+  if (!canGlobalModerate.value || !selectedTag.value) {
     toast.error('请选择要治理的标签')
     return
   }
@@ -1618,6 +1851,7 @@ const saveTag = async () => {
 }
 
 const toggleTagStatus = async (tag: Tag) => {
+  if (!canGlobalModerate.value) return
   const nextStatus = isTagActive(tag) ? 0 : 1
   const note = await requireRiskConfirm({
     title: nextStatus === 1 ? '启用标签' : '禁用标签',
@@ -1645,6 +1879,7 @@ const toggleTagStatus = async (tag: Tag) => {
 }
 
 const toggleTagRecommended = async (tag: Tag) => {
+  if (!canGlobalModerate.value) return
   const nextRecommended = !tag.recommended
   const note = await requireRiskConfirm({
     title: nextRecommended ? '推荐标签' : '取消推荐标签',
@@ -1669,7 +1904,7 @@ const toggleTagRecommended = async (tag: Tag) => {
 }
 
 const saveTagSynonyms = async () => {
-  if (!canModerate.value || !selectedTag.value) {
+  if (!canGlobalModerate.value || !selectedTag.value) {
     toast.error('请选择要维护的标签')
     return
   }
@@ -1702,6 +1937,7 @@ const saveTagSynonyms = async () => {
 }
 
 const mergeSelectedTag = async () => {
+  if (!canGlobalModerate.value) return
   if (!selectedTag.value || !tagForm.mergeTargetId) return
   const note = await requireRiskConfirm({
     title: '合并标签',
@@ -1731,6 +1967,7 @@ const mergeSelectedTag = async () => {
 }
 
 const toggleTopicStatus = async (topic: CommunityTopic) => {
+  if (!canGlobalModerate.value) return
   const nextStatus = topic.status === 1 ? 0 : 1
   const note = await requireRiskConfirm({
     title: nextStatus === 1 ? '上线社区专题' : '下线社区专题',
@@ -1796,6 +2033,10 @@ const setFeatured = async () => {
 }
 
 const unsetFeatured = async (post: Post) => {
+  if (!canModerate.value) {
+    toast.error('当前账号没有内容治理权限')
+    return
+  }
   const note = await requireRiskConfirm({
     title: '取消精选内容',
     level: 'high',
@@ -1823,7 +2064,7 @@ const unsetFeatured = async (post: Post) => {
 }
 
 const saveKeyword = async () => {
-  if (!canModerate.value) {
+  if (!canGlobalModerate.value) {
     toast.error('当前账号没有内容治理权限')
     return
   }
@@ -1863,7 +2104,7 @@ const saveKeyword = async () => {
 }
 
 const saveUserState = async () => {
-  if (!canModerate.value) {
+  if (!canGlobalModerate.value) {
     toast.error('当前账号没有内容治理权限')
     return
   }

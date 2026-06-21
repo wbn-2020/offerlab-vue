@@ -1,21 +1,20 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { opsApi, type MyAdminPermissions } from '@/api/ops'
-import { adminPermissionRequirementText, hasAdminPermission, type AdminPermissionKey } from '@/utils/adminPermissions'
+import { opsApi } from '@/api/ops'
+import {
+  adminPermissionRequirementText,
+  createAdminPermissionCache,
+  hasAdminPermission,
+  isPermissionDeniedError,
+  type AdminPermissionKey,
+} from '@/utils/adminPermissions'
 
-let cachedAdminPermissions: MyAdminPermissions | null = null
-let cachedToken: string | null = null
-let cachedAt = 0
-
-const getAdminPermissions = async (token: string | null) => {
-  if (!token) return null
-  if (cachedToken === token && cachedAdminPermissions && Date.now() - cachedAt < 30_000) return cachedAdminPermissions
+const adminPermissionCache = createAdminPermissionCache(async () => {
   const res = await opsApi.myPermissions()
-  cachedToken = token
-  cachedAdminPermissions = res.data
-  cachedAt = Date.now()
-  return cachedAdminPermissions
-}
+  return res.data
+})
+
+export const invalidateAdminPermissionCache = adminPermissionCache.invalidateAdminPermissions
 
 export function setupRouterGuards(router: Router) {
   router.beforeEach(async (to, from, next) => {
@@ -34,7 +33,7 @@ export function setupRouterGuards(router: Router) {
     } else {
       if (adminPermission) {
         try {
-          const permissions = await getAdminPermissions(authStore.token)
+          const permissions = await adminPermissionCache.getAdminPermissions(authStore.token)
           if (!hasAdminPermission(permissions, adminPermission)) {
             next({
               name: 'Forbidden',
@@ -45,7 +44,10 @@ export function setupRouterGuards(router: Router) {
             })
             return
           }
-        } catch {
+        } catch (error) {
+          if (isPermissionDeniedError(error)) {
+            adminPermissionCache.invalidateAdminPermissions(authStore.token)
+          }
           next({ name: 'Forbidden', query: { from: to.fullPath, reason: 'permission_check_failed' } })
           return
         }

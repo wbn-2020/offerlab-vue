@@ -73,6 +73,13 @@
       <!-- 领域筛选 -->
       <section class="mb-6 flex flex-wrap gap-2">
         <router-link
+          to="/"
+          class="domain-chip inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:hover:bg-primary-950"
+          :class="activeDomain === undefined ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/50 dark:border-primary-700' : 'bg-white dark:bg-slate-900'"
+        >
+          <span>综合</span>
+        </router-link>
+        <router-link
           v-for="d in DOMAIN_OPTIONS"
           :key="d.value"
           :to="d.value === activeDomain ? '/' : { path: '/', query: { domain: d.value } }"
@@ -381,7 +388,11 @@ const { requireLogin } = useLoginRedirect()
 const activeFeed = ref<FeedType>('recommend')
 const heroKeyword = ref('')
 const activeContentType = ref<number | undefined>()
-const activeDomain = computed(() => { const q = Number(route.query.domain); return Number.isNaN(q) ? undefined : q })
+const legalDomainValues = new Set<number>(DOMAIN_OPTIONS.map((d) => d.value))
+const activeDomain = computed(() => {
+  const q = Number(route.query.domain)
+  return legalDomainValues.has(q) ? q : undefined
+})
 const feedTabs: FeedType[] = ['following', 'recommend', 'latest', 'hot', 'featured']
 const feedLabels: Record<FeedType, string> = {
   following: '关注',

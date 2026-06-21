@@ -9,7 +9,7 @@
           <template v-else-if="post">
             <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <div class="flex items-center justify-between gap-4">
-                <RouterLink :to="`/u/${post.author.uid}`" class="flex min-w-0 items-center gap-3">
+                <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex min-w-0 items-center gap-3">
                   <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 font-bold text-white">
                     <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
                     <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
@@ -19,8 +19,18 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(post.createdAt) }}</p>
                   </div>
                 </RouterLink>
+                <div v-else class="flex min-w-0 items-center gap-3">
+                  <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 font-bold text-white">
+                    <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
+                    <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
+                  </div>
+                  <div class="min-w-0">
+                    <h3 class="truncate font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(post.createdAt) }}</p>
+                  </div>
+                </div>
                 <button
-                  v-if="!isOwnPost"
+                  v-if="canFollowAuthor"
                   type="button"
                   class="rounded-lg border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800"
                   :disabled="isFollowingAuthor"
@@ -86,6 +96,49 @@
               <div class="prose mb-8 max-w-none dark:prose-invert">
                 <MarkdownRenderer :content="post.content" />
               </div>
+
+              <section
+                v-if="domainDetailSurface"
+                :class="['domain-detail-panel', `domain-detail-${domainDetailSurface.tone}`]"
+              >
+                <div class="domain-detail-head">
+                  <div>
+                    <p>{{ getDomainLabel(post.domain) }}</p>
+                    <h2>{{ domainDetailSurface.title }}</h2>
+                  </div>
+                </div>
+                <p class="domain-detail-description">{{ domainDetailSurface.description }}</p>
+
+                <div v-if="domainDetailSurface.items.length" class="domain-detail-grid">
+                  <article v-for="item in domainDetailSurface.items" :key="item.label" class="domain-detail-item">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value }}</strong>
+                  </article>
+                </div>
+
+                <div v-if="domainDetailSurface.chips.length" class="domain-detail-chips">
+                  <span
+                    v-for="chip in domainDetailSurface.chips"
+                    :key="chip.label"
+                    :class="['domain-detail-chip', `domain-detail-chip-${chip.tone}`]"
+                  >
+                    {{ chip.label }}
+                  </span>
+                </div>
+
+                <div v-if="domainDetailSurface.images.length" class="domain-detail-gallery">
+                  <img
+                    v-for="(image, index) in domainDetailSurface.images"
+                    :key="image"
+                    :src="image"
+                    :alt="`${domainDetailSurface.title} ${index + 1}`"
+                  />
+                </div>
+
+                <div v-if="domainDetailSurface.riskNotice" class="domain-detail-risk-notice" role="note">
+                  {{ domainDetailSurface.riskNotice }}
+                </div>
+              </section>
 
               <section v-if="knowledgeSummary || knowledgeTags.length || knowledgeFaqs.length || knowledgeCardItems.length" class="knowledge-panel mb-8">
                 <div class="mb-3 flex items-center justify-between gap-3">
@@ -405,7 +458,7 @@
           <div class="sticky top-24 space-y-6">
             <section v-if="post" class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">作者信息</h3>
-              <RouterLink :to="`/u/${post.author.uid}`" class="flex flex-col items-center text-center">
+              <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex flex-col items-center text-center">
                 <div class="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-2xl font-bold text-white">
                   <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
                   <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
@@ -413,6 +466,14 @@
                 <h4 class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h4>
                 <p class="mt-1 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">{{ post.author.signature || '暂无签名' }}</p>
               </RouterLink>
+              <div v-else class="flex flex-col items-center text-center">
+                <div class="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-2xl font-bold text-white">
+                  <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
+                  <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
+                </div>
+                <h4 class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h4>
+                <p class="mt-1 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">{{ post.author.signature || '暂无签名' }}</p>
+              </div>
             </section>
 
             <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
@@ -550,6 +611,7 @@ import { BizException, getErrorMessage } from '@/api/client'
 import type { Comment, Post, PostPublishStatus, PostVersionHistory } from '@/api/types'
 import { getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
+import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
 
 const route = useRoute()
 const router = useRouter()
@@ -627,7 +689,17 @@ const clonePost = (source?: Post | null): Post | null => {
 
 const post = ref<Post | null>(null)
 const publishStatus = computed<PostPublishStatus | null>(() => publishStatusData.value?.data || null)
+const authorUid = computed(() => String(post.value?.author.uid ?? ''))
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(post.value?.author.uid ?? ''))
+const isAnonymousMaskedAuthor = computed(() => Boolean(post.value?.anonymous)
+  && (authorUid.value === '' || authorUid.value === '0' || post.value?.author.profileVisible === false))
+const canOpenAuthorProfile = computed(() => Boolean(post.value)
+  && !isAnonymousMaskedAuthor.value
+  && post.value?.author.profileVisible !== false
+  && authorUid.value !== ''
+  && authorUid.value !== '0')
+const canFollowAuthor = computed(() => canOpenAuthorProfile.value && !isOwnPost.value)
+const authorProfileTo = computed(() => `/u/${authorUid.value}`)
 const safeSearchFallbackReason = (reason: string) => {
   const labels: Record<string, string> = {
     elasticsearch_empty: '索引首屏无可见结果，已补充数据库结果',
@@ -708,6 +780,7 @@ const isLegacyInterview = computed(() => isLegacyInterviewType(post.value?.postT
 const visibleTechStacks = computed(() => Array.isArray(post.value?.extension?.techStacks)
   ? post.value.extension.techStacks.map(String).filter(Boolean).slice(0, 8)
   : [])
+const domainDetailSurface = computed(() => post.value ? buildDomainDetailSurface(post.value) : null)
 const knowledgeSummary = computed(() => post.value?.extension?.summary || post.value?.summary || '')
 const knowledgeTags = computed(() => {
   const extension = post.value?.extension || {}
@@ -943,6 +1016,7 @@ const handleFavorite = async () => {
 
 const toggleFollowAuthor = async () => {
   if (!post.value) return
+  if (!canFollowAuthor.value) return
   if (!requireLogin()) return
   isFollowingAuthor.value = true
   try {
@@ -1456,6 +1530,162 @@ watch(canViewVersionHistory, (allowed) => {
   color: rgb(180 83 9);
 }
 
+.domain-detail-panel {
+  margin-bottom: 2rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1.25rem;
+}
+
+.domain-detail-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.domain-detail-head p {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(37 99 235);
+}
+
+.domain-detail-head h2 {
+  margin-top: 0.25rem;
+  color: rgb(15 23 42);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.domain-detail-description {
+  margin-top: 0.5rem;
+  color: rgb(71 85 105);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.domain-detail-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.domain-detail-item {
+  min-width: 0;
+  border-radius: 0.625rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.85rem;
+}
+
+.domain-detail-item span {
+  display: block;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.domain-detail-item strong {
+  margin-top: 0.3rem;
+  display: block;
+  overflow-wrap: anywhere;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.domain-detail-chips {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.domain-detail-chip {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.domain-detail-chip-tech,
+.domain-detail-tech {
+  border-color: rgb(186 230 253);
+}
+
+.domain-detail-chip-tech {
+  background: rgb(224 242 254);
+  color: rgb(3 105 161);
+}
+
+.domain-detail-chip-career {
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+}
+
+.domain-detail-career {
+  border-color: rgb(199 210 254);
+}
+
+.domain-detail-chip-reading {
+  background: rgb(236 253 245);
+  color: rgb(4 120 87);
+}
+
+.domain-detail-reading {
+  border-color: rgb(167 243 208);
+}
+
+.domain-detail-chip-lifestyle {
+  background: rgb(255 247 237);
+  color: rgb(194 65 12);
+}
+
+.domain-detail-lifestyle {
+  border-color: rgb(254 215 170);
+}
+
+.domain-detail-chip-investment {
+  background: rgb(255 251 235);
+  color: rgb(180 83 9);
+}
+
+.domain-detail-investment {
+  border-color: rgb(253 230 138);
+}
+
+.domain-detail-gallery {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.domain-detail-gallery img {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  border-radius: 0.625rem;
+  object-fit: cover;
+}
+
+.domain-detail-risk-notice {
+  margin-top: 1rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgb(253 230 138);
+  background: rgb(255 251 235);
+  padding: 0.85rem;
+  color: rgb(146 64 14);
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
 .knowledge-panel,
 .knowledge-card {
   border-radius: 0.75rem;
@@ -1858,6 +2088,55 @@ watch(canViewVersionHistory, (allowed) => {
   color: rgb(253 230 138);
 }
 
+.dark .domain-detail-panel,
+.dark .domain-detail-item {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .domain-detail-head h2,
+.dark .domain-detail-item strong {
+  color: rgb(248 250 252);
+}
+
+.dark .domain-detail-description {
+  color: rgb(203 213 225);
+}
+
+.dark .domain-detail-item span {
+  color: rgb(148 163 184);
+}
+
+.dark .domain-detail-chip-tech {
+  background: rgb(12 74 110 / 0.72);
+  color: rgb(186 230 253);
+}
+
+.dark .domain-detail-chip-career {
+  background: rgb(49 46 129 / 0.7);
+  color: rgb(199 210 254);
+}
+
+.dark .domain-detail-chip-reading {
+  background: rgb(6 78 59 / 0.7);
+  color: rgb(167 243 208);
+}
+
+.dark .domain-detail-chip-lifestyle {
+  background: rgb(124 45 18 / 0.72);
+  color: rgb(254 215 170);
+}
+
+.dark .domain-detail-chip-investment,
+.dark .domain-detail-risk-notice {
+  background: rgb(120 53 15 / 0.35);
+  color: rgb(253 230 138);
+}
+
+.dark .domain-detail-risk-notice {
+  border-color: rgb(146 64 14);
+}
+
 .dark .knowledge-panel,
 .dark .knowledge-card {
   border-color: rgb(30 41 59);
@@ -2015,6 +2294,8 @@ watch(canViewVersionHistory, (allowed) => {
   }
 
   .ai-knowledge-grid,
+  .domain-detail-gallery,
+  .domain-detail-grid,
   .star-grid,
   .material-list-grid,
   .knowledge-path-steps {

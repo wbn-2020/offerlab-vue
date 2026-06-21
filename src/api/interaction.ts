@@ -43,7 +43,7 @@ export const interactionApi = {
   reportComment: (commentId: ApiId, req: PostReportReq): Promise<Result<{ reportId?: ApiId }>> =>
     client.post(`/api/v1/comments/${commentId}/reports`, req),
 
-  listAdminCommentReports: async (params?: { status?: number; limit?: number; includeTestData?: boolean }): Promise<Result<CommentReport[]>> => {
+  listAdminCommentReports: async (params?: { status?: number; domain?: number; limit?: number; includeTestData?: boolean }): Promise<Result<CommentReport[]>> => {
     const res = await client.get('/api/v1/comments/admin/reports', { params }) as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptCommentReport) : [] }
   },

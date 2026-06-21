@@ -17,6 +17,9 @@ export interface IntentReq {
   expectedCity?: string
   targetCity?: string
   techStack: string[]
+  interestTopics?: string[]
+  interestTags?: string[]
+  contentPreferences?: string[]
   expectedSalaryRange?: {
     min: number
     max: number
@@ -104,6 +107,14 @@ export const userApi = {
     const city = req.expectedCity ?? req.targetCity ?? ''
     return client.put('/api/v1/users/me/intent', {
       ...req,
+      targetCompanies: req.targetCompanies || [],
+      targetPositions: req.targetPositions || [],
+      targetPosition: req.targetPosition,
+      yearsOfExp: req.yearsOfExp,
+      techStack: req.techStack || [],
+      interestTopics: req.interestTopics || [],
+      interestTags: req.interestTags || [],
+      contentPreferences: req.contentPreferences || [],
       expectedCity: city,
       targetCity: city,
     })

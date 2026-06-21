@@ -52,6 +52,7 @@ export interface Post {
   }
   extension?: Record<string, any>
   domain?: number
+  anonymous?: boolean
   recommendationReasons?: string[]
   myInteraction?: {
     liked: boolean

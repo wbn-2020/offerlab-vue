@@ -40,7 +40,8 @@
 }
 
 .markdown-body blockquote {
-  @apply border-l-4 border-primary-500 pl-4 py-2 my-4 text-slate-600 dark:text-slate-400 italic;
+  @apply pl-4 py-2 my-4 text-slate-600 dark:text-slate-400 italic;
+  border-left: 4px solid var(--primary-500);
 }
 
 .markdown-body table {
@@ -56,7 +57,15 @@
 }
 
 .markdown-body a {
-  @apply text-primary-600 dark:text-primary-400 hover:underline;
+  color: var(--primary-600);
+}
+
+html.dark .markdown-body a {
+  color: #818cf8;
+}
+
+.markdown-body a:hover {
+  text-decoration-line: underline;
 }
 
 .markdown-body img {
