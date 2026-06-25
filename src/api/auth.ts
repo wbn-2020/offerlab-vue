@@ -3,7 +3,8 @@ import type { ApiId, User } from './types'
 import { adaptUser } from './adapters'
 
 export interface LoginReq {
-  email: string
+  account: string
+  email?: string
   password: string
 }
 
@@ -24,7 +25,7 @@ export interface RegisterResp {
 
 export const authApi = {
   login: (req: LoginReq): Promise<Result<LoginResp>> =>
-    client.post('/api/v1/auth/login', req),
+    client.post('/api/v1/auth/login', { ...req, email: req.email || req.account }),
 
   register: (req: RegisterReq): Promise<Result<RegisterResp>> =>
     client.post('/api/v1/auth/register', req),

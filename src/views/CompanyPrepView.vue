@@ -3,13 +3,13 @@
     <AppHeader />
     <main class="mx-auto max-w-7xl px-4 py-8">
       <LoadingSkeleton v-if="isLoading" />
-      <EmptyState v-else-if="!prep" title="暂无公司准备包" description="该公司还没有足够的公开面经和题目。" actionText="返回题库" actionHref="/questions" />
+      <EmptyState v-else-if="!prep" title="暂无主题包" description="该主题还没有足够的公开经验和知识卡。" actionText="返回知识库" actionHref="/questions" />
       <template v-else>
         <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 class="text-3xl font-bold text-slate-950 dark:text-slate-50">{{ prep.company }} 准备包</h1>
-              <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">聚合近期面经、高频题目、热门岗位和技术标签。</p>
+              <h1 class="text-3xl font-bold text-slate-950 dark:text-slate-50">{{ prep.company }} 主题包</h1>
+              <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">聚合近期经验、高频知识卡、热门方向和技术标签。</p>
               <div v-if="prep.aliases.length" class="mt-3 flex flex-wrap gap-2">
                 <span v-for="alias in prep.aliases" :key="alias" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ alias }}</span>
               </div>
@@ -25,24 +25,24 @@
               </button>
               <button type="button" class="prep-export-button" @click="copyCompanyPrepPack">
                 <Copy class="h-4 w-4" aria-hidden="true" />
-                复制准备包
+                复制主题包
               </button>
               <button type="button" class="prep-export-button" @click="downloadCompanyPrepPack">
                 <Download class="h-4 w-4" aria-hidden="true" />
-                下载准备包
+                下载主题包
               </button>
               <RouterLink :to="`/questions?company=${encodeURIComponent(prep.company)}`" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
-                查看全部题目
+                查看全部知识卡
               </RouterLink>
             </div>
           </div>
         </section>
 
         <section class="mb-6 grid gap-4 md:grid-cols-4">
-          <div class="metric-card"><span>高频题</span><strong>{{ prep.topQuestions.length }}</strong></div>
-          <div class="metric-card"><span>最近面经</span><strong>{{ prep.recentPosts.length }}</strong></div>
-          <div class="metric-card"><span>热门岗位</span><strong>{{ prep.hotPositions.length }}</strong></div>
-          <div class="metric-card"><span>相关岗位数</span><strong>{{ prep.relatedPositionCount }}</strong></div>
+          <div class="metric-card"><span>高频知识卡</span><strong>{{ prep.topQuestions.length }}</strong></div>
+          <div class="metric-card"><span>最近经验</span><strong>{{ prep.recentPosts.length }}</strong></div>
+          <div class="metric-card"><span>热门方向</span><strong>{{ prep.hotPositions.length }}</strong></div>
+          <div class="metric-card"><span>相关方向数</span><strong>{{ prep.relatedPositionCount }}</strong></div>
         </section>
 
         <section class="data-confidence-panel mb-6">
@@ -51,10 +51,10 @@
             <p>{{ confidenceHint }}</p>
           </div>
           <div class="confidence-metrics">
-            <span>题目样本 <strong>{{ prep.questionSampleCount }}</strong></span>
-            <span>面经样本 <strong>{{ prep.postSampleCount }}</strong></span>
-            <span>结果样本 <strong>{{ prep.resultSampleCount }}</strong></span>
-            <span>近 30 天结果 <strong>{{ prep.recentResultSampleCount }}</strong></span>
+            <span>知识卡样本 <strong>{{ prep.questionSampleCount }}</strong></span>
+            <span>经验样本 <strong>{{ prep.postSampleCount }}</strong></span>
+            <span>反馈样本 <strong>{{ prep.resultSampleCount }}</strong></span>
+            <span>近 30 天反馈 <strong>{{ prep.recentResultSampleCount }}</strong></span>
             <span>更新 <strong>{{ dataUpdatedText }}</strong></span>
           </div>
         </section>
@@ -62,8 +62,8 @@
         <section v-if="prep.checklist.length" class="section-panel mb-6">
           <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 class="section-title mb-1">公司准备清单</h2>
-              <p class="text-sm text-slate-500 dark:text-slate-400">把公司题库、面经阅读和个人掌握情况合成一张面试前检查表。</p>
+              <h2 class="section-title mb-1">主题学习清单</h2>
+              <p class="text-sm text-slate-500 dark:text-slate-400">把知识卡、经验阅读和个人掌握情况合成一张学习检查表。</p>
             </div>
             <div class="score-ring">{{ prep.prepScore }}%</div>
           </div>
@@ -96,35 +96,35 @@
         <div class="grid gap-6 lg:grid-cols-3">
           <section class="space-y-4 lg:col-span-2">
             <div class="section-panel">
-              <h2 class="section-title">高频面试题</h2>
+              <h2 class="section-title">高频知识卡</h2>
               <div class="grid gap-4">
                 <QuestionCard v-for="question in prep.topQuestions" :key="question.id" :question="question" />
-                <EmptyState v-if="prep.topQuestions.length === 0" title="暂无题目" description="等待更多面经沉淀。" />
+                <EmptyState v-if="prep.topQuestions.length === 0" title="暂无知识卡" description="等待更多经验沉淀。" />
               </div>
             </div>
 
             <div v-if="authStore.isLoggedIn" class="section-panel">
               <div class="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <h2 class="section-title !mb-1">优先刷这些</h2>
-                  <p class="text-sm text-slate-500 dark:text-slate-400">结合你的掌握状态，从该公司高频题里排除已掌握内容。</p>
+                  <h2 class="section-title !mb-1">优先学习这些</h2>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">结合你的掌握状态，从该主题高频知识卡里排除已掌握内容。</p>
                 </div>
                 <span class="trend-badge">个人化</span>
               </div>
               <div class="grid gap-4">
                 <QuestionCard v-for="question in prep.recommendedQuestions" :key="question.id" :question="question" />
-                <EmptyState v-if="prep.recommendedQuestions.length === 0" title="暂无待推荐题" description="该公司高频题已基本完成，继续补充新面经或复盘笔记。" />
+                <EmptyState v-if="prep.recommendedQuestions.length === 0" title="暂无待推荐知识卡" description="该主题高频内容已基本完成，继续补充新经验或复盘笔记。" />
               </div>
             </div>
 
             <div class="section-panel">
-              <h2 class="section-title">最近面经</h2>
+              <h2 class="section-title">最近经验</h2>
               <div class="space-y-3">
                 <RouterLink v-for="post in prep.recentPosts" :key="post.postId" :to="`/post/${post.postId}`" class="block rounded-lg border border-slate-100 bg-slate-50 p-4 hover:bg-primary-50/50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-primary-950/30">
                   <h3 class="font-semibold text-slate-950 dark:text-slate-50">{{ post.title }}</h3>
                   <p class="mt-1 line-clamp-2 text-sm text-slate-500">{{ post.summary || post.content }}</p>
                 </RouterLink>
-                <EmptyState v-if="prep.recentPosts.length === 0" title="暂无面经" description="还没有公开面经。" />
+                <EmptyState v-if="prep.recentPosts.length === 0" title="暂无经验" description="还没有公开经验。" />
               </div>
             </div>
           </section>
@@ -135,7 +135,7 @@
               <RankList :items="prep.topTags" />
             </div>
             <div class="section-panel">
-              <h2 class="section-title">热门岗位</h2>
+              <h2 class="section-title">热门方向</h2>
               <RankList :items="prep.hotPositions" />
             </div>
             <div class="section-panel">
@@ -149,8 +149,8 @@
             <div class="section-panel">
               <div class="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <h2 class="section-title !mb-1">面试结果趋势</h2>
-                  <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">来自公开面经的结果分布，辅助判断近期反馈。</p>
+                  <h2 class="section-title !mb-1">反馈趋势</h2>
+                  <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">来自公开经验的反馈分布，辅助判断近期讨论方向。</p>
                 </div>
                 <span class="trend-badge">30 天</span>
               </div>
@@ -158,7 +158,7 @@
               <ResultTrendList class="mt-4" title="全部样本" :items="prep.interviewResultDistribution" />
             </div>
             <div v-if="prep.myProgress" class="section-panel">
-              <h2 class="section-title">我的准备进度</h2>
+              <h2 class="section-title">我的学习进度</h2>
               <div class="grid grid-cols-2 gap-3 text-sm">
                 <div class="progress-cell">收藏 {{ prep.myProgress.favoriteCount }}</div>
                 <div class="progress-cell">学习中 {{ prep.myProgress.learningCount }}</div>
@@ -210,8 +210,8 @@ const totalSampleCount = computed(() => {
 })
 const confidenceHint = computed(() => {
   if (!prep.value) return ''
-  if (totalSampleCount.value >= 30 && prep.value.resultSampleCount >= 10) return '样本较充分，趋势和高频题可以作为主要准备参考。'
-  if (totalSampleCount.value >= 10) return '样本正在积累，建议结合近期面经和个人目标交叉判断。'
+  if (totalSampleCount.value >= 30 && prep.value.resultSampleCount >= 10) return '样本较充分，趋势和高频知识卡可以作为主要学习参考。'
+  if (totalSampleCount.value >= 10) return '样本正在积累，建议结合近期经验和个人目标交叉判断。'
   return '样本偏少，优先把它当作起步清单，不要把低频误判成不考。'
 })
 const dataUpdatedText = computed(() => prep.value?.dataUpdatedAt ? formatDate(prep.value.dataUpdatedAt, 'YYYY-MM-DD HH:mm') : '暂无记录')
@@ -225,10 +225,10 @@ const addCompanyTarget = async () => {
   isAddingTarget.value = true
   try {
     await questionApi.addPrepTarget({ targetType: 'company', targetValue: prep.value.company })
-    toast.success('已加入我的准备目标')
+    toast.success('已加入我的学习目标')
     await refetch()
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '加入准备目标失败'))
+    toast.error(getErrorMessage(error, '加入学习目标失败'))
   } finally {
     isAddingTarget.value = false
   }
@@ -238,19 +238,19 @@ const copyCompanyPrepPack = async () => {
   if (!prep.value) return
   try {
     await navigator.clipboard.writeText(buildCompanyPrepPackMarkdown(prep.value))
-    toast.success('公司准备包已复制')
+    toast.success('主题包已复制')
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '复制公司准备包失败'))
+    toast.error(getErrorMessage(error, '复制主题包失败'))
   }
 }
 
 const downloadCompanyPrepPack = () => {
   if (!prep.value) return
   try {
-    downloadMarkdownFile(buildCompanyPrepPackMarkdown(prep.value), `offerlab-${prep.value.company}-准备包-${exportDateText()}.md`)
-    toast.success('公司准备包已下载')
+    downloadMarkdownFile(buildCompanyPrepPackMarkdown(prep.value), `offerlab-${prep.value.company}-主题包-${exportDateText()}.md`)
+    toast.success('主题包已下载')
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '下载公司准备包失败'))
+    toast.error(getErrorMessage(error, '下载主题包失败'))
   }
 }
 
@@ -554,94 +554,94 @@ const ResultTrendList = defineComponent({
     justify-content: flex-end;
   }
 }
-:global(.dark) .metric-card,
-:global(.dark) .section-panel {
+.dark .metric-card,
+.dark .section-panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
-:global(.dark) .data-confidence-panel {
+.dark .data-confidence-panel {
   border-color: rgb(14 116 144);
   background: rgb(8 47 73);
 }
-:global(.dark) .data-confidence-panel h2 {
+.dark .data-confidence-panel h2 {
   color: rgb(186 230 253);
 }
-:global(.dark) .data-confidence-panel p {
+.dark .data-confidence-panel p {
   color: rgb(203 213 225);
 }
-:global(.dark) .confidence-metrics span {
+.dark .confidence-metrics span {
   border-color: rgb(14 116 144);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
-:global(.dark) .confidence-metrics strong {
+.dark .confidence-metrics strong {
   color: rgb(125 211 252);
 }
-:global(.dark) .metric-card strong,
-:global(.dark) .section-title {
+.dark .metric-card strong,
+.dark .section-title {
   color: rgb(248 250 252);
 }
-:global(.dark) .progress-cell {
+.dark .progress-cell {
   background: rgb(2 6 23);
   color: rgb(203 213 225);
 }
-:global(.dark) .score-ring {
+.dark .score-ring {
   background: rgb(23 37 84);
   color: rgb(191 219 254);
 }
-:global(.dark) .prep-export-button {
+.dark .prep-export-button {
   border-color: rgb(30 64 175);
   background: rgb(23 37 84);
   color: rgb(191 219 254);
 }
-:global(.dark) .next-actions {
+.dark .next-actions {
   border-top-color: rgb(30 41 59);
 }
-:global(.dark) .next-action-chip {
+.dark .next-action-chip {
   border-color: rgb(30 64 175);
   background: rgb(23 37 84);
   color: rgb(191 219 254);
 }
-:global(.dark) .trend-badge {
+.dark .trend-badge {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
   color: rgb(203 213 225);
 }
-:global(.dark) .result-trend-block {
+.dark .result-trend-block {
   background: rgb(2 6 23);
 }
-:global(.dark) .result-trend-heading,
-:global(.dark) .result-row-meta span {
+.dark .result-trend-heading,
+.dark .result-row-meta span {
   color: rgb(203 213 225);
 }
-:global(.dark) .result-trend-heading strong {
+.dark .result-trend-heading strong {
   color: rgb(248 250 252);
 }
-:global(.dark) .result-row-meta strong {
+.dark .result-row-meta strong {
   color: rgb(147 197 253);
 }
-:global(.dark) .result-bar-track {
+.dark .result-bar-track {
   background: rgb(30 41 59);
 }
-:global(.dark) .result-bar-fill {
+.dark .result-bar-fill {
   background: rgb(96 165 250);
 }
-:global(.dark) .result-empty {
+.dark .result-empty {
   border-color: rgb(51 65 85);
   color: rgb(148 163 184);
 }
-:global(.dark) .check-item {
+.dark .check-item {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
 }
-:global(.dark) .check-item.done {
+.dark .check-item.done {
   border-color: rgb(22 101 52);
   background: rgb(5 46 22);
 }
-:global(.dark) .check-icon {
+.dark .check-icon {
   background: rgb(15 23 42);
 }
-:global(.dark) .check-item h3 {
+.dark .check-item h3 {
   color: rgb(248 250 252);
 }
 </style>

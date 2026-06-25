@@ -1,6 +1,7 @@
 import client, { Result } from './client'
 import { adaptPage, adaptPost, adaptId, adaptTime, adaptTag } from './adapters'
 import type { ApiId, PaginatedResponse, Post, Tag } from './types'
+import { adaptInterviewMaterialPack, type InterviewMaterialPack } from './post'
 
 export interface Question {
   id: ApiId
@@ -41,7 +42,7 @@ export interface Question {
 }
 
 export interface QuestionDetail {
-  question: Question
+  question: Question | null
   sourcePosts: Post[]
   relatedQuestions: Question[]
 }
@@ -60,6 +61,10 @@ export interface QuestionNoteResult extends QuestionNotePayload {
 export interface PostQuestionBlock {
   taskStatus: 'none' | 'pending' | 'running' | 'succeeded' | 'failed' | string
   questions: Question[]
+  extractedCount: number
+  visibleCount: number
+  pendingReviewCount: number
+  reviewHint?: string
   errorVisible: boolean
   errorMessage?: string
   canRetry: boolean
@@ -128,6 +133,19 @@ export interface UserPrepOverview {
   mistakeReasonCounts: MistakeReasonCount[]
   focusTagCounts: NameCount[]
   reviewPlan?: ReviewPlan
+}
+
+export interface UserKnowledge {
+  materialPackCount: number
+  savedMaterialPackCount: number
+  favoritePostCount: number
+  favoriteQuestionCount: number
+  materialPacks: InterviewMaterialPack[]
+  favoritePosts: Post[]
+  favoriteQuestions: Question[]
+  targets: PrepTarget[]
+  weakTags: NameCount[]
+  materialGapHints: string[]
 }
 
 export interface PrepTarget {
@@ -207,11 +225,20 @@ export interface MockInterviewAnswer {
   selfReview: string
   score: number
   aiReviewed?: boolean
+  aiReviewStatus?: 'NOT_REQUESTED' | 'PENDING' | 'SUCCEEDED' | 'FAILED' | string
+  aiReviewError?: string
   aiScore?: number
   aiCompleteness?: string
   aiProjectExpression?: string
   aiFollowUpSuggestion?: string
   aiReviewProvider?: string
+  aiReviewTaskId?: string
+  aiReviewFallbackUsed?: boolean
+  aiReviewDurationMs?: number
+  aiReviewPromptTokens?: number
+  aiReviewCompletionTokens?: number
+  aiReviewEstimatedCostMicros?: number
+  aiReviewErrorCode?: string
   createTime: number
   question?: Question
 }
@@ -310,17 +337,30 @@ function adaptNameCount(raw: any): NameCount {
 }
 
 function adaptQuestionDetail(raw: any): QuestionDetail {
+  const rawQuestion = raw?.question ?? (raw?.id || raw?.questionId || raw?.questionText ? raw : null)
   return {
-    question: adaptQuestion(raw?.question),
+    question: rawQuestion ? adaptQuestion(rawQuestion) : null,
     sourcePosts: Array.isArray(raw?.sourcePosts) ? raw.sourcePosts.map(adaptPost) : [],
     relatedQuestions: Array.isArray(raw?.relatedQuestions) ? raw.relatedQuestions.map(adaptQuestion) : [],
   }
 }
 
 function adaptPostQuestionBlock(raw: any): PostQuestionBlock {
+  const questions = Array.isArray(raw?.questions) ? raw.questions.map(adaptQuestion) : []
+  const taskStatus = raw?.taskStatus ?? 'none'
+  const extractedCount = Number(raw?.extractedCount ?? raw?.questionCount ?? questions.length ?? 0)
+  const visibleCount = Number(raw?.visibleCount ?? questions.length ?? 0)
+  const rawPendingReviewCount = raw?.pendingReviewCount ?? raw?.pendingCount
+  const pendingReviewCount = rawPendingReviewCount === undefined || rawPendingReviewCount === null
+    ? (String(taskStatus).toLowerCase() === 'succeeded' ? Math.max(0, extractedCount - visibleCount) : 0)
+    : Number(rawPendingReviewCount)
   return {
-    taskStatus: raw?.taskStatus ?? 'none',
-    questions: Array.isArray(raw?.questions) ? raw.questions.map(adaptQuestion) : [],
+    taskStatus,
+    questions,
+    extractedCount,
+    visibleCount,
+    pendingReviewCount,
+    reviewHint: raw?.reviewHint || undefined,
     errorVisible: Boolean(raw?.errorVisible),
     errorMessage: raw?.errorMessage,
     canRetry: Boolean(raw?.canRetry),
@@ -389,6 +429,21 @@ function adaptUserPrepOverview(raw: any): UserPrepOverview {
     mistakeReasonCounts: Array.isArray(raw?.mistakeReasonCounts) ? raw.mistakeReasonCounts.map(adaptMistakeReasonCount) : [],
     focusTagCounts: Array.isArray(raw?.focusTagCounts) ? raw.focusTagCounts.map(adaptNameCount) : [],
     reviewPlan: raw?.reviewPlan ? adaptReviewPlan(raw.reviewPlan) : undefined,
+  }
+}
+
+function adaptUserKnowledge(raw: any): UserKnowledge {
+  return {
+    materialPackCount: Number(raw?.materialPackCount ?? 0),
+    savedMaterialPackCount: Number(raw?.savedMaterialPackCount ?? 0),
+    favoritePostCount: Number(raw?.favoritePostCount ?? 0),
+    favoriteQuestionCount: Number(raw?.favoriteQuestionCount ?? 0),
+    materialPacks: Array.isArray(raw?.materialPacks) ? raw.materialPacks.map(adaptInterviewMaterialPack) : [],
+    favoritePosts: Array.isArray(raw?.favoritePosts) ? raw.favoritePosts.map(adaptPost) : [],
+    favoriteQuestions: Array.isArray(raw?.favoriteQuestions) ? raw.favoriteQuestions.map(adaptQuestion) : [],
+    targets: Array.isArray(raw?.targets) ? raw.targets.map(adaptPrepTarget) : [],
+    weakTags: Array.isArray(raw?.weakTags) ? raw.weakTags.map(adaptNameCount) : [],
+    materialGapHints: Array.isArray(raw?.materialGapHints) ? raw.materialGapHints.map(String).filter(Boolean) : [],
   }
 }
 
@@ -470,11 +525,20 @@ function adaptMockInterviewAnswer(raw: any): MockInterviewAnswer {
     selfReview: raw?.selfReview ?? '',
     score: Number(raw?.score ?? 0),
     aiReviewed: Boolean(raw?.aiReviewed),
+    aiReviewStatus: raw?.aiReviewStatus || (raw?.aiReviewed ? 'SUCCEEDED' : 'NOT_REQUESTED'),
+    aiReviewError: raw?.aiReviewError || undefined,
     aiScore: raw?.aiScore === undefined || raw?.aiScore === null ? undefined : Number(raw.aiScore),
     aiCompleteness: raw?.aiCompleteness || undefined,
     aiProjectExpression: raw?.aiProjectExpression || undefined,
     aiFollowUpSuggestion: raw?.aiFollowUpSuggestion || undefined,
     aiReviewProvider: raw?.aiReviewProvider || undefined,
+    aiReviewTaskId: raw?.aiReviewTaskId || undefined,
+    aiReviewFallbackUsed: raw?.aiReviewFallbackUsed === undefined || raw?.aiReviewFallbackUsed === null ? undefined : Boolean(raw.aiReviewFallbackUsed),
+    aiReviewDurationMs: raw?.aiReviewDurationMs === undefined || raw?.aiReviewDurationMs === null ? undefined : Number(raw.aiReviewDurationMs),
+    aiReviewPromptTokens: raw?.aiReviewPromptTokens === undefined || raw?.aiReviewPromptTokens === null ? undefined : Number(raw.aiReviewPromptTokens),
+    aiReviewCompletionTokens: raw?.aiReviewCompletionTokens === undefined || raw?.aiReviewCompletionTokens === null ? undefined : Number(raw.aiReviewCompletionTokens),
+    aiReviewEstimatedCostMicros: raw?.aiReviewEstimatedCostMicros === undefined || raw?.aiReviewEstimatedCostMicros === null ? undefined : Number(raw.aiReviewEstimatedCostMicros),
+    aiReviewErrorCode: raw?.aiReviewErrorCode || undefined,
     createTime: adaptTime(raw?.createTime),
     question: raw?.question ? adaptQuestion(raw.question) : undefined,
   }
@@ -555,8 +619,8 @@ export const questionApi = {
     return { ...res, data: res.data ? adaptPostQuestionBlock(res.data) : null }
   },
 
-  extractPostQuestions: (postId: ApiId): Promise<Result<{ taskId: ApiId }>> =>
-    client.post(`/api/v1/admin/posts/${postId}/extract-questions`),
+  extractPostQuestions: (postId: ApiId, remark: string): Promise<Result<{ taskId: ApiId }>> =>
+    client.post(`/api/v1/admin/posts/${postId}/extract-questions`, { remark }),
 
   suggestCompanies: (q: string, size = 10): Promise<Result<string[]>> =>
     client.get('/api/v1/companies/suggest', { params: { q, size } }),
@@ -574,6 +638,19 @@ export const questionApi = {
   myWeeklyPrepReport: async (): Promise<Result<UserWeeklyPrepReport>> => {
     const res = await client.get('/api/v1/me/prep/weekly-report') as Result<any>
     return { ...res, data: res.data ? adaptUserWeeklyPrepReport(res.data) : null }
+  },
+
+  myKnowledge: async (params?: {
+    company?: string
+    position?: string
+    techStack?: string
+    interviewRound?: string
+    postType?: number
+    savedOnly?: boolean
+    limit?: number
+  }): Promise<Result<UserKnowledge>> => {
+    const res = await client.get('/api/v1/me/knowledge', { params }) as Result<any>
+    return { ...res, data: res.data ? adaptUserKnowledge(res.data) : null }
   },
 
   addPrepTarget: async (data: { targetType: string; targetValue: string; interviewDate?: string; priority?: string; note?: string }): Promise<Result<PrepTarget>> => {
@@ -596,6 +673,11 @@ export const questionApi = {
 
   submitMockInterview: async (id: ApiId, data: { durationSeconds: number; aiReviewEnabled?: boolean; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> => {
     const res = await client.post(`/api/v1/mock-interviews/${id}/submit`, data) as Result<any>
+    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
+  },
+
+  retryMockInterviewAiReview: async (id: ApiId): Promise<Result<MockInterviewSession>> => {
+    const res = await client.post(`/api/v1/mock-interviews/${id}/ai-review/retry`) as Result<any>
     return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
   },
 

@@ -12,7 +12,7 @@
               type="search"
               list="search-suggestions"
               class="search-input pl-10"
-              placeholder="搜索面经、技术博客、公司、岗位或作者"
+              placeholder="搜索技术经验、项目复盘、踩坑记录、工具资源或作者"
               @input="handleSearchInput"
               @keyup.enter="runSearch(false)"
             />
@@ -57,28 +57,37 @@
         </div>
       </section>
 
-      <div class="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
-        <aside class="space-y-4">
+      <div class="search-layout mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
+        <aside class="search-aside space-y-4">
           <section class="side-panel">
             <h2 class="side-title">筛选</h2>
             <div class="space-y-3">
               <label class="field-label">
-                公司
-                <input v-model.trim="filters.company" class="field-input" placeholder="例如 ByteDance" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                技术栈
+                <input v-model.trim="filters.company" class="field-input" placeholder="例如 Redis / Spring Boot" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
-                岗位
-                <input v-model.trim="filters.position" class="field-input" placeholder="例如 Java 后端" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                场景
+                <input v-model.trim="filters.position" class="field-input" placeholder="例如 性能优化 / 部署运维" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
                 内容类型
                 <select v-model.number="filters.type" class="field-input" @change="scheduleDebouncedSearch">
                   <option :value="undefined">全部类型</option>
-                  <option :value="1">面经</option>
-                  <option :value="2">技术博客</option>
-                  <option :value="3">题解</option>
-                  <option :value="4">求职问答</option>
+                  <option v-for="item in searchContentTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
+              </label>
+              <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                <input
+                  v-model="includeTestData"
+                  type="checkbox"
+                  class="mt-1 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                  @change="scheduleDebouncedSearch"
+                />
+                <span>
+                  包含测试数据
+                  <span class="block text-slate-400 dark:text-slate-500">用于 CODEX-E2E / smoke 回归记录诊断</span>
+                </span>
               </label>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-2">
@@ -167,31 +176,55 @@
             </div>
           </section>
 
+          <section v-if="searchUndoAction" class="undo-panel" role="status" aria-live="polite">
+            <span>{{ searchUndoAction.message }}</span>
+            <div class="undo-actions">
+              <button type="button" @click="restoreSearchUndo">撤销</button>
+              <button type="button" @click="dismissSearchUndo">关闭</button>
+            </div>
+          </section>
+
           <section class="side-panel">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <h2 class="side-title">搜索服务</h2>
                 <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ searchStatusText }}</p>
               </div>
-              <span :class="['status-pill', searchStatus?.available ? 'status-ok' : 'status-warn']">
-                {{ searchStatus?.available ? 'ES' : '降级' }}
+              <span :class="['status-pill', searchStatusPillClass]">
+                {{ searchStatusBadge }}
               </span>
             </div>
-            <button v-if="canRebuildIndex" type="button" class="secondary-button mt-3 w-full" :disabled="isRebuilding" @click="rebuildIndex">
-              {{ isRebuilding ? '已提交重建...' : '重建帖子索引' }}
-            </button>
           </section>
         </aside>
 
-        <section class="min-w-0 space-y-4">
+        <section class="search-results min-w-0 space-y-4">
           <div v-if="errorMessage" class="notice-error">
-            <span>{{ errorMessage }}</span>
-            <button type="button" class="text-sm font-bold" @click="runSearch(false)">重试</button>
+            <div>
+              <strong>搜索接口暂时不可用</strong>
+              <p>{{ errorMessage }}</p>
+              <span class="notice-error-status">{{ searchErrorStatusText }}</span>
+            </div>
+            <div class="notice-error-actions">
+              <button type="button" @click="runSearch(false)">重试</button>
+              <button type="button" @click="searchHotContentFromError">热门内容</button>
+              <button type="button" @click="switchToUserSearchFromError">搜用户</button>
+              <RouterLink :to="{ path: '/questions', query: fallbackQuestionQuery }" @click="trackCommunityRecommendationClick('error:questions')">知识库</RouterLink>
+              <RouterLink to="/explore" @click="trackCommunityRecommendationClick('error:explore')">发现</RouterLink>
+            </div>
           </div>
 
           <div v-if="!isLoading && resultCount > 0" class="result-summary">
-            <span>{{ searchMode === 'posts' ? `找到 ${resultCount} 条内容` : `找到 ${resultCount} 位用户` }}</span>
+            <span>{{ resultSummaryText }}</span>
             <span v-if="searchMode === 'posts'">排序: {{ activeSortLabel }}</span>
+          </div>
+
+          <div
+            v-if="searchMode === 'posts' && searchResultMeta && !isLoading"
+            :class="['search-source-notice', searchResultMeta.degraded ? 'source-degraded' : 'source-normal']"
+          >
+            <strong>{{ searchSourceTitle }}</strong>
+            <span>{{ searchSourceDescription }}</span>
+            <span v-if="searchDiagnosticText" class="block text-xs">{{ searchDiagnosticText }}</span>
           </div>
 
           <div v-if="isLoading && resultCount === 0" class="loading-panel">正在搜索...</div>
@@ -204,7 +237,7 @@
               </div>
               <div class="min-w-0 flex-1">
                 <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.nickname }}</h3>
-                <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ item.signature || '公开用户资料' }}</p>
+                <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ userSignatureText(item) }}</p>
               </div>
               <span class="view-link">查看主页</span>
             </RouterLink>
@@ -217,6 +250,7 @@
               :post="post"
               :like-pending="isActionPending('like', post.postId)"
               :favorite-pending="isActionPending('favorite', post.postId)"
+              :detail-query="postDetailQuery"
               @like="handleLike"
               @favorite="handleFavorite"
               @follow-change="handlePostAuthorFollowChange"
@@ -226,36 +260,37 @@
           <div v-else-if="!isLoading" class="empty-panel">
             <h2>{{ emptyTitle }}</h2>
             <p>{{ emptyText }}</p>
+            <p v-if="searchDiagnosticText" class="mt-2 text-sm text-amber-700 dark:text-amber-300">{{ searchDiagnosticText }}</p>
             <div v-if="searchMode === 'posts' && hasQuery" class="no-result-recommendations">
               <div v-if="relaxActions.length" class="recommend-group">
                 <span>放宽筛选</span>
-                <button v-for="item in relaxActions" :key="item.key" type="button" class="recommend-chip" @click="item.action">
+                <button v-for="item in relaxActions" :key="item.key" type="button" class="recommend-chip" @click="runRecommendationAction(item)">
                   {{ item.label }}
                 </button>
               </div>
               <div v-if="noResultWords.length" class="recommend-group">
                 <span>换个关键词</span>
-                <button v-for="word in noResultWords" :key="word" type="button" class="recommend-chip" @click="useHotWord(word)">
+                <button v-for="word in noResultWords" :key="word" type="button" class="recommend-chip" @click="useRecommendedWord(word)">
                   {{ word }}
                 </button>
               </div>
               <div v-if="filters.company" class="recommend-group">
-                <span>继续准备</span>
-                <RouterLink :to="`/companies/${encodeURIComponent(filters.company)}/prep`" class="recommend-chip" @click="trackCompanyPrepClick">
-                  查看 {{ filters.company }} 准备包
+                <span>继续发现</span>
+                <RouterLink :to="`/tag/${encodeURIComponent(filters.company)}`" class="recommend-chip" @click="trackTagRecommendationClick">
+                  查看 {{ filters.company }} 专题
                 </RouterLink>
               </div>
             </div>
             <div class="mt-5 flex flex-wrap justify-center gap-2">
               <button type="button" class="primary-button" @click="resetFilters">清空筛选</button>
-              <button v-if="searchMode === 'posts'" type="button" class="secondary-button" @click="searchHotContent">热门内容</button>
-              <RouterLink to="/explore" class="secondary-button">去发现页</RouterLink>
+              <button v-if="searchMode === 'posts'" type="button" class="secondary-button" @click="searchHotContentFromEmpty">热门内容</button>
+              <RouterLink to="/explore" class="secondary-button" @click="trackCommunityRecommendationClick('explore')">去发现页</RouterLink>
             </div>
           </div>
 
           <div v-if="hasMore && searchMode === 'posts'" class="text-center">
             <button type="button" class="secondary-button" :disabled="isLoading" @click="runSearch(true)">
-              {{ isLoading ? '加载中...' : '加载更多' }}
+              {{ isLoading ? '加载中...' : `加载更多，已显示 ${resultCount} 条` }}
             </button>
           </div>
         </section>
@@ -272,14 +307,14 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
-import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { searchApi, type SearchStatus } from '@/api/search'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, Post, User } from '@/api/types'
-import { hasAdminPermission } from '@/utils/adminPermissions'
 import { safeStorage } from '@/utils/safeStorage'
+import { COMMUNITY_CONTENT_TYPES, getContentTypeLabel } from '@/utils/contentTypes'
+import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 
 type SortValue = 'relevance' | 'latest' | 'hot'
 type SearchMode = 'posts' | 'users'
@@ -293,6 +328,26 @@ type SearchSnapshot = {
   type?: number
   sort: SortValue
   updatedAt: number
+}
+
+type SearchUndoAction = {
+  id: number
+  message: string
+  restore: () => void
+}
+
+type SearchResultMeta = {
+  source?: string
+  degraded?: boolean
+  fallbackReason?: string
+  scanLimit?: number
+  diagnostics?: Record<string, unknown>
+}
+
+type RecommendationAction = {
+  key: string
+  label: string
+  action: () => void | Promise<void>
 }
 
 const RECENT_SEARCH_KEY = 'recent-searches'
@@ -317,8 +372,10 @@ const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: 'latest', label: '最新' },
   { value: 'hot', label: '热门' },
 ]
+const searchContentTypes = COMMUNITY_CONTENT_TYPES
 
 const searchMode = ref<SearchMode>('posts')
+const includeTestData = ref(false)
 const searchResults = ref<Post[]>([])
 const userResults = ref<User[]>([])
 const cursor = ref<string | undefined>()
@@ -327,27 +384,63 @@ const hotWords = ref<string[]>([])
 const suggestions = ref<string[]>([])
 const recentSearches = ref<SearchSnapshot[]>([])
 const savedSearches = ref<SearchSnapshot[]>([])
+const searchUndoAction = ref<SearchUndoAction | null>(null)
 const editingSavedSearchId = ref('')
 const editingSavedSearchLabel = ref('')
 const searchStatus = ref<SearchStatus | null>(null)
-const adminPermissions = ref<MyAdminPermissions | null>(null)
+const searchResultMeta = ref<SearchResultMeta | null>(null)
 const isLoading = ref(false)
-const isRebuilding = ref(false)
+const isSearchStatusLoading = ref(false)
+const searchStatusError = ref(false)
 const errorMessage = ref('')
 let suggestionTimer: ReturnType<typeof setTimeout> | null = null
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let searchUndoTimer: ReturnType<typeof setTimeout> | null = null
 let suggestionRequestId = 0
 let searchRequestId = 0
 let isPushingQuery = false
 
-const canRebuildIndex = computed(() => hasAdminPermission(adminPermissions.value, ['ops', 'admin']))
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const storageKey = (name: string) => `offerlab:${storageOwner.value}:${name}`
 const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
 const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label || '相关度')
+const resultSummaryText = computed(() => {
+  if (searchMode.value === 'users') return `找到 ${resultCount.value} 位用户`
+  if (hasMore.value) return `已加载 ${resultCount.value} 条内容，继续加载可查看更多`
+  return `共 ${resultCount.value} 条内容`
+})
 const hasQuery = computed(() => {
   if (searchMode.value === 'users') return Boolean(filters.q)
   return Boolean(filters.q || filters.company || filters.position || filters.type)
+})
+const searchDiagnosticText = computed(() => {
+  const diagnostics = searchResultMeta.value?.diagnostics
+  if (!diagnostics) return ''
+  if (diagnostics.emptyReason === 'test_data_filtered_unless_includeTestData') {
+    return '当前关键词像测试数据标记，公开搜索默认会隐藏 CODEX/E2E/smoke 数据。打开测试数据模式后可做回归验证。'
+  }
+  if (diagnostics.emptyReason === 'type_or_filter_no_match') {
+    return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、技术栈或场景。'
+  }
+  const filtered = Number(diagnostics.syntheticFiltered || 0)
+  if (filtered > 0 && !includeTestData.value) {
+    return `已隐藏 ${filtered} 条测试数据结果，打开测试数据模式可检查自动化记录。`
+  }
+  if (searchResultMeta.value?.scanLimit) {
+    return `本次搜索扫描上限 ${searchResultMeta.value.scanLimit} 条，结果受当前筛选条件影响。`
+  }
+  return ''
+})
+const postDetailQuery = computed<Record<string, string>>(() => {
+  if (!searchResultMeta.value) return {}
+  return {
+    from: 'search',
+    ...(searchResultMeta.value.source ? { source: searchResultMeta.value.source } : {}),
+    ...(searchResultMeta.value.degraded ? { degraded: '1' } : {}),
+    ...(searchResultMeta.value.fallbackReason ? { fallbackReason: searchResultMeta.value.fallbackReason } : {}),
+    ...(searchResultMeta.value.scanLimit ? { scanLimit: String(searchResultMeta.value.scanLimit) } : {}),
+    ...(includeTestData.value ? { includeTestData: '1' } : {}),
+  }
 })
 const emptyTitle = computed(() => {
   if (searchMode.value === 'users') return filters.q ? '没有找到这个用户' : '先输入用户昵称'
@@ -359,23 +452,153 @@ const emptyText = computed(() => {
 })
 const noResultWords = computed(() => {
   const words = hotWords.value.filter((word) => word && word !== filters.q).slice(0, 6)
-  return words.length ? words : ['Java 后端', 'Redis', 'MySQL', 'Spring Boot']
+  return words.length ? words : ['Redis 踩坑', '项目复盘', 'MySQL 优化', 'Spring Boot']
 })
 const relaxActions = computed(() => {
-  const actions: Array<{ key: string; label: string; action: () => void }> = []
+  const actions: RecommendationAction[] = []
   if (filters.type) actions.push({ key: 'type', label: '不限内容类型', action: clearTypeFilter })
-  if (filters.position) actions.push({ key: 'position', label: '不限岗位', action: clearPositionFilter })
-  if (filters.company) actions.push({ key: 'company', label: '不限公司', action: clearCompanyFilter })
+  if (filters.position) actions.push({ key: 'position', label: '不限场景', action: clearPositionFilter })
+  if (filters.company) actions.push({ key: 'company', label: '不限技术栈', action: clearCompanyFilter })
+  if (!includeTestData.value && isSyntheticVisibleText(filters.q)) actions.push({ key: 'test-data', label: '包含测试数据', action: enableTestDataMode })
   if (filters.q) actions.push({ key: 'keyword', label: '只看热门内容', action: searchHotContent })
   return actions
 })
+const userFacingSearchStatusMessage = (message?: string | null) => {
+  const value = message?.trim()
+  if (!value) return ''
+  if (/^[\x00-\x7F]+$/.test(value)) return ''
+  if (/(Elasticsearch|MySQL|fallback|Public search|index is not ready)/i.test(value)) return ''
+  return value
+}
 const searchStatusText = computed(() => {
-  if (!searchStatus.value) return '正在检测搜索状态'
-  if (!searchStatus.value.enabled) return 'ES 未启用，当前使用数据库搜索'
-  if (!searchStatus.value.available) return 'ES 不可用，当前使用数据库降级搜索'
-  if (!searchStatus.value.indexExists) return `索引 ${searchStatus.value.indexName} 尚未创建`
-  return `索引 ${searchStatus.value.indexName} 已就绪`
+  if (isSearchStatusLoading.value && !searchStatus.value) return '正在检测搜索状态'
+  if (searchStatusError.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、知识库和搜用户入口'
+  if (!searchStatus.value) return '搜索状态暂不可用，本页已保留社区兜底入口'
+  if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、知识库和搜用户入口'
+  if (searchStatus.value.publicSearchSource === 'mysql') {
+    const mode = searchStatus.value.fallbackMode === 'compat' ? '兼容模式' : '完整标签治理模式'
+    return `公开搜索当前由数据库兜底服务（${mode}），结果可能不完整，排序能力受限`
+  }
+  if (!searchStatus.value.enabled) return '搜索索引未启用，当前使用数据库搜索，结果可能不完整'
+  if (!searchStatus.value.available) return '搜索索引暂不可用，当前使用数据库兜底搜索，结果可能不完整'
+  if (!searchStatus.value.indexExists) return '搜索索引尚未创建，当前结果可能不完整'
+  const backendMessage = userFacingSearchStatusMessage(searchStatus.value.message)
+  if (backendMessage) return backendMessage
+  return '搜索索引已就绪，新发布内容会优先进入实时搜索'
 })
+const searchErrorStatusText = computed(() => {
+  if (!errorMessage.value) return searchStatusText.value
+  if (isSearchStatusLoading.value && !searchStatus.value) return '本次搜索请求失败，正在刷新后端状态'
+  if (searchStatusError.value || !searchStatus.value) return searchStatusText.value
+  return `本次搜索请求失败；下方状态仅表示当前后端诊断：${searchStatusText.value}`
+})
+const searchStatusBadge = computed(() => {
+  if (searchStatus.value?.publicSearchSource === 'elasticsearch') return '实时'
+  if (searchStatus.value?.publicSearchSource === 'mysql') return '兜底'
+  if (searchStatus.value?.publicSearchAvailable === false) return '不可用'
+  return searchStatus.value?.available ? '实时' : '降级'
+})
+const searchStatusPillClass = computed(() => {
+  if (searchStatus.value?.publicSearchSource === 'elasticsearch') return 'status-ok'
+  if (searchStatus.value?.publicSearchAvailable === false) return 'status-danger'
+  return 'status-warn'
+})
+const fallbackQuestionQuery = computed(() => {
+  const keyword = filters.q || filters.company || filters.position
+  return keyword ? { q: keyword } : {}
+})
+const searchSourceTitle = computed(() => {
+  const meta = searchResultMeta.value
+  if (!meta) return ''
+  if (meta.source === 'elasticsearch' && !meta.degraded) return '本次结果来自实时搜索索引'
+  if (meta.source === 'mysql' && meta.degraded && isVisibilitySupplementReason(meta.fallbackReason)) return '本次补充了数据库可见结果'
+  if (meta.source === 'mysql' && meta.degraded) return '本次使用数据库兜底搜索'
+  if (meta.source === 'mysql') return '本次结果来自数据库搜索'
+  if (meta.source === 'client_fallback') return '本页客户端兜底建议'
+  return `本次搜索来源：${meta.source || '未知'}`
+})
+const searchSourceDescription = computed(() => {
+  const meta = searchResultMeta.value
+  if (!meta) return ''
+  const scan = meta.scanLimit ? `扫描上限 ${meta.scanLimit} 条。` : ''
+  if (!meta.degraded) return `索引可用，按当前筛选和排序返回。${scan}`
+  if (isVisibilitySupplementReason(meta.fallbackReason)) return `${fallbackReasonText(meta.fallbackReason)}，搜索服务仍可用。${scan}`
+  return `${fallbackReasonText(meta.fallbackReason)}，结果可能不完整，排序能力受限。${scan}`
+})
+
+const isLowQualitySearchTerm = (value: string) => {
+  return !value || isLowQualityVisibleText(value)
+}
+
+const filterVisibleSearchTerms = (values: unknown) => {
+  return filterVisibleTexts(values, 12).filter((value) => !isSyntheticVisibleText(value))
+}
+
+const userSignatureText = (item: User) => {
+  return sanitizePublicVisibleText(item.signature, '技术经验主页，暂未填写技术简介')
+}
+
+const isVisibilitySupplementReason = (reason?: string) => {
+  return reason === 'elasticsearch_empty' || reason === 'elasticsearch_visibility_filtered'
+}
+
+const fallbackReasonText = (reason?: string) => {
+  const labels: Record<string, string> = {
+    elasticsearch_empty: '索引没有召回可见结果，已补充数据库中的公开内容',
+    elasticsearch_visibility_filtered: '索引结果经过可见性过滤后不足，已补充数据库中的公开内容',
+    elasticsearch_unavailable: '搜索服务当前不可用，已使用数据库兜底',
+    hot_sort_mysql: '热门排序使用数据库热度计算',
+    search_api_error: '搜索请求失败，已保留本页兜底入口',
+  }
+  return labels[reason || ''] || '本次使用兜底搜索链路'
+}
+
+const analyticsKeyword = () => filters.q || filters.company || filters.position || (filters.type ? postTypeText(filters.type) : '') || 'empty-result'
+
+const trackCommunityRecommendationClick = (target: string) => {
+  searchApi.trackAnalytics({
+    eventType: 'COMMUNITY_RECOMMEND_CLICK',
+    keyword: analyticsKeyword(),
+    target,
+  }).catch(() => {})
+}
+
+const runRecommendationAction = (item: RecommendationAction) => {
+  trackCommunityRecommendationClick(`relax:${item.key}`)
+  void item.action()
+}
+
+const useRecommendedWord = async (word: string) => {
+  trackCommunityRecommendationClick(`keyword:${word}`)
+  await useHotWord(word)
+}
+
+const trackTagRecommendationClick = () => {
+  trackCommunityRecommendationClick(`tag:${filters.company}`)
+}
+
+const searchHotContentFromEmpty = async () => {
+  trackCommunityRecommendationClick('hot-content')
+  await searchHotContent()
+}
+
+const searchHotContentFromError = async () => {
+  trackCommunityRecommendationClick('error:hot-content')
+  await searchHotContent()
+}
+
+const switchToUserSearchFromError = async () => {
+  trackCommunityRecommendationClick('error:user-search')
+  const keyword = filters.q || filters.company || filters.position
+  searchMode.value = 'users'
+  filters.q = keyword
+  filters.company = ''
+  filters.position = ''
+  filters.type = undefined
+  filters.sort = 'relevance'
+  resetResults()
+  await runSearch(false)
+}
 
 const syncFromRoute = () => {
   filters.q = typeof route.query.q === 'string' ? route.query.q : ''
@@ -385,6 +608,7 @@ const syncFromRoute = () => {
   filters.type = Number.isFinite(type) && type > 0 ? type : undefined
   filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
   searchMode.value = route.query.mode === 'users' ? 'users' : 'posts'
+  includeTestData.value = route.query.includeTestData === '1' || route.query.includeTestData === 'true'
 }
 
 const pushQuery = () => {
@@ -398,6 +622,7 @@ const pushQuery = () => {
       ...(filters.type ? { type: String(filters.type) } : {}),
       ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
       ...(searchMode.value === 'users' ? { mode: 'users' } : {}),
+      ...(includeTestData.value ? { includeTestData: '1' } : {}),
     },
   }).finally(() => {
     isPushingQuery = false
@@ -458,6 +683,35 @@ const writeSnapshots = (key: string, snapshots: SearchSnapshot[]) => {
   safeStorage.set(storageKey(key), JSON.stringify(snapshots))
 }
 
+const clearSearchUndoTimer = () => {
+  if (searchUndoTimer) {
+    clearTimeout(searchUndoTimer)
+    searchUndoTimer = null
+  }
+}
+
+const scheduleSearchUndo = (message: string, restore: () => void) => {
+  clearSearchUndoTimer()
+  const action = { id: Date.now(), message, restore }
+  searchUndoAction.value = action
+  searchUndoTimer = setTimeout(() => {
+    if (searchUndoAction.value?.id === action.id) searchUndoAction.value = null
+  }, 8000)
+}
+
+const dismissSearchUndo = () => {
+  clearSearchUndoTimer()
+  searchUndoAction.value = null
+}
+
+const restoreSearchUndo = () => {
+  const action = searchUndoAction.value
+  if (!action) return
+  action.restore()
+  dismissSearchUndo()
+  toast.success('已撤销删除')
+}
+
 const loadSearchSnapshots = () => {
   recentSearches.value = readSnapshots(RECENT_SEARCH_KEY).slice(0, MAX_RECENT_SEARCHES)
   savedSearches.value = readSnapshots(SAVED_SEARCH_KEY).slice(0, MAX_SAVED_SEARCHES)
@@ -506,30 +760,56 @@ const confirmRenameSavedSearch = (snapshot: SearchSnapshot) => {
 }
 
 const deleteSavedSearch = (id: string) => {
+  const previous = savedSearches.value
+  const deleted = previous.find((item) => item.id === id)
+  if (!deleted) return
   const next = savedSearches.value.filter((item) => item.id !== id)
   savedSearches.value = next
   writeSnapshots(SAVED_SEARCH_KEY, next)
   if (editingSavedSearchId.value === id) cancelRenameSavedSearch()
+  scheduleSearchUndo(`已删除保存搜索「${deleted.label}」`, () => {
+    savedSearches.value = previous
+    writeSnapshots(SAVED_SEARCH_KEY, previous)
+  })
   toast.success('保存搜索已删除')
 }
 
 const clearSavedSearches = () => {
+  const previous = savedSearches.value
+  if (!previous.length) return
   savedSearches.value = []
   writeSnapshots(SAVED_SEARCH_KEY, [])
   cancelRenameSavedSearch()
+  scheduleSearchUndo(`已清空 ${previous.length} 条保存搜索`, () => {
+    savedSearches.value = previous
+    writeSnapshots(SAVED_SEARCH_KEY, previous)
+  })
   toast.success('保存搜索已清空')
 }
 
 const deleteRecentSearch = (id: string) => {
+  const previous = recentSearches.value
+  const deleted = previous.find((item) => item.id === id)
+  if (!deleted) return
   const next = recentSearches.value.filter((item) => item.id !== id)
   recentSearches.value = next
   writeSnapshots(RECENT_SEARCH_KEY, next)
+  scheduleSearchUndo(`已删除最近搜索「${deleted.label}」`, () => {
+    recentSearches.value = previous
+    writeSnapshots(RECENT_SEARCH_KEY, previous)
+  })
   toast.success('最近搜索已删除')
 }
 
 const clearRecentSearches = () => {
+  const previous = recentSearches.value
+  if (!previous.length) return
   recentSearches.value = []
   writeSnapshots(RECENT_SEARCH_KEY, [])
+  scheduleSearchUndo(`已清空 ${previous.length} 条最近搜索`, () => {
+    recentSearches.value = previous
+    writeSnapshots(RECENT_SEARCH_KEY, previous)
+  })
   toast.success('最近搜索已清空')
 }
 
@@ -543,20 +823,7 @@ const applySearchSnapshot = async (snapshot: SearchSnapshot) => {
   await runSearch(false)
 }
 
-const postTypeText = (type?: number) => {
-  switch (type) {
-    case 1:
-      return '面经'
-    case 2:
-      return '技术博客'
-    case 3:
-      return '题解'
-    case 4:
-      return '求职问答'
-    default:
-      return ''
-  }
-}
+const postTypeText = (type?: number) => type ? getContentTypeLabel(type) : ''
 
 const searchSnapshotMeta = (snapshot: SearchSnapshot) => {
   const tags = [snapshot.mode === 'users' ? '用户' : '内容']
@@ -601,6 +868,11 @@ const clearTypeFilter = () => {
   runSearch(false)
 }
 
+const enableTestDataMode = () => {
+  includeTestData.value = true
+  runSearch(false)
+}
+
 const runSearch = async (append = false, syncRoute = true) => {
   if (!append) clearSearchDebounce()
   if (append && (isLoading.value || !hasMore.value)) return
@@ -613,13 +885,14 @@ const runSearch = async (append = false, syncRoute = true) => {
       cursor.value = undefined
       hasMore.value = false
       searchResults.value = []
+      searchResultMeta.value = null
       if (!filters.q) {
         userResults.value = []
         return
       }
       const res = await userApi.searchUsers(filters.q, 20)
       if (requestId !== searchRequestId) return
-      userResults.value = res.data || []
+      userResults.value = filterPublicContent(res.data || [])
       if (!append) rememberRecentSearch()
       return
     }
@@ -632,23 +905,38 @@ const runSearch = async (append = false, syncRoute = true) => {
       sort: filters.sort,
       cursor: append ? cursor.value : undefined,
       size: 20,
+      includeTestData: includeTestData.value,
     })
     const page = res.data
     if (requestId !== searchRequestId) return
-    searchResults.value = append ? [...searchResults.value, ...(page?.items || [])] : (page?.items || [])
+    const cleanItems = includeTestData.value ? (page?.items || []) : filterPublicContent(page?.items || [])
+    searchResults.value = append ? [...searchResults.value, ...cleanItems] : cleanItems
     userResults.value = []
+    searchResultMeta.value = page ? {
+      source: page.source,
+      degraded: page.degraded,
+      fallbackReason: page.fallbackReason,
+      scanLimit: page.scanLimit,
+      diagnostics: page.diagnostics,
+    } : null
     cursor.value = page?.nextCursor
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
     if (!append) rememberRecentSearch()
   } catch (error: any) {
     if (requestId !== searchRequestId) return
-    errorMessage.value = getErrorMessage(error, '搜索接口暂不可用')
+    errorMessage.value = `${getErrorMessage(error, '搜索接口暂不可用')}。已刷新搜索状态，并保留热门内容、发现页、知识库和搜用户入口。`
     if (!append) {
       searchResults.value = []
       userResults.value = []
+      searchResultMeta.value = {
+        source: 'client_fallback',
+        degraded: true,
+        fallbackReason: 'search_api_error',
+      }
       cursor.value = undefined
       hasMore.value = false
     }
+    await loadSearchStatus()
   } finally {
     if (requestId === searchRequestId) {
       isLoading.value = false
@@ -662,10 +950,12 @@ const resetFilters = async () => {
   filters.position = ''
   filters.type = undefined
   filters.sort = 'relevance'
+  includeTestData.value = false
   searchMode.value = 'posts'
   suggestions.value = []
   searchResults.value = []
   userResults.value = []
+  searchResultMeta.value = null
   cursor.value = undefined
   hasMore.value = false
   errorMessage.value = ''
@@ -676,6 +966,7 @@ const resetResults = () => {
   suggestions.value = []
   searchResults.value = []
   userResults.value = []
+  searchResultMeta.value = null
   cursor.value = undefined
   hasMore.value = false
   errorMessage.value = ''
@@ -696,15 +987,6 @@ const useHotWord = async (word: string) => {
   searchMode.value = 'posts'
   filters.q = word
   await runSearch(false)
-}
-
-const trackCompanyPrepClick = () => {
-  if (!filters.company) return
-  searchApi.trackAnalytics({
-    eventType: 'PREP_CLICK',
-    keyword: filters.q || undefined,
-    company: filters.company,
-  }).catch(() => {})
 }
 
 const searchHotContent = async () => {
@@ -733,7 +1015,7 @@ const loadSuggestions = () => {
     try {
       const res = await searchApi.suggest(q)
       if (requestId === suggestionRequestId && q === filters.q) {
-        suggestions.value = Array.isArray(res.data) ? res.data : []
+        suggestions.value = filterVisibleSearchTerms(res.data)
       }
     } catch {
       if (requestId === suggestionRequestId) suggestions.value = []
@@ -742,41 +1024,16 @@ const loadSuggestions = () => {
 }
 
 const loadSearchStatus = async () => {
+  isSearchStatusLoading.value = true
+  searchStatusError.value = false
   try {
     const res = await searchApi.status()
     searchStatus.value = res.data
   } catch {
     searchStatus.value = null
-  }
-}
-
-const loadAdminPermissions = async () => {
-  if (!authStore.token) {
-    adminPermissions.value = null
-    return
-  }
-  try {
-    const res = await opsApi.myPermissions({ skipAuthRedirect: true })
-    adminPermissions.value = res.data || null
-  } catch {
-    adminPermissions.value = null
-  }
-}
-
-const rebuildIndex = async () => {
-  if (!canRebuildIndex.value) {
-    toast.error('当前账号没有权限执行该操作')
-    return
-  }
-  isRebuilding.value = true
-  try {
-    const res = await searchApi.rebuildIndex()
-    toast.success(res.data?.taskId ? `索引重建任务已提交: ${res.data.taskId}` : '索引重建任务已提交')
-    await loadSearchStatus()
-  } catch (error: any) {
-    toast.error(getErrorMessage(error, '索引重建提交失败'))
+    searchStatusError.value = true
   } finally {
-    isRebuilding.value = false
+    isSearchStatusLoading.value = false
   }
 }
 
@@ -817,8 +1074,7 @@ onMounted(async () => {
   syncFromRoute()
   await Promise.all([
     loadSearchStatus(),
-    authStore.token ? loadAdminPermissions() : Promise.resolve(),
-    searchApi.hotSearches().then((res) => { hotWords.value = res.data || [] }).catch(() => { hotWords.value = [] }),
+    searchApi.hotSearches().then((res) => { hotWords.value = filterVisibleSearchTerms(res.data) }).catch(() => { hotWords.value = [] }),
   ])
   if (hasQuery.value || searchMode.value === 'users') {
     await runSearch(false)
@@ -844,6 +1100,7 @@ watch(storageOwner, () => {
 onBeforeUnmount(() => {
   if (suggestionTimer) clearTimeout(suggestionTimer)
   clearSearchDebounce()
+  clearSearchUndoTimer()
 })
 </script>
 
@@ -851,6 +1108,7 @@ onBeforeUnmount(() => {
 .search-shell,
 .side-panel,
 .result-summary,
+.search-source-notice,
 .loading-panel,
 .empty-panel,
 .user-row {
@@ -965,6 +1223,31 @@ onBeforeUnmount(() => {
   color: rgb(71 85 105);
 }
 
+.search-source-notice {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.82rem;
+}
+
+.search-source-notice strong {
+  color: rgb(15 23 42);
+}
+
+.search-source-notice span {
+  color: rgb(100 116 139);
+}
+
+.source-normal {
+  border-color: rgb(191 219 254);
+  background: rgb(239 246 255);
+}
+
+.source-degraded {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235);
+}
+
 .status-pill {
   display: inline-flex;
   border-radius: 999px;
@@ -1046,8 +1329,8 @@ onBeforeUnmount(() => {
 
 .mini-icon-button {
   display: inline-flex;
-  min-height: 2rem;
-  min-width: 2rem;
+  min-height: 2.5rem;
+  min-width: 2.5rem;
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
@@ -1061,6 +1344,42 @@ onBeforeUnmount(() => {
   border-color: rgb(147 197 253);
   background: rgb(239 246 255);
   color: rgb(29 78 216);
+}
+
+.undo-panel {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.75rem;
+  background: rgb(239 246 255);
+  padding: 0.85rem 1rem;
+  color: rgb(30 64 175);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.undo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.undo-actions button {
+  min-height: 2.25rem;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.undo-actions button:first-child {
+  background: rgb(29 78 216);
+  color: white;
+}
+
+.undo-actions button:last-child {
+  background: white;
+  color: rgb(30 64 175);
 }
 
 .saved-search:hover {
@@ -1083,6 +1402,58 @@ onBeforeUnmount(() => {
   background: rgb(254 242 242);
   padding: 1rem;
   color: rgb(185 28 28);
+}
+
+.notice-error strong {
+  display: block;
+  font-size: 0.95rem;
+  color: rgb(127 29 29);
+}
+
+.notice-error p {
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.notice-error-status {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.78);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(153 27 27);
+}
+
+.notice-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.notice-error-actions button,
+.notice-error-actions a {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(252 165 165);
+  background: white;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(185 28 28);
+}
+
+.notice-error-actions button:hover,
+.notice-error-actions a:hover {
+  border-color: rgb(248 113 113);
+  background: rgb(255 255 255 / 0.9);
+  color: rgb(127 29 29);
 }
 
 .loading-panel,
@@ -1134,6 +1505,44 @@ onBeforeUnmount(() => {
   color: rgb(29 78 216);
 }
 
+@media (max-width: 640px) {
+  .search-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .search-results {
+    order: 1;
+  }
+
+  .search-aside {
+    order: 2;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .segment-button,
+  .chip-button,
+  .tag-button,
+  .mini-icon-button,
+  .recommend-chip,
+  .undo-actions button {
+    min-height: 44px;
+  }
+
+  .notice-error {
+    flex-direction: column;
+  }
+
+  .notice-error-actions {
+    justify-content: flex-start;
+  }
+
+  .mini-icon-button {
+    min-width: 44px;
+  }
+}
+
 .user-row {
   display: flex;
   align-items: center;
@@ -1167,49 +1576,98 @@ onBeforeUnmount(() => {
   color: rgb(37 99 235);
 }
 
-:global(.dark) .search-shell,
-:global(.dark) .side-panel,
-:global(.dark) .result-summary,
-:global(.dark) .loading-panel,
-:global(.dark) .empty-panel,
-:global(.dark) .user-row,
-:global(.dark) .secondary-button,
-:global(.dark) .chip-button,
-:global(.dark) .tag-button,
-:global(.dark) .saved-search,
-:global(.dark) .saved-search-input,
-:global(.dark) .mini-icon-button,
-:global(.dark) .search-input,
-:global(.dark) .field-input {
+.dark .search-shell,
+.dark .side-panel,
+.dark .result-summary,
+.dark .search-source-notice,
+.dark .loading-panel,
+.dark .empty-panel,
+.dark .user-row,
+.dark .secondary-button,
+.dark .chip-button,
+.dark .tag-button,
+.dark .saved-search,
+.dark .saved-search-input,
+.dark .mini-icon-button,
+.dark .search-input,
+.dark .field-input {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .mini-count {
+.dark .undo-panel {
+  border-color: rgb(30 64 175);
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .undo-actions button:last-child {
+  background: rgb(15 23 42);
+  color: rgb(191 219 254);
+}
+
+.dark .mini-count {
   background: rgb(30 41 59);
   color: rgb(148 163 184);
 }
 
-:global(.dark) .saved-search:hover {
+.dark .saved-search:hover {
   border-color: rgb(96 165 250);
   background: rgb(30 41 59);
 }
 
-:global(.dark) .segmented {
+.dark .segmented {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
 }
 
-:global(.dark) .side-title,
-:global(.dark) .field-label,
-:global(.dark) .empty-panel h2 {
+.dark .side-title,
+.dark .field-label,
+.dark .empty-panel h2,
+.dark .search-source-notice strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .recommend-chip {
+.dark .search-source-notice span {
+  color: rgb(148 163 184);
+}
+
+.dark .source-normal {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+}
+
+.dark .source-degraded {
+  border-color: rgb(146 64 14);
+  background: rgb(69 26 3 / 0.6);
+}
+
+.dark .recommend-chip {
   border-color: rgb(30 64 175);
   background: rgb(23 37 84);
   color: rgb(191 219 254);
+}
+
+.dark .notice-error {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10 / 0.55);
+  color: rgb(252 165 165);
+}
+
+.dark .notice-error strong {
+  color: rgb(254 202 202);
+}
+
+.dark .notice-error-status {
+  background: rgb(127 29 29 / 0.55);
+  color: rgb(254 202 202);
+}
+
+.dark .notice-error-actions button,
+.dark .notice-error-actions a {
+  border-color: rgb(153 27 27);
+  background: rgb(15 23 42);
+  color: rgb(254 202 202);
 }
 </style>

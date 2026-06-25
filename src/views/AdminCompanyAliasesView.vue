@@ -1,13 +1,13 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-8">
+    <main class="mx-auto max-w-7xl min-w-0 px-4 py-8">
       <section class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Question Ops</p>
-          <h1 class="mt-2 text-2xl font-bold text-slate-950 dark:text-slate-50">公司别名维护</h1>
+          <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Entity Ops</p>
+          <h1 class="mt-2 text-2xl font-bold text-slate-950 dark:text-slate-50">实体别名维护</h1>
           <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-            维护公司简称、品牌名和历史名称，让题库搜索、公司备战包和推荐目标指向同一个标准公司名。
+            维护主题、组织、产品或技术栈的别名，让知识库搜索、主题学习包和推荐目标指向同一个标准实体。
           </p>
         </div>
         <RouterLink to="/admin/questions" class="secondary-button">
@@ -19,8 +19,8 @@
       <section class="grid gap-6 lg:grid-cols-[1fr_420px]">
         <article class="panel">
           <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <form class="flex flex-1 gap-2" @submit.prevent="loadAliases">
-              <input v-model.trim="keyword" class="field-input" placeholder="搜索标准公司名或别名" />
+            <form class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row" @submit.prevent="loadAliases">
+              <input v-model.trim="keyword" class="field-input" placeholder="搜索标准实体名或别名" />
               <button type="submit" class="secondary-button" :disabled="isLoading">
                 <Search class="h-4 w-4" />
                 搜索
@@ -35,14 +35,12 @@
           <div v-if="isLoading" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
             正在加载别名...
           </div>
-          <EmptyState v-else-if="aliases.length === 0" title="暂无公司别名" description="新增别名后，公司备战页会自动按标准公司名聚合。" />
+          <EmptyState v-else-if="aliases.length === 0" title="暂无实体别名" description="新增别名后，主题学习页会自动按标准实体名聚合。" />
           <div v-else class="alias-list">
-            <button
+            <article
               v-for="item in aliases"
               :key="item.id"
-              type="button"
               :class="['alias-row', selectedAlias?.id === item.id ? 'alias-row-active' : '']"
-              @click="selectAlias(item)"
             >
               <div class="min-w-0 text-left">
                 <div class="flex flex-wrap items-center gap-2">
@@ -51,11 +49,25 @@
                   </span>
                   <span class="canonical">{{ item.canonicalCompany }}</span>
                 </div>
-                <p class="mt-2 truncate text-sm text-slate-500 dark:text-slate-400">
+                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
                   别名：{{ item.alias }} · 更新 {{ formatTime(item.updateTime) }}
                 </p>
               </div>
-            </button>
+              <div class="alias-actions">
+                <button type="button" class="secondary-button compact-button" @click="selectAlias(item)">
+                  编辑
+                </button>
+                <button
+                  type="button"
+                  class="secondary-button compact-button"
+                  :disabled="isSaving"
+                  @click="toggleAliasStatus(item)"
+                >
+                  <Power class="h-4 w-4" />
+                  {{ item.status === 1 ? '停用' : '启用' }}
+                </button>
+              </div>
+            </article>
           </div>
         </article>
 
@@ -69,7 +81,7 @@
 
           <form class="space-y-4" @submit.prevent="saveAlias">
             <label class="field-label">
-              标准公司名
+              标准实体名
               <input v-model.trim="form.canonicalCompany" class="field-input" placeholder="例如 字节跳动" />
             </label>
             <label class="field-label">
@@ -111,7 +123,7 @@
           <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">候选推荐</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">从面经和题库公司字段聚合相似名称，确认后写入别名表。</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">从知识库和历史内容字段聚合相似名称，确认后写入别名表。</p>
             </div>
             <button type="button" class="secondary-button" :disabled="isCandidateLoading" @click="loadCandidates">
               <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isCandidateLoading }" />
@@ -119,7 +131,14 @@
             </button>
           </div>
           <div v-if="isCandidateLoading" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">正在分析候选...</div>
-          <EmptyState v-else-if="candidates.length === 0" title="暂无候选" description="当面经或题库中出现疑似同义公司名时，这里会推荐给运营确认。" />
+          <div v-else-if="candidateError" class="candidate-error">
+            <div>
+              <strong>候选加载失败</strong>
+              <p>{{ candidateError }}</p>
+            </div>
+            <button type="button" class="secondary-button" @click="loadCandidates">重试</button>
+          </div>
+          <EmptyState v-else-if="candidates.length === 0" title="暂无候选" description="当知识库或历史内容中出现疑似同义实体名时，这里会推荐给运营确认。" />
           <div v-else class="candidate-grid">
             <article v-for="item in candidates" :key="`${item.canonicalCompany}-${item.alias}`" class="candidate-card">
               <div class="flex flex-wrap items-center gap-2">
@@ -129,8 +148,8 @@
               </div>
               <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ item.reason || '疑似同一家公司名称' }}</p>
               <div class="mt-3 grid gap-2 sm:grid-cols-4">
-                <div class="candidate-stat"><span>题库</span><strong>{{ item.questionSampleCount || 0 }}</strong></div>
-                <div class="candidate-stat"><span>面经</span><strong>{{ item.postSampleCount || 0 }}</strong></div>
+                <div class="candidate-stat"><span>知识库</span><strong>{{ item.questionSampleCount || 0 }}</strong></div>
+                <div class="candidate-stat"><span>历史内容</span><strong>{{ item.postSampleCount || 0 }}</strong></div>
                 <div class="candidate-stat"><span>标准名样本</span><strong>{{ item.canonicalSampleCount || 0 }}</strong></div>
                 <div class="candidate-stat"><span>别名样本</span><strong>{{ item.aliasSampleCount || 0 }}</strong></div>
               </div>
@@ -148,6 +167,11 @@
         </article>
       </section>
     </main>
+    <RiskConfirmDialog
+      :state="riskConfirmState"
+      @confirm="resolveRiskConfirm"
+      @cancel="cancelRiskConfirm"
+    />
   </div>
 </template>
 
@@ -156,10 +180,12 @@ import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowRight, ListChecks, Power, RefreshCw, Save, Search } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { getErrorMessage } from '@/api/client'
 import { opsApi, type CompanyAlias, type CompanyAliasCandidate } from '@/api/ops'
+import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
 
 const aliases = ref<CompanyAlias[]>([])
 const candidates = ref<CompanyAliasCandidate[]>([])
@@ -168,11 +194,16 @@ const keyword = ref('')
 const isLoading = ref(false)
 const isCandidateLoading = ref(false)
 const isSaving = ref(false)
+const candidateError = ref('')
 const form = reactive({
   canonicalCompany: '',
   alias: '',
   status: 1,
 })
+const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
+const riskObjects = (items: Array<string | number>, limit = 8) => items.slice(0, limit).map((item) => String(item))
+const riskContext = (...items: Array<string | false | undefined>) => items.filter(Boolean) as string[]
+const requireRiskConfirm = (request: RiskConfirmRequest) => confirmRisk(request)
 
 const loadAliases = async () => {
   isLoading.value = true
@@ -184,7 +215,7 @@ const loadAliases = async () => {
       refreshed ? selectAlias(refreshed) : resetForm()
     }
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '公司别名加载失败'))
+    toast.error(getErrorMessage(error, '实体别名加载失败'))
     aliases.value = []
   } finally {
     isLoading.value = false
@@ -193,11 +224,13 @@ const loadAliases = async () => {
 
 const loadCandidates = async () => {
   isCandidateLoading.value = true
+  candidateError.value = ''
   try {
     const res = await opsApi.listCompanyAliasCandidates({ limit: 20 })
     candidates.value = res.data || []
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '公司别名候选加载失败'))
+    candidateError.value = getErrorMessage(error, '实体别名候选加载失败')
+    toast.error(candidateError.value)
     candidates.value = []
   } finally {
     isCandidateLoading.value = false
@@ -226,28 +259,48 @@ const fillCandidate = (item: CompanyAliasCandidate) => {
 }
 
 const saveAlias = async () => {
+  const isUpdate = Boolean(selectedAlias.value)
+  const note = await requireRiskConfirm({
+    title: isUpdate ? '保存实体别名修改' : '新增实体别名',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([selectedAlias.value?.id || 'new', form.canonicalCompany, form.alias]),
+    context: riskContext(`当前搜索：${keyword.value || '全部'}`, `状态：${form.status === 1 ? '启用' : '停用'}`),
+    confirmText: isUpdate ? '确认保存' : '确认新增',
+  })
+  if (note === null) return
   isSaving.value = true
   try {
-    const payload = { ...form }
+    const payload = { ...form, remark: note }
     const res = selectedAlias.value
       ? await opsApi.updateCompanyAlias(selectedAlias.value.id, payload)
       : await opsApi.createCompanyAlias(payload)
-    toast.success('公司别名已保存')
+    toast.success('实体别名已保存')
     if (res.data) selectAlias(res.data)
     await loadAliases()
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '公司别名保存失败，可能已存在相同别名'))
+    toast.error(getErrorMessage(error, '实体别名保存失败，可能已存在相同别名'))
   } finally {
     isSaving.value = false
   }
 }
 
-const toggleStatus = async () => {
-  if (!selectedAlias.value) return
+const toggleAliasStatus = async (item: CompanyAlias) => {
+  const nextStatus = item.status === 1 ? 0 : 1
+  const note = await requireRiskConfirm({
+    title: nextStatus === 1 ? '启用实体别名' : '停用实体别名',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([item.id, item.canonicalCompany, item.alias]),
+    context: riskContext(`当前搜索：${keyword.value || '全部'}`, `更新时间：${formatTime(item.updateTime)}`),
+    confirmText: nextStatus === 1 ? '确认启用' : '确认停用',
+  })
+  if (note === null) return
   isSaving.value = true
   try {
-    const nextStatus = selectedAlias.value.status === 1 ? 0 : 1
-    await opsApi.updateCompanyAliasStatus(selectedAlias.value.id, nextStatus)
+    await opsApi.updateCompanyAliasStatus(item.id, nextStatus, note)
     toast.success(nextStatus === 1 ? '别名已启用' : '别名已停用')
     await loadAliases()
   } catch (error: any) {
@@ -257,13 +310,35 @@ const toggleStatus = async () => {
   }
 }
 
+const toggleStatus = async () => {
+  if (!selectedAlias.value) return
+  await toggleAliasStatus(selectedAlias.value)
+}
+
 const acceptCandidate = async (item: CompanyAliasCandidate) => {
+  const note = await requireRiskConfirm({
+    title: '一键接收实体别名候选',
+    level: 'high',
+    reversible: true,
+    impactCount: 1,
+    objects: riskObjects([item.canonicalCompany, item.alias]),
+    context: riskContext(
+      item.reason ? `原因：${item.reason}` : undefined,
+      `知识库样本：${item.questionSampleCount || 0}`,
+      `历史内容样本：${item.postSampleCount || 0}`,
+      `标准名样本：${item.canonicalSampleCount || 0}`,
+      `别名样本：${item.aliasSampleCount || 0}`,
+    ),
+    confirmText: '确认加入别名',
+  })
+  if (note === null) return
   isSaving.value = true
   try {
     const res = await opsApi.createCompanyAlias({
       canonicalCompany: item.canonicalCompany,
       alias: item.alias,
       status: 1,
+      remark: note,
     })
     toast.success('候选别名已加入')
     if (res.data) selectAlias(res.data)
@@ -311,6 +386,12 @@ onMounted(() => {
   color: rgb(51 65 85);
 }
 
+.compact-button {
+  min-height: 34px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
 .primary-button:disabled,
 .secondary-button:disabled {
   cursor: not-allowed;
@@ -318,6 +399,8 @@ onMounted(() => {
 }
 
 .panel {
+  min-width: 0;
+  overflow: hidden;
   border-radius: 0.75rem;
   border: 1px solid rgb(226 232 240);
   background: white;
@@ -366,6 +449,30 @@ onMounted(() => {
   font-weight: 800;
 }
 
+.candidate-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(254 202 202);
+  background: rgb(254 242 242);
+  padding: 1rem;
+  color: rgb(127 29 29);
+}
+
+.candidate-error strong {
+  display: block;
+  font-weight: 900;
+}
+
+.candidate-error p {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 @media (min-width: 1024px) {
   .candidate-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -373,12 +480,26 @@ onMounted(() => {
 }
 
 .alias-row {
+  display: grid;
+  min-width: 0;
+  gap: 0.85rem;
   width: 100%;
   border-radius: 0.75rem;
   border: 1px solid rgb(226 232 240);
   background: rgb(248 250 252);
   padding: 1rem;
   transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.alias-row p,
+.canonical {
+  overflow-wrap: anywhere;
+}
+
+.alias-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .alias-row:hover,
@@ -421,6 +542,7 @@ onMounted(() => {
 
 .field-input {
   width: 100%;
+  min-width: 0;
   border-radius: 0.5rem;
   border: 1px solid rgb(226 232 240);
   background: white;
@@ -428,6 +550,34 @@ onMounted(() => {
   font-size: 0.875rem;
   color: rgb(15 23 42);
   outline: none;
+}
+
+@media (min-width: 640px) {
+  .alias-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .alias-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 1rem;
+  }
+
+  .secondary-button,
+  .primary-button {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .compact-button {
+    min-height: 44px;
+    width: auto;
+  }
 }
 
 .field-input:focus {
@@ -441,40 +591,46 @@ onMounted(() => {
   color: rgb(37 99 235);
 }
 
-:global(.dark) .panel,
-:global(.dark) .secondary-button,
-:global(.dark) .field-input {
+.dark .panel,
+.dark .secondary-button,
+.dark .field-input {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .alias-row {
+.dark .alias-row {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
 }
 
-:global(.dark) .alias-row:hover,
-:global(.dark) .alias-row-active {
+.dark .alias-row:hover,
+.dark .alias-row-active {
   border-color: rgb(99 102 241);
   background: rgb(30 27 75);
 }
 
-:global(.dark) .candidate-card {
+.dark .candidate-card {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
 }
 
-:global(.dark) .candidate-card strong {
+.dark .candidate-error {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10 / 0.35);
+  color: rgb(254 202 202);
+}
+
+.dark .candidate-card strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .candidate-stat {
+.dark .candidate-stat {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .canonical {
+.dark .canonical {
   color: rgb(248 250 252);
 }
 </style>

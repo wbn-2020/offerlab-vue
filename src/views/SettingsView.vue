@@ -1,11 +1,13 @@
 <template>
-  <main class="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-950">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="px-4 py-8">
     <div class="mx-auto max-w-5xl space-y-6">
       <section class="flex flex-col gap-2">
         <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Account Settings</p>
         <h1 class="text-2xl font-bold text-slate-950 dark:text-slate-50">设置</h1>
         <p class="max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-          管理账号资料、求职意向和隐私偏好。
+          管理账号资料、关注方向和隐私偏好。
         </p>
       </section>
 
@@ -108,7 +110,36 @@
       </section>
 
       <section v-if="activeTab === 'intent'" class="panel">
-        <IntentForm @submit="updateIntent" />
+        <IntentForm :initial-data="intentFormData || undefined" @submit="updateIntent" />
+      </section>
+
+      <section v-if="activeTab === 'theme'" class="panel space-y-6">
+        <div class="border-b border-slate-200 pb-5 dark:border-slate-800">
+          <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">主题设置</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            选择亮色、深色或跟随系统，设置会保存在当前浏览器。
+          </p>
+        </div>
+        <div class="theme-mode-grid" role="radiogroup" aria-label="主题模式">
+          <button
+            v-for="option in themeOptions"
+            :key="option.value"
+            type="button"
+            :class="['theme-option', themeStore.mode === option.value ? 'theme-option-active' : '']"
+            :aria-pressed="themeStore.mode === option.value"
+            @click="themeStore.setMode(option.value)"
+          >
+            <span>{{ option.label }}</span>
+            <small>{{ option.description }}</small>
+          </button>
+        </div>
+        <div class="theme-preview">
+          <div>
+            <span>当前模式</span>
+            <strong>{{ currentThemeLabel }}</strong>
+          </div>
+          <p>{{ themeStore.isDark() ? '页面会使用深色 surface 与高对比文本。' : '页面会使用亮色 surface 与浅色背景。' }}</p>
+        </div>
       </section>
 
       <section v-if="activeTab === 'privacy'" class="panel space-y-6">
@@ -140,8 +171,8 @@
 
           <div class="setting-row">
             <div>
-              <h3 class="setting-title">求职意向可见性</h3>
-              <p class="setting-desc">控制目标公司、岗位、城市等求职意向的展示范围。</p>
+              <h3 class="setting-title">关注方向可见性</h3>
+              <p class="setting-desc">控制关注领域、方向、城市等信息的展示范围。</p>
             </div>
             <select v-model="privacyForm.intentVisibility" class="form-select">
               <option value="PUBLIC">所有人</option>
@@ -202,7 +233,8 @@
         </form>
       </section>
     </div>
-  </main>
+    </main>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -211,22 +243,37 @@ import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
+import { notificationApi } from '@/api/notification'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { userApi, type PrivacySetting } from '@/api/user'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import IntentForm from '@/components/user/IntentForm.vue'
+import type { UserIntent } from '@/api/types'
 
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 const router = useRouter()
 
 const tabs = [
   { value: 'account', label: '账号' },
   { value: 'profile', label: '资料' },
-  { value: 'intent', label: '求职意向' },
+  { value: 'intent', label: '关注方向' },
+  { value: 'theme', label: '主题' },
   { value: 'privacy', label: '隐私' },
 ]
 
 const activeTab = ref('account')
 const user = ref(authStore.user)
+const intentFormData = ref<UserIntent | null>(null)
+
+const themeOptions: Array<{ value: ThemeMode, label: string, description: string }> = [
+  { value: 'dark', label: '深色', description: '适合夜间和后台运维场景' },
+  { value: 'light', label: '亮色', description: '适合白天阅读和演示' },
+  { value: 'auto', label: '跟随系统', description: '随系统偏好自动切换' },
+]
+
+const currentThemeLabel = computed(() => themeOptions.find((option) => option.value === themeStore.mode)?.label || '跟随系统')
 
 const profileForm = ref({
   nickname: user.value?.nickname || '',
@@ -280,7 +327,7 @@ const canSubmitPassword = computed(() => Boolean(
 const loadPrivacy = async () => {
   isPrivacyLoading.value = true
   try {
-    const res = await userApi.getPrivacySettings()
+    const res = await notificationApi.getPreferences()
     if (res.data) {
       privacyForm.value = { ...defaultPrivacySetting(), ...res.data }
     }
@@ -288,6 +335,18 @@ const loadPrivacy = async () => {
     toast.error(getErrorMessage(error, '隐私设置加载失败'))
   } finally {
     isPrivacyLoading.value = false
+  }
+}
+
+const loadIntent = async () => {
+  const uid = user.value?.uid
+  if (!uid) return
+
+  try {
+    const res = await userApi.getIntent(uid)
+    intentFormData.value = res.data ? { ...res.data } : null
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '关注方向加载失败'))
   }
 }
 
@@ -300,6 +359,7 @@ onMounted(() => {
     }
   }
   loadPrivacy()
+  loadIntent()
 })
 
 const updateProfile = async () => {
@@ -379,19 +439,29 @@ const updateIntent = async (intentData: any) => {
   try {
     const res = await userApi.updateIntent(intentData)
     if (res.code === 0) {
-      toast.success('求职意向已更新')
+      intentFormData.value = {
+        ...intentData,
+        targetCompanies: [...(intentData.targetCompanies || [])],
+        targetPositions: [...(intentData.targetPositions || [])],
+        techStack: [...(intentData.techStack || [])],
+        interestTopics: [...(intentData.interestTopics || [])],
+        interestTags: [...(intentData.interestTags || [])],
+        contentPreferences: [...(intentData.contentPreferences || [])],
+        expectedSalaryRange: intentData.expectedSalaryRange ? { ...intentData.expectedSalaryRange } : undefined,
+      }
+      toast.success('关注方向已更新')
     } else {
-      toast.error(getResultMessage(res, '求职意向更新失败'))
+      toast.error(getResultMessage(res, '关注方向更新失败'))
     }
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '求职意向更新失败'))
+    toast.error(getErrorMessage(error, '关注方向更新失败'))
   }
 }
 
 const updatePrivacy = async () => {
   isUpdatingPrivacy.value = true
   try {
-    const res = await userApi.updatePrivacySettings(privacyForm.value)
+    const res = await notificationApi.updatePreferences(privacyForm.value)
     if (res.data) {
       privacyForm.value = { ...defaultPrivacySetting(), ...res.data }
     }
@@ -597,72 +667,159 @@ const updatePrivacy = async () => {
   accent-color: rgb(79 70 229);
 }
 
-:global(.dark) .panel,
-:global(.dark) .form-input,
-:global(.dark) .form-select,
-:global(.dark) .secondary-button,
-:global(.dark) .danger-button {
+.theme-mode-grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.theme-option {
+  min-height: 92px;
+  border-radius: 0.625rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-option span,
+.theme-option small {
+  display: block;
+}
+
+.theme-option span {
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.theme-option small {
+  margin-top: 0.375rem;
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.theme-option-active {
+  border-color: rgb(99 102 241);
+  background: rgb(238 242 255);
+  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.65);
+}
+
+.theme-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1rem;
+}
+
+.theme-preview span,
+.theme-preview p {
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+}
+
+.theme-preview strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: rgb(15 23 42);
+  font-size: 1.125rem;
+}
+
+.dark .panel,
+.dark .form-input,
+.dark .form-select,
+.dark .secondary-button,
+.dark .danger-button {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .field-label,
-:global(.dark) .setting-title,
-:global(.dark) .form-input,
-:global(.dark) .form-select,
-:global(.dark) .secondary-button {
+.dark .field-label,
+.dark .setting-title,
+.dark .form-input,
+.dark .form-select,
+.dark .secondary-button {
   color: rgb(226 232 240);
 }
 
-:global(.dark) .tab-button {
+.dark .tab-button {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .tab-button:hover,
-:global(.dark) .tab-button-active {
+.dark .tab-button:hover,
+.dark .tab-button-active {
   color: rgb(129 140 248);
 }
 
-:global(.dark) .setting-row,
-:global(.dark) .switch-row {
+.dark .setting-row,
+.dark .switch-row {
   border-bottom-color: rgb(30 41 59);
 }
 
-:global(.dark) .setting-desc {
+.dark .setting-desc {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .notification-grid {
+.dark .notification-grid {
   border-bottom-color: rgb(30 41 59);
 }
 
-:global(.dark) .notification-toggle {
+.dark .notification-toggle {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .notification-toggle:not(.notification-toggle-disabled):hover {
+.dark .notification-toggle:not(.notification-toggle-disabled):hover {
   border-color: rgb(99 102 241);
   background: rgb(30 41 59);
 }
 
-:global(.dark) .notification-title {
+.dark .notification-title {
   color: rgb(226 232 240);
 }
 
-:global(.dark) .notification-desc {
+.dark .notification-desc {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .secondary-button:hover:not(:disabled) {
+.dark .theme-option,
+.dark .theme-preview {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .theme-option-active {
+  border-color: rgb(129 140 248);
+  background: rgb(49 46 129 / 0.45);
+  box-shadow: 0 0 0 3px rgb(79 70 229 / 0.28);
+}
+
+.dark .theme-option span,
+.dark .theme-preview strong {
+  color: rgb(248 250 252);
+}
+
+.dark .theme-option small,
+.dark .theme-preview span,
+.dark .theme-preview p {
+  color: rgb(148 163 184);
+}
+
+.dark .secondary-button:hover:not(:disabled) {
   background: rgb(30 41 59);
 }
 
-:global(.dark) .account-section {
+.dark .account-section {
   border-bottom-color: rgb(30 41 59);
 }
 
-:global(.dark) .danger-button {
+.dark .danger-button {
   border-color: rgb(127 29 29);
   background: rgb(69 10 10);
   color: rgb(254 202 202);
@@ -684,6 +841,15 @@ const updatePrivacy = async () => {
   }
   .notification-grid {
     grid-template-columns: 1fr;
+  }
+
+  .theme-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-preview {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

@@ -2,15 +2,29 @@
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <AppHeader />
     <main class="mx-auto max-w-7xl px-4 py-8">
-      <LoadingSkeleton v-if="isLoading" />
+      <LoadingSkeleton v-if="isQuestionLoading" />
+      <section v-else-if="isQuestionNotFound" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
+        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">题目不存在或已被删除</h3>
+        <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
+          这张知识卡可能已被下架、来源内容不可见，或本地演示数据还没有补到当前数据库。
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <RouterLink to="/questions" class="primary-action inline-flex items-center justify-center">返回知识库</RouterLink>
+          <RouterLink :to="{ path: '/search', query: { q: questionId } }" class="secondary-action inline-flex items-center justify-center">搜索相似内容</RouterLink>
+          <RouterLink to="/" class="secondary-action inline-flex items-center justify-center">回到首页</RouterLink>
+        </div>
+      </section>
       <section v-else-if="isError" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
         <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">题目加载失败</h3>
         <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
           {{ getErrorMessage(error, '题目详情暂时无法加载，请稍后重试。') }}
         </p>
-        <button type="button" class="primary-action" @click="refetch()">重试</button>
+        <div class="flex flex-wrap justify-center gap-3">
+          <button type="button" class="primary-action" @click="refetch()">重试</button>
+          <RouterLink to="/questions" class="secondary-action inline-flex items-center justify-center">返回知识库</RouterLink>
+        </div>
       </section>
-      <EmptyState v-else-if="!detail" title="题目不存在" description="这道题可能已隐藏或来源内容不可见。" actionText="返回题库" actionHref="/questions" />
+      <EmptyState v-else-if="!detail || !question" title="知识卡不存在" description="这张知识卡可能已隐藏、来源内容不可见，或当前知识库还没有同步到详情页。" actionText="返回知识库" actionHref="/questions" />
       <div v-else class="grid gap-8 lg:grid-cols-3">
         <article class="rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
           <div class="mb-5 flex flex-wrap gap-2">
@@ -159,11 +173,23 @@
               <option value="review">待复习</option>
             </select>
             <RouterLink
+              :to="mockInterviewLink"
+              class="secondary-action inline-flex items-center justify-center"
+            >
+              加入知识复盘
+            </RouterLink>
+            <RouterLink
+              :to="prepReturnLink"
+              class="secondary-action inline-flex items-center justify-center"
+            >
+              回学习空间
+            </RouterLink>
+            <RouterLink
               v-if="detail.sourcePosts.length"
               :to="`/post/${detail.sourcePosts[0].postId}`"
               class="secondary-action inline-flex items-center justify-center"
             >
-              查看来源面经
+              查看来源内容
             </RouterLink>
             <button
               v-else
@@ -171,14 +197,14 @@
               type="button"
               disabled
             >
-              暂无可跳转面经
+              暂无可跳转来源
             </button>
           </div>
         </article>
 
         <aside class="space-y-6">
           <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">来源面经</h2>
+            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">来源内容</h2>
             <div v-if="detail.sourcePosts.length" class="space-y-3">
               <RouterLink v-for="post in detail.sourcePosts" :key="post.postId" :to="`/post/${post.postId}`" class="block rounded-lg bg-slate-50 p-3 hover:bg-primary-50 dark:bg-slate-950 dark:hover:bg-primary-950/30">
                 <div class="line-clamp-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{{ post.title }}</div>
@@ -189,7 +215,7 @@
           </section>
 
           <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">相似题目</h2>
+            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">相似知识卡</h2>
             <div v-if="detail.relatedQuestions.length" class="space-y-3">
               <RouterLink v-for="item in detail.relatedQuestions" :key="item.id" :to="`/questions/${item.id}`" class="block rounded-lg bg-slate-50 p-3 text-sm font-semibold text-slate-800 hover:bg-primary-50 hover:text-primary-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-primary-950/30">
                 {{ item.questionText }}
@@ -213,7 +239,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { questionApi } from '@/api/question'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
-import { getErrorMessage } from '@/api/client'
+import { BizException, getErrorMessage } from '@/api/client'
 import { safeStorage } from '@/utils/safeStorage'
 import { buildQuestionAnswerCardMarkdown } from '@/utils/prepPackExport'
 
@@ -236,20 +262,40 @@ const { data, isLoading, isError, error, refetch } = useQuery({
   queryKey: computed(() => ['question', questionId.value]),
   queryFn: () => questionApi.detail(questionId.value),
   enabled: computed(() => Boolean(questionId.value)),
+  retry: false,
 })
 
 const detail = computed(() => data.value?.data || null)
-const question = computed(() => detail.value!.question)
-const sourcePostCount = computed(() => Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1))
-const isCanonicalRoot = computed(() => !question.value.canonicalId || String(question.value.canonicalId) === String(question.value.id))
-const hasReviewSchedule = computed(() => Boolean(question.value.nextReviewAt || question.value.lastReviewedAt || question.value.reviewCount > 0))
+const question = computed(() => detail.value?.question ?? null)
+const questionErrorCode = computed(() => {
+  if (error.value instanceof BizException) return error.value.code
+  const status = (error.value as any)?.response?.status
+  return typeof status === 'number' ? status : undefined
+})
+const isQuestionNotFound = computed(() => questionErrorCode.value === 10404 || questionErrorCode.value === 404)
+const isQuestionLoading = computed(() => isLoading.value && !isError.value)
+const sourcePostCount = computed(() => question.value ? Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1) : 1)
+const isCanonicalRoot = computed(() => !question.value?.canonicalId || String(question.value.canonicalId) === String(question.value.id))
+const hasReviewSchedule = computed(() => Boolean(question.value?.nextReviewAt || question.value?.lastReviewedAt || (question.value?.reviewCount ?? 0) > 0))
+const primaryFocusTag = computed(() => question.value?.tags?.[0]?.name || question.value?.examPoint || '')
+const mockInterviewLink = computed(() => ({
+  path: '/mock-interview',
+  query: {
+    company: question.value?.company || undefined,
+    position: question.value?.position || undefined,
+    difficulty: question.value?.difficulty || undefined,
+    focusTag: primaryFocusTag.value || undefined,
+    questionCount: 5,
+  },
+}))
+const prepReturnLink = computed(() => question.value?.company ? `/companies/${encodeURIComponent(question.value.company)}/prep` : '/me/prep')
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const noteDraftKey = computed(() => `offerlab:${storageOwner.value}:question-note-draft:${questionId.value}`)
 const draftScope = computed(() => `${storageOwner.value}:${questionId.value}`)
 const unsavedLeaveMessage = '你有未保存的题目笔记，离开后可从本地草稿恢复。确定要离开吗？'
 
 const markNoteDirty = () => {
-  if (!detail.value || isSavingNote.value) return
+  if (!detail.value || !question.value || isSavingNote.value) return
   isNoteDirty.value = noteText.value !== (question.value.note || '')
     || mistakeReason.value !== (question.value.mistakeReason || '')
     || answerDraft.value !== (question.value.answerDraft || '')
@@ -267,7 +313,7 @@ const markNoteDirty = () => {
 }
 
 const loadNoteDraft = () => {
-  if (!detail.value || draftLoadedFor.value === draftScope.value) return
+  if (!detail.value || !question.value || draftLoadedFor.value === draftScope.value) return
   draftLoadedFor.value = draftScope.value
   const raw = safeStorage.get(noteDraftKey.value)
   if (!raw) return
@@ -287,7 +333,7 @@ const loadNoteDraft = () => {
 }
 
 const syncNoteEditor = () => {
-  if (!detail.value) return
+  if (!detail.value || !question.value) return
   noteText.value = question.value.note || ''
   mistakeReason.value = question.value.mistakeReason || ''
   answerDraft.value = question.value.answerDraft || ''
@@ -297,8 +343,8 @@ const syncNoteEditor = () => {
 }
 
 watch(detail, (value) => {
-  if (!value) return
-  selectedProgress.value = value?.question.progressStatus || ''
+  if (!value?.question) return
+  selectedProgress.value = value.question.progressStatus || ''
   if (isSavingNote.value) return
   syncNoteEditor()
 }, { immediate: true })
@@ -310,7 +356,7 @@ const ensureLogin = () => {
 }
 
 const toggleFavorite = async () => {
-  if (!detail.value || !ensureLogin() || isTogglingFavorite.value) return
+  if (!detail.value || !question.value || !ensureLogin() || isTogglingFavorite.value) return
   isTogglingFavorite.value = true
   try {
     if (question.value.favorite) {
@@ -327,7 +373,7 @@ const toggleFavorite = async () => {
 }
 
 const updateProgress = async () => {
-  if (!detail.value || !selectedProgress.value || !ensureLogin() || isUpdatingProgress.value) return
+  if (!detail.value || !question.value || !selectedProgress.value || !ensureLogin() || isUpdatingProgress.value) return
   isUpdatingProgress.value = true
   try {
     await questionApi.updateProgress(question.value.id, selectedProgress.value)
@@ -348,7 +394,7 @@ const formatReviewDate = (value?: number) => {
 }
 
 const copyAnswerCard = async () => {
-  if (!detail.value) return
+  if (!detail.value || !question.value) return
   try {
     await navigator.clipboard.writeText(buildQuestionAnswerCardMarkdown({
       ...question.value,
@@ -364,7 +410,7 @@ const copyAnswerCard = async () => {
 }
 
 const saveNote = async () => {
-  if (!detail.value || !ensureLogin() || isSavingNote.value) return
+  if (!detail.value || !question.value || !ensureLogin() || isSavingNote.value) return
   isSavingNote.value = true
   try {
     await questionApi.updateNote(question.value.id, {
@@ -406,9 +452,13 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .pill {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   background: rgb(248 250 252);
-  padding: 0.35rem 0.75rem;
+  padding: 0.45rem 0.8rem;
   font-size: 0.8rem;
   font-weight: 700;
   color: rgb(71 85 105);
@@ -515,36 +565,36 @@ onBeforeUnmount(() => {
   border-color: rgb(37 99 235);
   box-shadow: 0 0 0 3px rgb(191 219 254 / 0.65);
 }
-:global(.dark) .pill,
-:global(.dark) .insight-tile,
-:global(.dark) .structured-panel,
-:global(.dark) .secondary-action,
-:global(.dark) .state-select,
-:global(.dark) .reason-select,
-:global(.dark) .note-input {
+.dark .pill,
+.dark .insight-tile,
+.dark .structured-panel,
+.dark .secondary-action,
+.dark .state-select,
+.dark .reason-select,
+.dark .note-input {
   border-color: rgb(51 65 85);
   background: rgb(30 41 59);
   color: rgb(203 213 225);
 }
-:global(.dark) .insight-tile span {
+.dark .insight-tile span {
   color: rgb(148 163 184);
 }
-:global(.dark) .insight-tile strong {
+.dark .insight-tile strong {
   color: rgb(248 250 252);
 }
-:global(.dark) .schedule-tile {
+.dark .schedule-tile {
   background: rgb(69 26 3 / 0.35);
 }
-:global(.dark) .schedule-tile span {
+.dark .schedule-tile span {
   color: rgb(253 230 138);
 }
-:global(.dark) .schedule-tile strong {
+.dark .schedule-tile strong {
   color: rgb(254 243 199);
 }
-:global(.dark) .structured-panel h2 {
+.dark .structured-panel h2 {
   color: rgb(148 163 184);
 }
-:global(.dark) .structured-panel p {
+.dark .structured-panel p {
   color: rgb(203 213 225);
 }
 </style>

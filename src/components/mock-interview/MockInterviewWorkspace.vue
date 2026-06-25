@@ -1,8 +1,8 @@
 <template>
   <div v-if="!session" class="panel flex min-h-[420px] flex-col items-center justify-center text-center">
-    <h2 class="text-xl font-black text-slate-950 dark:text-slate-50">选择条件后开始练习</h2>
+    <h2 class="text-xl font-black text-slate-950 dark:text-slate-50">选择主题后开始知识复盘</h2>
     <p class="mt-3 max-w-lg text-sm leading-6 text-slate-500 dark:text-slate-400">
-      建议面试前按目标公司或岗位抽 5 题，回答后给每题打 0-5 分，最后看总分和复盘。
+      这个兼容入口用于把旧题目回答沉淀为私有知识卡，社区主路径仍是发布技术经验和项目复盘。
     </p>
   </div>
 
@@ -31,7 +31,16 @@
             :disabled="isSavingAnswerCards"
             @click="$emit('save-answer-cards')"
           >
-            {{ isSavingAnswerCards ? '沉淀中...' : `沉淀 ${answerCardCount} 张回答卡` }}
+            {{ isSavingAnswerCards ? '沉淀中...' : `沉淀 ${answerCardCount} 张知识卡` }}
+          </button>
+          <button
+            v-if="session.status === 'completed' && aiReviewFailedCount > 0"
+            type="button"
+            class="secondary-action"
+            :disabled="isRetryingAiReview"
+            @click="$emit('retry-ai-review')"
+          >
+            {{ isRetryingAiReview ? '重试中...' : aiReviewRetryText(aiReviewFailedCount) }}
           </button>
           <div class="timer-card">
             <span>用时</span>
@@ -66,7 +75,7 @@
             rows="5"
             maxlength="4000"
             :disabled="session.status === 'completed'"
-            placeholder="先按面试口吻完整回答，再补充项目场景和权衡。"
+            placeholder="先按清晰表达完整回答，再补充项目场景和权衡。"
           />
         </label>
         <label class="field-label">
@@ -92,9 +101,38 @@
         />
       </label>
 
-      <div v-if="answer.aiReviewed" class="ai-review-box">
+      <div v-if="answer.aiReviewStatus === 'PENDING'" class="ai-review-box ai-review-pending">
         <div class="ai-review-head">
-          <span>AI 评价</span>
+          <span>
+            {{ aiReviewPendingTitle(answer) }}
+            <small>{{ aiReviewProviderText(answer.aiReviewProvider, answer.aiReviewFallbackUsed) }}</small>
+          </span>
+          <strong>Pending</strong>
+        </div>
+        <p class="ai-review-message">复盘任务已进入队列，页面会自动刷新结果。</p>
+        <ul class="ai-review-meta-list" aria-label="AI/规则评价透明度">
+          <li v-for="item in aiReviewTransparencyItems(answer)" :key="item">{{ item }}</li>
+        </ul>
+      </div>
+      <div v-else-if="answer.aiReviewStatus === 'FAILED'" class="ai-review-box ai-review-failed">
+        <div class="ai-review-head">
+          <span>
+            {{ aiReviewFailedTitle(answer) }}
+            <small>{{ aiReviewProviderText(answer.aiReviewProvider, answer.aiReviewFallbackUsed) }}</small>
+          </span>
+          <strong>Failed</strong>
+        </div>
+        <p class="ai-review-message">{{ answer.aiReviewError || aiReviewUnavailableText(answer) }}</p>
+        <ul class="ai-review-meta-list" aria-label="AI/规则评价透明度">
+          <li v-for="item in aiReviewTransparencyItems(answer)" :key="item">{{ item }}</li>
+        </ul>
+      </div>
+      <div v-else-if="answer.aiReviewed || answer.aiReviewStatus === 'SUCCEEDED'" class="ai-review-box">
+        <div class="ai-review-head">
+          <span>
+            {{ aiReviewTitle(answer) }}
+            <small>{{ aiReviewProviderText(answer.aiReviewProvider, answer.aiReviewFallbackUsed) }}</small>
+          </span>
           <strong>{{ answer.aiScore ?? 0 }} / 5</strong>
         </div>
         <div class="ai-review-grid">
@@ -111,6 +149,9 @@
             <p>{{ answer.aiFollowUpSuggestion || '暂无建议' }}</p>
           </div>
         </div>
+        <ul class="ai-review-meta-list" aria-label="AI/规则评价透明度">
+          <li v-for="item in aiReviewTransparencyItems(answer)" :key="item">{{ item }}</li>
+        </ul>
       </div>
     </article>
 
@@ -137,8 +178,8 @@
           :checked="aiReviewEnabled"
           @change="$emit('toggle-ai-review', ($event.target as HTMLInputElement).checked)"
         />
-        <span>提交后生成 AI 评价</span>
-        <small>未配置 AI 时会使用规则评价，仍可关闭。</small>
+        <span>提交后生成 AI/规则评价</span>
+        <small>已配置模型时使用模型评价；未配置或失败时会明确标注规则评价。</small>
       </label>
       <div class="review-box">
         <div class="review-head">
@@ -155,8 +196,8 @@
       </div>
       <div v-if="weakQuestionCount > 0" class="weak-review-box">
         <div>
-          <strong>{{ weakQuestionCount }} 道低分题建议加入待复习</strong>
-          <p>把本场 0-2 分题同步到题库复习清单，后续可以在“只看待复习”里集中补齐。</p>
+          <strong>{{ weakQuestionCount }} 条薄弱知识建议加入回看清单</strong>
+          <p>把本场 0-2 分内容同步到私有知识卡回看清单，后续集中补齐。</p>
         </div>
         <button
           type="button"
@@ -167,18 +208,31 @@
           {{ isMarkingWeakQuestions ? '加入中...' : '加入待复习' }}
         </button>
       </div>
+      <div v-if="session.status === 'completed'" class="learning-loop-box">
+        <div>
+          <strong>下一步</strong>
+          <p>把本场复盘回流到个人知识空间，再集中处理待回看知识卡。</p>
+        </div>
+        <div class="learning-loop-actions">
+          <RouterLink to="/me/prep" class="secondary-action">查看学习空间</RouterLink>
+          <RouterLink to="/questions?progressStatus=review&sort=latest" class="secondary-action">查看待回看知识卡</RouterLink>
+          <RouterLink :to="nextMockInterviewLink" class="primary-action">继续知识复盘</RouterLink>
+        </div>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { Copy, Download } from 'lucide-vue-next'
 import type { MockInterviewSession } from '@/api/question'
-import { answerHintText, answerMetaParts, answerQuestionText, difficultyText, sessionTitle, type MockInterviewReviewSuggestion } from '@/utils/mockInterviewFormat'
+import { aiReviewFailedTitle, aiReviewPendingTitle, aiReviewProviderText, aiReviewRetryText, aiReviewTitle, aiReviewTransparencyItems, aiReviewUnavailableText, answerHintText, answerMetaParts, answerQuestionText, difficultyText, sessionTitle, type MockInterviewReviewSuggestion } from '@/utils/mockInterviewFormat'
 
 type DraftAnswer = { answerText: string; selfReview: string; score: number }
 
-defineProps<{
+const props = defineProps<{
   session: MockInterviewSession | null
   draftAnswers: Record<string, DraftAnswer>
   elapsedText: string
@@ -191,6 +245,7 @@ defineProps<{
   aiReviewEnabled: boolean
   isMarkingWeakQuestions: boolean
   isSavingAnswerCards: boolean
+  isRetryingAiReview: boolean
 }>()
 
 defineEmits<{
@@ -199,8 +254,20 @@ defineEmits<{
   'toggle-ai-review': [enabled: boolean]
   'mark-weak-questions-review': []
   'save-answer-cards': []
+  'retry-ai-review': []
   submit: []
 }>()
+
+const aiReviewFailedCount = computed(() => props.session?.answers.filter((answer) => answer.aiReviewStatus === 'FAILED').length || 0)
+const nextMockInterviewLink = computed(() => ({
+  path: '/mock-interview',
+  query: {
+    company: props.session?.company || undefined,
+    position: props.session?.position || undefined,
+    focusTag: props.session?.focusTag || undefined,
+    questionCount: props.session?.questionCount || 5,
+  },
+}))
 </script>
 
 <style scoped>
@@ -350,6 +417,57 @@ defineEmits<{
   padding: 0.15rem 0.6rem;
 }
 
+.ai-review-head small {
+  margin-left: 0.45rem;
+  border-radius: 999px;
+  background: rgb(226 232 240);
+  padding: 0.15rem 0.45rem;
+  color: rgb(71 85 105);
+}
+
+.ai-review-pending {
+  border-color: rgb(253 224 71);
+  background: rgb(254 252 232);
+}
+
+.ai-review-failed {
+  border-color: rgb(254 205 211);
+  background: rgb(255 241 242);
+}
+
+.ai-review-message {
+  margin-top: 0.65rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: rgb(71 85 105);
+}
+
+.ai-review-meta {
+  margin-top: 0.55rem;
+  word-break: break-word;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgb(71 85 105);
+}
+
+.ai-review-meta-list {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ai-review-meta-list li {
+  min-height: 1.8rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.8);
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: rgb(71 85 105);
+}
+
 .ai-review-grid {
   margin-top: 0.8rem;
   display: grid;
@@ -451,71 +569,127 @@ defineEmits<{
   color: rgb(136 19 55);
 }
 
-:global(.dark) .panel,
-:global(.dark) .secondary-action {
+.learning-loop-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.learning-loop-box strong {
+  display: block;
+  font-size: 0.9rem;
+  color: rgb(30 64 175);
+}
+
+.learning-loop-box p {
+  margin-top: 0.25rem;
+  max-width: 34rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: rgb(30 64 175);
+}
+
+.learning-loop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.dark .panel,
+.dark .secondary-action {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .field-input,
-:global(.dark) .answer-input {
+.dark .field-input,
+.dark .answer-input {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
   color: rgb(248 250 252);
 }
 
-:global(.dark) .review-box {
+.dark .review-box {
   border-color: rgb(30 41 59);
   background: rgb(2 6 23);
 }
 
-:global(.dark) .ai-toggle-row,
-:global(.dark) .ai-review-box {
+.dark .ai-toggle-row,
+.dark .ai-review-box {
   border-color: rgb(30 64 175);
   background: rgb(15 23 42);
   color: rgb(191 219 254);
 }
 
-:global(.dark) .ai-toggle-row small,
-:global(.dark) .ai-review-grid span {
+.dark .ai-toggle-row small,
+.dark .ai-review-grid span {
   color: rgb(147 197 253);
 }
 
-:global(.dark) .ai-review-head {
+.dark .ai-review-head {
   color: rgb(191 219 254);
 }
 
-:global(.dark) .ai-review-head strong,
-:global(.dark) .ai-review-grid div {
+.dark .ai-review-head strong,
+.dark .ai-review-grid div {
   background: rgb(2 6 23);
 }
 
-:global(.dark) .ai-review-grid p {
+.dark .ai-review-head small {
+  background: rgb(51 65 85);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .review-list li {
+.dark .ai-review-grid p {
+  color: rgb(203 213 225);
+}
+
+.dark .ai-review-message {
+  color: rgb(203 213 225);
+}
+
+.dark .ai-review-meta-list li {
+  background: rgb(15 23 42 / 0.75);
+  color: rgb(203 213 225);
+}
+
+.dark .review-list li {
   background: rgb(15 23 42);
 }
 
-:global(.dark) .review-list strong {
+.dark .review-list strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .review-list p {
+.dark .review-list p {
   color: rgb(203 213 225);
 }
 
-:global(.dark) .weak-review-box {
+.dark .weak-review-box {
   border-color: rgb(136 19 55);
   background: rgb(76 5 25);
 }
 
-:global(.dark) .weak-review-box strong {
+.dark .learning-loop-box {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .weak-review-box strong {
   color: rgb(255 228 230);
 }
 
-:global(.dark) .weak-review-box p {
+.dark .weak-review-box p {
   color: rgb(253 164 175);
+}
+
+.dark .learning-loop-box strong,
+.dark .learning-loop-box p {
+  color: rgb(191 219 254);
 }
 </style>

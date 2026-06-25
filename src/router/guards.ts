@@ -1,22 +1,21 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { authApi } from '@/api/auth'
-import { opsApi, type MyAdminPermissions } from '@/api/ops'
-import { adminPermissionRequirementText, hasAdminPermission, type AdminPermissionKey } from '@/utils/adminPermissions'
+import { opsApi } from '@/api/ops'
+import { applyPageSeo } from '@/utils/seo'
+import {
+  adminPermissionRequirementText,
+  createAdminPermissionCache,
+  hasAdminPermission,
+  isPermissionDeniedError,
+  type AdminPermissionKey,
+} from '@/utils/adminPermissions'
 
-let cachedAdminPermissions: MyAdminPermissions | null = null
-let cachedToken: string | null = null
-let cachedAt = 0
-
-const getAdminPermissions = async (token: string | null) => {
-  if (!token) return null
-  if (cachedToken === token && cachedAdminPermissions && Date.now() - cachedAt < 30_000) return cachedAdminPermissions
+const adminPermissionCache = createAdminPermissionCache(async () => {
   const res = await opsApi.myPermissions()
-  cachedToken = token
-  cachedAdminPermissions = res.data
-  cachedAt = Date.now()
-  return cachedAdminPermissions
-}
+  return res.data
+})
+
+export const invalidateAdminPermissionCache = adminPermissionCache.invalidateAdminPermissions
 
 export function setupRouterGuards(router: Router) {
   router.beforeEach(async (to, from, next) => {
@@ -24,15 +23,10 @@ export function setupRouterGuards(router: Router) {
     const requiresAuth = to.meta.requiresAuth as boolean
     const adminPermission = to.meta.adminPermission as AdminPermissionKey | AdminPermissionKey[] | undefined
 
-    if (authStore.token && !authStore.user) {
-      try {
-        const me = await authApi.fetchMe()
-        if (me.data) {
-          authStore.setUser(me.data)
-        }
-      } catch {
-        authStore.logout()
-      }
+    if (authStore.token && !authStore.ready) {
+      await authStore.hydrate()
+    } else if (authStore.token && !authStore.user) {
+      await authStore.hydrate()
     }
 
     if (requiresAuth && !authStore.isLoggedIn) {
@@ -40,7 +34,7 @@ export function setupRouterGuards(router: Router) {
     } else {
       if (adminPermission) {
         try {
-          const permissions = await getAdminPermissions(authStore.token)
+          const permissions = await adminPermissionCache.getAdminPermissions(authStore.token)
           if (!hasAdminPermission(permissions, adminPermission)) {
             next({
               name: 'Forbidden',
@@ -51,8 +45,11 @@ export function setupRouterGuards(router: Router) {
             })
             return
           }
-        } catch {
-          next({ name: 'Forbidden', query: { from: to.fullPath } })
+        } catch (error) {
+          if (isPermissionDeniedError(error)) {
+            adminPermissionCache.invalidateAdminPermissions(authStore.token)
+          }
+          next({ name: 'Forbidden', query: { from: to.fullPath, reason: 'permission_check_failed' } })
           return
         }
       }
@@ -62,6 +59,6 @@ export function setupRouterGuards(router: Router) {
 
   router.afterEach((to) => {
     const title = to.meta.title as string
-    document.title = title ? `${title} - 面试圈` : '面试圈'
+    applyPageSeo({ title })
   })
 }

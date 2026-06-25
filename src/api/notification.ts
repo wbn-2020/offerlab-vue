@@ -1,4 +1,5 @@
 import client, { Result } from './client'
+import type { PrivacySetting } from './user'
 import type { Notification, NotificationRealtimeStatus, NotificationUnreadCount, PaginatedResponse } from './types'
 import { adaptNotification, adaptPage } from './adapters'
 
@@ -36,6 +37,12 @@ export const notificationApi = {
     const res = await client.get('/api/v1/notifications/realtime-status', { skipAuthRedirect: true }) as Result<any>
     return { ...res, data: res.data ? adaptRealtimeStatus(res.data) : null }
   },
+
+  getPreferences: (): Promise<Result<PrivacySetting>> =>
+    client.get('/api/v1/notifications/preferences'),
+
+  updatePreferences: (req: PrivacySetting): Promise<Result<PrivacySetting>> =>
+    client.put('/api/v1/notifications/preferences', req),
 
   markAsRead: (ids: Array<string | number>): Promise<Result<void>> =>
     client.post('/api/v1/notifications/read', { ids }),

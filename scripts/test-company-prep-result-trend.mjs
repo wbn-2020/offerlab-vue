@@ -10,7 +10,7 @@ assert.match(api, /recentResultDistribution:\s*NameCount\[\]/, 'CompanyPrep type
 assert.match(api, /raw\?\.interviewResultDistribution[\s\S]*map\(adaptNameCount\)/, 'CompanyPrep adapter must map total result distribution')
 assert.match(api, /raw\?\.recentResultDistribution[\s\S]*map\(adaptNameCount\)/, 'CompanyPrep adapter must map recent result distribution')
 
-assert.match(view, /面试结果趋势/, 'CompanyPrepView must render an interview result trend panel')
+assert.match(view, /反馈趋势/, 'CompanyPrepView must render a community feedback trend panel')
 assert.match(view, /ResultTrendList/, 'CompanyPrepView must use a dedicated result trend renderer')
 assert.match(view, /prep\.recentResultDistribution/, 'CompanyPrepView must render recent result distribution')
 assert.match(view, /prep\.interviewResultDistribution/, 'CompanyPrepView must render total result distribution')
@@ -19,7 +19,7 @@ assert.match(view, /全部样本/, 'CompanyPrepView must label the all-time tren
 assert.match(view, /result-bar-fill/, 'CompanyPrepView must show proportional result trend bars')
 assert.match(view, /暂无结果样本/, 'CompanyPrepView must show an empty state for missing result trend data')
 
-assert.match(exporter, /## 面试结果趋势/, 'Company prep Markdown export must include result trend section')
+assert.match(exporter, /## 反馈趋势/, 'Company prep Markdown export must include result trend section')
 assert.match(exporter, /data\.recentResultDistribution/, 'Company prep Markdown export must include recent result distribution')
 assert.match(exporter, /data\.interviewResultDistribution/, 'Company prep Markdown export must include total result distribution')
 

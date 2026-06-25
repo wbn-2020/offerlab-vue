@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-screen bg-slate-50 px-4 py-6 dark:bg-slate-950 sm:px-6">
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="px-4 py-6 sm:px-6">
     <div class="mx-auto max-w-5xl">
       <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -47,15 +49,26 @@
             </div>
           </div>
 
-          <button
-            type="button"
-            @click="markAllAsRead"
-            :disabled="isMutating || unread.total === 0"
-            class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <CheckCheck class="h-4 w-4" />
-            全部已读
-          </button>
+          <div class="mark-read-actions">
+            <RouterLink
+              to="/me/settings"
+              class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <Bell class="h-4 w-4" />
+              通知偏好
+            </RouterLink>
+            <button
+              type="button"
+              @click="markAllAsRead"
+              :disabled="markAllDisabled"
+              :title="markAllHint"
+              class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <CheckCheck class="h-4 w-4" />
+              {{ isMutating ? '处理中...' : unread.total === 0 ? '暂无未读' : '全部已读' }}
+            </button>
+            <p v-if="unread.total === 0" class="mark-read-hint">当前没有未读通知</p>
+          </div>
         </div>
       </section>
 
@@ -80,7 +93,7 @@
         </RouterLink>
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="notification-list space-y-3">
         <article
           v-for="notif in notifications"
           :key="notif.notificationId"
@@ -91,9 +104,14 @@
               ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
               : 'border-primary-200 bg-primary-50 dark:border-slate-700 dark:bg-slate-800'
           ]"
+          :role="notif.targetPath ? 'button' : undefined"
+          :tabindex="notif.targetPath ? 0 : undefined"
+          :aria-label="notificationActionLabel(notif)"
           @click="openNotification(notif)"
+          @keydown.enter.prevent="openNotification(notif)"
+          @keydown.space.prevent="openNotification(notif)"
         >
-          <div class="flex items-start gap-4">
+          <div class="notification-item-inner flex items-start gap-4">
             <div :class="['flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full', iconClass(notif.type)]">
               <component :is="iconFor(notif.type)" class="h-5 w-5" />
             </div>
@@ -114,9 +132,9 @@
             <button
               v-if="!notif.read"
               type="button"
-              @click.stop="markAsRead(notif.notificationId)"
+              @click.stop="markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId])"
               :disabled="isMutating"
-              class="flex-shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+              class="notification-read-button flex-shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
             >
               标记已读
             </button>
@@ -136,6 +154,7 @@
         </div>
       </div>
     </div>
+    </main>
   </div>
 </template>
 
@@ -148,6 +167,7 @@ import { getErrorMessage } from '@/api/client'
 import { notificationApi } from '@/api/notification'
 import type { ApiId, Notification } from '@/api/types'
 import { formatTime } from '@/lib/format'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 
 const router = useRouter()
@@ -163,6 +183,8 @@ const hasMore = ref(false)
 const unread = ref(emptyUnreadCount())
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
+const notificationUnreadKeys = ['like', 'comment', 'favorite', 'follower', 'mention', 'system'] as const
+type NotificationUnreadKey = typeof notificationUnreadKeys[number]
 
 const tabs = computed(() => [
   { value: 'all', label: '全部', count: unread.value.total, icon: Bell },
@@ -176,6 +198,11 @@ const tabs = computed(() => [
 
 const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
 const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
+const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
+const markAllHint = computed(() => unread.value.total === 0 ? '当前没有未读通知' : '将所有通知标记为已读')
+const isNotificationUnreadKey = (type: string): type is NotificationUnreadKey => {
+  return notificationUnreadKeys.includes(type as NotificationUnreadKey)
+}
 
 const iconFor = (type: string) => {
   if (type === 'like') return Heart
@@ -254,18 +281,43 @@ const switchTab = async (type: NotificationType | string) => {
   await loadNotifications()
 }
 
-const markAsRead = async (id: ApiId) => {
-  isMutating.value = true
+type MarkReadOptions = {
+  background?: boolean
+}
+
+const applyReadLocally = (id: ApiId) => {
+  const original = notifications.value.find(item => item.notificationId === id)
+  if (!original || original.read) return null
+  notifications.value = notifications.value.map(item =>
+    item.notificationId === id ? { ...item, read: true } : item
+  )
+  const unreadDelta = original.unreadCount || 1
+  const nextUnread = { ...unread.value, total: Math.max(0, unread.value.total - unreadDelta) }
+  if (isNotificationUnreadKey(original.type)) {
+    nextUnread[original.type] = Math.max(0, nextUnread[original.type] - unreadDelta)
+  }
+  syncUnread(nextUnread)
+  return original
+}
+
+const restoreReadLocally = (original: Notification) => {
+  notifications.value = notifications.value.map(item =>
+    item.notificationId === original.notificationId ? original : item
+  )
+}
+
+const markAsRead = async (id: ApiId, ids: ApiId[] = [id], options: MarkReadOptions = {}) => {
+  if (!options.background) isMutating.value = true
+  const original = applyReadLocally(id)
   try {
-    await notificationApi.markAsRead([id])
-    notifications.value = notifications.value.map(item =>
-      item.notificationId === id ? { ...item, read: true } : item
-    )
+    await notificationApi.markAsRead(ids)
     await loadUnread()
   } catch (error) {
+    if (original) restoreReadLocally(original)
+    await loadUnread().catch(() => {})
     toast.error(getErrorMessage(error, '标记已读失败'))
   } finally {
-    isMutating.value = false
+    if (!options.background) isMutating.value = false
   }
 }
 
@@ -275,6 +327,7 @@ const markAllAsRead = async () => {
     await notificationApi.markAllAsRead()
     notifications.value = notifications.value.map(item => ({ ...item, read: true }))
     await loadUnread()
+    toast.success('已全部标为已读')
   } catch (error) {
     toast.error(getErrorMessage(error, '全部标记已读失败'))
   } finally {
@@ -282,9 +335,17 @@ const markAllAsRead = async () => {
   }
 }
 
-const openNotification = async (notif: Notification) => {
-  if (!notif.read) await markAsRead(notif.notificationId)
-  if (notif.targetPath) router.push(notif.targetPath)
+const openNotification = (notif: Notification) => {
+  if (notif.targetPath) {
+    router.push(notif.targetPath)
+    if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId], { background: true })
+    return
+  }
+  if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId])
+}
+
+const notificationActionLabel = (notif: Notification) => {
+  return notif.targetPath ? `${notif.title}，查看通知详情` : undefined
 }
 
 onMounted(async () => {
@@ -352,30 +413,87 @@ onMounted(async () => {
   color: white;
 }
 
-:global(.dark) .metric-card {
+.mark-read-actions {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+}
+
+.mark-read-hint {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(100 116 139);
+}
+
+.dark .metric-card {
   border-color: rgb(51 65 85);
 }
 
-:global(.dark) .metric-card span {
+.dark .metric-card span {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .metric-card strong {
+.dark .metric-card strong {
   color: rgb(241 245 249);
 }
 
-:global(.dark) .tab-button-active {
+.dark .tab-button-active {
   border-color: rgb(67 56 202);
   background: rgb(30 27 75);
   color: rgb(199 210 254);
 }
 
-:global(.dark) .tab-button-idle {
+.dark .tab-button-idle {
   color: rgb(203 213 225);
 }
 
-:global(.dark) .tab-button-idle:hover {
+.dark .tab-button-idle:hover {
   background: rgb(30 41 59);
   color: rgb(248 250 252);
+}
+
+.dark .mark-read-hint {
+  color: rgb(148 163 184);
+}
+
+@media (max-width: 640px) {
+  .metric-card {
+    min-width: 0;
+    padding: 0.65rem;
+  }
+
+  .metric-card strong {
+    font-size: 1.1rem;
+    line-height: 1.35rem;
+  }
+
+  .tab-button {
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  .mark-read-actions {
+    width: 100%;
+  }
+
+  .mark-read-actions button {
+    width: 100%;
+  }
+
+  .notification-list article {
+    padding: 0.875rem;
+  }
+
+  .notification-item-inner {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .notification-read-button {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    width: 100%;
+  }
 }
 </style>

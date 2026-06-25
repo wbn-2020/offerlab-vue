@@ -1,17 +1,18 @@
 <template>
   <section class="panel">
-    <h2 class="panel-title">开始一场练习</h2>
+    <h2 class="panel-title">历史练习入口</h2>
+    <p class="panel-note">该入口仅用于把旧练习内容沉淀为个人知识卡，不作为社区主路径。</p>
     <form class="mt-4 space-y-3" @submit.prevent="$emit('submit')">
       <label class="field-label">
-        公司
-        <input v-model.trim="model.company" class="field-input" placeholder="例如 字节跳动" />
+        主题方向
+        <input v-model.trim="model.company" class="field-input" placeholder="例如 Redis 排障 / 网关鉴权" />
       </label>
       <label class="field-label">
-        岗位
-        <input v-model.trim="model.position" class="field-input" placeholder="例如 Java 后端" />
+        应用场景
+        <input v-model.trim="model.position" class="field-input" placeholder="例如 性能优化 / 部署运维" />
       </label>
       <label class="field-label">
-        专项标签
+        复盘标签
         <input v-model.trim="model.focusTag" class="field-input" placeholder="例如 Redis / JVM" />
       </label>
       <label class="field-label">
@@ -31,8 +32,11 @@
           <option :value="8">8 题</option>
         </select>
       </label>
-      <button type="submit" class="primary-action w-full" :disabled="isStarting">
-        {{ isStarting ? '抽题中...' : '开始模拟面试' }}
+      <p v-if="serviceUnavailable" class="service-warning">
+        {{ unavailableMessage || '知识复盘服务暂时不可用，请稍后重试。' }}
+      </p>
+      <button type="submit" class="primary-action w-full" :disabled="isStarting || serviceUnavailable">
+        {{ isStarting ? '生成中...' : serviceUnavailable ? '服务暂不可用' : '开始知识复盘' }}
       </button>
     </form>
   </section>
@@ -49,6 +53,8 @@ type StartFormModel = {
 
 defineProps<{
   isStarting: boolean
+  serviceUnavailable?: boolean
+  unavailableMessage?: string
 }>()
 
 defineEmits<{
@@ -71,6 +77,13 @@ const model = defineModel<StartFormModel>({ required: true })
   font-size: 1rem;
   font-weight: 900;
   color: rgb(15 23 42);
+}
+
+.panel-note {
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgb(100 116 139);
 }
 
 .field-label {
@@ -107,18 +120,44 @@ const model = defineModel<StartFormModel>({ required: true })
   color: white;
 }
 
-:global(.dark) .panel {
+.service-warning {
+  border-radius: 0.65rem;
+  border: 1px solid rgb(254 215 170);
+  background: rgb(255 247 237);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: rgb(154 52 18);
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.dark .panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .panel-title,
-:global(.dark) .field-input {
+.dark .panel-title,
+.dark .field-input {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .field-input {
+.dark .panel-note {
+  color: rgb(148 163 184);
+}
+
+.dark .field-input {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
+}
+
+.dark .service-warning {
+  border-color: rgb(124 45 18);
+  background: rgb(67 20 7 / 0.45);
+  color: rgb(253 186 116);
 }
 </style>

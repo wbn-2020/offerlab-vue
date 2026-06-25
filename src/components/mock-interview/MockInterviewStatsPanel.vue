@@ -1,7 +1,7 @@
 <template>
   <section class="panel">
     <div class="flex items-center justify-between gap-3">
-      <h2 class="panel-title">练习统计</h2>
+      <h2 class="panel-title">复盘统计</h2>
       <span v-if="stats" class="score-badge">{{ stats.averageScorePercent }}%</span>
     </div>
 
@@ -18,7 +18,7 @@
     </div>
 
     <div v-else-if="!stats || stats.sessionCount === 0" class="state-box">
-      <p>还没有模拟面试记录，完成一场后这里会展示平均分、最高分和专项趋势。</p>
+      <p>还没有知识复盘记录，完成一场后这里会展示平均分、最高分和主题趋势。</p>
     </div>
 
     <template v-else-if="stats">
@@ -29,7 +29,7 @@
         <div class="stat-tile"><span>平均用时</span><strong>{{ formatDuration(stats.averageDurationSeconds) }}</strong></div>
       </div>
       <div v-if="stats.recentSessions.length" class="mt-4">
-        <div class="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Recent Trend</div>
+        <div class="mb-2 text-xs font-black tracking-normal text-slate-400">最近趋势</div>
         <div class="trend-bars">
           <span
             v-for="session in stats.recentSessions"
@@ -60,25 +60,25 @@
       </div>
       <div v-if="hasInsights" class="mt-5 space-y-3">
         <div class="mb-1 text-xs font-black uppercase tracking-wide text-slate-400">近 {{ stats.insightWindowSize }} 场洞察</div>
-        <div v-if="stats.focusTagInsights.length" class="insight-group">
-          <div class="insight-heading">专项表现</div>
-          <div v-for="item in stats.focusTagInsights" :key="`tag-${item.name}`" class="insight-row">
+        <div v-if="visibleFocusTagInsights.length" class="insight-group">
+          <div class="insight-heading">主题表现</div>
+          <div v-for="item in visibleFocusTagInsights" :key="`tag-${item.name}`" class="insight-row">
             <span>{{ item.name }}</span>
             <strong>{{ item.averageScorePercent }}%</strong>
             <small>{{ item.sessionCount }} 场 · 最佳 {{ item.bestScorePercent }}%</small>
           </div>
         </div>
-        <div v-if="stats.companyInsights.length" class="insight-group">
+        <div v-if="visibleCompanyInsights.length" class="insight-group">
           <div class="insight-heading">公司表现</div>
-          <div v-for="item in stats.companyInsights" :key="`company-${item.name}`" class="insight-row">
+          <div v-for="item in visibleCompanyInsights" :key="`company-${item.name}`" class="insight-row">
             <span>{{ item.name }}</span>
             <strong>{{ item.averageScorePercent }}%</strong>
             <small>{{ item.sessionCount }} 场 · {{ formatDuration(item.averageDurationSeconds) }}</small>
           </div>
         </div>
-        <div v-if="stats.positionInsights.length" class="insight-group">
+        <div v-if="visiblePositionInsights.length" class="insight-group">
           <div class="insight-heading">岗位表现</div>
-          <div v-for="item in stats.positionInsights" :key="`position-${item.name}`" class="insight-row">
+          <div v-for="item in visiblePositionInsights" :key="`position-${item.name}`" class="insight-row">
             <span>{{ item.name }}</span>
             <strong>{{ item.averageScorePercent }}%</strong>
             <small>{{ item.sessionCount }} 场 · 最佳 {{ item.bestScorePercent }}%</small>
@@ -93,6 +93,7 @@
 import { computed } from 'vue'
 import type { MockInterviewStats } from '@/api/question'
 import { answerMetaParts, answerQuestionText, formatDuration, scorePercent, sessionTitle, trendHeight } from '@/utils/mockInterviewFormat'
+import { isSyntheticVisibleText } from '@/utils/textQuality'
 
 const props = defineProps<{
   stats: MockInterviewStats | null
@@ -106,7 +107,10 @@ defineEmits<{
   'mark-weak-answers-review': []
 }>()
 
-const hasInsights = computed(() => Boolean(props.stats && (props.stats.focusTagInsights.length || props.stats.companyInsights.length || props.stats.positionInsights.length)))
+const visibleFocusTagInsights = computed(() => props.stats?.focusTagInsights.filter((item) => !isSyntheticVisibleText(item.name)) || [])
+const visibleCompanyInsights = computed(() => props.stats?.companyInsights.filter((item) => !isSyntheticVisibleText(item.name)) || [])
+const visiblePositionInsights = computed(() => props.stats?.positionInsights.filter((item) => !isSyntheticVisibleText(item.name)) || [])
+const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length || visibleCompanyInsights.value.length || visiblePositionInsights.value.length))
 </script>
 
 <style scoped>
@@ -319,54 +323,54 @@ const hasInsights = computed(() => Boolean(props.stats && (props.stats.focusTagI
   color: rgb(100 116 139);
 }
 
-:global(.dark) .panel {
+.dark .panel {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .panel-title,
-:global(.dark) .stat-tile strong,
-:global(.dark) .insight-row span,
-:global(.dark) .insight-heading {
+.dark .panel-title,
+.dark .stat-tile strong,
+.dark .insight-row span,
+.dark .insight-heading {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .score-badge {
+.dark .score-badge {
   background: rgb(20 83 45);
   color: rgb(187 247 208);
 }
 
-:global(.dark) .weak-answer-group {
+.dark .weak-answer-group {
   border-color: rgb(136 19 55);
   background: rgb(76 5 25);
 }
 
-:global(.dark) .weak-answer-head p,
-:global(.dark) .weak-answer-row small {
+.dark .weak-answer-head p,
+.dark .weak-answer-row small {
   color: rgb(253 164 175);
 }
 
-:global(.dark) .weak-answer-row {
+.dark .weak-answer-row {
   background: rgb(15 23 42);
 }
 
-:global(.dark) .weak-answer-row span {
+.dark .weak-answer-row span {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .stat-tile,
-:global(.dark) .insight-row {
+.dark .stat-tile,
+.dark .insight-row {
   background: rgb(2 6 23);
 }
 
-:global(.dark) .state-box {
+.dark .state-box {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
   color: rgb(203 213 225);
 }
 
-:global(.dark) .skeleton-line,
-:global(.dark) .skeleton-tile {
+.dark .skeleton-line,
+.dark .skeleton-tile {
   background: linear-gradient(90deg, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42));
   background-size: 200% 100%;
 }

@@ -1,0 +1,860 @@
+{
+  "baseUrl": "http://127.0.0.1:5173",
+  "visualTheme": "dark",
+  "capturedAt": "2026-06-13T16:23:46.042Z",
+  "results": [
+    {
+      "route": "/",
+      "routeName": "home",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "public",
+      "expectedPath": "/",
+      "finalPath": "/",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\home-desktop.png",
+      "title": "首页 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 406,
+      "bodyTextSample": "OL OfferLab 技术经验社区 首页 发现 趋势 搜索 发布经验 技术文章 项目复盘 踩坑记录 沉淀每一次真实工程经验 浏览开发者分享的技术文章、项目复盘、踩坑记录和工具资源，把零散经验沉淀成可复用的知识资产。 发布经验 去发现 今日可读内容 0 热门标签 0 推荐同路人 0 快速搜索 按技术栈、场景或作者定位内容 搜索内容 开始沉淀技术经验 登录后可以发布项目复盘、收藏内容并关注作者。 登录 热门标签 关注 熟人动态 推荐 高相",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [
+        {
+          "selector": ".metric-value",
+          "name": "home metric value",
+          "text": "0",
+          "foreground": "rgb(248, 250, 252)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 17.06,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 237,
+            "height": 30
+          }
+        },
+        {
+          "selector": ".metric-value",
+          "name": "home metric value",
+          "text": "0",
+          "foreground": "rgb(248, 250, 252)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 17.06,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 237,
+            "height": 30
+          }
+        },
+        {
+          "selector": ".metric-value",
+          "name": "home metric value",
+          "text": "0",
+          "foreground": "rgb(248, 250, 252)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 17.06,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 237,
+            "height": 30
+          }
+        },
+        {
+          "selector": ".metric-label",
+          "name": "home metric label",
+          "text": "今日可读内容",
+          "foreground": "rgb(148, 163, 184)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 6.96,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 237,
+            "height": 18
+          }
+        },
+        {
+          "selector": ".metric-label",
+          "name": "home metric label",
+          "text": "热门标签",
+          "foreground": "rgb(148, 163, 184)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 6.96,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 237,
+            "height": 18
+          }
+        },
+        {
+          "selector": ".metric-label",
+          "name": "home metric label",
+          "text": "推荐同路人",
+          "foreground": "rgb(148, 163, 184)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 6.96,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 237,
+            "height": 18
+          }
+        }
+      ],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/explore",
+      "routeName": "explore",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "public",
+      "expectedPath": "/explore",
+      "finalPath": "/explore",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\explore-desktop.png",
+      "title": "发现 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/explore",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 549,
+      "bodyTextSample": "OL OfferLab 技术经验社区 首页 发现 趋势 搜索 发布经验 发现 从技术栈、专题标签、公开作者和最新内容里发现值得收藏的工程经验。 发布内容 关键词 技术栈 场景 搜索内容 内容频道 按社区内容类型进入不同经验流。 热门内容 技术文章 沉淀架构设计、技术方案、源码阅读和工程实践。 0 篇 项目复盘 复盘项目背景、架构取舍、关键问题、结果和经验。 0 篇 踩坑记录 记录排查过程、根因、修复方案和防复发建议。 0 篇 问答求助 ",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/search?q=Redis",
+      "routeName": "search",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "public",
+      "expectedPath": "/search",
+      "finalPath": "/search",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\search-desktop.png",
+      "title": "搜索 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/search?q=Redis&sort=relevance",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 309,
+      "bodyTextSample": "OL OfferLab 技术经验社区 首页 发现 趋势 搜索 发布经验 搜索 保存搜索 内容 用户 相关度 最新 热门 筛选 技术栈 场景 内容类型 全部类型 技术文章 项目复盘 踩坑记录 问答求助 资源分享 经验笔记 清空 应用 热门搜索 最近搜索 1/8 Redis 内容 搜索服务 搜索索引未启用，当前使用数据库搜索，结果可能不完整 实时 本次搜索来源：未知 索引可用，按当前筛选和排序返回。 没有匹配的内容 当前关键词或筛选条件较窄",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/questions",
+      "routeName": "questions",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "public",
+      "expectedPath": "/questions",
+      "finalPath": "/questions",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\questions-desktop.png",
+      "title": "知识库 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/questions",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 300,
+      "bodyTextSample": "OL OfferLab 技术经验社区 首页 发现 趋势 搜索 发布经验 知识库 从社区内容中沉淀的结构化问题，按技术栈、场景和标签快速筛选。 搜索内容 只看待复习 学习中 只看我的错因 只看我的笔记 只看回答卡片 只看 STAR 素材 清除个人筛选 全部难度 简单 中等 困难 全部错因 任意错因 概念不熟 项目表达弱 需要记忆 表达不清 粗心失误 其他错因 全部状态 待学习 学习中 已掌握 待复习 最新 出现次数 热度 相关度 筛选 清",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/editor",
+      "routeName": "editor",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "user",
+      "expectedPath": "/editor",
+      "finalPath": "/editor",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\editor-desktop.png",
+      "title": "发布技术经验 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/editor",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 606,
+      "bodyTextSample": "OL OfferLab 技术经验社区 首页 发现 趋势 搜索 发布经验 视 ← 返回 发布技术经验 保存草稿 发布 请先补齐：标题清晰、正文完整、技术标签 0 / 200 字符 技术文章 项目复盘 踩坑记录 问答求助 资源分享 经验笔记 内容难度 未选择 入门 中级 进阶 实战 场景 技术栈 摘要（可选） 发布检查 这些检查会影响内容可读性、搜索质量和后续 AI 知识沉淀。 3/6 ! 标题清晰 至少 8 个字符，方便搜索和列表快速判断",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/me",
+      "routeName": "me",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "user",
+      "expectedPath": "/me",
+      "finalPath": "/me",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\me-desktop.png",
+      "title": "我的主页 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/me",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 223,
+      "bodyTextSample": "OL OfferLab 技术经验社区 首页 发现 趋势 搜索 发布经验 视 视 视觉验收账号 用于截图验收的技术社区账号 发帖 0 关注 0 粉丝 0 编辑资料 社区成长 L1 · 技术社区新成员，接口暂不可用，当前为本地估算。 0 贡献值 0 发布 0 精选 0 获赞 0 收藏 0 评论 我的发帖 我的收藏 我的点赞 我的关注 关注专题 我的粉丝 还没有发布内容 发布第一篇技术文章、项目复盘或踩坑记录，让主页真正活起来。 去发布",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/mock-interview",
+      "routeName": "mock-interview",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "user",
+      "expectedPath": "/mock-interview",
+      "finalPath": "/mock-interview",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\mock-interview-desktop.png",
+      "title": "个人练习归档 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/mock-interview",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 323,
+      "bodyTextSample": "OL OfferLab 技术经验社区 首页 发现 趋势 搜索 发布经验 视 个人练习归档 知识复盘 从知识库抽取一组知识卡，按复盘节奏作答、计时、自评分，并沉淀一份个人复盘记录。 回到学习空间 复盘统计 0% 还没有知识复盘记录，完成一场后这里会展示平均分、最高分和主题趋势。 历史练习入口 该入口仅用于把旧练习内容沉淀为个人知识卡，不作为社区主路径。 主题方向 应用场景 复盘标签 难度 不限 简单 中等 困难 题数 3 题 5 题 8 ",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/admin/ops",
+      "routeName": "admin-ops",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "admin",
+      "expectedPath": "/admin/ops",
+      "finalPath": "/admin/ops",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\admin-ops-desktop.png",
+      "title": "运维中心 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/admin/ops",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 68,
+      "bodyTextSample": "页面加载失败 这次没有白屏，但页面资源没有加载成功 items.slice is not a function 重新加载 返回首页",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/admin/governance",
+      "routeName": "admin-governance",
+      "viewport": "desktop",
+      "viewportSize": {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000
+      },
+      "auth": "admin",
+      "expectedPath": "/admin/governance",
+      "finalPath": "/admin/governance",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\admin-governance-desktop.png",
+      "title": "治理中心 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/admin/governance",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 90,
+      "bodyTextSample": "页面加载失败 这次没有白屏，但页面资源没有加载成功 backendReviewQueueItems.value.map is not a function 重新加载 返回首页",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "horizontalOverflow": false,
+      "overflowCandidates": [],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/",
+      "routeName": "home",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "public",
+      "expectedPath": "/",
+      "finalPath": "/",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\home-mobile-390.png",
+      "title": "首页 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 286,
+      "bodyTextSample": "OL 技术文章 项目复盘 踩坑记录 沉淀每一次真实工程经验 浏览开发者分享的技术文章、项目复盘、踩坑记录和工具资源，把零散经验沉淀成可复用的知识资产。 发布经验 去发现 今日可读内容 0 热门标签 0 推荐同路人 0 快速搜索 按技术栈、场景或作者定位内容 搜索内容 关注 熟人动态 推荐 高相关内容 最新 新发布 热门 正在升温 精选 人工挑选 结合技术标签、内容结构、互动热度和近期活跃度重排，优先展示更贴近工程场景的经验。 内容频道 ",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [
+        {
+          "selector": ".metric-value",
+          "name": "home metric value",
+          "text": "0",
+          "foreground": "rgb(248, 250, 252)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 17.06,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 84,
+            "height": 20
+          }
+        },
+        {
+          "selector": ".metric-value",
+          "name": "home metric value",
+          "text": "0",
+          "foreground": "rgb(248, 250, 252)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 17.06,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 84,
+            "height": 20
+          }
+        },
+        {
+          "selector": ".metric-value",
+          "name": "home metric value",
+          "text": "0",
+          "foreground": "rgb(248, 250, 252)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 17.06,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 84,
+            "height": 20
+          }
+        },
+        {
+          "selector": ".metric-label",
+          "name": "home metric label",
+          "text": "今日可读内容",
+          "foreground": "rgb(148, 163, 184)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 6.96,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 84,
+            "height": 16
+          }
+        },
+        {
+          "selector": ".metric-label",
+          "name": "home metric label",
+          "text": "热门标签",
+          "foreground": "rgb(148, 163, 184)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 6.96,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 84,
+            "height": 16
+          }
+        },
+        {
+          "selector": ".metric-label",
+          "name": "home metric label",
+          "text": "推荐同路人",
+          "foreground": "rgb(148, 163, 184)",
+          "background": "rgba(0, 0, 0, 0)",
+          "effectiveBackground": "rgb(15 23 42)",
+          "contrastRatio": 6.96,
+          "minContrast": 4.5,
+          "lightSurface": false,
+          "lowContrast": false,
+          "clippedText": false,
+          "box": {
+            "width": 84,
+            "height": 16
+          }
+        }
+      ],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/explore",
+      "routeName": "explore",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "public",
+      "expectedPath": "/explore",
+      "finalPath": "/explore",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\explore-mobile-390.png",
+      "title": "发现 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/explore",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 516,
+      "bodyTextSample": "OL 发现 从技术栈、专题标签、公开作者和最新内容里发现值得收藏的工程经验。 发布内容 关键词 技术栈 场景 搜索内容 内容频道 按社区内容类型进入不同经验流。 热门内容 技术文章 沉淀架构设计、技术方案、源码阅读和工程实践。 0 篇 项目复盘 复盘项目背景、架构取舍、关键问题、结果和经验。 0 篇 踩坑记录 记录排查过程、根因、修复方案和防复发建议。 0 篇 问答求助 提出具体技术问题，补充上下文和已尝试方案。 0 篇 资源分享 分享",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/search?q=Redis",
+      "routeName": "search",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "public",
+      "expectedPath": "/search",
+      "finalPath": "/search",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\search-mobile-390.png",
+      "title": "搜索 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/search?q=Redis&sort=relevance",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 276,
+      "bodyTextSample": "OL 搜索 保存搜索 内容 用户 相关度 最新 热门 筛选 技术栈 场景 内容类型 全部类型 技术文章 项目复盘 踩坑记录 问答求助 资源分享 经验笔记 清空 应用 热门搜索 最近搜索 1/8 Redis 内容 搜索服务 搜索索引未启用，当前使用数据库搜索，结果可能不完整 实时 本次搜索来源：未知 索引可用，按当前筛选和排序返回。 没有匹配的内容 当前关键词或筛选条件较窄，可以清空筛选或换一个热门关键词。 放宽筛选 只看热门内容 换个关",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/questions",
+      "routeName": "questions",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "public",
+      "expectedPath": "/questions",
+      "finalPath": "/questions",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\questions-mobile-390.png",
+      "title": "知识库 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/questions",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 181,
+      "bodyTextSample": "OL 知识库 从社区内容中沉淀的结构化问题，按技术栈、场景和标签快速筛选。 搜索内容 只看待复习 学习中 只看我的错因 只看我的笔记 只看回答卡片 只看 STAR 素材 清除个人筛选 筛选条件 筛选 清空 当前还没有可见题目 知识卡来自公开技术内容和结构化任务；本地演示库为空时，可以先发布技术内容，或去发现页浏览社区内容。 发布内容 去发现 查看学习台",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/editor",
+      "routeName": "editor",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "user",
+      "expectedPath": "/editor",
+      "finalPath": "/editor",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\editor-mobile-390.png",
+      "title": "发布技术经验 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/editor",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 573,
+      "bodyTextSample": "OL 视 ← 返回 发布技术经验 保存草稿 发布 请先补齐：标题清晰、正文完整、技术标签 0 / 200 字符 技术文章 项目复盘 踩坑记录 问答求助 资源分享 经验笔记 内容难度 未选择 入门 中级 进阶 实战 场景 技术栈 摘要（可选） 发布检查 这些检查会影响内容可读性、搜索质量和后续 AI 知识沉淀。 3/6 ! 标题清晰 至少 8 个字符，方便搜索和列表快速判断主题。 ! 正文完整 技术文章正文至少 40 个字符，且不超过 5",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "BUTTON",
+          "className": "content-type-tab px-4 py-3 font-medium text-sm transition-colors border-b-2 text",
+          "text": "资源分享",
+          "right": 448,
+          "width": 81
+        },
+        {
+          "tag": "BUTTON",
+          "className": "content-type-tab px-4 py-3 font-medium text-sm transition-colors border-b-2 text",
+          "text": "经验笔记",
+          "right": 537,
+          "width": 81
+        },
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/me",
+      "routeName": "me",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "user",
+      "expectedPath": "/me",
+      "finalPath": "/me",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\me-mobile-390.png",
+      "title": "我的主页 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/me",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 190,
+      "bodyTextSample": "OL 视 视 视觉验收账号 用于截图验收的技术社区账号 发帖 0 关注 0 粉丝 0 编辑资料 社区成长 L1 · 技术社区新成员，接口暂不可用，当前为本地估算。 0 贡献值 0 发布 0 精选 0 获赞 0 收藏 0 评论 我的发帖 我的收藏 我的点赞 我的关注 关注专题 我的粉丝 还没有发布内容 发布第一篇技术文章、项目复盘或踩坑记录，让主页真正活起来。 去发布",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "BUTTON",
+          "className": "tab-button",
+          "text": "我的关注",
+          "right": 453,
+          "width": 103
+        },
+        {
+          "tag": "BUTTON",
+          "className": "tab-button",
+          "text": "关注专题",
+          "right": 564,
+          "width": 103
+        },
+        {
+          "tag": "BUTTON",
+          "className": "tab-button",
+          "text": "我的粉丝",
+          "right": 675,
+          "width": 103
+        },
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/mock-interview",
+      "routeName": "mock-interview",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "user",
+      "expectedPath": "/mock-interview",
+      "finalPath": "/mock-interview",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\mock-interview-mobile-390.png",
+      "title": "个人练习归档 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/mock-interview",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 290,
+      "bodyTextSample": "OL 视 个人练习归档 知识复盘 从知识库抽取一组知识卡，按复盘节奏作答、计时、自评分，并沉淀一份个人复盘记录。 回到学习空间 复盘统计 0% 还没有知识复盘记录，完成一场后这里会展示平均分、最高分和主题趋势。 历史练习入口 该入口仅用于把旧练习内容沉淀为个人知识卡，不作为社区主路径。 主题方向 应用场景 复盘标签 难度 不限 简单 中等 困难 题数 3 题 5 题 8 题 开始知识复盘 最近记录 刷新 还没有练习记录，先开始一场吧。 ",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/admin/ops",
+      "routeName": "admin-ops",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "admin",
+      "expectedPath": "/admin/ops",
+      "finalPath": "/admin/ops",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\admin-ops-mobile-390.png",
+      "title": "运维中心 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/admin/ops",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 68,
+      "bodyTextSample": "页面加载失败 这次没有白屏，但页面资源没有加载成功 items.slice is not a function 重新加载 返回首页",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    },
+    {
+      "route": "/admin/governance",
+      "routeName": "admin-governance",
+      "viewport": "mobile-390",
+      "viewportSize": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 900
+      },
+      "auth": "admin",
+      "expectedPath": "/admin/governance",
+      "finalPath": "/admin/governance",
+      "unexpectedRoute": false,
+      "screenshotPath": "visual-snapshots\\admin-governance-mobile-390.png",
+      "title": "治理中心 - OfferLab 技术社区",
+      "finalUrl": "http://127.0.0.1:5173/admin/governance",
+      "requestedTheme": "dark",
+      "darkMode": true,
+      "bodyChars": 90,
+      "bodyTextSample": "页面加载失败 这次没有白屏，但页面资源没有加载成功 backendReviewQueueItems.value.map is not a function 重新加载 返回首页",
+      "mojibakeHits": [],
+      "hasAppRoot": true,
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "horizontalOverflow": false,
+      "overflowCandidates": [
+        {
+          "tag": "OL",
+          "className": "",
+          "text": "",
+          "right": 406,
+          "width": 390
+        }
+      ],
+      "keyComponentChecks": [],
+      "keyComponentFailures": []
+    }
+  ]
+}

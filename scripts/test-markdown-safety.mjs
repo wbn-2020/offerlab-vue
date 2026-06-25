@@ -22,7 +22,7 @@ const sandbox = {
 }
 vm.runInNewContext(compiled.outputText, sandbox)
 
-const { renderMarkdown } = sandbox.exports
+const { renderMarkdown, sanitizeMarkdownHtml } = sandbox.exports
 
 const html = renderMarkdown('<img src=x onerror=alert(1)> [bad](javascript:alert(1)) [ok](https://offerlab.example)')
 
@@ -33,6 +33,22 @@ assert.match(html, /&lt;img/)
 assert.match(html, /href="https:\/\/offerlab\.example"/)
 assert.match(html, /target="_blank"/)
 assert.match(html, /rel="noopener noreferrer nofollow"/)
+
+const pluginHtml = sanitizeMarkdownHtml(`
+  <p>safe</p>
+  <script>alert(1)</script>
+  <a href="java&#x73;cript:alert(1)" onclick="alert(1)">bad</a>
+  <a href="mailto:team@offerlab.example" onmouseover="alert(1)">mail</a>
+  <img src="javascript:alert(1)" onerror="alert(1)" alt="bad">
+`)
+
+assert.match(pluginHtml, /<p>safe<\/p>/)
+assert.doesNotMatch(pluginHtml, /<script/i)
+assert.doesNotMatch(pluginHtml, /alert\(1\)/i)
+assert.doesNotMatch(pluginHtml, /on(?:click|mouseover|error)=/i)
+assert.doesNotMatch(pluginHtml, /href="javascript:/i)
+assert.doesNotMatch(pluginHtml, /src="javascript:/i)
+assert.match(pluginHtml, /href="mailto:team@offerlab\.example"/)
 
 const postCard = fs.readFileSync(new URL('../src/components/post/PostCard.vue', import.meta.url), 'utf8')
 assert.match(postCard, /escapeHtml\(highlight\)/, 'Search highlight HTML must be escaped before rendering')

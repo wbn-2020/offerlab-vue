@@ -301,7 +301,7 @@ void props.postId
   color: rgb(79 70 229);
 }
 
-:global(.dark) .comment-action {
+.dark .comment-action {
   color: rgb(148 163 184);
 }
 </style>

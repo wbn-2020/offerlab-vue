@@ -78,17 +78,17 @@ defineEmits<{
   color: rgb(100 116 139);
 }
 
-:global(.dark) .panel,
-:global(.dark) .mini-button {
+.dark .panel,
+.dark .mini-button {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
 }
 
-:global(.dark) .panel-title {
+.dark .panel-title {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .recent-item {
+.dark .recent-item {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
 }
