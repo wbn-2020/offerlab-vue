@@ -1,6 +1,7 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { opsApi } from '@/api/ops'
+import { applyPageSeo } from '@/utils/seo'
 import {
   adminPermissionRequirementText,
   createAdminPermissionCache,
@@ -58,6 +59,6 @@ export function setupRouterGuards(router: Router) {
 
   router.afterEach((to) => {
     const title = to.meta.title as string
-    document.title = title ? `${title} - OfferLab 技术社区` : 'OfferLab 技术社区'
+    applyPageSeo({ title })
   })
 }

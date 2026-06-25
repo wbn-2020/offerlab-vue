@@ -243,6 +243,7 @@ import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
+import { notificationApi } from '@/api/notification'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { userApi, type PrivacySetting } from '@/api/user'
@@ -326,7 +327,7 @@ const canSubmitPassword = computed(() => Boolean(
 const loadPrivacy = async () => {
   isPrivacyLoading.value = true
   try {
-    const res = await userApi.getPrivacySettings()
+    const res = await notificationApi.getPreferences()
     if (res.data) {
       privacyForm.value = { ...defaultPrivacySetting(), ...res.data }
     }
@@ -460,7 +461,7 @@ const updateIntent = async (intentData: any) => {
 const updatePrivacy = async () => {
   isUpdatingPrivacy.value = true
   try {
-    const res = await userApi.updatePrivacySettings(privacyForm.value)
+    const res = await notificationApi.updatePreferences(privacyForm.value)
     if (res.data) {
       privacyForm.value = { ...defaultPrivacySetting(), ...res.data }
     }

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const composable = readFileSync(new URL('../src/composables/usePostInteraction.ts', import.meta.url), 'utf8')
+const loginRedirect = readFileSync(new URL('../src/composables/useLoginRedirect.ts', import.meta.url), 'utf8')
 const postCard = readFileSync(new URL('../src/components/post/PostCard.vue', import.meta.url), 'utf8')
 const interactionBar = readFileSync(new URL('../src/components/post/InteractionBar.vue', import.meta.url), 'utf8')
 const commentTree = readFileSync(new URL('../src/components/post/CommentTree.vue', import.meta.url), 'utf8')
@@ -11,8 +12,13 @@ const search = readFileSync(new URL('../src/views/SearchView.vue', import.meta.u
 const tagDetail = readFileSync(new URL('../src/views/TagDetailView.vue', import.meta.url), 'utf8')
 const meProfile = readFileSync(new URL('../src/views/MeProfileView.vue', import.meta.url), 'utf8')
 
+assert.match(loginRedirect, /query: \{ redirect \ }|query: \{ redirect \}/, 'login redirect helper must keep the target route')
+assert.match(composable, /useLoginRedirect/, 'post interaction composable must use the shared login redirect helper')
+assert.match(composable, /const \{ requireLogin \} = useLoginRedirect\(\)/, 'post interaction composable must acquire the shared login gate')
 assert.match(composable, /pendingActions\s*=\s*ref\(new Set<string>\(\)\)/, 'post interaction composable must keep per-action pending state')
-assert.match(composable, /if \(!startAction\(key\)\) return false/, 'post interaction composable must block duplicate actions')
+assert.match(composable, /if \(!requireLogin\(\)\) return false[\s\S]*if \(!startAction\(key\)\) return false/, 'anonymous users must be gated before optimistic like/favorite updates begin')
+assert.match(composable, /const toggleLike = async \(post: Post\) => \{[\s\S]*if \(!requireLogin\(\)\) return false[\s\S]*liked \? await interactionApi\.unlike\(post\.postId\) : await interactionApi\.like\(post\.postId\)/, 'like flow must login-gate before sending a request')
+assert.match(composable, /const toggleFavorite = async \(post: Post\) => \{[\s\S]*if \(!requireLogin\(\)\) return false[\s\S]*favorited \? await interactionApi\.unfavorite\(post\.postId\) : await interactionApi\.favorite\(post\.postId\)/, 'favorite flow must login-gate before sending a request')
 assert.match(composable, /isActionPending/, 'post interaction composable must expose pending status to views')
 
 assert.match(postCard, /likePending\?: boolean/, 'PostCard must accept a like pending prop')

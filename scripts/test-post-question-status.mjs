@@ -5,7 +5,11 @@ const block = readFileSync(new URL('../src/components/question/PostQuestionBlock
 const detail = readFileSync(new URL('../src/views/PostDetailView.vue', import.meta.url), 'utf8')
 const api = readFileSync(new URL('../src/api/question.ts', import.meta.url), 'utf8')
 
-assert.match(detail, /<PostQuestionBlock :post-id="post\.postId" \/>/, 'post detail must render the knowledge structuring block for community content')
+assert.match(
+  detail,
+  /<PostQuestionBlock[^>]*v-if="showStageTwoDetailPanels"[^>]*:post-id="post\.postId"[^>]*\/>/,
+  'post detail must keep the knowledge structuring block wired behind the later-phase detail panel gate',
+)
 assert.match(detail, /知识资产路径/, 'post detail must show how a post becomes a reusable knowledge asset')
 assert.match(detail, /从经验帖到可复用知识/, 'post detail must connect posts to long-term knowledge reuse')
 assert.match(detail, /knowledgePathSteps = computed/, 'post detail must derive visible knowledge-asset path steps')

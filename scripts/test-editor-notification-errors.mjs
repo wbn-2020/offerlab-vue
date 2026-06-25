@@ -45,9 +45,9 @@ assert.match(login, /router\.replace\(safeRedirect\(route\.query\.redirect\)\)/,
 assert.match(navigation, /\^\\\/\(\?:login\|register\)/, 'shared navigation guard must not redirect authenticated users back to auth pages')
 assert.match(login, /authStore\.isLoggedIn/, 'LoginView must redirect already authenticated visitors away from login')
 
-assert.match(adapters, /notificationHeading\(type, content, sender\?\.nickname\)/, 'notification adapter must derive titles from system content')
+assert.match(adapters, /notificationHeading\(type, content, sender\?\.nickname(?:, aggregateCount)?\)/, 'notification adapter must derive titles from system content')
 assert.match(adapters, /question_extract_succeeded/, 'question extraction success notifications must have a dedicated frontend message')
 assert.match(adapters, /question_extract_failed/, 'question extraction failure notifications must have a dedicated frontend message')
-assert.match(adapters, /notificationContent\(type, content, sender\?\.nickname\)/, 'notification adapter must render system notification content')
+assert.match(adapters, /notificationContent\(type, content, sender\?\.nickname(?:, aggregateCount)?\)/, 'notification adapter must render system notification content')
 
 console.log('editor and notification error guard passed')

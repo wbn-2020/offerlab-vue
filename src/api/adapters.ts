@@ -301,6 +301,8 @@ export function adaptCommentReport(raw: any): CommentReport {
 export function adaptNotification(raw: any): Notification {
   const content = typeof raw?.content === 'object' && raw.content ? raw.content : {}
   const type = raw?.type ?? 'system'
+  const aggregateCount = Number((raw?.aggregateCount ?? content.aggregateCount) || 0)
+  const unreadCount = Number(raw?.unreadCount ?? content.unreadCount ?? ((raw?.read ?? raw?.isRead) ? 0 : 1))
   const targetId = raw?.targetId ?? content.postId ?? content.commentId ?? content.userId
   const postId = content.postId ?? (
     (type === 'system' && content.action === 'topic_post_published')
@@ -316,14 +318,17 @@ export function adaptNotification(raw: any): Notification {
   const sender = raw?.sender ? adaptUser(raw.sender) : undefined
   return {
     notificationId: adaptId(raw?.notificationId ?? raw?.id),
+    notificationIds: Array.isArray(raw?.notificationIds) ? raw.notificationIds.map(adaptId) : undefined,
     type,
-    title: notificationHeading(type, content, sender?.nickname),
-    content: notificationContent(type, content, sender?.nickname),
+    title: notificationHeading(type, content, sender?.nickname, aggregateCount),
+    content: notificationContent(type, content, sender?.nickname, aggregateCount),
     sender,
     senderUid: raw?.senderUid ? adaptId(raw.senderUid) : undefined,
     relatedId: targetId ? adaptId(targetId) : undefined,
     targetPath: targetPath ?? (userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined),
     read: Boolean(raw?.read ?? raw?.isRead ?? false),
+    aggregateCount: aggregateCount > 1 ? aggregateCount : undefined,
+    unreadCount,
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
   }
 }
@@ -332,15 +337,17 @@ function displayName(name?: string): string {
   return sanitizeVisibleText(name, '有人')
 }
 
-function notificationHeading(type: string, content: Record<string, any>, senderName?: string): string {
+function notificationHeading(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {
   if (type === 'system' && content.action === 'question_extract_succeeded') return '题目已整理完成'
   if (type === 'system' && content.action === 'question_extract_failed') return '题目整理失败'
   if (type === 'system' && content.action === 'topic_post_published') return '关注专题有新内容'
-  return notificationTitle(type, senderName)
+  return notificationTitle(type, senderName, aggregateCount)
 }
 
-function notificationTitle(type: string, senderName?: string): string {
+function notificationTitle(type: string, senderName?: string, aggregateCount = 0): string {
   const name = displayName(senderName)
+  if (aggregateCount > 1 && type === 'like') return `${name}等 ${aggregateCount} 人点赞了你`
+  if (aggregateCount > 1 && type === 'favorite') return `${name}等 ${aggregateCount} 人收藏了你`
   switch (type) {
     case 'like':
       return `${name}点赞了你`
@@ -357,7 +364,7 @@ function notificationTitle(type: string, senderName?: string): string {
   }
 }
 
-function notificationContent(type: string, content: Record<string, any>, senderName?: string): string {
+function notificationContent(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {
   if (type === 'system' && content.action === 'question_extract_succeeded') {
     const count = Number(content.questionCount || 0)
     const postTitle = sanitizeVisibleText(content.postTitle)
@@ -376,11 +383,19 @@ function notificationContent(type: string, content: Record<string, any>, senderN
     const title = rawPostTitle ? `《${rawPostTitle}》` : '一篇新内容'
     return `${topicName}更新了：${title}`
   }
-  return notificationText(type, content, senderName)
+  return notificationText(type, content, senderName, aggregateCount)
 }
 
-function notificationText(type: string, content: Record<string, any>, senderName?: string): string {
+function notificationText(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {
   const name = displayName(senderName)
+  if (aggregateCount > 1 && type === 'like') {
+    return content.targetType === 2
+      ? `最近 30 分钟内有 ${aggregateCount} 次点赞落在你的评论上`
+      : `最近 30 分钟内有 ${aggregateCount} 次点赞落在你的帖子上`
+  }
+  if (aggregateCount > 1 && type === 'favorite') {
+    return `最近 30 分钟内有 ${aggregateCount} 次收藏落在你的帖子上`
+  }
   switch (type) {
     case 'like':
       return content.targetType === 2 ? `${name}点赞了你的评论` : `${name}点赞了你的帖子`

@@ -23,6 +23,13 @@ function adminPermissionsFor(path) {
   return [...match[1].matchAll(/'([^']+)'/g)].map((permission) => permission[1])
 }
 
+const expectedRouteTitles = {
+  '/growth/profile': '成长档案',
+  '/growth/report': '成长周报月报',
+  '/knowledge/explore': '知识关系探索',
+  '/certification/apply': '专家认证试点',
+}
+
 const adminRoles = ['ops', 'questionOperator', 'contentModerator', 'domainModerator', 'admin']
 const adminRouteAccess = {
   '/admin': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
@@ -43,6 +50,10 @@ assert.ok(routeTitles.length >= 20, 'router must declare visible page titles for
 for (const title of routeTitles) {
   assert.doesNotMatch(title, mojibakeTitleMarkers, `route title must not contain mojibake markers: ${title}`)
   assert.doesNotMatch(title, /\?{2,}/, `route title must not contain placeholder question marks: ${title}`)
+}
+
+for (const [path, title] of Object.entries(expectedRouteTitles)) {
+  assert.match(routeBlock(path), new RegExp(`title:\\s*'${title}'`), `${path} must keep the expected visible route title`)
 }
 
 assert.deepEqual(routedAdminPaths, Object.keys(adminRouteAccess).sort(), 'every admin route must be covered by the access matrix')
@@ -125,6 +136,8 @@ assert.match(editor, /当前账号不是这篇帖子的作者/, 'EditorView must
 assert.match(editor, /code === 10403 \|\| code === 403/, 'EditorView must treat both business and HTTP forbidden errors as blocked edits')
 assert.match(editor, /String\(post\.author\?\.uid[\s\S]*redirectForbiddenEdit\(\)/, 'EditorView must show the forbidden edit state for non-owner posts')
 assert.match(editor, /isForbiddenEdit\.value = true/, 'EditorView forbidden redirect must stay on a visible explanation state')
+assert.match(routeBlock('/editor'), /title:\s*'发布社区内容'/, '/editor title must use the phase-1 comprehensive community positioning')
+assert.match(routeBlock('/editor/:id'), /title:\s*'编辑社区内容'/, '/editor/:id title must use the phase-1 comprehensive community positioning')
 
 const forbidden = readFileSync(new URL('../src/views/ForbiddenView.vue', import.meta.url), 'utf8')
 assert.match(forbidden, /useAuthStore/, 'ForbiddenView must distinguish unauthenticated users from logged-in users without enough permission')

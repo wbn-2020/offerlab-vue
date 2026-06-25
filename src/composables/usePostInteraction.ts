@@ -3,11 +3,13 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { interactionApi } from '@/api/interaction'
 import type { ApiId, Post } from '@/api/types'
+import { useLoginRedirect } from '@/composables/useLoginRedirect'
 
 type PostUpdater = (postId: ApiId, updater: (post: Post) => void) => void
 
 export function usePostInteraction(updatePost: PostUpdater) {
   const pendingActions = ref(new Set<string>())
+  const { requireLogin } = useLoginRedirect()
 
   const actionKey = (kind: 'like' | 'favorite', postId: ApiId) => `${kind}:${postId}`
   const startAction = (key: string) => {
@@ -24,6 +26,7 @@ export function usePostInteraction(updatePost: PostUpdater) {
 
   const toggleLike = async (post: Post) => {
     const key = actionKey('like', post.postId)
+    if (!requireLogin()) return false
     if (!startAction(key)) return false
     const liked = Boolean(post.myInteraction?.liked)
     updatePost(post.postId, (item) => {
@@ -47,6 +50,7 @@ export function usePostInteraction(updatePost: PostUpdater) {
 
   const toggleFavorite = async (post: Post) => {
     const key = actionKey('favorite', post.postId)
+    if (!requireLogin()) return false
     if (!startAction(key)) return false
     const favorited = Boolean(post.myInteraction?.favorited)
     updatePost(post.postId, (item) => {

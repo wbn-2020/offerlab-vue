@@ -50,6 +50,13 @@
           </div>
 
           <div class="mark-read-actions">
+            <RouterLink
+              to="/me/settings"
+              class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <Bell class="h-4 w-4" />
+              通知偏好
+            </RouterLink>
             <button
               type="button"
               @click="markAllAsRead"
@@ -125,7 +132,7 @@
             <button
               v-if="!notif.read"
               type="button"
-              @click.stop="markAsRead(notif.notificationId)"
+              @click.stop="markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId])"
               :disabled="isMutating"
               class="notification-read-button flex-shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
             >
@@ -284,9 +291,10 @@ const applyReadLocally = (id: ApiId) => {
   notifications.value = notifications.value.map(item =>
     item.notificationId === id ? { ...item, read: true } : item
   )
-  const nextUnread = { ...unread.value, total: Math.max(0, unread.value.total - 1) }
+  const unreadDelta = original.unreadCount || 1
+  const nextUnread = { ...unread.value, total: Math.max(0, unread.value.total - unreadDelta) }
   if (isNotificationUnreadKey(original.type)) {
-    nextUnread[original.type] = Math.max(0, nextUnread[original.type] - 1)
+    nextUnread[original.type] = Math.max(0, nextUnread[original.type] - unreadDelta)
   }
   syncUnread(nextUnread)
   return original
@@ -298,11 +306,11 @@ const restoreReadLocally = (original: Notification) => {
   )
 }
 
-const markAsRead = async (id: ApiId, options: MarkReadOptions = {}) => {
+const markAsRead = async (id: ApiId, ids: ApiId[] = [id], options: MarkReadOptions = {}) => {
   if (!options.background) isMutating.value = true
   const original = applyReadLocally(id)
   try {
-    await notificationApi.markAsRead([id])
+    await notificationApi.markAsRead(ids)
     await loadUnread()
   } catch (error) {
     if (original) restoreReadLocally(original)
@@ -330,10 +338,10 @@ const markAllAsRead = async () => {
 const openNotification = (notif: Notification) => {
   if (notif.targetPath) {
     router.push(notif.targetPath)
-    if (!notif.read) void markAsRead(notif.notificationId, { background: true })
+    if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId], { background: true })
     return
   }
-  if (!notif.read) void markAsRead(notif.notificationId)
+  if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId])
 }
 
 const notificationActionLabel = (notif: Notification) => {

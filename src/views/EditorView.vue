@@ -12,7 +12,7 @@
             ← 返回
           </button>
           <h1 class="editor-heading text-xl font-bold text-slate-900 dark:text-slate-100">
-            {{ isEditing ? '编辑技术经验' : '发布技术经验' }}
+            {{ isEditing ? '编辑社区内容' : '发布社区内容' }}
           </h1>
         </div>
         <div class="editor-toolbar-actions flex flex-wrap items-center justify-end gap-3">
@@ -126,10 +126,14 @@
             v-model="selectedDomain"
             class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <option v-for="d in DOMAIN_OPTIONS" :key="d.value" :value="d.value">
-              {{ d.icon }} {{ d.label }} — {{ d.description }}
+            <option v-for="d in editorDomainOptions" :key="d.domain" :value="d.domain">
+              {{ d.icon }} {{ d.domainName }} — {{ d.description }}
             </option>
           </select>
+          <p class="domain-source-note">
+            <span>{{ editorDomainSourceSummary }}</span>
+            <span v-if="selectedDomainMeta?.postingNotice"> · {{ selectedDomainMeta.postingNotice }}</span>
+          </p>
         </div>
 
         <section v-if="selectedDomain === DOMAIN.CAREER" class="anonymous-career-toggle mx-4">
@@ -155,7 +159,7 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-sm font-extrabold text-slate-900 dark:text-slate-100">发布检查</h2>
-              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">这些检查会影响内容可读性、搜索质量和后续 AI 知识沉淀。</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">这些检查会影响内容可读性、社区检索与后续公开展示。</p>
             </div>
             <span :class="['quality-score', blockingQualityIssues.length ? 'quality-score-warn' : 'quality-score-ok']">
               {{ passedQualityCount }}/{{ qualityChecks.length }}
@@ -172,7 +176,154 @@
           </div>
         </section>
 
-        <section class="knowledge-assist mx-4">
+        <section class="stage3-assist-panel mx-4">
+          <div class="stage3-assist-head">
+            <div>
+              <p class="stage3-assist-kicker">阶段 3 发布体验</p>
+              <h2>写作助手</h2>
+              <p>{{ stageThreeAssistHeadline }}</p>
+            </div>
+            <div class="stage3-assist-head-actions">
+              <span :class="['assist-status-pill', `assist-status-${stageThreeAssistStatus}`]">
+                {{ stageThreeAssistStatusLabel }}
+              </span>
+              <button type="button" class="assist-head-button" @click="toggleAssistPanelEnabled">
+                {{ assistPanelEnabled ? '关闭 AI' : '开启 AI' }}
+              </button>
+              <button
+                type="button"
+                class="assist-head-button"
+                :disabled="!authStore.isLoggedIn || !assistPanelEnabled || isStageThreeAssistLoading"
+                @click="loadStageThreeAssist(true)"
+              >
+                {{ isStageThreeAssistLoading ? '加载中...' : '刷新建议' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!authStore.isLoggedIn" class="stage3-assist-state">
+            <strong>未登录</strong>
+            <p>登录后可获得写作助手、质量评分、标签/话题建议和系列归属建议。</p>
+          </div>
+          <div v-else-if="!assistPanelEnabled" class="stage3-assist-state">
+            <strong>AI 已关闭</strong>
+            <p>当前仅保留发布检查、草稿保护和手动填写流程；你可以随时重新开启建议。</p>
+          </div>
+          <div v-else-if="isStageThreeAssistLoading" class="stage3-assist-state">
+            <strong>加载中...</strong>
+            <p>正在生成写作助手、质量评分和系列归属建议。</p>
+          </div>
+          <div v-else-if="stageThreeAssistStatus === 'failed'" class="stage3-assist-state stage3-assist-state-error">
+            <strong>建议暂时不可用</strong>
+            <p>{{ stageThreeAssistError || '当前建议加载失败，你仍然可以继续编辑并依赖现有发布检查。' }}</p>
+          </div>
+          <div v-else class="stage3-assist-grid">
+            <article class="stage3-card">
+              <div class="stage3-card-head">
+                <strong>写作助手</strong>
+                <span v-if="stageThreeAssistStatus === 'degraded'">规则降级</span>
+              </div>
+              <p class="stage3-card-copy">{{ assistSummaryText }}</p>
+              <div class="stage3-actions">
+                <button type="button" :disabled="!assistSummaryText" @click="applyAssistSummary">
+                  {{ assistSummaryAdopted ? '已采纳摘要建议' : '采纳摘要建议' }}
+                </button>
+                <button type="button" @click="copyKnowledgeAssist">复制辅助草稿</button>
+              </div>
+            </article>
+
+            <article class="stage3-card">
+              <div class="stage3-card-head">
+                <strong>质量评分</strong>
+                <span class="stage3-quality-badge">{{ qualityScoreValue }}</span>
+              </div>
+              <p class="stage3-card-copy">{{ qualityScoreLabel }} · {{ qualityScoreReason }}</p>
+              <div class="stage3-metric-list">
+                <div v-for="metric in assistQualityMetrics" :key="metric.label" class="stage3-metric-row">
+                  <div>
+                    <strong>{{ metric.label }}</strong>
+                    <p>{{ metric.detail }}</p>
+                  </div>
+                  <span>{{ metric.score }}</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="stage3-card">
+              <div class="stage3-card-head">
+                <strong>标签建议</strong>
+                <span>{{ displayTagSuggestions.length }} 条</span>
+              </div>
+              <div v-if="displayTagSuggestions.length" class="stage3-chip-list">
+                <button
+                  v-for="item in displayTagSuggestions"
+                  :key="item.id"
+                  type="button"
+                  :class="['stage3-chip', item.adopted ? 'stage3-chip-adopted' : '']"
+                  @click="applyTagSuggestion(item)"
+                >
+                  <span>{{ item.label }}</span>
+                  <small>{{ item.adopted ? '已采纳' : '采纳' }}</small>
+                </button>
+              </div>
+              <p v-else class="stage3-empty-copy">继续补充正文后，这里会出现更贴合内容的标签建议。</p>
+            </article>
+
+            <article class="stage3-card">
+              <div class="stage3-card-head">
+                <strong>话题建议</strong>
+                <span>{{ displayTopicSuggestions.length }} 条</span>
+              </div>
+              <div v-if="displayTopicSuggestions.length" class="stage3-chip-list">
+                <button
+                  v-for="item in displayTopicSuggestions"
+                  :key="item.id"
+                  type="button"
+                  :class="['stage3-chip', item.adopted ? 'stage3-chip-adopted' : '']"
+                  @click="applyTopicSuggestion(item)"
+                >
+                  <span>{{ item.label }}</span>
+                  <small>{{ item.adopted ? '已采纳' : '采纳' }}</small>
+                </button>
+              </div>
+              <div v-if="selectedTopicNames.length" class="stage3-selected-list">
+                <span v-for="topic in selectedTopicNames" :key="topic" class="stage3-selected-pill">
+                  {{ topic }}
+                  <button type="button" @click="removeTopicSuggestion(topic)">×</button>
+                </span>
+              </div>
+              <p v-else class="stage3-empty-copy">话题建议会帮助首页、发现页和系列工作台更快聚合同主题内容。</p>
+            </article>
+
+            <article class="stage3-card stage3-card-series">
+              <div class="stage3-card-head">
+                <strong>系列归属</strong>
+                <RouterLink to="/series/workbench">系列工作台</RouterLink>
+              </div>
+              <select
+                v-model="selectedSeriesId"
+                class="stage3-series-select"
+                :disabled="isSeriesLoading"
+              >
+                <option value="">暂不归入系列</option>
+                <option v-for="item in seriesRecords" :key="item.id" :value="item.id">
+                  {{ item.title }} · {{ item.progress.label }}
+                </option>
+              </select>
+              <p class="stage3-card-copy">
+                {{ selectedSeriesRecord ? selectedSeriesRecord.progress.label : '未归档到系列，适合单篇独立发布。' }}
+              </p>
+              <div v-if="assistSeriesHints.length" class="stage3-hint-list">
+                <span v-for="item in assistSeriesHints" :key="`${item.id || 'new'}-${item.title}`">
+                  {{ item.title }}<small>{{ item.progressText }}</small>
+                </span>
+              </div>
+              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">系列列表当前来自本地 fallback，未依赖真实后端。</p>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="showStageTwoPublishingAssist" class="knowledge-assist mx-4">
           <div class="knowledge-assist-head">
             <div>
               <h2>知识沉淀辅助</h2>
@@ -288,7 +439,11 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownEditor from '@/components/post/MarkdownEditor.vue'
 import PostMeta from '@/components/post/PostMeta.vue'
 import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
+import { contentAssistApi, type ContentAssistRequest } from '@/api/contentAssist'
+import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
+import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { postApi, type PostDraft } from '@/api/post'
+import type { ContentAssistQualityMetric, ContentAssistResult, ContentAssistSuggestion } from '@/api/types'
 import { toast } from 'vue-sonner'
 import { safeStorage } from '@/utils/safeStorage'
 import { hasLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
@@ -358,9 +513,22 @@ const serverDraftId = ref('')
 const selectedDraftId = ref('')
 const serverDrafts = ref<PostDraft[]>([])
 const lastDraftSignature = ref('')
+const showStageTwoPublishingAssist = false
+const editorDomains = ref<PublicDomainConfig[]>([...localDomainConfigs])
+const domainSource = ref<DomainConfigSource>('fallback')
+const seriesRecords = ref<ContentSeriesRecord[]>([])
+const seriesSource = ref<'remote' | 'fallback'>('fallback')
+const isSeriesLoading = ref(false)
+const selectedSeriesId = ref('')
+const assistPanelEnabled = ref(true)
+const stageThreeAssist = ref<ContentAssistResult | null>(null)
+const isStageThreeAssistLoading = ref(false)
+const stageThreeAssistError = ref('')
 const draftOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const fallbackReturnPath = computed(() => authStore.isLoggedIn ? '/me' : '/')
+const stageThreeAssistPreferenceKey = computed(() => `editor_stage3_assist:${draftOwner.value}`)
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let stageThreeAssistTimer: ReturnType<typeof setTimeout> | null = null
 
 type QualityCheck = {
   key: string
@@ -657,9 +825,295 @@ const knowledgeAssistMarkdown = computed(() => [
   knowledgeCardHint.value,
 ].join('\n'))
 
+const topicNamesFromExtension = (value: Record<string, any>) => {
+  const raw = Array.isArray(value.topicNames)
+    ? value.topicNames
+    : Array.isArray(value.topics)
+      ? value.topics
+      : []
+  return raw.map((item) => sanitizeVisibleText(item)).filter(Boolean)
+}
+
+const editorDomainOptions = computed(() => editorDomains.value.length ? editorDomains.value : localDomainConfigs)
+const selectedDomainMeta = computed(() => (
+  editorDomainOptions.value.find((item) => Number(item.domain) === Number(selectedDomain.value))
+  ?? localDomainConfigs.find((item) => Number(item.domain) === Number(selectedDomain.value))
+  ?? localDomainConfigs[0]
+))
+const editorDomainSourceSummary = computed(() => (
+  domainSource.value === 'remote'
+    ? `领域来源已同步 /api/v1/domains · 当前 ${selectedDomainMeta.value?.domainName || '技术'}`
+    : `接口暂未返回，当前使用本地 fallback · 当前 ${selectedDomainMeta.value?.domainName || '技术'}`
+))
+const selectedTopicNames = computed(() => topicNamesFromExtension(extensionValue.value))
+const selectedSeriesRecord = computed(() => (
+  seriesRecords.value.find((item) => String(item.id) === String(selectedSeriesId.value)) || null
+))
+const assistSummaryText = computed(() => stageThreeAssist.value?.summary || knowledgeSummary.value)
+const assistSummaryAdopted = computed(() => {
+  const currentSummary = sanitizeVisibleText(extensionValue.value.summary)
+  return Boolean(currentSummary && currentSummary === assistSummaryText.value)
+})
+const fallbackQualityScore = computed(() => {
+  const ratio = passedQualityCount.value / Math.max(qualityChecks.value.length, 1)
+  const tagBonus = Math.min(12, normalizedTags.value.length * 4)
+  const structureBonus = Math.min(10, structuredQualityChecks.value.filter((item) => item.passed).length * 2.5)
+  return Math.max(28, Math.min(100, Math.round(ratio * 78 + tagBonus + structureBonus)))
+})
+const fallbackAssistQualityMetrics = computed<ContentAssistQualityMetric[]>(() => qualityChecks.value.slice(0, 4).map((item) => ({
+  label: item.title,
+  score: item.passed ? 100 : item.required ? 42 : 66,
+  detail: item.description,
+})))
+const assistQualityMetrics = computed<ContentAssistQualityMetric[]>(() => (
+  stageThreeAssist.value?.qualityMetrics?.length
+    ? stageThreeAssist.value.qualityMetrics
+    : fallbackAssistQualityMetrics.value
+))
+const qualityScoreValue = computed(() => stageThreeAssist.value?.qualityScore ?? fallbackQualityScore.value)
+const qualityScoreLabel = computed(() => {
+  if (stageThreeAssist.value?.qualityLabel) return stageThreeAssist.value.qualityLabel
+  if (qualityScoreValue.value >= 85) return '可直接发布'
+  if (qualityScoreValue.value >= 65) return '再补一轮'
+  return '建议补充'
+})
+const qualityScoreReason = computed(() => (
+  stageThreeAssist.value?.qualityReason
+  || (qualityScoreValue.value >= 85
+    ? '关键信息较完整，发布后也适合纳入系列沉淀。'
+    : qualityScoreValue.value >= 65
+      ? '结构已成型，补一轮标签或结果会更稳。'
+      : '建议先补背景、步骤和结论，再进入发布。')
+))
+const displayTagSuggestions = computed(() => (stageThreeAssist.value?.tagSuggestions || []).map((item) => ({
+  ...item,
+  adopted: normalizedTags.value.some((tag) => tag.toLowerCase() === item.label.toLowerCase()),
+})))
+const displayTopicSuggestions = computed(() => (stageThreeAssist.value?.topicSuggestions || []).map((item) => ({
+  ...item,
+  adopted: selectedTopicNames.value.some((topic) => topic.toLowerCase() === item.label.toLowerCase()),
+})))
+const assistSeriesHints = computed(() => stageThreeAssist.value?.seriesHints || [])
+const stageThreeAssistStatus = computed(() => {
+  if (!authStore.isLoggedIn) return 'unauthenticated'
+  if (!assistPanelEnabled.value) return 'disabled'
+  if (isStageThreeAssistLoading.value) return 'loading'
+  if (stageThreeAssist.value?.status === 'degraded') return 'degraded'
+  if (stageThreeAssist.value?.status === 'failed' || stageThreeAssistError.value) return 'failed'
+  return 'ready'
+})
+const stageThreeAssistStatusLabel = computed(() => {
+  if (stageThreeAssistStatus.value === 'unauthenticated') return '未登录'
+  if (stageThreeAssistStatus.value === 'disabled') return 'AI关闭'
+  if (stageThreeAssistStatus.value === 'loading') return '加载中'
+  if (stageThreeAssistStatus.value === 'degraded') return '规则降级'
+  if (stageThreeAssistStatus.value === 'failed') return '加载失败'
+  return '建议采纳'
+})
+const stageThreeAssistHeadline = computed(() => {
+  if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和系列工作台联动。'
+  if (stageThreeAssistStatus.value === 'disabled') return '当前为手动模式，保留发布检查、草稿保护和系列选择。'
+  if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成阶段 3 建议。'
+  if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || 'AI 接口未返回结果，当前使用本地规则降级建议。'
+  if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
+  return '围绕写作助手、质量评分、标签/话题建议和系列归属整理发布前动作。'
+})
+
 const clearFieldErrors = () => {
   fieldErrors.value = {}
   publishFailure.value = null
+}
+
+const applyEditorExtension = (updates: Record<string, unknown>) => {
+  const nextExtension: Record<string, unknown> = {
+    ...extensionValue.value,
+    ...updates,
+  }
+  Object.keys(nextExtension).forEach((key) => {
+    const value = nextExtension[key]
+    if (
+      value == null
+      || value === ''
+      || (Array.isArray(value) && value.length === 0)
+    ) {
+      delete nextExtension[key]
+    }
+  })
+  form.value.extension = nextExtension
+}
+
+const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
+  title: normalizedTitle.value,
+  content: normalizedContent.value,
+  postType: form.value.postType,
+  domain: selectedDomain.value,
+  tags: normalizedTags.value,
+  extension: {
+    ...extensionValue.value,
+    topicNames: selectedTopicNames.value,
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+  },
+  seriesId: selectedSeriesId.value || undefined,
+  aiEnabled: assistPanelEnabled.value,
+})
+
+const loadEditorDomains = async () => {
+  try {
+    const res = await domainApi.listPublic()
+    editorDomains.value = res.data || localDomainConfigs
+    domainSource.value = res.source
+  } catch {
+    editorDomains.value = [...localDomainConfigs]
+    domainSource.value = 'fallback'
+  }
+}
+
+const loadSeriesWorkbench = async () => {
+  if (!authStore.isLoggedIn) {
+    seriesRecords.value = []
+    seriesSource.value = 'fallback'
+    return
+  }
+  isSeriesLoading.value = true
+  try {
+    const res = await contentSeriesApi.listMine(authStore.user?.uid)
+    seriesRecords.value = res.data || []
+    seriesSource.value = res.status
+    if (selectedSeriesId.value && !seriesRecords.value.some((item) => String(item.id) === String(selectedSeriesId.value))) {
+      selectedSeriesId.value = ''
+    } else if (selectedSeriesId.value) {
+      applyEditorExtension({
+        seriesId: selectedSeriesId.value,
+        seriesTitle: selectedSeriesRecord.value?.title || undefined,
+        topicNames: selectedTopicNames.value.length ? selectedTopicNames.value : undefined,
+      })
+    }
+  } finally {
+    isSeriesLoading.value = false
+  }
+}
+
+const clearStageThreeAssistTimer = () => {
+  if (stageThreeAssistTimer) {
+    clearTimeout(stageThreeAssistTimer)
+    stageThreeAssistTimer = null
+  }
+}
+
+const loadStageThreeAssist = async (manual = false) => {
+  if (!authStore.isLoggedIn) {
+    stageThreeAssist.value = null
+    stageThreeAssistError.value = ''
+    return
+  }
+
+  isStageThreeAssistLoading.value = true
+  stageThreeAssistError.value = ''
+  try {
+    const res = await contentAssistApi.getEditorAssist(buildStageThreeAssistRequest())
+    stageThreeAssist.value = res.data
+    if (res.data?.status === 'failed') {
+      stageThreeAssistError.value = res.data.fallbackReason || '建议暂时不可用'
+    }
+    if (manual && res.data?.status === 'degraded') {
+      toast.warning('已切换到规则降级建议')
+    }
+  } catch (error) {
+    stageThreeAssist.value = null
+    stageThreeAssistError.value = getErrorMessage(error, '建议暂时不可用')
+  } finally {
+    isStageThreeAssistLoading.value = false
+  }
+}
+
+const scheduleStageThreeAssist = () => {
+  clearStageThreeAssistTimer()
+  if (!authStore.isLoggedIn || !assistPanelEnabled.value || isForbiddenEdit.value) return
+  stageThreeAssistTimer = setTimeout(() => {
+    if (!isForbiddenEdit.value) {
+      loadStageThreeAssist()
+    }
+  }, 480)
+}
+
+const toggleAssistPanelEnabled = async () => {
+  assistPanelEnabled.value = !assistPanelEnabled.value
+  safeStorage.set(stageThreeAssistPreferenceKey.value, assistPanelEnabled.value ? '1' : '0')
+  if (!assistPanelEnabled.value) {
+    const res = await contentAssistApi.getEditorAssist({ ...buildStageThreeAssistRequest(), aiEnabled: false })
+    stageThreeAssist.value = res.data
+    stageThreeAssistError.value = ''
+    toast.success('已关闭 AI 建议')
+    return
+  }
+  toast.success('已开启 AI 建议')
+  await loadStageThreeAssist(true)
+}
+
+const applyAssistSummary = () => {
+  if (!assistSummaryText.value) return
+  applyEditorExtension({
+    summary: assistSummaryText.value,
+    topicNames: selectedTopicNames.value.length ? selectedTopicNames.value : undefined,
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+  })
+  scheduleAutoSave()
+  toast.success('已采纳写作助手摘要')
+}
+
+const applyTagSuggestion = (item: ContentAssistSuggestion) => {
+  if (!normalizedTags.value.some((tag) => tag.toLowerCase() === item.label.toLowerCase())) {
+    selectedTags.value.push(item.label)
+  }
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+  toast.success(item.adopted ? '标签已在当前内容中' : '已采纳标签建议')
+}
+
+const applyTopicSuggestion = (item: ContentAssistSuggestion) => {
+  const nextTopics = new Set(selectedTopicNames.value)
+  nextTopics.add(item.label)
+  applyEditorExtension({
+    topicNames: [...nextTopics],
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+  })
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+  toast.success(item.adopted ? '话题已采纳' : '已采纳话题建议')
+}
+
+const removeTopicSuggestion = (topic: string) => {
+  const nextTopics = selectedTopicNames.value.filter((item) => item !== topic)
+  applyEditorExtension({
+    topicNames: nextTopics.length ? nextTopics : undefined,
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+  })
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+}
+
+const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: string) => {
+  if (!authStore.isLoggedIn) return
+  const previousSeriesId = sanitizeVisibleText(extensionValue.value.seriesId)
+  if (!selectedSeriesId.value && !previousSeriesId) return
+  const res = await contentSeriesApi.syncAssignment({
+    seriesId: selectedSeriesId.value || undefined,
+    previousSeriesId: previousSeriesId || undefined,
+    draftId: serverDraftId.value || localDraftKey(),
+    postId,
+    title: normalizedTitle.value || form.value.title || '待完善标题的内容',
+    summary: sanitizeVisibleText(extensionValue.value.summary) || assistSummaryText.value || knowledgeSummary.value,
+    domain: selectedDomain.value,
+    status,
+  }, authStore.user?.uid)
+  seriesSource.value = res.status
+  const refreshed = await contentSeriesApi.listMine(authStore.user?.uid)
+  seriesRecords.value = refreshed.data || seriesRecords.value
+  seriesSource.value = refreshed.status
 }
 
 const applyActiveTemplate = () => {
@@ -800,6 +1254,9 @@ const currentDraftReq = () => ({
     anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
     contentType: contentTypeCodeOf(form.value.postType),
     tags: normalizedTags.value,
+    topicNames: selectedTopicNames.value,
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
   }),
 })
 
@@ -827,6 +1284,7 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
   }
   anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(draft.anonymous ?? extension.anonymous) : false
   selectedTags.value = draft.tagNames || []
+  selectedSeriesId.value = sanitizeVisibleText(extension.seriesId)
   markDraftClean()
   return true
 }
@@ -923,6 +1381,7 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
         : selectedDomain.value
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? savedAnonymousCareerPost : false
     selectedTags.value = draftTags || []
+    selectedSeriesId.value = sanitizeVisibleText((draftForm.extension || {}).seriesId)
     serverDraftId.value = savedServerDraftId || ''
     selectedDraftId.value = savedServerDraftId || ''
     markDraftClean()
@@ -965,6 +1424,7 @@ const loadPostForEdit = async (postId: string) => {
     selectedDomain.value = normalizeDomain(post.domain ?? (post.anonymous ? DOMAIN.CAREER : DOMAIN.TECH))
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
+    selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)
     markDraftClean()
     return true
   } catch (error) {
@@ -981,6 +1441,8 @@ const loadPostForEdit = async (postId: string) => {
 }
 
 onMounted(async () => {
+  assistPanelEnabled.value = safeStorage.get(stageThreeAssistPreferenceKey.value) !== '0'
+  await Promise.all([loadEditorDomains(), loadSeriesWorkbench()])
   const postId = currentPostId()
   if (postId) {
     isEditing.value = true
@@ -988,6 +1450,12 @@ onMounted(async () => {
     if (!loaded) return
     const restoredServerDraft = await loadLatestSourceDraft(postId)
     if (!restoredServerDraft) restoreLocalDraft()
+    if (assistPanelEnabled.value) {
+      await loadStageThreeAssist()
+    } else {
+      const disabledRes = await contentAssistApi.getEditorAssist({ ...buildStageThreeAssistRequest(), aiEnabled: false })
+      stageThreeAssist.value = disabledRes.data
+    }
     return
   }
 
@@ -1000,6 +1468,12 @@ onMounted(async () => {
   // 从 localStorage 恢复草稿
   await loadServerDrafts()
   restoreLocalDraft(true)
+  if (assistPanelEnabled.value) {
+    await loadStageThreeAssist()
+  } else {
+    const disabledRes = await contentAssistApi.getEditorAssist({ ...buildStageThreeAssistRequest(), aiEnabled: false })
+    stageThreeAssist.value = disabledRes.data
+  }
 })
 
 const addTag = () => {
@@ -1026,11 +1500,13 @@ const saveDraft = async () => {
     if (res.data) {
       serverDraftId.value = String(res.data.id)
       selectedDraftId.value = String(res.data.id)
+      await syncSeriesAssignment('draft')
       persistLocalDraft()
       if (!isEditing.value) await loadServerDrafts()
     }
     toast.success('草稿已同步到服务端')
   } catch (error) {
+    await syncSeriesAssignment('draft')
     toast.warning(getErrorMessage(error, '已保存本地草稿，服务端同步失败'))
   } finally {
     isSavingDraft.value = false
@@ -1066,7 +1542,10 @@ const publishPost = async () => {
         ...form.value.extension,
         anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
         contentType: contentTypeCodeOf(form.value.postType),
-        tags: normalizedTags.value
+        tags: normalizedTags.value,
+        topicNames: selectedTopicNames.value,
+        seriesId: selectedSeriesId.value || undefined,
+        seriesTitle: selectedSeriesRecord.value?.title || undefined,
       }),
       draftId: serverDraftId.value || undefined,
     }
@@ -1079,6 +1558,7 @@ const publishPost = async () => {
       }
       const res = await postApi.update(postId, req)
       if (res.code === 0) {
+        await syncSeriesAssignment('published', postId)
         safeStorage.remove(localDraftKey())
         serverDraftId.value = ''
         selectedDraftId.value = ''
@@ -1094,6 +1574,8 @@ const publishPost = async () => {
     }
     const res = await postApi.create(req)
     if (res.code === 0) {
+      const createdPostId = res.data?.postId == null ? undefined : String(res.data.postId)
+      await syncSeriesAssignment('published', createdPostId)
       safeStorage.remove(localDraftKey())
       serverDraftId.value = ''
       selectedDraftId.value = ''
@@ -1101,7 +1583,7 @@ const publishPost = async () => {
       if (!isEditing.value) await loadServerDrafts()
       const reviewRequired = Boolean(res.data?.reviewRequired)
       toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
-      router.push(reviewRequired ? '/me' : { path: `/post/${res.data?.postId}`, query: { published: '1' } })
+      router.push(reviewRequired || !createdPostId ? '/me' : { path: `/post/${createdPostId}`, query: { published: '1' } })
     } else {
       toast.error(getResultMessage(res, `${isEditing.value ? '保存' : '发布'}失败`))
     }
@@ -1237,9 +1719,35 @@ const goBack = () => {
 
 watch(selectedDomain, (domain) => {
   if (domain !== DOMAIN.CAREER) anonymousCareerPost.value = false
+  scheduleStageThreeAssist()
+})
+
+watch(selectedSeriesId, () => {
+  applyEditorExtension({
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+    topicNames: selectedTopicNames.value.length ? selectedTopicNames.value : undefined,
+  })
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
 })
 
 watch([form, selectedTags, selectedDomain, anonymousCareerPost], scheduleAutoSave, { deep: true })
+
+watch([normalizedTitle, normalizedContent, normalizedTags, selectedDomain], scheduleStageThreeAssist, { deep: true })
+
+watch(() => authStore.isLoggedIn, async (loggedIn) => {
+  if (!loggedIn) {
+    seriesRecords.value = []
+    stageThreeAssist.value = null
+    stageThreeAssistError.value = ''
+    return
+  }
+  await Promise.all([loadEditorDomains(), loadSeriesWorkbench()])
+  if (assistPanelEnabled.value) {
+    await loadStageThreeAssist()
+  }
+})
 
 const handleBeforeUnload = (event: BeforeUnloadEvent) => {
   if (!hasUnsavedDraft.value || isPublishing.value || isForbiddenEdit.value) return
@@ -1267,6 +1775,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearAutoSaveTimer()
+  clearStageThreeAssistTimer()
   window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 </script>
@@ -1541,6 +2050,343 @@ onBeforeUnmount(() => {
   color: rgb(29 78 216);
 }
 
+.domain-source-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgb(100 116 139);
+}
+
+.stage3-assist-panel {
+  display: grid;
+  gap: 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgb(191 219 254);
+  background: linear-gradient(180deg, rgb(248 250 252), rgb(255 255 255));
+  padding: 1rem;
+}
+
+.stage3-assist-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.stage3-assist-kicker {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(37 99 235);
+}
+
+.stage3-assist-head h2 {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.stage3-assist-head p:last-child {
+  margin-top: 0.3rem;
+  max-width: 44rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgb(71 85 105);
+}
+
+.stage3-assist-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.assist-status-pill,
+.assist-head-button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.assist-status-pill {
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  color: rgb(37 99 235);
+}
+
+.assist-head-button {
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.assist-head-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.assist-status-ready {
+  border-color: rgb(187 247 208);
+  color: rgb(21 128 61);
+}
+
+.assist-status-degraded {
+  border-color: rgb(253 224 71);
+  color: rgb(161 98 7);
+}
+
+.assist-status-loading {
+  border-color: rgb(191 219 254);
+  color: rgb(29 78 216);
+}
+
+.assist-status-disabled,
+.assist-status-unauthenticated {
+  border-color: rgb(226 232 240);
+  color: rgb(100 116 139);
+}
+
+.assist-status-failed {
+  border-color: rgb(252 165 165);
+  color: rgb(185 28 28);
+}
+
+.stage3-assist-state {
+  border-radius: 0.75rem;
+  border: 1px dashed rgb(191 219 254);
+  background: white;
+  padding: 0.9rem 1rem;
+}
+
+.stage3-assist-state strong {
+  display: block;
+  font-size: 0.875rem;
+  color: rgb(15 23 42);
+}
+
+.stage3-assist-state p {
+  margin-top: 0.3rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgb(71 85 105);
+}
+
+.stage3-assist-state-error {
+  border-style: solid;
+  border-color: rgb(252 165 165);
+  background: rgb(255 241 242);
+}
+
+.stage3-assist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.stage3-card {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.95rem;
+}
+
+.stage3-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.stage3-card-head strong {
+  font-size: 0.875rem;
+  color: rgb(15 23 42);
+}
+
+.stage3-card-head > span,
+.stage3-card-head > a {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(37 99 235);
+}
+
+.stage3-card-copy,
+.stage3-empty-copy {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: rgb(71 85 105);
+}
+
+.stage3-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.stage3-actions button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(29 78 216);
+}
+
+.stage3-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.stage3-quality-badge {
+  display: inline-flex;
+  min-width: 3rem;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(239 246 255);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: rgb(29 78 216);
+}
+
+.stage3-metric-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.stage3-metric-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  border-radius: 0.6rem;
+  background: rgb(248 250 252);
+  padding: 0.7rem;
+}
+
+.stage3-metric-row strong {
+  display: block;
+  font-size: 0.8125rem;
+  color: rgb(15 23 42);
+}
+
+.stage3-metric-row p {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgb(100 116 139);
+}
+
+.stage3-metric-row > span {
+  border-radius: 999px;
+  background: white;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(37 99 235);
+}
+
+.stage3-chip-list,
+.stage3-selected-list,
+.stage3-hint-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.stage3-chip {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 0.45rem 0.8rem;
+  text-align: left;
+}
+
+.stage3-chip span {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(30 64 175);
+}
+
+.stage3-chip small {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: rgb(37 99 235);
+}
+
+.stage3-chip-adopted {
+  border-color: rgb(187 247 208);
+  background: rgb(240 253 244);
+}
+
+.stage3-chip-adopted span,
+.stage3-chip-adopted small {
+  color: rgb(22 101 52);
+}
+
+.stage3-selected-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  background: rgb(248 250 252);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(51 65 85);
+}
+
+.stage3-selected-pill button {
+  color: inherit;
+}
+
+.stage3-series-select {
+  min-height: 2.5rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.875rem;
+  color: rgb(15 23 42);
+  outline: none;
+}
+
+.stage3-hint-list span {
+  display: grid;
+  gap: 0.15rem;
+  border-radius: 0.65rem;
+  background: rgb(248 250 252);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.stage3-hint-list small {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: rgb(100 116 139);
+}
+
 .forbidden-primary-action,
 .forbidden-secondary-action {
   display: inline-flex;
@@ -1758,6 +2604,94 @@ onBeforeUnmount(() => {
   color: rgb(191 219 254);
 }
 
+.dark .domain-source-note,
+.dark .stage3-card-copy,
+.dark .stage3-empty-copy,
+.dark .stage3-hint-list small,
+.dark .stage3-metric-row p,
+.dark .stage3-assist-head p:last-child,
+.dark .stage3-assist-state p {
+  color: rgb(148 163 184);
+}
+
+.dark .stage3-assist-panel {
+  border-color: rgb(30 64 175);
+  background: linear-gradient(180deg, rgb(15 23 42), rgb(2 6 23));
+}
+
+.dark .stage3-assist-head h2,
+.dark .stage3-card-head strong,
+.dark .stage3-metric-row strong,
+.dark .stage3-assist-state strong,
+.dark .stage3-hint-list span {
+  color: rgb(248 250 252);
+}
+
+.dark .assist-status-pill,
+.dark .assist-head-button,
+.dark .stage3-card,
+.dark .stage3-assist-state,
+.dark .stage3-series-select,
+.dark .stage3-metric-row,
+.dark .stage3-selected-pill,
+.dark .stage3-hint-list span {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(226 232 240);
+}
+
+.dark .stage3-quality-badge,
+.dark .stage3-metric-row > span {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .stage3-chip {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+}
+
+.dark .stage3-chip span,
+.dark .stage3-chip small,
+.dark .stage3-card-head > span,
+.dark .stage3-card-head > a,
+.dark .assist-status-ready {
+  color: rgb(191 219 254);
+}
+
+.dark .stage3-chip-adopted {
+  border-color: rgb(22 101 52);
+  background: rgb(5 46 22);
+}
+
+.dark .stage3-chip-adopted span,
+.dark .stage3-chip-adopted small {
+  color: rgb(187 247 208);
+}
+
+.dark .assist-status-degraded {
+  border-color: rgb(161 98 7);
+  color: rgb(253 224 71);
+}
+
+.dark .assist-status-disabled,
+.dark .assist-status-unauthenticated {
+  color: rgb(148 163 184);
+}
+
+.dark .assist-status-failed,
+.dark .stage3-assist-state-error {
+  border-color: rgb(153 27 27);
+  background: rgb(69 10 10 / 0.55);
+  color: rgb(254 202 202);
+}
+
+.dark .stage3-actions button {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
+}
+
 .dark .quality-row strong {
   color: rgb(248 250 252);
 }
@@ -1875,6 +2809,39 @@ onBeforeUnmount(() => {
 
   .knowledge-assist-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stage3-assist-panel {
+    margin-inline: 0;
+  }
+
+  .stage3-assist-head {
+    flex-direction: column;
+  }
+
+  .stage3-assist-head-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .assist-status-pill,
+  .assist-head-button {
+    width: 100%;
+  }
+
+  .stage3-assist-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stage3-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .stage3-actions button,
+  .stage3-chip,
+  .stage3-series-select {
+    width: 100%;
   }
 
   .publish-diagnostic-actions {

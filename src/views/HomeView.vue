@@ -91,6 +91,106 @@
         </router-link>
       </section>
 
+      <section class="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <article class="surface-card p-5">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-black text-slate-950 dark:text-white">领域来源口径</h2>
+              <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">{{ domainSourceSummary }}</p>
+            </div>
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-xs font-black text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
+              {{ activeDomainMeta?.icon || '🧭' }} {{ activeDomainMeta?.domainName || '综合' }}
+            </span>
+          </div>
+          <p class="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            首页筛选继续沿用稳定的默认五大领域，领域说明和提示优先同步 `/api/v1/domains`，与发现页保持一致的来源口径。
+          </p>
+          <p class="mt-2 text-xs leading-6 text-slate-500 dark:text-slate-400">
+            {{ activeDomainMeta?.browseNotice || activeDomainMeta?.description || '当前未指定领域时，会展示综合内容和默认社区入口。' }}
+          </p>
+        </article>
+
+        <article class="surface-card p-5">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-black text-slate-950 dark:text-white">系列工作台</h2>
+              <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">{{ homeSeriesSummary }}</p>
+            </div>
+            <RouterLink :to="seriesWorkbenchHref" class="secondary-action px-4">
+              打开
+            </RouterLink>
+          </div>
+
+          <div v-if="homeSeriesPreview.length" class="mt-4 space-y-3">
+            <div
+              v-for="item in homeSeriesPreview"
+              :key="item.id"
+              class="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</div>
+                  <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ item.progress.label }}</div>
+                </div>
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  {{ item.goalCount }} 篇目标
+                </span>
+              </div>
+              <div class="home-series-mini-bar mt-3">
+                <span :style="{ width: `${item.progress.completionRate}%` }" />
+              </div>
+            </div>
+          </div>
+
+          <p v-else class="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            {{ authStore.isLoggedIn ? '先创建一个系列，再把发布页里的草稿和已发布内容归入同一条输出节奏。' : '登录后可查看自己的系列进度，并在发布页里直接归属到某个系列。' }}
+          </p>
+        </article>
+      </section>
+
+      <section v-if="authStore.isLoggedIn && taskSections.length" class="mb-6 grid gap-4 lg:hidden">
+        <article
+          v-for="section in taskSections"
+          :key="section.taskType"
+          class="surface-card p-5"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="task-section-label">
+                {{ section.taskType === 'DAILY' ? '每日任务 Lite' : '新人任务链' }}
+              </p>
+              <h2 class="text-sm font-black text-slate-950 dark:text-white">{{ section.title }}</h2>
+              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
+            </div>
+            <span class="task-progress-pill">{{ taskProgressLabel(section) }}</span>
+          </div>
+          <div class="mt-4 space-y-3">
+            <div
+              v-for="item in section.items"
+              :key="`${section.taskType}:${item.taskCode}`"
+              class="task-item"
+              :class="{ 'task-item-complete': item.completed }"
+            >
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="task-check">{{ item.completed ? '✓' : '·' }}</span>
+                  <h3 class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</h3>
+                </div>
+                <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ item.description }}</p>
+              </div>
+              <button
+                type="button"
+                class="task-action-button"
+                :disabled="isTaskBusy(section.taskType, item.taskCode)"
+                @click="handleTaskAction(section, item)"
+              >
+                {{ item.completed ? '已完成' : (item.actionText || '去完成') }}
+              </button>
+            </div>
+          </div>
+        </article>
+      </section>
+
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
         <aside class="hidden lg:block">
           <div class="sticky top-24 space-y-5">
@@ -121,13 +221,54 @@
               </template>
               <template v-else>
                 <div>
-                  <h3 class="font-black text-slate-950 dark:text-white">开始沉淀技术经验</h3>
-                  <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">登录后可以发布项目复盘、收藏内容并关注作者。</p>
+                  <h3 class="font-black text-slate-950 dark:text-white">开始沉淀你的实践经验</h3>
+                  <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">登录后可以发布技术、职场、阅读或生活实践，收藏内容并关注作者。</p>
                   <RouterLink to="/login" class="primary-action mt-4 w-full">
                     登录
                   </RouterLink>
                 </div>
               </template>
+            </section>
+
+            <section
+              v-for="section in taskSections"
+              :key="section.taskType"
+              class="surface-card p-5"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="task-section-label">
+                    {{ section.taskType === 'DAILY' ? '每日任务 Lite' : '新人任务链' }}
+                  </p>
+                  <h3 class="font-black text-slate-950 dark:text-white">{{ section.title }}</h3>
+                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
+                </div>
+                <span class="task-progress-pill">{{ taskProgressLabel(section) }}</span>
+              </div>
+              <div class="mt-4 space-y-3">
+                <div
+                  v-for="item in section.items"
+                  :key="`${section.taskType}:${item.taskCode}`"
+                  class="task-item"
+                  :class="{ 'task-item-complete': item.completed }"
+                >
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="task-check">{{ item.completed ? '✓' : '·' }}</span>
+                      <h4 class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</h4>
+                    </div>
+                    <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ item.description }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="task-action-button"
+                    :disabled="isTaskBusy(section.taskType, item.taskCode)"
+                    @click="handleTaskAction(section, item)"
+                  >
+                    {{ item.completed ? '已完成' : (item.actionText || '去完成') }}
+                  </button>
+                </div>
+              </div>
             </section>
 
             <section class="surface-panel p-5">
@@ -358,14 +499,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { Compass, PenLine, Search, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
+import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
+import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
+import { taskApi, type UserTaskItem, type UserTaskOverview } from '@/api/tasks'
 import { userApi } from '@/api/user'
 import { feedApi } from '@/api/feed'
 import { usePostInteraction } from '@/composables/usePostInteraction'
@@ -388,6 +532,12 @@ const { requireLogin } = useLoginRedirect()
 const activeFeed = ref<FeedType>('recommend')
 const heroKeyword = ref('')
 const activeContentType = ref<number | undefined>()
+const onboardingOverview = ref<UserTaskOverview | null>(null)
+const dailyOverview = ref<UserTaskOverview | null>(null)
+const homeDomains = ref<PublicDomainConfig[]>([...localDomainConfigs])
+const domainSource = ref<DomainConfigSource>('fallback')
+const homeSeriesPreview = ref<ContentSeriesRecord[]>([])
+const homeSeriesSource = ref<'remote' | 'fallback'>('fallback')
 const legalDomainValues = new Set<number>(DOMAIN_OPTIONS.map((d) => d.value))
 const activeDomain = computed(() => {
   const q = Number(route.query.domain)
@@ -421,6 +571,7 @@ const topics = ref<CommunityTopic[]>([])
 const recommendedUsers = ref<User[]>([])
 const sampledFeedContentCount = ref(0)
 const followingBusyIds = ref(new Set<string>())
+const taskBusyKeys = ref(new Set<string>())
 const locallyHiddenPostIds = ref(new Set<string>())
 const { posts, error: feedError, fetchNextPage, hasNextPage, isError, isFetching, isLoading, refetch } = useInfiniteFeed(activeFeed, activeDomain)
 
@@ -428,6 +579,30 @@ const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) 
 const topTags = computed(() => sortedTags.value.slice(0, 10))
 const trendingTags = computed(() => sortedTags.value.slice(0, 6))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
+const homeDomainOptions = computed(() => homeDomains.value.length ? homeDomains.value : localDomainConfigs)
+const activeDomainMeta = computed(() => (
+  homeDomainOptions.value.find((item) => Number(item.domain) === Number(activeDomain.value))
+  ?? localDomainConfigs.find((item) => Number(item.domain) === Number(activeDomain.value))
+  ?? null
+))
+const domainSourceSummary = computed(() => {
+  const activeLabel = activeDomainMeta.value?.domainName || (activeDomain.value == null ? '综合' : '默认领域')
+  return domainSource.value === 'remote'
+    ? `首页领域说明已同步 /api/v1/domains，筛选继续保留默认五大领域 · 当前 ${activeLabel}`
+    : `接口暂未返回，首页当前使用本地 fallback 并保留默认五大领域 · 当前 ${activeLabel}`
+})
+const seriesWorkbenchHref = computed(() => authStore.isLoggedIn ? '/series/workbench' : '/login')
+const homeSeriesSummary = computed(() => {
+  if (!authStore.isLoggedIn) return '登录后可查看你的系列进度和阶段性发布计划'
+  if (!homeSeriesPreview.value.length) {
+    return homeSeriesSource.value === 'fallback'
+      ? '当前还没有系列，本地 fallback 已准备好创建流程'
+      : '还没有系列，先创建一个连续输出主题'
+  }
+  return homeSeriesSource.value === 'remote'
+    ? `已同步 ${homeSeriesPreview.value.length} 个系列`
+    : `已从本地 fallback 恢复 ${homeSeriesPreview.value.length} 个系列`
+})
 const topicItems = computed(() => {
   const remoteTopics = topics.value.slice(0, 6).map((topic) => ({
     name: topic.name,
@@ -455,7 +630,18 @@ const currentUserSignature = computed(() => {
   const signature = authStore.user?.signature?.trim()
   return signature && !isSyntheticVisibleText(signature)
     ? signature
-    : '完善个人资料，让更多开发者了解你的专长'
+    : '完善个人资料，让更多社区成员了解你的关注方向'
+})
+const taskSections = computed(() => {
+  if (!authStore.isLoggedIn) return []
+  const sections: UserTaskOverview[] = []
+  if (onboardingOverview.value && (onboardingOverview.value.active || (onboardingOverview.value.completedCount ?? 0) > 0)) {
+    sections.push(onboardingOverview.value)
+  }
+  if (dailyOverview.value?.items?.length) {
+    sections.push(dailyOverview.value)
+  }
+  return sections
 })
 const feedErrorText = computed(() => getErrorMessage(feedError.value, '当前信息流暂时不可用，请稍后重试。'))
 const homeFallbackQuestionQuery = computed(() => {
@@ -479,14 +665,87 @@ const userDisplaySignature = (user: User) => {
   const signature = user.signature?.trim()
   return signature && !isSyntheticVisibleText(signature)
     ? signature
-    : '技术经验主页'
+    : '实践经验主页'
 }
 const isSelf = (user: User) => Boolean(authStore.user && String(authStore.user.uid) === String(user.uid))
+const taskProgressLabel = (section: UserTaskOverview) => `${section.completedCount ?? 0}/${section.totalCount ?? section.items.length}`
+const taskBusyKey = (taskType: string, taskCode: string) => `${taskType}:${taskCode}`
+const isTaskBusy = (taskType: string, taskCode: string) => taskBusyKeys.value.has(taskBusyKey(taskType, taskCode))
 const updatePost = (postId: Post['postId'], updater: (post: Post) => void) => {
   const post = findPost(postId)
   if (post) updater(post)
 }
 const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePost)
+
+const loadHomeDomains = async () => {
+  try {
+    const res = await domainApi.listPublic()
+    homeDomains.value = res.data?.length ? res.data : [...localDomainConfigs]
+    domainSource.value = res.source
+  } catch {
+    homeDomains.value = [...localDomainConfigs]
+    domainSource.value = 'fallback'
+  }
+}
+
+const loadHomeSeriesPreview = async () => {
+  if (!authStore.isLoggedIn) {
+    homeSeriesPreview.value = []
+    homeSeriesSource.value = 'fallback'
+    return
+  }
+  try {
+    const res = await contentSeriesApi.listMine(authStore.user?.uid)
+    homeSeriesPreview.value = (res.data || []).slice(0, 3)
+    homeSeriesSource.value = res.status
+  } catch {
+    homeSeriesPreview.value = []
+    homeSeriesSource.value = 'fallback'
+  }
+}
+
+const refreshTaskPanels = async () => {
+  if (!authStore.isLoggedIn) {
+    onboardingOverview.value = null
+    dailyOverview.value = null
+    return
+  }
+  const [onboardingRes, dailyRes] = await Promise.allSettled([
+    taskApi.getOnboardingTasks(),
+    taskApi.getDailyTasks(),
+  ])
+  if (onboardingRes.status === 'fulfilled') {
+    onboardingOverview.value = onboardingRes.value.data
+  }
+  if (dailyRes.status === 'fulfilled') {
+    dailyOverview.value = dailyRes.value.data
+  }
+}
+
+const handleTaskAction = async (section: UserTaskOverview, item: UserTaskItem) => {
+  const nextRoute = item.actionRoute || (section.taskType === 'DAILY' ? '/' : '/explore')
+  if (item.completed || !item.manualCompletable) {
+    await router.push(nextRoute)
+    return
+  }
+  const busyKey = taskBusyKey(section.taskType, item.taskCode)
+  taskBusyKeys.value = new Set(taskBusyKeys.value).add(busyKey)
+  try {
+    if (section.taskType === 'DAILY') {
+      await taskApi.completeDailyTask(item.taskCode)
+    } else {
+      await taskApi.completeOnboardingTask(item.taskCode)
+    }
+    await refreshTaskPanels()
+    await router.push(nextRoute)
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '任务状态更新失败'))
+  } finally {
+    const next = new Set(taskBusyKeys.value)
+    next.delete(busyKey)
+    taskBusyKeys.value = next
+  }
+}
 
 const submitHeroSearch = () => {
   const q = heroKeyword.value.trim()
@@ -509,12 +768,14 @@ const handleLike = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
   await toggleLike(post)
+  await refreshTaskPanels()
 }
 
 const handleFavorite = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
   await toggleFavorite(post)
+  await refreshTaskPanels()
 }
 
 const handlePostAuthorFollowChange = (authorUid: User['uid'], following: boolean) => {
@@ -555,6 +816,7 @@ const toggleFollowUser = async (user: User) => {
     }
     user.isFollowing = !wasFollowing
     user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
+    await refreshTaskPanels()
   } catch (error: any) {
     toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
@@ -589,10 +851,37 @@ onMounted(async () => {
     .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
     .map((res) => filterPublicContent(res.value.data?.items || []).length)
   sampledFeedContentCount.value = Math.max(0, ...feedCounts)
+  await Promise.all([loadHomeDomains(), loadHomeSeriesPreview()])
+  await refreshTaskPanels()
+})
+
+watch(() => authStore.isLoggedIn, async (loggedIn) => {
+  if (!loggedIn) {
+    onboardingOverview.value = null
+    dailyOverview.value = null
+    homeSeriesPreview.value = []
+    homeSeriesSource.value = 'fallback'
+    return
+  }
+  await Promise.all([refreshTaskPanels(), loadHomeSeriesPreview()])
 })
 </script>
 
 <style scoped>
+.home-series-mini-bar {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(226 232 240);
+}
+
+.home-series-mini-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(37 99 235), rgb(14 165 233));
+}
+
 .metric-tile {
   position: relative;
   overflow: hidden;
@@ -670,6 +959,76 @@ onMounted(async () => {
   margin-top: 0.1rem;
   font-size: 0.75rem;
   color: rgb(100 116 139);
+}
+
+.task-progress-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+  min-width: 3rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.task-section-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(14 116 144);
+}
+
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgb(226 232 240 / 0.9);
+  background: rgb(248 250 252 / 0.9);
+  padding: 0.9rem;
+}
+
+.task-item-complete {
+  border-color: rgb(187 247 208 / 0.95);
+  background: rgb(240 253 244 / 0.95);
+}
+
+.task-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  color: rgb(79 70 229);
+  font-weight: 900;
+}
+
+.task-action-button {
+  flex-shrink: 0;
+  border: 1px solid rgb(199 210 254);
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+  border-radius: 999px;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.task-action-button:hover:not(:disabled) {
+  border-color: rgb(165 180 252);
+  background: rgb(224 231 255);
+}
+
+.task-action-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .channel-chip {
@@ -759,6 +1118,40 @@ onMounted(async () => {
   background: rgb(15 23 42 / 0.75);
 }
 
+.dark .task-progress-pill {
+  background: rgb(49 46 129 / 0.45);
+  color: rgb(199 210 254);
+}
+
+.dark .task-section-label {
+  color: rgb(103 232 249);
+}
+
+.dark .task-item {
+  border-color: rgb(51 65 85 / 0.85);
+  background: rgb(15 23 42 / 0.78);
+}
+
+.dark .task-item-complete {
+  border-color: rgb(21 128 61 / 0.55);
+  background: rgb(20 83 45 / 0.22);
+}
+
+.dark .task-check {
+  color: rgb(199 210 254);
+}
+
+.dark .task-action-button {
+  border-color: rgb(67 56 202 / 0.7);
+  background: rgb(49 46 129 / 0.4);
+  color: rgb(199 210 254);
+}
+
+.dark .task-action-button:hover:not(:disabled) {
+  border-color: rgb(99 102 241);
+  background: rgb(67 56 202 / 0.45);
+}
+
 .dark .channel-chip {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42 / 0.75);
@@ -798,6 +1191,10 @@ onMounted(async () => {
 
 .dark .profile-stat:hover {
   border-color: rgb(67 56 202);
+  background: rgb(30 41 59);
+}
+
+.dark .home-series-mini-bar {
   background: rgb(30 41 59);
 }
 </style>

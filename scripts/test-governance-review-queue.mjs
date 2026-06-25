@@ -26,8 +26,8 @@ for (const sourceType of ['POST_REPORT', 'COMMENT_REPORT', 'MODERATION_HIT', 'QU
 }
 
 has(governanceView, 'opsApi.listReviewQueue', 'review queue must call the backend unified queue API')
-has(governanceView, 'postApi.listAdminReports({ status: 0, limit: 50 })', 'fallback queue must load pending post reports')
-has(governanceView, 'interactionApi.listAdminCommentReports({ status: 0, limit: 50 })', 'fallback queue must load pending comment reports')
+has(governanceView, 'postApi.listAdminReports({ status: 0, limit: 50', 'fallback queue must load pending post reports')
+has(governanceView, 'interactionApi.listAdminCommentReports({ status: 0, limit: 50', 'fallback queue must load pending comment reports')
 has(governanceView, "opsApi.listModerationHits({ limit: 80 })", 'fallback queue must reuse moderation hit data')
 has(governanceView, 'opsApi.listQuestions({ status: 0, limit: 20 })', 'fallback queue must load pending questions when permitted')
 has(governanceView, 'opsApi.listAiTasks({ status: 3, limit: 20 })', 'fallback queue must load failed AI tasks when permitted')

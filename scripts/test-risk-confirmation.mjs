@@ -137,6 +137,10 @@ assert.match(governanceView, /visibleTabs/, 'governance view must derive visible
 assert.match(governanceView, /const canOps = computed/, 'governance view must know OPS permission')
 assert.match(governanceView, /const canModerate = computed/, 'governance view must know content moderator permission')
 assert.match(governanceView, /if \(canOps\.value\)[\s\S]*opsApi\.migrationStatus/, 'governance migration checks must only load for OPS')
-assert.match(governanceView, /if \(canModerate\.value\)[\s\S]*opsApi\.listModerationKeywords/, 'governance moderation data must only load for content moderators')
+assert.match(
+  governanceView,
+  /(?:if \(canModerate\.value\)[\s\S]*opsApi\.listModerationKeywords|if \(!canGlobalModerate\.value\)\s*\{[\s\S]*return[\s\S]*\}[\s\S]*opsApi\.listModerationKeywords)/,
+  'governance moderation data must stay behind moderator permissions'
+)
 
 console.log('risk confirmation guard passed')

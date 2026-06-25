@@ -140,7 +140,7 @@
                 </div>
               </section>
 
-              <section v-if="knowledgeSummary || knowledgeTags.length || knowledgeFaqs.length || knowledgeCardItems.length" class="knowledge-panel mb-8">
+              <section v-if="showStageTwoDetailPanels && (knowledgeSummary || knowledgeTags.length || knowledgeFaqs.length || knowledgeCardItems.length)" class="knowledge-panel mb-8">
                 <div class="mb-3 flex items-center justify-between gap-3">
                   <h2 class="text-base font-bold text-slate-950 dark:text-slate-50">知识沉淀</h2>
                   <span class="ai-pill">AI 辅助</span>
@@ -170,7 +170,7 @@
                 </div>
               </section>
 
-              <section class="ai-knowledge-assistant mb-8" aria-label="AI 知识助手">
+              <section v-if="showStageTwoDetailPanels" class="ai-knowledge-assistant mb-8" aria-label="AI 知识助手">
                 <div class="ai-knowledge-head">
                   <div>
                     <p>AI 知识助手</p>
@@ -192,7 +192,7 @@
                 </div>
               </section>
 
-              <section class="interview-material-panel mb-8" aria-label="面试素材包">
+              <section v-if="showStageTwoDetailPanels" class="interview-material-panel mb-8" aria-label="面试素材包">
                 <div class="interview-material-head">
                   <div>
                     <p class="plan-kicker">面试素材包</p>
@@ -290,7 +290,7 @@
                 </div>
               </section>
 
-              <section class="knowledge-path-panel mb-8" aria-label="知识资产路径">
+              <section v-if="showStageTwoDetailPanels" class="knowledge-path-panel mb-8" aria-label="知识资产路径">
                 <div>
                   <p class="knowledge-path-kicker">知识资产路径</p>
                   <h2>从经验帖到可复用知识</h2>
@@ -312,7 +312,7 @@
                 </div>
               </section>
 
-              <PostQuestionBlock :post-id="post.postId" />
+              <PostQuestionBlock v-if="showStageTwoDetailPanels" :post-id="post.postId" />
 
               <div v-if="post.tags.length" class="mb-8 flex flex-wrap gap-2 border-b border-slate-200 pb-8 dark:border-slate-800">
                 <RouterLink
@@ -612,6 +612,7 @@ import type { Comment, Post, PostPublishStatus, PostVersionHistory } from '@/api
 import { getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
+import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 
 const route = useRoute()
 const router = useRouter()
@@ -623,6 +624,7 @@ const versionHistories = ref<PostVersionHistory[]>([])
 const isVersionDialogOpen = ref(false)
 const isLoadingVersions = ref(false)
 const versionLoadAttempted = ref(false)
+const showStageTwoDetailPanels = false
 const postId = computed(() => route.params.id as string)
 const commentText = ref('')
 const isSubmittingComment = ref(false)
@@ -937,6 +939,12 @@ const postUnavailableTitle = computed(() => postErrorCode.value === 10403 || pos
 const postUnavailableDescription = computed(() => postErrorCode.value === 10403 || postErrorCode.value === 403
   ? '当前账号没有权限查看这篇帖子，评论也不会被公开展示。'
   : '该帖子可能已被删除、下架，或当前不可公开访问。')
+const detailSeoDescription = computed(() => {
+  if (post.value) {
+    return summarizeSeoText(post.value.summary || post.value.extension?.summary || post.value.content, postUnavailableDescription.value)
+  }
+  return summarizeSeoText(postUnavailableDescription.value)
+})
 
 const errorCodeOf = (error: unknown) => {
   if (error instanceof BizException) return error.code
@@ -1420,10 +1428,23 @@ watch(() => postData.value?.data, (value) => {
   post.value = clonePost(value)
 }, { immediate: true })
 
+watch([post, postErrorCode, postId], () => {
+  applyPageSeo({
+    title: post.value?.title || postUnavailableTitle.value,
+    description: detailSeoDescription.value,
+    canonical: `/post/${postId.value}`,
+  })
+}, { immediate: true })
+
 watch(post, () => {
   loadRelatedPosts()
   loadInteractionState()
-  loadInterviewMaterial()
+  if (showStageTwoDetailPanels) {
+    loadInterviewMaterial()
+  } else {
+    materialPack.value = null
+    materialErrorMessage.value = ''
+  }
 })
 
 watch(postId, () => {
@@ -1439,7 +1460,7 @@ onMounted(() => {
 
 watch(() => authStore.token, () => {
   loadAdminPermissions()
-  loadInterviewMaterial()
+  if (showStageTwoDetailPanels) loadInterviewMaterial()
 })
 
 watch(canViewVersionHistory, (allowed) => {
