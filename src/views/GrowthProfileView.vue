@@ -40,7 +40,7 @@
           title="登录后查看个人成长档案"
           description="成长档案会读取你自己的发布、互动和系列数据，不对外公开。"
           action-text="去登录"
-          action-href="/login"
+          :action-href="loginRedirectHref"
         />
 
         <LoadingSkeleton v-else-if="loading" />
@@ -184,7 +184,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -195,6 +195,7 @@ import type { GrowthProfile, GrowthProfileDomain } from '@/api/types'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 const dayOptions = [7, 30, 90]
 const dimensionGlossary = [
@@ -209,6 +210,7 @@ const loading = ref(false)
 const error = ref('')
 const profile = ref<GrowthProfile | null>(null)
 
+const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 const primaryDomain = computed(() => profile.value?.domains?.[0] ?? null)
 const strongestDomain = computed(() => profile.value?.strongestDomain || primaryDomain.value?.domainName || '--')
 const emergingDomain = computed(() => profile.value?.emergingDomain || '继续观察')

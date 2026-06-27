@@ -314,6 +314,7 @@ import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, Post, User } from '@/api/types'
 import { safeStorage } from '@/utils/safeStorage'
 import { COMMUNITY_CONTENT_TYPES, getContentTypeLabel } from '@/utils/contentTypes'
+import { isKnownDomain } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 
 type SortValue = 'relevance' | 'latest' | 'hot'
@@ -323,6 +324,7 @@ type SearchSnapshot = {
   label: string
   mode: SearchMode
   q: string
+  domain?: number
   company: string
   position: string
   type?: number
@@ -359,8 +361,9 @@ const SEARCH_DEBOUNCE_MS = 450
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const filters = reactive<{ q: string; company: string; position: string; type?: number; sort: SortValue }>({
+const filters = reactive<{ q: string; domain?: number; company: string; position: string; type?: number; sort: SortValue }>({
   q: '',
+  domain: undefined,
   company: '',
   position: '',
   type: undefined,
@@ -592,6 +595,7 @@ const switchToUserSearchFromError = async () => {
   const keyword = filters.q || filters.company || filters.position
   searchMode.value = 'users'
   filters.q = keyword
+  filters.domain = undefined
   filters.company = ''
   filters.position = ''
   filters.type = undefined
@@ -602,12 +606,18 @@ const switchToUserSearchFromError = async () => {
 
 const syncFromRoute = () => {
   filters.q = typeof route.query.q === 'string' ? route.query.q : ''
+  const domain = Number(route.query.domain)
+  const nextMode = route.query.mode === 'users' ? 'users' : 'posts'
+  filters.domain = nextMode === 'posts' && isKnownDomain(domain) ? domain : undefined
   filters.company = typeof route.query.company === 'string' ? route.query.company : ''
   filters.position = typeof route.query.position === 'string' ? route.query.position : ''
   const type = Number(route.query.type)
   filters.type = Number.isFinite(type) && type > 0 ? type : undefined
+  if (filters.domain) {
+    filters.domain = undefined
+  }
   filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
-  searchMode.value = route.query.mode === 'users' ? 'users' : 'posts'
+  searchMode.value = nextMode
   includeTestData.value = route.query.includeTestData === '1' || route.query.includeTestData === 'true'
 }
 
@@ -629,7 +639,7 @@ const pushQuery = () => {
   })
 }
 
-const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'company' | 'position' | 'type' | 'mode'>) => {
+const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'domain' | 'company' | 'position' | 'type' | 'mode'>) => {
   if (snapshot.mode === 'users') return snapshot.q || '用户搜索'
   return [snapshot.q, snapshot.company, snapshot.position, snapshot.type ? postTypeText(snapshot.type) : '']
     .filter(Boolean)
@@ -638,6 +648,7 @@ const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'company' | 'positio
 
 const currentSnapshot = (): SearchSnapshot => {
   const mode = searchMode.value
+  const domain = undefined
   const company = mode === 'posts' ? filters.company : ''
   const position = mode === 'posts' ? filters.position : ''
   const type = mode === 'posts' ? filters.type : undefined
@@ -645,15 +656,17 @@ const currentSnapshot = (): SearchSnapshot => {
   const snapshot = {
     mode,
     q: filters.q,
+    domain,
     company,
     position,
     type,
   }
   return {
-    id: [mode, filters.q, company, position, type ?? 'all', sort].join('|'),
+    id: [mode, filters.q, domain ?? 'all', company, position, type ?? 'all', sort].join('|'),
     label: snapshotLabel(snapshot),
     mode,
     q: filters.q,
+    domain,
     company,
     position,
     type,
@@ -667,7 +680,8 @@ const isSearchSnapshot = (value: unknown): value is SearchSnapshot => {
   const item = value as Partial<SearchSnapshot>
   const modeOk = item.mode === 'posts' || item.mode === 'users'
   const sortOk = item.sort === 'relevance' || item.sort === 'latest' || item.sort === 'hot'
-  return Boolean(typeof item.id === 'string' && typeof item.label === 'string' && modeOk && sortOk)
+  const domainOk = item.domain == null || isKnownDomain(item.domain)
+  return Boolean(typeof item.id === 'string' && typeof item.label === 'string' && modeOk && sortOk && domainOk)
 }
 
 const readSnapshots = (key: string) => {
@@ -816,6 +830,7 @@ const clearRecentSearches = () => {
 const applySearchSnapshot = async (snapshot: SearchSnapshot) => {
   searchMode.value = snapshot.mode
   filters.q = snapshot.q || ''
+  filters.domain = undefined
   filters.company = snapshot.company || ''
   filters.position = snapshot.position || ''
   filters.type = snapshot.type
@@ -897,7 +912,7 @@ const runSearch = async (append = false, syncRoute = true) => {
       return
     }
 
-    const res = await searchApi.searchPosts({
+    const params = {
       q: filters.q || undefined,
       company: filters.company || undefined,
       position: filters.position || undefined,
@@ -906,7 +921,8 @@ const runSearch = async (append = false, syncRoute = true) => {
       cursor: append ? cursor.value : undefined,
       size: 20,
       includeTestData: includeTestData.value,
-    })
+    } as Parameters<typeof searchApi.searchPosts>[0]
+    const res = await searchApi.searchPosts(params)
     const page = res.data
     if (requestId !== searchRequestId) return
     const cleanItems = includeTestData.value ? (page?.items || []) : filterPublicContent(page?.items || [])
@@ -946,6 +962,7 @@ const runSearch = async (append = false, syncRoute = true) => {
 
 const resetFilters = async () => {
   filters.q = ''
+  filters.domain = undefined
   filters.company = ''
   filters.position = ''
   filters.type = undefined
@@ -974,6 +991,7 @@ const resetResults = () => {
 
 const setMode = async (mode: SearchMode) => {
   searchMode.value = mode
+  filters.domain = undefined
   resetResults()
   await runSearch(false)
 }

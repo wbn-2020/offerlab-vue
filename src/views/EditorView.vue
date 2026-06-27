@@ -155,25 +155,51 @@
           </div>
         </div>
 
-        <section class="mx-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-sm font-extrabold text-slate-900 dark:text-slate-100">发布检查</h2>
-              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">这些检查会影响内容可读性、社区检索与后续公开展示。</p>
-            </div>
-            <span :class="['quality-score', blockingQualityIssues.length ? 'quality-score-warn' : 'quality-score-ok']">
-              {{ passedQualityCount }}/{{ qualityChecks.length }}
-            </span>
-          </div>
-          <div class="mt-3 grid gap-2">
-            <div v-for="item in qualityChecks" :key="item.key" class="quality-row" :class="item.passed ? 'quality-row-ok' : item.required ? 'quality-row-blocking' : ''">
-              <span>{{ item.passed ? '✓' : item.required ? '!' : '·' }}</span>
-              <div>
-                <strong>{{ item.title }}</strong>
-                <p>{{ item.description }}</p>
+        <section class="mx-4 grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
+          <div class="space-y-4">
+            <EditorQualityChecklist
+              :result="qualityChecklistResult"
+              title="创作质量检查清单 Lite"
+              eyebrow="FEAT-003 / Quality Checklist"
+              tone="soft"
+            />
+
+            <section class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h2 class="text-sm font-extrabold text-slate-900 dark:text-slate-100">当前发布门禁</h2>
+                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Lite 清单只做提示；发布按钮继续沿用当前基础校验与结构化要求，不额外新增 AI 或服务端依赖。</p>
+                </div>
+                <span :class="['quality-score', blockingQualityIssues.length ? 'quality-score-warn' : 'quality-score-ok']">
+                  {{ passedQualityCount }}/{{ qualityChecks.length }}
+                </span>
               </div>
-            </div>
+              <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+                {{ publishDisabledReason || '当前基础门禁已满足，可继续优化摘要、标签、匿名提示和系列归属。' }}
+              </p>
+              <div class="mt-3 grid gap-2">
+                <div
+                  v-for="item in publishGateItems"
+                  :key="item.key"
+                  class="quality-row"
+                  :class="item.passed ? 'quality-row-ok' : item.required ? 'quality-row-blocking' : ''"
+                >
+                  <span>{{ item.passed ? '✓' : item.required ? '!' : '·' }}</span>
+                  <div>
+                    <strong>{{ item.title }}</strong>
+                    <p>{{ item.description }}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
+
+          <EditorPreviewPanel
+            :preview="editorPreviewModel"
+            eyebrow="FEAT-001 / Public Card Preview"
+            title="发布前预览与公开卡片预览"
+            description="基于当前标题、正文、领域、标签、匿名状态和系列归属做前端实时映射，不新增接口，也不会自动触发 AI 请求。"
+          />
         </section>
 
         <section class="stage3-assist-panel mx-4">
@@ -207,7 +233,7 @@
           </div>
           <div v-else-if="!assistPanelEnabled" class="stage3-assist-state">
             <strong>AI 已关闭</strong>
-            <p>当前仅保留发布检查、草稿保护和手动填写流程；你可以随时重新开启建议。</p>
+            <p>AI 默认关闭。当前仅保留发布检查、草稿保护和手动填写流程；显式开启后，如后端未配置 AI 将自动回退到规则建议。</p>
           </div>
           <div v-else-if="isStageThreeAssistLoading" class="stage3-assist-state">
             <strong>加载中...</strong>
@@ -409,7 +435,6 @@
           <div class="publish-diagnostic-actions">
             <button type="button" @click="saveDraft">再保存一次草稿</button>
             <button v-if="canRetryWithTextTagsOnly" type="button" @click="retryWithTextTagsOnly">保留文本标签重试</button>
-            <RouterLink to="/admin/tags">检查标签治理</RouterLink>
             <RouterLink to="/me">查看我的草稿</RouterLink>
           </div>
         </section>
@@ -436,6 +461,8 @@
 import { computed, ref, onBeforeUnmount, onMounted, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import { EditorPreviewPanel } from '@/components/editor-preview'
+import { EditorQualityChecklist } from '@/components/editor-quality'
 import MarkdownEditor from '@/components/post/MarkdownEditor.vue'
 import PostMeta from '@/components/post/PostMeta.vue'
 import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
@@ -445,6 +472,8 @@ import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDoma
 import { postApi, type PostDraft } from '@/api/post'
 import type { ContentAssistQualityMetric, ContentAssistResult, ContentAssistSuggestion } from '@/api/types'
 import { toast } from 'vue-sonner'
+import { mapEditorDraftToPreview } from '@/utils/editorPreview'
+import { buildEditorQualityChecklist } from '@/utils/editorQualityChecklist'
 import { safeStorage } from '@/utils/safeStorage'
 import { hasLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 import { useAuthStore } from '@/stores/auth'
@@ -520,7 +549,7 @@ const seriesRecords = ref<ContentSeriesRecord[]>([])
 const seriesSource = ref<'remote' | 'fallback'>('fallback')
 const isSeriesLoading = ref(false)
 const selectedSeriesId = ref('')
-const assistPanelEnabled = ref(true)
+const assistPanelEnabled = ref(false)
 const stageThreeAssist = ref<ContentAssistResult | null>(null)
 const isStageThreeAssistLoading = ref(false)
 const stageThreeAssistError = ref('')
@@ -795,6 +824,36 @@ const knowledgeSummary = computed(() => {
   if (!source) return '正文完善后会自动给出摘要建议。'
   return source.length > 90 ? `${source.slice(0, 90)}...` : source
 })
+const qualityChecklistResult = computed(() => buildEditorQualityChecklist({
+  title: normalizedTitle.value,
+  content: normalizedContent.value,
+  domain: selectedDomain.value,
+  domainLabel: selectedDomainMeta.value?.domainName,
+  tags: selectedTags.value,
+  anonymous: anonymousCareerPost.value,
+  seriesId: selectedSeriesId.value,
+  seriesTitle: selectedSeriesRecord.value?.title,
+  minContentLength: Math.max(80, activePostType.value.minContentLength),
+}))
+const publishGateItems = computed(() => qualityChecks.value.filter((item) => item.required || !item.passed))
+const editorPreviewModel = computed(() => mapEditorDraftToPreview(
+  {
+    title: form.value.title,
+    content: form.value.content,
+    domain: selectedDomain.value,
+    tags: form.value.tags,
+    tagLabels: selectedTags.value,
+    anonymousCareerPost: anonymousCareerPost.value,
+    selectedSeriesId: selectedSeriesId.value,
+    summary: extensionValue.value.summary,
+    extension: extensionValue.value,
+  },
+  {
+    domains: editorDomainOptions.value,
+    seriesRecords: seriesRecords.value,
+    fallbackSummary: knowledgeSummary.value,
+  },
+))
 const knowledgeFaqHint = computed(() => {
   const questionLine = cleanContentLines.value.find((line) => /[？?]|怎么|如何|为什么|排查|解决/.test(line))
   if (questionLine) return questionLine.length > 80 ? `${questionLine.slice(0, 80)}...` : questionLine
@@ -912,10 +971,11 @@ const stageThreeAssistStatusLabel = computed(() => {
 })
 const stageThreeAssistHeadline = computed(() => {
   if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和系列工作台联动。'
-  if (stageThreeAssistStatus.value === 'disabled') return '当前为手动模式，保留发布检查、草稿保护和系列选择。'
+  if (stageThreeAssistStatus.value === 'disabled') return 'AI 默认关闭，当前仅保留发布检查、草稿保护和系列选择；显式开启后，如后端未配置 AI 会自动回退到规则建议。'
   if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成阶段 3 建议。'
   if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || 'AI 接口未返回结果，当前使用本地规则降级建议。'
   if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
+  if (!stageThreeAssist.value) return 'AI 已开启，但不会自动请求内容辅助；点击“刷新建议”后才会触发，并在后端未配置 AI 时回退到规则建议。'
   return '围绕写作助手、质量评分、标签/话题建议和系列归属整理发布前动作。'
 })
 
@@ -1001,10 +1061,23 @@ const clearStageThreeAssistTimer = () => {
   }
 }
 
+const clearStageThreeAssistState = () => {
+  clearStageThreeAssistTimer()
+  stageThreeAssist.value = null
+  stageThreeAssistError.value = ''
+}
+
 const loadStageThreeAssist = async (manual = false) => {
   if (!authStore.isLoggedIn) {
-    stageThreeAssist.value = null
-    stageThreeAssistError.value = ''
+    clearStageThreeAssistState()
+    return
+  }
+  if (!assistPanelEnabled.value) {
+    clearStageThreeAssistState()
+    return
+  }
+  if (isForbiddenEdit.value) {
+    clearStageThreeAssistState()
     return
   }
 
@@ -1030,24 +1103,17 @@ const loadStageThreeAssist = async (manual = false) => {
 const scheduleStageThreeAssist = () => {
   clearStageThreeAssistTimer()
   if (!authStore.isLoggedIn || !assistPanelEnabled.value || isForbiddenEdit.value) return
-  stageThreeAssistTimer = setTimeout(() => {
-    if (!isForbiddenEdit.value) {
-      loadStageThreeAssist()
-    }
-  }, 480)
 }
 
 const toggleAssistPanelEnabled = async () => {
   assistPanelEnabled.value = !assistPanelEnabled.value
   safeStorage.set(stageThreeAssistPreferenceKey.value, assistPanelEnabled.value ? '1' : '0')
   if (!assistPanelEnabled.value) {
-    const res = await contentAssistApi.getEditorAssist({ ...buildStageThreeAssistRequest(), aiEnabled: false })
-    stageThreeAssist.value = res.data
-    stageThreeAssistError.value = ''
-    toast.success('已关闭 AI 建议')
+    clearStageThreeAssistState()
+    toast.success('已关闭 AI 建议，不再自动请求内容辅助')
     return
   }
-  toast.success('已开启 AI 建议')
+  toast.success('已开启 AI 建议，如未配置 AI 将自动回退到规则建议')
   await loadStageThreeAssist(true)
 }
 
@@ -1111,9 +1177,15 @@ const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: stri
     status,
   }, authStore.user?.uid)
   seriesSource.value = res.status
+  if (res.status === 'fallback') {
+    toast.warning('系列归属暂时仅保存在本地，尚未完成远端同步。')
+  }
   const refreshed = await contentSeriesApi.listMine(authStore.user?.uid)
   seriesRecords.value = refreshed.data || seriesRecords.value
   seriesSource.value = refreshed.status
+  if (refreshed.status === 'fallback') {
+    toast.warning('系列工作台当前展示的是本地 fallback 结果。')
+  }
 }
 
 const applyActiveTemplate = () => {
@@ -1441,7 +1513,7 @@ const loadPostForEdit = async (postId: string) => {
 }
 
 onMounted(async () => {
-  assistPanelEnabled.value = safeStorage.get(stageThreeAssistPreferenceKey.value) !== '0'
+  assistPanelEnabled.value = safeStorage.get(stageThreeAssistPreferenceKey.value) === '1'
   await Promise.all([loadEditorDomains(), loadSeriesWorkbench()])
   const postId = currentPostId()
   if (postId) {
@@ -1450,12 +1522,7 @@ onMounted(async () => {
     if (!loaded) return
     const restoredServerDraft = await loadLatestSourceDraft(postId)
     if (!restoredServerDraft) restoreLocalDraft()
-    if (assistPanelEnabled.value) {
-      await loadStageThreeAssist()
-    } else {
-      const disabledRes = await contentAssistApi.getEditorAssist({ ...buildStageThreeAssistRequest(), aiEnabled: false })
-      stageThreeAssist.value = disabledRes.data
-    }
+    clearStageThreeAssistState()
     return
   }
 
@@ -1468,12 +1535,7 @@ onMounted(async () => {
   // 从 localStorage 恢复草稿
   await loadServerDrafts()
   restoreLocalDraft(true)
-  if (assistPanelEnabled.value) {
-    await loadStageThreeAssist()
-  } else {
-    const disabledRes = await contentAssistApi.getEditorAssist({ ...buildStageThreeAssistRequest(), aiEnabled: false })
-    stageThreeAssist.value = disabledRes.data
-  }
+  clearStageThreeAssistState()
 })
 
 const addTag = () => {
@@ -1739,14 +1801,11 @@ watch([normalizedTitle, normalizedContent, normalizedTags, selectedDomain], sche
 watch(() => authStore.isLoggedIn, async (loggedIn) => {
   if (!loggedIn) {
     seriesRecords.value = []
-    stageThreeAssist.value = null
-    stageThreeAssistError.value = ''
+    clearStageThreeAssistState()
     return
   }
   await Promise.all([loadEditorDomains(), loadSeriesWorkbench()])
-  if (assistPanelEnabled.value) {
-    await loadStageThreeAssist()
-  }
+  clearStageThreeAssistState()
 })
 
 const handleBeforeUnload = (event: BeforeUnloadEvent) => {

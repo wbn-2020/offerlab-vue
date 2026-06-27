@@ -303,14 +303,15 @@ export function adaptNotification(raw: any): Notification {
   const type = raw?.type ?? 'system'
   const aggregateCount = Number((raw?.aggregateCount ?? content.aggregateCount) || 0)
   const unreadCount = Number(raw?.unreadCount ?? content.unreadCount ?? ((raw?.read ?? raw?.isRead) ? 0 : 1))
-  const targetId = raw?.targetId ?? content.postId ?? content.commentId ?? content.userId
+  const targetId = content.postId ?? content.commentId ?? content.userId ?? content.targetId
+  const targetType = Number(content.targetType)
   const postId = content.postId ?? (
     (type === 'system' && content.action === 'topic_post_published')
-      || (['like', 'favorite', 'mention'].includes(type) && raw?.targetType === 1)
-      ? raw?.targetId
+      || (['like', 'favorite', 'mention'].includes(type) && targetType === 1)
+      ? content.targetId
       : undefined
   )
-  const userId = type === 'follower' ? content.userId ?? raw?.senderUid ?? raw?.targetId : undefined
+  const userId = type === 'follower' ? content.userId ?? senderUserId(raw?.sender) : undefined
   const targetPath = safeSameSitePath(raw?.targetPath)
     ?? safeSameSitePath(raw?.jumpPath)
     ?? safeSameSitePath(content.targetPath)
@@ -323,7 +324,6 @@ export function adaptNotification(raw: any): Notification {
     title: notificationHeading(type, content, sender?.nickname, aggregateCount),
     content: notificationContent(type, content, sender?.nickname, aggregateCount),
     sender,
-    senderUid: raw?.senderUid ? adaptId(raw.senderUid) : undefined,
     relatedId: targetId ? adaptId(targetId) : undefined,
     targetPath: targetPath ?? (userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined),
     read: Boolean(raw?.read ?? raw?.isRead ?? false),
@@ -335,6 +335,12 @@ export function adaptNotification(raw: any): Notification {
 
 function displayName(name?: string): string {
   return sanitizeVisibleText(name, '有人')
+}
+
+function senderUserId(sender?: any): string | undefined {
+  if (!sender || typeof sender !== 'object') return undefined
+  const rawId = sender.uid ?? sender.id
+  return rawId == null ? undefined : adaptId(rawId)
 }
 
 function notificationHeading(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {

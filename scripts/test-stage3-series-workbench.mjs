@@ -16,6 +16,10 @@ assert.match(seriesApi, /listMine:\s*async/, 'content series API must list curre
 assert.match(seriesApi, /create:\s*async/, 'content series API must create series')
 assert.match(seriesApi, /update:\s*async/, 'content series API must update series')
 assert.match(seriesApi, /status:\s*'fallback'/, 'content series API must keep a local fallback mode')
+assert.match(seriesApi, /const LOCAL_ONLY_MESSAGE = 'local_only'/, 'content series API fallback mode must define a local-only result marker')
+assert.match(seriesApi, /message:\s*LOCAL_ONLY_MESSAGE/, 'content series API fallback mode must expose a local-only result marker')
+assert.match(seriesApi, /shouldRethrowSeriesError/, 'content series API must distinguish recoverable local fallback from remote failures')
+assert.match(seriesApi, /if \(shouldRethrowSeriesError\(error\)\) throw error/, 'content series API must rethrow auth or permission failures for view-level handling')
 
 assert.match(router, /path:\s*'\/series\/workbench'/, 'router must expose the series workbench route')
 assert.match(router, /SeriesWorkbenchView\.vue/, 'router must lazy-load the series workbench view')

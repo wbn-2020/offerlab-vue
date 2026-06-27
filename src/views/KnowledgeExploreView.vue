@@ -69,10 +69,6 @@
             <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">专题 ID</span>
             <input v-model.trim="filters.topicId" class="filter-input" placeholder="可选" />
           </label>
-          <label class="block">
-            <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">系列 ID</span>
-            <input v-model.trim="filters.seriesId" class="filter-input" placeholder="可选" />
-          </label>
         </div>
       </section>
 
@@ -90,7 +86,7 @@
         <EmptyState
           v-else-if="!graph || !graph.nodes.length"
           title="当前种子下还没有关系数据"
-          description="可以换一个领域，或者补充帖子、标签、专题、系列中的任一 ID 作为探索入口。"
+          description="可以换一个领域，或者补充帖子、标签、专题中的任一 ID 作为探索入口。"
         />
 
         <div v-else class="space-y-6">
@@ -151,7 +147,7 @@
                 <div>
                   <h2 class="text-lg font-black text-slate-950 dark:text-white">关系边</h2>
                   <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    当前 PoC 重点展示 domain-post、post-tag、topic-tag、series-post 这类轻量连接。
+                    当前 PoC 重点展示 domain-post、post-tag、topic-tag 这类轻量连接。
                   </p>
                 </div>
               </div>
@@ -196,7 +192,6 @@ interface KnowledgeExploreFilters {
   postId: string
   tagId: string
   topicId: string
-  seriesId: string
   limit: number
 }
 
@@ -205,7 +200,6 @@ const filters = reactive<KnowledgeExploreFilters>({
   postId: '',
   tagId: '',
   topicId: '',
-  seriesId: '',
   limit: 8,
 })
 
@@ -218,7 +212,6 @@ const groupLabelMap: Record<string, string> = {
   post: '内容',
   tag: '标签',
   topic: '专题',
-  series: '系列',
 }
 
 const relationLabel = (relation: string) => {
@@ -229,8 +222,6 @@ const relationLabel = (relation: string) => {
       return '内容 -> 标签'
     case 'topic_tag':
       return '专题 -> 标签'
-    case 'series_post':
-      return '系列 -> 内容'
     default:
       return relation
   }
@@ -258,7 +249,6 @@ const activeSeedSummary = computed(() => {
     filters.postId && `post:${filters.postId}`,
     filters.tagId && `tag:${filters.tagId}`,
     filters.topicId && `topic:${filters.topicId}`,
-    filters.seriesId && `series:${filters.seriesId}`,
     filters.domain ? getDomainLabel(filters.domain) : '',
   ].filter(Boolean)
   return items.length ? items.join(' / ') : '默认领域'
@@ -274,7 +264,6 @@ const syncFromRoute = () => {
   filters.postId = typeof route.query.postId === 'string' ? route.query.postId : ''
   filters.tagId = typeof route.query.tagId === 'string' ? route.query.tagId : ''
   filters.topicId = typeof route.query.topicId === 'string' ? route.query.topicId : ''
-  filters.seriesId = typeof route.query.seriesId === 'string' ? route.query.seriesId : ''
   filters.limit = normalizePositiveInt(route.query.limit, 8) || 8
 }
 
@@ -283,7 +272,6 @@ const queryFromFilters = () => ({
   ...(filters.postId ? { postId: filters.postId } : {}),
   ...(filters.tagId ? { tagId: filters.tagId } : {}),
   ...(filters.topicId ? { topicId: filters.topicId } : {}),
-  ...(filters.seriesId ? { seriesId: filters.seriesId } : {}),
   limit: String(filters.limit || 8),
 })
 
@@ -296,7 +284,6 @@ const loadGraph = async () => {
       postId: filters.postId || undefined,
       tagId: filters.tagId || undefined,
       topicId: filters.topicId || undefined,
-      seriesId: filters.seriesId || undefined,
       limit: filters.limit || 8,
     })
     graph.value = res.data
@@ -317,7 +304,6 @@ const resetFilters = async () => {
   filters.postId = ''
   filters.tagId = ''
   filters.topicId = ''
-  filters.seriesId = ''
   filters.limit = 8
   await applyFilters()
 }

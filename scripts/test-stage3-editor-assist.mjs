@@ -20,6 +20,26 @@ assert.match(types, /export interface ContentAssistResult\b/, 'shared types must
 assert.match(editor, /contentAssistApi/, 'EditorView must import the content assist API')
 assert.match(editor, /stage3-assist-panel/, 'EditorView must render the stage3 assist panel shell')
 assert.match(editor, /loadStageThreeAssist/, 'EditorView must load stage3 assist data')
+assert.match(editor, /const assistPanelEnabled = ref\(false\)/, 'EditorView must default the assist panel to disabled')
+assert.match(editor, /assistPanelEnabled\.value = safeStorage\.get\(stageThreeAssistPreferenceKey\.value\) === '1'/, 'EditorView must only restore AI assist after an explicit opt-in')
+assert.match(editor, /const clearStageThreeAssistState = \(\) => \{\s*clearStageThreeAssistTimer\(\)\s*stageThreeAssist\.value = null\s*stageThreeAssistError\.value = ''\s*\}/s, 'EditorView must clear local assist state when AI stays disabled')
+assert.match(editor, /if \(!assistPanelEnabled\.value\) \{\s*clearStageThreeAssistState\(\)\s*return\s*\}/s, 'EditorView must not request content assist while AI remains disabled')
+assert.doesNotMatch(editor, /getEditorAssist\(\{ \.\.\.buildStageThreeAssistRequest\(\), aiEnabled: false \}\)/, 'EditorView must not issue disabled-state assist requests automatically')
+assert.doesNotMatch(
+  editor,
+  /onMounted\(async \(\) => \{[\s\S]*?assistPanelEnabled\.value = safeStorage\.get\(stageThreeAssistPreferenceKey\.value\) === '1'[\s\S]*?await loadStageThreeAssist\(\)/,
+  'EditorView must not automatically request content assist during mount, even after restoring a prior opt-in',
+)
+assert.doesNotMatch(
+  editor,
+  /watch\(\(\) => authStore\.isLoggedIn, async \(loggedIn\) => \{[\s\S]*?await loadStageThreeAssist\(\)/,
+  'EditorView must not automatically request content assist when login state changes',
+)
+assert.doesNotMatch(
+  editor,
+  /const scheduleStageThreeAssist = \(\) => \{[\s\S]*?loadStageThreeAssist\(\)/,
+  'EditorView must not auto-schedule content assist requests without an explicit user action',
+)
 assert.match(editor, /applyTagSuggestion/, 'EditorView must let users adopt tag suggestions')
 assert.match(editor, /applyTopicSuggestion/, 'EditorView must let users adopt topic suggestions')
 assert.match(editor, /applyAssistSummary/, 'EditorView must let users adopt writing summary suggestions')

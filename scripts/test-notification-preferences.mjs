@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const notificationApi = readFileSync(new URL('../src/api/notification.ts', import.meta.url), 'utf8')
+const apiTypes = readFileSync(new URL('../src/api/types.ts', import.meta.url), 'utf8')
 const userApi = readFileSync(new URL('../src/api/user.ts', import.meta.url), 'utf8')
 const router = readFileSync(new URL('../src/router/index.ts', import.meta.url), 'utf8')
 const settings = readFileSync(new URL('../src/views/SettingsView.vue', import.meta.url), 'utf8')
@@ -17,13 +18,16 @@ const granularFields = [
 
 for (const field of granularFields) {
   assert.match(userApi, new RegExp(`${field}: boolean`), `PrivacySetting must expose ${field}`)
+  assert.match(apiTypes, new RegExp(`${field}: boolean`), `NotificationPreference must expose ${field}`)
   assert.match(settings, new RegExp(`${field}: true`), `settings defaults must enable ${field}`)
 }
 
-assert.match(notificationApi, /getPreferences: \(\): Promise<Result<PrivacySetting>> =>/, 'notification api must expose preference query')
+assert.match(apiTypes, /export interface NotificationPreference/, 'frontend API types must expose a notification-scoped preference contract')
+assert.match(notificationApi, /getPreferences: \(\): Promise<Result<NotificationPreference>> =>/, 'notification api must expose notification-scoped preference query')
 assert.match(notificationApi, /client\.get\('\/api\/v1\/notifications\/preferences'\)/, 'notification api must query the notification-scoped preference endpoint')
-assert.match(notificationApi, /updatePreferences: \(req: PrivacySetting\): Promise<Result<PrivacySetting>> =>/, 'notification api must expose preference update')
+assert.match(notificationApi, /updatePreferences: \(req: NotificationPreference\): Promise<Result<NotificationPreference>> =>/, 'notification api must expose notification-scoped preference update')
 assert.match(notificationApi, /client\.put\('\/api\/v1\/notifications\/preferences', req\)/, 'notification api must update the notification-scoped preference endpoint')
+assert.doesNotMatch(notificationApi, /PrivacySetting/, 'notification api must not reuse the full privacy setting contract')
 
 assert.match(settings, /type InteractionNotificationKey = 'likeNotification' \| 'commentNotification' \| 'followNotification' \| 'favoriteNotification' \| 'mentionNotification'/, 'settings must keep a typed granular notification key union')
 assert.match(settings, /defaultPrivacySetting = \(\): PrivacySetting/, 'settings must provide complete defaults for old responses')
@@ -34,9 +38,9 @@ assert.match(settings, /v-model="privacyForm\[option\.key\]"/, 'settings must bi
 assert.match(settings, /:disabled="!privacyForm\.interactionNotification"/, 'granular switches must be disabled when the master interaction switch is off')
 assert.match(settings, /notification-grid-disabled/, 'settings must expose a disabled state for the granular group')
 assert.match(settings, /notification-toggle-disabled/, 'settings must expose disabled styling for granular toggles')
-assert.match(settings, /import \{ notificationApi \} from '@\/api\/notification'/, 'settings must import notificationApi')
-assert.match(settings, /await notificationApi\.getPreferences\(\)/, 'settings must load preferences from notificationApi')
-assert.match(settings, /await notificationApi\.updatePreferences\(privacyForm\.value\)/, 'settings must save preferences through notificationApi')
+assert.match(settings, /await userApi\.getPrivacySettings\(\)/, 'settings must load full privacy settings from userApi')
+assert.match(settings, /await userApi\.updatePrivacySettings\(privacyForm\.value\)/, 'settings must save full privacy settings through userApi')
+assert.doesNotMatch(settings, /notificationApi/, 'settings privacy panel must not use the notification-only preference API')
 
 for (const label of ['点赞', '评论', '关注', '收藏', '提及']) {
   assert.match(settings, new RegExp(`label: '${label}'`), `settings must label granular option ${label}`)

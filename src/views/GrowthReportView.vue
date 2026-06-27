@@ -40,7 +40,7 @@
           title="登录后查看个人成长报告"
           description="成长报告会读取你的个人发布和互动轨迹，不会替代公开榜单。"
           action-text="去登录"
-          action-href="/login"
+          :action-href="loginRedirectHref"
         />
 
         <LoadingSkeleton v-else-if="loading" />
@@ -189,8 +189,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -201,6 +201,7 @@ import type { GrowthReport } from '@/api/types'
 import { getDomainLabel } from '@/utils/domains'
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 const periodOptions = [
   { value: 'weekly', label: '周报' },
@@ -211,6 +212,7 @@ const period = ref<'weekly' | 'monthly'>('weekly')
 const loading = ref(false)
 const error = ref('')
 const report = ref<GrowthReport | null>(null)
+const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 
 const trendLabel = (trend?: string) => {
   switch ((trend || '').toLowerCase()) {
