@@ -23,7 +23,8 @@ assert.match(editor, /保留文本标签重试/, 'EditorView publish failure UI 
 assert.match(editor, /retryWithTextTagsOnly/, 'EditorView tag retry must keep tag names while clearing stale tag ids')
 assert.match(editor, /form\.value\.tags = \[\]/, 'EditorView tag retry must clear stale backend tag ids')
 assert.match(editor, /const textTags = normalizedTags\.value[\s\S]*if \(!textTags\.length\)[\s\S]*selectedTags\.value = textTags/, 'EditorView tag retry must preserve visible tag text so publish validation still passes')
-assert.match(editor, /检查标签治理/, 'EditorView publish failure UI must link tag governance troubleshooting')
+assert.doesNotMatch(editor, /\/admin\/tags/, 'EditorView publish failure UI must not link unavailable tag governance routes')
+assert.doesNotMatch(editor, /检查标签治理/, 'EditorView publish failure UI must not suggest unavailable tag governance troubleshooting')
 assert.doesNotMatch(editor, /alert\(/, 'EditorView must not use blocking alert feedback')
 assert.doesNotMatch(editor, /console\.error/, 'EditorView must not log user-facing failures instead of showing feedback')
 

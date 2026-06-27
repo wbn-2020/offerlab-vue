@@ -232,13 +232,22 @@ export interface Notification {
   title: string
   content: string
   sender?: User
-  senderUid?: ApiId
   relatedId?: ApiId
   targetPath?: string
   read: boolean
   aggregateCount?: number
   unreadCount?: number
   createdAt: number
+}
+
+export interface NotificationPreference {
+  interactionNotification: boolean
+  systemNotification: boolean
+  likeNotification: boolean
+  commentNotification: boolean
+  followNotification: boolean
+  favoriteNotification: boolean
+  mentionNotification: boolean
 }
 
 export interface NotificationUnreadCount {
@@ -440,10 +449,6 @@ export interface ExpertCertificationApplication {
   eligibilitySummary?: string
   riskAcknowledged: boolean
   riskWarning?: string
-  reviewerUid?: ApiId
-  reviewNote?: string
-  revokedBy?: ApiId
-  revokeNote?: string
   autoCertified: boolean
   createTime: number
   updateTime: number

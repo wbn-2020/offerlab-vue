@@ -1,4 +1,5 @@
-import client, { type Result } from './client'
+import axios from 'axios'
+import client, { BizException, type Result } from './client'
 import type { ApiId, ContentSeriesItem, ContentSeriesProgress } from './types'
 import { normalizeDomain } from '@/utils/domains'
 import { safeStorage } from '@/utils/safeStorage'
@@ -41,6 +42,7 @@ export interface ContentSeriesResult<T> extends Result<T> {
 }
 
 const STORAGE_PREFIX = 'offerlab:content-series:v1'
+const LOCAL_ONLY_MESSAGE = 'local_only'
 
 const safeText = (value: unknown) => sanitizeVisibleText(value) || ''
 const numericTime = (value: unknown, fallback = Date.now()) => {
@@ -163,6 +165,24 @@ const writeLocalSeries = (ownerId: ApiId | undefined, records: ContentSeriesReco
   safeStorage.set(seriesStorageKey(ownerId), JSON.stringify(records))
 }
 
+const localOnlyResult = <T>(data: T): ContentSeriesResult<T> => ({
+  code: 0,
+  message: LOCAL_ONLY_MESSAGE,
+  data,
+  status: 'fallback',
+})
+
+const shouldRethrowSeriesError = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10401 || error.code === 10403
+  }
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status
+    return status === 401 || status === 403 || status === 404 || (typeof status === 'number' && status >= 500)
+  }
+  return false
+}
+
 const upsertLocalRecord = (ownerId: ApiId | undefined, record: ContentSeriesRecord) => {
   const records = readLocalSeries(ownerId)
   const next = records.filter((item) => item.id !== record.id)
@@ -230,13 +250,9 @@ export const contentSeriesApi = {
         writeLocalSeries(ownerId, data)
       }
       return { ...res, data, status: 'remote' }
-    } catch {
-      return {
-        code: 0,
-        message: 'fallback',
-        data: readLocalSeries(ownerId),
-        status: 'fallback',
-      }
+    } catch (error) {
+      if (shouldRethrowSeriesError(error)) throw error
+      return localOnlyResult(readLocalSeries(ownerId))
     }
   },
 
@@ -258,14 +274,10 @@ export const contentSeriesApi = {
       const data = res.data ? mergeRemoteSeriesRecord(res.data, localRecord) : localRecord
       upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
-    } catch {
+    } catch (error) {
+      if (shouldRethrowSeriesError(error)) throw error
       upsertLocalRecord(ownerId, localRecord)
-      return {
-        code: 0,
-        message: 'fallback',
-        data: localRecord,
-        status: 'fallback',
-      }
+      return localOnlyResult(localRecord)
     }
   },
 
@@ -289,26 +301,17 @@ export const contentSeriesApi = {
       const data = res.data ? mergeRemoteSeriesRecord(res.data, localRecord) : localRecord
       upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
-    } catch {
+    } catch (error) {
+      if (shouldRethrowSeriesError(error)) throw error
       upsertLocalRecord(ownerId, localRecord)
-      return {
-        code: 0,
-        message: 'fallback',
-        data: localRecord,
-        status: 'fallback',
-      }
+      return localOnlyResult(localRecord)
     }
   },
 
   syncAssignment: async (payload: ContentSeriesAssignmentPayload, ownerId?: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord | null>> => {
     const localRecord = syncLocalAssignment(ownerId, payload)
     if (!payload.seriesId || payload.postId == null) {
-      return {
-        code: 0,
-        message: 'fallback',
-        data: localRecord,
-        status: 'fallback',
-      }
+      return localOnlyResult(localRecord)
     }
 
     try {
@@ -318,13 +321,9 @@ export const contentSeriesApi = {
       const data = res.data ? mergeRemoteSeriesRecord(res.data, localRecord || undefined) : localRecord
       if (data) upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
-    } catch {
-      return {
-        code: 0,
-        message: 'fallback',
-        data: localRecord,
-        status: 'fallback',
-      }
+    } catch (error) {
+      if (shouldRethrowSeriesError(error)) throw error
+      return localOnlyResult(localRecord)
     }
   },
 }

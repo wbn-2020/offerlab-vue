@@ -43,6 +43,82 @@
         </div>
       </section>
 
+      <section class="surface-card explore-overview mb-8 p-6">
+        <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div class="max-w-3xl">
+            <span class="overview-kicker">综合社区导览</span>
+            <h2 class="mt-3 text-2xl font-black text-slate-900 dark:text-slate-100">先从熟悉领域进入，再沿专题、标签和知识关系扩展</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              发现页会把多领域入口、内容频道、专题标签、知识关系和最新公开内容放在同一张浏览地图里，帮助你从单点兴趣逐步走到综合社区视角。
+            </p>
+            <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div
+                v-for="stat in overviewStats"
+                :key="stat.label"
+                class="overview-stat-card"
+              >
+                <small>{{ stat.label }}</small>
+                <strong>{{ stat.value }}</strong>
+                <p>{{ stat.detail }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="overview-status-card" :class="`overview-status-card--${overviewState.tone}`">
+            <span class="overview-status-card__eyebrow">当前状态</span>
+            <h3>{{ overviewState.title }}</h3>
+            <p>{{ overviewState.description }}</p>
+            <RouterLink
+              v-if="overviewState.action?.kind === 'route' && overviewState.action.href"
+              :to="overviewState.action.href"
+              class="secondary-action mt-4"
+            >
+              {{ overviewState.action.text }}
+            </RouterLink>
+            <button
+              v-else-if="overviewState.action?.kind === 'login'"
+              type="button"
+              class="secondary-action mt-4"
+              @click="requireLogin('/explore')"
+            >
+              {{ overviewState.action.text }}
+            </button>
+            <button
+              v-else-if="overviewState.action?.kind === 'reload'"
+              type="button"
+              class="secondary-action mt-4"
+              @click="loadExploreData"
+            >
+              {{ overviewState.action.text }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+          <RouterLink
+            v-for="card in browseGuideCards"
+            :key="card.title"
+            :to="card.href"
+            class="guide-card"
+          >
+            <span class="guide-card__badge">{{ card.badge }}</span>
+            <h3>{{ card.title }}</h3>
+            <p>{{ card.description }}</p>
+            <small>{{ card.cta }}</small>
+          </RouterLink>
+        </div>
+
+        <div v-if="loadFallbackNotes.length" class="mt-5 flex flex-wrap gap-2">
+          <span
+            v-for="note in loadFallbackNotes"
+            :key="note"
+            class="overview-note-chip"
+          >
+            {{ note }}
+          </span>
+        </div>
+      </section>
+
       <section class="surface-card stage4-cross-domain-panel mb-8 p-6">
         <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
@@ -103,10 +179,10 @@
 
         <EmptyState
           v-else
-          title="当前还没有可解释的跨领域推荐"
-          description="可以继续完善关注领域、互动内容或公开发帖样本，系统会逐步形成桥接推荐。"
-          action-text="去成长档案"
-          action-href="/growth/profile"
+          :title="crossDomainEmptyState.title"
+          :description="crossDomainEmptyState.description"
+          :action-text="crossDomainEmptyState.actionText"
+          :action-href="crossDomainEmptyState.actionHref"
         />
 
         <div
@@ -121,8 +197,8 @@
         <article class="surface-card p-6">
           <div class="mb-5 flex items-start justify-between gap-4">
             <div>
-              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">领域入口</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">优先读取后端启用领域，接口失败时自动回退默认五大领域，先从一个你最熟悉的方向开始浏览。</p>
+              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">多领域入口</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">优先读取后端启用领域，接口失败时自动回退默认五大领域；可以先从熟悉方向进入，再回到综合视角继续扩展。</p>
             </div>
             <span class="domain-source-chip">{{ domainSourceSummary }}</span>
           </div>
@@ -143,6 +219,27 @@
               <p>{{ domain.description }}</p>
               <small>{{ domain.browseNotice || domain.interactionNotice }}</small>
             </RouterLink>
+          </div>
+          <div class="browse-playbook mt-5">
+            <div class="browse-playbook__header">
+              <div>
+                <h3>浏览引导</h3>
+                <p>先选一个入口，再顺着专题、标签和关系网络把视角拉宽。</p>
+              </div>
+            </div>
+            <div class="browse-playbook__grid">
+              <RouterLink
+                v-for="entry in multiDomainEntryCards"
+                :key="entry.title"
+                :to="entry.href"
+                class="browse-link-card"
+              >
+                <span class="browse-link-card__badge">{{ entry.badge }}</span>
+                <strong>{{ entry.title }}</strong>
+                <p>{{ entry.description }}</p>
+                <small>{{ entry.cta }}</small>
+              </RouterLink>
+            </div>
           </div>
         </article>
 
@@ -200,6 +297,9 @@
             <span>{{ contentTypeCount(type.value) }} 篇</span>
           </RouterLink>
         </div>
+        <div v-if="channelSectionNote" class="section-note mt-4" :class="channelSectionNoteTone">
+          {{ channelSectionNote }}
+        </div>
       </section>
 
       <section class="mb-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -235,6 +335,9 @@
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">阅读试点优先露出，其他专题继续按技术栈、业务场景和标签聚合。</p>
             </div>
           </div>
+          <div v-if="topicSectionNote" class="section-note mb-4" :class="topicSectionNoteTone">
+            {{ topicSectionNote }}
+          </div>
           <div v-if="topicItems.length" class="grid gap-2">
             <RouterLink
               v-for="topic in topicItems"
@@ -246,7 +349,13 @@
               <strong class="topic-count">{{ topic.count }}</strong>
             </RouterLink>
           </div>
-          <EmptyState v-else title="暂无专题" description="发布内容并补充技术栈或标签后会形成专题。" />
+          <EmptyState
+            v-else
+            :title="topicEmptyState.title"
+            :description="topicEmptyState.description"
+            :actionText="topicEmptyState.actionText"
+            :actionHref="topicEmptyState.actionHref"
+          />
         </article>
       </section>
 
@@ -269,7 +378,16 @@
             <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ tag.count ?? 0 }}</span>
           </RouterLink>
         </div>
-        <EmptyState v-else title="暂无标签" description="发布内容时添加标签后会显示在这里。" />
+        <div v-if="tagSectionNote && sortedTags.length" class="section-note mt-4" :class="tagSectionNoteTone">
+          {{ tagSectionNote }}
+        </div>
+        <EmptyState
+          v-else-if="!sortedTags.length"
+          :title="tagEmptyState.title"
+          :description="tagEmptyState.description"
+          :actionText="tagEmptyState.actionText"
+          :actionHref="tagEmptyState.actionHref"
+        />
       </section>
 
       <section class="surface-card mb-8 p-6">
@@ -312,7 +430,16 @@
             </button>
           </article>
         </div>
-        <EmptyState v-else title="暂无推荐用户" description="活跃作者和实践者会展示在这里。" />
+        <div v-if="userSectionNote && cleanRecommendedUsers.length" class="section-note mt-4" :class="userSectionNoteTone">
+          {{ userSectionNote }}
+        </div>
+        <EmptyState
+          v-else-if="!cleanRecommendedUsers.length"
+          :title="userEmptyState.title"
+          :description="userEmptyState.description"
+          :actionText="userEmptyState.actionText"
+          :actionHref="userEmptyState.actionHref"
+        />
       </section>
 
       <section class="surface-card p-6">
@@ -351,7 +478,30 @@
             </div>
           </RouterLink>
         </div>
-        <EmptyState v-else title="暂无公开内容" description="发布公开的多领域实践内容后会出现在这里。" actionText="去发布" actionHref="/editor" />
+        <div v-if="latestSectionNote && cleanLatestPosts.length" class="section-note mt-4" :class="latestSectionNoteTone">
+          {{ latestSectionNote }}
+        </div>
+        <div
+          v-else-if="!cleanLatestPosts.length && requestStates.posts === 'failed'"
+          class="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700"
+        >
+          <div>最新发布暂时没有加载出来，先用领域入口、专题和搜索继续浏览。</div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button type="button" class="secondary-action" @click="loadExploreData">
+              重新加载
+            </button>
+            <RouterLink :to="searchHotLink" class="secondary-action">
+              去热门内容
+            </RouterLink>
+          </div>
+        </div>
+        <EmptyState
+          v-else-if="!cleanLatestPosts.length"
+          title="暂无公开内容"
+          description="发布公开的多领域实践内容后会出现在这里。"
+          actionText="去发布"
+          actionHref="/editor"
+        />
       </section>
     </main>
   </div>
@@ -386,6 +536,42 @@ interface ExploreTopicEntry {
   href: ExploreJumpTarget
 }
 
+interface ExploreGuideCard {
+  title: string
+  badge: string
+  description: string
+  cta: string
+  href: ExploreJumpTarget
+}
+
+interface ExploreStatItem {
+  label: string
+  value: string
+  detail: string
+}
+
+interface ExploreAction {
+  kind: 'route' | 'login' | 'reload'
+  text: string
+  href?: string
+}
+
+interface ExploreOverviewState {
+  tone: 'neutral' | 'success' | 'warning' | 'danger'
+  title: string
+  description: string
+  action?: ExploreAction
+}
+
+interface ExploreEmptyStateModel {
+  title: string
+  description: string
+  actionText?: string
+  actionHref?: string
+}
+
+type RequestState = 'idle' | 'loading' | 'ready' | 'failed'
+
 const READING_DISCOVERY_KEYWORDS = ['阅读', '读书', '书单', '书评', '笔记', '方法论', '摘录', '共读', 'reading']
 
 const domains = ref<PublicDomainConfig[]>([...localDomainConfigs])
@@ -401,6 +587,15 @@ const crossDomainStatus = ref<'unauthenticated' | 'loading' | 'ready' | 'degrade
 const crossDomainPage = ref<PaginatedResponse<CrossDomainRecommendation> | null>(null)
 const crossDomainError = ref('')
 const followingBusyIds = ref(new Set<string>())
+const requestStates = reactive<Record<'domains' | 'tags' | 'topics' | 'users' | 'posts' | 'dashboard' | 'crossDomain', RequestState>>({
+  domains: 'loading',
+  tags: 'loading',
+  topics: 'loading',
+  users: 'loading',
+  posts: 'loading',
+  dashboard: 'loading',
+  crossDomain: 'idle',
+})
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -438,6 +633,30 @@ const domainSourceSummary = computed(() => (
     : `接口暂未返回，先展示默认 ${DOMAIN_OPTIONS.length} 个领域 · 当前 ${activeDomainLabel.value}`
 ))
 const readingPostCount = computed(() => cleanLatestPosts.value.filter((post) => Number(post.domain) === DOMAIN.READING).length)
+const hasAnyPublicSignals = computed(() => (
+  cleanLatestPosts.value.length > 0
+  || cleanTags.value.length > 0
+  || cleanTopics.value.length > 0
+  || cleanRecommendedUsers.value.length > 0
+))
+const isDataSparse = computed(() => (
+  hasAnyPublicSignals.value
+  && cleanLatestPosts.value.length < 4
+  && cleanTags.value.length < 8
+  && cleanTopics.value.length < 4
+  && cleanRecommendedUsers.value.length < 4
+))
+const searchHotLink = computed<ExploreJumpTarget>(() => ({
+  path: '/search',
+  query: {
+    sort: 'hot',
+  },
+}))
+const defaultDomainEntry = computed(() => (
+  visibleDomains.value.find((item) => Number(item.domain) === Number(activeDomain.value))
+  ?? visibleDomains.value[0]
+  ?? localDomainConfigs[0]
+))
 const readingDomainEntry = computed(() => (
   visibleDomains.value.find((item) => Number(item.domain) === DOMAIN.READING)
   ?? localDomainConfigs.find((item) => Number(item.domain) === DOMAIN.READING)
@@ -447,6 +666,12 @@ const readingDomainIntro = computed(() => {
   return readingDomainEntry.value?.browseNotice
     || '先把读书笔记、书单推荐和方法论摘录做成更容易发现的专题入口。'
 })
+const generatedTopicItems = computed<ExploreTopicEntry[]>(() => (
+  buildTopicItems(cleanLatestPosts.value, cleanTags.value, 10).map((topic) => ({
+    ...topic,
+    href: { path: '/search', query: { q: topic.name, sort: 'hot' } },
+  }))
+))
 const baseTopicItems = computed<ExploreTopicEntry[]>(() => {
   const remoteTopics = cleanTopics.value.slice(0, 10).map((topic) => ({
     name: topic.name,
@@ -454,10 +679,7 @@ const baseTopicItems = computed<ExploreTopicEntry[]>(() => {
     href: `/topics/${topic.slug}`,
   }))
   if (remoteTopics.length) return remoteTopics
-  return buildTopicItems(cleanLatestPosts.value, cleanTags.value, 10).map((topic) => ({
-    ...topic,
-    href: { path: '/search', query: { company: topic.name, sort: 'hot' } },
-  }))
+  return generatedTopicItems.value
 })
 const readingTopicItems = computed<ExploreTopicEntry[]>(() => {
   const remoteTopics = cleanTopics.value
@@ -480,11 +702,18 @@ const readingTopicItems = computed<ExploreTopicEntry[]>(() => {
     }))
   if (readingTags.length) return readingTags
 
+  if (!readingPostCount.value) return []
+
   return [
     { name: '读书笔记', count: readingPostCount.value, href: { path: '/search', query: { q: '读书笔记', sort: 'hot' } } },
     { name: '书单推荐', count: readingPostCount.value, href: { path: '/search', query: { q: '书单', sort: 'hot' } } },
     { name: '方法论摘录', count: readingPostCount.value, href: { path: '/search', query: { q: '方法论', sort: 'hot' } } },
   ]
+})
+const topicSourceMode = computed<'remote' | 'fallback' | 'placeholder'>(() => {
+  if (cleanTopics.value.length) return 'remote'
+  if (generatedTopicItems.value.length || readingTopicItems.value.length) return 'fallback'
+  return 'placeholder'
 })
 const topicItems = computed<ExploreTopicEntry[]>(() => {
   const seen = new Set<string>()
@@ -498,6 +727,270 @@ const topicItems = computed<ExploreTopicEntry[]>(() => {
     .slice(0, 10)
 })
 const featuredPosts = computed(() => cleanLatestPosts.value.filter(isFeaturedPost).slice(0, 5))
+const overviewStats = computed<ExploreStatItem[]>(() => [
+  {
+    label: '已开放领域',
+    value: String(visibleDomains.value.length),
+    detail: domainSource.value === 'remote' ? '按后端启用列表展示' : '当前为默认回退入口',
+  },
+  {
+    label: '专题入口',
+    value: String(topicItems.value.length),
+    detail: topicSourceMode.value === 'remote' ? '优先来自社区专题' : topicSourceMode.value === 'fallback' ? '由标签与公开内容补位' : '等待内容沉淀',
+  },
+  {
+    label: '热门标签',
+    value: String(sortedTags.value.length),
+    detail: sortedTags.value.length ? '可继续按兴趣扩展' : '标签还在沉淀中',
+  },
+  {
+    label: '最新公开内容',
+    value: String(cleanLatestPosts.value.length),
+    detail: cleanLatestPosts.value.length ? '当前页展示最近样本' : '等待更多公开发布',
+  },
+])
+const browseGuideCards = computed<ExploreGuideCard[]>(() => {
+  const defaultDomain = defaultDomainEntry.value
+  const topicOrTagTarget: ExploreJumpTarget = topicItems.value[0]?.href
+    || (sortedTags.value[0] ? `/tag/${sortedTags.value[0].slug || sortedTags.value[0].id}` : searchHotLink.value)
+
+  return [
+    {
+      title: '综合视角浏览',
+      badge: '全领域入口',
+      description: '先回到综合发现页查看全部公开内容，再决定往哪个领域或专题继续下钻。',
+      cta: '回到综合发现',
+      href: '/explore',
+    },
+    {
+      title: activeDomain.value == null ? `从${defaultDomain?.domainName || '当前领域'}开始` : `继续浏览${activeDomainLabel.value}`,
+      badge: '熟悉领域',
+      description: defaultDomain?.browseNotice || '先从最熟悉的领域进入，再逐步扩展到相邻主题。',
+      cta: '进入单领域视角',
+      href: { path: '/explore', query: { domain: String(defaultDomain?.domain ?? DOMAIN.TECH) } },
+    },
+    {
+      title: '顺着专题或标签扩展',
+      badge: '继续下钻',
+      description: topicItems.value[0]
+        ? `可以先从「${topicItems.value[0].name}」继续扩展到相关内容。`
+        : '专题还不多时，可以直接用热门标签和搜索入口继续浏览。',
+      cta: '进入主题入口',
+      href: topicOrTagTarget,
+    },
+    {
+      title: '用知识关系拉宽视角',
+      badge: '相邻主题',
+      description: '从当前经验跳到相关概念、问题和学习路径，补足综合社区里的跨主题连接。',
+      cta: '查看知识关系',
+      href: '/knowledge/explore',
+    },
+  ]
+})
+const multiDomainEntryCards = computed<ExploreGuideCard[]>(() => [
+  {
+    title: '综合发现',
+    badge: '回到全局',
+    description: '不限制领域，先看当前页可见的综合社区入口。',
+    cta: '查看全领域入口',
+    href: '/explore',
+  },
+  {
+    title: activeDomain.value == null ? `聚焦${defaultDomainEntry.value?.domainName || '技术'}` : `当前领域：${activeDomainLabel.value}`,
+    badge: '熟悉方向',
+    description: defaultDomainEntry.value?.interactionNotice || '在熟悉领域先建立判断，再继续扩展到相邻内容。',
+    cta: '进入领域页',
+    href: { path: '/explore', query: { domain: String(defaultDomainEntry.value?.domain ?? DOMAIN.TECH) } },
+  },
+  {
+    title: '热门搜索',
+    badge: '快速补位',
+    description: '当专题、标签还不够多时，先用热度和关键词把入口补齐。',
+    cta: '去热门内容',
+    href: searchHotLink.value,
+  },
+  {
+    title: '知识关系',
+    badge: '跳到相关主题',
+    description: '把单篇经验延伸到概念、问题和学习路径，保持综合社区的连通性。',
+    cta: '进入关系探索',
+    href: '/knowledge/explore',
+  },
+])
+const loadFallbackNotes = computed(() => {
+  const notes: string[] = []
+  if (domainSource.value === 'fallback') notes.push('领域列表当前使用默认回退配置。')
+  if (topicSourceMode.value === 'fallback') notes.push('专题入口正在用标签与公开内容临时补位。')
+  if (requestStates.dashboard === 'failed') notes.push('内容频道计数已回退到当前公开样本。')
+  if (requestStates.tags === 'failed') notes.push('热门标签接口暂未返回。')
+  if (requestStates.users === 'failed') notes.push('推荐用户接口暂未返回。')
+  if (requestStates.posts === 'failed') notes.push('最新发布接口暂未返回。')
+  if (crossDomainStatus.value === 'degraded') notes.push('跨领域推荐包含回退结果。')
+  if (authStore.isLoggedIn && crossDomainStatus.value === 'failed') notes.push('个性化跨领域推荐当前不可用。')
+  return notes.slice(0, 4)
+})
+const overviewState = computed<ExploreOverviewState>(() => {
+  if (!authStore.isLoggedIn) {
+    return {
+      tone: 'neutral',
+      title: '未登录也能先逛公共内容',
+      description: '领域入口、专题、标签和最新公开内容都可以先浏览；跨领域推荐、关注作者和成长档案会在登录后补全。',
+      action: { kind: 'login', text: '登录后补全个性化入口' },
+    }
+  }
+  if (requestStates.posts === 'failed' && requestStates.tags === 'failed' && requestStates.topics === 'failed') {
+    return {
+      tone: 'danger',
+      title: '发现页正在降级展示',
+      description: '核心内容接口暂未完整返回，当前仅保留默认领域入口和已返回的公开样本，你仍然可以继续浏览。',
+      action: { kind: 'reload', text: '重新加载发现页' },
+    }
+  }
+  if (!hasAnyPublicSignals.value) {
+    return {
+      tone: 'warning',
+      title: '社区还在等待第一批公开内容',
+      description: '公开内容、标签和专题还比较少，先补充第一篇复盘、笔记或资源分享，探索页的入口会随之变丰富。',
+      action: { kind: 'route', text: '去发布第一篇内容', href: '/editor' },
+    }
+  }
+  if (isDataSparse.value) {
+    return {
+      tone: 'warning',
+      title: '数据还在积累，先从入口逛起',
+      description: '当前公开样本偏少，建议先用多领域入口、热门搜索和知识关系把浏览路径拉开。',
+      action: { kind: 'route', text: '去热门内容', href: '/search?sort=hot' },
+    }
+  }
+  if (loadFallbackNotes.value.length) {
+    return {
+      tone: 'warning',
+      title: '部分模块正在使用回退结果',
+      description: '你看到的入口仍然可用，只是部分计数、专题或推荐会优先使用公开样本和默认配置补位。',
+      action: { kind: 'route', text: '继续浏览综合入口', href: '/explore' },
+    }
+  }
+  return {
+    tone: 'success',
+    title: '综合社区入口已就绪',
+    description: '可以先按领域进入，再顺着专题、标签和知识关系扩展，逐步从单点兴趣走到跨主题浏览。',
+  }
+})
+const crossDomainEmptyState = computed<ExploreEmptyStateModel>(() => {
+  if (!hasAnyPublicSignals.value) {
+    return {
+      title: '公开内容还不足以形成跨领域推荐',
+      description: '先补充一批公开内容样本，系统才能根据桥接逻辑解释跨领域推荐。',
+      actionText: '去发布',
+      actionHref: '/editor',
+    }
+  }
+  return {
+    title: '当前还没有稳定的跨领域桥接线索',
+    description: '可以继续完善关注领域、互动内容或公开发帖样本，系统会逐步形成可解释的桥接推荐。',
+    actionText: '去成长档案',
+    actionHref: '/growth/profile',
+  }
+})
+const topicSectionNote = computed(() => {
+  if (requestStates.topics === 'failed' && topicItems.value.length) {
+    return '专题接口暂未返回，当前根据公开标签、技术栈和阅读关键词临时聚合入口。'
+  }
+  if (topicSourceMode.value === 'fallback' && topicItems.value.length) {
+    return '专题仍在沉淀中，当前入口来自公开内容的临时聚合，适合先做浏览引导。'
+  }
+  if (topicItems.value.length > 0 && topicItems.value.length < 4) {
+    return '当前专题数量还不多，可以配合热门标签和搜索入口继续扩展。'
+  }
+  return ''
+})
+const topicSectionNoteTone = computed(() => (
+  requestStates.topics === 'failed' ? 'section-note--warning' : 'section-note--muted'
+))
+const topicEmptyState = computed<ExploreEmptyStateModel>(() => {
+  if (requestStates.topics === 'failed' && requestStates.tags === 'failed' && requestStates.posts === 'failed') {
+    return {
+      title: '专题入口暂时不可用',
+      description: '专题、标签和公开内容接口都没有完整返回，先用多领域入口或热门搜索继续浏览。',
+      actionText: '去热门内容',
+      actionHref: '/search?sort=hot',
+    }
+  }
+  return {
+    title: '专题还在沉淀',
+    description: '发布内容并补充技术栈、场景或标签后，这里会逐步形成跨领域可浏览的专题入口。',
+    actionText: '去发布',
+    actionHref: '/editor',
+  }
+})
+const tagSectionNote = computed(() => {
+  if (sortedTags.value.length > 0 && sortedTags.value.length < 8) {
+    return '热门标签还不多，当前更适合配合专题和搜索一起使用。'
+  }
+  return ''
+})
+const tagSectionNoteTone = computed(() => 'section-note--muted')
+const tagEmptyState = computed<ExploreEmptyStateModel>(() => {
+  if (requestStates.tags === 'failed') {
+    return {
+      title: '热门标签暂时不可用',
+      description: '标签接口没有返回，先通过专题入口、搜索和最新发布继续浏览。',
+      actionText: '去搜索',
+      actionHref: '/search?sort=hot',
+    }
+  }
+  return {
+    title: '暂无标签',
+    description: '发布内容时添加标签后会显示在这里，逐步形成更细粒度的综合社区入口。',
+    actionText: '去发布',
+    actionHref: '/editor',
+  }
+})
+const userSectionNote = computed(() => {
+  if (!authStore.isLoggedIn && cleanRecommendedUsers.value.length) {
+    return '未登录时可以先浏览作者主页；关注、互动和个性化推荐需要登录后继续。'
+  }
+  if (cleanRecommendedUsers.value.length > 0 && cleanRecommendedUsers.value.length < 4) {
+    return '当前作者样本偏少，更适合作为补充入口而不是唯一浏览路径。'
+  }
+  return ''
+})
+const userSectionNoteTone = computed(() => (
+  !authStore.isLoggedIn ? 'section-note--warning' : 'section-note--muted'
+))
+const userEmptyState = computed<ExploreEmptyStateModel>(() => {
+  if (requestStates.users === 'failed') {
+    return {
+      title: '推荐用户暂时不可用',
+      description: '作者推荐接口没有返回，先用专题、标签和最新发布继续找人。',
+      actionText: '去搜索用户',
+      actionHref: '/search?mode=users',
+    }
+  }
+  return {
+    title: '暂无推荐用户',
+    description: '活跃作者和实践者会展示在这里，帮助你从内容走到人。',
+  }
+})
+const latestSectionNote = computed(() => {
+  if (cleanLatestPosts.value.length > 0 && cleanLatestPosts.value.length < 4) {
+    return '当前公开样本较少，建议配合多领域入口、专题和热门搜索一起浏览。'
+  }
+  return ''
+})
+const latestSectionNoteTone = computed(() => 'section-note--muted')
+const channelSectionNote = computed(() => {
+  if (requestStates.dashboard === 'failed') {
+    return '近 30 天分布接口暂未返回，当前计数已回退到当前页可见的公开样本。'
+  }
+  if (cleanLatestPosts.value.length > 0 && cleanLatestPosts.value.length < 4) {
+    return '当前内容样本偏少，频道计数仅供浏览引导参考。'
+  }
+  return ''
+})
+const channelSectionNoteTone = computed(() => (
+  requestStates.dashboard === 'failed' ? 'section-note--warning' : 'section-note--muted'
+))
 const contentTypeCount = (type: number) => {
   const option = contentTypeChannels.find((item) => Number(item.value) === Number(type))
   const remoteCount = contentTypeDistribution.value.find((item) => item.name === option?.label)?.count
@@ -553,7 +1046,6 @@ const goSearch = () => {
       ...(searchForm.q.trim() ? { q: searchForm.q.trim() } : {}),
       ...(searchForm.techStack.trim() ? { company: searchForm.techStack.trim() } : {}),
       ...(searchForm.scenario.trim() ? { position: searchForm.scenario.trim() } : {}),
-      ...(activeDomain.value != null ? { domain: String(activeDomain.value) } : {}),
       sort: 'relevance',
     },
   })
@@ -608,6 +1100,20 @@ const loadExploreData = async () => {
   isLoadingMeta.value = true
   isLoadingPosts.value = true
   crossDomainError.value = ''
+  domains.value = [...localDomainConfigs]
+  tags.value = []
+  topics.value = []
+  recommendedUsers.value = []
+  latestPosts.value = []
+  contentTypeDistribution.value = []
+  domainSource.value = 'fallback'
+  requestStates.domains = 'loading'
+  requestStates.tags = 'loading'
+  requestStates.topics = 'loading'
+  requestStates.users = 'loading'
+  requestStates.posts = 'loading'
+  requestStates.dashboard = 'loading'
+  requestStates.crossDomain = authStore.isLoggedIn ? 'loading' : 'idle'
   crossDomainStatus.value = authStore.isLoggedIn ? 'loading' : 'unauthenticated'
   const tasks: Array<Promise<any>> = [
     domainApi.listPublic(),
@@ -624,31 +1130,52 @@ const loadExploreData = async () => {
   if (domainRes.status === 'fulfilled') {
     domains.value = domainRes.value.data || localDomainConfigs
     domainSource.value = domainRes.value.source
+    requestStates.domains = 'ready'
+  } else {
+    requestStates.domains = 'failed'
   }
   if (tagRes.status === 'fulfilled') {
     tags.value = filterPublicContent(tagRes.value.data || [])
+    requestStates.tags = 'ready'
+  } else {
+    requestStates.tags = 'failed'
   }
   if (topicRes.status === 'fulfilled') {
     topics.value = filterPublicContent(topicRes.value.data || [])
+    requestStates.topics = 'ready'
+  } else {
+    requestStates.topics = 'failed'
   }
   if (userRes.status === 'fulfilled') {
     recommendedUsers.value = filterPublicContent(userRes.value.data || [])
+    requestStates.users = 'ready'
+  } else {
+    requestStates.users = 'failed'
   }
   if (postRes.status === 'fulfilled') {
     latestPosts.value = filterPublicContent(postRes.value.data?.items || [])
+    requestStates.posts = 'ready'
+  } else {
+    requestStates.posts = 'failed'
   }
   if (dashboardRes.status === 'fulfilled') {
     contentTypeDistribution.value = dashboardRes.value.data?.contentTypeDistribution || []
+    requestStates.dashboard = 'ready'
+  } else {
+    requestStates.dashboard = 'failed'
   }
   if (!authStore.isLoggedIn) {
     crossDomainPage.value = null
+    requestStates.crossDomain = 'idle'
   } else if (crossDomainRes?.status === 'fulfilled') {
     crossDomainPage.value = crossDomainRes.value.data
     crossDomainStatus.value = crossDomainRes.value.data?.degraded ? 'degraded' : 'ready'
+    requestStates.crossDomain = 'ready'
   } else if (crossDomainRes?.status === 'rejected') {
     crossDomainPage.value = null
     crossDomainStatus.value = 'failed'
     crossDomainError.value = getErrorMessage(crossDomainRes.reason, '加载跨领域推荐失败')
+    requestStates.crossDomain = 'failed'
   }
   isLoadingMeta.value = false
   isLoadingPosts.value = false
@@ -722,6 +1249,190 @@ watch(() => authStore.isLoggedIn, async () => {
   font-size: 0.75rem;
   font-weight: 900;
   color: rgb(67 56 202);
+}
+
+.explore-overview {
+  background:
+    radial-gradient(circle at top right, rgb(224 242 254 / 0.92), transparent 34%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.98), rgb(248 250 252 / 0.95));
+}
+
+.overview-kicker,
+.guide-card__badge,
+.browse-link-card__badge,
+.overview-status-card__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.overview-kicker {
+  background: rgb(224 231 255);
+  padding: 0.34rem 0.72rem;
+  color: rgb(79 70 229);
+}
+
+.overview-stat-card,
+.guide-card,
+.browse-link-card,
+.overview-status-card {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.84);
+}
+
+.overview-stat-card {
+  padding: 0.95rem 1rem;
+}
+
+.overview-stat-card small {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgb(100 116 139);
+}
+
+.overview-stat-card strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.45rem;
+  line-height: 1.1;
+  color: rgb(15 23 42);
+}
+
+.overview-stat-card p {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: rgb(71 85 105);
+}
+
+.overview-status-card {
+  min-width: min(100%, 22rem);
+  padding: 1rem 1.05rem;
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.04);
+}
+
+.overview-status-card__eyebrow {
+  padding: 0.3rem 0.62rem;
+}
+
+.overview-status-card h3 {
+  margin-top: 0.7rem;
+  font-size: 1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.overview-status-card p {
+  margin-top: 0.45rem;
+  font-size: 0.84rem;
+  line-height: 1.65;
+  color: rgb(71 85 105);
+}
+
+.overview-status-card--neutral {
+  border-color: rgb(191 219 254);
+  background: rgb(248 250 255 / 0.95);
+}
+
+.overview-status-card--neutral .overview-status-card__eyebrow {
+  background: rgb(219 234 254);
+  color: rgb(29 78 216);
+}
+
+.overview-status-card--success {
+  border-color: rgb(187 247 208);
+  background: rgb(240 253 244 / 0.96);
+}
+
+.overview-status-card--success .overview-status-card__eyebrow {
+  background: rgb(220 252 231);
+  color: rgb(21 128 61);
+}
+
+.overview-status-card--warning {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235 / 0.96);
+}
+
+.overview-status-card--warning .overview-status-card__eyebrow {
+  background: rgb(254 243 199);
+  color: rgb(180 83 9);
+}
+
+.overview-status-card--danger {
+  border-color: rgb(254 205 211);
+  background: rgb(255 241 242 / 0.96);
+}
+
+.overview-status-card--danger .overview-status-card__eyebrow {
+  background: rgb(255 228 230);
+  color: rgb(190 24 93);
+}
+
+.guide-card,
+.browse-link-card {
+  display: flex;
+  min-height: 10.5rem;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.guide-card:hover,
+.browse-link-card:hover {
+  border-color: rgb(165 180 252);
+  background: rgb(248 250 255);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgb(15 23 42 / 0.06);
+}
+
+.guide-card__badge,
+.browse-link-card__badge {
+  padding: 0.28rem 0.58rem;
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+}
+
+.guide-card h3,
+.browse-link-card strong,
+.browse-playbook__header h3 {
+  font-size: 0.98rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.guide-card p,
+.browse-link-card p,
+.browse-playbook__header p {
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: rgb(71 85 105);
+}
+
+.guide-card small,
+.browse-link-card small {
+  margin-top: auto;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: rgb(79 70 229);
+}
+
+.overview-note-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgb(241 245 249);
+  padding: 0.42rem 0.8rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: rgb(71 85 105);
 }
 
 .featured-row {
@@ -887,6 +1598,40 @@ watch(() => authStore.isLoggedIn, async () => {
   -webkit-box-orient: vertical;
   font-size: 0.75rem;
   color: rgb(100 116 139);
+}
+
+.browse-playbook {
+  border-top: 1px solid rgb(226 232 240);
+  padding-top: 1.2rem;
+}
+
+.browse-playbook__header {
+  margin-bottom: 0.95rem;
+}
+
+.browse-playbook__grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.section-note {
+  border-radius: 0.9rem;
+  border: 1px solid rgb(226 232 240);
+  padding: 0.85rem 0.95rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+
+.section-note--muted {
+  background: rgb(248 250 252);
+  color: rgb(71 85 105);
+}
+
+.section-note--warning {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235);
+  color: rgb(146 64 14);
 }
 
 .reading-pilot-card {
@@ -1102,6 +1847,12 @@ watch(() => authStore.isLoggedIn, async () => {
   color: rgb(226 232 240);
 }
 
+.dark .explore-overview {
+  background:
+    radial-gradient(circle at top right, rgb(30 64 175 / 0.24), transparent 34%),
+    linear-gradient(180deg, rgb(15 23 42 / 0.98), rgb(2 6 23 / 0.95));
+}
+
 .dark .channel-card,
 .dark .featured-row,
 .dark .topic-row {
@@ -1146,6 +1897,100 @@ watch(() => authStore.isLoggedIn, async () => {
   color: rgb(199 210 254);
 }
 
+.dark .overview-kicker {
+  background: rgb(49 46 129 / 0.52);
+  color: rgb(199 210 254);
+}
+
+.dark .overview-stat-card,
+.dark .guide-card,
+.dark .browse-link-card,
+.dark .overview-status-card {
+  border-color: rgb(51 65 85 / 0.92);
+  background: rgb(15 23 42 / 0.82);
+  box-shadow: inset 0 1px 0 rgb(148 163 184 / 0.06);
+}
+
+.dark .overview-stat-card small,
+.dark .overview-stat-card p,
+.dark .overview-status-card p,
+.dark .guide-card p,
+.dark .browse-link-card p,
+.dark .browse-playbook__header p {
+  color: rgb(148 163 184);
+}
+
+.dark .overview-stat-card strong,
+.dark .overview-status-card h3,
+.dark .guide-card h3,
+.dark .browse-link-card strong,
+.dark .browse-playbook__header h3 {
+  color: rgb(248 250 252);
+}
+
+.dark .overview-status-card--neutral {
+  border-color: rgb(30 64 175 / 0.65);
+  background: rgb(15 23 42 / 0.86);
+}
+
+.dark .overview-status-card--neutral .overview-status-card__eyebrow {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .overview-status-card--success {
+  border-color: rgb(22 101 52 / 0.72);
+  background: rgb(5 46 22 / 0.58);
+}
+
+.dark .overview-status-card--success .overview-status-card__eyebrow {
+  background: rgb(20 83 45);
+  color: rgb(187 247 208);
+}
+
+.dark .overview-status-card--warning {
+  border-color: rgb(120 53 15 / 0.82);
+  background: rgb(67 20 7 / 0.45);
+}
+
+.dark .overview-status-card--warning .overview-status-card__eyebrow {
+  background: rgb(120 53 15);
+  color: rgb(253 230 138);
+}
+
+.dark .overview-status-card--danger {
+  border-color: rgb(157 23 77 / 0.8);
+  background: rgb(80 7 36 / 0.46);
+}
+
+.dark .overview-status-card--danger .overview-status-card__eyebrow {
+  background: rgb(131 24 67);
+  color: rgb(251 207 232);
+}
+
+.dark .guide-card:hover,
+.dark .browse-link-card:hover {
+  border-color: rgb(99 102 241 / 0.78);
+  background: rgb(30 41 59 / 0.92);
+  box-shadow: 0 18px 32px rgb(2 6 23 / 0.3);
+}
+
+.dark .guide-card__badge,
+.dark .browse-link-card__badge {
+  background: rgb(49 46 129 / 0.55);
+  color: rgb(199 210 254);
+}
+
+.dark .guide-card small,
+.dark .browse-link-card small {
+  color: rgb(165 180 252);
+}
+
+.dark .overview-note-chip {
+  background: rgb(30 41 59 / 0.88);
+  color: rgb(203 213 225);
+}
+
 .dark .domain-source-chip,
 .dark .domain-card__risk {
   background: rgb(30 41 59 / 0.84);
@@ -1183,6 +2028,22 @@ watch(() => authStore.isLoggedIn, async () => {
 
 .dark .domain-card small {
   color: rgb(100 116 139);
+}
+
+.dark .browse-playbook {
+  border-top-color: rgb(51 65 85 / 0.9);
+}
+
+.dark .section-note--muted {
+  border-color: rgb(51 65 85 / 0.9);
+  background: rgb(2 6 23 / 0.55);
+  color: rgb(148 163 184);
+}
+
+.dark .section-note--warning {
+  border-color: rgb(154 52 18);
+  background: rgb(67 20 7 / 0.45);
+  color: rgb(253 186 116);
 }
 
 .dark .reading-pilot-card {
@@ -1287,5 +2148,11 @@ watch(() => authStore.isLoggedIn, async () => {
   border-color: rgb(99 102 241 / 0.65);
   background: rgb(15 23 42 / 0.9);
   box-shadow: 0 0 0 3px rgb(67 56 202 / 0.28);
+}
+
+@media (min-width: 768px) {
+  .browse-playbook__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

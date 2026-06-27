@@ -38,6 +38,7 @@ assert.match(certificationApi, /\/revoke/, 'certification API must expose revoke
 
 assert.match(knowledgeApi, /\/api\/v1\/knowledge\/relations/, 'knowledge API must call the relations endpoint')
 assert.match(knowledgeApi, /export interface KnowledgeExploreQuery/, 'knowledge API must define the query contract')
+assert.doesNotMatch(knowledgeApi, /\bseriesId\b/, 'knowledge API public contract must not advertise a seriesId seed')
 
 for (const contract of [
   'CrossDomainRecommendation',
@@ -83,6 +84,9 @@ for (const [source, apiName] of [
   assert.match(source, /LoadingSkeleton/, 'stage4 view must handle loading state')
   assert.match(source, /EmptyState/, 'stage4 view must handle empty state')
 }
+
+assert.doesNotMatch(knowledge, /\bseriesId\b/, 'knowledge explore page must not keep a public seriesId filter')
+assert.doesNotMatch(knowledge, /series_post/, 'knowledge explore page must not promise a public series_post relation')
 
 assert.match(growthProfile, /authStore\.isLoggedIn/, 'GrowthProfileView must guard unauthenticated users')
 assert.match(growthReport, /authStore\.isLoggedIn/, 'GrowthReportView must guard unauthenticated users')

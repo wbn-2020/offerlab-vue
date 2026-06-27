@@ -6,7 +6,6 @@ export interface KnowledgeExploreQuery {
   tagId?: ApiId
   topicId?: ApiId
   domain?: number
-  seriesId?: ApiId
   limit?: number
 }
 

@@ -31,7 +31,7 @@
           title="登录后提交专家认证申请"
           description="认证试点会读取你的个人公开内容，并保留可审核的资格解释与证据摘要。"
           action-text="去登录"
-          action-href="/login"
+          :action-href="loginHref"
         />
 
         <div v-else class="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -217,18 +217,10 @@
               </button>
             </div>
 
-            <div v-if="item.eligibilitySummary || item.reviewNote || item.revokeNote" class="mt-4 grid gap-3 md:grid-cols-3">
+            <div v-if="item.eligibilitySummary" class="mt-4 grid gap-3 md:grid-cols-1">
               <div v-if="item.eligibilitySummary" class="detail-card">
                 <strong>资格解释</strong>
                 <p>{{ item.eligibilitySummary }}</p>
-              </div>
-              <div v-if="item.reviewNote" class="detail-card">
-                <strong>审核备注</strong>
-                <p>{{ item.reviewNote }}</p>
-              </div>
-              <div v-if="item.revokeNote" class="detail-card">
-                <strong>撤销备注</strong>
-                <p>{{ item.revokeNote }}</p>
               </div>
             </div>
 
@@ -253,7 +245,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -265,6 +257,8 @@ import { useAuthStore } from '@/stores/auth'
 import type { ApiId, ExpertCertificationApplication, ExpertCertificationEligibility } from '@/api/types'
 
 const authStore = useAuthStore()
+const route = useRoute()
+const loginHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath || '/certification/apply')}`)
 
 const selectedDomain = ref(localDomainConfigs[0]?.domain ?? 1)
 const loadingEligibility = ref(false)
