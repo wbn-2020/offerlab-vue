@@ -55,9 +55,9 @@ assert.match(contentTypes, /SYSTEM_DESIGN: 16/, 'content types must include syst
 assert.match(contentTypes, /INTERVIEW_RECAP: 17/, 'content types must include interview recap')
 assert.match(contentTypes, /'SYSTEM_DESIGN'/, 'content type code whitelist must keep system design')
 assert.match(contentTypes, /'INTERVIEW_RECAP'/, 'content type code whitelist must keep interview recap')
-assert.match(editorView, /系统设计模板/, 'editor must provide a system design template')
-assert.match(editorView, /面试复盘模板/, 'editor must provide an interview recap template')
+assert.match(editorView, /SYSTEM_DESIGN:\s*\{[\s\S]*?title: '观点讨论模板'/, 'editor must keep the system design code path as a community discussion template')
+assert.match(editorView, /INTERVIEW_RECAP:\s*\{[\s\S]*?title: '面试复盘模板'/, 'editor must keep the interview recap legacy template')
 
-assert.doesNotMatch(postDetail + mePrep, /[鏆棰鍚绋]|�|\?\? \?\?\?\?/, 'interview material UI must not contain visible mojibake text')
+assert.doesNotMatch(postDetail + mePrep + editorView, /[閺嗘０閸氱粙]|锟絴\?\? \?\?\?\?/, 'interview material UI must not contain visible mojibake text')
 
 console.log('interview material frontend guard passed')

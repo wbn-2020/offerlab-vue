@@ -7,40 +7,40 @@
           <div class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div class="max-w-2xl">
               <div class="mb-3 flex flex-wrap gap-2">
-                <span class="muted-pill">真实经验</span>
-                <span class="muted-pill">备考行动</span>
-                <span class="muted-pill">成长资产</span>
+                <span class="muted-pill">综合频道</span>
+                <span class="muted-pill">推荐内容</span>
+                <span class="muted-pill">热门话题</span>
               </div>
               <h1 class="text-2xl font-black tracking-normal text-slate-950 dark:text-white sm:text-3xl">
-                今天先完成一件能靠近 Offer 的事
+                发现真实经验，分享有用内容
               </h1>
               <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-                OfferLab 把技术经验、面试复盘、题目练习和成长档案串成一条行动线：先看真实经验，再整理准备材料，最后沉淀成自己的可展示资产。
+                在这里浏览不同频道的经验、攻略、资源和讨论，也可以把自己的经历、问题、清单或观点发布出来。
               </p>
             </div>
             <div class="flex flex-wrap gap-3">
               <RouterLink to="/editor" class="primary-action">
                 <PenLine class="h-4 w-4" />
-                发布复盘
+                发布内容
               </RouterLink>
               <RouterLink to="/explore" class="secondary-action">
                 <Compass class="h-4 w-4" />
-                看推荐
+                逛发现
               </RouterLink>
             </div>
           </div>
 
           <div class="home-metric-grid mt-6 grid gap-3 sm:grid-cols-3">
             <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">今日推荐</span>
+              <span class="metric-label">推荐内容</span>
               <strong class="metric-value">{{ readableMetricValue }}</strong>
             </div>
             <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">可复习主题</span>
+              <span class="metric-label">热门话题</span>
               <strong class="metric-value">{{ tagMetricValue }}</strong>
             </div>
             <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">成长入口</span>
+              <span class="metric-label">活跃作者</span>
               <strong class="metric-value">{{ peerMetricValue }}</strong>
             </div>
           </div>
@@ -60,7 +60,7 @@
               <input
                 v-model="heroKeyword"
                 class="quick-input border-slate-200 bg-slate-50 text-slate-950 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-100 pl-9"
-                placeholder="例如 Redis、架构复盘、部署踩坑"
+                placeholder="例如 学习方法、租房经验、AI 工具、书单推荐"
               />
             </div>
             <button type="submit" class="primary-action w-full">
@@ -98,14 +98,14 @@
           <span>综合</span>
         </router-link>
         <router-link
-          v-for="d in DOMAIN_OPTIONS"
-          :key="d.value"
-          :to="d.value === activeDomain ? '/' : { path: '/', query: { domain: d.value } }"
+          v-for="d in COMMUNITY_CHANNELS"
+          :key="d.key"
+          :to="d.domain ? (d.domain === activeDomain ? '/' : { path: '/', query: { domain: d.domain } }) : { path: '/search', query: { type: String(d.postTypes?.[0] || ''), sort: 'hot' } }"
           class="domain-chip inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:hover:bg-primary-950"
-          :class="d.value === activeDomain ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/50 dark:border-primary-700' : 'bg-white dark:bg-slate-900'"
+          :class="d.domain != null && d.domain === activeDomain ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/50 dark:border-primary-700' : 'bg-white dark:bg-slate-900'"
         >
           <span>{{ d.icon }}</span>
-          <span>{{ d.label }}</span>
+          <span>{{ d.name }}</span>
         </router-link>
       </section>
 
@@ -131,7 +131,7 @@
         <article class="surface-card p-5">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="text-sm font-black text-slate-950 dark:text-white">系列工作台</h2>
+              <h2 class="text-sm font-black text-slate-950 dark:text-white">内容合集</h2>
               <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">{{ homeSeriesSummary }}</p>
             </div>
             <RouterLink :to="seriesWorkbenchHref" class="secondary-action px-4">
@@ -240,7 +240,7 @@
               <template v-else>
                 <div>
                   <h3 class="font-black text-slate-950 dark:text-white">开始沉淀你的实践经验</h3>
-                  <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">登录后可以发布技术、职场、阅读或生活实践，收藏内容并关注作者。</p>
+                  <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">登录后可以发布经验、问题、攻略或资源，收藏内容并关注作者。</p>
                   <RouterLink to="/login" class="primary-action mt-4 w-full">
                     登录
                   </RouterLink>
@@ -437,7 +437,7 @@
 
             <section class="surface-card p-5">
               <div class="mb-4 flex items-center justify-between">
-                <h3 class="font-black text-slate-950 dark:text-white">技术专题</h3>
+                <h3 class="font-black text-slate-950 dark:text-white">热门话题</h3>
                 <Compass class="h-4 w-4 text-primary-500" />
               </div>
               <div class="space-y-2">
@@ -520,7 +520,7 @@
 import { computed, onMounted, ref, watch, type Component } from 'vue'
 import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { BookOpen, Compass, FileText, PenLine, Search, Sparkles, Tag, Target, TrendingUp, UserRound, Users } from 'lucide-vue-next'
+import { BookOpen, Compass, FileText, PenLine, Search, Sparkles, Tag, Target, TrendingUp, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
@@ -538,7 +538,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { CommunityTopic, Post, Tag as PostTag, User } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
-import { DOMAIN_OPTIONS } from '@/utils/domains'
+import { COMMUNITY_CHANNELS, DOMAIN_OPTIONS } from '@/utils/domains'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
 
@@ -652,39 +652,39 @@ const visiblePosts = computed(() => {
 })
 const readableContentCount = computed(() => Math.max(visiblePosts.value.length, sampledFeedContentCount.value))
 const readableMetricValue = computed(() => readableContentCount.value > 0 ? String(readableContentCount.value) : '先看精选')
-const tagMetricValue = computed(() => topTags.value.length > 0 ? String(topTags.value.length) : '去题库')
-const peerMetricValue = computed(() => recommendedUsers.value.length > 0 ? String(recommendedUsers.value.length) : '建档案')
+const tagMetricValue = computed(() => topTags.value.length > 0 ? String(topTags.value.length) : '去发现')
+const peerMetricValue = computed(() => recommendedUsers.value.length > 0 ? String(recommendedUsers.value.length) : '看作者')
 const todayActions = computed<TodayAction[]>(() => [
   {
-    title: '看今日推荐',
-    description: '从真实经验里找一条可复用做法',
-    href: '/explore',
+    title: '看推荐内容',
+    description: '从真实经验、攻略清单和资源推荐里找灵感',
+    href: '/',
     icon: Compass,
     primary: true,
   },
   {
-    title: '继续备考',
-    description: '回到公司、岗位和题目准备进度',
-    href: authStore.isLoggedIn ? '/me/prep' : '/login',
-    icon: Target,
+    title: '逛频道广场',
+    description: '科技数码、学习成长、职场经验、生活方式都在发现页',
+    href: '/explore',
+    icon: Sparkles,
   },
   {
-    title: '复习知识卡',
-    description: '按待复习和错因补齐短板',
-    href: { path: '/questions', query: { progressStatus: 'review', sort: 'latest' } },
+    title: '参与问答',
+    description: '提出问题、征集建议，也可以回答别人的困惑',
+    href: '/questions',
     icon: BookOpen,
   },
   {
-    title: '发布面试复盘',
-    description: '把一次准备或面试沉淀为资产',
+    title: '发布内容',
+    description: '分享经验、提出问题、推荐资源或写一篇复盘',
     href: '/editor',
     icon: FileText,
   },
   {
-    title: '查看成长档案',
-    description: '整理贡献、收藏和下一步方向',
-    href: authStore.isLoggedIn ? '/growth/profile' : '/login',
-    icon: UserRound,
+    title: '实验工具',
+    description: '旧版学习空间和练习工具保留直达，适合职场频道用户继续使用',
+    href: authStore.isLoggedIn ? '/me/prep' : '/login',
+    icon: Target,
   },
 ])
 const currentUserSignature = computed(() => {
@@ -715,12 +715,12 @@ const emptyFeedTitle = computed(() => {
   return '暂时没有内容'
 })
 const emptyFeedDescription = computed(() => {
-  if (activeFeed.value === 'following') return '先从发现页关注几位分享真实项目、面试复盘和学习路线的作者。'
-  if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '推荐和热门里还有可读内容，也可以进入题库挑一张知识卡开始复习。'
-  return '可以先看推荐内容、进入题库复习，或把最近一次项目/面试经历写成复盘。'
+  if (activeFeed.value === 'following') return '先从发现页关注几位分享真实经验、资源推荐和生活攻略的作者。'
+  if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '推荐和热门里还有可读内容，也可以去发现页看看频道广场和热门话题。'
+  return '可以先看推荐内容、逛发现页，或把最近一次经历、问题、清单写成一篇内容。'
 })
-const emptyFeedActionText = computed(() => activeFeed.value === 'following' ? '去发现作者' : '去题库复习')
-const emptyFeedActionHref = computed(() => activeFeed.value === 'following' ? '/explore' : '/questions')
+const emptyFeedActionText = computed(() => activeFeed.value === 'following' ? '去发现作者' : '去发现内容')
+const emptyFeedActionHref = computed(() => '/explore')
 
 const findPost = (postId: Post['postId']) => posts.value.find((item) => String(item.postId) === String(postId))
 const userDisplaySignature = (user: User) => {

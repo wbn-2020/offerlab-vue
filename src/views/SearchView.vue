@@ -12,7 +12,7 @@
               type="search"
               list="search-suggestions"
               class="search-input pl-10"
-              placeholder="搜索技术经验、项目复盘、踩坑记录、工具资源或作者"
+              placeholder="搜索内容、话题、作者、标签或有用经验"
               @input="handleSearchInput"
               @keyup.enter="runSearch(false)"
             />
@@ -39,7 +39,15 @@
             </button>
             <button type="button" :class="['segment-button', searchMode === 'users' ? 'segment-active' : '']" @click="setMode('users')">
               <Users class="h-4 w-4" />
-              用户
+              作者
+            </button>
+            <button type="button" :class="['segment-button', searchMode === 'topics' ? 'segment-active' : '']" @click="setMode('topics')">
+              <Hash class="h-4 w-4" />
+              话题
+            </button>
+            <button type="button" :class="['segment-button', searchMode === 'tags' ? 'segment-active' : '']" @click="setMode('tags')">
+              <Hash class="h-4 w-4" />
+              标签
             </button>
           </div>
 
@@ -63,12 +71,12 @@
             <h2 class="side-title">筛选</h2>
             <div class="space-y-3">
               <label class="field-label">
-                技术栈
-                <input v-model.trim="filters.company" class="field-input" placeholder="例如 Redis / Spring Boot" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                标签 / 关键词
+                <input v-model.trim="filters.company" class="field-input" placeholder="例如 AI 工具 / 租房 / 读书" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
-                场景
-                <input v-model.trim="filters.position" class="field-input" placeholder="例如 性能优化 / 部署运维" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                频道 / 场景
+                <input v-model.trim="filters.position" class="field-input" placeholder="例如 学习成长 / 生活方式" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
                 内容类型
@@ -207,8 +215,8 @@
             <div class="notice-error-actions">
               <button type="button" @click="runSearch(false)">重试</button>
               <button type="button" @click="searchHotContentFromError">热门内容</button>
-              <button type="button" @click="switchToUserSearchFromError">搜用户</button>
-              <RouterLink :to="{ path: '/questions', query: fallbackQuestionQuery }" @click="trackCommunityRecommendationClick('error:questions')">知识库</RouterLink>
+              <button type="button" @click="switchToUserSearchFromError">搜作者</button>
+              <RouterLink :to="{ path: '/questions', query: fallbackQuestionQuery }" @click="trackCommunityRecommendationClick('error:questions')">问答讨论</RouterLink>
               <RouterLink to="/explore" @click="trackCommunityRecommendationClick('error:explore')">发现</RouterLink>
             </div>
           </div>
@@ -284,6 +292,8 @@
             <div class="mt-5 flex flex-wrap justify-center gap-2">
               <button type="button" class="primary-button" @click="resetFilters">清空筛选</button>
               <button v-if="searchMode === 'posts'" type="button" class="secondary-button" @click="searchHotContentFromEmpty">热门内容</button>
+              <RouterLink v-if="searchMode === 'topics' && filters.q" :to="`/topics/${encodeURIComponent(filters.q)}`" class="secondary-button">查看话题</RouterLink>
+              <RouterLink v-if="searchMode === 'tags' && filters.q" :to="`/tag/${encodeURIComponent(filters.q)}`" class="secondary-button">查看标签</RouterLink>
               <RouterLink to="/explore" class="secondary-button" @click="trackCommunityRecommendationClick('explore')">去发现页</RouterLink>
             </div>
           </div>
@@ -302,7 +312,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Bookmark, Check, Eraser, FileText, Pencil, Search, Trash2, Users, X } from 'lucide-vue-next'
+import { Bookmark, Check, Eraser, FileText, Hash, Pencil, Search, Trash2, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -318,7 +328,7 @@ import { isKnownDomain } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 
 type SortValue = 'relevance' | 'latest' | 'hot'
-type SearchMode = 'posts' | 'users'
+type SearchMode = 'posts' | 'users' | 'topics' | 'tags'
 type SearchSnapshot = {
   id: string
   label: string
@@ -408,12 +418,15 @@ const storageKey = (name: string) => `offerlab:${storageOwner.value}:${name}`
 const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
 const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label || '相关度')
 const resultSummaryText = computed(() => {
-  if (searchMode.value === 'users') return `找到 ${resultCount.value} 位用户`
+  if (searchMode.value === 'users') return `找到 ${resultCount.value} 位作者`
+  if (searchMode.value === 'topics') return filters.q ? `可查看话题「${filters.q}」` : '输入关键词查看话题'
+  if (searchMode.value === 'tags') return filters.q ? `可查看标签「${filters.q}」` : '输入关键词查看标签'
   if (hasMore.value) return `已加载 ${resultCount.value} 条内容，继续加载可查看更多`
   return `共 ${resultCount.value} 条内容`
 })
 const hasQuery = computed(() => {
   if (searchMode.value === 'users') return Boolean(filters.q)
+  if (searchMode.value === 'topics' || searchMode.value === 'tags') return Boolean(filters.q)
   return Boolean(filters.q || filters.company || filters.position || filters.type)
 })
 const searchDiagnosticText = computed(() => {
@@ -423,7 +436,7 @@ const searchDiagnosticText = computed(() => {
     return '当前关键词像测试数据标记，公开搜索默认会隐藏 CODEX/E2E/smoke 数据。打开测试数据模式后可做回归验证。'
   }
   if (diagnostics.emptyReason === 'type_or_filter_no_match') {
-    return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、技术栈或场景。'
+    return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、标签或频道。'
   }
   const filtered = Number(diagnostics.syntheticFiltered || 0)
   if (filtered > 0 && !includeTestData.value) {
@@ -446,22 +459,26 @@ const postDetailQuery = computed<Record<string, string>>(() => {
   }
 })
 const emptyTitle = computed(() => {
-  if (searchMode.value === 'users') return filters.q ? '没有找到这个用户' : '先输入用户昵称'
+  if (searchMode.value === 'users') return filters.q ? '没有找到这个作者' : '先输入作者昵称'
+  if (searchMode.value === 'topics') return filters.q ? '准备查看这个话题' : '先输入话题关键词'
+  if (searchMode.value === 'tags') return filters.q ? '准备查看这个标签' : '先输入标签关键词'
   return hasQuery.value ? '没有匹配的内容' : '开始探索内容'
 })
 const emptyText = computed(() => {
   if (searchMode.value === 'users') return '可以搜索作者昵称，找到公开资料和 TA 的内容。'
+  if (searchMode.value === 'topics') return '第一阶段先提供话题直达入口，完整话题聚合会在后续增强。'
+  if (searchMode.value === 'tags') return '第一阶段先提供标签直达入口，完整标签聚合会在后续增强。'
   return hasQuery.value ? '当前关键词或筛选条件较窄，可以清空筛选或换一个热门关键词。' : '输入关键词，或直接查看热门内容。'
 })
 const noResultWords = computed(() => {
   const words = hotWords.value.filter((word) => word && word !== filters.q).slice(0, 6)
-  return words.length ? words : ['Redis 踩坑', '项目复盘', 'MySQL 优化', 'Spring Boot']
+  return words.length ? words : ['AI 工具', '学习方法', '租房经验', '书单推荐', '求建议', '城市生活']
 })
 const relaxActions = computed(() => {
   const actions: RecommendationAction[] = []
   if (filters.type) actions.push({ key: 'type', label: '不限内容类型', action: clearTypeFilter })
   if (filters.position) actions.push({ key: 'position', label: '不限场景', action: clearPositionFilter })
-  if (filters.company) actions.push({ key: 'company', label: '不限技术栈', action: clearCompanyFilter })
+  if (filters.company) actions.push({ key: 'company', label: '不限标签', action: clearCompanyFilter })
   if (!includeTestData.value && isSyntheticVisibleText(filters.q)) actions.push({ key: 'test-data', label: '包含测试数据', action: enableTestDataMode })
   if (filters.q) actions.push({ key: 'keyword', label: '只看热门内容', action: searchHotContent })
   return actions
@@ -475,9 +492,9 @@ const userFacingSearchStatusMessage = (message?: string | null) => {
 }
 const searchStatusText = computed(() => {
   if (isSearchStatusLoading.value && !searchStatus.value) return '正在检测搜索状态'
-  if (searchStatusError.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、知识库和搜用户入口'
+  if (searchStatusError.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、问答讨论和搜作者入口'
   if (!searchStatus.value) return '搜索状态暂不可用，本页已保留社区兜底入口'
-  if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、知识库和搜用户入口'
+  if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、问答讨论和搜作者入口'
   if (searchStatus.value.publicSearchSource === 'mysql') {
     const mode = searchStatus.value.fallbackMode === 'compat' ? '兼容模式' : '完整标签治理模式'
     return `公开搜索当前由数据库兜底服务（${mode}），结果可能不完整，排序能力受限`
@@ -538,7 +555,7 @@ const filterVisibleSearchTerms = (values: unknown) => {
 }
 
 const userSignatureText = (item: User) => {
-  return sanitizePublicVisibleText(item.signature, '技术经验主页，暂未填写技术简介')
+  return sanitizePublicVisibleText(item.signature, '作者还没有填写简介')
 }
 
 const isVisibilitySupplementReason = (reason?: string) => {
@@ -607,7 +624,9 @@ const switchToUserSearchFromError = async () => {
 const syncFromRoute = () => {
   filters.q = typeof route.query.q === 'string' ? route.query.q : ''
   const domain = Number(route.query.domain)
-  const nextMode = route.query.mode === 'users' ? 'users' : 'posts'
+  const nextMode = route.query.mode === 'users' || route.query.mode === 'topics' || route.query.mode === 'tags'
+    ? route.query.mode
+    : 'posts'
   filters.domain = nextMode === 'posts' && isKnownDomain(domain) ? domain : undefined
   filters.company = typeof route.query.company === 'string' ? route.query.company : ''
   filters.position = typeof route.query.position === 'string' ? route.query.position : ''
@@ -631,7 +650,7 @@ const pushQuery = () => {
       ...(filters.position ? { position: filters.position } : {}),
       ...(filters.type ? { type: String(filters.type) } : {}),
       ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
-      ...(searchMode.value === 'users' ? { mode: 'users' } : {}),
+      ...(searchMode.value !== 'posts' ? { mode: searchMode.value } : {}),
       ...(includeTestData.value ? { includeTestData: '1' } : {}),
     },
   }).finally(() => {
@@ -640,7 +659,9 @@ const pushQuery = () => {
 }
 
 const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'domain' | 'company' | 'position' | 'type' | 'mode'>) => {
-  if (snapshot.mode === 'users') return snapshot.q || '用户搜索'
+  if (snapshot.mode === 'users') return snapshot.q || '作者搜索'
+  if (snapshot.mode === 'topics') return snapshot.q || '话题搜索'
+  if (snapshot.mode === 'tags') return snapshot.q || '标签搜索'
   return [snapshot.q, snapshot.company, snapshot.position, snapshot.type ? postTypeText(snapshot.type) : '']
     .filter(Boolean)
     .join(' / ') || '全部内容'
@@ -841,7 +862,14 @@ const applySearchSnapshot = async (snapshot: SearchSnapshot) => {
 const postTypeText = (type?: number) => type ? getContentTypeLabel(type) : ''
 
 const searchSnapshotMeta = (snapshot: SearchSnapshot) => {
-  const tags = [snapshot.mode === 'users' ? '用户' : '内容']
+  const modeLabel = snapshot.mode === 'users'
+    ? '作者'
+    : snapshot.mode === 'topics'
+      ? '话题'
+      : snapshot.mode === 'tags'
+        ? '标签'
+        : '内容'
+  const tags = [modeLabel]
   if (snapshot.mode === 'posts' && snapshot.sort !== 'relevance') tags.push(activeSortText(snapshot.sort))
   return tags.filter(Boolean).join(' · ')
 }
@@ -912,6 +940,16 @@ const runSearch = async (append = false, syncRoute = true) => {
       return
     }
 
+    if (searchMode.value === 'topics' || searchMode.value === 'tags') {
+      cursor.value = undefined
+      hasMore.value = false
+      searchResults.value = []
+      userResults.value = []
+      searchResultMeta.value = null
+      if (!append) rememberRecentSearch()
+      return
+    }
+
     const params = {
       q: filters.q || undefined,
       company: filters.company || undefined,
@@ -940,7 +978,7 @@ const runSearch = async (append = false, syncRoute = true) => {
     if (!append) rememberRecentSearch()
   } catch (error: any) {
     if (requestId !== searchRequestId) return
-    errorMessage.value = `${getErrorMessage(error, '搜索接口暂不可用')}。已刷新搜索状态，并保留热门内容、发现页、知识库和搜用户入口。`
+    errorMessage.value = `${getErrorMessage(error, '搜索接口暂不可用')}。已刷新搜索状态，并保留热门内容、发现页、问答讨论和搜作者入口。`
     if (!append) {
       searchResults.value = []
       userResults.value = []

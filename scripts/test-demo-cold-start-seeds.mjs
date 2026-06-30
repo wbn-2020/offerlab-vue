@@ -11,9 +11,9 @@ const profileView = readFileSync(new URL('../src/views/MeProfileView.vue', impor
 for (const phrase of [
   '高并发优惠券库存扣减复盘',
   'Kafka 消息堆积面试复盘',
-  '字节跳动后端备考包',
+  '为学习成长频道补 3 条资源',
   'Redis 热 key 如何治理',
-  '成长档案 demo',
+  '作者主页 demo',
 ]) {
   assert.match(demoSeeds, new RegExp(phrase), `demo seeds must include ${phrase}`)
 }

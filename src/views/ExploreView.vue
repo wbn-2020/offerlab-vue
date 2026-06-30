@@ -5,7 +5,7 @@
       <div class="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 class="text-3xl font-bold text-slate-900 dark:text-slate-100">发现</h1>
-          <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">从技术、职场、阅读与生活实践里发现值得收藏的真实经验。</p>
+          <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">从频道广场、话题广场、精选内容和作者入口开始，发现值得收藏和讨论的真实经验。</p>
         </div>
         <RouterLink to="/editor" class="primary-action">
           发布内容
@@ -16,15 +16,15 @@
         <div class="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto] md:items-end">
           <label>
             <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">关键词</span>
-            <input v-model="searchForm.q" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="项目复盘、踩坑记录、工具资源" @keyup.enter="goSearch" />
+            <input v-model="searchForm.q" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="学习方法、AI 工具、租房经验、书单推荐" @keyup.enter="goSearch" />
           </label>
           <label>
-            <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">技术栈</span>
-            <input v-model="searchForm.techStack" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="例如 Spring Boot" @keyup.enter="goSearch" />
+            <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">频道 / 话题</span>
+            <input v-model="searchForm.techStack" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="例如 学习成长" @keyup.enter="goSearch" />
           </label>
           <label>
-            <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">场景</span>
-            <input v-model="searchForm.scenario" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="例如 性能优化" @keyup.enter="goSearch" />
+            <span class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">内容形式</span>
+            <input v-model="searchForm.scenario" class="filter-input dark:!border-slate-700 dark:!bg-slate-950/60 dark:!text-slate-200 dark:placeholder:!text-slate-500" placeholder="例如 攻略清单" @keyup.enter="goSearch" />
           </label>
           <button type="button" class="primary-action px-5 py-2.5" @click="goSearch">
             搜索内容
@@ -46,10 +46,10 @@
       <section class="surface-card explore-overview mb-8 p-6">
         <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div class="max-w-3xl">
-            <span class="overview-kicker">综合社区导览</span>
-            <h2 class="mt-3 text-2xl font-black text-slate-900 dark:text-slate-100">先从熟悉领域进入，再沿专题、标签和知识关系扩展</h2>
+            <span class="overview-kicker">频道广场</span>
+            <h2 class="mt-3 text-2xl font-black text-slate-900 dark:text-slate-100">先逛频道和话题，再收藏值得反复看的内容</h2>
             <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              发现页会把多领域入口、内容频道、专题标签、知识关系和最新公开内容放在同一张浏览地图里，帮助你从单点兴趣逐步走到综合社区视角。
+              发现页会把主频道、内容类型、热门话题、精选内容和作者入口放在同一张浏览地图里，帮助你从一个兴趣点扩展到更多真实经验。
             </p>
             <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div
@@ -122,15 +122,15 @@
       <section class="surface-card stage4-cross-domain-panel mb-8 p-6">
         <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="stage4-kicker">跨领域成长</span>
-            <h2 class="mt-3 text-xl font-black text-slate-900 dark:text-slate-100">跨领域推荐</h2>
+            <span class="stage4-kicker">辅助探索</span>
+            <h2 class="mt-3 text-xl font-black text-slate-900 dark:text-slate-100">相关内容推荐</h2>
             <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
               用规则优先的桥接逻辑，把你熟悉领域之外但仍然相关的内容先解释清楚，再推荐给你。
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
             <RouterLink v-if="authStore.isLoggedIn" to="/growth/profile" class="secondary-action">
-              成长档案
+              作者数据
             </RouterLink>
             <RouterLink to="/knowledge/explore" class="secondary-action">
               知识关系
@@ -142,13 +142,13 @@
           v-if="crossDomainStatus === 'unauthenticated'"
           class="rounded-2xl border border-dashed border-slate-200 px-5 py-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
         >
-          登录后可查看基于个人领域轨迹生成的跨领域推荐；未登录时发现页仍保持公共内容浏览能力。
+          登录后可查看基于关注频道生成的相关内容推荐；未登录时发现页仍保持公共内容浏览能力。
         </div>
 
         <LoadingSkeleton v-else-if="crossDomainStatus === 'loading'" />
 
         <div v-else-if="crossDomainStatus === 'failed'" class="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
-          <div>{{ crossDomainError || '跨领域推荐加载失败。' }}</div>
+          <div>{{ crossDomainError || '相关内容推荐加载失败。' }}</div>
           <button type="button" class="secondary-action mt-3" @click="loadExploreData">
             重新加载
           </button>
@@ -197,8 +197,8 @@
         <article class="surface-card p-6">
           <div class="mb-5 flex items-start justify-between gap-4">
             <div>
-              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">多领域入口</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">优先读取后端启用领域，接口失败时自动回退默认五大领域；可以先从熟悉方向进入，再回到综合视角继续扩展。</p>
+              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">频道广场</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">优先读取后端启用频道，接口失败时自动回退默认频道；可以先从熟悉方向进入，再回到综合视角继续扩展。</p>
             </div>
             <span class="domain-source-chip">{{ domainSourceSummary }}</span>
           </div>
@@ -224,7 +224,7 @@
             <div class="browse-playbook__header">
               <div>
                 <h3>浏览引导</h3>
-                <p>先选一个入口，再顺着专题、标签和关系网络把视角拉宽。</p>
+              <p>先选一个入口，再顺着话题、标签和相关内容把视角拉宽。</p>
               </div>
             </div>
             <div class="browse-playbook__grid">
@@ -332,7 +332,7 @@
           <div class="mb-5 flex items-center justify-between gap-4">
             <div>
               <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">专题入口</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">阅读专题优先露出，其他专题继续按技术栈、业务场景和标签聚合。</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">热门话题会按频道、场景和标签聚合，方便继续浏览和收藏。</p>
             </div>
           </div>
           <div v-if="topicSectionNote" class="section-note mb-4" :class="topicSectionNoteTone">
@@ -796,7 +796,7 @@ const multiDomainEntryCards = computed<ExploreGuideCard[]>(() => [
     href: '/explore',
   },
   {
-    title: activeDomain.value == null ? `聚焦${defaultDomainEntry.value?.domainName || '技术'}` : `当前领域：${activeDomainLabel.value}`,
+    title: activeDomain.value == null ? `聚焦${defaultDomainEntry.value?.domainName || '综合内容'}` : `当前频道：${activeDomainLabel.value}`,
     badge: '熟悉方向',
     description: defaultDomainEntry.value?.interactionNotice || '在熟悉领域先建立判断，再继续扩展到相邻内容。',
     cta: '进入领域页',
@@ -825,8 +825,8 @@ const loadFallbackNotes = computed(() => {
   if (requestStates.tags === 'failed') notes.push('热门标签接口暂未返回。')
   if (requestStates.users === 'failed') notes.push('推荐用户接口暂未返回。')
   if (requestStates.posts === 'failed') notes.push('最新发布接口暂未返回。')
-  if (crossDomainStatus.value === 'degraded') notes.push('跨领域推荐包含回退结果。')
-  if (authStore.isLoggedIn && crossDomainStatus.value === 'failed') notes.push('个性化跨领域推荐当前不可用。')
+  if (crossDomainStatus.value === 'degraded') notes.push('相关内容推荐包含回退结果。')
+  if (authStore.isLoggedIn && crossDomainStatus.value === 'failed') notes.push('个性化相关内容推荐当前不可用。')
   return notes.slice(0, 4)
 })
 const overviewState = computed<ExploreOverviewState>(() => {
@@ -834,7 +834,7 @@ const overviewState = computed<ExploreOverviewState>(() => {
     return {
       tone: 'neutral',
       title: '未登录也能先逛公共内容',
-      description: '领域入口、专题、标签和最新公开内容都可以先浏览；跨领域推荐、关注作者和成长档案会在登录后补全。',
+      description: '频道入口、话题、标签和最新公开内容都可以先浏览；相关内容推荐、关注作者和作者数据会在登录后补全。',
       action: { kind: 'login', text: '登录后补全个性化入口' },
     }
   }
@@ -879,8 +879,8 @@ const overviewState = computed<ExploreOverviewState>(() => {
 const crossDomainEmptyState = computed<ExploreEmptyStateModel>(() => {
   if (!hasAnyPublicSignals.value) {
     return {
-      title: '公开内容还不足以形成跨领域推荐',
-      description: '先补充一批公开内容样本，系统才能根据桥接逻辑解释跨领域推荐。',
+      title: '公开内容还不足以形成相关推荐',
+      description: '先补充一批公开内容样本，系统才能根据频道、话题和标签解释推荐理由。',
       actionText: '去发布',
       actionHref: '/editor',
     }
@@ -888,13 +888,13 @@ const crossDomainEmptyState = computed<ExploreEmptyStateModel>(() => {
   return {
     title: '当前还没有稳定的跨领域桥接线索',
     description: '可以继续完善关注领域、互动内容或公开发帖样本，系统会逐步形成可解释的桥接推荐。',
-    actionText: '去成长档案',
+    actionText: '看作者数据',
     actionHref: '/growth/profile',
   }
 })
 const topicSectionNote = computed(() => {
   if (requestStates.topics === 'failed' && topicItems.value.length) {
-    return '专题接口暂未返回，当前根据公开标签、技术栈和阅读关键词临时聚合入口。'
+    return '话题接口暂未返回，当前根据公开标签、频道和阅读关键词临时聚合入口。'
   }
   if (topicSourceMode.value === 'fallback' && topicItems.value.length) {
     return '专题仍在沉淀中，当前入口来自公开内容的临时聚合，适合先做浏览引导。'
@@ -918,7 +918,7 @@ const topicEmptyState = computed<ExploreEmptyStateModel>(() => {
   }
   return {
     title: '专题还在沉淀',
-    description: '发布内容并补充技术栈、场景或标签后，这里会逐步形成跨领域可浏览的专题入口。',
+    description: '发布内容并补充频道、场景或标签后，这里会逐步形成可浏览的话题入口。',
     actionText: '去发布',
     actionHref: '/editor',
   }
@@ -1028,7 +1028,7 @@ const quickFilters = computed(() => {
     if (post.extension?.position) scenarios.add(String(post.extension.position))
   })
   return [
-    ...Array.from(techStacks).slice(0, 4).map((value) => ({ label: `技术栈：${value}`, value, type: 'techStack' as const })),
+    ...Array.from(techStacks).slice(0, 4).map((value) => ({ label: `标签：${value}`, value, type: 'techStack' as const })),
     ...Array.from(scenarios).slice(0, 4).map((value) => ({ label: `场景：${value}`, value, type: 'scenario' as const })),
   ]
 })
@@ -1174,7 +1174,7 @@ const loadExploreData = async () => {
   } else if (crossDomainRes?.status === 'rejected') {
     crossDomainPage.value = null
     crossDomainStatus.value = 'failed'
-    crossDomainError.value = getErrorMessage(crossDomainRes.reason, '加载跨领域推荐失败')
+    crossDomainError.value = getErrorMessage(crossDomainRes.reason, '加载相关内容推荐失败')
     requestStates.crossDomain = 'failed'
   }
   isLoadingMeta.value = false

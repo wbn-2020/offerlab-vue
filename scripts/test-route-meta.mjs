@@ -5,8 +5,10 @@ const source = readFileSync(new URL('../src/router/index.ts', import.meta.url), 
 const guards = readFileSync(new URL('../src/router/guards.ts', import.meta.url), 'utf8')
 const appHeader = readFileSync(new URL('../src/components/layout/AppHeader.vue', import.meta.url), 'utf8')
 const editor = readFileSync(new URL('../src/views/EditorView.vue', import.meta.url), 'utf8')
+const postDetail = readFileSync(new URL('../src/views/PostDetailView.vue', import.meta.url), 'utf8')
 const settings = readFileSync(new URL('../src/views/SettingsView.vue', import.meta.url), 'utf8')
-const mojibakeTitleMarkers = /[\uFFFD\u00C3\u00C2\u00E6\u93C3\u7481\u752F\u93BF\u9410\u7487\u9359\u5BB8\u93C6\u93C8\u951B\u9427\u6769\u7459\u93BB\u9286\u9225]/
+const forbidden = readFileSync(new URL('../src/views/ForbiddenView.vue', import.meta.url), 'utf8')
+const mojibakeTitleMarkers = /�|Ã|Â|鏃|鏂|鐭|绀|鍙|鍦|閫|闂|棣|鎼|鍏|缂|鑱|鎶|闈|鍛|妗|\?{3,}/
 
 function routeBlock(path) {
   const marker = `path: '${path}'`
@@ -24,6 +26,19 @@ function adminPermissionsFor(path) {
 }
 
 const expectedRouteTitles = {
+  '/': '首页',
+  '/explore': '发现',
+  '/trend': '趋势看板',
+  '/search': '搜索',
+  '/editor': '发布社区内容',
+  '/editor/:id': '编辑社区内容',
+  '/questions': '知识库',
+  '/questions/:id': '知识卡详情',
+  '/companies/:company/prep': '主题学习包',
+  '/post/:id': '帖子详情',
+  '/me': '我的主页',
+  '/me/prep': '个人学习空间',
+  '/mock-interview': '个人练习归档',
   '/growth/profile': '成长档案',
   '/growth/report': '成长周报月报',
   '/knowledge/explore': '知识关系探索',
@@ -33,10 +48,10 @@ const expectedRouteTitles = {
 const adminRoles = ['ops', 'questionOperator', 'contentModerator', 'domainModerator', 'admin']
 const adminRouteAccess = {
   '/admin': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
-  '/admin/ops': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
+  '/admin/ops': { ops: true, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
   '/admin/questions': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
   '/admin/company-aliases': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
-  '/admin/governance': { ops: true, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
+  '/admin/governance': { ops: false, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
   '/admin/tags': { ops: false, questionOperator: false, contentModerator: true, domainModerator: false, admin: true },
 }
 
@@ -53,7 +68,7 @@ for (const title of routeTitles) {
 }
 
 for (const [path, title] of Object.entries(expectedRouteTitles)) {
-  assert.match(routeBlock(path), new RegExp(`title:\\s*'${title}'`), `${path} must keep the expected visible route title`)
+  assert.match(routeBlock(path), new RegExp(`title:\\s*'${title}'`), `${path} must keep expected visible route title`)
 }
 
 assert.deepEqual(routedAdminPaths, Object.keys(adminRouteAccess).sort(), 'every admin route must be covered by the access matrix')
@@ -75,9 +90,13 @@ for (const [path, expectedAccess] of Object.entries(adminRouteAccess)) {
   assert.match(block, /governanceGlobalTabs:\s*\[[^\]]*'keywords'[^\]]*'users'[^\]]*'topics'[^\]]*'tags'[^\]]*\]/, '/admin/governance must declare global-only governance tabs')
 }
 
-for (const path of ['/editor', '/editor/:id', '/me', '/me/prep', '/me/notifications', '/me/settings']) {
+for (const path of ['/editor', '/editor/:id', '/me', '/me/prep', '/mock-interview', '/me/notifications', '/me/settings']) {
   const block = routeBlock(path)
   assert.match(block, /requiresAuth:\s*true/, `${path} must require login`)
+}
+
+for (const path of ['/questions', '/companies/:company/prep', '/growth/profile', '/growth/report', '/knowledge/explore', '/mock-interview']) {
+  assert.notEqual(routeBlock(path).length, 0, `${path} legacy-compatible route must remain directly reachable`)
 }
 
 {
@@ -91,11 +110,11 @@ for (const path of ['/login', '/register']) {
   assert.doesNotMatch(block, /adminPermission:/, `${path} must not require admin permissions`)
 }
 
-for (const label of ['首页', '发现', '趋势', '搜索']) {
-  assert.match(appHeader, new RegExp(label), `mobile/desktop navigation must expose ${label}`)
+for (const label of ['首页', '发现', '问答', '发布']) {
+  assert.match(appHeader, new RegExp(`label:\\s*'${label}'`), `primary navigation must expose ${label}`)
 }
-for (const label of ['资源库', '题库', '模拟面试']) {
-  assert.doesNotMatch(appHeader, new RegExp(`label:\\s*'${label}'`), `core navigation must not expose ${label}`)
+for (const label of ['资源库', '题库', '模拟面试', '成长报告']) {
+  assert.doesNotMatch(appHeader, new RegExp(`label:\\s*'${label}'`), `core navigation must not expose old tool as top-level item: ${label}`)
 }
 
 assert.match(appHeader, /showMobileMenu/, 'AppHeader must keep a mobile menu state')
@@ -123,12 +142,12 @@ for (const view of ['AboutView.vue', 'NotFoundView.vue', 'UserProfileView.vue', 
   assert.match(viewSource, /@\/components\/layout\/AppHeader\.vue/, `${view} must import AppHeader`)
 }
 
-assert.doesNotMatch(editor, /router\.back\(\)/, 'EditorView must not call router.back() blindly')
 assert.match(editor, /safeReturnPath/, 'EditorView must resolve a safe return route')
 assert.match(editor, /route\.query\.from/, 'EditorView must honor a same-site route query return target')
 assert.match(editor, /window\.history\.state/, 'EditorView must consider Vue history state return targets')
 assert.match(editor, /document\.referrer/, 'EditorView must consider same-origin document referrer')
 assert.match(editor, /window\.location\.origin/, 'EditorView must reject cross-origin return targets')
+assert.doesNotMatch(editor, /router\.back\(\)/, 'EditorView must not call router.back() blindly')
 assert.doesNotMatch(editor, /Number\(route\.params\.id\)/, 'EditorView must preserve long post ids as strings')
 assert.match(editor, /只能编辑本人发布的内容/, 'EditorView must explain non-owner edit attempts')
 assert.match(editor, /isForbiddenEdit/, 'EditorView must keep a visible forbidden-edit state')
@@ -136,10 +155,11 @@ assert.match(editor, /当前账号不是这篇帖子的作者/, 'EditorView must
 assert.match(editor, /code === 10403 \|\| code === 403/, 'EditorView must treat both business and HTTP forbidden errors as blocked edits')
 assert.match(editor, /String\(post\.author\?\.uid[\s\S]*redirectForbiddenEdit\(\)/, 'EditorView must show the forbidden edit state for non-owner posts')
 assert.match(editor, /isForbiddenEdit\.value = true/, 'EditorView forbidden redirect must stay on a visible explanation state')
-assert.match(routeBlock('/editor'), /title:\s*'发布社区内容'/, '/editor title must use the phase-1 comprehensive community positioning')
-assert.match(routeBlock('/editor/:id'), /title:\s*'编辑社区内容'/, '/editor/:id title must use the phase-1 comprehensive community positioning')
 
-const forbidden = readFileSync(new URL('../src/views/ForbiddenView.vue', import.meta.url), 'utf8')
+assert.match(postDetail, /const showStageTwoDetailPanels = false/, 'post detail must keep stage-2 detail panels hidden during stage 1')
+assert.match(postDetail, /showStageTwoDetailPanels &&/, 'post detail knowledge and material panels must be gated off during stage 1')
+assert.match(postDetail, /applyPageSeo/, 'post detail must own minimal SEO metadata updates')
+
 assert.match(forbidden, /useAuthStore/, 'ForbiddenView must distinguish unauthenticated users from logged-in users without enough permission')
 assert.match(forbidden, /path: '\/login'[\s\S]*redirect: fromPath/, 'ForbiddenView must offer login with the blocked path preserved')
 assert.match(forbidden, /switchAccount: '1'/, 'ForbiddenView must offer a switch-account recovery path')
@@ -147,6 +167,8 @@ assert.match(forbidden, /permission_check_failed/, 'ForbiddenView must explain t
 assert.match(forbidden, /adminRecoveryPath/, 'ForbiddenView must route admins back to a likely accessible admin entry')
 assert.match(forbidden, /safeRedirect\(route\.query\.from, '\/admin'\)/, 'ForbiddenView must sanitize the blocked source path')
 assert.match(forbidden, /当前账号缺少对应角色/, 'ForbiddenView must explain post-login permission failures')
+
+assert.match(guards, /applyPageSeo/, 'router guards must delegate title/meta updates to the SEO helper')
 assert.match(guards, /reason: 'permission_check_failed'/, 'router guard must mark permission API failures distinctly from missing roles')
 
 console.log('route meta guard passed')

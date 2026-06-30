@@ -61,6 +61,6 @@ assert.doesNotMatch(source, /本次结果来自 Elasticsearch/, 'SearchView must
 assert.match(source, /source: 'client_fallback'/, 'SearchView hard errors must expose client fallback metadata')
 assert.match(source, /fallbackReason: 'search_api_error'/, 'SearchView hard errors must expose an actionable fallback reason')
 assert.match(source, /await loadSearchStatus\(\)/, 'SearchView hard errors must refresh backend search status instead of showing stale status')
-assert.match(source, /搜索状态接口暂不可用，本页已保留热门内容、发现页、知识库和搜用户入口/, 'SearchView must explain local fallback actions when status cannot be loaded')
+assert.match(source, /搜索状态接口暂不可用，本页已保留热门内容、发现页、问答讨论和搜作者入口/, 'SearchView must explain local fallback actions when status cannot be loaded')
 
 console.log('search experience guard passed')

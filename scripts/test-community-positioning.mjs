@@ -3,71 +3,98 @@ import assert from 'node:assert/strict'
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
 
-const router = read('../src/router/index.ts')
-const guards = read('../src/router/guards.ts')
-const seo = read('../src/utils/seo.ts')
-const indexHtml = read('../index.html')
 const header = read('../src/components/layout/AppHeader.vue')
 const home = read('../src/views/HomeView.vue')
 const explore = read('../src/views/ExploreView.vue')
-const about = read('../src/views/AboutView.vue')
 const editor = read('../src/views/EditorView.vue')
-const postDetail = read('../src/views/PostDetailView.vue')
+const search = read('../src/views/SearchView.vue')
+const userProfile = read('../src/views/UserProfileView.vue')
+const meProfile = read('../src/views/MeProfileView.vue')
+const domains = read('../src/utils/domains.ts')
+const contentTypes = read('../src/utils/contentTypes.ts')
 const packageJson = read('../package.json')
-const mojibakeMarkers = /鎴愰暱|鐭ヨ瘑|涓撳|鍛ㄦ姤|妗ｆ|鍏崇郴|璇曠偣/
 
-const routeBlock = (path) => {
-  const marker = `path: '${path}'`
-  const start = router.indexOf(marker)
-  assert.notEqual(start, -1, `route not found: ${path}`)
-  const next = router.indexOf('\n  {\n    path:', start + marker.length)
-  return router.slice(start, next === -1 ? router.indexOf('\n]', start) : next)
+const firstRegion = (source, marker, closeMarker = '</section>') => {
+  const start = source.indexOf(marker)
+  assert.notEqual(start, -1, `marker not found: ${marker}`)
+  const end = source.indexOf(closeMarker, start)
+  assert.notEqual(end, -1, `section end not found after: ${marker}`)
+  return source.slice(start, end)
 }
 
-for (const label of ['首页', '发现', '趋势', '搜索']) {
-  assert.match(header, new RegExp(`label:\\s*'${label}'`), `primary navigation must keep community-first item: ${label}`)
+const scriptRegion = (source, marker) => {
+  const start = source.indexOf(marker)
+  assert.notEqual(start, -1, `script marker not found: ${marker}`)
+  return source.slice(start, Math.min(source.length, start + 2400))
 }
 
-assert.match(header, /OfferLab 综合社区首页/, 'header brand aria label must reflect the comprehensive community positioning')
-assert.match(header, /多领域实践社区/, 'header brand subtitle must reflect the multi-domain positioning')
-assert.match(header, /搜索技术、职场、阅读或生活实践/, 'header search placeholder must reflect the multi-domain browsing scope')
-assert.match(header, /沉淀你的实践经验和成长记录/, 'header user signature fallback must move away from tech-only positioning')
-assert.doesNotMatch(header, mojibakeMarkers, 'header copy must not contain mojibake markers')
+const headerCore = firstRegion(header, '<header', '</header>')
+const homeHero = firstRegion(home, '<section class="mb-6 grid')
+const exploreHero = firstRegion(explore, '<div class="mb-8', '</div>')
+const editorToolbar = firstRegion(editor, '<div class="bg-white', '</div>')
+const editorTemplates = scriptRegion(editor, 'const PUBLISH_TEMPLATES')
+const searchShell = firstRegion(search, '<section class="search-shell')
+const userProfileMain = firstRegion(userProfile, '<section v-if="isLoading"')
+const meProfileMain = firstRegion(meProfile, '<section class="profile-panel"')
 
-assert.match(home, /开始沉淀你的实践经验/, 'home login CTA must reflect practice sharing instead of tech-only positioning')
-assert.match(home, /登录后可以发布技术、职场、阅读或生活实践/, 'home logged-out guidance must mention the supported stage-1 domains')
-assert.doesNotMatch(home, mojibakeMarkers, 'home copy must not contain mojibake markers')
+const mojibakeMarkers = /�|Ã|Â|鏃|鏂|鐭|绀|鍙|鍦|閫|闂|棣|鎼|鍏|缂|鑱|鎶|闈|鍛|妗|涓|撳|玨|\?{3,}/
+const oldPositioning = /靠近 Offer|备考行动|求职训练|技术经验社区|技术社区|发布复盘|技术文章模板|技术标签|阶段\s*[234]?|试点|FEAT-/
 
-assert.match(explore, /从技术、职场、阅读与生活实践里发现值得收藏的真实经验/, 'explore intro must reflect the comprehensive community scope')
-assert.match(explore, /活跃作者和实践者会展示在这里/, 'explore recommended users fallback must avoid tech-only positioning')
-assert.match(explore, /多领域实践内容/, 'explore latest section must describe public practice content instead of tech-only content')
-assert.doesNotMatch(explore, mojibakeMarkers, 'explore copy must not contain mojibake markers')
+for (const [name, source] of [
+  ['header core', headerCore],
+  ['home hero', homeHero],
+  ['explore hero', exploreHero],
+  ['editor toolbar', editorToolbar],
+  ['editor templates', editorTemplates],
+  ['search shell', searchShell],
+  ['user profile main', userProfileMain],
+  ['me profile main', meProfileMain],
+  ['domains config', domains],
+  ['content types config', contentTypes],
+]) {
+  assert.doesNotMatch(source, mojibakeMarkers, `${name} must not contain user-visible mojibake`)
+}
 
-assert.match(about, /关于 OfferLab 综合社区/, 'about title must reflect the comprehensive community positioning')
-assert.match(about, /多领域实践社区/, 'about page must describe OfferLab as a multi-domain practice community')
-assert.match(about, /成长型社区/, 'about page must explain the growth-oriented positioning')
-assert.match(about, /技术、职场、阅读、生活与投资理财/, 'about page must list the stage-1 domains explicitly')
-assert.doesNotMatch(about, /关于 OfferLab 技术社区/, 'about page must not keep the old site-wide technology-community title')
-assert.doesNotMatch(about, mojibakeMarkers, 'about copy must not contain mojibake markers')
+for (const [name, source] of [
+  ['header core', headerCore],
+  ['home hero', homeHero],
+  ['explore hero', exploreHero],
+  ['editor toolbar', editorToolbar],
+  ['editor templates', editorTemplates],
+  ['search shell', searchShell],
+  ['user profile main', userProfileMain],
+  ['me profile main', meProfileMain],
+]) {
+  assert.doesNotMatch(source, oldPositioning, `${name} must not foreground old job-prep or tech-only positioning`)
+}
 
-assert.match(editor, /发布社区内容|编辑社区内容/, 'editor heading must reflect community-wide publishing')
-assert.match(editor, /const showStageTwoPublishingAssist = false/, 'editor must keep stage-2 publishing assist hidden during stage 1')
-assert.match(editor, /v-if="showStageTwoPublishingAssist"/, 'editor stage-2 assist panel must be gated off during stage 1')
-assert.doesNotMatch(editor, /这些检查会影响内容可读性、搜索质量和后续 AI 知识沉淀/, 'editor quality copy must avoid foregrounding later-stage AI knowledge flows')
+assert.match(headerCore, /真实经验与有用内容社区/, 'header brand subtitle must describe a general content community')
+assert.match(header, /label:\s*'首页'[\s\S]*label:\s*'发现'[\s\S]*label:\s*'问答'[\s\S]*label:\s*'发布'/, 'primary navigation must expose Home, Explore, Q&A, and Publish')
+assert.doesNotMatch(headerCore, /成长档案|成长周报月报|模拟面试|题库/, 'header core must not expose old tools as top-level actions')
+assert.match(headerCore, /搜索经验、攻略、资源、话题或作者/, 'header search placeholder must support general community search')
 
-assert.match(postDetail, /const showStageTwoDetailPanels = false/, 'post detail must keep stage-2 detail panels hidden during stage 1')
-assert.match(postDetail, /showStageTwoDetailPanels &&/, 'post detail knowledge and material panels must be gated off during stage 1')
-assert.match(postDetail, /applyPageSeo/, 'post detail must own minimal SEO metadata updates')
+assert.match(homeHero, /综合频道[\s\S]*推荐内容[\s\S]*热门话题/, 'home hero must surface community channels, recommendations, and topics')
+assert.match(homeHero, /发现真实经验，分享有用内容/, 'home hero headline must express general community positioning')
+assert.match(homeHero, /发布内容/, 'home hero must include a general publish CTA')
 
-assert.match(seo, /SITE_NAME = 'OfferLab 综合社区'/, 'SEO helper must expose the comprehensive community site name')
-assert.match(seo, /DEFAULT_DESCRIPTION/, 'SEO helper must provide a default description for public pages')
-assert.match(guards, /applyPageSeo/, 'router guards must delegate title/meta updates to the SEO helper')
-assert.doesNotMatch(guards, /OfferLab 技术社区/, 'router guards must stop using the old technology-community suffix')
-assert.match(indexHtml, /<title>OfferLab 综合社区<\/title>/, 'HTML fallback title must reflect the comprehensive community positioning')
-assert.match(indexHtml, /name="description"/, 'HTML fallback must provide a description for crawler and no-JS cases')
+assert.match(exploreHero, /频道广场|话题广场/, 'explore hero must introduce channel and topic discovery')
+assert.match(exploreHero, /真实经验/, 'explore hero must keep experience-sharing positioning')
 
-assert.match(routeBlock('/editor'), /title:\s*'发布社区内容'/, '/editor title must reflect the comprehensive community publishing scope')
-assert.match(routeBlock('/editor/:id'), /title:\s*'编辑社区内容'/, '/editor/:id title must reflect the comprehensive community publishing scope')
+assert.match(editorToolbar, /发布内容|编辑内容/, 'editor toolbar must use general content publishing language')
+assert.match(editorTemplates, /经验分享|问题求助|攻略清单|资源推荐|观点讨论|复盘记录|图文笔记/, 'editor templates must expose general community content types')
+
+assert.match(searchShell, /搜索内容、话题、作者、标签或有用经验/, 'search page must support content, topics, authors, and tags')
+assert.match(userProfileMain, /作者主页|作者数据|发布内容/, 'public profile must use author-homepage language')
+assert.match(meProfileMain, /我的作者主页|我的内容|收藏/, 'me profile must use author-homepage language')
+
+assert.match(domains, /COMMUNITY_CHANNELS/, 'domain config must expose first-stage community channels')
+for (const channel of ['科技数码', '学习成长', '职场经验', '生活方式', '资源推荐', '问答讨论']) {
+  assert.match(domains, new RegExp(channel), `community channel missing: ${channel}`)
+}
+assert.match(contentTypes, /DEFAULT_POST_TYPE = POST_TYPE\.NOTE/, 'default post type must be the general note/experience type')
+for (const type of ['经验分享', '问题求助', '攻略清单', '资源推荐', '观点讨论', '复盘记录', '图文笔记']) {
+  assert.match(contentTypes, new RegExp(type), `community content type missing: ${type}`)
+}
 
 assert.match(packageJson, /"test:community-positioning"/, 'package scripts must expose the community positioning guard')
 assert.match(packageJson, /npm run test:community-positioning/, 'test:guards must include the community positioning guard')

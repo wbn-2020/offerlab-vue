@@ -12,7 +12,7 @@
             ← 返回
           </button>
           <h1 class="editor-heading text-xl font-bold text-slate-900 dark:text-slate-100">
-            {{ isEditing ? '编辑社区内容' : '发布社区内容' }}
+            {{ isEditing ? '编辑内容' : '发布内容' }}
           </h1>
         </div>
         <div class="editor-toolbar-actions flex flex-wrap items-center justify-end gap-3">
@@ -121,7 +121,7 @@
 
         <!-- 领域选择 -->
         <div class="px-4 flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">领域</label>
+          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">频道</label>
           <select
             v-model="selectedDomain"
             class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -168,7 +168,7 @@
               <div class="flex items-start justify-between gap-4">
                 <div>
                   <h2 class="text-sm font-extrabold text-slate-900 dark:text-slate-100">当前发布门禁</h2>
-                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Lite 清单只做提示；发布按钮继续沿用当前基础校验与结构化要求，不额外新增 AI 或服务端依赖。</p>
+                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Lite 清单只做提示；发布按钮继续沿用当前基础校验与结构化要求，不额外新增服务端依赖。</p>
                 </div>
                 <span :class="['quality-score', blockingQualityIssues.length ? 'quality-score-warn' : 'quality-score-ok']">
                   {{ passedQualityCount }}/{{ qualityChecks.length }}
@@ -198,7 +198,7 @@
             :preview="editorPreviewModel"
             eyebrow="公开卡片预览"
             title="发布前预览与公开卡片预览"
-            description="基于当前标题、正文、领域、标签、匿名状态和系列归属做前端实时映射，不新增接口，也不会自动触发 AI 请求。"
+            description="基于当前标题、正文、频道、标签、匿名状态和合集归属做前端实时映射，不新增接口，也不会自动触发建议请求。"
           />
         </section>
 
@@ -214,7 +214,7 @@
                 {{ stageThreeAssistStatusLabel }}
               </span>
               <button type="button" class="assist-head-button" @click="toggleAssistPanelEnabled">
-                {{ assistPanelEnabled ? '关闭 AI' : '开启 AI' }}
+                {{ assistPanelEnabled ? '关闭建议' : '开启建议' }}
               </button>
               <button
                 type="button"
@@ -232,8 +232,8 @@
             <p>登录后可获得写作助手、质量评分、标签/话题建议和系列归属建议。</p>
           </div>
           <div v-else-if="!assistPanelEnabled" class="stage3-assist-state">
-            <strong>AI 已关闭</strong>
-            <p>AI 默认关闭。当前仅保留发布检查、草稿保护和手动填写流程；显式开启后，如后端未配置 AI 将自动回退到规则建议。</p>
+            <strong>建议已关闭</strong>
+            <p>发布建议默认关闭。当前仅保留发布检查、草稿保护和手动填写流程；显式开启后，如后端未配置建议服务将自动回退到规则建议。</p>
           </div>
           <div v-else-if="isStageThreeAssistLoading" class="stage3-assist-state">
             <strong>加载中...</strong>
@@ -352,7 +352,7 @@
         <section v-if="showStageTwoPublishingAssist" class="knowledge-assist mx-4">
           <div class="knowledge-assist-head">
             <div>
-              <h2>知识沉淀辅助</h2>
+              <h2>内容整理辅助</h2>
               <p>发布前先把内容整理成社区可搜索、可讨论、可复用的知识资产。</p>
             </div>
             <span>{{ knowledgeAssistReadiness }}</span>
@@ -529,7 +529,7 @@ const form = ref<EditorForm>({
 
 const tagInput = ref('')
 const selectedTags = ref<string[]>([])
-const selectedDomain = ref<number>(DOMAIN.TECH)
+const selectedDomain = ref<number>(DOMAIN.LIFESTYLE)
 const anonymousCareerPost = ref(false)
 const isPublishing = ref(false)
 const isEditing = ref(false)
@@ -575,58 +575,52 @@ type PublishTemplate = {
 
 const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
   TECH_ARTICLE: {
-    title: '技术文章模板',
-    description: '适合沉淀方案、源码阅读、架构实践和技术总结。',
+    title: '攻略清单模板',
+    description: '适合整理步骤、方法、避坑清单和可照着执行的经验。',
     content: `## 背景
 
 ## 核心问题
 
-## 方案设计
+## 方法步骤
 
-## 关键实现
+## 清单与提醒
 
-## 效果与复盘
+## 适合人群
 `,
   },
   PROJECT_REVIEW: {
-    title: '项目复盘模板',
-    description: '突出背景、目标、架构、难点、取舍、指标和结果。',
+    title: '复盘记录模板',
+    description: '复盘一次项目、活动、经历或决策，记录过程、结果和下一步。',
     content: `## 背景
 
 ## 目标
 
-## 架构与技术栈
+## 过程
 
 ## 难点与取舍
 
-## 落地过程
-
 ## 指标与结果
 
-## 复盘
+## 下一步
 `,
   },
   SYSTEM_DESIGN: {
-    title: '系统设计模板',
-    description: '适合拆解目标、容量、模块边界、数据模型、取舍和演进。',
-    content: `## 业务目标
+    title: '观点讨论模板',
+    description: '适合表达观察、判断和取舍，并邀请大家讨论。',
+    content: `## 观点
 
-## 核心场景与约束
+## 背景
 
-## 容量估算
+## 我的理由
 
-## 架构方案
+## 可能的反例
 
-## 数据模型
-
-## 关键取舍
-
-## 风险与演进
+## 想听听大家怎么看
 `,
   },
   INTERVIEW_RECAP: {
     title: '面试复盘模板',
-    description: '记录问题、追问、回答卡点、可复用素材和后续补强。',
+    description: '职场经验频道保留模板，记录问题、追问、表达卡点和后续补强。',
     content: `## 面试背景
 
 ## 被问到的问题
@@ -641,26 +635,20 @@ const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
 `,
   },
   PITFALL: {
-    title: '线上故障/踩坑模板',
-    description: '适合记录现象、影响范围、时间线、根因、修复和防复发。',
-    content: `## 现象
+    title: '图文笔记模板',
+    description: '适合轻量记录灵感、日常观察、实用片段和图文式分享。',
+    content: `## 这条笔记想分享什么
 
-## 影响范围
+## 关键细节
 
-## 时间线
+## 图片或素材说明
 
-## 根因
-
-## 修复方案
-
-## 监控与防复发
-
-## 复盘
+## 可以怎么用
 `,
   },
   QUESTION: {
-    title: '技术问答模板',
-    description: '把问题、上下文、已尝试方案和期望结果说清楚。',
+    title: '问题求助模板',
+    description: '把问题、背景、已尝试方法和期待获得的建议说清楚。',
     content: `## 问题
 
 ## 上下文
@@ -671,8 +659,8 @@ const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
 `,
   },
   RESOURCE: {
-    title: '资源分享模板',
-    description: '说明资源适用人群、使用方式、优缺点和实践建议。',
+    title: '资源推荐模板',
+    description: '说明资源适用人群、使用方式、优缺点和推荐理由。',
     content: `## 资源简介
 
 ## 适用场景
@@ -685,15 +673,15 @@ const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
 `,
   },
   NOTE: {
-    title: '经验笔记模板',
-    description: '快速记录场景、做法、命令配置和注意事项。',
-    content: `## 场景
+    title: '经验分享模板',
+    description: '快速记录亲身经历、做法、结果和可复用的提醒。',
+    content: `## 经历背景
 
-## 做法
+## 我怎么做
 
-## 命令或配置
+## 结果
 
-## 注意事项
+## 给后来者的提醒
 `,
   },
 }
@@ -708,7 +696,7 @@ const contentLength = computed(() => form.value.content.length)
 const isContentOverLimit = computed(() => contentLength.value > CONTENT_MAX_LENGTH)
 const activePostType = computed(() => getContentTypeOption(form.value.postType))
 const activeTypeCode = computed(() => contentTypeCodeOf(form.value.postType))
-const activeTemplate = computed(() => PUBLISH_TEMPLATES[activeTypeCode.value] || PUBLISH_TEMPLATES.TECH_ARTICLE)
+const activeTemplate = computed(() => PUBLISH_TEMPLATES[activeTypeCode.value] || PUBLISH_TEMPLATES.NOTE)
 const isInterviewPost = computed(() => isLegacyInterviewType(form.value.postType))
 const hasCompany = computed(() => Boolean(String(extensionValue.value.company || '').trim()))
 const hasPosition = computed(() => Boolean(String(extensionValue.value.position || '').trim()))
@@ -785,8 +773,8 @@ const qualityChecks = computed<QualityCheck[]>(() => [
   },
   {
     key: 'tags',
-    title: '技术标签',
-    description: '至少 1 个标签；项目复盘和踩坑记录建议补充技术栈标签。',
+    title: '内容标签',
+    description: '至少 1 个标签；建议补充能帮助别人搜索和理解的频道、场景或主题标签。',
     passed: normalizedTags.value.length >= (isInterviewPost.value ? 2 : 1),
     required: true,
   },
@@ -861,7 +849,7 @@ const knowledgeFaqHint = computed(() => {
   return '补充一个真实问题、排查过程和最终结论后，可沉淀为 FAQ。'
 })
 const knowledgeCardHint = computed(() => {
-  const techTags = normalizedTags.value.slice(0, 4).join('、') || '技术栈'
+  const techTags = normalizedTags.value.slice(0, 4).join('、') || '内容标签'
   if (normalizedContent.value.length >= activePostType.value.minContentLength) {
     return `${activePostType.value.label} · ${techTags} · 可沉淀为摘要、FAQ 和相似内容推荐素材。`
   }
@@ -869,10 +857,10 @@ const knowledgeCardHint = computed(() => {
 })
 const knowledgeAssistReadiness = computed(() => blockingQualityIssues.value.length ? '待补齐' : '可沉淀')
 const knowledgeAssistMarkdown = computed(() => [
-  `# ${normalizedTitle.value || '待补充标题的技术经验'}`,
+  `# ${normalizedTitle.value || '待补充标题的内容'}`,
   '',
   `内容类型：${activePostType.value.label}`,
-  normalizedTags.value.length ? `技术标签：${normalizedTags.value.join('、')}` : '技术标签：待补充',
+  normalizedTags.value.length ? `内容标签：${normalizedTags.value.join('、')}` : '内容标签：待补充',
   '',
   '## 摘要建议',
   knowledgeSummary.value,
@@ -901,8 +889,8 @@ const selectedDomainMeta = computed(() => (
 ))
 const editorDomainSourceSummary = computed(() => (
   domainSource.value === 'remote'
-    ? `领域来源已同步 /api/v1/domains · 当前 ${selectedDomainMeta.value?.domainName || '技术'}`
-    : `接口暂未返回，当前使用本地 fallback · 当前 ${selectedDomainMeta.value?.domainName || '技术'}`
+    ? `频道来源已同步 /api/v1/domains · 当前 ${selectedDomainMeta.value?.domainName || '生活方式'}`
+    : `接口暂未返回，当前使用本地 fallback · 当前 ${selectedDomainMeta.value?.domainName || '生活方式'}`
 ))
 const selectedTopicNames = computed(() => topicNamesFromExtension(extensionValue.value))
 const selectedSeriesRecord = computed(() => (
@@ -963,7 +951,7 @@ const stageThreeAssistStatus = computed(() => {
 })
 const stageThreeAssistStatusLabel = computed(() => {
   if (stageThreeAssistStatus.value === 'unauthenticated') return '未登录'
-  if (stageThreeAssistStatus.value === 'disabled') return 'AI关闭'
+  if (stageThreeAssistStatus.value === 'disabled') return '建议关闭'
   if (stageThreeAssistStatus.value === 'loading') return '加载中'
   if (stageThreeAssistStatus.value === 'degraded') return '规则降级'
   if (stageThreeAssistStatus.value === 'failed') return '加载失败'
@@ -971,11 +959,11 @@ const stageThreeAssistStatusLabel = computed(() => {
 })
 const stageThreeAssistHeadline = computed(() => {
   if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和系列工作台联动。'
-  if (stageThreeAssistStatus.value === 'disabled') return 'AI 默认关闭，当前仅保留发布检查、草稿保护和系列选择；显式开启后，如后端未配置 AI 会自动回退到规则建议。'
+  if (stageThreeAssistStatus.value === 'disabled') return '发布建议默认关闭，当前仅保留发布检查、草稿保护和合集选择；显式开启后，如后端未配置建议服务会自动回退到规则建议。'
   if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成发布建议。'
-  if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || 'AI 接口未返回结果，当前使用本地规则降级建议。'
+  if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || '建议接口未返回结果，当前使用本地规则降级建议。'
   if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
-  if (!stageThreeAssist.value) return 'AI 已开启，但不会自动请求内容辅助；点击“刷新建议”后才会触发，并在后端未配置 AI 时回退到规则建议。'
+  if (!stageThreeAssist.value) return '发布建议已开启，但不会自动请求内容辅助；点击“刷新建议”后才会触发，并在后端未配置建议服务时回退到规则建议。'
   return '围绕写作助手、质量评分、标签/话题建议和系列归属整理发布前动作。'
 })
 
@@ -1110,10 +1098,10 @@ const toggleAssistPanelEnabled = async () => {
   safeStorage.set(stageThreeAssistPreferenceKey.value, assistPanelEnabled.value ? '1' : '0')
   if (!assistPanelEnabled.value) {
     clearStageThreeAssistState()
-    toast.success('已关闭 AI 建议，不再自动请求内容辅助')
+    toast.success('已关闭发布建议，不再自动请求内容辅助')
     return
   }
-  toast.success('已开启 AI 建议，如未配置 AI 将自动回退到规则建议')
+  toast.success('已开启发布建议，如未配置建议服务将自动回退到规则建议')
   await loadStageThreeAssist(true)
 }
 
@@ -1204,7 +1192,7 @@ const applyActiveTemplate = () => {
 const copyKnowledgeAssist = async () => {
   try {
     await navigator.clipboard.writeText(knowledgeAssistMarkdown.value)
-    toast.success('已复制知识沉淀草稿')
+    toast.success('已复制内容整理草稿')
   } catch {
     toast.error('复制失败，请手动选择内容')
   }
@@ -1345,7 +1333,7 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
   } catch {
     extension = {}
   }
-  selectedDomain.value = normalizeDomain(draft.domain ?? extension.domain ?? (extension.anonymous ? DOMAIN.CAREER : DOMAIN.TECH))
+  selectedDomain.value = normalizeDomain(draft.domain ?? extension.domain ?? (extension.anonymous ? DOMAIN.CAREER : DOMAIN.LIFESTYLE))
   form.value = {
     postType: getContentTypeOption(draft.postType || DEFAULT_POST_TYPE).value,
     title: draft.title || '',
@@ -1493,7 +1481,7 @@ const loadPostForEdit = async (postId: string) => {
       extension: post.extension || {},
       coverUrl: post.coverUrl || ''
     }
-    selectedDomain.value = normalizeDomain(post.domain ?? (post.anonymous ? DOMAIN.CAREER : DOMAIN.TECH))
+    selectedDomain.value = normalizeDomain(post.domain ?? (post.anonymous ? DOMAIN.CAREER : DOMAIN.LIFESTYLE))
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
     selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)

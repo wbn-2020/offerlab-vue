@@ -345,13 +345,13 @@ export const demoGrowthProfile: GrowthProfile = {
   days: 30,
   degraded: true,
   degradationReasons: ['local_demo_seed'],
-  strongestDomain: '后端工程',
-  emergingDomain: '系统设计',
-  nextFocus: '成长档案 demo：继续发布技术经验帖和面试复盘，系统会自动聚合你的成长轨迹。',
+  strongestDomain: '科技数码',
+  emergingDomain: '学习成长',
+  nextFocus: '作者主页 demo：继续发布经验分享、攻略清单和资源推荐，系统会自动聚合你的内容影响力。',
   domains: [
     {
       domain: 1,
-      domainName: '后端工程',
+      domainName: '科技数码',
       postCount: 2,
       seriesCount: 1,
       activeDays: 5,
@@ -382,22 +382,22 @@ export const demoGrowthReport: GrowthReport = {
   featuredPostCount: 1,
   seriesContributionCount: 1,
   domainChanges: [
-    { domain: 1, domainName: '后端工程', currentPostCount: 2, previousPostCount: 0, trend: 'up', reason: '新增技术经验帖和面试复盘各 1 篇。' },
+    { domain: 1, domainName: '科技数码', currentPostCount: 2, previousPostCount: 0, trend: 'up', reason: '新增经验分享和复盘记录各 1 篇。' },
   ],
   highlightPosts: demoPosts.map((item) => ({
     postId: item.postId,
     title: item.title,
     domain: item.domain,
-    domainName: '后端工程',
+    domainName: '科技数码',
     interactionCount: item.counter.like + item.counter.comment + item.counter.favorite,
     featured: item.postId === 'demo-post-coupon-stock',
   })),
-  nextActions: ['补充一次压测数据', '把 Kafka 堆积复盘改写成 STAR 素材', '为字节跳动后端备考包补 3 道题'],
+  nextActions: ['补充一次使用数据', '把 Kafka 堆积复盘整理成攻略清单', '为学习成长频道补 3 条资源'],
 }
 
 export const demoProfileContribution: ContributionSummary = {
   level: 'L2',
-  badge: '成长档案 demo',
+  badge: '作者主页 demo',
   score: 168,
   postCount: 2,
   featuredCount: 1,

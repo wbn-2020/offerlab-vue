@@ -6,6 +6,8 @@ import assert from 'node:assert/strict'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const projectRoot = fileURLToPath(new URL('../..', import.meta.url))
 
+const read = (path) => readFileSync(join(repoRoot, path), 'utf8')
+
 const scanRoots = [
   'src/views',
   'src/components',
@@ -36,7 +38,6 @@ const ignoredDirs = new Set(['node_modules', 'dist', 'target', '.git'])
 const suspiciousDecodedBytes = /[\uFFFD\u00C3\u00C2\u00A4\u00A5\u00A7\u00D0\u00D1]/
 const latin1MojibakeSequence = /(?:\u00C2[\u0080-\u00BF]|\u00C3[\u0080-\u00BF]|[\u00E0-\u00EF][\u0080-\u00BF]{2}|[\u00F0-\u00F4][\u0080-\u00BF]{3})/
 const questionPlaceholder = /(['"`>][^\n<]{0,80}\?{3,}[^\n<]{0,80}['"`<])/
-
 const mojibakeFragments = [
   '\u6D93',
   '\u9359',
@@ -111,12 +112,12 @@ for (const check of detectorSelfChecks) {
   assert.equal(isSuspiciousLine(check.line), check.expected, `text quality detector self-check failed: ${check.label}`)
 }
 
-const runtimeTextQuality = readFileSync(join(repoRoot, 'src/utils/textQuality.ts'), 'utf8')
-const homeView = readFileSync(join(repoRoot, 'src/views/HomeView.vue'), 'utf8')
-const appHeader = readFileSync(join(repoRoot, 'src/components/layout/AppHeader.vue'), 'utf8')
-const adapters = readFileSync(join(repoRoot, 'src/api/adapters.ts'), 'utf8')
-const postApi = readFileSync(join(repoRoot, 'src/api/post.ts'), 'utf8')
-const prepPackExport = readFileSync(join(repoRoot, 'src/utils/prepPackExport.ts'), 'utf8')
+const runtimeTextQuality = read('src/utils/textQuality.ts')
+const homeView = read('src/views/HomeView.vue')
+const appHeader = read('src/components/layout/AppHeader.vue')
+const adapters = read('src/api/adapters.ts')
+const postApi = read('src/api/post.ts')
+const prepPackExport = read('src/utils/prepPackExport.ts')
 const visibleProductEntryFiles = [
   'src/router/index.ts',
   'src/components/layout/AppHeader.vue',
@@ -127,8 +128,15 @@ const visibleProductEntryFiles = [
   'src/views/ExploreView.vue',
   'src/views/EditorView.vue',
   'src/views/CertificationApplyView.vue',
+  'src/views/HomeView.vue',
+  'src/views/SearchView.vue',
+  'src/views/UserProfileView.vue',
+  'src/views/MeProfileView.vue',
+  'src/utils/domains.ts',
+  'src/utils/contentTypes.ts',
 ]
 const visibleInternalTrace = /阶段\s*[234]|FEAT-\d+|专家认证试点|阅读试点/
+
 assert.match(runtimeTextQuality, /LATIN1_MOJIBAKE_SEQUENCE/, 'runtime text sanitizer must detect Latin-1 decoded UTF-8 mojibake')
 assert.match(runtimeTextQuality, /LATIN1_MOJIBAKE_SEQUENCE\.test\(value\)/, 'runtime visible text quality check must apply the Latin-1 mojibake detector')
 assert.match(runtimeTextQuality, /SYNTHETIC_PROBE_VISIBLE_TEXT/, 'runtime text filter must detect generated browser/probe records')
@@ -146,8 +154,11 @@ for (const field of ['focusTag', 'companySnapshot', 'positionSnapshot', 'questio
   assert.match(runtimeTextQuality, new RegExp(`item\\?\\.${field}`), `runtime text filter must inspect ${field}`)
 }
 assert.match(homeView, /currentUserSignature/, 'HomeView must sanitize the current user signature before rendering')
+assert.match(homeView, /userDisplaySignature\(user\)/, 'HomeView must sanitize recommended user signatures before rendering')
+assert.match(appHeader, /userMenuSignature/, 'AppHeader must sanitize menu user signatures before rendering')
+
 for (const file of visibleProductEntryFiles) {
-  const source = readFileSync(join(repoRoot, file), 'utf8')
+  const source = read(file)
   assert.doesNotMatch(source, visibleInternalTrace, `${file} must not expose internal stage, feature, or pilot labels in visible copy`)
 }
 for (const source of [adapters, postApi, prepPackExport]) {
@@ -157,7 +168,7 @@ for (const [name, source] of [
   ['src/api/adapters.ts', adapters],
   ['src/api/post.ts', postApi],
   ['src/utils/prepPackExport.ts', prepPackExport],
-  ['src/views/EditorView.vue', readFileSync(join(repoRoot, 'src/views/EditorView.vue'), 'utf8')],
+  ['src/views/EditorView.vue', read('src/views/EditorView.vue')],
 ]) {
   assert.doesNotMatch(source, /未命名/, `${name} must use product-grade fallback copy instead of raw unnamed labels`)
 }
@@ -165,8 +176,18 @@ assert.match(adapters, /未归类主题/, 'tag adapter must use product-grade fa
 assert.match(adapters, /待整理专题/, 'topic adapter must use product-grade fallback copy')
 assert.match(postApi, /未归类主题/, 'post draft adapter must use product-grade fallback copy')
 assert.match(prepPackExport, /未归类主题/, 'export fallback copy must use product-grade topic wording')
-assert.match(homeView, /userDisplaySignature\(user\)/, 'HomeView must sanitize recommended user signatures before rendering')
-assert.match(appHeader, /userMenuSignature/, 'AppHeader must sanitize menu user signatures before rendering')
+
+const guardedBrandAreas = [
+  ['header', appHeader.slice(appHeader.indexOf('<header'), appHeader.indexOf('</header>'))],
+  ['home hero', homeView.slice(homeView.indexOf('<section class="mb-6 grid'), homeView.indexOf('</section>', homeView.indexOf('<section class="mb-6 grid')))],
+  ['explore hero', read('src/views/ExploreView.vue').slice(read('src/views/ExploreView.vue').indexOf('<div class="mb-8'), read('src/views/ExploreView.vue').indexOf('<section class="surface-card mb-8'))],
+  ['editor toolbar', read('src/views/EditorView.vue').slice(read('src/views/EditorView.vue').indexOf('<div class="bg-white'), read('src/views/EditorView.vue').indexOf('<!-- 主体内容 -->'))],
+  ['search shell', read('src/views/SearchView.vue').slice(read('src/views/SearchView.vue').indexOf('<section class="search-shell'), read('src/views/SearchView.vue').indexOf('</section>', read('src/views/SearchView.vue').indexOf('<section class="search-shell')))],
+]
+const oldMainPositioning = /靠近 Offer|备考行动|求职训练|技术经验社区|技术社区|发布复盘|技术文章模板|技术标签/
+for (const [name, source] of guardedBrandAreas) {
+  assert.doesNotMatch(source, oldMainPositioning, `${name} must not foreground old main positioning`)
+}
 
 const hits = []
 let scanned = 0

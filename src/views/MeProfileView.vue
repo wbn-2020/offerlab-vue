@@ -11,6 +11,7 @@
           </div>
 
           <div class="min-w-0 flex-1">
+            <p class="mb-2 text-xs font-black text-primary-600 dark:text-primary-300">我的作者主页</p>
             <div class="flex flex-wrap items-center gap-3">
               <h1 class="truncate text-2xl font-bold text-slate-950 dark:text-slate-50">
                 {{ displayNickname }}
@@ -26,7 +27,7 @@
             <div class="mt-5 grid gap-3 sm:grid-cols-3">
               <div class="metric-card">
                 <FileText class="h-4 w-4 text-primary-600" />
-                <span>发帖</span>
+                <span>内容</span>
                 <strong>{{ user?.postCount ?? posts.items.length }}</strong>
               </div>
               <div class="metric-card">
@@ -52,7 +53,7 @@
       <section class="community-growth-panel">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">社区成长</h2>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">我的作者主页</h2>
             <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
               {{ contribution.level }} · {{ contribution.badge }}，{{ contributionSourceText }}。
             </p>
@@ -62,7 +63,7 @@
           </div>
           <div class="score-card">
             <strong>{{ contribution.score }}</strong>
-            <span>贡献值</span>
+            <span>影响力</span>
           </div>
         </div>
         <div class="mt-5 grid gap-3 sm:grid-cols-5">
@@ -96,7 +97,7 @@
             <PostList
               :state="posts"
               empty-title="还没有发布内容"
-              empty-description="发布第一篇技术文章、项目复盘或踩坑记录，让主页真正活起来。"
+              empty-description="发布第一篇经验、问题、攻略或资源，让主页先有一个代表内容。"
               empty-action-text="去发布"
               empty-action-href="/editor"
               @load-more="loadPosts(true)"
@@ -143,7 +144,7 @@
             <TopicList
               :state="topics"
               empty-title="还没有关注专题"
-              empty-description="在专题详情页关注技术方向，后续可以从这里快速回访。"
+              empty-description="在话题详情页关注感兴趣的话题，后续可以从这里快速回访。"
               @load-more="loadFollowingTopics(true)"
             />
           </section>
@@ -152,7 +153,7 @@
             <UserList
               :state="followers"
               empty-title="还没有粉丝"
-              empty-description="持续发布有价值的技术内容，会更容易被同路人关注。"
+              empty-description="持续发布有用内容，会更容易被同路人关注。"
               @load-more="loadFollowers(true)"
             />
           </section>
@@ -210,18 +211,18 @@ const followers = createState<User>()
 const backendContribution = ref<ContributionSummary | null>(null)
 
 const tabs = [
-  { value: 'posts', label: '我的发帖', icon: FileText },
+  { value: 'posts', label: '我的内容', icon: FileText },
   { value: 'favorites', label: '我的收藏', icon: Bookmark },
   { value: 'liked', label: '我的点赞', icon: Heart },
   { value: 'following', label: '我的关注', icon: Users },
-  { value: 'topics', label: '关注专题', icon: Hash },
+  { value: 'topics', label: '关注话题', icon: Hash },
   { value: 'followers', label: '我的粉丝', icon: UserRoundCheck },
 ] satisfies Array<{ value: TabValue; label: string; icon: any }>
 
 const displayNickname = computed(() => safePublicVisibleText(user.value?.nickname, '我的主页'))
 const displaySignature = computed(() => sanitizePublicVisibleText(
   user.value?.signature,
-  '完善个人资料后，其他技术同路人可以更快了解你的方向和经验。',
+  '完善简介后，其他人可以更快了解你关注的频道、经验和内容方向。',
 ))
 const userInitial = computed(() => displayNickname.value.charAt(0) || '?')
 const localContribution = computed(() => {
@@ -233,11 +234,11 @@ const contributionSourceText = computed(() => (
   contribution.value.source === 'backend_aggregate'
     ? '由后端按公开内容、精选和互动数据汇总'
     : contribution.value.source === 'local_demo_seed'
-      ? '当前为本地成长档案样例'
+      ? '当前为本地作者数据样例'
     : '接口暂不可用，当前为本地估算'
 ))
 const profileDemoNotice = computed(() => contribution.value.source === 'local_demo_seed'
-  ? '发布第一篇技术经验帖或面试复盘后，这里会切换成你的真实成长档案。'
+  ? '发布第一篇经验、问题或资源后，这里会展示你的真实作者数据。'
   : ''
 )
 const typeDistribution = computed(() => buildTypeDistribution(posts.items))
@@ -503,7 +504,7 @@ const TopicList = defineComponent({
                 h('div', { class: 'flex items-start justify-between gap-3' }, [
                   h('div', { class: 'min-w-0' }, [
                     h('p', { class: 'truncate text-base font-bold text-slate-950 dark:text-slate-50' }, topic.name),
-                    h('p', { class: 'mt-1 line-clamp-2 text-sm leading-6 text-slate-500 dark:text-slate-400' }, topic.description || '持续沉淀这个方向的技术内容。'),
+                    h('p', { class: 'mt-1 line-clamp-2 text-sm leading-6 text-slate-500 dark:text-slate-400' }, topic.description || '持续关注这个话题下的经验和讨论。'),
                   ]),
                   topic.featured ? h('span', { class: 'topic-badge' }, '精选') : null,
                 ]),

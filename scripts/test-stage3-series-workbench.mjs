@@ -34,7 +34,7 @@ assert.match(seriesView, /series-progress-bar/, 'SeriesWorkbenchView must render
 assert.match(seriesView, /loadSeriesWorkbench/, 'SeriesWorkbenchView must load workbench data')
 assert.match(seriesView, /saveSeriesDraft/, 'SeriesWorkbenchView must save create or edit changes')
 
-assert.match(header, /系列工作台/, 'AppHeader must expose the series workbench entry')
-assert.match(home, /系列工作台/, 'HomeView must surface the series workbench entry')
+assert.match(header, /内容合集/, 'AppHeader must expose the series workbench entry as a downgraded content collection link')
+assert.match(home, /内容合集/, 'HomeView must surface the series workbench entry as a content collection link')
 
 console.log('stage3 series workbench guard passed')

@@ -44,76 +44,67 @@ export interface ContentTypeOption {
 
 const FALLBACK_COMMUNITY_CONTENT_TYPES: ContentTypeOption[] = [
   {
-    value: POST_TYPE.TECH_ARTICLE,
-    code: 'TECH_ARTICLE',
-    label: '技术文章',
-    shortLabel: '文章',
-    description: '沉淀架构设计、技术方案、源码阅读和工程实践。',
-    placeholder: '例如：Spring Cloud Gateway 鉴权链路实践',
-    minContentLength: 40,
-  },
-  {
-    value: POST_TYPE.PROJECT_REVIEW,
-    code: 'PROJECT_REVIEW',
-    label: '项目复盘',
-    shortLabel: '复盘',
-    description: '复盘项目背景、架构取舍、关键问题、结果和经验。',
-    placeholder: '例如：CodeCoachAI 从 0 到 1 的后端架构复盘',
-    minContentLength: 80,
-  },
-  {
-    value: POST_TYPE.PITFALL,
-    code: 'PITFALL',
-    label: '踩坑记录',
-    shortLabel: '踩坑',
-    description: '记录排查过程、根因、修复方案和防复发建议。',
-    placeholder: '例如：一次 Redis 缓存击穿的定位记录',
-    minContentLength: 60,
+    value: POST_TYPE.NOTE,
+    code: 'NOTE',
+    label: '经验分享',
+    shortLabel: '经验',
+    description: '分享亲身经历、过程、踩坑、结果和可复用的做法。',
+    placeholder: '例如：我如何用两周时间调整作息并稳定完成学习计划',
+    minContentLength: 30,
   },
   {
     value: POST_TYPE.QUESTION,
     code: 'QUESTION',
-    label: '问答求助',
-    shortLabel: '问答',
-    description: '提出具体技术问题，补充上下文和已尝试方案。',
-    placeholder: '例如：MyBatis 分页失效应该从哪里排查？',
+    label: '问题求助',
+    shortLabel: '求助',
+    description: '提出具体问题，补充背景、已尝试方法和期待获得的建议。',
+    placeholder: '例如：第一次租房看房时，哪些细节最容易被忽略？',
     minContentLength: 30,
+  },
+  {
+    value: POST_TYPE.TECH_ARTICLE,
+    code: 'TECH_ARTICLE',
+    label: '攻略清单',
+    shortLabel: '攻略',
+    description: '整理步骤、方法、清单、避坑指南和可照着执行的经验。',
+    placeholder: '例如：新手准备第一次独自旅行的行前清单',
+    minContentLength: 40,
   },
   {
     value: POST_TYPE.RESOURCE,
     code: 'RESOURCE',
-    label: '资源分享',
+    label: '资源推荐',
     shortLabel: '资源',
-    description: '分享学习路线、工具、模板、开源项目和参考资料。',
-    placeholder: '例如：Java 后端工程化学习资源合集',
-    minContentLength: 30,
-  },
-  {
-    value: POST_TYPE.NOTE,
-    code: 'NOTE',
-    label: '经验笔记',
-    shortLabel: '笔记',
-    description: '记录小而有用的经验、命令、配置和处理手法。',
-    placeholder: '例如：一次慢 SQL 优化的复盘笔记',
+    description: '推荐工具、网站、书单、课程、模板、资料和使用建议。',
+    placeholder: '例如：我常用的 8 个免费效率工具和适合场景',
     minContentLength: 30,
   },
   {
     value: POST_TYPE.SYSTEM_DESIGN,
     code: 'SYSTEM_DESIGN',
-    label: '系统设计',
-    shortLabel: '设计',
-    description: '拆解架构目标、容量估算、模块边界、数据模型和取舍。',
-    placeholder: '例如：从 0 设计一个消息通知系统',
-    minContentLength: 80,
+    label: '观点讨论',
+    shortLabel: '讨论',
+    description: '表达观点、提出判断、分享观察，并邀请大家一起讨论。',
+    placeholder: '例如：远程办公真正考验的是自我管理还是团队协作？',
+    minContentLength: 40,
   },
   {
-    value: POST_TYPE.INTERVIEW_RECAP,
-    code: 'INTERVIEW_RECAP',
-    label: '面试复盘',
+    value: POST_TYPE.PROJECT_REVIEW,
+    code: 'PROJECT_REVIEW',
+    label: '复盘记录',
     shortLabel: '复盘',
-    description: '沉淀面试问题、追问路径、表达卡点和后续补强计划。',
-    placeholder: '例如：某厂 Java 后端二面复盘',
-    minContentLength: 80,
+    description: '复盘一次项目、活动、经历或决策，记录背景、过程、结果和下一步。',
+    placeholder: '例如：第一次组织线下读书会后的完整复盘',
+    minContentLength: 60,
+  },
+  {
+    value: POST_TYPE.PITFALL,
+    code: 'PITFALL',
+    label: '图文笔记',
+    shortLabel: '笔记',
+    description: '轻量记录灵感、日常观察、实用片段和图文式分享。',
+    placeholder: '例如：这周让我效率变高的 5 个小习惯',
+    minContentLength: 30,
   },
 ]
 
@@ -158,6 +149,16 @@ const FALLBACK_LEGACY_CONTENT_TYPES: ContentTypeOption[] = [
     minContentLength: 40,
     legacy: true,
   },
+  {
+    value: POST_TYPE.INTERVIEW_RECAP,
+    code: 'INTERVIEW_RECAP',
+    label: '面试复盘',
+    shortLabel: '面试',
+    description: '职场经验频道保留的面试复盘类型，用于兼容历史内容和直达链路。',
+    placeholder: '例如：某次产品运营岗位面试后的表达复盘',
+    minContentLength: 80,
+    legacy: true,
+  },
 ]
 
 export const COMMUNITY_CONTENT_TYPES: ContentTypeOption[] = [...FALLBACK_COMMUNITY_CONTENT_TYPES]
@@ -166,7 +167,7 @@ export const ALL_CONTENT_TYPES: ContentTypeOption[] = [...COMMUNITY_CONTENT_TYPE
 
 const contentTypeByValue = new Map<PostTypeValue, ContentTypeOption>()
 
-export const DEFAULT_POST_TYPE = POST_TYPE.TECH_ARTICLE
+export const DEFAULT_POST_TYPE = POST_TYPE.NOTE
 
 const supportedValues = new Set<number>(Object.values(POST_TYPE))
 const supportedCodes = new Set<string>([

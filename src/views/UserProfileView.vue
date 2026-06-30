@@ -4,7 +4,7 @@
     <main class="px-4 py-8">
     <div class="mx-auto max-w-6xl space-y-6">
       <section v-if="isLoading" class="profile-panel py-20 text-center text-sm text-slate-500 dark:text-slate-400">
-        正在加载用户主页...
+        正在加载作者主页...
       </section>
 
       <section v-else-if="loadError" class="profile-panel py-16 text-center">
@@ -64,14 +64,14 @@
           <section class="profile-panel">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">社区贡献</h2>
+                <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">作者数据</h2>
                 <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                   {{ contribution.level }} · {{ contribution.badge }}，{{ contributionSourceText }}。
                 </p>
               </div>
               <div class="score-card">
                 <strong>{{ contribution.score }}</strong>
-                <span>贡献值</span>
+                <span>影响力</span>
               </div>
             </div>
             <div class="mt-5 grid gap-3 sm:grid-cols-4">
@@ -94,21 +94,21 @@
             该用户的关注方向当前不可见。
           </section>
           <section v-else-if="userIntent" class="profile-panel">
-            <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">关注方向</h2>
+            <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">感兴趣的频道</h2>
             <div class="mt-4 flex flex-wrap gap-2 text-sm">
               <span v-for="company in userIntent.targetCompanies || []" :key="company" class="tag-pill">领域：{{ company }}</span>
               <span v-for="position in userIntent.targetPositions || []" :key="position" class="tag-pill">方向：{{ position }}</span>
               <span v-if="userIntent.targetCity" class="tag-pill">城市：{{ userIntent.targetCity }}</span>
-              <span v-if="userIntent.yearsOfExp" class="tag-pill">经验：{{ userIntent.yearsOfExp }} 年</span>
+              <span v-if="userIntent.yearsOfExp" class="tag-pill">经历：{{ userIntent.yearsOfExp }} 年</span>
             </div>
           </section>
 
           <section class="profile-panel">
             <div class="border-b border-slate-200 pb-4 dark:border-slate-800">
-              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">公开帖子</h2>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">发布内容</h2>
             </div>
             <div v-if="posts.length === 0" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
-              该用户还没有公开帖子。
+              这位作者还没有发布公开内容。
             </div>
             <div v-else class="space-y-4 pt-5">
               <article v-for="post in posts" :key="post.postId" class="post-row">
@@ -155,11 +155,11 @@ const loadError = ref('')
 const avatarText = computed(() => user.value?.nickname?.charAt(0) || '?')
 const profileDescription = computed(() => {
   if (!user.value || user.value.profileVisible === false) return '访问范围由该用户的隐私设置决定。'
-  return user.value.signature || '这个用户还没有填写简介。'
+  return user.value.signature || '这位作者还没有填写简介。'
 })
 const contribution = computed(() => backendContribution.value || { ...buildContributionSummary(posts.value), source: 'frontend_estimate', estimated: true })
 const contributionSourceText = computed(() => {
-  if (contribution.value.source === 'backend_aggregate') return '由后端按公开内容、精选和互动数据汇总'
+  if (contribution.value.source === 'backend_aggregate') return '按公开内容和互动数据汇总'
   if (contribution.value.source === 'profile_restricted') return '该用户限制了主页访问，贡献数据已隐藏'
   return '接口暂不可用，当前为本地估算'
 })

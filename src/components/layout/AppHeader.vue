@@ -7,7 +7,7 @@
         </span>
         <span class="hidden leading-tight sm:block">
           <span class="block text-base font-black tracking-normal">OfferLab</span>
-          <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">多领域实践社区</span>
+          <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">真实经验与有用内容社区</span>
         </span>
       </RouterLink>
 
@@ -26,7 +26,7 @@
           <button @click="showDomainMenu = !showDomainMenu"
             class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white">
             <Grid3x3 class="h-4 w-4" />
-            领域
+            频道
             <ChevronDown class="h-3 w-3" />
           </button>
           <div v-if="showDomainMenu" class="absolute left-0 z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
@@ -53,30 +53,16 @@
           <input
             v-model="keyword"
             type="search"
-            placeholder="搜索技术、职场、阅读或生活实践"
+            placeholder="搜索经验、攻略、资源、话题或作者"
             class="w-full rounded-lg border border-slate-200 bg-slate-50/90 py-2.5 pl-9 pr-3 text-sm text-slate-900 shadow-inner shadow-slate-200/30 transition-colors placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:focus:border-primary-700 dark:focus:bg-slate-900 dark:focus:ring-primary-950"
           />
         </div>
       </form>
 
       <div class="flex items-center gap-2 sm:gap-3">
-        <RouterLink
-          v-if="authStore.isLoggedIn"
-          to="/series/workbench"
-          class="series-workbench-link hidden lg:inline-flex"
-        >
-          系列工作台
-        </RouterLink>
-        <RouterLink
-          v-if="authStore.isLoggedIn"
-          to="/growth/profile"
-          class="series-workbench-link hidden xl:inline-flex"
-        >
-          成长档案
-        </RouterLink>
         <RouterLink to="/editor" class="primary-action hidden sm:inline-flex">
           <PenLine class="h-4 w-4" />
-          发布经验
+          发布内容
         </RouterLink>
 
         <RouterLink
@@ -142,10 +128,10 @@
               <RouterLink to="/me" class="menu-item" @click="showUserMenu = false">个人主页</RouterLink>
               <RouterLink to="/me/notifications" class="menu-item" @click="showUserMenu = false">通知中心</RouterLink>
               <RouterLink to="/me/settings" class="menu-item" @click="showUserMenu = false">设置</RouterLink>
-              <RouterLink to="/series/workbench" class="menu-item" @click="showUserMenu = false">系列工作台</RouterLink>
-              <RouterLink to="/growth/profile" class="menu-item" @click="showUserMenu = false">成长档案</RouterLink>
-              <RouterLink to="/growth/report" class="menu-item" @click="showUserMenu = false">成长周报月报</RouterLink>
-              <RouterLink to="/knowledge/explore" class="menu-item" @click="showUserMenu = false">知识关系探索</RouterLink>
+              <RouterLink to="/series/workbench" class="menu-item" @click="showUserMenu = false">内容合集</RouterLink>
+              <RouterLink to="/growth/profile" class="menu-item" @click="showUserMenu = false">作者数据</RouterLink>
+              <RouterLink to="/growth/report" class="menu-item" @click="showUserMenu = false">历史报告</RouterLink>
+              <RouterLink to="/knowledge/explore" class="menu-item" @click="showUserMenu = false">知识探索</RouterLink>
               <RouterLink to="/certification/apply" class="menu-item" @click="showUserMenu = false">专家认证申请</RouterLink>
               <div v-if="adminLinks.length" class="menu-divider" />
               <RouterLink
@@ -191,7 +177,7 @@
           <input
             v-model="keyword"
             type="search"
-            placeholder="搜索技术、职场、阅读或生活实践"
+            placeholder="搜索经验、攻略、资源、话题或作者"
             class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-primary-700 dark:focus:ring-primary-950"
           />
         </form>
@@ -249,7 +235,7 @@
             @click="closeMobileMenu"
           >
             <Grid3x3 class="h-4 w-4" />
-            系列工作台
+            内容合集
           </RouterLink>
           <RouterLink
             v-if="authStore.isLoggedIn"
@@ -258,7 +244,7 @@
             @click="closeMobileMenu"
           >
             <Tags class="h-4 w-4" />
-            成长档案
+            作者数据
           </RouterLink>
           <RouterLink
             to="/knowledge/explore"
@@ -284,7 +270,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Bell, ChevronDown, Compass, Flame, Grid3x3, Library, Menu, Moon, PenLine, Search, Sun, Tags, User, X } from 'lucide-vue-next'
+import { Bell, ChevronDown, Compass, Flame, Grid3x3, Library, Menu, MessageCircle, Moon, PenLine, Search, Sun, Tags, User, X } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { authApi } from '@/api/auth'
@@ -312,7 +298,7 @@ const userMenuSignature = computed(() => {
   const signature = authStore.user?.signature?.trim()
   return signature && !isSyntheticVisibleText(signature)
     ? signature
-    : '沉淀你的实践经验和成长记录'
+    : '分享经验、收藏攻略、参与讨论'
 })
 const headerDomainSourceSummary = computed(() => (
   domainSource.value === 'remote'
@@ -322,8 +308,8 @@ const headerDomainSourceSummary = computed(() => (
 const navItems = [
   { to: '/', label: '首页', icon: Flame },
   { to: '/explore', label: '发现', icon: Compass },
-  { to: '/trend', label: '趋势', icon: Tags },
-  { to: '/search', label: '搜索', icon: Library },
+  { to: '/questions', label: '问答', icon: MessageCircle },
+  { to: '/editor', label: '发布', icon: PenLine },
 ]
 const adminLinks = computed(() => {
   const value = permissions.value
