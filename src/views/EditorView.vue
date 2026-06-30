@@ -91,14 +91,14 @@
         </div>
 
         <!-- 内容类型 Tab -->
-        <div class="content-type-tabs flex gap-2 border-b border-slate-200 dark:border-slate-800 px-4">
+        <div class="content-type-tabs flex min-w-0 max-w-full gap-2 overflow-x-auto border-b border-slate-200 px-4 dark:border-slate-800">
           <button
             v-for="type in postTypes"
             :key="type.value"
             @click="form.postType = type.value"
             :disabled="isEditing"
             :class="[
-              'content-type-tab px-4 py-3 font-medium text-sm transition-colors border-b-2',
+              'content-type-tab shrink-0 whitespace-nowrap px-4 py-3 font-medium text-sm transition-colors border-b-2',
               form.postType === type.value
                 ? 'text-primary-600 border-primary-600'
                 : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
@@ -160,7 +160,7 @@
             <EditorQualityChecklist
               :result="qualityChecklistResult"
               title="创作质量检查清单 Lite"
-              eyebrow="FEAT-003 / Quality Checklist"
+              eyebrow="发布前检查"
               tone="soft"
             />
 
@@ -196,7 +196,7 @@
 
           <EditorPreviewPanel
             :preview="editorPreviewModel"
-            eyebrow="FEAT-001 / Public Card Preview"
+            eyebrow="公开卡片预览"
             title="发布前预览与公开卡片预览"
             description="基于当前标题、正文、领域、标签、匿名状态和系列归属做前端实时映射，不新增接口，也不会自动触发 AI 请求。"
           />
@@ -205,7 +205,7 @@
         <section class="stage3-assist-panel mx-4">
           <div class="stage3-assist-head">
             <div>
-              <p class="stage3-assist-kicker">阶段 3 发布体验</p>
+              <p class="stage3-assist-kicker">发布体验助手</p>
               <h2>写作助手</h2>
               <p>{{ stageThreeAssistHeadline }}</p>
             </div>
@@ -972,7 +972,7 @@ const stageThreeAssistStatusLabel = computed(() => {
 const stageThreeAssistHeadline = computed(() => {
   if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和系列工作台联动。'
   if (stageThreeAssistStatus.value === 'disabled') return 'AI 默认关闭，当前仅保留发布检查、草稿保护和系列选择；显式开启后，如后端未配置 AI 会自动回退到规则建议。'
-  if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成阶段 3 建议。'
+  if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成发布建议。'
   if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || 'AI 接口未返回结果，当前使用本地规则降级建议。'
   if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
   if (!stageThreeAssist.value) return 'AI 已开启，但不会自动请求内容辅助；点击“刷新建议”后才会触发，并在后端未配置 AI 时回退到规则建议。'

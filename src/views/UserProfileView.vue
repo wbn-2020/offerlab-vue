@@ -20,7 +20,7 @@
               <div class="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-white bg-slate-950 text-2xl font-bold text-white dark:border-slate-900">
                 {{ avatarText }}
               </div>
-              <div class="pt-1">
+              <div class="min-w-0 pt-1">
                 <h1 class="text-2xl font-bold text-slate-950 dark:text-slate-50">
                   {{ user.profileVisible === false ? '受限主页' : user.nickname }}
                 </h1>
@@ -237,6 +237,7 @@ onMounted(loadProfile)
 .open-link {
   display: inline-flex;
   min-height: 40px;
+  max-width: 100%;
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
@@ -326,6 +327,10 @@ onMounted(loadProfile)
 }
 
 @media (max-width: 640px) {
+  .follow-button {
+    width: 100%;
+  }
+
   .post-row {
     align-items: flex-start;
     flex-direction: column;

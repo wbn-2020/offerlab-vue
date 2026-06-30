@@ -122,7 +122,7 @@
       <section class="surface-card stage4-cross-domain-panel mb-8 p-6">
         <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="stage4-kicker">阶段 4 差异化品牌</span>
+            <span class="stage4-kicker">跨领域成长</span>
             <h2 class="mt-3 text-xl font-black text-slate-900 dark:text-slate-100">跨领域推荐</h2>
             <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
               用规则优先的桥接逻辑，把你熟悉领域之外但仍然相关的内容先解释清楚，再推荐给你。
@@ -244,7 +244,7 @@
         </article>
 
         <article class="surface-card reading-pilot-card p-6">
-          <span class="reading-pilot-badge">阶段 2 阅读试点</span>
+          <span class="reading-pilot-badge">阅读专题</span>
           <div class="mt-3">
             <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">阅读专题</h2>
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ readingDomainIntro }}</p>
@@ -332,7 +332,7 @@
           <div class="mb-5 flex items-center justify-between gap-4">
             <div>
               <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">专题入口</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">阅读试点优先露出，其他专题继续按技术栈、业务场景和标签聚合。</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">阅读专题优先露出，其他专题继续按技术栈、业务场景和标签聚合。</p>
             </div>
           </div>
           <div v-if="topicSectionNote" class="section-note mb-4" :class="topicSectionNoteTone">

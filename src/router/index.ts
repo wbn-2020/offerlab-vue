@@ -84,7 +84,7 @@ const routes = [
     path: '/certification/apply',
     name: 'CertificationApply',
     component: () => import('@/views/CertificationApplyView.vue'),
-    meta: { title: '专家认证试点' },
+    meta: { title: '专家认证申请' },
   },
   {
     path: '/u/:uid',

@@ -146,7 +146,7 @@
               <RouterLink to="/growth/profile" class="menu-item" @click="showUserMenu = false">成长档案</RouterLink>
               <RouterLink to="/growth/report" class="menu-item" @click="showUserMenu = false">成长周报月报</RouterLink>
               <RouterLink to="/knowledge/explore" class="menu-item" @click="showUserMenu = false">知识关系探索</RouterLink>
-              <RouterLink to="/certification/apply" class="menu-item" @click="showUserMenu = false">专家认证试点</RouterLink>
+              <RouterLink to="/certification/apply" class="menu-item" @click="showUserMenu = false">专家认证申请</RouterLink>
               <div v-if="adminLinks.length" class="menu-divider" />
               <RouterLink
                 v-for="item in adminLinks"

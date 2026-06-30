@@ -60,7 +60,7 @@ assert.match(postDetail, /showStageTwoDetailPanels &&/, 'post detail knowledge a
 assert.match(postDetail, /applyPageSeo/, 'post detail must own minimal SEO metadata updates')
 
 assert.match(seo, /SITE_NAME = 'OfferLab 综合社区'/, 'SEO helper must expose the comprehensive community site name')
-assert.match(seo, /DEFAULT_DESCRIPTION/, 'SEO helper must provide a default description for phase-1 public pages')
+assert.match(seo, /DEFAULT_DESCRIPTION/, 'SEO helper must provide a default description for public pages')
 assert.match(guards, /applyPageSeo/, 'router guards must delegate title/meta updates to the SEO helper')
 assert.doesNotMatch(guards, /OfferLab 技术社区/, 'router guards must stop using the old technology-community suffix')
 assert.match(indexHtml, /<title>OfferLab 综合社区<\/title>/, 'HTML fallback title must reflect the comprehensive community positioning')

@@ -6,7 +6,7 @@
       <section class="surface-card p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="stage4-kicker">阶段 4 差异化品牌</span>
+            <span class="report-kicker">成长复盘</span>
             <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
               周报 / 月报
             </h1>
@@ -63,9 +63,9 @@
 
         <div v-else class="space-y-6">
           <div v-if="report.degraded" class="fallback-banner">
-            <strong>当前报告采用降级聚合</strong>
+            <strong>{{ reportDemoNotice ? '当前展示本地样例报告' : '当前报告采用降级聚合' }}</strong>
             <p>
-              {{ report.degradationReasons.join(' / ') || '部分依赖未就绪，当前只展示规则汇总结果。' }}
+              {{ reportDemoNotice || report.degradationReasons.join(' / ') || '部分依赖未就绪，当前只展示规则汇总结果。' }}
             </p>
           </div>
 
@@ -213,6 +213,10 @@ const loading = ref(false)
 const error = ref('')
 const report = ref<GrowthReport | null>(null)
 const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
+const reportDemoNotice = computed(() => report.value?.degradationReasons?.includes('local_demo_seed')
+  ? '这些内容是本地样例，用来说明周期报告会如何汇总公开内容，不代表你的真实发布、互动或精选数据。'
+  : ''
+)
 
 const trendLabel = (trend?: string) => {
   switch ((trend || '').toLowerCase()) {
@@ -269,7 +273,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.stage4-kicker {
+.report-kicker {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
@@ -408,7 +412,7 @@ onMounted(async () => {
   transform: translateY(-1px);
 }
 
-.dark .stage4-kicker {
+.dark .report-kicker {
   background: rgb(8 47 73);
   color: rgb(125 211 252);
 }

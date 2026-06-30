@@ -5,7 +5,7 @@
       <section class="surface-card p-6 sm:p-7">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div class="max-w-3xl">
-            <p class="series-kicker">阶段 3 系列工作流</p>
+            <p class="series-kicker">连续创作工作流</p>
             <h1 class="text-2xl font-black tracking-normal text-slate-950 dark:text-white sm:text-3xl">系列工作台</h1>
             <p class="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
               把同一主题下的草稿、已发布内容和发布节奏收敛到一个工作台里，便于持续输出和追踪完成进度。
@@ -34,7 +34,7 @@
                 {{ editingSeriesId ? '编辑系列' : '创建系列' }}
               </h2>
               <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
-                先定义主题、目标篇数和阶段状态，后续发布页可以直接归入该系列。
+                先定义主题、目标篇数和进度状态，后续发布内容可以直接归入该系列。
               </p>
             </div>
             <button
@@ -55,7 +55,7 @@
                 type="text"
                 maxlength="40"
                 class="series-input"
-                placeholder="例如：OfferLab 阶段3发布体验实战复盘"
+                placeholder="例如：OfferLab 发布体验实战复盘"
               />
             </label>
 
@@ -141,7 +141,7 @@
           <div v-else-if="!seriesRecords.length" class="surface-card p-6">
             <h3 class="text-base font-black text-slate-950 dark:text-white">还没有系列</h3>
             <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              先创建一个系列，把阶段3发布页里的草稿和已发布内容归到同一条连续输出线上。
+              先创建一个系列，把草稿和已发布内容归到同一条连续输出线上。
             </p>
             <button type="button" class="primary-action mt-4" @click="startCreateSeries">
               创建系列

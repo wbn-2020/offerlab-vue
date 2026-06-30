@@ -4,6 +4,8 @@ import { visualSnapshotRoutes, visualSnapshotViewports } from './visual-snapshot
 
 const packageJson = readFileSync(new URL('../package.json', import.meta.url), 'utf8')
 const runner = readFileSync(new URL('./visual-snapshot-routes.mjs', import.meta.url), 'utf8')
+const editorView = readFileSync(new URL('../src/views/EditorView.vue', import.meta.url), 'utf8')
+const meProfileView = readFileSync(new URL('../src/views/MeProfileView.vue', import.meta.url), 'utf8')
 
 const requiredRoutes = ['/', '/explore', '/search', '/questions', '/editor', '/me', '/mock-interview', '/admin/ops', '/admin/governance']
 const routePaths = visualSnapshotRoutes.map((item) => item.path.split('?')[0])
@@ -22,6 +24,8 @@ for (const route of visualSnapshotRoutes.filter((item) => item.path.startsWith('
 assert.match(runner, /page\.screenshot\(/, 'visual snapshot runner must capture screenshots')
 assert.match(runner, /summary\.json/, 'visual snapshot runner must write a machine-readable summary')
 assert.match(runner, /horizontalOverflow/, 'visual snapshot runner must detect horizontal overflow')
+assert.match(runner, /isAllowedHorizontalScroll/, 'visual snapshot runner must ignore intentional horizontal scrollers when listing overflow candidates')
+assert.match(runner, /overflowCandidates[\s\S]*filter\(\(item\) => !item\.allowedHorizontalScroll/, 'overflow candidates must filter out elements inside intentional horizontal scrollers')
 assert.match(runner, /bodyChars < 20/, 'visual snapshot runner must fail blank or near-blank pages')
 assert.match(runner, /OFFERLAB_VISUAL_THEME/, 'visual snapshot runner must allow explicit light/dark theme selection')
 assert.match(runner, /window\.localStorage\.setItem\('theme', theme\)/, 'visual snapshot runner must inject the selected app theme before route load')
@@ -53,5 +57,9 @@ assert.match(packageJson, /"playwright": "\^1\.60\.0"/, 'package devDependencies
 assert.match(packageJson, /"test:visual-snapshots": "node scripts\/visual-snapshot-routes\.mjs"/, 'package scripts must expose visual snapshots')
 assert.match(packageJson, /"verify:visual": "npm run test:visual-snapshots"/, 'package scripts must expose a real visual verification entry')
 assert.match(packageJson, /npm run test:visual-snapshot-config/, 'test:guards must include the visual snapshot config guard')
+assert.match(editorView, /content-type-tabs[^"]*min-w-0[^"]*max-w-full[^"]*overflow-x-auto/, 'editor content type tabs must be constrained and horizontally scrollable on mobile')
+assert.match(editorView, /content-type-tab[^']*shrink-0[^']*whitespace-nowrap/, 'editor content type tab buttons must keep labels intact inside the scroll container')
+assert.match(meProfileView, /tab-bar[^"]*max-w-full[^"]*overflow-x-auto/, 'me profile tab bar must be constrained and horizontally scrollable on mobile')
+assert.match(meProfileView, /tab-button[^']*shrink-0[^']*whitespace-nowrap/, 'me profile tab buttons must keep labels intact inside the scroll container')
 
 console.log('visual snapshot config guard passed')

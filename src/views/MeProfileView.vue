@@ -56,6 +56,9 @@
             <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
               {{ contribution.level }} · {{ contribution.badge }}，{{ contributionSourceText }}。
             </p>
+            <p v-if="profileDemoNotice" class="mt-2 text-xs font-semibold text-sky-700 dark:text-sky-300">
+              {{ profileDemoNotice }}
+            </p>
           </div>
           <div class="score-card">
             <strong>{{ contribution.score }}</strong>
@@ -75,12 +78,12 @@
       </section>
 
       <section class="mt-6">
-        <div class="tab-bar">
+        <div class="tab-bar max-w-full overflow-x-auto">
           <button
             v-for="tab in tabs"
             :key="tab.value"
             type="button"
-            :class="['tab-button', activeTab === tab.value ? 'tab-active' : '']"
+            :class="['tab-button shrink-0 whitespace-nowrap', activeTab === tab.value ? 'tab-active' : '']"
             @click="activeTab = tab.value"
           >
             <component :is="tab.icon" class="h-4 w-4" />
@@ -175,6 +178,7 @@ import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, PaginatedResponse, Post, User } from '@/api/types'
 import { buildContributionSummary, buildTypeDistribution, type ContributionSummary } from '@/utils/communityMetrics'
 import { filterPublicContent, safePublicVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
+import { demoProfileContribution } from '@/data/demoSeeds'
 
 type TabValue = 'posts' | 'favorites' | 'liked' | 'following' | 'topics' | 'followers'
 
@@ -220,12 +224,22 @@ const displaySignature = computed(() => sanitizePublicVisibleText(
   '完善个人资料后，其他技术同路人可以更快了解你的方向和经验。',
 ))
 const userInitial = computed(() => displayNickname.value.charAt(0) || '?')
-const contribution = computed(() => backendContribution.value || { ...buildContributionSummary(posts.items), source: 'frontend_estimate', estimated: true })
+const localContribution = computed(() => {
+  const summary = buildContributionSummary(posts.items)
+  return summary.score > 0 ? { ...summary, source: 'frontend_estimate', estimated: true } : demoProfileContribution
+})
+const contribution = computed(() => backendContribution.value || localContribution.value)
 const contributionSourceText = computed(() => (
   contribution.value.source === 'backend_aggregate'
     ? '由后端按公开内容、精选和互动数据汇总'
+    : contribution.value.source === 'local_demo_seed'
+      ? '当前为本地成长档案样例'
     : '接口暂不可用，当前为本地估算'
 ))
+const profileDemoNotice = computed(() => contribution.value.source === 'local_demo_seed'
+  ? '发布第一篇技术经验帖或面试复盘后，这里会切换成你的真实成长档案。'
+  : ''
+)
 const typeDistribution = computed(() => buildTypeDistribution(posts.items))
 
 const loadContribution = async () => {

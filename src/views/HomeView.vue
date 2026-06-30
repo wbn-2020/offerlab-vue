@@ -7,41 +7,41 @@
           <div class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div class="max-w-2xl">
               <div class="mb-3 flex flex-wrap gap-2">
-                <span class="muted-pill">兴趣主题</span>
-                <span class="muted-pill">内容标签</span>
-                <span class="muted-pill">推荐理由</span>
+                <span class="muted-pill">真实经验</span>
+                <span class="muted-pill">备考行动</span>
+                <span class="muted-pill">成长资产</span>
               </div>
               <h1 class="text-2xl font-black tracking-normal text-slate-950 dark:text-white sm:text-3xl">
-                找到更适合你的社区内容
+                今天先完成一件能靠近 Offer 的事
               </h1>
               <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-                浏览开发者分享的社区经验、兴趣话题、问答讨论和工具推荐，把零散内容沉淀成可复用的知识流。
+                OfferLab 把技术经验、面试复盘、题目练习和成长档案串成一条行动线：先看真实经验，再整理准备材料，最后沉淀成自己的可展示资产。
               </p>
             </div>
             <div class="flex flex-wrap gap-3">
               <RouterLink to="/editor" class="primary-action">
                 <PenLine class="h-4 w-4" />
-                发布经验
+                发布复盘
               </RouterLink>
               <RouterLink to="/explore" class="secondary-action">
                 <Compass class="h-4 w-4" />
-                去发现
+                看推荐
               </RouterLink>
             </div>
           </div>
 
           <div class="home-metric-grid mt-6 grid gap-3 sm:grid-cols-3">
             <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">今日可读内容</span>
-              <strong class="metric-value">{{ readableContentCount }}</strong>
+              <span class="metric-label">今日推荐</span>
+              <strong class="metric-value">{{ readableMetricValue }}</strong>
             </div>
             <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">热门标签</span>
-              <strong class="metric-value">{{ topTags.length }}</strong>
+              <span class="metric-label">可复习主题</span>
+              <strong class="metric-value">{{ tagMetricValue }}</strong>
             </div>
             <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">推荐同路人</span>
-              <strong class="metric-value">{{ recommendedUsers.length }}</strong>
+              <span class="metric-label">成长入口</span>
+              <strong class="metric-value">{{ peerMetricValue }}</strong>
             </div>
           </div>
         </div>
@@ -68,6 +68,24 @@
             </button>
           </form>
         </section>
+      </section>
+
+      <section class="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <RouterLink
+          v-for="action in todayActions"
+          :key="action.title"
+          :to="action.href"
+          class="home-action-card"
+          :class="action.primary ? 'home-action-card-primary' : ''"
+        >
+          <span class="home-action-icon">
+            <component :is="action.icon" class="h-4 w-4" />
+          </span>
+          <span class="min-w-0">
+            <span class="block text-sm font-black text-slate-950 dark:text-white">{{ action.title }}</span>
+            <span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">{{ action.description }}</span>
+          </span>
+        </RouterLink>
       </section>
 
       <!-- 领域筛选 -->
@@ -379,7 +397,7 @@
               :title="emptyFeedTitle"
               :description="emptyFeedDescription"
               :actionText="emptyFeedActionText"
-              actionHref="/explore"
+              :actionHref="emptyFeedActionHref"
             />
           </div>
 
@@ -499,10 +517,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch, type Component } from 'vue'
+import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { Compass, PenLine, Search, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
+import { BookOpen, Compass, FileText, PenLine, Search, Sparkles, Tag, Target, TrendingUp, UserRound, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
@@ -543,6 +561,13 @@ const activeDomain = computed(() => {
   const q = Number(route.query.domain)
   return legalDomainValues.has(q) ? q : undefined
 })
+interface TodayAction {
+  title: string
+  description: string
+  href: RouteLocationRaw
+  icon: Component
+  primary?: boolean
+}
 const feedTabs: FeedType[] = ['following', 'recommend', 'latest', 'hot', 'featured']
 const feedLabels: Record<FeedType, string> = {
   following: '关注',
@@ -626,6 +651,42 @@ const visiblePosts = computed(() => {
     : base
 })
 const readableContentCount = computed(() => Math.max(visiblePosts.value.length, sampledFeedContentCount.value))
+const readableMetricValue = computed(() => readableContentCount.value > 0 ? String(readableContentCount.value) : '先看精选')
+const tagMetricValue = computed(() => topTags.value.length > 0 ? String(topTags.value.length) : '去题库')
+const peerMetricValue = computed(() => recommendedUsers.value.length > 0 ? String(recommendedUsers.value.length) : '建档案')
+const todayActions = computed<TodayAction[]>(() => [
+  {
+    title: '看今日推荐',
+    description: '从真实经验里找一条可复用做法',
+    href: '/explore',
+    icon: Compass,
+    primary: true,
+  },
+  {
+    title: '继续备考',
+    description: '回到公司、岗位和题目准备进度',
+    href: authStore.isLoggedIn ? '/me/prep' : '/login',
+    icon: Target,
+  },
+  {
+    title: '复习知识卡',
+    description: '按待复习和错因补齐短板',
+    href: { path: '/questions', query: { progressStatus: 'review', sort: 'latest' } },
+    icon: BookOpen,
+  },
+  {
+    title: '发布面试复盘',
+    description: '把一次准备或面试沉淀为资产',
+    href: '/editor',
+    icon: FileText,
+  },
+  {
+    title: '查看成长档案',
+    description: '整理贡献、收藏和下一步方向',
+    href: authStore.isLoggedIn ? '/growth/profile' : '/login',
+    icon: UserRound,
+  },
+])
 const currentUserSignature = computed(() => {
   const signature = authStore.user?.signature?.trim()
   return signature && !isSyntheticVisibleText(signature)
@@ -654,11 +715,12 @@ const emptyFeedTitle = computed(() => {
   return '暂时没有内容'
 })
 const emptyFeedDescription = computed(() => {
-  if (activeFeed.value === 'following') return '去发现页看看可以关注的作者。'
-  if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '推荐和热门里还有可读内容，可以切换其他信息流继续浏览。'
-  return '发布第一篇技术文章、项目复盘或踩坑记录，也可以切换其他信息流。'
+  if (activeFeed.value === 'following') return '先从发现页关注几位分享真实项目、面试复盘和学习路线的作者。'
+  if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '推荐和热门里还有可读内容，也可以进入题库挑一张知识卡开始复习。'
+  return '可以先看推荐内容、进入题库复习，或把最近一次项目/面试经历写成复盘。'
 })
-const emptyFeedActionText = computed(() => activeFeed.value === 'following' ? '去发现' : undefined)
+const emptyFeedActionText = computed(() => activeFeed.value === 'following' ? '去发现作者' : '去题库复习')
+const emptyFeedActionHref = computed(() => activeFeed.value === 'following' ? '/explore' : '/questions')
 
 const findPost = (postId: Post['postId']) => posts.value.find((item) => String(item.postId) === String(postId))
 const userDisplaySignature = (user: User) => {
@@ -911,9 +973,45 @@ watch(() => authStore.isLoggedIn, async (loggedIn) => {
   display: block;
   margin-top: 0.35rem;
   min-height: 2.125rem;
-  font-size: 1.65rem;
+  font-size: 1.35rem;
   line-height: 1.15;
   color: rgb(15 23 42);
+}
+
+.home-action-card {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240 / 0.9);
+  background: rgb(255 255 255 / 0.88);
+  padding: 1rem;
+  transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-action-card:hover {
+  transform: translateY(-1px);
+  border-color: rgb(165 180 252);
+  background: rgb(248 250 252);
+  box-shadow: 0 12px 30px rgb(15 23 42 / 0.08);
+}
+
+.home-action-card-primary {
+  border-color: rgb(129 140 248 / 0.75);
+  background: linear-gradient(135deg, rgb(238 242 255), rgb(240 253 250));
+}
+
+.home-action-icon {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  background: rgb(224 231 255);
+  color: rgb(67 56 202);
 }
 
 .quick-input {
@@ -1181,6 +1279,27 @@ watch(() => authStore.isLoggedIn, async (loggedIn) => {
 .dark .metric-value {
   color: #f8fafc;
   text-shadow: 0 1px 8px rgb(99 102 241 / 0.18);
+}
+
+.dark .home-action-card {
+  border-color: rgb(51 65 85 / 0.86);
+  background: rgb(15 23 42 / 0.78);
+}
+
+.dark .home-action-card:hover {
+  border-color: rgb(99 102 241 / 0.68);
+  background: rgb(30 41 59 / 0.9);
+  box-shadow: 0 16px 36px rgb(2 6 23 / 0.28);
+}
+
+.dark .home-action-card-primary {
+  border-color: rgb(99 102 241 / 0.7);
+  background: linear-gradient(135deg, rgb(49 46 129 / 0.52), rgb(20 83 45 / 0.28));
+}
+
+.dark .home-action-icon {
+  background: rgb(49 46 129 / 0.58);
+  color: rgb(199 210 254);
 }
 
 .dark .quick-input:focus {

@@ -27,7 +27,7 @@ const expectedRouteTitles = {
   '/growth/profile': '成长档案',
   '/growth/report': '成长周报月报',
   '/knowledge/explore': '知识关系探索',
-  '/certification/apply': '专家认证试点',
+  '/certification/apply': '专家认证申请',
 }
 
 const adminRoles = ['ops', 'questionOperator', 'contentModerator', 'domainModerator', 'admin']

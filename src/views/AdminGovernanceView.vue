@@ -810,6 +810,7 @@ const commentReports = ref<CommentReport[]>([])
 const pendingQuestions = ref<Question[]>([])
 const failedAiTasks = ref<AiExtractTask[]>([])
 const backendReviewQueueItems = ref<BackendReviewQueueItem[]>([])
+const safeBackendReviewQueueItems = computed<BackendReviewQueueItem[]>(() => Array.isArray(backendReviewQueueItems.value) ? backendReviewQueueItems.value : [])
 const reviewQueueSource = ref<'backend' | 'frontend-fallback'>('frontend-fallback')
 const reviewQueueLoadWarnings = ref<string[]>([])
 const auditLogs = ref<AdminAuditLog[]>([])
@@ -1005,7 +1006,7 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
     })
   return items.sort((a, b) => riskRank(b.riskLevel) - riskRank(a.riskLevel) || queueTimeValue(b.createdAt) - queueTimeValue(a.createdAt))
 })
-const backendReviewQueueViewItems = computed<ReviewQueueItem[]>(() => backendReviewQueueItems.value
+const backendReviewQueueViewItems = computed<ReviewQueueItem[]>(() => safeBackendReviewQueueItems.value
   .map(toReviewQueueItem)
   .sort((a, b) => riskRank(b.riskLevel) - riskRank(a.riskLevel) || queueTimeValue(b.createdAt) - queueTimeValue(a.createdAt)))
 const reviewQueueItems = computed<ReviewQueueItem[]>(() => {
@@ -1330,7 +1331,7 @@ const loadBackendReviewQueue = async (showToast = true) => {
       riskLevel: (queueFilters.riskLevel || undefined) as ReviewQueueRiskLevel | undefined,
       limit: 80,
     })
-    backendReviewQueueItems.value = res.data || []
+    backendReviewQueueItems.value = Array.isArray(res.data) ? res.data : []
     reviewQueueSource.value = 'backend'
   } catch (error: any) {
     backendReviewQueueItems.value = []

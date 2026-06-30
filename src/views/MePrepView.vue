@@ -141,6 +141,9 @@
         <section v-if="isServingCachedOverview || isRefreshingOverview" class="prep-refresh-banner">
           <span>{{ isServingCachedOverview ? '已先展示本地快照，正在刷新最新数据。' : '学习空间数据刷新中。' }}</span>
         </section>
+        <section v-if="prepDemoNotice" class="prep-refresh-banner">
+          <span>{{ prepDemoNotice }}</span>
+        </section>
         <section class="prep-metric-grid mb-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
           <div class="metric-card"><span>收藏</span><strong>{{ overview.favoriteCount }}</strong></div>
           <div class="metric-card"><span>待学习</span><strong>{{ overview.todoCount }}</strong></div>
@@ -717,6 +720,11 @@ const knowledge = computed<UserKnowledge | null>(() => knowledgeData.value?.data
 const mockStats = computed(() => mockStatsData.value?.data || null)
 const weeklyReport = computed(() => weeklyReportData.value?.data || null)
 const weeklyNextActions = computed(() => (weeklyReport.value?.nextActions || []).slice(0, 3).map(knowledgeReviewCopy))
+const prepDemoNotice = computed(() => (
+  data.value?.message === 'local_demo_seed'
+    || knowledgeData.value?.message === 'local_demo_seed'
+    || weeklyReportData.value?.message === 'local_demo_seed'
+) ? '当前展示本地样例学习空间：这些收藏、周报和目标不是你的个人数据；真实服务返回后会自动替换。' : '')
 const isServingCachedOverview = computed(() => Boolean(cachedOverview.value && !data.value?.data))
 const isInitialLoadingWithoutData = computed(() => Boolean(isLoading.value && !overview.value))
 const showFullPageSkeleton = computed(() => Boolean(isInitialLoadingWithoutData.value && !hasWaitedBeyondFirstPaint.value))

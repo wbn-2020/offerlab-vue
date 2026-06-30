@@ -117,6 +117,18 @@ const appHeader = readFileSync(join(repoRoot, 'src/components/layout/AppHeader.v
 const adapters = readFileSync(join(repoRoot, 'src/api/adapters.ts'), 'utf8')
 const postApi = readFileSync(join(repoRoot, 'src/api/post.ts'), 'utf8')
 const prepPackExport = readFileSync(join(repoRoot, 'src/utils/prepPackExport.ts'), 'utf8')
+const visibleProductEntryFiles = [
+  'src/router/index.ts',
+  'src/components/layout/AppHeader.vue',
+  'src/views/KnowledgeExploreView.vue',
+  'src/views/GrowthProfileView.vue',
+  'src/views/GrowthReportView.vue',
+  'src/views/SeriesWorkbenchView.vue',
+  'src/views/ExploreView.vue',
+  'src/views/EditorView.vue',
+  'src/views/CertificationApplyView.vue',
+]
+const visibleInternalTrace = /阶段\s*[234]|FEAT-\d+|专家认证试点|阅读试点/
 assert.match(runtimeTextQuality, /LATIN1_MOJIBAKE_SEQUENCE/, 'runtime text sanitizer must detect Latin-1 decoded UTF-8 mojibake')
 assert.match(runtimeTextQuality, /LATIN1_MOJIBAKE_SEQUENCE\.test\(value\)/, 'runtime visible text quality check must apply the Latin-1 mojibake detector')
 assert.match(runtimeTextQuality, /SYNTHETIC_PROBE_VISIBLE_TEXT/, 'runtime text filter must detect generated browser/probe records')
@@ -134,6 +146,10 @@ for (const field of ['focusTag', 'companySnapshot', 'positionSnapshot', 'questio
   assert.match(runtimeTextQuality, new RegExp(`item\\?\\.${field}`), `runtime text filter must inspect ${field}`)
 }
 assert.match(homeView, /currentUserSignature/, 'HomeView must sanitize the current user signature before rendering')
+for (const file of visibleProductEntryFiles) {
+  const source = readFileSync(join(repoRoot, file), 'utf8')
+  assert.doesNotMatch(source, visibleInternalTrace, `${file} must not expose internal stage, feature, or pilot labels in visible copy`)
+}
 for (const source of [adapters, postApi, prepPackExport]) {
   assert.doesNotMatch(source, /未命名标签/, 'frontend fallback copy must not expose raw engineering label names')
 }

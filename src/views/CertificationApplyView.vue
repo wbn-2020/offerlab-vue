@@ -6,9 +6,9 @@
       <section class="surface-card p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="stage4-kicker">阶段 4 差异化品牌</span>
+            <span class="stage4-kicker">可信专家体系</span>
             <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
-              专家认证试点
+              专家认证申请
             </h1>
             <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
               先做可解释、可审核、可撤销的最小闭环，不自动认证，也不把投资理财内容包装成平台背书。
@@ -29,7 +29,7 @@
         <EmptyState
           v-if="!authStore.isLoggedIn"
           title="登录后提交专家认证申请"
-          description="认证试点会读取你的个人公开内容，并保留可审核的资格解释与证据摘要。"
+          description="认证申请会读取你的个人公开内容，并保留可审核的资格解释与证据摘要。"
           action-text="去登录"
           :action-href="loginHref"
         />
@@ -40,7 +40,7 @@
               <div>
                 <h2 class="text-lg font-black text-slate-950 dark:text-white">资格检查</h2>
                 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  试点门槛默认看同领域至少 3 篇公开内容，并且 90 天内至少有 1 篇更新。
+                  认证门槛默认看同领域至少 3 篇公开内容，并且 90 天内至少有 1 篇更新。
                 </p>
               </div>
               <button type="button" class="secondary-action" :disabled="loadingEligibility" @click="loadEligibility">
@@ -185,7 +185,7 @@
         <EmptyState
           v-else-if="!applications.length"
           title="还没有申请记录"
-          description="先通过资格检查，再提交第一条认证试点申请。"
+          description="先通过资格检查，再提交第一条认证申请。"
         />
 
         <div v-else class="space-y-3">

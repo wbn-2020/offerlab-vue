@@ -74,6 +74,10 @@
         </form>
       </section>
 
+      <section v-if="demoSeedNotice && !isLoading" class="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
+        {{ demoSeedNotice }}
+      </section>
+
       <LoadingSkeleton v-if="isLoading" />
       <section v-else-if="requiresLoginForPersonalFilters" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
         <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">登录后查看个人知识库</h3>
@@ -157,6 +161,7 @@ const isLoadingMore = ref(false)
 const listError = ref('')
 const loadMoreError = ref('')
 const showMobileFilters = ref(false)
+const listSource = ref('')
 let listRequestId = 0
 
 const hasPersonalFilter = computed(() => Boolean(
@@ -176,6 +181,11 @@ const hasActiveFilters = computed(() => Boolean(
     || filters.hasStarStory
     || (filters.sort && filters.sort !== 'latest'),
 ))
+const demoSeedNotice = computed(() => listSource.value === 'local_demo_seed'
+  ? '当前展示本地 demo 题库：包含技术经验帖、面试复盘和知识卡片样例；连接真实服务后会自动切换到你的数据。'
+  : ''
+)
+const sourceIfDemoSeed = (value?: string) => value === 'local_demo_seed' ? value : ''
 
 const syncFromRoute = () => {
   filters.keyword = String(route.query.keyword ?? route.query.q ?? '')
@@ -230,6 +240,7 @@ const fetchQuestions = async (append = false, targetPage = page.value) => {
     const items = filterPublicContent(res.data?.items || [])
     questions.value = append ? [...questions.value, ...items] : items
     hasMore.value = Boolean(res.data?.hasMore)
+    if (!append) listSource.value = sourceIfDemoSeed(res.data?.source) || sourceIfDemoSeed(res.message)
     page.value = targetPage
   } catch (error: any) {
     if (requestId !== listRequestId) return
@@ -240,6 +251,7 @@ const fetchQuestions = async (append = false, targetPage = page.value) => {
       listError.value = message
       questions.value = []
       hasMore.value = false
+      listSource.value = ''
     }
   } finally {
     if (requestId === listRequestId) {

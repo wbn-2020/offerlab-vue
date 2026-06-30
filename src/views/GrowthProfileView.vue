@@ -6,7 +6,7 @@
       <section class="surface-card p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="stage4-kicker">阶段 4 差异化品牌</span>
+            <span class="growth-kicker">成长品牌</span>
             <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
               成长档案
             </h1>
@@ -92,9 +92,9 @@
                 </div>
               </div>
               <div v-if="profile.degraded" class="fallback-banner mt-4">
-                <strong>当前为降级视图</strong>
+                <strong>{{ profileDemoNotice ? '当前展示本地样例档案' : '当前为降级视图' }}</strong>
                 <p>
-                  {{ profile.degradationReasons.join(' / ') || '部分服务未就绪，当前只展示规则聚合结果。' }}
+                  {{ profileDemoNotice || profile.degradationReasons.join(' / ') || '部分服务未就绪，当前只展示规则聚合结果。' }}
                 </p>
               </div>
             </article>
@@ -214,6 +214,10 @@ const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(r
 const primaryDomain = computed(() => profile.value?.domains?.[0] ?? null)
 const strongestDomain = computed(() => profile.value?.strongestDomain || primaryDomain.value?.domainName || '--')
 const emergingDomain = computed(() => profile.value?.emergingDomain || '继续观察')
+const profileDemoNotice = computed(() => profile.value?.degradationReasons?.includes('local_demo_seed')
+  ? '这些内容是本地样例，用来说明成长档案会如何组织公开内容，不代表你的真实成长画像。'
+  : ''
+)
 
 const totalScore = (domain: GrowthProfileDomain) => (
   domain.dimensions.reduce((sum, item) => sum + Number(item.score || 0), 0)
@@ -252,7 +256,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.stage4-kicker {
+.growth-kicker {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
@@ -401,7 +405,7 @@ onMounted(async () => {
   color: rgb(37 99 235);
 }
 
-.dark .stage4-kicker {
+.dark .growth-kicker {
   background: rgb(8 47 73);
   color: rgb(125 211 252);
 }

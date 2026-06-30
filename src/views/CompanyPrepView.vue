@@ -5,6 +5,10 @@
       <LoadingSkeleton v-if="isLoading" />
       <EmptyState v-else-if="!prep" title="暂无主题包" description="该主题还没有足够的公开经验和知识卡。" actionText="返回知识库" actionHref="/questions" />
       <template v-else>
+        <section v-if="demoPrepNotice" class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          {{ demoPrepNotice }}
+        </section>
+
         <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -18,10 +22,10 @@
               <button
                 type="button"
                 class="prep-export-button"
-                :disabled="isAddingTarget || isCompanyTargetAdded"
+                :disabled="isAddingTarget || isCompanyTargetAdded || isDemoPrep"
                 @click="addCompanyTarget"
               >
-                {{ isCompanyTargetAdded ? '已加入目标' : isAddingTarget ? '加入中...' : '加入我的目标' }}
+                {{ isDemoPrep ? '样例不可加入' : isCompanyTargetAdded ? '已加入目标' : isAddingTarget ? '加入中...' : '加入我的目标' }}
               </button>
               <button type="button" class="prep-export-button" @click="copyCompanyPrepPack">
                 <Copy class="h-4 w-4" aria-hidden="true" />
@@ -202,6 +206,11 @@ const { data, isLoading, refetch } = useQuery({
 })
 
 const prep = computed(() => data.value?.data || null)
+const isDemoPrep = computed(() => data.value?.message === 'local_demo_company_prep_sample' || data.value?.message === 'local_demo_seed')
+const demoPrepNotice = computed(() => isDemoPrep.value
+  ? `当前展示的是本地样例主题包，不代表「${company.value}」的真实面试或备考数据；连接真实服务后会自动替换。`
+  : ''
+)
 const defaultCompanyQuestionHref = computed(() => `/questions?company=${encodeURIComponent(prep.value?.company || company.value)}`)
 const isCompanyTargetAdded = computed(() => prep.value?.checklist.some((item) => item.key === 'target' && item.done) ?? false)
 const totalSampleCount = computed(() => {
@@ -217,7 +226,7 @@ const confidenceHint = computed(() => {
 const dataUpdatedText = computed(() => prep.value?.dataUpdatedAt ? formatDate(prep.value.dataUpdatedAt, 'YYYY-MM-DD HH:mm') : '暂无记录')
 
 const addCompanyTarget = async () => {
-  if (!prep.value || isCompanyTargetAdded.value || isAddingTarget.value) return
+  if (!prep.value || isCompanyTargetAdded.value || isAddingTarget.value || isDemoPrep.value) return
   if (!authStore.isLoggedIn) {
     router.push({ path: '/login', query: { redirect: route.fullPath } })
     return

@@ -1938,11 +1938,13 @@ const pageCount = (total: number) => Math.max(1, Math.ceil(total / OPS_PAGE_SIZE
 const currentPage = (page: number, total: number) => Math.min(Math.max(page, 1), pageCount(total))
 const sectionTotal = (key: OpsPageKey, loadedTotal: number) => opsPageTotals[key] ?? loadedTotal
 const shouldPaginate = (total: number, key?: OpsPageKey) => (key ? sectionTotal(key, total) : total) > OPS_PAGE_SIZE
+const safeOpsItems = <T,>(items: T[]): T[] => Array.isArray(items) ? items : []
 const pageItems = <T,>(items: T[], page: number, key?: OpsPageKey) => {
-  if (key && serverPagedOpsSections.has(key)) return items
-  const safePage = currentPage(page, items.length)
+  const safeItems = safeOpsItems(items)
+  if (key && serverPagedOpsSections.has(key)) return safeItems
+  const safePage = currentPage(page, safeItems.length)
   const start = (safePage - 1) * OPS_PAGE_SIZE
-  return items.slice(start, start + OPS_PAGE_SIZE)
+  return safeItems.slice(start, start + OPS_PAGE_SIZE)
 }
 const pageRangeText = (total: number, page: number, key?: OpsPageKey) => {
   const effectiveTotal = key ? sectionTotal(key, total) : total
@@ -2623,7 +2625,7 @@ const loadOutbox = async () => {
   isOutboxLoading.value = true
   try {
     const res = await opsApi.pageOutbox({ status: outboxStatusFilter.value, page: opsPages.outbox, pageSize: OPS_PAGE_SIZE })
-    outboxMessages.value = res.data?.items || []
+    outboxMessages.value = Array.isArray(res.data?.items) ? res.data.items : []
     opsPageTotals.outbox = res.data?.total ?? outboxMessages.value.length
     selectedFailedIds.value = selectedFailedIds.value.filter((id) =>
       outboxMessages.value.some((message) => message.id === id && message.msgStatus === 2),
@@ -2642,7 +2644,7 @@ const loadSearchIndexRetryTasks = async () => {
   isSearchIndexRetryTasksLoading.value = true
   try {
     const res = await opsApi.pageSearchIndexRetryTasks({ page: opsPages.searchRetry, pageSize: OPS_PAGE_SIZE })
-    searchIndexRetryTasks.value = res.data?.items || []
+    searchIndexRetryTasks.value = Array.isArray(res.data?.items) ? res.data.items : []
     opsPageTotals.searchRetry = res.data?.total ?? searchIndexRetryTasks.value.length
   } catch (error: any) {
     toast.error(getErrorMessage(error, '搜索索引补偿任务加载失败'))
@@ -2658,7 +2660,7 @@ const loadNotificationRetryTasks = async () => {
   isNotificationRetryTasksLoading.value = true
   try {
     const res = await opsApi.pageNotificationRetryTasks({ page: opsPages.notificationRetry, pageSize: OPS_PAGE_SIZE })
-    notificationRetryTasks.value = res.data?.items || []
+    notificationRetryTasks.value = Array.isArray(res.data?.items) ? res.data.items : []
     opsPageTotals.notificationRetry = res.data?.total ?? notificationRetryTasks.value.length
   } catch (error: any) {
     toast.error(getErrorMessage(error, '通知补偿任务加载失败'))

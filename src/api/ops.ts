@@ -533,13 +533,38 @@ export interface QuestionDuplicateGroup {
 
 const okResult = <T>(data: T): Result<T> => ({ code: 0, message: 'degraded empty state', data })
 
+const normalizePageItems = <T>(raw: unknown): T[] => {
+  if (Array.isArray(raw)) return raw as T[]
+  if (!raw || typeof raw !== 'object') return []
+  const source = raw as { items?: unknown; content?: unknown; records?: unknown; list?: unknown }
+  if (Array.isArray(source.items)) return source.items as T[]
+  if (Array.isArray(source.content)) return source.content as T[]
+  if (Array.isArray(source.records)) return source.records as T[]
+  if (Array.isArray(source.list)) return source.list as T[]
+  return []
+}
+
+const finiteNumber = (value: unknown): number | undefined => {
+  const next = Number(value)
+  return Number.isFinite(next) ? next : undefined
+}
+
+const normalizePageHasMore = (raw: any) => {
+  if (typeof raw?.hasMore === 'boolean') return raw.hasMore
+  if (typeof raw?.last === 'boolean') return !raw.last
+  const current = finiteNumber(raw?.current ?? raw?.page)
+  const pages = finiteNumber(raw?.pages ?? raw?.totalPages)
+  if (current !== undefined && pages !== undefined) return current < pages
+  return false
+}
+
 const normalizePage = <T>(raw: any, itemAdapter: (item: any) => T = (item) => item as T): PaginatedResponse<T> => {
-  const items = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : []
+  const items = normalizePageItems<T>(raw)
   return {
     items: items.map(itemAdapter),
     nextCursor: raw?.nextCursor ? String(raw.nextCursor) : undefined,
-    hasMore: Boolean(raw?.hasMore),
-    total: Number(raw?.total ?? items.length),
+    hasMore: normalizePageHasMore(raw),
+    total: finiteNumber(raw?.total ?? raw?.totalElements ?? raw?.totalCount ?? raw?.count) ?? items.length,
   }
 }
 
@@ -548,6 +573,8 @@ const arrayFallbackPage = <T>(items: T[]): PaginatedResponse<T> => ({
   hasMore: false,
   total: items.length,
 })
+
+const normalizeReviewQueueItems = (raw: unknown): ReviewQueueItem[] => normalizePageItems<ReviewQueueItem>(raw)
 
 const optionalPanelUnavailable = (error: unknown) => {
   if (error instanceof BizException) {
@@ -591,7 +618,7 @@ export const opsApi = {
       const fallback = await client.get('/api/v1/ops/outbox', {
         params: { status: params?.status, limit: params?.pageSize || params?.limit || 20 },
       }) as Result<OutboxMessage[]>
-      return okResult(arrayFallbackPage(fallback.data || []))
+      return okResult(arrayFallbackPage(normalizePageItems<OutboxMessage>(fallback.data)))
     }
   },
 
@@ -719,8 +746,10 @@ export const opsApi = {
   listAiTasks: (params?: { status?: number; limit?: number }): Promise<Result<AiExtractTask[]>> =>
     client.get('/api/v1/admin/ai-tasks', { params }),
 
-  listReviewQueue: (params?: { status?: ReviewQueueStatus | ''; sourceType?: string; riskLevel?: ReviewQueueRiskLevel | ''; limit?: number }): Promise<Result<ReviewQueueItem[]>> =>
-    client.get('/api/v1/admin/review-queue', { params }),
+  listReviewQueue: async (params?: { status?: ReviewQueueStatus | ''; sourceType?: string; riskLevel?: ReviewQueueRiskLevel | ''; limit?: number }): Promise<Result<ReviewQueueItem[]>> => {
+    const res = await client.get('/api/v1/admin/review-queue', { params }) as Result<unknown>
+    return { ...res, data: normalizeReviewQueueItems(res.data) }
+  },
 
   reviewQueueStatus: (): Promise<Result<ReviewQueueStatusResp>> =>
     client.get('/api/v1/admin/review-queue/status'),
@@ -798,7 +827,7 @@ export const opsApi = {
       const fallback = await client.get('/api/v1/ops/search-index-retry-tasks', {
         params: { status: params?.status, limit: params?.pageSize || params?.limit || 20 },
       }) as Result<SearchIndexRetryTask[]>
-      return okResult(arrayFallbackPage(fallback.data || []))
+      return okResult(arrayFallbackPage(normalizePageItems<SearchIndexRetryTask>(fallback.data)))
     }
   },
 
@@ -831,7 +860,7 @@ export const opsApi = {
       const fallback = await client.get('/api/v1/ops/notification-retry-tasks', {
         params: { status: params?.status, limit: params?.pageSize || params?.limit || 20 },
       }) as Result<NotificationRetryTask[]>
-      return okResult(arrayFallbackPage(fallback.data || []))
+      return okResult(arrayFallbackPage(normalizePageItems<NotificationRetryTask>(fallback.data)))
     }
   },
 

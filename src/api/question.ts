@@ -1,7 +1,14 @@
-import client, { Result } from './client'
+import client, { BizException, type Result } from './client'
 import { adaptPage, adaptPost, adaptId, adaptTime, adaptTag } from './adapters'
 import type { ApiId, PaginatedResponse, Post, Tag } from './types'
 import { adaptInterviewMaterialPack, type InterviewMaterialPack } from './post'
+import {
+  demoCompanyPrep,
+  demoQuestionPage,
+  demoUserKnowledge,
+  demoUserPrepOverview,
+  demoWeeklyPrepReport,
+} from '@/data/demoSeeds'
 
 export interface Question {
   id: ApiId
@@ -591,10 +598,77 @@ function adaptMockInterviewStats(raw: any): MockInterviewStats {
   }
 }
 
+const localDemoResult = <T>(data: T, message = 'local_demo_seed'): Result<T> => ({
+  code: 0,
+  message,
+  data,
+})
+
+const shouldUseDemoFallback = (error: unknown) => {
+  if (error instanceof BizException) {
+    if (error.code === 10401 || error.code === 10403) return false
+    return error.code === 10404
+  }
+  const status = (error as { response?: { status?: number } })?.response?.status
+  if (status === 401 || status === 403) return false
+  return status === 404
+}
+
+const isEmptyPage = (page: PaginatedResponse<any> | null | undefined) => (
+  Boolean(page) && (!Array.isArray(page?.items) || page.items.length === 0) && !page?.hasMore
+)
+
+const hasActiveQuestionFilters = (params: QuestionQuery = {}) => Boolean(
+  params.keyword?.trim()
+  || params.company?.trim()
+  || params.position?.trim()
+  || params.difficulty
+  || params.round
+  || params.mistakeReason
+  || params.progressStatus
+  || params.hasNote
+  || params.hasAnswerDraft
+  || params.hasStarStory
+  || (Array.isArray(params.tagIds) && params.tagIds.length > 0)
+)
+
+const canUseQuestionListDemo = (data: PaginatedResponse<any> | null | undefined, params: QuestionQuery) => (
+  isEmptyPage(data) && !hasActiveQuestionFilters(params)
+)
+
+const emptyCompanyPrep = (company: string): CompanyPrep => ({
+  company: company || '未命名公司',
+  aliases: company ? [company] : [],
+  relatedPositionCount: 0,
+  recentPosts: [],
+  topQuestions: [],
+  recommendedQuestions: [],
+  topTags: [],
+  hotPositions: [],
+  trend30Days: [],
+  trend90Days: [],
+  interviewResultDistribution: [],
+  recentResultDistribution: [],
+  questionSampleCount: 0,
+  postSampleCount: 0,
+  resultSampleCount: 0,
+  recentResultSampleCount: 0,
+  prepScore: 0,
+  checklist: [],
+  nextActions: [],
+})
+
 export const questionApi = {
   list: async (params: QuestionQuery): Promise<Result<PaginatedResponse<Question>>> => {
-    const res = await client.get('/api/v1/questions', { params }) as Result<any>
-    return { ...res, data: res.data ? adaptPage(res.data, adaptQuestion) : null }
+    try {
+      const res = await client.get('/api/v1/questions', { params }) as Result<any>
+      const data = res.data ? adaptPage(res.data, adaptQuestion) : null
+      if (canUseQuestionListDemo(data, params)) return localDemoResult(demoQuestionPage(params))
+      return { ...res, data }
+    } catch (error) {
+      if (shouldUseDemoFallback(error)) return localDemoResult(demoQuestionPage(params))
+      throw error
+    }
   },
 
   detail: async (id: ApiId): Promise<Result<QuestionDetail>> => {
@@ -626,18 +700,36 @@ export const questionApi = {
     client.get('/api/v1/companies/suggest', { params: { q, size } }),
 
   companyPrep: async (company: string): Promise<Result<CompanyPrep>> => {
-    const res = await client.get(`/api/v1/companies/${encodeURIComponent(company)}/prep-pack`) as Result<any>
-    return { ...res, data: res.data ? adaptCompanyPrep(res.data) : null }
+    try {
+      const res = await client.get(`/api/v1/companies/${encodeURIComponent(company)}/prep-pack`) as Result<any>
+      const data = res.data ? adaptCompanyPrep(res.data) : null
+      return { ...res, data: data || emptyCompanyPrep(company) }
+    } catch (error) {
+      if (shouldUseDemoFallback(error)) return localDemoResult(demoCompanyPrep(), 'local_demo_company_prep_sample')
+      throw error
+    }
   },
 
   myPrepOverview: async (): Promise<Result<UserPrepOverview>> => {
-    const res = await client.get('/api/v1/me/prep/overview') as Result<any>
-    return { ...res, data: res.data ? adaptUserPrepOverview(res.data) : null }
+    try {
+      const res = await client.get('/api/v1/me/prep/overview') as Result<any>
+      const data = res.data ? adaptUserPrepOverview(res.data) : null
+      return { ...res, data }
+    } catch (error) {
+      if (shouldUseDemoFallback(error)) return localDemoResult(demoUserPrepOverview)
+      throw error
+    }
   },
 
   myWeeklyPrepReport: async (): Promise<Result<UserWeeklyPrepReport>> => {
-    const res = await client.get('/api/v1/me/prep/weekly-report') as Result<any>
-    return { ...res, data: res.data ? adaptUserWeeklyPrepReport(res.data) : null }
+    try {
+      const res = await client.get('/api/v1/me/prep/weekly-report') as Result<any>
+      const data = res.data ? adaptUserWeeklyPrepReport(res.data) : null
+      return { ...res, data }
+    } catch (error) {
+      if (shouldUseDemoFallback(error)) return localDemoResult(demoWeeklyPrepReport)
+      throw error
+    }
   },
 
   myKnowledge: async (params?: {
@@ -649,8 +741,14 @@ export const questionApi = {
     savedOnly?: boolean
     limit?: number
   }): Promise<Result<UserKnowledge>> => {
-    const res = await client.get('/api/v1/me/knowledge', { params }) as Result<any>
-    return { ...res, data: res.data ? adaptUserKnowledge(res.data) : null }
+    try {
+      const res = await client.get('/api/v1/me/knowledge', { params }) as Result<any>
+      const data = res.data ? adaptUserKnowledge(res.data) : null
+      return { ...res, data }
+    } catch (error) {
+      if (shouldUseDemoFallback(error)) return localDemoResult(demoUserKnowledge)
+      throw error
+    }
   },
 
   addPrepTarget: async (data: { targetType: string; targetValue: string; interviewDate?: string; priority?: string; note?: string }): Promise<Result<PrepTarget>> => {

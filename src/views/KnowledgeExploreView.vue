@@ -6,7 +6,7 @@
       <section class="surface-card p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="stage4-kicker">阶段 4 差异化品牌</span>
+            <span class="insight-kicker">知识脉络</span>
             <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
               知识关系探索
             </h1>
@@ -318,7 +318,7 @@ watch(() => route.fullPath, async () => {
 </script>
 
 <style scoped>
-.stage4-kicker {
+.insight-kicker {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
@@ -392,7 +392,7 @@ watch(() => route.fullPath, async () => {
   flex-shrink: 0;
 }
 
-.dark .stage4-kicker {
+.dark .insight-kicker {
   background: rgb(8 47 73);
   color: rgb(125 211 252);
 }
