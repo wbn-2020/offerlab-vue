@@ -175,7 +175,7 @@
                 </span>
               </div>
               <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
-                {{ publishDisabledReason || '当前基础门禁已满足，可继续优化摘要、标签、匿名提示和系列归属。' }}
+                {{ publishDisabledReason || '当前基础门禁已满足，可继续优化摘要、标签、匿名提示和合集归属。' }}
               </p>
               <div class="mt-3 grid gap-2">
                 <div
@@ -198,7 +198,7 @@
             :preview="editorPreviewModel"
             eyebrow="公开卡片预览"
             title="发布前预览与公开卡片预览"
-            description="基于当前标题、正文、频道、标签、匿名状态和合集归属做前端实时映射，不新增接口，也不会自动触发建议请求。"
+            description="基于当前标题、正文、频道、标签、匿名状态和合集归属做前端实时映射；发布建议面板开启后才会触发建议请求。"
           />
         </section>
 
@@ -229,7 +229,7 @@
 
           <div v-if="!authStore.isLoggedIn" class="stage3-assist-state">
             <strong>未登录</strong>
-            <p>登录后可获得写作助手、质量评分、标签/话题建议和系列归属建议。</p>
+            <p>登录后可获得写作助手、质量评分、标签/话题建议和合集归属建议。</p>
           </div>
           <div v-else-if="!assistPanelEnabled" class="stage3-assist-state">
             <strong>建议已关闭</strong>
@@ -237,7 +237,7 @@
           </div>
           <div v-else-if="isStageThreeAssistLoading" class="stage3-assist-state">
             <strong>加载中...</strong>
-            <p>正在生成写作助手、质量评分和系列归属建议。</p>
+            <p>正在生成写作助手、质量评分和合集归属建议。</p>
           </div>
           <div v-else-if="stageThreeAssistStatus === 'failed'" class="stage3-assist-state stage3-assist-state-error">
             <strong>建议暂时不可用</strong>
@@ -318,33 +318,33 @@
                   <button type="button" @click="removeTopicSuggestion(topic)">×</button>
                 </span>
               </div>
-              <p v-else class="stage3-empty-copy">话题建议会帮助首页、发现页和系列工作台更快聚合同主题内容。</p>
+              <p v-else class="stage3-empty-copy">话题建议会写入扩展字段，帮助发现页、话题页和合集工作台持续聚合同主题内容。</p>
             </article>
 
             <article class="stage3-card stage3-card-series">
               <div class="stage3-card-head">
-                <strong>系列归属</strong>
-                <RouterLink to="/series/workbench">系列工作台</RouterLink>
+                <strong>合集归属</strong>
+                <RouterLink to="/series/workbench">合集工作台</RouterLink>
               </div>
               <select
                 v-model="selectedSeriesId"
                 class="stage3-series-select"
                 :disabled="isSeriesLoading"
               >
-                <option value="">暂不归入系列</option>
+                <option value="">暂不归入合集</option>
                 <option v-for="item in seriesRecords" :key="item.id" :value="item.id">
                   {{ item.title }} · {{ item.progress.label }}
                 </option>
               </select>
               <p class="stage3-card-copy">
-                {{ selectedSeriesRecord ? selectedSeriesRecord.progress.label : '未归档到系列，适合单篇独立发布。' }}
+                {{ selectedSeriesRecord ? selectedSeriesRecord.progress.label : '未归档到合集，适合单篇独立发布。' }}
               </p>
               <div v-if="assistSeriesHints.length" class="stage3-hint-list">
                 <span v-for="item in assistSeriesHints" :key="`${item.id || 'new'}-${item.title}`">
                   {{ item.title }}<small>{{ item.progressText }}</small>
                 </span>
               </div>
-              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">系列列表当前来自本地 fallback，未依赖真实后端。</p>
+              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">合集列表当前来自本地 fallback，未依赖真实后端。</p>
             </article>
           </div>
         </section>
@@ -384,7 +384,7 @@
             <input
               v-model="tagInput"
               type="text"
-              placeholder="输入标签，按 Enter 添加"
+              :placeholder="tagInputPlaceholder"
               @keydown.enter="addTag"
               class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               data-field="tags"
@@ -558,6 +558,7 @@ const fallbackReturnPath = computed(() => authStore.isLoggedIn ? '/me' : '/')
 const stageThreeAssistPreferenceKey = computed(() => `editor_stage3_assist:${draftOwner.value}`)
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let stageThreeAssistTimer: ReturnType<typeof setTimeout> | null = null
+let stageThreeAssistRequestId = 0
 
 type QualityCheck = {
   key: string
@@ -648,14 +649,16 @@ const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
   },
   QUESTION: {
     title: '问题求助模板',
-    description: '把问题、背景、已尝试方法和期待获得的建议说清楚。',
-    content: `## 问题
+    description: '把问题、背景限制、已尝试方法和希望大家怎么帮说清楚。',
+    content: `## 问题是什么
 
-## 上下文
+## 背景和限制
 
-## 已尝试方案
+## 我已经尝试过什么
 
-## 期望结果
+## 想获得什么帮助
+
+## 相关频道或标签线索
 `,
   },
   RESOURCE: {
@@ -697,6 +700,7 @@ const isContentOverLimit = computed(() => contentLength.value > CONTENT_MAX_LENG
 const activePostType = computed(() => getContentTypeOption(form.value.postType))
 const activeTypeCode = computed(() => contentTypeCodeOf(form.value.postType))
 const activeTemplate = computed(() => PUBLISH_TEMPLATES[activeTypeCode.value] || PUBLISH_TEMPLATES.NOTE)
+const isQuestionPost = computed(() => activeTypeCode.value === 'QUESTION')
 const isInterviewPost = computed(() => isLegacyInterviewType(form.value.postType))
 const hasCompany = computed(() => Boolean(String(extensionValue.value.company || '').trim()))
 const hasPosition = computed(() => Boolean(String(extensionValue.value.position || '').trim()))
@@ -708,6 +712,10 @@ const hasBackgroundSection = computed(() => hasContentAny(['背景', '现象', '
 const hasProblemSection = computed(() => hasContentAny(['难点', '根因', '问题', '挑战', '瓶颈']))
 const hasSolutionSection = computed(() => hasContentAny(['方案', '修复', '实现', '设计', '落地']))
 const hasResultSection = computed(() => hasContentAny(['结果', '指标', '收益', '提升', '降低', '复盘']))
+const hasQuestionBackground = computed(() => hasContentAny(['背景', '限制', '上下文', '场景', '情况']))
+const hasQuestionTried = computed(() => hasContentAny(['尝试', '试过', '已尝试', '已经试', '做过', '查过']))
+const hasQuestionHelp = computed(() => hasContentAny(['想获得', '希望', '请教', '建议', '推荐', '怎么看', '怎么选']))
+const hasQuestionTopicClue = computed(() => normalizedTags.value.length > 0 || selectedTopicNames.value.length > 0 || hasContentAny(['标签', '话题', '频道']))
 const structuredQualityChecks = computed<QualityCheck[]>(() => {
   if (!requiresStructuredExperience.value) return []
   return [
@@ -738,6 +746,39 @@ const structuredQualityChecks = computed<QualityCheck[]>(() => {
       description: '需要补充结果、指标、收益、提升或复盘结论。',
       passed: hasResultSection.value,
       required: true,
+    },
+  ]
+})
+const questionQualityChecks = computed<QualityCheck[]>(() => {
+  if (!isQuestionPost.value) return []
+  return [
+    {
+      key: 'question-background',
+      title: '问题背景',
+      description: '补充背景、限制或具体场景，别人更容易判断该怎么帮。',
+      passed: hasQuestionBackground.value,
+      required: false,
+    },
+    {
+      key: 'question-tried',
+      title: '已尝试方法',
+      description: '写出已经试过什么、哪里卡住，避免大家重复给出无效建议。',
+      passed: hasQuestionTried.value,
+      required: false,
+    },
+    {
+      key: 'question-help',
+      title: '想获得的帮助',
+      description: '说明你想要建议、推荐、经验征集、选择讨论还是问题排查。',
+      passed: hasQuestionHelp.value,
+      required: false,
+    },
+    {
+      key: 'question-topic-clue',
+      title: '标签或话题线索',
+      description: '补一个场景、人群或问题类型标签，也可以采纳相关话题建议。',
+      passed: hasQuestionTopicClue.value,
+      required: false,
     },
   ]
 })
@@ -774,7 +815,7 @@ const qualityChecks = computed<QualityCheck[]>(() => [
   {
     key: 'tags',
     title: '内容标签',
-    description: '至少 1 个标签；建议补充能帮助别人搜索和理解的频道、场景或主题标签。',
+    description: '至少 1 个标签；标签用于搜索和标签页聚合，话题会写入扩展字段，用于发现页入口和后续同主题聚合。',
     passed: normalizedTags.value.length >= (isInterviewPost.value ? 2 : 1),
     required: true,
   },
@@ -786,6 +827,7 @@ const qualityChecks = computed<QualityCheck[]>(() => [
     required: false,
   },
   ...structuredQualityChecks.value,
+  ...questionQualityChecks.value,
 ])
 const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) => item.required && !item.passed))
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
@@ -796,6 +838,11 @@ const publishDisabledReason = computed(() => {
 })
 const isPublishDisabled = computed(() => isPublishing.value || isLoadingPost.value || blockingQualityIssues.value.length > 0)
 const canRetryWithTextTagsOnly = computed(() => normalizedTags.value.length > 0 && form.value.tags.length > 0)
+const tagInputPlaceholder = computed(() => (
+  isQuestionPost.value
+    ? '添加场景 / 人群 / 问题类型标签'
+    : '输入标签，按 Enter 添加'
+))
 const metaErrorMessages = computed(() => ['company', 'position', 'interviewRound', 'round', 'yearsOfExp', 'interviewResult', 'interviewRounds', 'extension']
   .map((field) => fieldErrors.value[field])
   .filter(Boolean))
@@ -927,7 +974,7 @@ const qualityScoreLabel = computed(() => {
 const qualityScoreReason = computed(() => (
   stageThreeAssist.value?.qualityReason
   || (qualityScoreValue.value >= 85
-    ? '关键信息较完整，发布后也适合纳入系列沉淀。'
+    ? '关键信息较完整，发布后也适合纳入合集沉淀。'
     : qualityScoreValue.value >= 65
       ? '结构已成型，补一轮标签或结果会更稳。'
       : '建议先补背景、步骤和结论，再进入发布。')
@@ -958,13 +1005,13 @@ const stageThreeAssistStatusLabel = computed(() => {
   return '建议采纳'
 })
 const stageThreeAssistHeadline = computed(() => {
-  if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和系列工作台联动。'
+  if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和合集工作台联动。'
   if (stageThreeAssistStatus.value === 'disabled') return '发布建议默认关闭，当前仅保留发布检查、草稿保护和合集选择；显式开启后，如后端未配置建议服务会自动回退到规则建议。'
   if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成发布建议。'
   if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || '建议接口未返回结果，当前使用本地规则降级建议。'
   if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
-  if (!stageThreeAssist.value) return '发布建议已开启，但不会自动请求内容辅助；点击“刷新建议”后才会触发，并在后端未配置建议服务时回退到规则建议。'
-  return '围绕写作助手、质量评分、标签/话题建议和系列归属整理发布前动作。'
+  if (!stageThreeAssist.value) return '发布建议已开启，开启后会在标题、正文、标签或频道变化时自动刷新建议；也可以手动点击“刷新建议”。后端未配置建议服务时会回退到规则建议。'
+  return '围绕写作助手、质量评分、标签/话题建议和合集归属整理发布前动作。'
 })
 
 const clearFieldErrors = () => {
@@ -1051,8 +1098,10 @@ const clearStageThreeAssistTimer = () => {
 
 const clearStageThreeAssistState = () => {
   clearStageThreeAssistTimer()
+  stageThreeAssistRequestId += 1
   stageThreeAssist.value = null
   stageThreeAssistError.value = ''
+  isStageThreeAssistLoading.value = false
 }
 
 const loadStageThreeAssist = async (manual = false) => {
@@ -1069,10 +1118,13 @@ const loadStageThreeAssist = async (manual = false) => {
     return
   }
 
+  const requestId = ++stageThreeAssistRequestId
   isStageThreeAssistLoading.value = true
   stageThreeAssistError.value = ''
   try {
     const res = await contentAssistApi.getEditorAssist(buildStageThreeAssistRequest())
+    if (requestId !== stageThreeAssistRequestId) return
+    if (!assistPanelEnabled.value || isForbiddenEdit.value) return
     stageThreeAssist.value = res.data
     if (res.data?.status === 'failed') {
       stageThreeAssistError.value = res.data.fallbackReason || '建议暂时不可用'
@@ -1081,16 +1133,23 @@ const loadStageThreeAssist = async (manual = false) => {
       toast.warning('已切换到规则降级建议')
     }
   } catch (error) {
+    if (requestId !== stageThreeAssistRequestId) return
     stageThreeAssist.value = null
     stageThreeAssistError.value = getErrorMessage(error, '建议暂时不可用')
   } finally {
-    isStageThreeAssistLoading.value = false
+    if (requestId === stageThreeAssistRequestId) {
+      isStageThreeAssistLoading.value = false
+    }
   }
 }
 
 const scheduleStageThreeAssist = () => {
   clearStageThreeAssistTimer()
   if (!authStore.isLoggedIn || !assistPanelEnabled.value || isForbiddenEdit.value) return
+  stageThreeAssistTimer = setTimeout(() => {
+    stageThreeAssistTimer = null
+    void loadStageThreeAssist(false)
+  }, 650)
 }
 
 const toggleAssistPanelEnabled = async () => {
@@ -1166,13 +1225,13 @@ const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: stri
   }, authStore.user?.uid)
   seriesSource.value = res.status
   if (res.status === 'fallback') {
-    toast.warning('系列归属暂时仅保存在本地，尚未完成远端同步。')
+    toast.warning('合集归属暂时仅保存在本地，尚未完成远端同步。')
   }
   const refreshed = await contentSeriesApi.listMine(authStore.user?.uid)
   seriesRecords.value = refreshed.data || seriesRecords.value
   seriesSource.value = refreshed.status
   if (refreshed.status === 'fallback') {
-    toast.warning('系列工作台当前展示的是本地 fallback 结果。')
+    toast.warning('合集工作台当前展示的是本地 fallback 结果。')
   }
 }
 

@@ -6,17 +6,17 @@
       <section class="surface-card p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="stage4-kicker">可信专家体系</span>
+            <span class="stage4-kicker">认证作者体系</span>
             <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
-              专家认证申请
+              认证作者申请
             </h1>
             <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              先做可解释、可审核、可撤销的最小闭环，不自动认证，也不把投资理财内容包装成平台背书。
+              认证用于标识持续贡献和领域经验，提交后进入人工审核；认证不代表平台对每条内容背书。
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
-            <RouterLink to="/growth/profile" class="secondary-action">
-              成长档案
+            <RouterLink to="/me" class="secondary-action">
+              我的作者主页
             </RouterLink>
             <RouterLink to="/knowledge/explore" class="secondary-action">
               知识关系
@@ -28,8 +28,8 @@
       <section class="mt-6">
         <EmptyState
           v-if="!authStore.isLoggedIn"
-          title="登录后提交专家认证申请"
-          description="认证申请会读取你的个人公开内容，并保留可审核的资格解释与证据摘要。"
+          title="登录后提交认证作者申请"
+          description="认证申请会读取你的公开内容，并保留可审核的资格解释与证据摘要。"
           action-text="去登录"
           :action-href="loginHref"
         />
@@ -65,7 +65,7 @@
                   <div>
                     <strong class="text-base text-slate-950 dark:text-white">{{ eligibility.domainName }}</strong>
                     <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                      {{ eligibility.explanation }}
+                      {{ safeCertificationExplanation(eligibility) }}
                     </p>
                   </div>
                   <span :class="['eligibility-badge', eligibility.eligible ? 'eligibility-badge-pass' : 'eligibility-badge-hold']">
@@ -76,8 +76,8 @@
                 <div class="mt-4 space-y-2">
                   <div v-for="check in eligibility.checks" :key="check.code" class="check-row">
                     <div class="min-w-0 flex-1">
-                      <strong class="text-sm text-slate-900 dark:text-slate-100">{{ check.label }}</strong>
-                      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ check.detail }}</p>
+                      <strong class="text-sm text-slate-900 dark:text-slate-100">{{ safeCertificationCheck(check).label }}</strong>
+                      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ safeCertificationCheck(check).detail }}</p>
                     </div>
                     <span :class="['check-pill', check.passed ? 'check-pill-pass' : 'check-pill-hold']">
                       {{ check.passed ? '通过' : '未达标' }}
@@ -86,9 +86,9 @@
                 </div>
               </div>
 
-              <div v-if="eligibility.riskWarning" class="risk-banner">
+              <div v-if="safeCertificationRiskWarning(eligibility.riskWarning)" class="risk-banner">
                 <strong>风险提示</strong>
-                <p>{{ eligibility.riskWarning }}</p>
+                <p>{{ safeCertificationRiskWarning(eligibility.riskWarning) }}</p>
               </div>
             </div>
 
@@ -194,7 +194,7 @@
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <strong class="text-base text-slate-950 dark:text-white">{{ item.domainName }}</strong>
-                  <span :class="['status-pill', statusClass(item.status)]">{{ item.statusLabel || statusText(item.status) }}</span>
+                  <span :class="['status-pill', certificationStatusTone(item.status)]">{{ certificationStatusText(item.status) }}</span>
                 </div>
                 <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                   {{ item.evidenceSummary }}
@@ -202,7 +202,7 @@
                 <div class="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <span class="meta-pill">提交 {{ formatTime(item.createTime) }}</span>
                   <span class="meta-pill">{{ item.eligibilityPassed ? '资格通过' : '资格待补充' }}</span>
-                  <span class="meta-pill">{{ item.autoCertified ? '自动认证' : '人工审核' }}</span>
+                  <span class="meta-pill">人工审核</span>
                 </div>
               </div>
 
@@ -217,10 +217,10 @@
               </button>
             </div>
 
-            <div v-if="item.eligibilitySummary" class="mt-4 grid gap-3 md:grid-cols-1">
-              <div v-if="item.eligibilitySummary" class="detail-card">
+            <div class="mt-4 grid gap-3 md:grid-cols-1">
+              <div class="detail-card">
                 <strong>资格解释</strong>
-                <p>{{ item.eligibilitySummary }}</p>
+                <p>{{ safeCertificationSummary(item) }}</p>
               </div>
             </div>
 
@@ -255,6 +255,15 @@ import { expertCertificationApi } from '@/api/expertCertification'
 import { localDomainConfigs } from '@/api/domains'
 import { useAuthStore } from '@/stores/auth'
 import type { ApiId, ExpertCertificationApplication, ExpertCertificationEligibility } from '@/api/types'
+import {
+  certificationStatusText,
+  certificationStatusTone,
+  safeCertificationCheck,
+  safeCertificationExplanation,
+  safeCertificationRiskWarning,
+  safeCertificationSubmitError,
+  safeCertificationSummary,
+} from '@/utils/certificationCopy'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -300,34 +309,6 @@ const formatTime = (value?: number) => {
     hour: '2-digit',
     minute: '2-digit',
   }).format(value)
-}
-
-const statusText = (status?: number) => {
-  switch (Number(status)) {
-    case 10:
-      return '已提交'
-    case 20:
-      return '已通过'
-    case 30:
-      return '已驳回'
-    case 40:
-      return '已撤销'
-    default:
-      return '处理中'
-  }
-}
-
-const statusClass = (status?: number) => {
-  switch (Number(status)) {
-    case 20:
-      return 'status-pass'
-    case 30:
-      return 'status-reject'
-    case 40:
-      return 'status-revoke'
-    default:
-      return 'status-pending'
-  }
 }
 
 const canRevoke = (item: ExpertCertificationApplication) => {
@@ -399,7 +380,7 @@ const submitApplication = async () => {
     resetForm()
     await refreshStageFourCertification()
   } catch (err) {
-    submitError.value = getErrorMessage(err, '提交申请失败')
+    submitError.value = safeCertificationSubmitError()
   } finally {
     submitting.value = false
   }
@@ -408,7 +389,7 @@ const submitApplication = async () => {
 const revokeApplication = async (applicationId: ApiId) => {
   revokingId.value = String(applicationId)
   try {
-    await expertCertificationApi.revoke(applicationId, 'Withdrawn from certification apply page.')
+    await expertCertificationApi.revoke(applicationId, '用户从认证作者申请页撤回。')
     toast.success('申请已撤销')
     await loadApplications()
   } catch (err) {

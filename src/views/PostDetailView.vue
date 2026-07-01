@@ -332,14 +332,20 @@
                 @like="handleLike"
                 @favorite="handleFavorite"
               />
-              <p
+              <div
                 v-if="interactionFeedback"
-                class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200"
+                class="favorite-feedback-row"
                 role="status"
                 aria-live="polite"
               >
-                {{ interactionFeedback }}
-              </p>
+                <span>{{ interactionFeedback }}</span>
+                <RouterLink
+                  v-if="post.myInteraction?.favorited"
+                  to="/me?tab=favorites"
+                >
+                  查看我的收藏
+                </RouterLink>
+              </div>
 
               <div v-if="authStore.isLoggedIn" class="mt-4 flex justify-end gap-3">
                 <template v-if="isOwnPost">
@@ -390,13 +396,13 @@
             </article>
 
             <section class="rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
-              <h2 class="mb-6 text-xl font-bold text-slate-900 dark:text-slate-100">评论（{{ post.counter.comment }}）</h2>
+              <h2 class="mb-6 text-xl font-bold text-slate-900 dark:text-slate-100">{{ discussionSectionTitle }}</h2>
 
               <div v-if="authStore.isLoggedIn" class="mb-6 border-b border-slate-200 pb-6 dark:border-slate-800">
                 <textarea
                   v-model="commentText"
                   rows="3"
-                  placeholder="分享你的想法..."
+                  :placeholder="discussionPlaceholder"
                   class="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
                 <div class="mt-3 flex justify-end gap-2">
@@ -409,7 +415,7 @@
                     :disabled="!commentText.trim() || isSubmittingComment"
                     @click="handleSubmitComment"
                   >
-                    {{ isSubmittingComment ? '发送中...' : '发送' }}
+                    {{ isSubmittingComment ? '发送中...' : discussionSubmitLabel }}
                   </button>
                 </div>
               </div>
@@ -431,6 +437,10 @@
                 :can-like-comments="authStore.isLoggedIn"
                 :can-report-comments="true"
                 :can-reply-comments="authStore.isLoggedIn"
+                :empty-text="discussionEmptyText"
+                :reply-action-label="discussionReplyActionLabel"
+                :reply-placeholder="discussionReplyPlaceholder"
+                :reply-submit-label="discussionReplySubmitLabel"
                 @require-login="requireLogin"
                 @like-comment="handleLikeComment"
                 @unlike-comment="handleUnlikeComment"
@@ -457,14 +467,14 @@
         <aside class="hidden lg:block">
           <div class="sticky top-24 space-y-6">
             <section v-if="post" class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">作者信息</h3>
+              <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">作者名片</h3>
               <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex flex-col items-center text-center">
                 <div class="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-2xl font-bold text-white">
                   <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
                   <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
                 </div>
                 <h4 class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h4>
-                <p class="mt-1 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">{{ post.author.signature || '暂无签名' }}</p>
+                <p class="mt-1 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">{{ authorBioText }}</p>
               </RouterLink>
               <div v-else class="flex flex-col items-center text-center">
                 <div class="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-2xl font-bold text-white">
@@ -472,12 +482,17 @@
                   <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
                 </div>
                 <h4 class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h4>
-                <p class="mt-1 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">{{ post.author.signature || '暂无签名' }}</p>
+                <p class="mt-1 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">{{ post.anonymous ? '这篇内容以匿名方式发布，不展示作者主页入口。' : authorBioText }}</p>
+              </div>
+              <div v-if="canOpenAuthorProfile" class="author-reason-box">
+                <strong>推荐关注理由</strong>
+                <p>{{ authorFollowReason }}</p>
+                <RouterLink :to="authorProfileTo">查看作者主页</RouterLink>
               </div>
             </section>
 
             <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">相关帖子</h3>
+              <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">{{ relatedSectionTitle }}</h3>
               <div v-if="relatedPosts.length" class="space-y-3">
                 <RouterLink
                   v-for="item in relatedPosts"
@@ -489,7 +504,7 @@
                   <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ item.counter.view }} 浏览</div>
                 </RouterLink>
               </div>
-              <p v-else class="text-sm text-slate-500 dark:text-slate-400">暂无相关内容</p>
+              <p v-else class="text-sm text-slate-500 dark:text-slate-400">{{ relatedEmptyText }}</p>
             </section>
           </div>
         </aside>
@@ -609,10 +624,11 @@ import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
 import { BizException, getErrorMessage } from '@/api/client'
 import type { Comment, Post, PostPublishStatus, PostVersionHistory } from '@/api/types'
-import { getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
+import { POST_TYPE, getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
+import { buildFollowReasons, isPublicAuthor, safeCreatorBio } from '@/utils/creatorSignals'
 
 const route = useRoute()
 const router = useRouter()
@@ -693,15 +709,16 @@ const post = ref<Post | null>(null)
 const publishStatus = computed<PostPublishStatus | null>(() => publishStatusData.value?.data || null)
 const authorUid = computed(() => String(post.value?.author.uid ?? ''))
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(post.value?.author.uid ?? ''))
-const isAnonymousMaskedAuthor = computed(() => Boolean(post.value?.anonymous)
-  && (authorUid.value === '' || authorUid.value === '0' || post.value?.author.profileVisible === false))
+const isAnonymousMaskedAuthor = computed(() => Boolean(post.value?.anonymous))
 const canOpenAuthorProfile = computed(() => Boolean(post.value)
   && !isAnonymousMaskedAuthor.value
-  && post.value?.author.profileVisible !== false
+  && isPublicAuthor(post.value?.author)
   && authorUid.value !== ''
   && authorUid.value !== '0')
 const canFollowAuthor = computed(() => canOpenAuthorProfile.value && !isOwnPost.value)
 const authorProfileTo = computed(() => `/u/${authorUid.value}`)
+const authorBioText = computed(() => safeCreatorBio(post.value?.author.signature, '这位作者还没有填写简介。'))
+const authorFollowReason = computed(() => buildFollowReasons(post.value?.author, post.value ? [post.value] : [])[0])
 const safeSearchFallbackReason = (reason: string) => {
   const labels: Record<string, string> = {
     elasticsearch_empty: '索引首屏无可见结果，已补充数据库结果',
@@ -778,6 +795,32 @@ const publishStatusSummary = computed(() => {
   return '如刚发布，索引和 Outbox 可能有短暂延迟'
 })
 const contentTypeLabel = computed(() => getContentTypeLabel(post.value?.postType))
+const isQuestionPost = computed(() => Number(post.value?.postType) === POST_TYPE.QUESTION)
+const discussionSectionTitle = computed(() => (
+  isQuestionPost.value
+    ? `讨论与建议（${post.value?.counter.comment ?? 0}）`
+    : `评论（${post.value?.counter.comment ?? 0}）`
+))
+const discussionPlaceholder = computed(() => (
+  isQuestionPost.value
+    ? '写下你的建议、经验或可尝试的方案，也可以补充你遇到的类似情况...'
+    : '分享你的想法...'
+))
+const discussionSubmitLabel = computed(() => (isQuestionPost.value ? '发布建议' : '发送'))
+const discussionEmptyText = computed(() => (
+  isQuestionPost.value
+    ? '还没有建议，来分享一个可尝试的思路吧'
+    : '还没有评论，来抢沙发吧'
+))
+const discussionReplyActionLabel = computed(() => (isQuestionPost.value ? '追问 / 补充' : '回复'))
+const discussionReplyPlaceholder = computed(() => (
+  isQuestionPost.value
+    ? '补充你的建议、追问或相似经历'
+    : '写下回复...'
+))
+const discussionReplySubmitLabel = computed(() => (isQuestionPost.value ? '补充讨论' : '回复'))
+const relatedSectionTitle = computed(() => (isQuestionPost.value ? '相关问题求助' : '相关帖子'))
+const relatedEmptyText = computed(() => (isQuestionPost.value ? '暂无相似讨论' : '暂无相关内容'))
 const isLegacyInterview = computed(() => isLegacyInterviewType(post.value?.postType))
 const visibleTechStacks = computed(() => Array.isArray(post.value?.extension?.techStacks)
   ? post.value.extension.techStacks.map(String).filter(Boolean).slice(0, 8)
@@ -1543,6 +1586,80 @@ watch(canViewVersionHistory, (allowed) => {
   border-color: rgb(167 243 208);
   background: rgb(236 253 245);
   color: rgb(4 120 87);
+}
+
+.favorite-feedback-row {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(167 243 208);
+  background: rgb(236 253 245);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.875rem;
+  color: rgb(6 95 70);
+}
+
+.favorite-feedback-row a {
+  font-weight: 900;
+  color: rgb(4 120 87);
+}
+
+.author-reason-box {
+  margin-top: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(199 210 254);
+  background: rgb(238 242 255);
+  padding: 0.85rem;
+}
+
+.author-reason-box strong {
+  display: block;
+  color: rgb(67 56 202);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.author-reason-box p {
+  margin-top: 0.4rem;
+  color: rgb(51 65 85);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.author-reason-box a {
+  margin-top: 0.65rem;
+  display: inline-flex;
+  color: rgb(37 99 235);
+  font-size: 0.8125rem;
+  font-weight: 900;
+}
+
+.dark .favorite-feedback-row {
+  border-color: rgb(6 95 70);
+  background: rgb(6 78 59 / 0.35);
+  color: rgb(167 243 208);
+}
+
+.dark .favorite-feedback-row a {
+  color: rgb(187 247 208);
+}
+
+.dark .author-reason-box {
+  border-color: rgb(49 46 129);
+  background: rgb(30 41 59);
+}
+
+.dark .author-reason-box strong,
+.dark .author-reason-box a {
+  color: rgb(199 210 254);
+}
+
+.dark .author-reason-box p {
+  color: rgb(203 213 225);
 }
 
 .publish-status-warn {

@@ -45,8 +45,8 @@ assert.match(source, /const searchErrorStatusText\s*=\s*computed/, 'SearchView m
 assert.match(source, /本次搜索请求失败；下方状态仅表示当前后端诊断/, 'SearchView hard error status must not imply the failed request succeeded')
 assert.match(source, /searchHotContentFromError/, 'SearchView hard error state must let users switch to hot content')
 assert.match(source, /switchToUserSearchFromError/, 'SearchView hard error state must let users switch to user search')
-assert.match(source, /fallbackQuestionQuery/, 'SearchView hard error state must preserve keyword context for questions')
-assert.match(source, /path: '\/questions'/, 'SearchView hard error state must route to questions')
+assert.match(source, /communityQuestionQuery/, 'SearchView hard error state must preserve keyword context for community questions')
+assert.match(source, /type:\s*String\(POST_TYPE\.QUESTION\)/, 'SearchView hard error state must route to QUESTION post search')
 assert.match(source, /error:explore/, 'SearchView hard error state must track discovery fallback clicks')
 assert.match(source, /searchStatusError/, 'SearchView must keep explicit search-status failure state')
 assert.match(source, /userFacingSearchStatusMessage/, 'SearchView must normalize backend search status messages before display')
@@ -61,6 +61,6 @@ assert.doesNotMatch(source, /本次结果来自 Elasticsearch/, 'SearchView must
 assert.match(source, /source: 'client_fallback'/, 'SearchView hard errors must expose client fallback metadata')
 assert.match(source, /fallbackReason: 'search_api_error'/, 'SearchView hard errors must expose an actionable fallback reason')
 assert.match(source, /await loadSearchStatus\(\)/, 'SearchView hard errors must refresh backend search status instead of showing stale status')
-assert.match(source, /搜索状态接口暂不可用，本页已保留热门内容、发现页、问答讨论和搜作者入口/, 'SearchView must explain local fallback actions when status cannot be loaded')
+assert.match(source, /搜索状态接口暂不可用，本页已保留热门内容、发现页、社区问题求助和搜作者入口/, 'SearchView must explain local fallback actions when status cannot be loaded')
 
 console.log('search experience guard passed')

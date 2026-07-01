@@ -36,22 +36,23 @@ const expectedRouteTitles = {
   '/questions/:id': '知识卡详情',
   '/companies/:company/prep': '主题学习包',
   '/post/:id': '帖子详情',
+  '/collections/:id': '合集详情',
   '/me': '我的主页',
   '/me/prep': '个人学习空间',
   '/mock-interview': '个人练习归档',
   '/growth/profile': '成长档案',
   '/growth/report': '成长周报月报',
   '/knowledge/explore': '知识关系探索',
-  '/certification/apply': '专家认证申请',
+  '/certification/apply': '认证作者申请',
 }
 
 const adminRoles = ['ops', 'questionOperator', 'contentModerator', 'domainModerator', 'admin']
 const adminRouteAccess = {
   '/admin': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
-  '/admin/ops': { ops: true, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
+  '/admin/ops': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
   '/admin/questions': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
   '/admin/company-aliases': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
-  '/admin/governance': { ops: false, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
+  '/admin/governance': { ops: true, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
   '/admin/tags': { ops: false, questionOperator: false, contentModerator: true, domainModerator: false, admin: true },
 }
 
@@ -108,6 +109,12 @@ for (const path of ['/login', '/register']) {
   const block = routeBlock(path)
   assert.doesNotMatch(block, /requiresAuth:\s*true/, `${path} must stay public`)
   assert.doesNotMatch(block, /adminPermission:/, `${path} must not require admin permissions`)
+}
+
+{
+  const block = routeBlock('/collections/:id')
+  assert.doesNotMatch(block, /requiresAuth:\s*true/, '/collections/:id must stay public')
+  assert.doesNotMatch(block, /adminPermission:/, '/collections/:id must not require admin permissions')
 }
 
 for (const label of ['首页', '发现', '问答', '发布']) {

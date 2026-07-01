@@ -182,7 +182,7 @@ const hasActiveFilters = computed(() => Boolean(
     || (filters.sort && filters.sort !== 'latest'),
 ))
 const demoSeedNotice = computed(() => listSource.value === 'local_demo_seed'
-  ? '当前展示本地 demo 题库：包含技术经验帖、面试复盘和知识卡片样例；连接真实服务后会自动切换到你的数据。'
+  ? '当前展示本地 demo 知识库：包含技术经验帖、面试复盘和结构化知识卡样例；连接真实服务后会自动切换到你的数据。'
   : ''
 )
 const sourceIfDemoSeed = (value?: string) => value === 'local_demo_seed' ? value : ''

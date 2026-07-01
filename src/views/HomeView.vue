@@ -161,7 +161,7 @@
           </div>
 
           <p v-else class="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            {{ authStore.isLoggedIn ? '先创建一个系列，再把发布页里的草稿和已发布内容归入同一条输出节奏。' : '登录后可查看自己的系列进度，并在发布页里直接归属到某个系列。' }}
+            {{ authStore.isLoggedIn ? '先创建一个合集，再把发布页里的草稿和已发布内容归入同一组主题内容。' : '登录后可查看自己的合集进度，并在发布页里直接归属到某个合集。' }}
           </p>
         </article>
       </section>
@@ -618,15 +618,15 @@ const domainSourceSummary = computed(() => {
 })
 const seriesWorkbenchHref = computed(() => authStore.isLoggedIn ? '/series/workbench' : '/login')
 const homeSeriesSummary = computed(() => {
-  if (!authStore.isLoggedIn) return '登录后可查看你的系列进度和阶段性发布计划'
+  if (!authStore.isLoggedIn) return '登录后可查看你的合集进度和阶段性整理计划'
   if (!homeSeriesPreview.value.length) {
     return homeSeriesSource.value === 'fallback'
-      ? '当前还没有系列，本地 fallback 已准备好创建流程'
-      : '还没有系列，先创建一个连续输出主题'
+      ? '当前还没有合集，本地 fallback 已准备好创建流程'
+      : '还没有合集，先创建一个主题整理空间'
   }
   return homeSeriesSource.value === 'remote'
-    ? `已同步 ${homeSeriesPreview.value.length} 个系列`
-    : `已从本地 fallback 恢复 ${homeSeriesPreview.value.length} 个系列`
+    ? `已同步 ${homeSeriesPreview.value.length} 个合集`
+    : `已从本地 fallback 恢复 ${homeSeriesPreview.value.length} 个合集`
 })
 const topicItems = computed(() => {
   const remoteTopics = topics.value.slice(0, 6).map((topic) => ({

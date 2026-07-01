@@ -132,7 +132,7 @@
               <RouterLink to="/growth/profile" class="menu-item" @click="showUserMenu = false">作者数据</RouterLink>
               <RouterLink to="/growth/report" class="menu-item" @click="showUserMenu = false">历史报告</RouterLink>
               <RouterLink to="/knowledge/explore" class="menu-item" @click="showUserMenu = false">知识探索</RouterLink>
-              <RouterLink to="/certification/apply" class="menu-item" @click="showUserMenu = false">专家认证申请</RouterLink>
+              <RouterLink to="/certification/apply" class="menu-item" @click="showUserMenu = false">认证作者申请</RouterLink>
               <div v-if="adminLinks.length" class="menu-divider" />
               <RouterLink
                 v-for="item in adminLinks"

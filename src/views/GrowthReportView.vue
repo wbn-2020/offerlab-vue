@@ -28,7 +28,7 @@
               成长档案
             </RouterLink>
             <RouterLink to="/certification/apply" class="secondary-action">
-              专家认证
+              认证作者
             </RouterLink>
           </div>
         </div>
@@ -154,7 +154,7 @@
                 </p>
               </div>
               <RouterLink to="/series/workbench" class="text-sm font-semibold text-primary-600 hover:text-primary-700">
-                去系列工作台
+                去合集工作台
               </RouterLink>
             </div>
             <div v-if="report.highlightPosts.length" class="grid gap-3 lg:grid-cols-3">

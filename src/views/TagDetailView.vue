@@ -6,10 +6,10 @@
       <section class="tag-header">
         <div class="tag-icon">{{ tagName.charAt(0).toUpperCase() }}</div>
         <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">专题 / 技术栈</p>
+          <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">标签索引 / 综合内容</p>
           <h1 class="mt-1 truncate text-2xl font-bold text-slate-950 dark:text-slate-50">{{ tagName }}</h1>
           <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            汇总这个标签下的技术文章、项目复盘、踩坑记录和讨论。
+            汇总这个标签下的经验分享、问题求助、攻略清单、资源推荐、复盘记录和观点讨论。
           </p>
         </div>
         <div class="tag-count">
@@ -20,11 +20,12 @@
 
       <section class="filter-panel">
         <div>
-          <h2>专题筛选</h2>
+          <h2>内容筛选</h2>
           <p>{{ typeSummary }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button" :class="['filter-chip', !activeType ? 'filter-chip-active' : '']" @click="setType(undefined)">全部</button>
+          <button type="button" :class="['filter-chip', activeType === POST_TYPE.QUESTION ? 'filter-chip-active' : '']" @click="setType(POST_TYPE.QUESTION)">只看问题求助</button>
           <button
             v-for="type in contentTypeChannels"
             :key="type.value"
@@ -63,7 +64,11 @@
         <div v-else class="empty-panel">
           <h2>{{ emptyTitle }}</h2>
           <p>{{ emptyDescription }}</p>
-          <RouterLink to="/explore" class="primary-button mt-4">去发现内容</RouterLink>
+          <div class="mt-4 flex flex-wrap justify-center gap-2">
+            <RouterLink to="/explore" class="primary-button">发现内容</RouterLink>
+            <RouterLink :to="{ path: '/search', query: { mode: 'tags', q: tagName } }" class="secondary-button">搜索相关标签</RouterLink>
+            <RouterLink to="/editor" class="secondary-button">发布内容</RouterLink>
+          </div>
         </div>
 
         <div v-if="hasMore" class="text-center">
@@ -85,7 +90,7 @@ import PostCard from '@/components/post/PostCard.vue'
 import { postApi } from '@/api/post'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, Post, Tag } from '@/api/types'
-import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
+import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
 import { postTypeSummary } from '@/utils/communityMetrics'
 
 const route = useRoute()
@@ -105,8 +110,8 @@ const contentTypeChannels = COMMUNITY_CONTENT_TYPES
 const typeSummary = computed(() => postTypeSummary(posts.value))
 const emptyTitle = computed(() => tagId.value ? '这个标签下还没有内容' : '没有找到这个标签')
 const emptyDescription = computed(() => tagId.value
-  ? '等第一篇相关内容发布后，它会出现在这里。'
-  : '标签可能已被重命名，或者当前标签列表暂未包含它。')
+  ? '去发现相关内容，或发布第一篇经验、问题、攻略或资源。'
+  : '可以换个关键词搜索，或去发现页看看相近内容。')
 
 const findPost = (postId: ApiId) => posts.value.find((item) => String(item.postId) === String(postId))
 const updatePost = (postId: ApiId, updater: (post: Post) => void) => {

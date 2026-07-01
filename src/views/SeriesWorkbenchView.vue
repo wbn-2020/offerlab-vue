@@ -5,10 +5,10 @@
       <section class="surface-card p-6 sm:p-7">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div class="max-w-3xl">
-            <p class="series-kicker">连续创作工作流</p>
-            <h1 class="text-2xl font-black tracking-normal text-slate-950 dark:text-white sm:text-3xl">系列工作台</h1>
+            <p class="series-kicker">收藏与内容沉淀</p>
+            <h1 class="text-2xl font-black tracking-normal text-slate-950 dark:text-white sm:text-3xl">合集工作台</h1>
             <p class="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              把同一主题下的草稿、已发布内容和发布节奏收敛到一个工作台里，便于持续输出和追踪完成进度。
+              把同一主题下的草稿、已发布内容和公开内容整理到一个合集里，便于自己回看，也方便对外分享一组经验。
             </p>
             <div class="mt-4 flex flex-wrap gap-2">
               <span class="muted-pill">{{ seriesSourceSummary }}</span>
@@ -20,7 +20,7 @@
               去发布页
             </RouterLink>
             <button type="button" class="primary-action" @click="startCreateSeries">
-              创建系列
+              创建合集
             </button>
           </div>
         </div>
@@ -31,10 +31,10 @@
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-black text-slate-950 dark:text-white">
-                {{ editingSeriesId ? '编辑系列' : '创建系列' }}
+                {{ editingSeriesId ? '编辑合集' : '创建合集' }}
               </h2>
               <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
-                先定义主题、目标篇数和进度状态，后续发布内容可以直接归入该系列。
+                先定义主题、可见性和内容目标，后续发布内容可以直接归入该合集。
               </p>
             </div>
             <button
@@ -49,24 +49,24 @@
 
           <form class="mt-5 space-y-4" @submit.prevent="saveSeriesDraft">
             <label class="block">
-              <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">系列标题</span>
+              <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">合集标题</span>
               <input
                 v-model="seriesDraft.title"
                 type="text"
                 maxlength="40"
                 class="series-input"
-                placeholder="例如：OfferLab 发布体验实战复盘"
+                placeholder="例如：AI 工具实测与效率方法"
               />
             </label>
 
             <label class="block">
-              <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">系列简介</span>
+              <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">合集简介</span>
               <textarea
                 v-model="seriesDraft.summary"
                 rows="4"
                 maxlength="200"
                 class="series-textarea"
-                placeholder="补充这个系列的主题边界、读者收益和更新节奏。"
+                placeholder="补充这个合集的主题边界、读者收益和整理思路。"
               />
             </label>
 
@@ -96,21 +96,29 @@
               </label>
             </div>
 
-            <label class="block">
-              <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">阶段状态</span>
-              <select v-model="seriesDraft.status" class="series-input">
+              <label class="block">
+                <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">阶段状态</span>
+                <select v-model="seriesDraft.status" class="series-input">
                 <option value="active">进行中</option>
                 <option value="paused">暂停更新</option>
                 <option value="completed">已完结</option>
               </select>
-            </label>
+              </label>
+
+              <label class="block">
+                <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">可见性</span>
+                <select v-model="seriesDraft.visibility" class="series-input">
+                  <option value="private">仅自己可见</option>
+                  <option value="public">公开展示</option>
+                </select>
+              </label>
 
             <div class="flex flex-wrap gap-3 pt-2">
               <button type="button" class="secondary-action" @click="resetSeriesDraft">
                 重置表单
               </button>
               <button type="submit" class="primary-action" :disabled="isSavingSeries">
-                {{ isSavingSeries ? '保存中...' : (editingSeriesId ? '保存系列' : '创建系列') }}
+                {{ isSavingSeries ? '保存中...' : (editingSeriesId ? '保存合集' : '创建合集') }}
               </button>
             </div>
           </form>
@@ -119,9 +127,9 @@
         <section class="space-y-4">
           <div class="surface-card flex flex-wrap items-center justify-between gap-3 p-5">
             <div>
-              <h2 class="text-lg font-black text-slate-950 dark:text-white">我的系列</h2>
+              <h2 class="text-lg font-black text-slate-950 dark:text-white">我的合集</h2>
               <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
-                优先读取远端系列接口，失败时自动回落到本地 fallback，保证发布流程可继续。
+                优先读取远端合集接口；如仅本地 fallback，会明确提示，避免误当成真实公开数据。
               </p>
             </div>
             <button
@@ -139,12 +147,12 @@
           </div>
 
           <div v-else-if="!seriesRecords.length" class="surface-card p-6">
-            <h3 class="text-base font-black text-slate-950 dark:text-white">还没有系列</h3>
+            <h3 class="text-base font-black text-slate-950 dark:text-white">还没有合集</h3>
             <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              先创建一个系列，把草稿和已发布内容归到同一条连续输出线上。
+              先创建一个合集，把相关内容整理成可回看、可分享的一组主题内容。
             </p>
             <button type="button" class="primary-action mt-4" @click="startCreateSeries">
-              创建系列
+              创建合集
             </button>
           </div>
 
@@ -162,7 +170,7 @@
                   <span class="series-status-badge">{{ seriesStatusLabel(record.status) }}</span>
                 </div>
                 <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  {{ record.summary || '暂未填写系列简介，可以补充系列定位、更新节奏和读者收益。' }}
+                  {{ record.summary || '暂未填写合集简介，可以补充合集定位、整理思路和读者收益。' }}
                 </p>
               </div>
 
@@ -171,12 +179,13 @@
                 class="series-text-button shrink-0"
                 @click.stop="startEditSeries(record)"
               >
-                编辑系列
+                编辑合集
               </button>
             </div>
 
             <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span class="series-meta-pill">{{ domainNameOf(record.domain) }}</span>
+              <span class="series-meta-pill">{{ record.visibility === 'private' ? '私密合集' : '公开合集' }}</span>
               <span class="series-meta-pill">目标 {{ record.goalCount }} 篇</span>
               <span class="series-meta-pill">最近更新 {{ formatTimestamp(record.updatedAt) }}</span>
             </div>
@@ -219,7 +228,7 @@
                 </div>
               </div>
               <p v-else class="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                当前还没有内容归入该系列，去发布页选中“系列归属”后会自动累计进度。
+                当前还没有内容归入该合集，去发布页选中“合集归属”后会自动累计进度。
               </p>
             </div>
           </article>
@@ -246,6 +255,7 @@ const createDefaultSeriesDraft = (): ContentSeriesDraftPayload => ({
   title: '',
   summary: '',
   domain: localDomainConfigs[0]?.domain ?? 1,
+  visibility: 'private',
   goalCount: 3,
   status: 'active',
 })
@@ -263,7 +273,7 @@ const activeSeriesRecord = computed(() => (
 ))
 const seriesSourceSummary = computed(() => (
   seriesSource.value === 'remote'
-    ? '已同步后端系列列表'
+    ? '已同步后端合集列表'
     : '接口失败时使用本地 fallback'
 ))
 const workbenchProgressSummary = computed(() => {
@@ -271,7 +281,7 @@ const workbenchProgressSummary = computed(() => {
   const totalGoal = seriesRecords.value.reduce((sum, item) => sum + item.progress.goalCount, 0)
   return totalGoal > 0
     ? `累计已发布 ${totalPublished}/${totalGoal}`
-    : '先创建系列，再逐步积累发布进度'
+    : '先创建合集，再逐步积累内容沉淀'
 })
 
 const domainNameOf = (domain?: number) => (
@@ -302,6 +312,7 @@ const fillSeriesDraft = (record: ContentSeriesRecord | null) => {
     title: record.title,
     summary: record.summary || '',
     domain: record.domain,
+    visibility: record.visibility,
     goalCount: record.goalCount,
     status: record.status,
   } satisfies ContentSeriesDraftPayload)
@@ -331,6 +342,7 @@ const normalizeSeriesDraft = (): ContentSeriesDraftPayload => ({
   title: sanitizeVisibleText(seriesDraft.title) || '',
   summary: sanitizeVisibleText(seriesDraft.summary) || '',
   domain: Number(seriesDraft.domain || localDomainConfigs[0]?.domain || 1),
+  visibility: seriesDraft.visibility || 'private',
   goalCount: Math.min(20, Math.max(1, Number(seriesDraft.goalCount || 1))),
   status: seriesDraft.status || 'active',
 })
@@ -362,7 +374,7 @@ const loadSeriesWorkbench = async () => {
       fillSeriesDraft(current)
     }
   } catch (error) {
-    toast.error(getErrorMessage(error, '系列列表加载失败'))
+    toast.error(getErrorMessage(error, '合集列表加载失败'))
   } finally {
     isLoadingSeries.value = false
   }
@@ -371,7 +383,7 @@ const loadSeriesWorkbench = async () => {
 const saveSeriesDraft = async () => {
   const payload = normalizeSeriesDraft()
   if (!payload.title) {
-    toast.error('请先填写系列标题')
+    toast.error('请先填写合集标题')
     return
   }
 
@@ -388,10 +400,10 @@ const saveSeriesDraft = async () => {
       fillSeriesDraft(res.data)
     }
 
-    toast.success(res.status === 'fallback' ? '系列已保存到本地 fallback' : '系列已保存')
+    toast.success(res.status === 'fallback' ? '合集已保存到本地 fallback' : '合集已保存')
     await loadSeriesWorkbench()
   } catch (error) {
-    toast.error(getErrorMessage(error, '系列保存失败'))
+    toast.error(getErrorMessage(error, '合集保存失败'))
   } finally {
     isSavingSeries.value = false
   }

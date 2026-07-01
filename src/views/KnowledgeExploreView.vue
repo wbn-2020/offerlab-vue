@@ -19,7 +19,7 @@
               成长档案
             </RouterLink>
             <RouterLink to="/certification/apply" class="secondary-action">
-              专家认证
+              认证作者
             </RouterLink>
           </div>
         </div>

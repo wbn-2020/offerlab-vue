@@ -24,7 +24,7 @@ assert.match(editor, /写作助手/, 'EditorView must keep writing assistant ent
 assert.match(editor, /loadStageThreeAssist/, 'EditorView must load stage3 assist data')
 assert.match(editor, /const assistPanelEnabled = ref\(false\)/, 'EditorView must default the assist panel to disabled')
 assert.match(editor, /assistPanelEnabled\.value = safeStorage\.get\(stageThreeAssistPreferenceKey\.value\) === '1'/, 'EditorView must only restore publishing assist after an explicit opt-in')
-assert.match(editor, /const clearStageThreeAssistState = \(\) => \{\s*clearStageThreeAssistTimer\(\)\s*stageThreeAssist\.value = null\s*stageThreeAssistError\.value = ''\s*\}/s, 'EditorView must clear local assist state when publishing assist stays disabled')
+assert.match(editor, /const clearStageThreeAssistState = \(\) => \{[\s\S]*clearStageThreeAssistTimer\(\)[\s\S]*stageThreeAssistRequestId \+= 1[\s\S]*stageThreeAssist\.value = null[\s\S]*stageThreeAssistError\.value = ''[\s\S]*isStageThreeAssistLoading\.value = false[\s\S]*\}/, 'EditorView must clear local assist state and invalidate pending requests when publishing assist stays disabled')
 assert.match(editor, /if \(!assistPanelEnabled\.value\) \{\s*clearStageThreeAssistState\(\)\s*return\s*\}/s, 'EditorView must not request content assist while publishing assist remains disabled')
 assert.doesNotMatch(editor, /getEditorAssist\(\{ \.\.\.buildStageThreeAssistRequest\(\), aiEnabled: false \}\)/, 'EditorView must not issue disabled-state assist requests automatically')
 assert.doesNotMatch(
@@ -37,11 +37,13 @@ assert.doesNotMatch(
   /watch\(\(\) => authStore\.isLoggedIn, async \(loggedIn\) => \{[\s\S]*?await loadStageThreeAssist\(\)/,
   'EditorView must not automatically request content assist when login state changes',
 )
-assert.doesNotMatch(
+assert.match(
   editor,
-  /const scheduleStageThreeAssist = \(\) => \{[\s\S]*?loadStageThreeAssist\(\)/,
-  'EditorView must not auto-schedule content assist requests without an explicit user action',
+  /const scheduleStageThreeAssist = \(\) => \{[\s\S]*if \(!authStore\.isLoggedIn \|\| !assistPanelEnabled\.value \|\| isForbiddenEdit\.value\) return[\s\S]*loadStageThreeAssist\(false\)/,
+  'EditorView may debounce-refresh assist suggestions only after explicit opt-in and valid auth/edit state',
 )
+assert.match(editor, /stageThreeAssistRequestId/, 'EditorView must track assist request freshness')
+assert.match(editor, /if \(requestId !== stageThreeAssistRequestId\) return/, 'EditorView must ignore stale assist responses')
 assert.match(editor, /applyTagSuggestion/, 'EditorView must let users adopt tag suggestions')
 assert.match(editor, /applyTopicSuggestion/, 'EditorView must let users adopt topic suggestions')
 assert.match(editor, /applyAssistSummary/, 'EditorView must let users adopt writing summary suggestions')

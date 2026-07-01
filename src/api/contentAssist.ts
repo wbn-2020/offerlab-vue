@@ -7,6 +7,7 @@ import type {
   ContentAssistSuggestion,
 } from './types'
 import { DOMAIN, getDomainLabel, normalizeDomain } from '@/utils/domains'
+import { POST_TYPE } from '@/utils/contentTypes'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 
 export interface ContentAssistRequest {
@@ -32,11 +33,14 @@ const firstReadableLine = (value: string) => {
 }
 
 const safeText = (value: unknown) => sanitizeVisibleText(value) || ''
+const isQuestionRequest = (req: ContentAssistRequest) => Number(req.postType) === POST_TYPE.QUESTION
 
 const summarizeContent = (req: ContentAssistRequest) => {
   const firstLine = firstReadableLine(req.content)
   if (firstLine) return firstLine.length > 88 ? `${firstLine.slice(0, 88)}...` : firstLine
   const title = safeText(req.title)
+  if (isQuestionRequest(req) && title) return `围绕“${title.slice(0, 32)}”补充背景、已经尝试过什么、卡点和想获得的帮助。`
+  if (isQuestionRequest(req)) return `补一段 ${getDomainLabel(req.domain)} 频道里的具体问题背景，说明希望大家怎么帮。`
   if (title) return `围绕“${title.slice(0, 32)}”补充背景、过程、结果和可复用建议。`
   return `补一段 ${getDomainLabel(req.domain)} 领域的真实实践背景，助手会继续完善摘要建议。`
 }
@@ -47,6 +51,19 @@ const qualityMetricsOf = (req: ContentAssistRequest): ContentAssistQualityMetric
   const tagCount = req.tags.filter(Boolean).length
   const titleScore = clampScore(titleLength >= 10 ? 100 : titleLength * 8)
   const contentScore = clampScore(Math.min(100, (contentLength / 18) * 10))
+  if (isQuestionRequest(req)) {
+    const structureScore = clampScore(
+      ['背景', '限制', '尝试', '试过', '卡点', '建议', '推荐', '请教', '帮助']
+        .filter((keyword) => req.content.includes(keyword)).length * 16,
+    )
+    const tagScore = clampScore(tagCount >= 3 ? 100 : tagCount * 34)
+    return [
+      { label: '标题清晰度', score: titleScore, detail: '标题是否能快速说明问题、场景和需要讨论的点。' },
+      { label: '问题上下文', score: contentScore, detail: '是否补充了背景、限制和当前卡点，便于他人判断。' },
+      { label: '求助完整度', score: structureScore, detail: '是否写清背景、已尝试方法、卡点和想获得的帮助。' },
+      { label: '标签覆盖度', score: tagScore, detail: '标签是否能标出场景、人群或问题类型，方便相关用户看到。' },
+    ]
+  }
   const structureScore = clampScore(
     ['背景', '问题', '方案', '结果', '复盘', '总结', '步骤', '收益']
       .filter((keyword) => req.content.includes(keyword)).length * 22,
@@ -65,6 +82,13 @@ const qualitySummaryOf = (metrics: ContentAssistQualityMetric[]) => {
   if (score >= 85) return { score, label: '可直接发布', reason: '核心信息比较完整，适合进入发布与系列归档。' }
   if (score >= 65) return { score, label: '再补一轮', reason: '主体已经成型，再补标签或结构化段落会更稳。' }
   return { score, label: '建议补充', reason: '建议先完善背景、过程和结论，再进入发布。' }
+}
+
+const questionQualitySummaryOf = (metrics: ContentAssistQualityMetric[]) => {
+  const score = clampScore(metrics.reduce((sum, item) => sum + item.score, 0) / Math.max(metrics.length, 1))
+  if (score >= 85) return { score, label: '可以提问', reason: '问题背景、已尝试方法和求助方向比较清楚，适合进入讨论。' }
+  if (score >= 65) return { score, label: '再补一轮', reason: '问题已经成型，再补一点背景、卡点或标签会更容易获得回应。' }
+  return { score, label: '建议补充', reason: '建议先写清问题背景、已经试过什么，以及希望别人怎么帮。' }
 }
 
 const qualityLevelLabel = (value: unknown) => {
@@ -177,6 +201,27 @@ const tagSuggestionsOf = (req: ContentAssistRequest) => {
   return uniqueSuggestions(suggestions, req.tags).slice(0, 6)
 }
 
+const questionTagSuggestionsOf = (req: ContentAssistRequest) => {
+  const suggestions: ContentAssistSuggestion[] = [
+    suggestion('question-help', '求助', '标记为开放求助，便于愿意给建议的人看到。', '问题求助类型默认补全', 0.76),
+    suggestion('question-decision', '决策咨询', '适合“怎么选、要不要、哪种更合适”的选择讨论。', '问题求助类型默认补全', 0.72),
+    suggestion('question-experience', '经验请教', '适合征集亲身经历、避坑经验和真实反馈。', '问题求助类型默认补全', 0.72),
+    suggestion('question-pitfall', '避坑求助', '适合租房、消费、工具选择等需要提前规避风险的场景。', '问题求助类型默认补全', 0.68),
+  ]
+  const text = `${req.title}\n${req.content}`.toLowerCase()
+  const rules: Array<[RegExp, string, string]> = [
+    [/租房|看房|合租|房东|中介/, '城市租房', '内容涉及租房、看房或城市生活选择。'],
+    [/推荐|工具|app|网站|书|课程/, '求推荐', '内容正在征集工具、书单、课程或资源推荐。'],
+    [/选择|纠结|要不要|适合|对比/, '选择讨论', '内容需要比较不同选项和取舍。'],
+    [/排查|卡住|失败|报错|原因/, '问题排查', '内容需要补充排查思路或可能原因。'],
+    [/学习|读书|考试|成长/, '学习求助', '内容与学习方法、读书或成长路径相关。'],
+  ]
+  rules.forEach(([pattern, label, detail], index) => {
+    if (pattern.test(text)) suggestions.push(suggestion(`question-keyword-${index}`, label, detail, '由标题和正文关键词推断', 0.78))
+  })
+  return uniqueSuggestions(suggestions, req.tags).slice(0, 6)
+}
+
 const topicSuggestionsOf = (req: ContentAssistRequest) => {
   const text = `${req.title}\n${req.content}`
   const suggestions: ContentAssistSuggestion[] = []
@@ -192,18 +237,52 @@ const topicSuggestionsOf = (req: ContentAssistRequest) => {
       suggestions.push(suggestion(`topic-rule-${index}`, label, detail, '由正文关键词推断', 0.78))
     }
   })
-  if (normalizeDomain(req.domain) === DOMAIN.TECH) {
-    suggestions.push(suggestion('topic-tech', '工程实践周记', '适合持续沉淀迭代中的实践记录。', '来自技术领域默认推荐', 0.62))
+  const domainTopicSeeds: Record<number, Array<[string, string]>> = {
+    [DOMAIN.TECH]: [['AI 工具实测', '适合持续沉淀工具体验、产品效率和数码设备内容。'], ['效率工作流', '适合串联工具、流程和自动化实践。']],
+    [DOMAIN.CAREER]: [['转行经验合集', '适合聚合同一阶段的求职、转行和职场选择经验。'], ['职场沟通复盘', '适合沉淀协作、沟通和工作复盘内容。']],
+    [DOMAIN.READING]: [['阅读清单共读', '适合串联多篇书单、摘记和方法论内容。'], ['学习方法复盘', '适合沉淀学习路径、考试经验和技能提升内容。']],
+    [DOMAIN.LIFESTYLE]: [['城市租房避坑', '适合聚合租房、城市生活和消费经验。'], ['日常健康记录', '适合持续记录生活方式、健康和情绪管理。']],
+    [DOMAIN.INVESTMENT]: [['投资风险复盘', '适合强调风险边界和经验复盘，不构成投资建议。']],
   }
-  if (normalizeDomain(req.domain) === DOMAIN.READING) {
-    suggestions.push(suggestion('topic-reading', '阅读清单共读', '适合串联多篇书单、摘记和方法论内容。', '来自阅读领域默认推荐', 0.64))
-  }
+  ;(domainTopicSeeds[normalizeDomain(req.domain)] || []).forEach(([label, detail], index) => {
+    suggestions.push(suggestion(`topic-domain-${index}`, label, detail, `来自 ${getDomainLabel(req.domain)} 频道默认推荐`, 0.62))
+  })
+  return uniqueSuggestions(suggestions, []).slice(0, 4)
+}
+
+const questionTopicSuggestionsOf = (req: ContentAssistRequest) => {
+  const text = `${req.title}\n${req.content}`
+  const suggestions: ContentAssistSuggestion[] = [
+    suggestion('question-topic-community-help', '社区求助互助', '聚合需要经验建议、推荐和排查思路的问题。', '问题求助类型默认推荐', 0.68),
+  ]
+  const rules: Array<[RegExp, string, string]> = [
+    [/租房|看房|城市|合租/, '城市租房避坑', '适合聚合租房、城市生活和消费避坑问题。'],
+    [/工具|app|网站|效率|软件/, '工具推荐与实测', '适合征集工具推荐和使用体验反馈。'],
+    [/学习|读书|考试|课程/, '学习方法互助', '适合学习路径、读书方法和考试经验求助。'],
+    [/职场|转行|工作|沟通/, '职场选择讨论', '适合工作选择、沟通协作和转行经验请教。'],
+  ]
+  rules.forEach(([pattern, label, detail], index) => {
+    if (pattern.test(text)) suggestions.push(suggestion(`question-topic-${index}`, label, detail, '由问题场景推断', 0.74))
+  })
   return uniqueSuggestions(suggestions, []).slice(0, 4)
 }
 
 const seriesHintsOf = (req: ContentAssistRequest, tagSuggestions: ContentAssistSuggestion[]): ContentAssistSeriesHint[] => {
   const domainLabel = getDomainLabel(req.domain)
   const primaryTag = req.tags[0] || tagSuggestions[0]?.label || domainLabel
+  if (isQuestionRequest(req)) {
+    return [
+      {
+        id: req.seriesId,
+        title: `${primaryTag} 问题记录`,
+        progressText: '适合把同类求助、补充信息和后续反馈归档，方便回访。',
+      },
+      {
+        title: `${domainLabel} 讨论线索`,
+        progressText: '适合整理同频道下的经验征集、推荐和选择讨论。',
+      },
+    ]
+  }
   return [
     {
       id: req.seriesId,
@@ -219,10 +298,17 @@ const seriesHintsOf = (req: ContentAssistRequest, tagSuggestions: ContentAssistS
 
 const actionItemsOf = (req: ContentAssistRequest, metrics: ContentAssistQualityMetric[]) => {
   const actions: string[] = []
+  if (isQuestionRequest(req)) {
+    if (metrics[0]?.score < 70) actions.push('把标题改成“场景 + 具体问题”的结构，让别人一眼知道你在问什么。')
+    if (metrics[1]?.score < 70) actions.push('补充背景、限制条件和当前卡点，避免问题过于泛泛。')
+    if (metrics[2]?.score < 60) actions.push('正文建议至少补齐“背景 / 已尝试 / 想获得的帮助”中的 2 项。')
+    if (metrics[3]?.score < 75) actions.push('再补 1 到 3 个场景、人群或问题类型标签。')
+    return actions.slice(0, 4)
+  }
   if (metrics[0]?.score < 70) actions.push('把标题改成“场景 + 问题/动作 + 结果”的结构，减少泛标题。')
   if (metrics[1]?.score < 70) actions.push('补 1 到 2 段背景、关键步骤和结果数据，方便他人快速理解。')
   if (metrics[2]?.score < 60) actions.push('正文建议至少补齐“背景 / 问题 / 方案 / 结果”中的 3 项。')
-  if (metrics[3]?.score < 75) actions.push('再补 1 到 3 个能代表技术栈或主题的标签。')
+  if (metrics[3]?.score < 75) actions.push('再补 1 到 3 个能代表频道、场景或主题的标签。')
   if (normalizeDomain(req.domain) === DOMAIN.INVESTMENT) {
     actions.push('投资理财领域建议补充风险边界和非建议声明，降低误解风险。')
   }
@@ -231,7 +317,7 @@ const actionItemsOf = (req: ContentAssistRequest, metrics: ContentAssistQualityM
 
 const buildDisabledAssist = (req: ContentAssistRequest): ContentAssistResult => {
   const metrics = qualityMetricsOf(req)
-  const quality = qualitySummaryOf(metrics)
+  const quality = isQuestionRequest(req) ? questionQualitySummaryOf(metrics) : qualitySummaryOf(metrics)
   return {
     status: 'disabled',
     source: 'fallback',
@@ -264,9 +350,9 @@ const buildFailedAssist = (message: string): ContentAssistResult => ({
 
 const buildFallbackAssist = (req: ContentAssistRequest, fallbackReason = ''): ContentAssistResult => {
   const metrics = qualityMetricsOf(req)
-  const quality = qualitySummaryOf(metrics)
-  const tags = tagSuggestionsOf(req)
-  const topics = topicSuggestionsOf(req)
+  const quality = isQuestionRequest(req) ? questionQualitySummaryOf(metrics) : qualitySummaryOf(metrics)
+  const tags = isQuestionRequest(req) ? questionTagSuggestionsOf(req) : tagSuggestionsOf(req)
+  const topics = isQuestionRequest(req) ? questionTopicSuggestionsOf(req) : topicSuggestionsOf(req)
   return {
     status: 'degraded',
     source: 'fallback',
@@ -360,11 +446,11 @@ const mergeRemoteAssist = (
   },
 ): ContentAssistResult => {
   const metrics = adaptQualityMetrics(payload.quality?.explanations, req)
-  const defaultQuality = qualitySummaryOf(metrics)
+  const defaultQuality = isQuestionRequest(req) ? questionQualitySummaryOf(metrics) : qualitySummaryOf(metrics)
   const remoteTagSuggestions = uniqueSuggestions(adaptSuggestionList(payload.tagTopic?.tags, 'remote-tag'), req.tags).slice(0, 6)
   const remoteTopicSuggestions = adaptSuggestionList(payload.tagTopic?.topics, 'remote-topic').slice(0, 4)
-  const tagSuggestions = remoteTagSuggestions.length ? remoteTagSuggestions : tagSuggestionsOf(req)
-  const topicSuggestions = remoteTopicSuggestions.length ? remoteTopicSuggestions : topicSuggestionsOf(req)
+  const tagSuggestions = remoteTagSuggestions.length ? remoteTagSuggestions : isQuestionRequest(req) ? questionTagSuggestionsOf(req) : tagSuggestionsOf(req)
+  const topicSuggestions = remoteTopicSuggestions.length ? remoteTopicSuggestions : isQuestionRequest(req) ? questionTopicSuggestionsOf(req) : topicSuggestionsOf(req)
   const actionItems = uniqueActionItems([
     ...(Array.isArray(payload.writing?.suggestions) ? payload.writing.suggestions : []),
     ...(Array.isArray(payload.quality?.suggestions) ? payload.quality.suggestions : []),

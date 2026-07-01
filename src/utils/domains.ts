@@ -57,6 +57,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     description: '编程、AI 工具、产品体验、数码设备和效率工具。',
     domain: DOMAIN.TECH,
     tags: ['AI 工具', '软件工具', '产品体验', '数码设备', '效率工具'],
+    topics: ['AI 工具实测', '数码设备体验', '效率工作流'],
   },
   {
     key: 'learning-growth',
@@ -65,6 +66,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     description: '学习方法、读书笔记、考试经验、技能提升和自我管理。',
     domain: DOMAIN.READING,
     tags: ['学习方法', '读书笔记', '考试经验', '技能提升', '时间管理'],
+    topics: ['阅读清单共读', '学习方法复盘', '技能提升路线'],
   },
   {
     key: 'career-experience',
@@ -73,6 +75,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     description: '求职面试、实习转行、工作复盘和职场选择。',
     domain: DOMAIN.CAREER,
     tags: ['求职经验', '面试经验', '实习经历', '转行经验', '工作复盘'],
+    topics: ['转行经验合集', '职场沟通复盘', '面试与 Offer 讨论'],
   },
   {
     key: 'lifestyle',
@@ -81,6 +84,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     description: '租房、城市生活、消费经验、旅行、健康、情绪和日常。',
     domain: DOMAIN.LIFESTYLE,
     tags: ['租房', '城市生活', '消费经验', '旅行', '健康', '日常'],
+    topics: ['城市租房避坑', '生活消费复盘', '日常健康记录'],
   },
   {
     key: 'resources',
@@ -89,6 +93,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     description: '网站、工具、书单、课程、模板和资料合集。',
     postTypes: [POST_TYPE.RESOURCE],
     tags: ['工具推荐', '网站推荐', '书单', '课程', '模板', '资料'],
+    topics: ['资源合集', '工具箱推荐', '书单与课程'],
   },
   {
     key: 'qa-discussion',
@@ -97,6 +102,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     description: '求建议、求推荐、提问、观点讨论和经验征集。',
     postTypes: [POST_TYPE.QUESTION, POST_TYPE.NOTE],
     tags: ['求建议', '求推荐', '观点讨论', '经验征集'],
+    topics: ['社区问答精选', '观点讨论', '经验征集'],
   },
 ]
 
@@ -107,9 +113,21 @@ export const SECONDARY_COMMUNITY_CHANNELS: CommunityChannel[] = [
     icon: '💡',
     description: '理财心得、投资复盘和风险认知。',
     domain: DOMAIN.INVESTMENT,
+    tags: ['风险复盘', '理财心得', '资产配置'],
+    topics: ['投资风险复盘', '理财经验交流'],
     riskNote: '投资理财内容仅供经验交流，不构成投资建议，请自行判断风险。',
   },
 ]
+
+export const ALL_COMMUNITY_CHANNELS: CommunityChannel[] = [
+  ...COMMUNITY_CHANNELS,
+  ...SECONDARY_COMMUNITY_CHANNELS,
+]
+
+export const getCommunityChannel = (key?: string | string[] | null): CommunityChannel | undefined => {
+  const value = Array.isArray(key) ? key[0] : key
+  return ALL_COMMUNITY_CHANNELS.find((channel) => channel.key === value)
+}
 
 export const isKnownDomain = (domain?: number | string | null): domain is DomainValue => {
   const value = Number(domain)

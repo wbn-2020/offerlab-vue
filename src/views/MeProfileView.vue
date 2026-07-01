@@ -78,6 +78,58 @@
         </div>
       </section>
 
+      <section class="creator-center-grid mt-6">
+        <article class="creator-action-panel">
+          <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p class="text-xs font-black text-primary-600 dark:text-primary-300">下一步行动</p>
+              <h2>创作者中心</h2>
+            </div>
+            <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
+          </div>
+          <div class="creator-action-list">
+            <RouterLink v-for="item in creatorActions" :key="item.href" :to="item.href" class="creator-action-card">
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.description }}</span>
+            </RouterLink>
+          </div>
+        </article>
+
+        <article class="creator-cert-panel">
+          <p class="text-xs font-black text-primary-600 dark:text-primary-300">领域认证</p>
+          <h2>认证作者</h2>
+          <p>
+            认证作者用于标识持续贡献和领域经验，会经过人工审核；认证不代表平台对每条内容背书，也不替代专业建议。
+          </p>
+          <span class="creator-cert-meta">当前公开合集 {{ publicCollectionCount }} 个</span>
+          <div class="creator-cert-actions">
+            <RouterLink to="/certification/apply" class="primary-button">查看认证条件</RouterLink>
+            <RouterLink to="/me/settings" class="secondary-button">完善作者资料</RouterLink>
+          </div>
+        </article>
+      </section>
+
+      <section class="profile-panel mt-6">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">代表内容</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              优先选择精选、高互动和最近更新的公开内容展示在作者主页。
+            </p>
+          </div>
+          <RouterLink to="/editor" class="secondary-button">继续发布</RouterLink>
+        </div>
+        <div v-if="representativePosts.length" class="representative-grid">
+          <RouterLink v-for="post in representativePosts" :key="post.postId" :to="`/post/${post.postId}`" class="representative-card">
+            <strong>{{ post.title }}</strong>
+            <span>{{ post.summary || post.content.slice(0, 84) }}</span>
+          </RouterLink>
+        </div>
+        <div v-else class="empty-inline">
+          发布第一篇公开内容后，这里会形成你的作者主页代表内容。
+        </div>
+      </section>
+
       <section class="mt-6">
         <div class="tab-bar max-w-full overflow-x-auto">
           <button
@@ -85,7 +137,7 @@
             :key="tab.value"
             type="button"
             :class="['tab-button shrink-0 whitespace-nowrap', activeTab === tab.value ? 'tab-active' : '']"
-            @click="activeTab = tab.value"
+            @click="setActiveTab(tab.value)"
           >
             <component :is="tab.icon" class="h-4 w-4" />
             {{ tab.label }}
@@ -108,10 +160,22 @@
           </section>
 
           <section v-else-if="activeTab === 'favorites'" class="space-y-4">
+            <div class="favorite-revisit-panel">
+              <div>
+                <p class="text-xs font-black text-primary-600 dark:text-primary-300">收藏回看</p>
+                <h2>全部收藏</h2>
+                <span>默认收藏夹会收纳你在社区里保存过的经验、问题、攻略和资源，后续可继续整理到内容合集。</span>
+              </div>
+              <div class="favorite-revisit-actions">
+                <RouterLink to="/explore">去发现</RouterLink>
+                <RouterLink to="/search">搜索内容</RouterLink>
+                <RouterLink to="/series/workbench">整理合集</RouterLink>
+              </div>
+            </div>
             <PostList
               :state="favorites"
               empty-title="还没有收藏内容"
-              empty-description="收藏高质量帖子后，可以在这里快速回看。"
+              empty-description="看到有用内容时点收藏，之后可以在这里集中回看，也可以整理到内容合集。"
               @load-more="loadFavorites(true)"
               @like="handleLike"
               @favorite="handleFavorite"
@@ -164,8 +228,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Bookmark, FileText, Hash, Heart, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
@@ -175,10 +239,12 @@ import UserCard from '@/components/user/UserCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
 import { userApi } from '@/api/user'
+import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, PaginatedResponse, Post, User } from '@/api/types'
 import { buildContributionSummary, buildTypeDistribution, type ContributionSummary } from '@/utils/communityMetrics'
 import { filterPublicContent, safePublicVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
+import { buildCreatorActions, pickRepresentativePosts, publicAuthorPosts } from '@/utils/creatorSignals'
 import { demoProfileContribution } from '@/data/demoSeeds'
 
 type TabValue = 'posts' | 'favorites' | 'liked' | 'following' | 'topics' | 'followers'
@@ -200,6 +266,8 @@ const createState = <T,>(): ListState<T> => reactive({
 })
 
 const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const user = ref(authStore.user)
 const activeTab = ref<TabValue>('posts')
 const posts = createState<Post>()
@@ -209,6 +277,7 @@ const following = createState<User>()
 const topics = createState<CommunityTopic>()
 const followers = createState<User>()
 const backendContribution = ref<ContributionSummary | null>(null)
+const myCollections = ref<ContentSeriesRecord[]>([])
 
 const tabs = [
   { value: 'posts', label: '我的内容', icon: FileText },
@@ -218,6 +287,14 @@ const tabs = [
   { value: 'topics', label: '关注话题', icon: Hash },
   { value: 'followers', label: '我的粉丝', icon: UserRoundCheck },
 ] satisfies Array<{ value: TabValue; label: string; icon: any }>
+const tabValues = new Set<TabValue>(tabs.map((tab) => tab.value))
+
+const setActiveTab = (value: TabValue) => {
+  activeTab.value = value
+  if (route.query.tab !== value) {
+    router.replace({ path: route.path, query: { ...route.query, tab: value } })
+  }
+}
 
 const displayNickname = computed(() => safePublicVisibleText(user.value?.nickname, '我的主页'))
 const displaySignature = computed(() => sanitizePublicVisibleText(
@@ -242,6 +319,14 @@ const profileDemoNotice = computed(() => contribution.value.source === 'local_de
   : ''
 )
 const typeDistribution = computed(() => buildTypeDistribution(posts.items))
+const publicCollectionCount = computed(() => myCollections.value.filter((item) => item.visibility === 'public').length)
+const representativePosts = computed(() => pickRepresentativePosts(publicAuthorPosts(posts.items), 3))
+const creatorActions = computed(() => buildCreatorActions(
+  publicAuthorPosts(posts.items),
+  contribution.value,
+  publicCollectionCount.value > 0,
+  true,
+))
 
 const loadContribution = async () => {
   try {
@@ -249,6 +334,15 @@ const loadContribution = async () => {
     backendContribution.value = res.data
   } catch {
     backendContribution.value = null
+  }
+}
+
+const loadMyCollections = async () => {
+  try {
+    const res = await contentSeriesApi.listMine(user.value?.uid)
+    myCollections.value = res.data || []
+  } catch {
+    myCollections.value = []
   }
 }
 
@@ -531,15 +625,26 @@ const TopicList = defineComponent({
 
 onMounted(async () => {
   if (!user.value?.uid) return
+  const queryTab = typeof route.query.tab === 'string' ? route.query.tab : ''
+  if (tabValues.has(queryTab as TabValue)) {
+    activeTab.value = queryTab as TabValue
+  }
   await Promise.all([
     loadContribution(),
     loadPosts(),
     loadFavorites(),
     loadLikedPosts(),
+    loadMyCollections(),
     loadFollowing(),
     loadFollowingTopics(),
     loadFollowers(),
   ])
+})
+
+watch(() => route.query.tab, (value) => {
+  if (typeof value === 'string' && tabValues.has(value as TabValue)) {
+    activeTab.value = value as TabValue
+  }
 })
 </script>
 
@@ -595,6 +700,96 @@ onMounted(async () => {
   border-radius: 0.75rem;
   background: white;
   padding: 1.5rem;
+}
+
+.creator-center-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+}
+
+.creator-action-panel,
+.creator-cert-panel {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 1.25rem;
+}
+
+.creator-action-panel h2,
+.creator-cert-panel h2 {
+  margin-top: 0.15rem;
+  font-size: 1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.creator-action-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.creator-action-card,
+.representative-card {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.625rem;
+  background: rgb(248 250 252);
+  padding: 0.85rem;
+}
+
+.creator-action-card strong,
+.representative-card strong {
+  color: rgb(15 23 42);
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.creator-action-card span,
+.representative-card span,
+.creator-cert-panel p {
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.creator-cert-meta {
+  margin-top: 0.85rem;
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  background: rgb(238 242 255);
+  padding: 0.3rem 0.65rem;
+  color: rgb(67 56 202);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.creator-cert-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.representative-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.representative-card {
+  min-height: 7rem;
+}
+
+.empty-inline {
+  border: 1px dashed rgb(203 213 225);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 .score-card,
@@ -722,6 +917,53 @@ onMounted(async () => {
   color: rgb(146 64 14);
 }
 
+.favorite-revisit-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.75rem;
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.favorite-revisit-panel h2 {
+  margin-top: 0.15rem;
+  font-size: 1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.favorite-revisit-panel span {
+  margin-top: 0.35rem;
+  display: block;
+  max-width: 42rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgb(71 85 105);
+}
+
+.favorite-revisit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.favorite-revisit-actions a {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(29 78 216);
+}
+
 .empty-panel,
 .loading-panel,
 .notice-error {
@@ -772,6 +1014,39 @@ onMounted(async () => {
   background: rgb(15 23 42);
 }
 
+.dark .creator-action-panel,
+.dark .creator-cert-panel,
+.dark .creator-action-card,
+.dark .representative-card,
+.dark .empty-inline {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .creator-action-card,
+.dark .representative-card {
+  background: rgb(2 6 23);
+}
+
+.dark .creator-action-panel h2,
+.dark .creator-cert-panel h2,
+.dark .creator-action-card strong,
+.dark .representative-card strong {
+  color: rgb(248 250 252);
+}
+
+.dark .creator-action-card span,
+.dark .representative-card span,
+.dark .creator-cert-panel p,
+.dark .empty-inline {
+  color: rgb(148 163 184);
+}
+
+.dark .creator-cert-meta {
+  background: rgb(49 46 129 / 0.5);
+  color: rgb(199 210 254);
+}
+
 html.dark .community-growth-panel,
 html.dark .score-card,
 html.dark .growth-stat {
@@ -791,5 +1066,44 @@ html.dark .growth-stat {
 
 .dark .tab-bar {
   border-color: rgb(30 41 59);
+}
+
+.dark .favorite-revisit-panel {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .favorite-revisit-panel h2 {
+  color: rgb(248 250 252);
+}
+
+.dark .favorite-revisit-panel span {
+  color: rgb(203 213 225);
+}
+
+.dark .favorite-revisit-actions a {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+@media (max-width: 640px) {
+  .creator-center-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .creator-cert-actions,
+  .creator-cert-actions a,
+  .creator-action-panel .secondary-button {
+    width: 100%;
+  }
+
+  .favorite-revisit-panel {
+    flex-direction: column;
+  }
+
+  .favorite-revisit-actions,
+  .favorite-revisit-actions a {
+    width: 100%;
+  }
 }
 </style>

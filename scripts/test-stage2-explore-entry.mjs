@@ -30,18 +30,18 @@ assert.match(
 )
 assert.match(
   exploreView,
-  /阅读专题/,
-  'ExploreView must explicitly expose a reading topic pilot entry',
+  /学习话题|阅读清单共读|学习方法复盘/,
+  'ExploreView must explicitly expose a learning/reading topic entry',
 )
 assert.match(
   exploreView,
-  /阅读试点|阅读策展|书单|读书/,
+  /阅读|读书|书单|学习方法/,
   'ExploreView must strengthen reading-domain discovery copy',
 )
 assert.match(
   exploreView,
-  /domain:\s*String\(.*READING|domain:\s*String\(DOMAIN\.READING\)|domain:\s*DOMAIN\.READING/,
-  'ExploreView must route at least one entry into the reading domain',
+  /channel:\s*['"]learning-growth['"]/,
+  'ExploreView must route at least one entry into the learning-growth channel',
 )
 assert.match(
   exploreView,
@@ -50,8 +50,13 @@ assert.match(
 )
 assert.match(
   exploreView,
-  /postApi\.list\(\{\s*size:\s*8,\s*domain:\s*activeDomain\.value|postApi\.list\(\{[\s\S]*domain:\s*activeDomain\.value[\s\S]*size:\s*8/,
-  'ExploreView must request latest posts with the active domain filter',
+  /const loadChannelLatestPosts[\s\S]*Promise\.allSettled\(activeChannelPostTypes\.value\.map[\s\S]*postApi\.list\(\{[\s\S]*type/,
+  'ExploreView must fetch each active channel post type separately before merging latest posts',
+)
+assert.match(
+  exploreView,
+  /postApi\.list\(\{[\s\S]*size:\s*8[\s\S]*domain:\s*activeDomain\.value[\s\S]*type:\s*activeListType\.value/,
+  'ExploreView must keep the normal latest-post request with active domain and single-type filters',
 )
 assert.match(
   exploreView,

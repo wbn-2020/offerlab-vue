@@ -294,7 +294,7 @@
           <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 class="panel-title !mb-1">领域版主管理</h2>
-              <p class="text-sm text-slate-500">按领域分配治理人员，领域版主只能处理自己负责领域内的举报、精选和知识审核。</p>
+              <p class="text-sm text-slate-500">按领域分配治理人员，领域版主只能处理自己负责领域内的举报、精选和结构化知识卡审核。</p>
             </div>
             <button type="button" class="secondary-button" :disabled="isLoading" @click="() => loadDomainModerators()">刷新版主</button>
           </div>
@@ -343,7 +343,7 @@
           <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 class="panel-title !mb-1">专题管理</h2>
-              <p class="text-sm text-slate-500">维护社区专题、绑定标签、排序和上下线状态，前台首页与发现页会优先展示已上线专题。</p>
+              <p class="text-sm text-slate-500">维护社区话题、绑定标签、排序和上下线状态，前台首页与发现页会优先展示已上线话题。</p>
             </div>
             <div class="grid gap-2 sm:grid-cols-[120px_minmax(0,1fr)_auto]">
               <select v-model="topicFilters.status" class="field-input">
@@ -361,7 +361,7 @@
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
                     <span :class="['status-pill', topic.status === 1 ? 'status-ok' : 'status-muted']">{{ topic.status === 1 ? '上线' : '下线' }}</span>
-                    <span v-if="topic.featured" class="status-pill status-warn">精选专题</span>
+                    <span v-if="topic.featured" class="status-pill status-warn">精选话题</span>
                     <strong class="text-slate-950 dark:text-slate-50">{{ topic.name }}</strong>
                     <span class="meta-chip">路径 {{ topic.slug }}</span>
                   </div>
@@ -392,37 +392,37 @@
         </article>
 
         <aside class="panel h-fit">
-          <h2 class="panel-title">{{ selectedTopic ? '编辑专题' : '新增专题' }}</h2>
+          <h2 class="panel-title">{{ selectedTopic ? '编辑话题' : '新增话题' }}</h2>
           <div class="mb-4 flex flex-wrap gap-2">
-            <button type="button" class="secondary-button" @click="fillDemoTopicTemplate">填入演示专题</button>
-            <button type="button" class="secondary-button" :disabled="isSaving" @click="createDemoTopic">一键创建演示专题</button>
+            <button type="button" class="secondary-button" @click="fillDemoTopicTemplate">填入演示话题</button>
+            <button type="button" class="secondary-button" :disabled="isSaving" @click="createDemoTopic">一键创建演示话题</button>
             <RouterLink :to="{ path: '/admin/ops', query: { includeTestData: '1' } }" class="secondary-button">测试数据模式</RouterLink>
           </div>
           <form class="space-y-3" @submit.prevent="saveTopic">
-            <input v-model.trim="topicForm.name" class="field-input" placeholder="专题名称，例如 Spring Boot 实战" />
-            <input v-model.trim="topicForm.slug" class="field-input" placeholder="访问路径，例如 spring-boot" />
+            <input v-model.trim="topicForm.name" class="field-input" placeholder="专题名称，例如 城市租房避坑" />
+            <input v-model.trim="topicForm.slug" class="field-input" placeholder="访问路径，例如 city-rent-guide" />
             <select v-model="topicForm.topicType" class="field-input">
-              <option value="tech_stack">技术栈</option>
-              <option value="scenario">业务场景</option>
-              <option value="resource">资源合集</option>
-              <option value="project">项目专题</option>
-              <option value="custom">自定义</option>
+              <option value="custom">综合话题</option>
+              <option value="scenario">场景话题</option>
+              <option value="resource">资源清单</option>
+              <option value="project">实践复盘</option>
+              <option value="tech_stack">知识技能</option>
             </select>
             <textarea v-model.trim="topicForm.description" class="field-input min-h-[90px]" placeholder="专题描述" />
             <input v-model.trim="topicForm.coverUrl" class="field-input" placeholder="封面 URL，可选" />
             <input v-model.number="topicForm.sortOrder" class="field-input" type="number" min="0" max="9999" placeholder="排序，数字越大越靠前" />
-            <input v-model.trim="topicForm.tagNames" class="field-input" placeholder="绑定标签，用逗号分隔，例如 Java,Spring Boot,Redis" />
+            <input v-model.trim="topicForm.tagNames" class="field-input" placeholder="绑定标签，用逗号分隔，例如 租房,城市生活,避坑" />
             <select v-model.number="topicForm.status" class="field-input">
               <option :value="1">上线</option>
               <option :value="0">下线</option>
             </select>
             <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
               <input v-model="topicForm.featured" type="checkbox" />
-              设为精选专题
+              设为精选话题
             </label>
             <textarea v-model.trim="topicForm.note" class="field-input min-h-[80px]" placeholder="运营备注，会写入审计" />
             <div class="flex flex-wrap gap-2">
-              <button type="submit" class="primary-button" :disabled="isSaving || topicForm.name.length < 2">保存专题</button>
+              <button type="submit" class="primary-button" :disabled="isSaving || topicForm.name.length < 2">保存话题</button>
               <button type="button" class="secondary-button" @click="resetTopic">新增</button>
             </div>
           </form>
@@ -507,10 +507,10 @@
           <form class="space-y-3" @submit.prevent="saveTag">
             <input v-model.trim="tagForm.name" class="field-input" placeholder="标签名称" />
             <select v-model.number="tagForm.tagType" class="field-input">
-              <option :value="1">技术栈</option>
-              <option :value="2">公司</option>
-              <option :value="3">岗位</option>
-              <option :value="4">自定义</option>
+              <option :value="4">综合标签</option>
+              <option :value="1">主题/技能</option>
+              <option :value="2">组织/品牌</option>
+              <option :value="3">职业方向</option>
             </select>
             <select v-model.number="tagForm.status" class="field-input">
               <option :value="1">启用</option>
@@ -550,7 +550,7 @@
               <option value="POST_REPORT">帖子举报</option>
               <option value="COMMENT_REPORT">评论举报</option>
               <option value="MODERATION_HIT">敏感词命中</option>
-              <option value="QUESTION_PENDING">待审题目</option>
+              <option value="QUESTION_PENDING">待审知识卡</option>
               <option value="AI_TASK_FAILED">失败 AI 任务</option>
             </select>
             <select v-model="queueFilters.riskLevel" class="field-input">
@@ -837,7 +837,7 @@ const topicForm = reactive({
   name: '',
   slug: '',
   description: '',
-  topicType: 'tech_stack',
+  topicType: 'custom',
   coverUrl: '',
   sortOrder: 0,
   featured: false,
@@ -848,7 +848,7 @@ const topicForm = reactive({
 const topicActionKey = ref('')
 const selectedTag = ref<Tag | null>(null)
 const tagFilters = reactive({ status: '', recommended: '', keyword: '' })
-const tagForm = reactive({ name: '', tagType: 1, status: 1, recommended: false, synonyms: '', mergeTargetId: '', note: '' })
+const tagForm = reactive({ name: '', tagType: 4, status: 1, recommended: false, synonyms: '', mergeTargetId: '', note: '' })
 const tagActionKey = ref('')
 const tagPage = ref(1)
 const tagPageSize = ref(6)
@@ -974,16 +974,16 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
       items.push({
         id: `question-pending-${item.id}`,
         sourceType: 'QUESTION_PENDING',
-        sourceLabel: '待审题目',
+        sourceLabel: '待审知识卡',
         targetType: 'QUESTION',
         targetId: String(item.id),
-        title: item.questionText || `待审题目 ${item.id}`,
+        title: item.questionText || `待审知识卡 ${item.id}`,
         summary: queueSummary([item.examPoint, item.qualityReason, item.sourceSnippet]),
         riskLevel: 'medium',
-        status: '待题目审核',
+        status: '待知识卡审核',
         createdAt: item.updatedAt || item.createdAt,
         actionPath: '/admin/questions',
-        actionLabel: '进入题目审核',
+        actionLabel: '进入知识卡审核',
       })
     })
   failedAiTasks.value
@@ -1153,7 +1153,7 @@ const loadGlobalModerationData = (loaders: Array<Promise<void>>) => {
   if (canQuestionOps.value) {
     loaders.push(opsApi.listQuestions({ status: 0, limit: 20 }).then((res) => { pendingQuestions.value = res.data || [] }).catch(() => {
       pendingQuestions.value = []
-      reviewQueueLoadWarnings.value.push('待审题目来源暂不可用，已保留其他审核待办。')
+      reviewQueueLoadWarnings.value.push('待审知识卡来源暂不可用，已保留其他审核待办。')
     }))
     loaders.push(opsApi.listAiTasks({ status: 3, limit: 20 }).then((res) => { failedAiTasks.value = res.data || [] }).catch(() => {
       failedAiTasks.value = []
@@ -1244,7 +1244,7 @@ const queueSourceLabel = (sourceType: string) => {
     POST_REPORT: '帖子举报',
     COMMENT_REPORT: '评论举报',
     MODERATION_HIT: '敏感词命中',
-    QUESTION_PENDING: '待审题目',
+    QUESTION_PENDING: '待审知识卡',
     AI_TASK_FAILED: '失败 AI 任务',
   }
   return labels[sourceType] || sourceType
@@ -1255,7 +1255,7 @@ const queueTargetText = (targetType: string) => {
     POST: '帖子',
     COMMENT: '评论',
     CONTENT: '内容',
-    QUESTION: '题目',
+    QUESTION: '知识卡',
     AI_TASK: 'AI 任务',
   }
   return labels[targetType] || queueSourceLabel(targetType)
@@ -1283,7 +1283,7 @@ const queueActionPath = (item: BackendReviewQueueItem) => {
 const queueActionLabel = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'POST_REPORT' || item.sourceType === 'POST') return '查看帖子'
   if (item.sourceType === 'COMMENT_REPORT') return '查看来源'
-  if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '进入题目审核'
+  if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '进入知识卡审核'
   if (item.sourceType === 'AI_TASK_FAILED' || item.sourceType === 'AI_TASK') return '进入运维中心'
   return '查看来源'
 }
@@ -1572,7 +1572,7 @@ const saveDomainModerator = async () => {
     context: riskContext(
       `领域：${domainLabel(moderatorForm.domain)}`,
       moderatorForm.note ? `原因：${moderatorForm.note}` : '原因：未填写',
-      '该用户将获得指定领域内的举报、精选和知识审核权限',
+      '该用户将获得指定领域内的举报、精选和结构化知识卡审核权限',
     ),
     confirmText: '确认分配版主',
   })
@@ -1630,7 +1630,7 @@ const loadTopics = async (showToast = true) => {
     })
     topics.value = res.data || []
   } catch (error: any) {
-    if (showToast) toast.error(getErrorMessage(error, '专题加载失败'))
+    if (showToast) toast.error(getErrorMessage(error, '话题加载失败'))
   }
 }
 
@@ -1665,7 +1665,7 @@ const resetTopic = () => {
   topicForm.name = ''
   topicForm.slug = ''
   topicForm.description = ''
-  topicForm.topicType = 'tech_stack'
+  topicForm.topicType = 'custom'
   topicForm.coverUrl = ''
   topicForm.sortOrder = 0
   topicForm.featured = false
@@ -1676,17 +1676,17 @@ const resetTopic = () => {
 
 const fillDemoTopicTemplate = () => {
   selectedTopic.value = null
-  topicForm.name = 'Kafka 稳定性治理'
-  topicForm.slug = 'kafka-reliability'
-  topicForm.description = '覆盖消息幂等、Outbox、堆积排查、重试死信和消费者延迟观测。'
+  topicForm.name = '城市租房避坑清单'
+  topicForm.slug = 'city-rent-guide'
+  topicForm.description = '覆盖看房动线、合同条款、通勤预算、室友沟通、押金风险和搬家复盘。'
   topicForm.topicType = 'scenario'
   topicForm.coverUrl = ''
   topicForm.sortOrder = 80
   topicForm.featured = true
   topicForm.status = 1
-  topicForm.tagNames = 'Kafka,Redis,Java'
-  topicForm.note = '本地演示专题模板'
-  toast.success('已填入演示专题模板')
+  topicForm.tagNames = '租房,城市生活,避坑'
+  topicForm.note = '本地演示综合话题模板'
+  toast.success('已填入综合话题演示模板')
 }
 
 const createDemoTopic = async () => {
@@ -1719,7 +1719,7 @@ const saveTopic = async () => {
     return
   }
   const note = await requireRiskConfirm({
-    title: selectedTopic.value ? '保存社区专题' : '新增社区专题',
+    title: selectedTopic.value ? '保存社区话题' : '新增社区话题',
     level: 'high',
     reversible: true,
     impactCount: 1,
@@ -1728,10 +1728,10 @@ const saveTopic = async () => {
       `专题：${topicForm.name}`,
       `访问路径：${topicForm.slug || '按名称生成'}`,
       `状态：${Number(topicForm.status) === 1 ? '上线' : '下线'}`,
-      topicForm.featured ? '精选专题：是' : '精选专题：否',
+      topicForm.featured ? '精选话题：是' : '精选话题：否',
       topicForm.tagNames ? `标签：${topicForm.tagNames}` : '标签：未填写',
     ),
-    confirmText: '确认保存专题',
+    confirmText: '确认保存话题',
   })
   if (note === null) return
   isSaving.value = true
@@ -1751,11 +1751,11 @@ const saveTopic = async () => {
     selectedTopic.value
       ? await postApi.updateTopic(selectedTopic.value.id, payload)
       : await postApi.createTopic(payload)
-    toast.success('专题已保存')
+    toast.success('话题已保存')
     resetTopic()
     await loadTopics(false)
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '专题保存失败'))
+    toast.error(getErrorMessage(error, '话题保存失败'))
   } finally {
     isSaving.value = false
   }
@@ -1764,7 +1764,7 @@ const saveTopic = async () => {
 const resetTag = () => {
   selectedTag.value = null
   tagForm.name = ''
-  tagForm.tagType = 1
+  tagForm.tagType = 4
   tagForm.status = 1
   tagForm.recommended = false
   tagForm.synonyms = ''
@@ -1793,21 +1793,21 @@ const isTagActive = (tag: Tag) => Number(tag.status ?? 1) === 1
 
 const topicTypeText = (type?: string) => {
   const labels: Record<string, string> = {
-    tech_stack: '技术栈',
-    scenario: '业务场景',
+    tech_stack: '知识技能',
+    scenario: '场景话题',
     resource: '资源合集',
-    project: '项目专题',
-    custom: '自定义',
+    project: '实践复盘',
+    custom: '综合话题',
   }
-  return labels[type || 'custom'] || type || '自定义'
+  return labels[type || 'custom'] || type || '综合话题'
 }
 
 const tagCategoryText = (tagType?: number) => {
   switch (Number(tagType || 4)) {
-    case 1: return '技术栈'
-    case 2: return '公司'
-    case 3: return '岗位'
-    default: return '自定义'
+    case 1: return '主题/技能'
+    case 2: return '组织/品牌'
+    case 3: return '职业方向'
+    default: return '综合标签'
   }
 }
 
@@ -1971,7 +1971,7 @@ const toggleTopicStatus = async (topic: CommunityTopic) => {
   if (!canGlobalModerate.value) return
   const nextStatus = topic.status === 1 ? 0 : 1
   const note = await requireRiskConfirm({
-    title: nextStatus === 1 ? '上线社区专题' : '下线社区专题',
+    title: nextStatus === 1 ? '上线社区话题' : '下线社区话题',
     level: nextStatus === 1 ? 'high' : 'critical',
     reversible: true,
     impactCount: 1,
@@ -1988,7 +1988,7 @@ const toggleTopicStatus = async (topic: CommunityTopic) => {
   topicActionKey.value = String(topic.id)
   try {
     await postApi.updateTopicStatus(topic.id, nextStatus, note)
-    toast.success(nextStatus === 1 ? '专题已上线' : '专题已下线')
+    toast.success(nextStatus === 1 ? '话题已上线' : '话题已下线')
     await loadTopics(false)
   } catch (error: any) {
     toast.error(getErrorMessage(error, '专题状态更新失败'))

@@ -216,7 +216,7 @@
               <button type="button" @click="runSearch(false)">重试</button>
               <button type="button" @click="searchHotContentFromError">热门内容</button>
               <button type="button" @click="switchToUserSearchFromError">搜作者</button>
-              <RouterLink :to="{ path: '/questions', query: fallbackQuestionQuery }" @click="trackCommunityRecommendationClick('error:questions')">问答讨论</RouterLink>
+              <RouterLink :to="communityQuestionQuery" @click="trackCommunityRecommendationClick('error:community-question')">社区问题求助</RouterLink>
               <RouterLink to="/explore" @click="trackCommunityRecommendationClick('error:explore')">发现</RouterLink>
             </div>
           </div>
@@ -246,8 +246,41 @@
               <div class="min-w-0 flex-1">
                 <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.nickname }}</h3>
                 <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ userSignatureText(item) }}</p>
+                <p class="mt-1 truncate text-xs font-semibold text-primary-600 dark:text-primary-300">
+                  {{ searchUserFollowReason(item) }}
+                </p>
+                <div class="mt-2 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <span>{{ item.postCount || 0 }} 篇内容</span>
+                  <span>{{ item.followerCount || 0 }} 位关注者</span>
+                </div>
               </div>
               <span class="view-link">查看主页</span>
+            </RouterLink>
+          </template>
+
+          <template v-else-if="searchMode === 'topics' && topicResults.length">
+            <RouterLink v-for="item in topicResults" :key="item.id || item.slug" :to="`/topics/${encodeURIComponent(item.slug || item.name)}`" class="user-row">
+              <div class="avatar avatar-soft">
+                <Hash class="h-5 w-5" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.name }}</h3>
+                <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ item.description || '围绕同一主题聚合经验、问题、资源和讨论。' }}</p>
+              </div>
+              <span class="view-link">{{ item.postCount || 0 }} 篇</span>
+            </RouterLink>
+          </template>
+
+          <template v-else-if="searchMode === 'tags' && tagResults.length">
+            <RouterLink v-for="item in tagResults" :key="item.id || item.slug || item.name" :to="`/tag/${encodeURIComponent(item.slug || item.name)}`" class="user-row">
+              <div class="avatar avatar-soft">
+                <Hash class="h-5 w-5" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.name }}</h3>
+                <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">标签索引会把相关内容、话题和作者线索收拢到一起。</p>
+              </div>
+              <span class="view-link">{{ item.count || 0 }} 篇</span>
             </RouterLink>
           </template>
 
@@ -289,6 +322,54 @@
                 </RouterLink>
               </div>
             </div>
+            <div class="no-result-recommendations">
+              <div class="recommend-group">
+                <span>社区问题</span>
+                <RouterLink
+                  :to="communityQuestionQuery"
+                  class="recommend-chip"
+                  @click="trackCommunityRecommendationClick('question-help')"
+                >
+                  社区问题求助
+                </RouterLink>
+              </div>
+              <div class="recommend-group">
+                <span>热门频道</span>
+                <RouterLink
+                  v-for="channel in recommendedChannels"
+                  :key="channel.key"
+                  :to="{ path: '/explore', query: { channel: channel.key } }"
+                  class="recommend-chip"
+                  @click="trackCommunityRecommendationClick(`channel:${channel.key}`)"
+                >
+                  {{ channel.name }}
+                </RouterLink>
+              </div>
+              <div class="recommend-group">
+                <span>热门话题</span>
+                <RouterLink
+                  v-for="topic in recommendedTopics"
+                  :key="topic"
+                  :to="`/topics/${encodeURIComponent(topic)}`"
+                  class="recommend-chip"
+                  @click="trackCommunityRecommendationClick(`topic:${topic}`)"
+                >
+                  {{ topic }}
+                </RouterLink>
+              </div>
+              <div class="recommend-group">
+                <span>热门标签</span>
+                <RouterLink
+                  v-for="tag in recommendedTags"
+                  :key="tag"
+                  :to="`/tag/${encodeURIComponent(tag)}`"
+                  class="recommend-chip"
+                  @click="trackCommunityRecommendationClick(`tag:${tag}`)"
+                >
+                  {{ tag }}
+                </RouterLink>
+              </div>
+            </div>
             <div class="mt-5 flex flex-wrap justify-center gap-2">
               <button type="button" class="primary-button" @click="resetFilters">清空筛选</button>
               <button v-if="searchMode === 'posts'" type="button" class="secondary-button" @click="searchHotContentFromEmpty">热门内容</button>
@@ -317,15 +398,17 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import { postApi } from '@/api/post'
 import { searchApi, type SearchStatus } from '@/api/search'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import { usePostInteraction } from '@/composables/usePostInteraction'
-import type { ApiId, Post, User } from '@/api/types'
+import type { ApiId, CommunityTopic, Post, Tag, User } from '@/api/types'
 import { safeStorage } from '@/utils/safeStorage'
-import { COMMUNITY_CONTENT_TYPES, getContentTypeLabel } from '@/utils/contentTypes'
-import { isKnownDomain } from '@/utils/domains'
+import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeLabel } from '@/utils/contentTypes'
+import { COMMUNITY_CHANNELS, isKnownDomain } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
+import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
 
 type SortValue = 'relevance' | 'latest' | 'hot'
 type SearchMode = 'posts' | 'users' | 'topics' | 'tags'
@@ -386,11 +469,16 @@ const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: 'hot', label: '热门' },
 ]
 const searchContentTypes = COMMUNITY_CONTENT_TYPES
+const recommendedChannels = COMMUNITY_CHANNELS.slice(0, 4)
+const recommendedTopics = Array.from(new Set(COMMUNITY_CHANNELS.flatMap((channel) => channel.topics || []))).slice(0, 6)
+const recommendedTags = Array.from(new Set(COMMUNITY_CHANNELS.flatMap((channel) => channel.tags || []))).slice(0, 8)
 
 const searchMode = ref<SearchMode>('posts')
 const includeTestData = ref(false)
 const searchResults = ref<Post[]>([])
 const userResults = ref<User[]>([])
+const topicResults = ref<CommunityTopic[]>([])
+const tagResults = ref<Tag[]>([])
 const cursor = ref<string | undefined>()
 const hasMore = ref(false)
 const hotWords = ref<string[]>([])
@@ -415,12 +503,17 @@ let isPushingQuery = false
 
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const storageKey = (name: string) => `offerlab:${storageOwner.value}:${name}`
-const resultCount = computed(() => searchMode.value === 'users' ? userResults.value.length : searchResults.value.length)
+const resultCount = computed(() => {
+  if (searchMode.value === 'users') return userResults.value.length
+  if (searchMode.value === 'topics') return topicResults.value.length
+  if (searchMode.value === 'tags') return tagResults.value.length
+  return searchResults.value.length
+})
 const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label || '相关度')
 const resultSummaryText = computed(() => {
   if (searchMode.value === 'users') return `找到 ${resultCount.value} 位作者`
-  if (searchMode.value === 'topics') return filters.q ? `可查看话题「${filters.q}」` : '输入关键词查看话题'
-  if (searchMode.value === 'tags') return filters.q ? `可查看标签「${filters.q}」` : '输入关键词查看标签'
+  if (searchMode.value === 'topics') return filters.q ? `找到 ${resultCount.value} 个相关话题` : `共 ${resultCount.value} 个热门话题`
+  if (searchMode.value === 'tags') return filters.q ? `找到 ${resultCount.value} 个相关标签` : `共 ${resultCount.value} 个热门标签`
   if (hasMore.value) return `已加载 ${resultCount.value} 条内容，继续加载可查看更多`
   return `共 ${resultCount.value} 条内容`
 })
@@ -429,6 +522,27 @@ const hasQuery = computed(() => {
   if (searchMode.value === 'topics' || searchMode.value === 'tags') return Boolean(filters.q)
   return Boolean(filters.q || filters.company || filters.position || filters.type)
 })
+const shouldAutoRunSearch = computed(() => (
+  hasQuery.value
+  || searchMode.value === 'users'
+  || searchMode.value === 'topics'
+  || searchMode.value === 'tags'
+))
+const includesKeyword = (values: Array<string | undefined>, keyword: string) => {
+  const q = keyword.trim().toLowerCase()
+  if (!q) return true
+  return values.some((value) => String(value || '').toLowerCase().includes(q))
+}
+const filterVisibleTopics = (items: CommunityTopic[], keyword: string) => (
+  filterPublicContent(items)
+    .filter((item) => includesKeyword([item.name, item.slug, item.description, item.topicType], keyword))
+    .sort((a, b) => Number(b.postCount || 0) - Number(a.postCount || 0))
+)
+const filterVisibleTags = (items: Tag[], keyword: string) => (
+  filterPublicContent(items)
+    .filter((item) => includesKeyword([item.name, item.slug, item.category], keyword))
+    .sort((a, b) => Number(b.count || 0) - Number(a.count || 0))
+)
 const searchDiagnosticText = computed(() => {
   const diagnostics = searchResultMeta.value?.diagnostics
   if (!diagnostics) return ''
@@ -492,9 +606,9 @@ const userFacingSearchStatusMessage = (message?: string | null) => {
 }
 const searchStatusText = computed(() => {
   if (isSearchStatusLoading.value && !searchStatus.value) return '正在检测搜索状态'
-  if (searchStatusError.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、问答讨论和搜作者入口'
+  if (searchStatusError.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、社区问题求助和搜作者入口'
   if (!searchStatus.value) return '搜索状态暂不可用，本页已保留社区兜底入口'
-  if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、问答讨论和搜作者入口'
+  if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、社区问题求助和搜作者入口'
   if (searchStatus.value.publicSearchSource === 'mysql') {
     const mode = searchStatus.value.fallbackMode === 'compat' ? '兼容模式' : '完整标签治理模式'
     return `公开搜索当前由数据库兜底服务（${mode}），结果可能不完整，排序能力受限`
@@ -523,9 +637,17 @@ const searchStatusPillClass = computed(() => {
   if (searchStatus.value?.publicSearchAvailable === false) return 'status-danger'
   return 'status-warn'
 })
-const fallbackQuestionQuery = computed(() => {
+const communityQuestionQuery = computed(() => {
   const keyword = filters.q || filters.company || filters.position
-  return keyword ? { q: keyword } : {}
+  return {
+    path: '/search',
+    query: {
+      ...(keyword ? { q: keyword } : {}),
+      mode: 'posts',
+      type: String(POST_TYPE.QUESTION),
+      sort: 'hot',
+    },
+  }
 })
 const searchSourceTitle = computed(() => {
   const meta = searchResultMeta.value
@@ -557,6 +679,7 @@ const filterVisibleSearchTerms = (values: unknown) => {
 const userSignatureText = (item: User) => {
   return sanitizePublicVisibleText(item.signature, '作者还没有填写简介')
 }
+const searchUserFollowReason = (item: User) => buildFollowReasons(item)[0]
 
 const isVisibilitySupplementReason = (reason?: string) => {
   return reason === 'elasticsearch_empty' || reason === 'elasticsearch_visibility_filtered'
@@ -699,7 +822,7 @@ const currentSnapshot = (): SearchSnapshot => {
 const isSearchSnapshot = (value: unknown): value is SearchSnapshot => {
   if (!value || typeof value !== 'object') return false
   const item = value as Partial<SearchSnapshot>
-  const modeOk = item.mode === 'posts' || item.mode === 'users'
+  const modeOk = item.mode === 'posts' || item.mode === 'users' || item.mode === 'topics' || item.mode === 'tags'
   const sortOk = item.sort === 'relevance' || item.sort === 'latest' || item.sort === 'hot'
   const domainOk = item.domain == null || isKnownDomain(item.domain)
   return Boolean(typeof item.id === 'string' && typeof item.label === 'string' && modeOk && sortOk && domainOk)
@@ -885,7 +1008,7 @@ const clearSearchDebounce = () => {
 
 const scheduleDebouncedSearch = () => {
   clearSearchDebounce()
-  if (!hasQuery.value && searchMode.value !== 'users') return
+  if (!shouldAutoRunSearch.value) return
   searchDebounceTimer = setTimeout(() => {
     runSearch(false)
   }, SEARCH_DEBOUNCE_MS)
@@ -928,6 +1051,8 @@ const runSearch = async (append = false, syncRoute = true) => {
       cursor.value = undefined
       hasMore.value = false
       searchResults.value = []
+      topicResults.value = []
+      tagResults.value = []
       searchResultMeta.value = null
       if (!filters.q) {
         userResults.value = []
@@ -935,17 +1060,35 @@ const runSearch = async (append = false, syncRoute = true) => {
       }
       const res = await userApi.searchUsers(filters.q, 20)
       if (requestId !== searchRequestId) return
-      userResults.value = filterPublicContent(res.data || [])
+      userResults.value = filterPublicContent(res.data || []).filter(isPublicAuthor)
       if (!append) rememberRecentSearch()
       return
     }
 
-    if (searchMode.value === 'topics' || searchMode.value === 'tags') {
+    if (searchMode.value === 'topics') {
       cursor.value = undefined
       hasMore.value = false
       searchResults.value = []
       userResults.value = []
+      tagResults.value = []
       searchResultMeta.value = null
+      const res = await postApi.listTopics({ limit: 30 })
+      if (requestId !== searchRequestId) return
+      topicResults.value = filterVisibleTopics(res.data || [], filters.q).slice(0, 20)
+      if (!append) rememberRecentSearch()
+      return
+    }
+
+    if (searchMode.value === 'tags') {
+      cursor.value = undefined
+      hasMore.value = false
+      searchResults.value = []
+      userResults.value = []
+      topicResults.value = []
+      searchResultMeta.value = null
+      const res = await postApi.getTags()
+      if (requestId !== searchRequestId) return
+      tagResults.value = filterVisibleTags(res.data || [], filters.q).slice(0, 30)
       if (!append) rememberRecentSearch()
       return
     }
@@ -966,6 +1109,8 @@ const runSearch = async (append = false, syncRoute = true) => {
     const cleanItems = includeTestData.value ? (page?.items || []) : filterPublicContent(page?.items || [])
     searchResults.value = append ? [...searchResults.value, ...cleanItems] : cleanItems
     userResults.value = []
+    topicResults.value = []
+    tagResults.value = []
     searchResultMeta.value = page ? {
       source: page.source,
       degraded: page.degraded,
@@ -978,10 +1123,12 @@ const runSearch = async (append = false, syncRoute = true) => {
     if (!append) rememberRecentSearch()
   } catch (error: any) {
     if (requestId !== searchRequestId) return
-    errorMessage.value = `${getErrorMessage(error, '搜索接口暂不可用')}。已刷新搜索状态，并保留热门内容、发现页、问答讨论和搜作者入口。`
+    errorMessage.value = `${getErrorMessage(error, '搜索接口暂不可用')}。已刷新搜索状态，并保留热门内容、发现页、社区问题求助和搜作者入口。`
     if (!append) {
       searchResults.value = []
       userResults.value = []
+      topicResults.value = []
+      tagResults.value = []
       searchResultMeta.value = {
         source: 'client_fallback',
         degraded: true,
@@ -1010,6 +1157,8 @@ const resetFilters = async () => {
   suggestions.value = []
   searchResults.value = []
   userResults.value = []
+  topicResults.value = []
+  tagResults.value = []
   searchResultMeta.value = null
   cursor.value = undefined
   hasMore.value = false
@@ -1021,6 +1170,8 @@ const resetResults = () => {
   suggestions.value = []
   searchResults.value = []
   userResults.value = []
+  topicResults.value = []
+  tagResults.value = []
   searchResultMeta.value = null
   cursor.value = undefined
   hasMore.value = false
@@ -1132,7 +1283,7 @@ onMounted(async () => {
     loadSearchStatus(),
     searchApi.hotSearches().then((res) => { hotWords.value = filterVisibleSearchTerms(res.data) }).catch(() => { hotWords.value = [] }),
   ])
-  if (hasQuery.value || searchMode.value === 'users') {
+  if (shouldAutoRunSearch.value) {
     await runSearch(false)
   }
 })
@@ -1143,7 +1294,7 @@ watch(
     if (isPushingQuery || route.path !== '/search') return
     syncFromRoute()
     resetResults()
-    if (hasQuery.value || searchMode.value === 'users') {
+    if (shouldAutoRunSearch.value) {
       await runSearch(false, false)
     }
   },
@@ -1625,6 +1776,11 @@ onBeforeUnmount(() => {
   color: white;
 }
 
+.avatar-soft {
+  background: rgb(238 242 255);
+  color: rgb(79 70 229);
+}
+
 .view-link {
   flex-shrink: 0;
   font-size: 0.875rem;
@@ -1650,6 +1806,11 @@ onBeforeUnmount(() => {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
   color: rgb(203 213 225);
+}
+
+.dark .avatar-soft {
+  background: rgb(30 41 59);
+  color: rgb(199 210 254);
 }
 
 .dark .undo-panel {

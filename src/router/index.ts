@@ -60,7 +60,13 @@ const routes = [
     path: '/series/workbench',
     name: 'SeriesWorkbench',
     component: () => import('@/views/SeriesWorkbenchView.vue'),
-    meta: { title: '系列工作台', requiresAuth: true },
+    meta: { title: '合集工作台', requiresAuth: true },
+  },
+  {
+    path: '/collections/:id',
+    name: 'CollectionDetail',
+    component: () => import('@/views/CollectionDetailView.vue'),
+    meta: { title: '合集详情' },
   },
   {
     path: '/growth/profile',
@@ -84,7 +90,7 @@ const routes = [
     path: '/certification/apply',
     name: 'CertificationApply',
     component: () => import('@/views/CertificationApplyView.vue'),
-    meta: { title: '专家认证申请' },
+    meta: { title: '认证作者申请' },
   },
   {
     path: '/u/:uid',
@@ -182,7 +188,7 @@ const routes = [
     path: '/topics/:slug',
     name: 'TopicDetail',
     component: () => import('@/views/TopicDetailView.vue'),
-    meta: { title: '专题详情' },
+    meta: { title: '话题详情' },
   },
   {
     path: '/login',

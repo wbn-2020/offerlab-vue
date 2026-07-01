@@ -25,7 +25,7 @@
             <div class="mt-2 flex flex-wrap items-center gap-4">
               <button type="button" class="comment-action" @click="startReply(comment)">
                 <MessageCircle class="h-3.5 w-3.5" />
-                回复
+                {{ replyActionLabel }}
               </button>
               <button
                 type="button"
@@ -63,7 +63,8 @@
             <ReplyComposer
               v-if="replyingTo?.commentId === comment.commentId"
               class="mt-3"
-              :placeholder="`回复 ${comment.author.nickname || '这条评论'}`"
+              :placeholder="replyPlaceholderFor(comment)"
+              :submit-label="replySubmitLabel"
               @cancel="cancelReply"
               @submit="(content) => submitReply(comment, content)"
             />
@@ -94,7 +95,7 @@
                     <div class="mt-2 flex flex-wrap items-center gap-4">
                       <button type="button" class="comment-action" @click="startReply(reply)">
                         <MessageCircle class="h-3.5 w-3.5" />
-                        回复
+                        {{ replyActionLabel }}
                       </button>
                       <button
                         type="button"
@@ -132,7 +133,8 @@
                     <ReplyComposer
                       v-if="replyingTo?.commentId === reply.commentId"
                       class="mt-3"
-                      :placeholder="`回复 ${reply.author.nickname || '这条评论'}`"
+                      :placeholder="replyPlaceholderFor(reply)"
+                      :submit-label="replySubmitLabel"
                       @cancel="cancelReply"
                       @submit="(content) => submitReply(reply, content)"
                     />
@@ -146,7 +148,7 @@
     </template>
 
     <div v-else class="rounded-lg border border-dashed border-slate-300 py-10 text-center dark:border-slate-700">
-      <p class="text-sm text-slate-500 dark:text-slate-400">还没有评论，来抢沙发吧</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
     </div>
   </div>
 </template>
@@ -164,10 +166,18 @@ const props = withDefaults(defineProps<{
   canLikeComments?: boolean
   canReportComments?: boolean
   canReplyComments?: boolean
+  emptyText?: string
+  replyActionLabel?: string
+  replyPlaceholder?: string
+  replySubmitLabel?: string
 }>(), {
   canLikeComments: false,
   canReportComments: false,
   canReplyComments: false,
+  emptyText: '还没有评论，来抢沙发吧',
+  replyActionLabel: '回复',
+  replyPlaceholder: '写下回复...',
+  replySubmitLabel: '回复',
 })
 
 const emit = defineEmits<{
@@ -184,6 +194,11 @@ const replyingTo = ref<Comment | null>(null)
 const pendingCommentLikes = ref(new Set<string>())
 
 const initial = (name?: string) => name?.charAt(0) || '?'
+const replyPlaceholderFor = (comment: Comment) => (
+  props.replyPlaceholder === '写下回复...'
+    ? `回复 ${comment.author.nickname || '这条评论'}`
+    : `${props.replyPlaceholder} · ${comment.author.nickname || '这条评论'}`
+)
 const commentLikeKey = (commentId: Comment['commentId']) => String(commentId)
 const isCommentLikePending = (commentId: Comment['commentId']) => pendingCommentLikes.value.has(commentLikeKey(commentId))
 const startCommentLike = (commentId: Comment['commentId']) => {
@@ -246,6 +261,10 @@ const ReplyComposer = defineComponent({
       type: String,
       default: '写下回复...',
     },
+    submitLabel: {
+      type: String,
+      default: '回复',
+    },
   },
   emits: ['submit', 'cancel'],
   setup(componentProps, { emit }) {
@@ -278,7 +297,7 @@ const ReplyComposer = defineComponent({
           disabled: !text.value.trim(),
           class: 'rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50',
           onClick: submit,
-        }, '回复'),
+        }, componentProps.submitLabel),
       ]),
     ])
   },

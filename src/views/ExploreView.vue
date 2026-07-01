@@ -202,22 +202,37 @@
             </div>
             <span class="domain-source-chip">{{ domainSourceSummary }}</span>
           </div>
+          <div v-if="activeChannel" class="active-channel-panel mb-4">
+            <div>
+              <span>当前频道</span>
+              <strong>{{ activeChannel.icon }} {{ activeChannel.name }}</strong>
+              <p>{{ activeChannel.description }}</p>
+              <small v-if="activeChannel.riskNote">{{ activeChannel.riskNote }}</small>
+              <small v-else>频道内容会优先复用现有领域、内容类型、标签和话题能力聚合展示。</small>
+            </div>
+            <RouterLink to="/explore" class="secondary-action">回到综合发现</RouterLink>
+          </div>
           <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <RouterLink
-              v-for="domain in visibleDomains"
-              :key="domain.domain"
-              :to="{ path: '/explore', query: { domain: String(domain.domain) } }"
+              v-for="channel in primaryChannelCards"
+              :key="channel.key"
+              :to="{ path: '/explore', query: { channel: channel.key } }"
               class="domain-card"
+              :class="{ 'domain-card--active': activeChannel?.key === channel.key }"
             >
               <div class="domain-card__header">
                 <div class="domain-card__title">
-                  <span class="domain-card__icon">{{ domain.icon }}</span>
-                  <h3>{{ domain.domainName }}</h3>
+                  <span class="domain-card__icon">{{ channel.icon }}</span>
+                  <h3>{{ channel.name }}</h3>
                 </div>
-                <span class="domain-card__risk">{{ riskLevelLabel(domain.riskLevel) }}</span>
+                <span class="domain-card__risk">{{ channel.domain ? domainRiskLabel(channel.domain) : '内容类型' }}</span>
               </div>
-              <p>{{ domain.description }}</p>
-              <small>{{ domain.browseNotice || domain.interactionNotice }}</small>
+              <p>{{ channel.description }}</p>
+              <div class="channel-card-links">
+                <span v-for="topic in (channel.topics || []).slice(0, 2)" :key="topic"># {{ topic }}</span>
+                <span v-for="tag in (channel.tags || []).slice(0, 3)" :key="tag">{{ tag }}</span>
+              </div>
+              <small>{{ channel.riskNote || '进入频道聚合，继续查看代表话题和推荐标签。' }}</small>
             </RouterLink>
           </div>
           <div class="browse-playbook mt-5">
@@ -244,14 +259,14 @@
         </article>
 
         <article class="surface-card reading-pilot-card p-6">
-          <span class="reading-pilot-badge">阅读专题</span>
+          <span class="reading-pilot-badge">学习话题</span>
           <div class="mt-3">
-            <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">阅读专题</h2>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">学习话题</h2>
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ readingDomainIntro }}</p>
           </div>
           <div class="mt-5 space-y-3">
             <RouterLink
-              :to="{ path: '/explore', query: { domain: String(DOMAIN.READING) } }"
+              :to="{ path: '/explore', query: { channel: 'learning-growth' } }"
               class="reading-spotlight"
             >
               <div>
@@ -302,6 +317,32 @@
         </div>
       </section>
 
+      <section class="surface-card mb-8 p-6">
+        <div class="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">社区问答讨论</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">从公开问题求助进入讨论，评论和回复承载建议、经验补充和追问。</p>
+          </div>
+          <RouterLink :to="{ path: '/editor', query: { type: String(POST_TYPE.QUESTION) } }" class="text-sm font-medium text-primary-600 hover:text-primary-700">
+            发布问题
+          </RouterLink>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <RouterLink
+            v-for="entry in communityQuestionEntries"
+            :key="entry.title"
+            :to="entry.href"
+            class="channel-card"
+          >
+            <div>
+              <h3>{{ entry.title }}</h3>
+              <p>{{ entry.description }}</p>
+            </div>
+            <span>{{ entry.badge }}</span>
+          </RouterLink>
+        </div>
+      </section>
+
       <section class="mb-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <article class="surface-card p-6">
           <div class="mb-5 flex items-center justify-between gap-4">
@@ -331,7 +372,7 @@
         <article class="surface-card p-6">
           <div class="mb-5 flex items-center justify-between gap-4">
             <div>
-              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">专题入口</h2>
+              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">话题入口</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">热门话题会按频道、场景和标签聚合，方便继续浏览和收藏。</p>
             </div>
           </div>
@@ -362,14 +403,14 @@
       <section class="surface-card mb-8 p-6">
         <div class="mb-5 flex items-center justify-between gap-4">
           <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">热门标签</h2>
-          <span class="text-sm text-slate-500 dark:text-slate-400">{{ sortedTags.length }} 个标签</span>
+          <span class="text-sm text-slate-500 dark:text-slate-400">{{ displayTags.length }} 个标签</span>
         </div>
         <div v-if="isLoadingMeta" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div v-for="i in 10" :key="i" class="h-10 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
         </div>
-        <div v-else-if="sortedTags.length" class="flex flex-wrap gap-3">
+        <div v-else-if="displayTags.length" class="flex flex-wrap gap-3">
           <RouterLink
-            v-for="tag in sortedTags.slice(0, 24)"
+            v-for="tag in displayTags.slice(0, 24)"
             :key="tag.id"
             :to="`/tag/${tag.slug || tag.id}`"
             class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300 dark:hover:border-primary-700 dark:hover:bg-slate-800"
@@ -378,11 +419,11 @@
             <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ tag.count ?? 0 }}</span>
           </RouterLink>
         </div>
-        <div v-if="tagSectionNote && sortedTags.length" class="section-note mt-4" :class="tagSectionNoteTone">
+        <div v-if="tagSectionNote && displayTags.length" class="section-note mt-4" :class="tagSectionNoteTone">
           {{ tagSectionNote }}
         </div>
         <EmptyState
-          v-else-if="!sortedTags.length"
+          v-else-if="!displayTags.length"
           :title="tagEmptyState.title"
           :description="tagEmptyState.description"
           :actionText="tagEmptyState.actionText"
@@ -408,6 +449,7 @@
               </div>
               <h3 class="truncate font-bold text-slate-900 dark:text-slate-100">{{ user.nickname }}</h3>
               <p class="mt-1 line-clamp-2 min-h-8 text-xs text-slate-500 dark:text-slate-400">{{ userDisplaySignature(user) }}</p>
+              <p class="follow-reason">{{ recommendedUserReason(user) }}</p>
             </RouterLink>
             <div class="user-stats">
               <span class="user-stat-chip">
@@ -448,9 +490,9 @@
           <RouterLink to="/" class="text-sm font-medium text-primary-600 hover:text-primary-700">进入信息流</RouterLink>
         </div>
         <LoadingSkeleton v-if="isLoadingPosts" />
-        <div v-else-if="cleanLatestPosts.length" class="space-y-4">
+        <div v-else-if="visibleLatestPosts.length" class="space-y-4">
           <RouterLink
-            v-for="post in cleanLatestPosts"
+            v-for="post in visibleLatestPosts"
             :key="post.postId"
             :to="`/post/${post.postId}`"
             class="block rounded-lg border border-slate-200 bg-white/65 p-4 transition-colors hover:border-primary-300 dark:border-slate-800 dark:bg-slate-950/25 dark:hover:border-primary-700"
@@ -478,11 +520,11 @@
             </div>
           </RouterLink>
         </div>
-        <div v-if="latestSectionNote && cleanLatestPosts.length" class="section-note mt-4" :class="latestSectionNoteTone">
+        <div v-if="latestSectionNote && visibleLatestPosts.length" class="section-note mt-4" :class="latestSectionNoteTone">
           {{ latestSectionNote }}
         </div>
         <div
-          v-else-if="!cleanLatestPosts.length && requestStates.posts === 'failed'"
+          v-else-if="!visibleLatestPosts.length && requestStates.posts === 'failed'"
           class="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700"
         >
           <div>最新发布暂时没有加载出来，先用领域入口、专题和搜索继续浏览。</div>
@@ -496,7 +538,7 @@
           </div>
         </div>
         <EmptyState
-          v-else-if="!cleanLatestPosts.length"
+          v-else-if="!visibleLatestPosts.length"
           title="暂无公开内容"
           description="发布公开的多领域实践内容后会出现在这里。"
           actionText="去发布"
@@ -523,10 +565,19 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import type { CommunityTopic, CrossDomainRecommendation, PaginatedResponse, Post, Tag, User } from '@/api/types'
-import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
-import { DOMAIN, DOMAIN_OPTIONS, getDomainLabel, isKnownDomain } from '@/utils/domains'
+import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
+import {
+  COMMUNITY_CHANNELS,
+  DOMAIN,
+  DOMAIN_OPTIONS,
+  getCommunityChannel,
+  getDomainLabel,
+  isKnownDomain,
+  type CommunityChannel,
+} from '@/utils/domains'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
+import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
 
 type ExploreJumpTarget = string | { path: string; query?: Record<string, string> }
 
@@ -609,28 +660,72 @@ const searchForm = reactive({
 
 const cleanTags = computed(() => filterPublicContent(tags.value))
 const cleanTopics = computed(() => filterPublicContent(topics.value))
-const cleanRecommendedUsers = computed(() => filterPublicContent(recommendedUsers.value))
+const cleanRecommendedUsers = computed(() => filterPublicContent(recommendedUsers.value).filter(isPublicAuthor))
 const cleanLatestPosts = computed(() => filterPublicContent(latestPosts.value))
+const recommendedUserReason = (user: User) => buildFollowReasons(user)[0]
 const crossDomainRecommendations = computed(() => (
   (crossDomainPage.value?.items || []).filter((item) => item.item.post)
 ))
 const crossDomainFallbackReason = computed(() => crossDomainPage.value?.fallbackReason || '')
 const sortedTags = computed(() => [...cleanTags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
+const communityQuestionEntries = [
+  {
+    title: '热门问题',
+    description: '查看正在被浏览和讨论的问题求助。',
+    badge: '热门',
+    href: { path: '/search', query: { type: String(POST_TYPE.QUESTION), sort: 'hot' } },
+  },
+  {
+    title: '等待讨论',
+    description: '按最新顺序查看刚发布的问题，给出第一条建议。',
+    badge: '最新',
+    href: { path: '/search', query: { type: String(POST_TYPE.QUESTION), sort: 'latest' } },
+  },
+  {
+    title: '经验征集',
+    description: '寻找正在征集真实经历和避坑反馈的问题。',
+    badge: '标签',
+    href: { path: '/search', query: { q: '经验征集', type: String(POST_TYPE.QUESTION), sort: 'hot' } },
+  },
+  {
+    title: '求推荐',
+    description: '围绕工具、书单、课程、城市生活等场景收集推荐。',
+    badge: '推荐',
+    href: { path: '/search', query: { q: '求推荐', type: String(POST_TYPE.QUESTION), sort: 'hot' } },
+  },
+]
+const primaryChannelCards = computed<CommunityChannel[]>(() => COMMUNITY_CHANNELS)
+const activeChannelKey = computed(() => {
+  const value = Array.isArray(route.query.channel) ? route.query.channel[0] : route.query.channel
+  return typeof value === 'string' ? value : ''
+})
+const activeChannel = computed(() => getCommunityChannel(activeChannelKey.value))
+const activeChannelPostTypes = computed(() => activeChannel.value?.postTypes || [])
+const activeChannelPostTypeSet = computed(() => new Set(activeChannelPostTypes.value.map((type) => Number(type))))
+const activeListType = computed(() => activeChannelPostTypes.value.length === 1 ? activeChannelPostTypes.value[0] : undefined)
 const activeDomain = computed<number | undefined>(() => {
+  if (activeChannel.value?.domain) return activeChannel.value.domain
   const rawDomain = Array.isArray(route.query.domain) ? route.query.domain[0] : route.query.domain
   return isKnownDomain(rawDomain) ? Number(rawDomain) : undefined
 })
 const activeDomainLabel = computed(() => (
-  activeDomain.value == null
+  activeChannel.value
+    ? activeChannel.value.name
+    : activeDomain.value == null
     ? '综合发现'
     : visibleDomains.value.find((item) => Number(item.domain) === Number(activeDomain.value))?.domainName || getDomainLabel(activeDomain.value)
 ))
 const visibleDomains = computed(() => domains.value.length ? domains.value : localDomainConfigs)
+const visibleLatestPosts = computed(() => {
+  const allowedTypes = activeChannelPostTypeSet.value
+  if (!allowedTypes.size) return cleanLatestPosts.value
+  return cleanLatestPosts.value.filter((post) => allowedTypes.has(Number(post.postType)))
+})
 const domainSourceSummary = computed(() => (
   domainSource.value === 'remote'
     ? `已同步后端启用领域 · 当前 ${activeDomainLabel.value}`
-    : `接口暂未返回，先展示默认 ${DOMAIN_OPTIONS.length} 个领域 · 当前 ${activeDomainLabel.value}`
+    : `接口暂未返回，先展示默认 ${COMMUNITY_CHANNELS.length} 个主频道 · 当前 ${activeDomainLabel.value}`
 ))
 const readingPostCount = computed(() => cleanLatestPosts.value.filter((post) => Number(post.domain) === DOMAIN.READING).length)
 const hasAnyPublicSignals = computed(() => (
@@ -672,6 +767,21 @@ const generatedTopicItems = computed<ExploreTopicEntry[]>(() => (
     href: { path: '/search', query: { q: topic.name, sort: 'hot' } },
   }))
 ))
+const channelTopicItems = computed<ExploreTopicEntry[]>(() => {
+  const channel = activeChannel.value
+  if (!channel?.topics?.length) return []
+  return channel.topics.slice(0, 6).map((name) => {
+    const remote = cleanTopics.value.find((topic) => topic.name === name || topic.slug === name)
+    return {
+      name,
+      count: Number(remote?.postCount ?? cleanLatestPosts.value.filter((post) => {
+        const topicNames = Array.isArray(post.extension?.topicNames) ? post.extension.topicNames : []
+        return topicNames.some((topicName) => String(topicName) === name)
+      }).length),
+      href: `/topics/${encodeURIComponent(remote?.slug || name)}`,
+    }
+  })
+})
 const baseTopicItems = computed<ExploreTopicEntry[]>(() => {
   const remoteTopics = cleanTopics.value.slice(0, 10).map((topic) => ({
     name: topic.name,
@@ -717,7 +827,7 @@ const topicSourceMode = computed<'remote' | 'fallback' | 'placeholder'>(() => {
 })
 const topicItems = computed<ExploreTopicEntry[]>(() => {
   const seen = new Set<string>()
-  return [...readingTopicItems.value, ...baseTopicItems.value]
+  return [...channelTopicItems.value, ...readingTopicItems.value, ...baseTopicItems.value]
     .filter((item) => {
       const key = item.name.trim()
       if (!key || seen.has(key)) return false
@@ -725,6 +835,20 @@ const topicItems = computed<ExploreTopicEntry[]>(() => {
       return true
     })
     .slice(0, 10)
+})
+const displayTags = computed(() => {
+  const channelTags = activeChannel.value?.tags || []
+  if (!channelTags.length) return sortedTags.value
+  const remoteByName = new Map(sortedTags.value.map((tag) => [tag.name, tag]))
+  const scoped = channelTags.map((name, index) => (
+    remoteByName.get(name) || {
+      id: `channel-tag-${activeChannel.value?.key}-${index}`,
+      name,
+      slug: encodeURIComponent(name),
+      count: 0,
+    } as Tag
+  ))
+  return scoped.slice(0, 24)
 })
 const featuredPosts = computed(() => cleanLatestPosts.value.filter(isFeaturedPost).slice(0, 5))
 const overviewStats = computed<ExploreStatItem[]>(() => [
@@ -736,7 +860,7 @@ const overviewStats = computed<ExploreStatItem[]>(() => [
   {
     label: '专题入口',
     value: String(topicItems.value.length),
-    detail: topicSourceMode.value === 'remote' ? '优先来自社区专题' : topicSourceMode.value === 'fallback' ? '由标签与公开内容补位' : '等待内容沉淀',
+    detail: topicSourceMode.value === 'remote' ? '优先来自社区话题' : topicSourceMode.value === 'fallback' ? '由标签与公开内容补位' : '等待内容沉淀',
   },
   {
     label: '热门标签',
@@ -745,8 +869,8 @@ const overviewStats = computed<ExploreStatItem[]>(() => [
   },
   {
     label: '最新公开内容',
-    value: String(cleanLatestPosts.value.length),
-    detail: cleanLatestPosts.value.length ? '当前页展示最近样本' : '等待更多公开发布',
+    value: String(visibleLatestPosts.value.length),
+    detail: visibleLatestPosts.value.length ? '当前页展示最近样本' : '等待更多公开发布',
   },
 ])
 const browseGuideCards = computed<ExploreGuideCard[]>(() => {
@@ -775,7 +899,7 @@ const browseGuideCards = computed<ExploreGuideCard[]>(() => {
       description: topicItems.value[0]
         ? `可以先从「${topicItems.value[0].name}」继续扩展到相关内容。`
         : '专题还不多时，可以直接用热门标签和搜索入口继续浏览。',
-      cta: '进入主题入口',
+      cta: '进入话题入口',
       href: topicOrTagTarget,
     },
     {
@@ -820,7 +944,7 @@ const multiDomainEntryCards = computed<ExploreGuideCard[]>(() => [
 const loadFallbackNotes = computed(() => {
   const notes: string[] = []
   if (domainSource.value === 'fallback') notes.push('领域列表当前使用默认回退配置。')
-  if (topicSourceMode.value === 'fallback') notes.push('专题入口正在用标签与公开内容临时补位。')
+  if (topicSourceMode.value === 'fallback') notes.push('话题入口正在用标签与公开内容临时补位。')
   if (requestStates.dashboard === 'failed') notes.push('内容频道计数已回退到当前公开样本。')
   if (requestStates.tags === 'failed') notes.push('热门标签接口暂未返回。')
   if (requestStates.users === 'failed') notes.push('推荐用户接口暂未返回。')
@@ -850,7 +974,7 @@ const overviewState = computed<ExploreOverviewState>(() => {
     return {
       tone: 'warning',
       title: '社区还在等待第一批公开内容',
-      description: '公开内容、标签和专题还比较少，先补充第一篇复盘、笔记或资源分享，探索页的入口会随之变丰富。',
+      description: '公开内容、标签和话题还比较少，先补充第一篇复盘、笔记或资源分享，探索页的入口会随之变丰富。',
       action: { kind: 'route', text: '去发布第一篇内容', href: '/editor' },
     }
   }
@@ -866,14 +990,14 @@ const overviewState = computed<ExploreOverviewState>(() => {
     return {
       tone: 'warning',
       title: '部分模块正在使用回退结果',
-      description: '你看到的入口仍然可用，只是部分计数、专题或推荐会优先使用公开样本和默认配置补位。',
+      description: '你看到的入口仍然可用，只是部分计数、话题或推荐会优先使用公开样本和默认配置补位。',
       action: { kind: 'route', text: '继续浏览综合入口', href: '/explore' },
     }
   }
   return {
     tone: 'success',
     title: '综合社区入口已就绪',
-    description: '可以先按领域进入，再顺着专题、标签和知识关系扩展，逐步从单点兴趣走到跨主题浏览。',
+    description: '可以先按频道进入，再顺着话题、标签和知识关系扩展，逐步从单点兴趣走到跨主题浏览。',
   }
 })
 const crossDomainEmptyState = computed<ExploreEmptyStateModel>(() => {
@@ -897,10 +1021,10 @@ const topicSectionNote = computed(() => {
     return '话题接口暂未返回，当前根据公开标签、频道和阅读关键词临时聚合入口。'
   }
   if (topicSourceMode.value === 'fallback' && topicItems.value.length) {
-    return '专题仍在沉淀中，当前入口来自公开内容的临时聚合，适合先做浏览引导。'
+    return '话题仍在沉淀中，当前入口来自公开内容的临时聚合，适合先做浏览引导。'
   }
   if (topicItems.value.length > 0 && topicItems.value.length < 4) {
-    return '当前专题数量还不多，可以配合热门标签和搜索入口继续扩展。'
+    return '当前话题数量还不多，可以配合热门标签和搜索入口继续扩展。'
   }
   return ''
 })
@@ -910,14 +1034,14 @@ const topicSectionNoteTone = computed(() => (
 const topicEmptyState = computed<ExploreEmptyStateModel>(() => {
   if (requestStates.topics === 'failed' && requestStates.tags === 'failed' && requestStates.posts === 'failed') {
     return {
-      title: '专题入口暂时不可用',
-      description: '专题、标签和公开内容接口都没有完整返回，先用多领域入口或热门搜索继续浏览。',
+      title: '话题入口暂时不可用',
+      description: '话题、标签和公开内容接口都没有完整返回，先用多频道入口或热门搜索继续浏览。',
       actionText: '去热门内容',
       actionHref: '/search?sort=hot',
     }
   }
   return {
-    title: '专题还在沉淀',
+    title: '话题还在沉淀',
     description: '发布内容并补充频道、场景或标签后，这里会逐步形成可浏览的话题入口。',
     actionText: '去发布',
     actionHref: '/editor',
@@ -934,7 +1058,7 @@ const tagEmptyState = computed<ExploreEmptyStateModel>(() => {
   if (requestStates.tags === 'failed') {
     return {
       title: '热门标签暂时不可用',
-      description: '标签接口没有返回，先通过专题入口、搜索和最新发布继续浏览。',
+      description: '标签接口没有返回，先通过话题入口、搜索和最新发布继续浏览。',
       actionText: '去搜索',
       actionHref: '/search?sort=hot',
     }
@@ -962,7 +1086,7 @@ const userEmptyState = computed<ExploreEmptyStateModel>(() => {
   if (requestStates.users === 'failed') {
     return {
       title: '推荐用户暂时不可用',
-      description: '作者推荐接口没有返回，先用专题、标签和最新发布继续找人。',
+      description: '作者推荐接口没有返回，先用话题、标签和最新发布继续找人。',
       actionText: '去搜索用户',
       actionHref: '/search?mode=users',
     }
@@ -973,8 +1097,8 @@ const userEmptyState = computed<ExploreEmptyStateModel>(() => {
   }
 })
 const latestSectionNote = computed(() => {
-  if (cleanLatestPosts.value.length > 0 && cleanLatestPosts.value.length < 4) {
-    return '当前公开样本较少，建议配合多领域入口、专题和热门搜索一起浏览。'
+  if (visibleLatestPosts.value.length > 0 && visibleLatestPosts.value.length < 4) {
+    return '当前公开样本较少，建议配合多频道入口、话题和热门搜索一起浏览。'
   }
   return ''
 })
@@ -1013,6 +1137,11 @@ const riskLevelLabel = (riskLevel?: string) => {
     default:
       return '低关注'
   }
+}
+
+const domainRiskLabel = (domain: number) => {
+  const entry = visibleDomains.value.find((item) => Number(item.domain) === Number(domain))
+  return riskLevelLabel(entry?.riskLevel)
 }
 
 const quickFilters = computed(() => {
@@ -1096,6 +1225,44 @@ const toggleFollowUser = async (user: User) => {
   }
 }
 
+const sortLatestPosts = (items: Post[]) => (
+  [...items].sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+)
+
+const uniquePostsById = (items: Post[]) => {
+  const seen = new Set<string>()
+  return items.filter((post) => {
+    const key = String(post.postId)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+const loadChannelLatestPosts = async () => {
+  if (activeChannelPostTypes.value.length <= 1) {
+    return postApi.list({
+      size: 8,
+      domain: activeDomain.value,
+      type: activeListType.value,
+    })
+  }
+
+  const settled = await Promise.allSettled(activeChannelPostTypes.value.map((type) => postApi.list({
+    size: 8,
+    domain: activeDomain.value,
+    type,
+  })))
+  const items = settled.flatMap((result) => (
+    result.status === 'fulfilled' ? (result.value.data?.items || []) : []
+  ))
+  return {
+    data: {
+      items: sortLatestPosts(uniquePostsById(items)).slice(0, 8),
+    },
+  }
+}
+
 const loadExploreData = async () => {
   isLoadingMeta.value = true
   isLoadingPosts.value = true
@@ -1120,7 +1287,7 @@ const loadExploreData = async () => {
     postApi.getTags(),
     postApi.listTopics({ limit: 10 }),
     userApi.searchUsers('', 8),
-    postApi.list({ size: 8, domain: activeDomain.value }),
+    loadChannelLatestPosts(),
     dashboardApi.getTrendDashboard('30d', activeDomain.value),
   ]
   if (authStore.isLoggedIn) {
@@ -1185,8 +1352,8 @@ onMounted(async () => {
   await loadExploreData()
 })
 
-watch(activeDomain, async (nextDomain, prevDomain) => {
-  if (nextDomain === prevDomain) return
+watch(() => [activeDomain.value, activeChannelKey.value], async ([nextDomain, nextChannel], [prevDomain, prevChannel]) => {
+  if (nextDomain === prevDomain && nextChannel === prevChannel) return
   await loadExploreData()
 })
 
@@ -1212,6 +1379,58 @@ watch(() => authStore.isLoggedIn, async () => {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem;
+}
+
+.active-channel-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(199 210 254);
+  border-radius: 1rem;
+  background: rgb(238 242 255 / 0.6);
+  padding: 1rem;
+}
+
+.active-channel-panel span,
+.active-channel-panel small {
+  display: block;
+  font-size: 0.75rem;
+  color: rgb(79 70 229);
+}
+
+.active-channel-panel strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 1rem;
+  color: rgb(15 23 42);
+}
+
+.active-channel-panel p {
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgb(71 85 105);
+}
+
+.domain-card--active {
+  border-color: rgb(99 102 241);
+  background: rgb(238 242 255 / 0.72);
+}
+
+.channel-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.channel-card-links span {
+  border-radius: 999px;
+  background: rgb(248 250 252);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgb(71 85 105);
 }
 
 .channel-card:hover,
@@ -1706,6 +1925,18 @@ watch(() => authStore.isLoggedIn, async () => {
   gap: 0.5rem;
 }
 
+.follow-reason {
+  margin-top: 0.75rem;
+  min-height: 2.5rem;
+  border-radius: 0.625rem;
+  background: rgb(238 242 255);
+  padding: 0.55rem 0.65rem;
+  color: rgb(67 56 202);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .user-stat-chip {
   display: flex;
   min-width: 0;
@@ -2004,6 +2235,12 @@ watch(() => authStore.isLoggedIn, async () => {
   background: rgb(15 23 42 / 0.8);
 }
 
+.dark .active-channel-panel,
+.dark .domain-card--active {
+  border-color: rgb(99 102 241 / 0.78);
+  background: rgb(30 41 59 / 0.88);
+}
+
 .dark .domain-card:hover,
 .dark .reading-spotlight:hover,
 .dark .reading-topic-chip:hover {
@@ -2016,18 +2253,27 @@ watch(() => authStore.isLoggedIn, async () => {
 }
 
 .dark .domain-card h3,
-.dark .reading-spotlight strong {
+.dark .reading-spotlight strong,
+.dark .active-channel-panel strong {
   color: rgb(248 250 252);
 }
 
 .dark .domain-card p,
 .dark .reading-spotlight p,
-.dark .reading-topic-chip {
+.dark .reading-topic-chip,
+.dark .active-channel-panel p {
   color: rgb(148 163 184);
 }
 
-.dark .domain-card small {
+.dark .domain-card small,
+.dark .active-channel-panel span,
+.dark .active-channel-panel small {
   color: rgb(100 116 139);
+}
+
+.dark .channel-card-links span {
+  background: rgb(30 41 59 / 0.9);
+  color: rgb(203 213 225);
 }
 
 .dark .browse-playbook {
@@ -2077,6 +2323,11 @@ watch(() => authStore.isLoggedIn, async () => {
   border-color: rgb(51 65 85 / 0.78);
   background: rgb(2 6 23 / 0.58);
   color: rgb(148 163 184);
+}
+
+.dark .follow-reason {
+  background: rgb(49 46 129 / 0.5);
+  color: rgb(199 210 254);
 }
 
 .dark .user-stat-chip strong {
