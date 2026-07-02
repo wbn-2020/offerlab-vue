@@ -1,13 +1,13 @@
 <template>
   <header class="sticky top-0 z-40 border-b border-slate-200/75 bg-white/88 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/82">
     <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-      <RouterLink to="/" class="brand-link group flex flex-shrink-0 items-center gap-2.5 text-slate-950 dark:text-white" aria-label="OfferLab 综合社区首页">
+      <RouterLink to="/" class="brand-link group flex flex-shrink-0 items-center gap-2.5 text-slate-950 dark:text-white" :aria-label="`${siteBrand.displayName} 综合社区首页`">
         <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-sm font-black text-white shadow-sm shadow-primary-600/20 transition-transform group-hover:-translate-y-0.5">
-          OL
+          闻
         </span>
         <span class="hidden leading-tight sm:block">
-          <span class="block text-base font-black tracking-normal">OfferLab</span>
-          <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">真实经验与有用内容社区</span>
+          <span class="block text-base font-black tracking-normal">{{ siteBrand.displayName }}</span>
+          <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">{{ siteBrand.tagline || '真实经验与有用内容社区' }}</span>
         </span>
       </RouterLink>
 
@@ -121,7 +121,7 @@
           >
             <template v-if="authStore.isLoggedIn">
               <div class="px-4 py-3">
-                <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ authStore.user?.nickname || 'OfferLab 用户' }}</div>
+                <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ authStore.user?.nickname || `${siteBrand.shortName}用户` }}</div>
                 <div class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{{ userMenuSignature }}</div>
               </div>
               <div class="menu-divider" />
@@ -279,6 +279,7 @@ import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { useAuthStore } from '@/stores/auth'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 import { useThemeStore } from '@/stores/theme'
+import { siteBrand } from '@/utils/brand'
 import { isSyntheticVisibleText } from '@/utils/textQuality'
 
 const authStore = useAuthStore()
@@ -308,7 +309,7 @@ const headerDomainSourceSummary = computed(() => (
 const navItems = [
   { to: '/', label: '首页', icon: Flame },
   { to: '/explore', label: '发现', icon: Compass },
-  { to: '/questions', label: '问答', icon: MessageCircle },
+  { to: '/questions', label: '知识库', icon: MessageCircle },
   { to: '/editor', label: '发布', icon: PenLine },
 ]
 const adminLinks = computed(() => {

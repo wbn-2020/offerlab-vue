@@ -235,6 +235,11 @@
             <span v-if="searchDiagnosticText" class="block text-xs">{{ searchDiagnosticText }}</span>
           </div>
 
+          <div v-if="highRiskSearchWarning" class="search-source-notice source-degraded">
+            <strong>谨慎参考</strong>
+            <span>{{ highRiskSearchWarning }}</span>
+          </div>
+
           <div v-if="isLoading && resultCount === 0" class="loading-panel">正在搜索...</div>
 
           <template v-else-if="searchMode === 'users' && userResults.length">
@@ -409,6 +414,7 @@ import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeLabel } from '@/utils
 import { COMMUNITY_CHANNELS, isKnownDomain } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
+import { filterVisiblePosts, findHighRiskContentWarning } from '@/utils/recommendationGovernance'
 
 type SortValue = 'relevance' | 'latest' | 'hot'
 type SearchMode = 'posts' | 'users' | 'topics' | 'tags'
@@ -667,6 +673,9 @@ const searchSourceDescription = computed(() => {
   if (isVisibilitySupplementReason(meta.fallbackReason)) return `${fallbackReasonText(meta.fallbackReason)}，搜索服务仍可用。${scan}`
   return `${fallbackReasonText(meta.fallbackReason)}，结果可能不完整，排序能力受限。${scan}`
 })
+const highRiskSearchWarning = computed(() => (
+  findHighRiskContentWarning([filters.q, filters.company, filters.position].filter(Boolean).join(' '))
+))
 
 const isLowQualitySearchTerm = (value: string) => {
   return !value || isLowQualityVisibleText(value)
@@ -1106,7 +1115,8 @@ const runSearch = async (append = false, syncRoute = true) => {
     const res = await searchApi.searchPosts(params)
     const page = res.data
     if (requestId !== searchRequestId) return
-    const cleanItems = includeTestData.value ? (page?.items || []) : filterPublicContent(page?.items || [])
+    const rawItems = includeTestData.value ? (page?.items || []) : filterPublicContent(page?.items || [])
+    const cleanItems = filterVisiblePosts(rawItems)
     searchResults.value = append ? [...searchResults.value, ...cleanItems] : cleanItems
     userResults.value = []
     topicResults.value = []

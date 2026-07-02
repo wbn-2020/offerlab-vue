@@ -175,7 +175,7 @@
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="task-section-label">
-                {{ section.taskType === 'DAILY' ? '每日任务 Lite' : '新人任务链' }}
+                {{ section.taskType === 'DAILY' ? '今日行动' : '新用户引导' }}
               </p>
               <h2 class="text-sm font-black text-slate-950 dark:text-white">{{ section.title }}</h2>
               <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
@@ -256,7 +256,7 @@
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <p class="task-section-label">
-                    {{ section.taskType === 'DAILY' ? '每日任务 Lite' : '新人任务链' }}
+                    {{ section.taskType === 'DAILY' ? '今日行动' : '新用户引导' }}
                   </p>
                   <h3 class="font-black text-slate-950 dark:text-white">{{ section.title }}</h3>
                   <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
@@ -331,7 +331,7 @@
             <p class="px-3 pb-2 pt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
               {{ feedDescriptions[activeFeed] }}
               <span v-if="activeFeed === 'recommend'" class="mt-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                推荐理由会结合兴趣标签、内容形式和社区热度一起计算。
+                推荐理由会结合兴趣设置、内容标签、近期热度和新内容信号生成。
               </span>
             </p>
             <div class="border-t border-slate-100 px-3 py-3 dark:border-slate-800">
@@ -519,6 +519,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, type Component } from 'vue'
 import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
+import { useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
 import { BookOpen, Compass, FileText, PenLine, Search, Sparkles, Tag, Target, TrendingUp, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
@@ -541,10 +542,12 @@ import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
 import { COMMUNITY_CHANNELS, DOMAIN_OPTIONS } from '@/utils/domains'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
+import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+const queryClient = useQueryClient()
 const { requireLogin } = useLoginRedirect()
 
 const activeFeed = ref<FeedType>('recommend')
@@ -585,7 +588,7 @@ const feedShortDescriptions: Record<FeedType, string> = {
 }
 const feedDescriptions: Record<FeedType, string> = {
   following: '只看你关注作者的最新动态，适合持续追踪熟悉的社区内容。',
-  recommend: '结合你的兴趣主题、内容标签、阅读偏好和互动热度重排，优先展示更贴近你关注点的社区推荐。',
+  recommend: '结合公开的兴趣设置、内容标签和社区热度重排，优先展示更贴近你关注点的社区内容。',
   latest: '按发布时间倒序展示公开内容，适合快速浏览新发布的文章、复盘和问答。',
   hot: '按浏览、点赞、收藏、评论和发布时间计算热度，适合查看正在升温的社区内容。',
   featured: '展示管理员或运营标记的高质量内容，适合作为首页精选和专题沉淀入口。',
@@ -640,7 +643,7 @@ const topicItems = computed(() => {
     href: { path: '/search', query: { company: topic.name, sort: 'hot' } },
   }))
 })
-const cleanPosts = computed(() => filterPublicContent(posts.value))
+const cleanPosts = computed(() => filterVisiblePosts(filterPublicContent(posts.value)))
 const featuredPreview = computed(() => cleanPosts.value.filter(isFeaturedPost).slice(0, 3))
 const visiblePosts = computed(() => {
   const base = activeFeed.value === 'recommend'
@@ -669,8 +672,8 @@ const todayActions = computed<TodayAction[]>(() => [
     icon: Sparkles,
   },
   {
-    title: '参与问答',
-    description: '提出问题、征集建议，也可以回答别人的困惑',
+    title: '查看知识库',
+    description: '从社区内容沉淀的结构化知识卡里找线索',
     href: '/questions',
     icon: BookOpen,
   },
@@ -681,9 +684,9 @@ const todayActions = computed<TodayAction[]>(() => [
     icon: FileText,
   },
   {
-    title: '实验工具',
-    description: '旧版学习空间和练习工具保留直达，适合职场频道用户继续使用',
-    href: authStore.isLoggedIn ? '/me/prep' : '/login',
+    title: '收藏回看',
+    description: '回到个人空间，整理收藏、合集和最近创作',
+    href: authStore.isLoggedIn ? '/me?tab=favorites' : '/login',
     icon: Target,
   },
 ])
@@ -801,7 +804,7 @@ const handleTaskAction = async (section: UserTaskOverview, item: UserTaskItem) =
     await refreshTaskPanels()
     await router.push(nextRoute)
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '任务状态更新失败'))
+    toast.error(getErrorMessage(error, '行动状态更新失败'))
   } finally {
     const next = new Set(taskBusyKeys.value)
     next.delete(busyKey)
@@ -878,6 +881,7 @@ const toggleFollowUser = async (user: User) => {
     }
     user.isFollowing = !wasFollowing
     user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
+    await queryClient.invalidateQueries({ queryKey: ['feed', 'following'] })
     await refreshTaskPanels()
   } catch (error: any) {
     toast.error(getErrorMessage(error, '关注操作失败'))
@@ -911,7 +915,7 @@ onMounted(async () => {
   }
   const feedCounts = [latestRes, hotRes, recommendRes]
     .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
-    .map((res) => filterPublicContent(res.value.data?.items || []).length)
+    .map((res) => filterVisiblePosts(filterPublicContent(res.value.data?.items || [])).length)
   sampledFeedContentCount.value = Math.max(0, ...feedCounts)
   await Promise.all([loadHomeDomains(), loadHomeSeriesPreview()])
   await refreshTaskPanels()

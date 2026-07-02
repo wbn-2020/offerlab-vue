@@ -69,6 +69,9 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const emit = defineEmits<{
+  'follow-change': [uid: User['uid'], following: boolean, followerCount: number]
+}>()
 
 const authStore = useAuthStore()
 const { requireLogin } = useLoginRedirect()
@@ -101,6 +104,7 @@ const toggleFollow = async () => {
     }
     isFollowing.value = !wasFollowing
     followerCount.value = Math.max(0, followerCount.value + (wasFollowing ? -1 : 1))
+    emit('follow-change', props.user.uid, isFollowing.value, followerCount.value)
   } catch (error: any) {
     toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {

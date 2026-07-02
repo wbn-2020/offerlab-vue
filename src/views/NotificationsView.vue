@@ -6,10 +6,13 @@
       <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p class="text-sm font-medium text-primary-600 dark:text-primary-400">消息收件箱</p>
+            <p class="text-sm font-medium text-primary-600 dark:text-primary-400">社区回访中心</p>
             <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-slate-100 sm:text-3xl">通知中心</h1>
             <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              集中处理点赞、评论、收藏、关注和提及，未读消息会同步到顶部铃铛。
+              看清谁回应了你、关联哪条内容，以及下一步回到讨论、作者主页或话题页。
+            </p>
+            <p v-if="preferenceOffText" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+              {{ preferenceOffText }}
             </p>
           </div>
 
@@ -87,9 +90,9 @@
           <BellOff class="h-6 w-6" />
         </div>
         <h2 class="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">{{ emptyTitle }}</h2>
-        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+        <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
         <RouterLink to="/explore" class="mt-5 inline-flex items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
-          去发现页看看
+          去发现内容和作者
         </RouterLink>
       </div>
 
@@ -126,7 +129,7 @@
               <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ notif.content }}</p>
               <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
                 <span>{{ formatTime(notif.createdAt) }}</span>
-                <span v-if="notif.targetPath">点击查看详情</span>
+                <span v-if="notif.targetPath">{{ nextStepText(notif) }}</span>
               </div>
             </div>
             <button
@@ -165,7 +168,7 @@ import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, User
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { notificationApi } from '@/api/notification'
-import type { ApiId, Notification } from '@/api/types'
+import type { ApiId, Notification, NotificationPreference, NotificationUnreadCount } from '@/api/types'
 import { formatTime } from '@/lib/format'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
@@ -177,10 +180,11 @@ const activeType = ref('all')
 const notifications = ref<Notification[]>([])
 const isLoading = ref(false)
 const isMutating = ref(false)
-const emptyText = ref('暂无通知')
+const loadErrorText = ref('')
 const nextCursor = ref<string | undefined>()
 const hasMore = ref(false)
-const unread = ref(emptyUnreadCount())
+const unread = computed(() => realtimeStore.unreadCount)
+const preferences = ref<NotificationPreference | null>(null)
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
 const notificationUnreadKeys = ['like', 'comment', 'favorite', 'follower', 'mention', 'system'] as const
@@ -198,6 +202,22 @@ const tabs = computed(() => [
 
 const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
 const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
+const emptyText = computed(() => {
+  if (loadErrorText.value) return loadErrorText.value
+  if (preferenceOffText.value) return '当前提醒较安静，你仍然可以继续浏览内容、关注作者和参与讨论。'
+  if (activeType.value === 'all') return '当有人评论、点赞、收藏、关注或提及你时，会在这里形成可回访的社区线索。'
+  if (activeType.value === 'follower') return '有新关注时，可以从这里进入对方主页，决定是否回访或关注。'
+  if (activeType.value === 'system') return '社区公告、话题更新和必要系统通知会在这里出现。'
+  return '这个分类暂时没有新通知，去发现页看看新的讨论和作者。'
+})
+const preferenceOffText = computed(() => {
+  const pref = preferences.value
+  if (!pref) return ''
+  if (!pref.interactionNotification && !pref.systemNotification) return '你已关闭互动和系统提醒；社区事件仍会发生，只是不再打扰你。'
+  if (!pref.interactionNotification) return '你已关闭互动提醒；点赞、评论、关注等事件仍会发生，只是不再提醒。'
+  if (!pref.systemNotification) return '你已关闭系统提醒；社区公告和话题更新不会主动打扰你。'
+  return ''
+})
 const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
 const markAllHint = computed(() => unread.value.total === 0 ? '当前没有未读通知' : '将所有通知标记为已读')
 const isNotificationUnreadKey = (type: string): type is NotificationUnreadKey => {
@@ -232,9 +252,8 @@ const labelFor = (type: string) => {
   return '全部'
 }
 
-const syncUnread = (value: typeof unread.value) => {
-  unread.value = { ...unread.value, ...value }
-  realtimeStore.setUnreadCount(unread.value)
+const syncUnread = (value: NotificationUnreadCount) => {
+  realtimeStore.setUnreadCount({ ...emptyUnreadCount(), ...value })
 }
 
 const loadUnread = async () => {
@@ -250,9 +269,9 @@ const loadNotifications = async () => {
     notifications.value = res.data?.items || []
     nextCursor.value = res.data?.nextCursor
     hasMore.value = Boolean(res.data?.hasMore)
-    emptyText.value = '暂无通知'
+    loadErrorText.value = ''
   } catch (error) {
-    emptyText.value = getErrorMessage(error, '通知接口暂不可用')
+    loadErrorText.value = getErrorMessage(error, '通知接口暂不可用，稍后可以再回来查看社区回应。')
   } finally {
     isLoading.value = false
   }
@@ -336,20 +355,35 @@ const markAllAsRead = async () => {
 }
 
 const openNotification = (notif: Notification) => {
+  if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId], { background: true })
   if (notif.targetPath) {
     router.push(notif.targetPath)
-    if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId], { background: true })
     return
   }
-  if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId])
 }
 
 const notificationActionLabel = (notif: Notification) => {
   return notif.targetPath ? `${notif.title}，查看通知详情` : undefined
 }
 
+const nextStepText = (notif: Notification) => {
+  if (notif.type === 'follower') return '查看作者主页'
+  if (notif.type === 'comment' || notif.type === 'mention') return '回到讨论'
+  if (notif.type === 'system') return '查看相关内容'
+  return '查看关联内容'
+}
+
+const loadPreferences = async () => {
+  try {
+    const res = await notificationApi.getPreferences()
+    preferences.value = res.data
+  } catch {
+    preferences.value = null
+  }
+}
+
 onMounted(async () => {
-  await Promise.all([loadUnread(), loadNotifications()])
+  await Promise.all([loadUnread(), loadNotifications(), loadPreferences()])
 })
 </script>
 

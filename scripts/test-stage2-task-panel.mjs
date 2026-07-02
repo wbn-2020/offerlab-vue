@@ -13,6 +13,7 @@ assert.match(homeView, /taskSections/, 'HomeView must compute visible task secti
 assert.match(homeView, /refreshTaskPanels/, 'HomeView must be able to refresh task panel state')
 assert.match(homeView, /handleTaskAction/, 'HomeView must handle task action clicks')
 assert.match(homeView, /task-progress-pill/, 'HomeView must render task progress pill')
-assert.match(homeView, /新人任务链|每日任务 Lite/, 'HomeView must surface stage 2 task panel copy')
+assert.match(homeView, /新用户引导|今日行动/, 'HomeView must surface community-oriented action panel copy')
+assert.doesNotMatch(homeView, /新人任务链|每日任务 Lite/, 'HomeView must not keep old private-task panel copy')
 
 console.log('stage2 task panel guard passed')

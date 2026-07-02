@@ -22,10 +22,11 @@ assert.match(postApi, /\/api\/v1\/interview-materials\/\$\{id\}`/, 'post API mus
 assert.match(postApi, /saveInterviewMaterialToPrep: async \(id: ApiId\)/, 'post API must archive interview materials to prep')
 assert.match(postApi, /\/api\/v1\/interview-materials\/\$\{id\}\/save-to-prep`/, 'post API must call the material archive endpoint')
 
-assert.match(postDetail, /面试素材包/, 'post detail must render the material pack entry')
+assert.match(postDetail, /内容素材整理/, 'post detail must render the material organization entry')
 assert.match(postDetail, /生成素材/, 'post detail must let users generate materials')
 assert.match(postDetail, /保存编辑/, 'post detail must let users save edited materials')
-assert.match(postDetail, /归档到备战/, 'post detail must let users archive materials to prep')
+assert.match(postDetail, /归档到个人空间/, 'post detail must let users archive materials to the personal space')
+assert.doesNotMatch(postDetail, /面试素材包|归档到备战|简历 bullet|面试官追问/, 'post detail must not frame public detail tools as interview prep')
 assert.match(postDetail, /handleGenerateMaterial = async/, 'post detail must wire material generation')
 assert.match(postDetail, /handleSaveMaterial = async/, 'post detail must wire material editing')
 assert.match(postDetail, /handleSaveMaterialToPrep = async/, 'post detail must wire material archiving')

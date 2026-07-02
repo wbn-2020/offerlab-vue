@@ -4,13 +4,13 @@
     <main class="p-8">
     <div class="max-w-4xl mx-auto">
       <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12">
-        <h1 class="text-4xl font-bold text-slate-900 dark:text-slate-100 mb-6">关于 OfferLab 综合社区</h1>
+        <h1 class="text-4xl font-bold text-slate-900 dark:text-slate-100 mb-6">关于 {{ siteBrand.displayName }}</h1>
 
         <div class="prose dark:prose-invert max-w-none space-y-6">
           <section>
             <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">项目介绍</h2>
             <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-              OfferLab 是一个多领域实践社区，帮助用户围绕技术、职场、阅读、生活与投资理财发布、发现、讨论和搜索真实经验。
+              {{ siteBrand.displayName }}是一个综合内容社区，帮助用户围绕科技数码、学习成长、职场经验、生活方式和资源推荐发布、发现、讨论和搜索真实经验。
             </p>
             <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
               我们希望它成为一个成长型社区。在这里，你可以：
@@ -75,7 +75,7 @@
             <ul class="space-y-2 text-slate-700 dark:text-slate-300">
               <li>邮箱：contact@interviewcircle.com</li>
               <li>GitHub：github.com/interviewcircle</li>
-              <li>微博：@OfferLab</li>
+              <li>站内反馈：通过举报、评论和设置页反馈入口联系我们</li>
             </ul>
           </section>
 
@@ -90,7 +90,7 @@
 
         <div class="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 text-center">
           <p class="text-sm text-slate-500 dark:text-slate-400">
-            OfferLab 综合社区 © 2026 | 个人项目 |
+            {{ siteBrand.displayName }} © 2026 | 个人项目 |
             <router-link to="/" class="text-primary-600 hover:text-primary-700">
               返回首页
             </router-link>
@@ -104,4 +104,5 @@
 
 <script setup lang="ts">
 import AppHeader from '@/components/layout/AppHeader.vue'
+import { siteBrand } from '@/utils/brand'
 </script>

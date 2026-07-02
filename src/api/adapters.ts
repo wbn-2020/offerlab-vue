@@ -211,6 +211,13 @@ export function adaptPost(raw: any): Post {
       favorite: Number(counter.favorite ?? counter.favoriteCount ?? source?.favoriteCount ?? 0),
     },
     extension,
+    visibility: source?.visibility,
+    postStatus: source?.postStatus,
+    status: source?.status,
+    deleted: Boolean(source?.deleted ?? source?.isDeleted ?? false),
+    restricted: Boolean(source?.restricted ?? source?.isRestricted ?? false),
+    riskLevel: source?.riskLevel,
+    moderationStatus: source?.moderationStatus,
     recommendationReasons: Array.isArray(raw?.recommendationReasons)
       ? raw.recommendationReasons.map((item: unknown) => sanitizeVisibleText(item)).filter(Boolean)
       : Array.isArray(source?.recommendationReasons)

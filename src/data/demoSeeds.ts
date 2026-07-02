@@ -14,7 +14,7 @@ const day = 24 * 60 * 60 * 1000
 
 const demoAuthor: User = {
   uid: 'demo-author-001',
-  nickname: 'OfferLab Demo',
+  nickname: '闻野示例作者',
   avatar: '',
   signature: '用真实项目复盘沉淀可复用的面试素材。',
   createdAt: now - 180 * day,

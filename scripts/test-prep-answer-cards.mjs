@@ -41,7 +41,8 @@ assert.match(view, /薄弱标签聚焦/, 'MePrepView must label weak focus tag i
 assert.match(view, /\/mock-interview\?focusTag=/, 'Weak focus tags must deep-link to focused mock interview')
 
 assert.match(exporter, /buildStarStoryLibraryMarkdown/, 'Shared exporter must build STAR story library Markdown')
-assert.match(exporter, /# OfferLab STAR 素材库/, 'STAR story library Markdown must include a clear title')
+assert.match(exporter, /# 闻野素材整理库/, 'story library Markdown must include a branded clear title')
+assert.doesNotMatch(exporter, /# OfferLab STAR 素材库/, 'story library Markdown must not use the legacy project name')
 assert.match(exporter, /### STAR 项目映射/, 'STAR story library Markdown must include STAR sections')
 assert.match(exporter, /### 回答草稿/, 'STAR story library Markdown must include answer draft sections')
 

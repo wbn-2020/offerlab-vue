@@ -135,8 +135,8 @@
                   />
                 </div>
 
-                <div v-if="domainDetailSurface.riskNotice" class="domain-detail-risk-notice" role="note">
-                  {{ domainDetailSurface.riskNotice }}
+                <div v-if="effectiveRiskNotice" class="domain-detail-risk-notice" role="note">
+                  {{ effectiveRiskNotice }}
                 </div>
               </section>
 
@@ -188,16 +188,16 @@
                 <div class="ai-knowledge-actions">
                   <RouterLink :to="{ path: '/questions', query: knowledgeTopicQuery }">查看结构化知识卡</RouterLink>
                   <RouterLink :to="{ path: '/search', query: knowledgeSearchQuery }">合并相似经验</RouterLink>
-                  <RouterLink to="/me/prep">生成个人复盘建议</RouterLink>
+                  <RouterLink to="/me/prep">整理复盘要点</RouterLink>
                 </div>
               </section>
 
-              <section v-if="showStageTwoDetailPanels" class="interview-material-panel mb-8" aria-label="面试素材包">
+              <section v-if="showStageTwoDetailPanels" class="interview-material-panel mb-8" aria-label="内容素材整理">
                 <div class="interview-material-head">
                   <div>
-                    <p class="plan-kicker">面试素材包</p>
+                    <p class="plan-kicker">内容素材整理</p>
                     <h2>把真实经历整理成可讲的项目故事</h2>
-                    <span>{{ materialPack ? materialStatusText : '从正文、标签和结构化字段生成 STAR、简历 bullet 和追问清单' }}</span>
+                    <span>{{ materialPack ? materialStatusText : '从正文、标签和结构化字段整理项目故事、内容亮点和追问清单' }}</span>
                   </div>
                   <div class="interview-material-actions">
                     <button
@@ -224,18 +224,18 @@
                       :disabled="isSavingMaterialToPrep || materialPack.savedToPrep"
                       @click="handleSaveMaterialToPrep"
                     >
-                      {{ materialPack.savedToPrep ? '已归档' : isSavingMaterialToPrep ? '归档中...' : '归档到备战' }}
+                      {{ materialPack.savedToPrep ? '已归档' : isSavingMaterialToPrep ? '归档中...' : '归档到个人空间' }}
                     </button>
                   </div>
                 </div>
 
                 <div v-if="!authStore.isLoggedIn" class="interview-material-empty">
-                  <strong>登录后可生成个人素材包</strong>
-                  <p>素材包默认只保存到你的个人空间，后续可在备战页按公司、岗位和技术栈回看。</p>
+                  <strong>登录后可整理个人素材</strong>
+                  <p>整理结果默认只保存到你的个人空间，后续可按主题、场景和标签回看。</p>
                   <button type="button" @click="requireLogin()">去登录</button>
                 </div>
                 <div v-else-if="isLoadingMaterial" class="interview-material-empty">
-                  <strong>正在加载素材包</strong>
+                  <strong>正在加载内容素材</strong>
                   <p>已有素材会自动带出，方便继续编辑。</p>
                 </div>
                 <div v-else-if="materialErrorMessage" class="interview-material-error">
@@ -263,11 +263,11 @@
                   </div>
                   <div class="material-list-grid">
                     <label>
-                      <span>简历 bullet</span>
+                      <span>内容亮点</span>
                       <textarea v-model="materialForm.resumeBulletsText" rows="5" placeholder="每行一条" />
                     </label>
                     <label>
-                      <span>面试官追问</span>
+                      <span>讨论追问</span>
                       <textarea v-model="materialForm.followUpQuestionsText" rows="5" placeholder="每行一条" />
                     </label>
                     <label>
@@ -281,11 +281,11 @@
                   </div>
                   <label class="material-note-field">
                     <span>个人备注</span>
-                    <textarea v-model="materialForm.userNote" rows="3" maxlength="1000" placeholder="补充你要在面试中强调的表达口径" />
+                    <textarea v-model="materialForm.userNote" rows="3" maxlength="1000" placeholder="补充你想保留的表达口径、数据和上下文" />
                   </label>
                 </div>
                 <div v-else class="interview-material-empty">
-                  <strong>还没有素材包</strong>
+                  <strong>还没有内容素材</strong>
                   <p>建议先生成一版，再补充指标、取舍和复盘结论。</p>
                 </div>
               </section>
@@ -529,6 +529,10 @@
             <option value="SPAM">垃圾广告</option>
             <option value="ABUSE">攻击辱骂</option>
             <option value="PRIVACY">隐私泄露</option>
+            <option value="FRAUD">诈骗或违法诱导</option>
+            <option value="INVESTMENT_MISLEADING">投资误导</option>
+            <option value="THREAT">人身威胁</option>
+            <option value="MINOR_RISK">未成年人风险</option>
             <option value="OTHER">其他问题</option>
           </select>
         </label>
@@ -629,6 +633,7 @@ import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 import { buildFollowReasons, isPublicAuthor, safeCreatorBio } from '@/utils/creatorSignals'
+import { findHighRiskContentWarning } from '@/utils/recommendationGovernance'
 
 const route = useRoute()
 const router = useRouter()
@@ -826,6 +831,17 @@ const visibleTechStacks = computed(() => Array.isArray(post.value?.extension?.te
   ? post.value.extension.techStacks.map(String).filter(Boolean).slice(0, 8)
   : [])
 const domainDetailSurface = computed(() => post.value ? buildDomainDetailSurface(post.value) : null)
+const effectiveRiskNotice = computed(() => {
+  if (domainDetailSurface.value?.riskNotice) return domainDetailSurface.value.riskNotice
+  if (!post.value) return ''
+  return findHighRiskContentWarning([
+    getDomainLabel(post.value.domain),
+    post.value.title,
+    post.value.summary,
+    post.value.content,
+    ...(post.value.tags || []).map((tag) => tag.name),
+  ].filter(Boolean).join(' '))
+})
 const knowledgeSummary = computed(() => post.value?.extension?.summary || post.value?.summary || '')
 const knowledgeTags = computed(() => {
   const extension = post.value?.extension || {}
@@ -928,11 +944,11 @@ const aiKnowledgeInsights = computed(() => [
       : '有赞同、追问或补充方案的评论，会成为后续 FAQ 候选。',
   },
   {
-    label: '个人复盘建议',
+    label: '个人回看线索',
     value: post.value?.myInteraction?.favorited ? '已加入回看' : '可加入回看',
     detail: post.value?.myInteraction?.favorited
       ? '这篇经验已进入你的收藏线索，可继续沉淀为个人知识资产。'
-      : '收藏或评论后，可在个人复盘空间集中回看同主题知识卡。',
+      : '收藏或评论后，可在个人空间集中回看同主题知识卡。',
   },
 ])
 const primaryKnowledgeTopic = computed(() => {
@@ -966,12 +982,12 @@ const knowledgePathSteps = computed(() => [
   {
     index: '04',
     title: '个人复盘可追踪',
-    description: '收藏、评论和知识复盘会回流到个人学习空间，形成自己的技术知识资产。',
+    description: '收藏、评论和知识复盘会回流到个人空间，形成自己的内容线索。',
   },
 ])
 const materialStatusText = computed(() => {
   if (!materialPack.value) return ''
-  const saved = materialPack.value.savedToPrep ? '已归档到备战空间' : '可继续编辑后归档'
+  const saved = materialPack.value.savedToPrep ? '已归档到个人空间' : '可继续编辑后归档'
   const time = materialPack.value.updateTime ? `，更新于 ${formatTime(materialPack.value.updateTime)}` : ''
   return `${saved}${time}`
 })
@@ -1238,7 +1254,7 @@ const submitReport = async () => {
     } else {
       await postApi.report(postId.value, payload)
     }
-    toast.success('举报已提交，等待管理员处理')
+    toast.success('感谢反馈，我们会根据社区规则处理')
     isReportDialogOpen.value = false
     reportForm.value = { reason: 'OTHER', detail: '' }
     reportTarget.value = { type: 'post' }
@@ -1404,7 +1420,7 @@ const loadInterviewMaterial = async () => {
     materialPack.value = res.data || null
     applyMaterialToForm(materialPack.value)
   } catch (error: any) {
-    materialErrorMessage.value = getErrorMessage(error, '素材包加载失败')
+    materialErrorMessage.value = getErrorMessage(error, '内容素材加载失败')
   } finally {
     isLoadingMaterial.value = false
   }
@@ -1419,9 +1435,9 @@ const handleGenerateMaterial = async () => {
     const res = await postApi.generateInterviewMaterials(post.value.postId)
     materialPack.value = res.data || null
     applyMaterialToForm(materialPack.value)
-    toast.success('面试素材包已生成')
+    toast.success('内容素材已生成')
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '素材包生成失败'))
+    toast.error(getErrorMessage(error, '内容素材生成失败'))
   } finally {
     isGeneratingMaterial.value = false
   }
@@ -1444,9 +1460,9 @@ const handleSaveMaterial = async () => {
     })
     materialPack.value = res.data || materialPack.value
     applyMaterialToForm(materialPack.value)
-    toast.success('素材包已保存')
+    toast.success('内容素材已保存')
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '素材包保存失败'))
+    toast.error(getErrorMessage(error, '内容素材保存失败'))
   } finally {
     isSavingMaterial.value = false
   }
@@ -1459,7 +1475,7 @@ const handleSaveMaterialToPrep = async () => {
     const res = await postApi.saveInterviewMaterialToPrep(materialPack.value.id)
     materialPack.value = res.data || materialPack.value
     applyMaterialToForm(materialPack.value)
-    toast.success('已归档到个人备战空间')
+    toast.success('已归档到个人空间')
   } catch (error: any) {
     toast.error(getErrorMessage(error, '归档失败'))
   } finally {

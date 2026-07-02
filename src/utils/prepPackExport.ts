@@ -75,7 +75,7 @@ export const knowledgeReviewCopy = (value: unknown) => {
 
 export function buildUserPrepPackMarkdown(data: UserPrepOverview) {
   const lines = [
-    '# OfferLab 学习包',
+    '# 闻野学习包',
     '',
     `- 收藏题: ${data.favoriteCount}`,
     `- 待学习: ${data.todoCount}`,
@@ -108,7 +108,7 @@ export function buildUserPrepPackMarkdown(data: UserPrepOverview) {
 
 export function buildWeeklyPrepReportMarkdown(data: UserWeeklyPrepReport) {
   const lines = [
-    '# OfferLab 本周学习复盘',
+    '# 闻野本周学习复盘',
     '',
     `- 时间范围: ${formatDate(data.windowStart, 'YYYY-MM-DD')} ~ ${formatDate(data.windowEnd, 'YYYY-MM-DD')}`,
     `- 本周触达题目: ${data.touchedQuestionCount}`,
@@ -220,7 +220,7 @@ export function buildQuestionAnswerCardMarkdown(question: Question) {
 export function buildStarStoryLibraryMarkdown(questions: Question[]) {
   const cards = questions.filter((question) => question.answerDraft || question.starStory || question.note)
   const lines = [
-    '# OfferLab STAR 素材库',
+    '# 闻野素材整理库',
     '',
     `- 回答卡片数: ${cards.length}`,
   ]
@@ -257,7 +257,7 @@ export function buildMockInterviewReportMarkdown(session: MockInterviewSession) 
     .map((item) => inlineText(item))
     .join(' / ') || '综合知识复盘'
   const lines = [
-    `# OfferLab 知识复盘报告 - ${title}`,
+    `# 闻野知识复盘报告 - ${title}`,
     '',
     `- 状态: ${session.status === 'completed' ? '已完成' : '进行中'}`,
     `- 题数: ${session.answeredCount}/${session.questionCount}`,

@@ -3277,6 +3277,28 @@ const submitReviewDialog = async () => {
     return
   }
   reviewDialog.error = ''
+  if (reviewDialog.approved) {
+    const report = reviewDialog.report
+    const targetType = reviewDialog.type === 'comment' ? '评论' : '帖子'
+    const targetId = reviewDialog.type === 'comment'
+      ? `comment:${(report as CommentReport).commentId || report.reportId}`
+      : `post:${(report as PostReport).postId}`
+    const riskNote = await requireRiskConfirm({
+      title: `确认通过${targetType}举报`,
+      level: 'high',
+      reversible: false,
+      impactCount: 1,
+      objects: riskObjects([`report:${report.reportId}`, targetId]),
+      context: riskContext(
+        reviewDialog.type === 'comment' ? '通过后会隐藏评论或整段回复' : '通过后会下架帖子',
+        `举报原因：${report.reason || '未填写原因'}`,
+        `审核备注：${note}`,
+      ),
+      confirmText: '确认通过举报',
+      confirmationPhrase: '确认通过',
+    })
+    if (riskNote === null) return
+  }
   isReviewSubmitting.value = true
   try {
     if (reviewDialog.type === 'post') {

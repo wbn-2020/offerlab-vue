@@ -135,6 +135,8 @@ import type { ApiId, CommunityTopic, Post } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
 import { postTypeSummary } from '@/utils/communityMetrics'
 import { useAuthStore } from '@/stores/auth'
+import { filterPublicContent } from '@/utils/textQuality'
+import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 
 const route = useRoute()
 const router = useRouter()
@@ -220,7 +222,8 @@ const loadPosts = async (append = false) => {
       featured: featuredOnly.value ? true : undefined,
     })
     const page = res.data
-    posts.value = append ? [...posts.value, ...(page?.items || [])] : (page?.items || [])
+    const cleanItems = filterVisiblePosts(filterPublicContent(page?.items || []))
+    posts.value = append ? [...posts.value, ...cleanItems] : cleanItems
     cursor.value = page?.nextCursor
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
   } catch (error: any) {

@@ -172,7 +172,7 @@
               {{ crossDomainPreview(item) }}
             </p>
             <div class="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-6 text-slate-600 dark:bg-slate-950/40 dark:text-slate-300">
-              {{ item.recommendationReason }}
+              {{ normalizeRecommendationReason(item.recommendationReason) }}
             </div>
           </RouterLink>
         </div>
@@ -578,6 +578,7 @@ import {
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
+import { filterVisiblePosts, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 
 type ExploreJumpTarget = string | { path: string; query?: Record<string, string> }
 
@@ -661,10 +662,10 @@ const searchForm = reactive({
 const cleanTags = computed(() => filterPublicContent(tags.value))
 const cleanTopics = computed(() => filterPublicContent(topics.value))
 const cleanRecommendedUsers = computed(() => filterPublicContent(recommendedUsers.value).filter(isPublicAuthor))
-const cleanLatestPosts = computed(() => filterPublicContent(latestPosts.value))
+const cleanLatestPosts = computed(() => filterVisiblePosts(filterPublicContent(latestPosts.value)))
 const recommendedUserReason = (user: User) => buildFollowReasons(user)[0]
 const crossDomainRecommendations = computed(() => (
-  (crossDomainPage.value?.items || []).filter((item) => item.item.post)
+  (crossDomainPage.value?.items || []).filter((item) => filterVisiblePosts(item.item.post ? [item.item.post] : []).length > 0)
 ))
 const crossDomainFallbackReason = computed(() => crossDomainPage.value?.fallbackReason || '')
 const sortedTags = computed(() => [...cleanTags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
@@ -1004,14 +1005,14 @@ const crossDomainEmptyState = computed<ExploreEmptyStateModel>(() => {
   if (!hasAnyPublicSignals.value) {
     return {
       title: '公开内容还不足以形成相关推荐',
-      description: '先补充一批公开内容样本，系统才能根据频道、话题和标签解释推荐理由。',
+      description: '先补充一批公开内容样本，系统才能根据频道、话题、标签等公共内容信号解释推荐理由。',
       actionText: '去发布',
       actionHref: '/editor',
     }
   }
   return {
     title: '当前还没有稳定的跨领域桥接线索',
-    description: '可以继续完善关注领域、互动内容或公开发帖样本，系统会逐步形成可解释的桥接推荐。',
+    description: '可以继续完善关注领域或公开发帖样本，系统会逐步根据公共内容信号形成可解释的桥接推荐。',
     actionText: '看作者数据',
     actionHref: '/growth/profile',
   }
@@ -1320,7 +1321,7 @@ const loadExploreData = async () => {
     requestStates.users = 'failed'
   }
   if (postRes.status === 'fulfilled') {
-    latestPosts.value = filterPublicContent(postRes.value.data?.items || [])
+    latestPosts.value = filterVisiblePosts(filterPublicContent(postRes.value.data?.items || []))
     requestStates.posts = 'ready'
   } else {
     requestStates.posts = 'failed'

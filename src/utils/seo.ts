@@ -1,5 +1,7 @@
-export const SITE_NAME = 'OfferLab 综合社区'
-export const DEFAULT_DESCRIPTION = 'OfferLab 是一个多领域实践社区，围绕技术、职场、阅读、生活与投资理财分享真实经验。'
+import { siteBrand } from '@/utils/brand'
+
+export const SITE_NAME = siteBrand.displayName
+export const DEFAULT_DESCRIPTION = `${siteBrand.tagline}，${siteBrand.description}`
 
 type PageSeo = {
   title?: string | null

@@ -577,6 +577,9 @@
         <div v-if="reviewQueueLoadWarnings.length" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <p v-for="warning in reviewQueueLoadWarnings" :key="warning">{{ warning }}</p>
         </div>
+        <div class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+          帖子/评论举报项需要进入运维审核或治理中心处理；统一队列仅承载认领、定位和审计状态，不在这里承诺直接下架或隐藏。
+        </div>
 
         <div v-if="filteredReviewQueueItems.length" class="space-y-3">
           <div v-for="item in filteredReviewQueueItems" :key="item.id" class="row-card">
@@ -1347,6 +1350,9 @@ type ReviewQueueAction = 'claim' | 'release' | 'approve' | 'reject' | 'close'
 const canQueueAction = (item: ReviewQueueItem, action: ReviewQueueAction) => {
   if (!canGlobalModerate.value) return false
   if (!item.backendItem || reviewQueueSource.value !== 'backend') return false
+  if ((item.sourceType === 'POST_REPORT' || item.sourceType === 'COMMENT_REPORT') && (action === 'approve' || action === 'reject' || action === 'close')) {
+    return false
+  }
   if (action === 'claim') return item.queueStatus === 'pending' || item.queueStatus === 'claimed'
   if (action === 'release') return item.queueStatus === 'claimed'
   return item.queueStatus === 'pending' || item.queueStatus === 'claimed'

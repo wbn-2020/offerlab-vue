@@ -195,6 +195,7 @@ import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { getContentTypeShortLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 import { buildDomainCardSurface } from '@/utils/domainPostSurfaces'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
+import { normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 
 const props = defineProps<{
   post: Post
@@ -287,21 +288,6 @@ const renderSearchHighlight = (highlight: string | undefined, fallback: string) 
   return safe
     .replace(/&lt;em&gt;/g, '<mark class="search-highlight">')
     .replace(/&lt;\/em&gt;/g, '</mark>')
-}
-
-const normalizeRecommendationReason = (reason: string) => {
-  const text = reason.trim()
-  if (!text) return ''
-  if (/目标公司|公司偏好|匹配.*公司|相似公司|目标岗位|岗位偏好|匹配.*岗位/.test(text)) {
-    return '贴近你的技术方向'
-  }
-  if (/面试|求职|Offer|offer/.test(text)) {
-    return '来自可复用工程经验'
-  }
-  if (/AI|智能/.test(text)) {
-    return '基于规则和内容信号推荐'
-  }
-  return text
 }
 
 const getResultClass = (result: number) => {

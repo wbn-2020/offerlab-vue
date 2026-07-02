@@ -7,7 +7,7 @@
         <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Account Settings</p>
         <h1 class="text-2xl font-bold text-slate-950 dark:text-slate-50">设置</h1>
         <p class="max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-          管理账号资料、关注方向和隐私偏好。
+          管理账号资料、关注方向、通知偏好和隐私边界。
         </p>
       </section>
 
@@ -189,46 +189,75 @@
             <input v-model="privacyForm.searchable" type="checkbox" class="switch-input" />
           </label>
 
+          <button type="submit" class="primary-button" :disabled="isUpdatingPrivacy">
+            {{ isUpdatingPrivacy ? '保存中...' : '保存隐私设置' }}
+          </button>
+        </form>
+      </section>
+
+      <section v-if="activeTab === 'notifications'" class="panel space-y-6">
+        <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">通知偏好</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              控制社区互动和系统提醒的打扰程度；关闭后事件仍会发生，只是不再提醒你。
+            </p>
+          </div>
+          <button type="button" class="secondary-button" :disabled="isNotificationLoading" @click="loadNotificationPreferences">
+            {{ isNotificationLoading ? '加载中...' : '重新加载' }}
+          </button>
+        </div>
+
+        <div v-if="isNotificationLoading" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+          正在加载通知偏好...
+        </div>
+        <form v-else class="space-y-6" @submit.prevent="updateNotificationPreferences">
           <label class="switch-row">
             <div>
               <h3 class="setting-title">接收互动通知</h3>
-              <p class="setting-desc">包括关注、点赞、评论、收藏等通知。</p>
+              <p class="setting-desc">包括点赞、评论、收藏、关注和提及等社区回应。</p>
             </div>
-            <input v-model="privacyForm.interactionNotification" type="checkbox" class="switch-input" />
+            <input v-model="notificationForm.interactionNotification" type="checkbox" class="switch-input" />
           </label>
           <div
             class="notification-grid"
-            :class="{ 'notification-grid-disabled': !privacyForm.interactionNotification }"
+            :class="{ 'notification-grid-disabled': !notificationForm.interactionNotification }"
           >
             <label
               v-for="option in notificationPreferenceOptions"
               :key="option.key"
               class="notification-toggle"
-              :class="{ 'notification-toggle-disabled': !privacyForm.interactionNotification }"
+              :class="{ 'notification-toggle-disabled': !notificationForm.interactionNotification }"
             >
               <span>
                 <span class="notification-title">{{ option.label }}</span>
                 <span class="notification-desc">{{ option.description }}</span>
               </span>
               <input
-                v-model="privacyForm[option.key]"
+                v-model="notificationForm[option.key]"
                 type="checkbox"
                 class="switch-input"
-                :disabled="!privacyForm.interactionNotification"
+                :disabled="!notificationForm.interactionNotification"
               />
             </label>
           </div>
+          <p v-if="!notificationForm.interactionNotification" class="setting-help">
+            关闭互动提醒后，别人仍然可以评论、点赞、收藏或关注你，只是这些事件不会再主动打扰。
+          </p>
 
           <label class="switch-row">
             <div>
               <h3 class="setting-title">接收系统通知</h3>
-              <p class="setting-desc">包括系统公告、运维提示和产品消息。</p>
+              <p class="setting-desc">包括社区公告、治理提示和话题更新等必要信息。</p>
             </div>
-            <input v-model="privacyForm.systemNotification" type="checkbox" class="switch-input" />
+            <input v-model="notificationForm.systemNotification" type="checkbox" class="switch-input" />
           </label>
+          <p v-if="!notificationForm.systemNotification" class="setting-help">
+            关闭系统提醒后，社区公告和话题更新不会主动打扰；你仍可在站内页面查看相关内容。
+          </p>
 
-          <button type="submit" class="primary-button" :disabled="isUpdatingPrivacy">
-            {{ isUpdatingPrivacy ? '保存中...' : '保存隐私设置' }}
+          <button type="submit" class="primary-button" :disabled="isUpdatingNotifications">
+            {{ isUpdatingNotifications ? '保存中...' : '保存通知偏好' }}
           </button>
         </form>
       </section>
@@ -245,10 +274,11 @@ import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
+import { notificationApi } from '@/api/notification'
 import { userApi, type PrivacySetting } from '@/api/user'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import IntentForm from '@/components/user/IntentForm.vue'
-import type { UserIntent } from '@/api/types'
+import type { NotificationPreference, UserIntent } from '@/api/types'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
@@ -259,6 +289,7 @@ const tabs = [
   { value: 'profile', label: '资料' },
   { value: 'intent', label: '关注方向' },
   { value: 'theme', label: '主题' },
+  { value: 'notifications', label: '通知偏好' },
   { value: 'privacy', label: '隐私' },
 ]
 
@@ -301,8 +332,18 @@ const defaultPrivacySetting = (): PrivacySetting => ({
   mentionNotification: true,
 })
 
+const defaultNotificationPreference = (): NotificationPreference => ({
+  interactionNotification: true,
+  systemNotification: true,
+  likeNotification: true,
+  commentNotification: true,
+  followNotification: true,
+  favoriteNotification: true,
+  mentionNotification: true,
+})
+
 const notificationPreferenceOptions: Array<{ key: InteractionNotificationKey, label: string, description: string }> = [
-  { key: 'likeNotification', label: '点赞', description: '收到帖子或评论点赞时提醒' },
+  { key: 'likeNotification', label: '点赞', description: '帖子或评论被点赞时提醒' },
   { key: 'commentNotification', label: '评论', description: '收到评论、回复和讨论更新时提醒' },
   { key: 'followNotification', label: '关注', description: '有用户关注你时提醒' },
   { key: 'favoriteNotification', label: '收藏', description: '内容被收藏时提醒' },
@@ -310,12 +351,15 @@ const notificationPreferenceOptions: Array<{ key: InteractionNotificationKey, la
 ]
 
 const privacyForm = ref<PrivacySetting>(defaultPrivacySetting())
+const notificationForm = ref<NotificationPreference>(defaultNotificationPreference())
 
 const isUpdatingProfile = ref(false)
 const isChangingPassword = ref(false)
 const isLoggingOutAll = ref(false)
 const isPrivacyLoading = ref(false)
 const isUpdatingPrivacy = ref(false)
+const isNotificationLoading = ref(false)
+const isUpdatingNotifications = ref(false)
 
 const canSubmitPassword = computed(() => Boolean(
   passwordForm.value.oldPassword
@@ -334,6 +378,20 @@ const loadPrivacy = async () => {
     toast.error(getErrorMessage(error, '隐私设置加载失败'))
   } finally {
     isPrivacyLoading.value = false
+  }
+}
+
+const loadNotificationPreferences = async () => {
+  isNotificationLoading.value = true
+  try {
+    const res = await notificationApi.getPreferences()
+    if (res.data) {
+      notificationForm.value = { ...defaultNotificationPreference(), ...res.data }
+    }
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '通知偏好加载失败'))
+  } finally {
+    isNotificationLoading.value = false
   }
 }
 
@@ -358,6 +416,7 @@ onMounted(() => {
     }
   }
   loadPrivacy()
+  loadNotificationPreferences()
   loadIntent()
 })
 
@@ -469,6 +528,21 @@ const updatePrivacy = async () => {
     toast.error(getErrorMessage(error, '隐私设置保存失败'))
   } finally {
     isUpdatingPrivacy.value = false
+  }
+}
+
+const updateNotificationPreferences = async () => {
+  isUpdatingNotifications.value = true
+  try {
+    const res = await notificationApi.updatePreferences(notificationForm.value)
+    if (res.data) {
+      notificationForm.value = { ...defaultNotificationPreference(), ...res.data }
+    }
+    toast.success('通知偏好已保存')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '通知偏好保存失败'))
+  } finally {
+    isUpdatingNotifications.value = false
   }
 }
 </script>
@@ -605,6 +679,15 @@ const updatePrivacy = async () => {
   margin-top: 0.25rem;
   color: rgb(100 116 139);
   font-size: 0.875rem;
+}
+
+.setting-help {
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.75rem 0.9rem;
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .notification-grid {
@@ -762,6 +845,11 @@ const updatePrivacy = async () => {
 }
 
 .dark .setting-desc {
+  color: rgb(148 163 184);
+}
+
+.dark .setting-help {
+  background: rgb(2 6 23);
   color: rgb(148 163 184);
 }
 

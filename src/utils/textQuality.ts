@@ -1,3 +1,5 @@
+import { isPublicPostVisible } from '@/utils/recommendationGovernance'
+
 export const MOJIBAKE_VISIBLE_TEXT = /[\uFFFD\u00C3\u00C2\u00E6\u93C3\u7481\u752F\u93BF\u9410\u7487\u9359\u5BB8\u93C6\u93C8\u951B\u9427\u6769\u7459\u93BB\u9286\u9225]/
 const LATIN1_MOJIBAKE_SEQUENCE = /(?:\u00C2[\u0080-\u00BF]|\u00C3[\u0080-\u00BF]|[\u00E0-\u00EF][\u0080-\u00BF]{2}|[\u00F0-\u00F4][\u0080-\u00BF]{3})/
 
@@ -68,6 +70,16 @@ export const safePublicVisibleText = (value: unknown, fallback = '内容暂不�
 }
 
 export const isPublicContentVisible = (item: any) => {
+  const carriesPostGovernanceFields = Boolean(
+    item?.postId
+    || item?.postType !== undefined
+    || item?.visibility !== undefined
+    || item?.postStatus !== undefined
+    || item?.deleted !== undefined
+    || item?.restricted !== undefined
+    || item?.moderationStatus !== undefined,
+  )
+  if (carriesPostGovernanceFields && !isPublicPostVisible(item)) return false
   const title = item?.title ?? item?.questionText ?? item?.summary ?? item?.name ?? ''
   const summary = item?.summary ?? item?.content ?? item?.answerDraft ?? item?.starStory ?? ''
   const extension = item?.extension || {}

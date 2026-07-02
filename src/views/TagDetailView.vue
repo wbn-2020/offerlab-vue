@@ -92,6 +92,8 @@ import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, Post, Tag } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
 import { postTypeSummary } from '@/utils/communityMetrics'
+import { filterPublicContent } from '@/utils/textQuality'
+import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 
 const route = useRoute()
 const tagName = ref('标签')
@@ -157,7 +159,8 @@ const loadPosts = async (append = false) => {
       featured: featuredOnly.value ? true : undefined,
     })
     const page = res.data
-    posts.value = append ? [...posts.value, ...(page?.items || [])] : (page?.items || [])
+    const cleanItems = filterVisiblePosts(filterPublicContent(page?.items || []))
+    posts.value = append ? [...posts.value, ...cleanItems] : cleanItems
     cursor.value = page?.nextCursor
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
     declaredCount.value = declaredCount.value || posts.value.length

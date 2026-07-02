@@ -23,7 +23,8 @@ assert.match(questionApi, /\/api\/v1\/me\/prep\/weekly-report/, 'weekly report e
 assert.match(questionApi, /adaptUserWeeklyPrepReport/, 'weekly report must be adapted from backend response')
 
 assert.match(exportUtil, /buildWeeklyPrepReportMarkdown/, 'export util must build weekly review markdown')
-assert.match(exportUtil, /# OfferLab 本周学习复盘/, 'weekly markdown must have a clear title')
+assert.match(exportUtil, /# 闻野本周学习复盘/, 'weekly markdown must have a branded clear title')
+assert.doesNotMatch(exportUtil, /# OfferLab 本周学习复盘/, 'weekly markdown must not use the legacy project name')
 assert.match(exportUtil, /## 下周动作/, 'weekly markdown must include next actions')
 assert.match(exportUtil, /mistakeReasonText/, 'weekly markdown must render mistake reasons as user-facing text')
 assert.match(exportUtil, /knowledgeReviewCopy/, 'weekly markdown must normalize legacy practice wording into knowledge-review wording')

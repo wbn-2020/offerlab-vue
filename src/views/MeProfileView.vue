@@ -201,6 +201,7 @@
               empty-title="还没有关注用户"
               empty-description="在发现页或帖子作者卡片里关注感兴趣的人。"
               @load-more="loadFollowing(true)"
+              @follow-change="handleFollowingUserChange"
             />
           </section>
 
@@ -219,6 +220,7 @@
               empty-title="还没有粉丝"
               empty-description="持续发布有用内容，会更容易被同路人关注。"
               @load-more="loadFollowers(true)"
+              @follow-change="handleFollowerUserChange"
             />
           </section>
         </div>
@@ -483,6 +485,46 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
   })
 }
 
+const syncUserFollowState = (authorUid: ApiId, followingValue: boolean, followerCount?: number) => {
+  const syncUser = (item: User) => {
+    if (String(item.uid) === String(authorUid)) {
+      item.isFollowing = followingValue
+      if (followerCount !== undefined) item.followerCount = followerCount
+    }
+  }
+  following.items.forEach(syncUser)
+  followers.items.forEach(syncUser)
+  handlePostAuthorFollowChange(authorUid, followingValue)
+}
+
+const adjustMyRelationCount = (key: 'followingCount' | 'followerCount', delta: number) => {
+  if (!user.value) return
+  user.value = {
+    ...user.value,
+    [key]: Math.max(0, Number(user.value[key] ?? 0) + delta),
+  }
+  if (authStore.user && String(authStore.user.uid) === String(user.value.uid)) {
+    authStore.setUser({ ...authStore.user, [key]: user.value[key] })
+  }
+}
+
+const handleFollowingUserChange = (authorUid: ApiId, followingValue: boolean, followerCount: number) => {
+  syncUserFollowState(authorUid, followingValue, followerCount)
+  if (!followingValue) {
+    following.items = following.items.filter((item) => String(item.uid) !== String(authorUid))
+    adjustMyRelationCount('followingCount', -1)
+  }
+}
+
+const handleFollowerUserChange = (authorUid: ApiId, followingValue: boolean, followerCount: number) => {
+  syncUserFollowState(authorUid, followingValue, followerCount)
+  if (followingValue && !following.items.some((item) => String(item.uid) === String(authorUid))) {
+    const follower = followers.items.find((item) => String(item.uid) === String(authorUid))
+    if (follower) following.items = [{ ...follower, isFollowing: true, followerCount }, ...following.items]
+    adjustMyRelationCount('followingCount', 1)
+  }
+}
+
 const EmptyPanel = defineComponent({
   props: {
     title: { type: String, required: true },
@@ -551,7 +593,7 @@ const UserList = defineComponent({
     emptyTitle: { type: String, required: true },
     emptyDescription: { type: String, required: true },
   },
-  emits: ['load-more'],
+  emits: ['load-more', 'follow-change'],
   setup(props, { emit }) {
     return () => h('div', { class: 'space-y-4' }, [
       props.state.error ? h('div', { class: 'notice-error' }, props.state.error) : null,
@@ -559,7 +601,11 @@ const UserList = defineComponent({
         ? h('div', { class: 'loading-panel' }, '正在加载...')
         : props.state.items.length
           ? h('div', { class: 'grid gap-4 md:grid-cols-2 lg:grid-cols-3' }, props.state.items.map((item) =>
-              h(UserCard, { key: item.uid, user: item }),
+              h(UserCard, {
+                key: item.uid,
+                user: item,
+                onFollowChange: (uid: ApiId, following: boolean, followerCount: number) => emit('follow-change', uid, following, followerCount),
+              }),
             ))
           : h(EmptyPanel, { title: props.emptyTitle, description: props.emptyDescription }),
       props.state.hasMore

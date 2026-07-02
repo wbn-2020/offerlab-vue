@@ -117,7 +117,7 @@ for (const path of ['/login', '/register']) {
   assert.doesNotMatch(block, /adminPermission:/, '/collections/:id must not require admin permissions')
 }
 
-for (const label of ['首页', '发现', '问答', '发布']) {
+for (const label of ['首页', '发现', '知识库', '发布']) {
   assert.match(appHeader, new RegExp(`label:\\s*'${label}'`), `primary navigation must expose ${label}`)
 }
 for (const label of ['资源库', '题库', '模拟面试', '成长报告']) {

@@ -53,6 +53,13 @@ export interface Post {
   extension?: Record<string, any>
   domain?: number
   anonymous?: boolean
+  visibility?: number | string
+  postStatus?: number | string
+  status?: number | string
+  deleted?: boolean
+  restricted?: boolean
+  riskLevel?: string | number
+  moderationStatus?: string | number
   recommendationReasons?: string[]
   myInteraction?: {
     liked: boolean

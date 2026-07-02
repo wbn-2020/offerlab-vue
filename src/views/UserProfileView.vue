@@ -33,9 +33,10 @@
               v-if="user.profileVisible !== false"
               type="button"
               class="follow-button"
+              :disabled="isFollowBusy"
               @click="toggleFollow"
             >
-              {{ user.isFollowing ? '已关注' : '关注' }}
+              {{ isFollowBusy ? '处理中...' : user.isFollowing ? '已关注' : '关注' }}
             </button>
           </div>
         </section>
@@ -245,6 +246,7 @@ const isLoading = ref(false)
 const isLoadingCollections = ref(false)
 const loadError = ref('')
 const collectionsError = ref('')
+const isFollowBusy = ref(false)
 
 const avatarText = computed(() => user.value?.nickname?.charAt(0) || '?')
 const profileDescription = computed(() => {
@@ -320,15 +322,24 @@ const loadProfile = async () => {
 const toggleFollow = async () => {
   if (!user.value) return
   if (!requireLogin()) return
+  if (isFollowBusy.value) return
+  isFollowBusy.value = true
+  const wasFollowing = Boolean(user.value.isFollowing)
   try {
-    if (user.value.isFollowing) {
+    if (wasFollowing) {
       await userApi.unfollow(user.value.uid)
     } else {
       await userApi.follow(user.value.uid)
     }
-    user.value.isFollowing = !user.value.isFollowing
+    user.value = {
+      ...user.value,
+      isFollowing: !wasFollowing,
+      followerCount: Math.max(0, Number(user.value.followerCount ?? 0) + (wasFollowing ? -1 : 1)),
+    }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '关注操作失败'))
+  } finally {
+    isFollowBusy.value = false
   }
 }
 
@@ -369,6 +380,11 @@ onMounted(loadProfile)
   color: white;
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.follow-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .tag-pill {
