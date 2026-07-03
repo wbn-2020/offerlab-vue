@@ -325,6 +325,7 @@ export interface ModerationKeywordHit {
   id: ApiId
   scope: string
   uid?: ApiId
+  domain?: number
   keywordId?: ApiId
   keyword: string
   action: string
@@ -399,6 +400,7 @@ export interface ReviewQueueItem {
   id: ApiId
   sourceType: string
   sourceId?: ApiId
+  domain?: number
   title: string
   summary?: string
   riskLevel: ReviewQueueRiskLevel
@@ -746,7 +748,7 @@ export const opsApi = {
   listAiTasks: (params?: { status?: number; limit?: number }): Promise<Result<AiExtractTask[]>> =>
     client.get('/api/v1/admin/ai-tasks', { params }),
 
-  listReviewQueue: async (params?: { status?: ReviewQueueStatus | ''; sourceType?: string; riskLevel?: ReviewQueueRiskLevel | ''; limit?: number }): Promise<Result<ReviewQueueItem[]>> => {
+  listReviewQueue: async (params?: { status?: ReviewQueueStatus | ''; sourceType?: string; riskLevel?: ReviewQueueRiskLevel | ''; domain?: number | ''; startDate?: string; endDate?: string; limit?: number }): Promise<Result<ReviewQueueItem[]>> => {
     const res = await client.get('/api/v1/admin/review-queue', { params }) as Result<unknown>
     return { ...res, data: normalizeReviewQueueItems(res.data) }
   },

@@ -164,26 +164,17 @@ const FALLBACK_LEGACY_CONTENT_TYPES: ContentTypeOption[] = [
 export const COMMUNITY_CONTENT_TYPES: ContentTypeOption[] = [...FALLBACK_COMMUNITY_CONTENT_TYPES]
 export const LEGACY_CONTENT_TYPES: ContentTypeOption[] = [...FALLBACK_LEGACY_CONTENT_TYPES]
 export const ALL_CONTENT_TYPES: ContentTypeOption[] = [...COMMUNITY_CONTENT_TYPES, ...LEGACY_CONTENT_TYPES]
+export const COMMUNITY_CONTENT_TYPE_CODES = FALLBACK_COMMUNITY_CONTENT_TYPES.map((item) => item.code)
+export const LEGACY_CONTENT_TYPE_CODES = FALLBACK_LEGACY_CONTENT_TYPES.map((item) => item.code)
 
 const contentTypeByValue = new Map<PostTypeValue, ContentTypeOption>()
 
 export const DEFAULT_POST_TYPE = POST_TYPE.NOTE
 
 const supportedValues = new Set<number>(Object.values(POST_TYPE))
-const supportedCodes = new Set<string>([
-  'TECH_ARTICLE',
-  'PROJECT_REVIEW',
-  'PITFALL',
-  'QUESTION',
-  'RESOURCE',
-  'NOTE',
-  'SYSTEM_DESIGN',
-  'INTERVIEW_RECAP',
-  'LEGACY_INTERVIEW',
-  'LEGACY_BLOG',
-  'LEGACY_SOLUTION',
-  'LEGACY_QA',
-])
+const communityCodeSet = new Set<string>(COMMUNITY_CONTENT_TYPE_CODES)
+const legacyCodeSet = new Set<string>(LEGACY_CONTENT_TYPE_CODES)
+const supportedCodes = new Set<string>([...COMMUNITY_CONTENT_TYPE_CODES, ...LEGACY_CONTENT_TYPE_CODES])
 
 const rebuildIndex = () => {
   contentTypeByValue.clear()
@@ -213,8 +204,13 @@ const normalizeContentType = (raw: unknown): ContentTypeOption | null => {
     description: String(item?.description || fallback?.description || ''),
     placeholder: String(item?.placeholder || fallback?.placeholder || ''),
     minContentLength: Math.max(1, Number(item?.minContentLength || fallback?.minContentLength || 30)),
-    legacy: Boolean(item?.legacy),
+    legacy: legacyCodeSet.has(code) || Boolean(item?.legacy && !communityCodeSet.has(code)),
   }
+}
+
+const hasCompleteCommunityContentTypes = (items: ContentTypeOption[]) => {
+  const values = new Set(items.filter((item) => !item.legacy).map((item) => item.value))
+  return FALLBACK_COMMUNITY_CONTENT_TYPES.every((item) => values.has(item.value))
 }
 
 export const loadContentTypeOptions = async () => {
@@ -223,8 +219,10 @@ export const loadContentTypeOptions = async () => {
     const items = (res.data || [])
       .map(normalizeContentType)
       .filter((item): item is ContentTypeOption => Boolean(item))
-    if (items.length >= FALLBACK_COMMUNITY_CONTENT_TYPES.length) {
+    if (hasCompleteCommunityContentTypes(items)) {
       resetContentTypes(items)
+    } else {
+      resetContentTypes([...FALLBACK_COMMUNITY_CONTENT_TYPES, ...FALLBACK_LEGACY_CONTENT_TYPES])
     }
   } catch {
     resetContentTypes([...FALLBACK_COMMUNITY_CONTENT_TYPES, ...FALLBACK_LEGACY_CONTENT_TYPES])
@@ -240,6 +238,11 @@ export const getContentTypeOption = (postType?: number | null) => {
 export const getContentTypeLabel = (postType?: number | null) => getContentTypeOption(postType).label
 
 export const getContentTypeShortLabel = (postType?: number | null) => getContentTypeOption(postType).shortLabel
+
+export const isLegacyContentType = (postType?: number | null) => {
+  const option = contentTypeByValue.get(Number(postType) as PostTypeValue)
+  return Boolean(option?.legacy)
+}
 
 export const isLegacyInterviewType = (postType?: number | null) => Number(postType) === POST_TYPE.LEGACY_INTERVIEW
 

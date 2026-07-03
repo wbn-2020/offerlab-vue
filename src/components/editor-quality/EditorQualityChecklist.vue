@@ -115,12 +115,14 @@ const fallbackResult = computed<EditorQualityChecklistResult>(() => {
       normalized: {
         title: '',
         content: '',
+        summary: '',
         plainText: '',
         domain: undefined,
         domainLabel: '',
         tags: [],
         anonymous: false,
         hasSeries: false,
+        riskNotice: '',
       },
     }
   }

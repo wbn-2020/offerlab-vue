@@ -11,6 +11,9 @@
             <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
               看清谁回应了你、关联哪条内容，以及下一步回到讨论、作者主页或话题页。
             </p>
+            <p class="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              轻反馈只覆盖评论、收藏、关注和提及等社区互动；页面尊重通知偏好，只提供回访入口，没有生成新的后端通知。
+            </p>
             <p v-if="preferenceOffText" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
               {{ preferenceOffText }}
             </p>
@@ -97,6 +100,19 @@
       </div>
 
       <div v-else class="notification-list space-y-3">
+        <section class="feedback-revisit-panel">
+          <div>
+            <p class="text-xs font-black text-primary-600 dark:text-primary-300">创作者轻反馈</p>
+            <h2>最近可以回访的社区回应</h2>
+            <span>{{ feedbackSummary }}</span>
+          </div>
+          <div class="feedback-revisit-actions">
+            <RouterLink to="/me?tab=posts">我的内容</RouterLink>
+            <RouterLink to="/me?tab=favorites">我的收藏</RouterLink>
+            <RouterLink to="/me?tab=followers">新增关注者</RouterLink>
+          </div>
+        </section>
+
         <article
           v-for="notif in notifications"
           :key="notif.notificationId"
@@ -125,6 +141,9 @@
                   {{ labelFor(notif.type) }}
                 </span>
                 <span v-if="!notif.read" class="rounded-full bg-danger px-2 py-0.5 text-xs font-semibold text-white">未读</span>
+                <span v-if="isMutedByPreference(notif)" class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                  偏好静默
+                </span>
               </div>
               <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ notif.content }}</p>
               <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
@@ -167,7 +186,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
-import { notificationApi } from '@/api/notification'
+import { interactionPreferenceMuted, notificationApi, normalizeNotificationPreference } from '@/api/notification'
 import type { ApiId, Notification, NotificationPreference, NotificationUnreadCount } from '@/api/types'
 import { formatTime } from '@/lib/format'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -201,6 +220,25 @@ const tabs = computed(() => [
 ])
 
 const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
+const feedbackCounts = computed(() => notifications.value.reduce((counts, notif) => {
+  if (notif.type === 'comment') counts.comment += 1
+  if (notif.type === 'favorite') counts.favorite += 1
+  if (notif.type === 'follower') counts.follower += 1
+  if (notif.type === 'mention') counts.mention += 1
+  return counts
+}, { comment: 0, favorite: 0, follower: 0, mention: 0 }))
+const feedbackSummary = computed(() => {
+  const counts = feedbackCounts.value
+  const parts = [
+    counts.comment ? `${counts.comment} 条评论` : '',
+    counts.favorite ? `${counts.favorite} 次收藏` : '',
+    counts.follower ? `${counts.follower} 位新增关注者` : '',
+    counts.mention ? `${counts.mention} 条提及` : '',
+  ].filter(Boolean)
+  return parts.length
+    ? `${parts.join('、')}可以从通知回到讨论或作者主页。`
+    : '当前列表没有新的评论、收藏或关注反馈，可从我的内容继续查看近期表现。'
+})
 const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
 const emptyText = computed(() => {
   if (loadErrorText.value) return loadErrorText.value
@@ -363,7 +401,7 @@ const openNotification = (notif: Notification) => {
 }
 
 const notificationActionLabel = (notif: Notification) => {
-  return notif.targetPath ? `${notif.title}，查看通知详情` : undefined
+  return notif.targetPath ? `${notif.title}，${nextStepText(notif)}` : undefined
 }
 
 const nextStepText = (notif: Notification) => {
@@ -373,10 +411,14 @@ const nextStepText = (notif: Notification) => {
   return '查看关联内容'
 }
 
+const isMutedByPreference = (notif: Notification) => (
+  preferences.value ? interactionPreferenceMuted(notif.type, preferences.value) : false
+)
+
 const loadPreferences = async () => {
   try {
     const res = await notificationApi.getPreferences()
-    preferences.value = res.data
+    preferences.value = normalizeNotificationPreference(res.data)
   } catch {
     preferences.value = null
   }
@@ -459,6 +501,53 @@ onMounted(async () => {
   color: rgb(100 116 139);
 }
 
+.feedback-revisit-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.75rem;
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.feedback-revisit-panel h2 {
+  margin-top: 0.15rem;
+  font-size: 1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.feedback-revisit-panel span {
+  margin-top: 0.35rem;
+  display: block;
+  max-width: 42rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgb(71 85 105);
+}
+
+.feedback-revisit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.feedback-revisit-actions a {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(29 78 216);
+}
+
 .dark .metric-card {
   border-color: rgb(51 65 85);
 }
@@ -490,6 +579,24 @@ onMounted(async () => {
   color: rgb(148 163 184);
 }
 
+.dark .feedback-revisit-panel {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .feedback-revisit-panel h2 {
+  color: rgb(248 250 252);
+}
+
+.dark .feedback-revisit-panel span {
+  color: rgb(203 213 225);
+}
+
+.dark .feedback-revisit-actions a {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
 @media (max-width: 640px) {
   .metric-card {
     min-width: 0;
@@ -511,6 +618,15 @@ onMounted(async () => {
   }
 
   .mark-read-actions button {
+    width: 100%;
+  }
+
+  .feedback-revisit-panel {
+    flex-direction: column;
+  }
+
+  .feedback-revisit-actions,
+  .feedback-revisit-actions a {
     width: 100%;
   }
 

@@ -460,6 +460,22 @@ export const postApi = {
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 
+  getMyUnorganizedFavorites: async (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> => {
+    const res = await client.get('/api/v1/users/me/favorite-posts', { params: { cursor, size } }) as Result<any>
+    return {
+      ...res,
+      message: typeof res.message === 'string' && res.message ? res.message : 'server_favorite_only',
+      data: res.data
+        ? {
+            ...adaptPage(res.data, adaptPost),
+            source: 'server_favorites_unorganized_view',
+            degraded: true,
+            fallbackReason: 'content_lists_backend_not_connected',
+          }
+        : null,
+    }
+  },
+
   getMyLikedPosts: async (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> => {
     const res = await client.get('/api/v1/users/me/liked-posts', { params: { cursor, size } }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }

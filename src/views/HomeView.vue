@@ -44,6 +44,25 @@
               <strong class="metric-value">{{ peerMetricValue }}</strong>
             </div>
           </div>
+
+          <div class="hot-rising-grid mt-6 grid gap-3 md:grid-cols-3">
+            <button
+              v-for="entry in hotRisingEntries"
+              :key="entry.key"
+              type="button"
+              class="hot-rising-card"
+              :class="`hot-rising-card--${entry.tone}`"
+              @click="setHomeFeed(entry.feed)"
+            >
+              <span class="hot-rising-card__topline">
+                <span class="hot-rising-card__badge">{{ entry.badge }}</span>
+                <component :is="entry.icon" class="h-4 w-4" />
+              </span>
+              <strong>{{ entry.title }}</strong>
+              <span class="hot-rising-card__sample">{{ entry.sampleTitle }}</span>
+              <span class="hot-rising-card__reason">{{ entry.reason }}</span>
+            </button>
+          </div>
         </div>
 
         <section class="surface-card p-5">
@@ -87,6 +106,9 @@
           </span>
         </RouterLink>
       </section>
+
+      <RevisitSummaryPanel class="mb-6" compact />
+      <OperationSlotCard class="mb-6" slot-code="HOME_FEATURED" title="社区运营整理" />
 
       <!-- 领域筛选 -->
       <section class="mb-6 flex flex-wrap gap-2">
@@ -530,11 +552,13 @@ import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
 import { taskApi, type UserTaskItem, type UserTaskOverview } from '@/api/tasks'
 import { userApi } from '@/api/user'
-import { feedApi } from '@/api/feed'
+import { feedApi, type FeedFeedbackAction } from '@/api/feed'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import RevisitSummaryPanel from '@/components/retention/RevisitSummaryPanel.vue'
+import OperationSlotCard from '@/components/operations/OperationSlotCard.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { CommunityTopic, Post, Tag as PostTag, User } from '@/api/types'
@@ -542,7 +566,7 @@ import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
 import { COMMUNITY_CHANNELS, DOMAIN_OPTIONS } from '@/utils/domains'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
-import { filterVisiblePosts } from '@/utils/recommendationGovernance'
+import { findHighRiskContentWarning, filterVisiblePosts, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -559,6 +583,9 @@ const homeDomains = ref<PublicDomainConfig[]>([...localDomainConfigs])
 const domainSource = ref<DomainConfigSource>('fallback')
 const homeSeriesPreview = ref<ContentSeriesRecord[]>([])
 const homeSeriesSource = ref<'remote' | 'fallback'>('fallback')
+const hotPreviewPosts = ref<Post[]>([])
+const latestPreviewPosts = ref<Post[]>([])
+const recommendPreviewPosts = ref<Post[]>([])
 const legalDomainValues = new Set<number>(DOMAIN_OPTIONS.map((d) => d.value))
 const activeDomain = computed(() => {
   const q = Number(route.query.domain)
@@ -570,6 +597,16 @@ interface TodayAction {
   href: RouteLocationRaw
   icon: Component
   primary?: boolean
+}
+interface HotRisingEntry {
+  key: string
+  title: string
+  badge: string
+  sampleTitle: string
+  reason: string
+  feed: FeedType
+  icon: Component
+  tone: 'hot' | 'rising' | 'featured'
 }
 const feedTabs: FeedType[] = ['following', 'recommend', 'latest', 'hot', 'featured']
 const feedLabels: Record<FeedType, string> = {
@@ -652,6 +689,63 @@ const visiblePosts = computed(() => {
   return activeContentType.value
     ? base.filter((post) => Number(post.postType) === Number(activeContentType.value))
     : base
+})
+const explainHotReason = (post: Post | undefined, fallback: string) => {
+  if (!post) return fallback
+  const riskWarning = findHighRiskContentWarning([
+    post.title,
+    post.summary,
+    post.content,
+    post.tags.map((tag) => tag.name).join(' '),
+  ].filter(Boolean).join(' '))
+  if (riskWarning) return riskWarning
+  const commentCount = Number(post.counter?.comment || 0)
+  const favoriteCount = Number(post.counter?.favorite || 0)
+  const likeCount = Number(post.counter?.like || 0)
+  const reasons = post.recommendationReasons || []
+  const normalizedReason = reasons.map(normalizeRecommendationReason).find(Boolean)
+  if (normalizedReason) return normalizedReason
+  if (commentCount > 0) return `近期有 ${commentCount} 条讨论`
+  if (favoriteCount > 0) return `同频道有 ${favoriteCount} 次收藏`
+  if (likeCount > 0) return `社区成员有 ${likeCount} 次认可`
+  return fallback
+}
+const hotRisingEntries = computed<HotRisingEntry[]>(() => {
+  const hot = hotPreviewPosts.value[0] || cleanPosts.value.find((post) => Number(post.counter?.comment || 0) > 0)
+  const rising = latestPreviewPosts.value[0] || cleanPosts.value[0]
+  const featured = (recommendPreviewPosts.value.find(isFeaturedPost) || featuredPreview.value[0] || recommendPreviewPosts.value[0])
+  return [
+    {
+      key: 'hot',
+      title: '热门讨论',
+      badge: '正在升温',
+      sampleTitle: hot?.title || '查看正在被讨论的公开内容',
+      reason: explainHotReason(hot, '按浏览、评论、收藏和发布时间综合排序'),
+      feed: 'hot',
+      icon: TrendingUp,
+      tone: 'hot',
+    },
+    {
+      key: 'rising',
+      title: '最新上升',
+      badge: '新发布',
+      sampleTitle: rising?.title || '先看最近发布且可参与的内容',
+      reason: explainHotReason(rising, '新发布内容会优先显示可读的公开信号'),
+      feed: 'latest',
+      icon: Sparkles,
+      tone: 'rising',
+    },
+    {
+      key: 'featured',
+      title: '频道精选',
+      badge: '精选方向',
+      sampleTitle: featured?.title || '从频道精选方向进入发现页',
+      reason: explainHotReason(featured, '优先复用运营精选、频道和公开标签信号'),
+      feed: 'featured',
+      icon: Compass,
+      tone: 'featured',
+    },
+  ]
 })
 const readableContentCount = computed(() => Math.max(visiblePosts.value.length, sampledFeedContentCount.value))
 const readableMetricValue = computed(() => readableContentCount.value > 0 ? String(readableContentCount.value) : '先看精选')
@@ -821,9 +915,13 @@ const toggleContentType = (type: number) => {
   activeContentType.value = activeContentType.value === type ? undefined : type
 }
 
-const switchFeedAfterError = (feed: FeedType) => {
+const setHomeFeed = (feed: FeedType) => {
   activeFeed.value = feed
   activeContentType.value = undefined
+}
+
+const switchFeedAfterError = (feed: FeedType) => {
+  setHomeFeed(feed)
   setTimeout(() => {
     refetch()
   }, 0)
@@ -856,12 +954,14 @@ const handlePostAuthorFollowChange = (authorUid: User['uid'], following: boolean
   })
 }
 
-const handleRecommendFeedback = async (postId: Post['postId'], reason: string) => {
+const handleRecommendFeedback = async (postId: Post['postId'], action: FeedFeedbackAction, reason: string) => {
   if (!requireLogin()) return
   try {
-    await feedApi.recordFeedback(postId, reason)
-    locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(String(postId))
-    toast.success('已减少类似推荐')
+    await feedApi.recordFeedback(postId, action, reason)
+    if (action !== 'more_like_this') {
+      locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(String(postId))
+    }
+    toast.success(action === 'more_like_this' ? '已记录这次反馈' : '已记录反馈，当前内容已隐藏')
   } catch (error: any) {
     toast.error(getErrorMessage(error, '推荐反馈提交失败'))
   }
@@ -912,6 +1012,15 @@ onMounted(async () => {
   }
   if (userRes.status === 'fulfilled') {
     recommendedUsers.value = filterPublicContent(userRes.value.data || [])
+  }
+  if (latestRes.status === 'fulfilled') {
+    latestPreviewPosts.value = filterVisiblePosts(filterPublicContent(latestRes.value.data?.items || []), 3)
+  }
+  if (hotRes.status === 'fulfilled') {
+    hotPreviewPosts.value = filterVisiblePosts(filterPublicContent(hotRes.value.data?.items || []), 3)
+  }
+  if (recommendRes.status === 'fulfilled') {
+    recommendPreviewPosts.value = filterVisiblePosts(filterPublicContent(recommendRes.value.data?.items || []), 3)
   }
   const feedCounts = [latestRes, hotRes, recommendRes]
     .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
@@ -1016,6 +1125,89 @@ watch(() => authStore.isLoggedIn, async (loggedIn) => {
   border-radius: 0.65rem;
   background: rgb(224 231 255);
   color: rgb(67 56 202);
+}
+
+.hot-rising-card {
+  display: flex;
+  min-width: 0;
+  min-height: 9.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgb(226 232 240 / 0.9);
+  background: rgb(255 255 255 / 0.82);
+  padding: 0.95rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hot-rising-card:hover {
+  transform: translateY(-1px);
+  border-color: rgb(165 180 252);
+  background: rgb(248 250 252);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.08);
+}
+
+.hot-rising-card__topline {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: rgb(79 70 229);
+}
+
+.hot-rising-card__badge {
+  border-radius: 999px;
+  background: rgb(238 242 255);
+  padding: 0.26rem 0.58rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.hot-rising-card strong {
+  font-size: 0.96rem;
+  line-height: 1.3;
+  color: rgb(15 23 42);
+}
+
+.hot-rising-card__sample,
+.hot-rising-card__reason {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  line-height: 1.55;
+}
+
+.hot-rising-card__sample {
+  -webkit-line-clamp: 2;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: rgb(51 65 85);
+}
+
+.hot-rising-card__reason {
+  margin-top: auto;
+  -webkit-line-clamp: 2;
+  font-size: 0.76rem;
+  color: rgb(100 116 139);
+}
+
+.hot-rising-card--hot .hot-rising-card__topline {
+  color: rgb(220 38 38);
+}
+
+.hot-rising-card--hot .hot-rising-card__badge {
+  background: rgb(254 226 226);
+}
+
+.hot-rising-card--rising .hot-rising-card__topline {
+  color: rgb(13 148 136);
+}
+
+.hot-rising-card--rising .hot-rising-card__badge {
+  background: rgb(204 251 241);
 }
 
 .quick-input {
@@ -1304,6 +1496,49 @@ watch(() => authStore.isLoggedIn, async (loggedIn) => {
 .dark .home-action-icon {
   background: rgb(49 46 129 / 0.58);
   color: rgb(199 210 254);
+}
+
+.dark .hot-rising-card {
+  border-color: rgb(51 65 85 / 0.86);
+  background: rgb(15 23 42 / 0.78);
+}
+
+.dark .hot-rising-card:hover {
+  border-color: rgb(99 102 241 / 0.68);
+  background: rgb(30 41 59 / 0.9);
+  box-shadow: 0 16px 36px rgb(2 6 23 / 0.28);
+}
+
+.dark .hot-rising-card strong {
+  color: rgb(248 250 252);
+}
+
+.dark .hot-rising-card__sample {
+  color: rgb(203 213 225);
+}
+
+.dark .hot-rising-card__reason {
+  color: rgb(148 163 184);
+}
+
+.dark .hot-rising-card__badge {
+  background: rgb(49 46 129 / 0.5);
+}
+
+.dark .hot-rising-card--hot .hot-rising-card__topline {
+  color: rgb(252 165 165);
+}
+
+.dark .hot-rising-card--hot .hot-rising-card__badge {
+  background: rgb(127 29 29 / 0.5);
+}
+
+.dark .hot-rising-card--rising .hot-rising-card__topline {
+  color: rgb(94 234 212);
+}
+
+.dark .hot-rising-card--rising .hot-rising-card__badge {
+  background: rgb(19 78 74 / 0.58);
 }
 
 .dark .quick-input:focus {

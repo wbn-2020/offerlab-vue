@@ -15,6 +15,12 @@
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
+            <RouterLink to="/search?sort=hot" class="secondary-action">
+              搜索内容
+            </RouterLink>
+            <RouterLink to="/explore" class="secondary-action">
+              返回发现
+            </RouterLink>
             <RouterLink to="/growth/profile" class="secondary-action">
               成长档案
             </RouterLink>
@@ -127,8 +133,8 @@
                   <div class="flex flex-wrap gap-2">
                     <template v-for="node in group.nodes" :key="node.key">
                       <RouterLink
-                        v-if="node.type === 'post'"
-                        :to="postNodeLink(node.key)"
+                        v-if="nodeRoute(node)"
+                        :to="nodeRoute(node)"
                         class="node-chip node-chip-link"
                       >
                         {{ node.label }}
@@ -308,8 +314,17 @@ const resetFilters = async () => {
   await applyFilters()
 }
 
+const nodeIdentity = (key: string, fallback: string) => key.split(':')[1] || fallback
 const edgeKey = (edge: KnowledgeRelationEdge) => `${edge.source}->${edge.target}:${edge.relation}`
-const postNodeLink = (key: string) => `/post/${key.split(':')[1] || ''}`
+const nodeRoute = (node: KnowledgeRelationNode) => {
+  const identity = encodeURIComponent(nodeIdentity(node.key, node.label))
+  if (!identity) return ''
+  if (node.type === 'post') return `/post/${identity}`
+  if (node.type === 'tag') return `/tag/${identity}`
+  if (node.type === 'topic') return `/topics/${identity}`
+  if (node.type === 'domain' && node.domain) return `/explore?domain=${node.domain}`
+  return ''
+}
 
 watch(() => route.fullPath, async () => {
   syncFromRoute()

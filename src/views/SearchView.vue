@@ -19,6 +19,9 @@
             <datalist id="search-suggestions">
               <option v-for="item in suggestions" :key="item" :value="item" />
             </datalist>
+            <p v-if="suggestions.length || hotWords.length" class="search-signal-note">
+              搜索建议来自公开内容和近期公共搜索趋势。
+            </p>
           </div>
 
           <button type="button" class="primary-button" :disabled="isLoading" @click="runSearch(false)">
@@ -67,6 +70,10 @@
 
       <div class="search-layout mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
         <aside class="search-aside space-y-4">
+          <details class="filter-details" open>
+            <summary class="filter-summary">
+              筛选、热门词和搜索记录
+            </summary>
           <section class="side-panel">
             <h2 class="side-title">筛选</h2>
             <div class="space-y-3">
@@ -85,7 +92,7 @@
                   <option v-for="item in searchContentTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
               </label>
-              <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+              <label v-if="includeTestData" class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
                 <input
                   v-model="includeTestData"
                   type="checkbox"
@@ -203,6 +210,7 @@
               </span>
             </div>
           </section>
+          </details>
         </aside>
 
         <section class="search-results min-w-0 space-y-4">
@@ -290,17 +298,22 @@
           </template>
 
           <template v-else-if="searchMode === 'posts' && searchResults.length">
-            <PostCard
-              v-for="post in searchResults"
-              :key="post.postId"
-              :post="post"
-              :like-pending="isActionPending('like', post.postId)"
+            <div v-for="post in searchResults" :key="post.postId" class="search-result-item">
+              <PostCard
+                :post="post"
+                :like-pending="isActionPending('like', post.postId)"
               :favorite-pending="isActionPending('favorite', post.postId)"
               :detail-query="postDetailQuery"
+              show-reason-panel
               @like="handleLike"
               @favorite="handleFavorite"
               @follow-change="handlePostAuthorFollowChange"
             />
+              <div v-if="searchHitReasons(post).length" class="search-hit-reasons" aria-label="命中解释">
+                <span>命中解释</span>
+                <small v-for="reason in searchHitReasons(post)" :key="reason">{{ reason }}</small>
+              </div>
+            </div>
           </template>
 
           <div v-else-if="!isLoading" class="empty-panel">
@@ -414,7 +427,7 @@ import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeLabel } from '@/utils
 import { COMMUNITY_CHANNELS, isKnownDomain } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
-import { filterVisiblePosts, findHighRiskContentWarning } from '@/utils/recommendationGovernance'
+import { filterSearchSuggestionTerms, filterVisiblePosts, findHighRiskContentWarning } from '@/utils/recommendationGovernance'
 
 type SortValue = 'relevance' | 'latest' | 'hot'
 type SearchMode = 'posts' | 'users' | 'topics' | 'tags'
@@ -553,14 +566,14 @@ const searchDiagnosticText = computed(() => {
   const diagnostics = searchResultMeta.value?.diagnostics
   if (!diagnostics) return ''
   if (diagnostics.emptyReason === 'test_data_filtered_unless_includeTestData') {
-    return '当前关键词像测试数据标记，公开搜索默认会隐藏 CODEX/E2E/smoke 数据。打开测试数据模式后可做回归验证。'
+    return '当前关键词像自动化回归记录，公开搜索默认会隐藏这类数据；仅 URL 诊断模式会显示。'
   }
   if (diagnostics.emptyReason === 'type_or_filter_no_match') {
     return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、标签或频道。'
   }
   const filtered = Number(diagnostics.syntheticFiltered || 0)
   if (filtered > 0 && !includeTestData.value) {
-    return `已隐藏 ${filtered} 条测试数据结果，打开测试数据模式可检查自动化记录。`
+    return `已隐藏 ${filtered} 条自动化回归记录，公开搜索只展示真实公开内容。`
   }
   if (searchResultMeta.value?.scanLimit) {
     return `本次搜索扫描上限 ${searchResultMeta.value.scanLimit} 条，结果受当前筛选条件影响。`
@@ -599,7 +612,6 @@ const relaxActions = computed(() => {
   if (filters.type) actions.push({ key: 'type', label: '不限内容类型', action: clearTypeFilter })
   if (filters.position) actions.push({ key: 'position', label: '不限场景', action: clearPositionFilter })
   if (filters.company) actions.push({ key: 'company', label: '不限标签', action: clearCompanyFilter })
-  if (!includeTestData.value && isSyntheticVisibleText(filters.q)) actions.push({ key: 'test-data', label: '包含测试数据', action: enableTestDataMode })
   if (filters.q) actions.push({ key: 'keyword', label: '只看热门内容', action: searchHotContent })
   return actions
 })
@@ -682,7 +694,44 @@ const isLowQualitySearchTerm = (value: string) => {
 }
 
 const filterVisibleSearchTerms = (values: unknown) => {
-  return filterVisibleTexts(values, 12).filter((value) => !isSyntheticVisibleText(value))
+  return filterSearchSuggestionTerms(filterVisibleTexts(values, 12).filter((value) => !isSyntheticVisibleText(value)), 12)
+}
+
+const stripHighlightTags = (value?: string) => String(value || '').replace(/<\/?em>/g, '')
+const uniqueText = (items: string[]) => Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)))
+const containsTerm = (value: unknown, term: string) => {
+  const text = String(value || '').toLowerCase()
+  const keyword = term.trim().toLowerCase()
+  return Boolean(keyword && text.includes(keyword))
+}
+const activeSearchTerms = () => uniqueText([filters.q, filters.company, filters.position]).slice(0, 4)
+const postTopicNames = (post: Post) => {
+  const values = [
+    post.extension?.topic,
+    post.extension?.topicName,
+    ...(Array.isArray(post.extension?.topicNames) ? post.extension.topicNames : []),
+  ]
+  return uniqueText(values.map((item) => String(item || '')))
+}
+const searchHitReasons = (post: Post) => {
+  if (post.recommendationReasons?.length) return []
+  const terms = activeSearchTerms()
+  const reasons: string[] = []
+  if (post.highlightTitle && /<em>/i.test(post.highlightTitle)) {
+    reasons.push(`后端标题高亮：${stripHighlightTags(post.highlightTitle).slice(0, 28)}`)
+  }
+  if (post.highlightSummary && /<em>/i.test(post.highlightSummary)) {
+    reasons.push(`后端摘要高亮：${stripHighlightTags(post.highlightSummary).slice(0, 28)}`)
+  }
+  for (const term of terms) {
+    if (containsTerm(post.title, term)) reasons.push(`标题匹配「${term}」`)
+    if (containsTerm(post.summary, term)) reasons.push(`摘要匹配「${term}」`)
+    const matchedTags = post.tags.map((tag) => tag.name).filter((name) => containsTerm(name, term)).slice(0, 2)
+    if (matchedTags.length) reasons.push(`标签匹配：${matchedTags.join('、')}`)
+    const matchedTopics = postTopicNames(post).filter((name) => containsTerm(name, term)).slice(0, 2)
+    if (matchedTopics.length) reasons.push(`话题匹配：${matchedTopics.join('、')}`)
+  }
+  return uniqueText(reasons).slice(0, 3)
 }
 
 const userSignatureText = (item: User) => {
@@ -1360,6 +1409,44 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
 }
 
+.search-signal-note {
+  margin-top: 0.45rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgb(100 116 139);
+}
+
+.filter-details {
+  display: grid;
+  gap: 1rem;
+}
+
+.filter-summary {
+  display: none;
+  min-height: 2.75rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.filter-summary::after {
+  content: '展开';
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(37 99 235);
+}
+
+.filter-details[open] > .filter-summary::after {
+  content: '收起';
+}
+
 .primary-button,
 .secondary-button,
 .segment-button,
@@ -1673,6 +1760,40 @@ onBeforeUnmount(() => {
   color: rgb(127 29 29);
 }
 
+.search-result-item {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.search-hit-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.25rem 0.25rem;
+}
+
+.search-hit-reasons span,
+.search-hit-reasons small {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.search-hit-reasons span {
+  color: rgb(71 85 105);
+}
+
+.search-hit-reasons small {
+  border: 1px solid rgb(219 234 254);
+  background: rgb(239 246 255);
+  padding: 0.25rem 0.6rem;
+  color: rgb(30 64 175);
+}
+
 .loading-panel,
 .empty-panel {
   text-align: center;
@@ -1734,6 +1855,15 @@ onBeforeUnmount(() => {
 
   .search-aside {
     order: 2;
+  }
+
+  .filter-summary {
+    display: flex;
+  }
+
+  .filter-details:not([open]) > .side-panel,
+  .filter-details:not([open]) > .undo-panel {
+    display: none;
   }
 
   .primary-button,
@@ -1823,6 +1953,16 @@ onBeforeUnmount(() => {
   color: rgb(199 210 254);
 }
 
+.dark .filter-summary {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+  color: rgb(248 250 252);
+}
+
+.dark .search-signal-note {
+  color: rgb(148 163 184);
+}
+
 .dark .undo-panel {
   border-color: rgb(30 64 175);
   background: rgb(30 41 59);
@@ -1871,6 +2011,16 @@ onBeforeUnmount(() => {
 }
 
 .dark .recommend-chip {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
+}
+
+.dark .search-hit-reasons span {
+  color: rgb(148 163 184);
+}
+
+.dark .search-hit-reasons small {
   border-color: rgb(30 64 175);
   background: rgb(23 37 84);
   color: rgb(191 219 254);

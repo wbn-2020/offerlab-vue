@@ -16,8 +16,8 @@
               <h1 class="truncate text-2xl font-bold text-slate-950 dark:text-slate-50">
                 {{ displayNickname }}
               </h1>
-              <span v-if="user?.isBigV" class="rounded bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                认证用户
+              <span v-if="user?.isBigV" class="rounded bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                公开作者
               </span>
             </div>
             <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -55,15 +55,15 @@
           <div>
             <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">我的作者主页</h2>
             <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              {{ contribution.level }} · {{ contribution.badge }}，{{ contributionSourceText }}。
+              {{ contributionSourceText }}。这里展示的是公开内容的可解释反馈，不使用分数或等级表达。
             </p>
             <p v-if="profileDemoNotice" class="mt-2 text-xs font-semibold text-sky-700 dark:text-sky-300">
               {{ profileDemoNotice }}
             </p>
           </div>
           <div class="score-card">
-            <strong>{{ contribution.score }}</strong>
-            <span>影响力</span>
+            <strong>7 / 30</strong>
+            <span>近期反馈窗口</span>
           </div>
         </div>
         <div class="mt-5 grid gap-3 sm:grid-cols-5">
@@ -77,6 +77,100 @@
           <span v-for="item in typeDistribution" :key="item.name" class="type-chip">{{ item.name }} {{ item.count }}</span>
         </div>
       </section>
+
+      <section class="creator-feedback-panel mt-6">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p class="text-xs font-black text-primary-600 dark:text-primary-300">创作者轻反馈 · 创作者工作台</p>
+            <h2>近期反馈、继续回应和下一篇方向</h2>
+            <span>只聚合公开内容信号；近 7 天/30 天在缺少独立事件流时按近期公开内容估算。</span>
+            <span>只展示公开内容互动，不承诺曝光效果，读者仍应结合内容自行判断。</span>
+          </div>
+          <RouterLink to="/me/notifications" class="secondary-button">查看通知中心</RouterLink>
+        </div>
+        <div class="feedback-window-grid">
+          <article v-for="item in feedbackWindows" :key="item.label" class="feedback-window-card">
+            <div>
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.description }}</span>
+            </div>
+            <div class="feedback-window-metrics">
+              <span>{{ item.posts }} 篇内容</span>
+              <span>{{ item.comments }} 条评论</span>
+              <span>{{ item.favorites }} 次收藏</span>
+              <span>{{ item.likes }} 次点赞</span>
+            </div>
+          </article>
+        </div>
+        <div class="mt-5 grid gap-3 sm:grid-cols-4">
+          <RouterLink to="/me?tab=posts" class="feedback-stat">
+            <MessageCircle class="h-4 w-4 text-primary-600" />
+            <strong>{{ contribution.commentCount }}</strong>
+            <span>评论反馈</span>
+            <small>回到内容讨论</small>
+          </RouterLink>
+          <RouterLink to="/me?tab=favorites" class="feedback-stat">
+            <Bookmark class="h-4 w-4 text-primary-600" />
+            <strong>{{ contribution.favoriteCount }}</strong>
+            <span>收藏反馈</span>
+            <small>查看被保存的内容</small>
+          </RouterLink>
+          <RouterLink to="/me?tab=followers" class="feedback-stat">
+            <UserRoundCheck class="h-4 w-4 text-primary-600" />
+            <strong>{{ user?.followerCount ?? followers.items.length }}</strong>
+            <span>新增关注者</span>
+            <small>回访作者主页</small>
+          </RouterLink>
+          <RouterLink :to="topFeedbackPost ? `/post/${topFeedbackPost.postId}` : '/me?tab=posts'" class="feedback-stat">
+            <Heart class="h-4 w-4 text-primary-600" />
+            <strong>{{ topFeedbackScore }}</strong>
+            <span>近期表现较好内容</span>
+            <small>{{ topFeedbackPost ? '打开内容继续回应' : '发布后会出现' }}</small>
+          </RouterLink>
+        </div>
+        <div class="creator-workbench-grid">
+          <article class="creator-workbench-card">
+            <div class="creator-workbench-head">
+              <strong>表现较好内容</strong>
+              <RouterLink to="/me?tab=posts">管理内容</RouterLink>
+            </div>
+            <div v-if="topFeedbackPosts.length" class="creator-link-list">
+              <RouterLink v-for="post in topFeedbackPosts" :key="post.postId" :to="`/post/${post.postId}`">
+                <span>{{ post.title }}</span>
+                <small>{{ feedbackReason(post) }}</small>
+              </RouterLink>
+            </div>
+            <p v-else class="creator-empty-copy">发布公开内容后，这里会按评论、收藏和点赞展示可继续经营的内容。</p>
+          </article>
+          <article class="creator-workbench-card">
+            <div class="creator-workbench-head">
+              <strong>继续回应入口</strong>
+              <RouterLink to="/me?tab=posts">查看全部</RouterLink>
+            </div>
+            <div v-if="replyOpportunityPosts.length" class="creator-link-list">
+              <RouterLink v-for="post in replyOpportunityPosts" :key="post.postId" :to="`/post/${post.postId}`">
+                <span>{{ post.title }}</span>
+                <small>{{ post.counter.comment }} 条评论，适合回到公共讨论补充说明</small>
+              </RouterLink>
+            </div>
+            <p v-else class="creator-empty-copy">暂时没有需要集中回应的讨论；可以先整理代表作或公开合集。</p>
+          </article>
+          <article class="creator-workbench-card">
+            <div class="creator-workbench-head">
+              <strong>选题灵感</strong>
+              <RouterLink to="/editor">空白发布</RouterLink>
+            </div>
+            <div class="creator-link-list">
+              <RouterLink v-for="idea in topicIdeas" :key="idea.title" :to="{ path: '/editor', query: idea.query }">
+                <span>{{ idea.title }}</span>
+                <small>{{ idea.reason }}</small>
+              </RouterLink>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <RevisitSummaryPanel class="mt-6" />
 
       <section class="creator-center-grid mt-6">
         <article class="creator-action-panel">
@@ -96,17 +190,57 @@
         </article>
 
         <article class="creator-cert-panel">
-          <p class="text-xs font-black text-primary-600 dark:text-primary-300">领域认证</p>
-          <h2>认证作者</h2>
+          <p class="text-xs font-black text-primary-600 dark:text-primary-300">作者主页经营</p>
+          <h2>认证作者、代表作和公开合集</h2>
           <p>
-            认证作者用于标识持续贡献和领域经验，会经过人工审核；认证不代表平台对每条内容背书，也不替代专业建议。
+            P0 先用公开内容和公开合集经营主页；正式手动代表作设置需要后续 adapter 校验作者、内容状态和可见性。
           </p>
           <span class="creator-cert-meta">当前公开合集 {{ publicCollectionCount }} 个</span>
           <div class="creator-cert-actions">
-            <RouterLink to="/certification/apply" class="primary-button">查看认证条件</RouterLink>
+            <RouterLink to="/me?tab=posts" class="primary-button">选择代表内容</RouterLink>
+            <RouterLink to="/certification/apply" class="secondary-button">认证作者申请</RouterLink>
             <RouterLink to="/me/settings" class="secondary-button">完善作者资料</RouterLink>
           </div>
         </article>
+      </section>
+
+      <section class="profile-panel mt-6">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="text-xs font-black text-primary-600 dark:text-primary-300">内容资产</p>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">稍后读、未整理收藏和内容合集</h2>
+            <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              私密合集只在本人主页可见；公开合集仍需要通过治理过滤后才会进入访客主页。
+            </p>
+          </div>
+          <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
+        </div>
+        <div class="asset-grid">
+          <RouterLink to="/me?tab=favorites" class="asset-card">
+            <Bookmark class="h-4 w-4 text-primary-600" />
+            <strong>稍后读</strong>
+            <span>默认保存入口</span>
+            <small>{{ favorites.items.length }} 条</small>
+          </RouterLink>
+          <RouterLink to="/me?tab=favorites" class="asset-card">
+            <BookmarkCheck class="h-4 w-4 text-primary-600" />
+            <strong>未整理收藏</strong>
+            <span>先回看，再整理到合集</span>
+            <small>{{ unorganizedFavoriteCount }} 条</small>
+          </RouterLink>
+          <RouterLink to="/series/workbench" class="asset-card">
+            <Lock class="h-4 w-4 text-primary-600" />
+            <strong>私密合集</strong>
+            <span>只对本人可见</span>
+            <small>{{ privateCollectionCount }} 个</small>
+          </RouterLink>
+          <RouterLink to="/series/workbench" class="asset-card">
+            <Globe2 class="h-4 w-4 text-primary-600" />
+            <strong>公开合集</strong>
+            <span>通过治理后展示</span>
+            <small>{{ publicCollectionCount }} 个</small>
+          </RouterLink>
+        </div>
       </section>
 
       <section class="profile-panel mt-6">
@@ -232,11 +366,12 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Bookmark, FileText, Hash, Heart, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
+import { Bookmark, BookmarkCheck, FileText, Globe2, Hash, Heart, Lock, MessageCircle, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import RevisitSummaryPanel from '@/components/retention/RevisitSummaryPanel.vue'
 import UserCard from '@/components/user/UserCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
@@ -246,8 +381,10 @@ import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, PaginatedResponse, Post, User } from '@/api/types'
 import { buildContributionSummary, buildTypeDistribution, type ContributionSummary } from '@/utils/communityMetrics'
 import { filterPublicContent, safePublicVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
-import { buildCreatorActions, pickRepresentativePosts, publicAuthorPosts } from '@/utils/creatorSignals'
+import { pickRepresentativePosts, publicAuthorPosts } from '@/utils/creatorSignals'
+import { filterVisibleCollections, filterVisiblePosts } from '@/utils/recommendationGovernance'
 import { demoProfileContribution } from '@/data/demoSeeds'
+import { getContentTypeShortLabel } from '@/utils/contentTypes'
 
 type TabValue = 'posts' | 'favorites' | 'liked' | 'following' | 'topics' | 'followers'
 
@@ -279,6 +416,7 @@ const following = createState<User>()
 const topics = createState<CommunityTopic>()
 const followers = createState<User>()
 const backendContribution = ref<ContributionSummary | null>(null)
+const ownerCollections = ref<ContentSeriesRecord[]>([])
 const myCollections = ref<ContentSeriesRecord[]>([])
 
 const tabs = [
@@ -321,14 +459,115 @@ const profileDemoNotice = computed(() => contribution.value.source === 'local_de
   : ''
 )
 const typeDistribution = computed(() => buildTypeDistribution(posts.items))
-const publicCollectionCount = computed(() => myCollections.value.filter((item) => item.visibility === 'public').length)
-const representativePosts = computed(() => pickRepresentativePosts(publicAuthorPosts(posts.items), 3))
-const creatorActions = computed(() => buildCreatorActions(
-  publicAuthorPosts(posts.items),
-  contribution.value,
-  publicCollectionCount.value > 0,
-  true,
-))
+const publicCollectionCount = computed(() => filterVisibleCollections(myCollections.value).length)
+const privateCollectionCount = computed(() => ownerCollections.value.filter((item) => item.visibility === 'private').length)
+const unorganizedFavoriteCount = computed(() => favorites.items.length)
+const authorPublicPosts = computed(() => publicAuthorPosts(filterVisiblePosts(posts.items)))
+const representativePosts = computed(() => pickRepresentativePosts(authorPublicPosts.value, 3))
+const postFeedbackScore = (post: Post) => (
+  Number(post.counter?.comment || 0) * 3
+  + Number(post.counter?.favorite || 0) * 2
+  + Number(post.counter?.like || 0)
+  + Number(post.counter?.view || 0) * 0.02
+)
+const timestampOfPost = (post: Post) => Number(post.updatedAt || post.createdAt || 0)
+const postsWithinDays = (days: number) => {
+  const since = Date.now() - days * 24 * 60 * 60 * 1000
+  return authorPublicPosts.value.filter((post) => timestampOfPost(post) >= since)
+}
+const summarizeWindow = (days: number) => {
+  const windowPosts = postsWithinDays(days)
+  return {
+    label: `近 ${days} 天`,
+    description: windowPosts.length ? '按近期发布或更新的公开内容估算' : '暂无近期公开内容',
+    posts: windowPosts.length,
+    comments: windowPosts.reduce((sum, post) => sum + Number(post.counter?.comment || 0), 0),
+    favorites: windowPosts.reduce((sum, post) => sum + Number(post.counter?.favorite || 0), 0),
+    likes: windowPosts.reduce((sum, post) => sum + Number(post.counter?.like || 0), 0),
+  }
+}
+const feedbackWindows = computed(() => [summarizeWindow(7), summarizeWindow(30)])
+const topFeedbackPosts = computed(() => [...authorPublicPosts.value]
+  .sort((a, b) => postFeedbackScore(b) - postFeedbackScore(a) || timestampOfPost(b) - timestampOfPost(a))
+  .slice(0, 3))
+const topFeedbackPost = computed(() => topFeedbackPosts.value[0])
+const topFeedbackScore = computed(() => {
+  const post = topFeedbackPost.value
+  if (!post) return 0
+  return Number(post.counter?.comment || 0) + Number(post.counter?.favorite || 0) + Number(post.counter?.like || 0)
+})
+const replyOpportunityPosts = computed(() => authorPublicPosts.value
+  .filter((post) => Number(post.counter?.comment || 0) > 0)
+  .sort((a, b) => Number(b.counter?.comment || 0) - Number(a.counter?.comment || 0) || timestampOfPost(b) - timestampOfPost(a))
+  .slice(0, 3))
+const feedbackReason = (post: Post) => {
+  const comments = Number(post.counter?.comment || 0)
+  const favorites = Number(post.counter?.favorite || 0)
+  if (comments > 0) return `${comments} 条评论，适合继续回应`
+  if (favorites > 0) return `${favorites} 次收藏，适合扩写成清单或合集`
+  return `${Number(post.counter?.like || 0)} 次点赞，可作为代表内容候选`
+}
+const firstTopicName = (post?: Post | null) => post?.tags?.[0]?.name || ''
+const topicIdeas = computed(() => {
+  const primaryPost = topFeedbackPost.value
+  const primaryType = primaryPost ? getContentTypeShortLabel(primaryPost.postType) : '经验'
+  const primaryTopic = firstTopicName(primaryPost) || typeDistribution.value[0]?.name || '社区经验'
+  const firstCollection = myCollections.value.find((item) => item.visibility === 'public')
+  return [
+    {
+      title: primaryPost ? `围绕「${primaryPost.title}」补一篇后续` : '写一篇近期观察或经验',
+      reason: primaryPost ? feedbackReason(primaryPost) : '示例灵感：发布后会优先使用真实公开内容反馈',
+      query: {
+        source: 'own_post_feedback',
+        title: primaryPost ? `${primaryPost.title}：后续补充` : '我的近期观察',
+        postType: primaryPost ? String(primaryPost.postType) : undefined,
+        topic: primaryTopic,
+      },
+    },
+    {
+      title: `整理一个${primaryType}方向的小合集`,
+      reason: firstCollection ? `可继续补充公开合集「${firstCollection.title}」` : '合集能把长期内容组织到作者主页',
+      query: {
+        source: 'series_gap',
+        title: `${primaryType}清单：${primaryTopic}`,
+        postType: primaryPost ? String(primaryPost.postType) : undefined,
+        topic: primaryTopic,
+        seriesId: firstCollection ? String(firstCollection.id) : undefined,
+      },
+    },
+    {
+      title: `把「${primaryTopic}」写成可讨论的问题`,
+      reason: '从公开话题或内容类型出发，不承诺推荐或曝光效果',
+      query: {
+        source: 'content_type_template',
+        title: `关于${primaryTopic}，你们会怎么处理？`,
+        topic: primaryTopic,
+      },
+    },
+  ]
+})
+const buildCreatorActions = () => [
+  {
+    href: '/me?tab=posts',
+    title: '代表作管理入口',
+    description: representativePosts.value.length
+      ? '当前先展示系统挑选的公开内容候选；手动保存需等待代表作 adapter。'
+      : '发布公开内容后，可从这里挑选作者主页展示候选。',
+  },
+  {
+    href: '/series/workbench',
+    title: '整理公开合集',
+    description: publicCollectionCount.value > 0
+      ? `已有 ${publicCollectionCount.value} 个公开合集，可继续补目录和封面。`
+      : '把长期内容整理成公开合集，供作者主页展示。',
+  },
+  {
+    href: '/me/settings',
+    title: '完善创作方向',
+    description: '用简介和公开内容类型说明你常写的频道与主题。',
+  },
+]
+const creatorActions = computed(buildCreatorActions)
 
 const loadContribution = async () => {
   try {
@@ -342,8 +581,10 @@ const loadContribution = async () => {
 const loadMyCollections = async () => {
   try {
     const res = await contentSeriesApi.listMine(user.value?.uid)
-    myCollections.value = res.data || []
+    ownerCollections.value = res.data || []
+    myCollections.value = filterVisibleCollections(res.data || [])
   } catch {
+    ownerCollections.value = []
     myCollections.value = []
   }
 }
@@ -386,7 +627,7 @@ const loadPosts = (append = false) => {
     append,
     async (cursor) => {
       const page = (await postApi.list({ authorId: user.value!.uid, cursor, size: 10 })).data
-      return page ? { ...page, items: filterPublicContent(page.items) } : page
+      return page ? { ...page, items: filterVisiblePosts(filterPublicContent(page.items)) } : page
     },
     '发帖列表加载失败',
   )
@@ -397,7 +638,7 @@ const loadFavorites = (append = false) => loadPage(
   append,
   async (cursor) => {
     const page = (await postApi.getMyFavorites(cursor, 10)).data
-    return page ? { ...page, items: filterPublicContent(page.items) } : page
+    return page ? { ...page, items: filterVisiblePosts(filterPublicContent(page.items)) } : page
   },
   '收藏列表加载失败',
 )
@@ -407,7 +648,7 @@ const loadLikedPosts = (append = false) => loadPage(
   append,
   async (cursor) => {
     const page = (await postApi.getMyLikedPosts(cursor, 10)).data
-    return page ? { ...page, items: filterPublicContent(page.items) } : page
+    return page ? { ...page, items: filterVisiblePosts(filterPublicContent(page.items)) } : page
   },
   '点赞列表加载失败',
 )
@@ -748,10 +989,206 @@ watch(() => route.query.tab, (value) => {
   padding: 1.5rem;
 }
 
+.creator-feedback-panel {
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.75rem;
+  background: rgb(239 246 255);
+  padding: 1.5rem;
+}
+
+.creator-feedback-panel h2 {
+  margin-top: 0.15rem;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.creator-feedback-panel span {
+  margin-top: 0.35rem;
+  display: block;
+  color: rgb(71 85 105);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.feedback-stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.5rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.625rem;
+  background: white;
+  padding: 0.85rem;
+}
+
+.feedback-stat strong {
+  color: rgb(15 23 42);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.feedback-stat span,
+.feedback-stat small {
+  grid-column: 1 / -1;
+}
+
+.feedback-stat span {
+  margin-top: 0.2rem;
+  color: rgb(51 65 85);
+  font-size: 0.8125rem;
+  font-weight: 900;
+}
+
+.feedback-stat small {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.feedback-window-grid {
+  margin-top: 1.1rem;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.feedback-window-card {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 1rem;
+}
+
+.feedback-window-card strong {
+  display: block;
+  color: rgb(15 23 42);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.feedback-window-metrics {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.creator-workbench-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.creator-workbench-card {
+  display: flex;
+  min-height: 12rem;
+  flex-direction: column;
+  gap: 0.85rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 1rem;
+}
+
+.creator-workbench-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.creator-workbench-head strong {
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.creator-workbench-head a {
+  flex-shrink: 0;
+  color: rgb(37 99 235);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.creator-link-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.creator-link-list a {
+  display: grid;
+  gap: 0.25rem;
+  border-radius: 0.625rem;
+  background: rgb(248 250 252);
+  padding: 0.7rem;
+}
+
+.creator-link-list span {
+  margin: 0;
+  display: block;
+  color: rgb(15 23 42);
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.creator-link-list small,
+.creator-empty-copy {
+  color: rgb(100 116 139);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.creator-empty-copy {
+  margin: 0;
+}
+
 .creator-center-grid {
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+}
+
+.asset-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.asset-card {
+  display: grid;
+  gap: 0.35rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.9rem;
+  color: rgb(71 85 105);
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.asset-card:hover {
+  transform: translateY(-1px);
+  border-color: rgb(147 197 253);
+  background: rgb(239 246 255);
+}
+
+.asset-card strong {
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+}
+
+.asset-card span,
+.asset-card small {
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.asset-card small {
+  color: rgb(37 99 235);
 }
 
 .creator-action-panel,
@@ -1053,11 +1490,75 @@ watch(() => route.query.tab, (value) => {
   background: rgb(2 6 23);
 }
 
+.dark .asset-card {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+  color: rgb(148 163 184);
+}
+
+.dark .asset-card:hover {
+  border-color: rgb(30 64 175);
+  background: rgb(30 41 59);
+}
+
+.dark .asset-card strong {
+  color: rgb(248 250 252);
+}
+
 .dark .community-growth-panel,
 .dark .score-card,
 .dark .growth-stat {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
+}
+
+.dark .creator-feedback-panel {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .creator-feedback-panel h2,
+.dark .feedback-stat strong {
+  color: rgb(248 250 252);
+}
+
+.dark .creator-feedback-panel span,
+.dark .feedback-stat small {
+  color: rgb(203 213 225);
+}
+
+.dark .feedback-stat {
+  border-color: rgb(30 64 175);
+  background: rgb(2 6 23);
+}
+
+.dark .feedback-stat span {
+  color: rgb(226 232 240);
+}
+
+.dark .feedback-window-card,
+.dark .creator-workbench-card {
+  border-color: rgb(30 64 175);
+  background: rgb(2 6 23);
+}
+
+.dark .feedback-window-card strong,
+.dark .creator-workbench-head strong,
+.dark .creator-link-list span {
+  color: rgb(248 250 252);
+}
+
+.dark .creator-link-list a {
+  background: rgb(15 23 42);
+}
+
+.dark .creator-workbench-head a {
+  color: rgb(147 197 253);
+}
+
+.dark .creator-link-list small,
+.dark .creator-empty-copy {
+  color: rgb(148 163 184);
 }
 
 .dark .creator-action-panel,
@@ -1133,7 +1634,20 @@ html.dark .growth-stat {
 }
 
 @media (max-width: 640px) {
+  .feedback-window-grid,
+  .creator-workbench-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feedback-window-metrics {
+    grid-template-columns: 1fr;
+  }
+
   .creator-center-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-grid {
     grid-template-columns: 1fr;
   }
 

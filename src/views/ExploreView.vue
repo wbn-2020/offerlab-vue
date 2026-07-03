@@ -32,7 +32,7 @@
         </div>
         <div class="mt-4 flex flex-wrap gap-2">
           <button
-            v-for="item in quickFilters"
+            v-for="item in quickFilters.slice(0, 6)"
             :key="item.value"
             type="button"
             class="rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-300 dark:hover:border-primary-700 dark:hover:bg-slate-800"
@@ -119,7 +119,7 @@
         </div>
       </section>
 
-      <section class="surface-card stage4-cross-domain-panel mb-8 p-6">
+      <section v-if="ENABLE_CROSS_DOMAIN_DISCOVERY" class="surface-card stage4-cross-domain-panel mb-8 p-6">
         <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
             <span class="stage4-kicker">辅助探索</span>
@@ -212,9 +212,24 @@
             </div>
             <RouterLink to="/explore" class="secondary-action">回到综合发现</RouterLink>
           </div>
+          <div v-if="SHOW_CHANNEL_FEATURED_DIRECTIONS" class="channel-featured-direction-grid mb-5">
+            <RouterLink
+              v-for="direction in channelFeaturedDirections"
+              :key="direction.key"
+              :to="direction.href"
+              class="channel-featured-direction"
+              :class="{ 'channel-featured-direction--risk': direction.riskNote }"
+            >
+              <span class="channel-featured-direction__badge">精选方向</span>
+              <strong>{{ direction.title }}</strong>
+              <p>{{ direction.description }}</p>
+              <small v-if="direction.riskNote">{{ direction.riskNote }}</small>
+              <small v-else>{{ direction.reason }}</small>
+            </RouterLink>
+          </div>
           <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <RouterLink
-              v-for="channel in primaryChannelCards"
+              v-for="channel in primaryChannelCards.slice(0, 6)"
               :key="channel.key"
               :to="{ path: '/explore', query: { channel: channel.key } }"
               class="domain-card"
@@ -235,7 +250,7 @@
               <small>{{ channel.riskNote || '进入频道聚合，继续查看代表话题和推荐标签。' }}</small>
             </RouterLink>
           </div>
-          <div class="browse-playbook mt-5">
+          <div v-if="SHOW_BROWSE_PLAYBOOK" class="browse-playbook mt-5">
             <div class="browse-playbook__header">
               <div>
                 <h3>浏览引导</h3>
@@ -290,7 +305,7 @@
         </article>
       </section>
 
-      <section class="surface-card mb-8 p-6">
+      <section v-if="SHOW_CONTENT_TYPE_DISCOVERY" class="surface-card mb-8 p-6">
         <div class="mb-5 flex items-center justify-between gap-4">
           <div>
             <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">内容频道</h2>
@@ -317,7 +332,7 @@
         </div>
       </section>
 
-      <section class="surface-card mb-8 p-6">
+      <section v-if="SHOW_COMMUNITY_QUESTION_ENTRY" class="surface-card mb-8 p-6">
         <div class="mb-5 flex items-center justify-between gap-4">
           <div>
             <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">社区问答讨论</h2>
@@ -347,26 +362,35 @@
         <article class="surface-card p-6">
           <div class="mb-5 flex items-center justify-between gap-4">
             <div>
-              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">精选内容</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">运营标记或高互动内容会优先沉淀在这里。</p>
+              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">热门标签</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">标签直接连接搜索和标签页，只展示当前稳定可用的公开标签。</p>
             </div>
-            <RouterLink :to="{ path: '/', query: { feed: 'featured' } }" class="text-sm font-medium text-primary-600 hover:text-primary-700">进入精选流</RouterLink>
+            <RouterLink to="/search?sort=hot" class="text-sm font-medium text-primary-600 hover:text-primary-700">用标签搜索</RouterLink>
           </div>
-          <div v-if="featuredPosts.length" class="space-y-3">
+          <div v-if="isLoadingMeta" class="grid gap-3 sm:grid-cols-2">
+            <div v-for="i in 6" :key="i" class="h-10 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+          </div>
+          <div v-else-if="displayTags.length" class="flex flex-wrap gap-3">
             <RouterLink
-              v-for="post in featuredPosts"
-              :key="post.postId"
-              :to="`/post/${post.postId}`"
-              class="featured-row"
+              v-for="tag in displayTags.slice(0, 6)"
+              :key="tag.id"
+              :to="`/tag/${tag.slug || tag.id}`"
+              class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300 dark:hover:border-primary-700 dark:hover:bg-slate-800"
             >
-              <span>精选</span>
-              <div class="min-w-0">
-                <h3>{{ post.title }}</h3>
-                <p>{{ post.summary || post.content.substring(0, 90) }}</p>
-              </div>
+              {{ tag.name }}
+              <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">{{ tag.count ?? 0 }}</span>
             </RouterLink>
           </div>
-          <EmptyState v-else title="暂无精选内容" description="后台设置精选后会展示在这里。" />
+          <div v-if="tagSectionNote && displayTags.length" class="section-note mt-4" :class="tagSectionNoteTone">
+            {{ tagSectionNote }}
+          </div>
+          <EmptyState
+            v-else-if="!displayTags.length"
+            :title="tagEmptyState.title"
+            :description="tagEmptyState.description"
+            :actionText="tagEmptyState.actionText"
+            :actionHref="tagEmptyState.actionHref"
+          />
         </article>
 
         <article class="surface-card p-6">
@@ -381,7 +405,7 @@
           </div>
           <div v-if="topicItems.length" class="grid gap-2">
             <RouterLink
-              v-for="topic in topicItems"
+              v-for="topic in topicItems.slice(0, 6)"
               :key="topic.name"
               :to="topic.href"
               class="topic-row"
@@ -400,7 +424,7 @@
         </article>
       </section>
 
-      <section class="surface-card mb-8 p-6">
+      <section v-if="SHOW_STANDALONE_TAG_SECTION" class="surface-card mb-8 p-6">
         <div class="mb-5 flex items-center justify-between gap-4">
           <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">热门标签</h2>
           <span class="text-sm text-slate-500 dark:text-slate-400">{{ displayTags.length }} 个标签</span>
@@ -431,7 +455,7 @@
         />
       </section>
 
-      <section class="surface-card mb-8 p-6">
+      <section v-if="SHOW_RECOMMENDED_USERS" class="surface-card mb-8 p-6">
         <div class="mb-5 flex items-center justify-between gap-4">
           <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">推荐用户</h2>
           <RouterLink to="/search?mode=users" class="text-sm font-medium text-primary-600 hover:text-primary-700">查看更多</RouterLink>
@@ -492,7 +516,7 @@
         <LoadingSkeleton v-if="isLoadingPosts" />
         <div v-else-if="visibleLatestPosts.length" class="space-y-4">
           <RouterLink
-            v-for="post in visibleLatestPosts"
+            v-for="post in visibleLatestPosts.slice(0, 6)"
             :key="post.postId"
             :to="`/post/${post.postId}`"
             class="block rounded-lg border border-slate-200 bg-white/65 p-4 transition-colors hover:border-primary-300 dark:border-slate-800 dark:bg-slate-950/25 dark:hover:border-primary-700"
@@ -505,9 +529,15 @@
               <div class="min-w-0 flex-1">
                 <div class="mb-1 flex flex-wrap items-center gap-2">
                   <span class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</span>
-                <span v-if="primaryMeta(post)" class="rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  <span class="rounded bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    {{ getContentTypeShortLabel(post.postType) }}
+                  </span>
+                  <span v-if="primaryMeta(post)" class="rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                     {{ primaryMeta(post) }}
                   </span>
+                </div>
+                <div v-if="latestPostCoverUrl(post)" class="latest-post-cover mb-2">
+                  <img :src="latestPostCoverUrl(post)" :alt="post.title" @error="handleLatestPostCoverError(latestPostCoverUrl(post))" />
                 </div>
                 <h3 class="mb-1 line-clamp-1 text-sm font-bold text-slate-900 dark:text-slate-100">{{ post.title }}</h3>
                 <p class="line-clamp-2 text-xs leading-5 text-slate-600 dark:text-slate-400">{{ post.summary || post.content.substring(0, 100) }}</p>
@@ -565,7 +595,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import type { CommunityTopic, CrossDomainRecommendation, PaginatedResponse, Post, Tag, User } from '@/api/types'
-import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
+import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeShortLabel } from '@/utils/contentTypes'
 import {
   COMMUNITY_CHANNELS,
   DOMAIN,
@@ -578,7 +608,12 @@ import {
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
-import { filterVisiblePosts, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
+import {
+  filterDiscoverySuppressedItems,
+  filterVisiblePosts,
+  normalizeRecommendationReason,
+  type ViewerDiscoverySuppressions,
+} from '@/utils/recommendationGovernance'
 
 type ExploreJumpTarget = string | { path: string; query?: Record<string, string> }
 
@@ -594,6 +629,15 @@ interface ExploreGuideCard {
   description: string
   cta: string
   href: ExploreJumpTarget
+}
+
+interface ChannelFeaturedDirection {
+  key: string
+  title: string
+  description: string
+  reason: string
+  href: ExploreJumpTarget
+  riskNote?: string
 }
 
 interface ExploreStatItem {
@@ -625,12 +669,20 @@ interface ExploreEmptyStateModel {
 type RequestState = 'idle' | 'loading' | 'ready' | 'failed'
 
 const READING_DISCOVERY_KEYWORDS = ['阅读', '读书', '书单', '书评', '笔记', '方法论', '摘录', '共读', 'reading']
+const ENABLE_CROSS_DOMAIN_DISCOVERY = false
+const SHOW_CHANNEL_FEATURED_DIRECTIONS = false
+const SHOW_BROWSE_PLAYBOOK = false
+const SHOW_CONTENT_TYPE_DISCOVERY = false
+const SHOW_COMMUNITY_QUESTION_ENTRY = false
+const SHOW_STANDALONE_TAG_SECTION = false
+const SHOW_RECOMMENDED_USERS = false
 
 const domains = ref<PublicDomainConfig[]>([...localDomainConfigs])
 const tags = ref<Tag[]>([])
 const topics = ref<CommunityTopic[]>([])
 const recommendedUsers = ref<User[]>([])
 const latestPosts = ref<Post[]>([])
+const failedLatestCoverUrls = ref(new Set<string>())
 const contentTypeDistribution = ref<RankedMetric[]>([])
 const domainSource = ref<DomainConfigSource>('fallback')
 const isLoadingMeta = ref(true)
@@ -659,13 +711,22 @@ const searchForm = reactive({
   scenario: '',
 })
 
-const cleanTags = computed(() => filterPublicContent(tags.value))
-const cleanTopics = computed(() => filterPublicContent(topics.value))
-const cleanRecommendedUsers = computed(() => filterPublicContent(recommendedUsers.value).filter(isPublicAuthor))
-const cleanLatestPosts = computed(() => filterVisiblePosts(filterPublicContent(latestPosts.value)))
+const viewerDiscoverySuppressions = computed<ViewerDiscoverySuppressions>(() => ({}))
+const cleanTags = computed(() => filterDiscoverySuppressedItems(filterPublicContent(tags.value), viewerDiscoverySuppressions.value))
+const cleanTopics = computed(() => filterDiscoverySuppressedItems(filterPublicContent(topics.value), viewerDiscoverySuppressions.value))
+const cleanRecommendedUsers = computed(() => filterDiscoverySuppressedItems(
+  filterPublicContent(recommendedUsers.value).filter(isPublicAuthor),
+  viewerDiscoverySuppressions.value,
+))
+const cleanLatestPosts = computed(() => filterVisiblePosts(
+  filterDiscoverySuppressedItems(filterPublicContent(latestPosts.value), viewerDiscoverySuppressions.value),
+))
 const recommendedUserReason = (user: User) => buildFollowReasons(user)[0]
 const crossDomainRecommendations = computed(() => (
-  (crossDomainPage.value?.items || []).filter((item) => filterVisiblePosts(item.item.post ? [item.item.post] : []).length > 0)
+  filterDiscoverySuppressedItems(
+    (crossDomainPage.value?.items || []).filter((item) => filterVisiblePosts(item.item.post ? [item.item.post] : []).length > 0),
+    viewerDiscoverySuppressions.value,
+  )
 ))
 const crossDomainFallbackReason = computed(() => crossDomainPage.value?.fallbackReason || '')
 const sortedTags = computed(() => [...cleanTags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
@@ -702,6 +763,30 @@ const activeChannelKey = computed(() => {
   return typeof value === 'string' ? value : ''
 })
 const activeChannel = computed(() => getCommunityChannel(activeChannelKey.value))
+const channelFeaturedDirections = computed<ChannelFeaturedDirection[]>(() => {
+  const sourceChannels = activeChannel.value ? [activeChannel.value] : primaryChannelCards.value.slice(0, 3)
+  return sourceChannels.map((channel) => {
+    const firstTopic = channel.topics?.[0]
+    const firstTag = channel.tags?.[0]
+    const query: Record<string, string> = { sort: 'hot' }
+    if (channel.postTypes?.length === 1) {
+      query.type = String(channel.postTypes[0])
+    } else if (channel.domain) {
+      query.domain = String(channel.domain)
+    }
+    if (firstTopic || firstTag) query.q = firstTopic || firstTag || ''
+    return {
+      key: channel.key,
+      title: `${channel.name}精选方向`,
+      description: firstTopic
+        ? `优先从「${firstTopic}」查看正在讨论和被收藏的公开内容。`
+        : `优先查看${channel.name}下的热门内容、代表标签和可参与讨论。`,
+      reason: channel.riskNote || '按频道、热门排序、公开标签和可见内容状态聚合，不使用不可解释分数。',
+      href: { path: '/search', query },
+      riskNote: channel.riskNote,
+    }
+  })
+})
 const activeChannelPostTypes = computed(() => activeChannel.value?.postTypes || [])
 const activeChannelPostTypeSet = computed(() => new Set(activeChannelPostTypes.value.map((type) => Number(type))))
 const activeListType = computed(() => activeChannelPostTypes.value.length === 1 ? activeChannelPostTypes.value[0] : undefined)
@@ -950,8 +1035,8 @@ const loadFallbackNotes = computed(() => {
   if (requestStates.tags === 'failed') notes.push('热门标签接口暂未返回。')
   if (requestStates.users === 'failed') notes.push('推荐用户接口暂未返回。')
   if (requestStates.posts === 'failed') notes.push('最新发布接口暂未返回。')
-  if (crossDomainStatus.value === 'degraded') notes.push('相关内容推荐包含回退结果。')
-  if (authStore.isLoggedIn && crossDomainStatus.value === 'failed') notes.push('个性化相关内容推荐当前不可用。')
+  if (ENABLE_CROSS_DOMAIN_DISCOVERY && crossDomainStatus.value === 'degraded') notes.push('相关内容推荐包含回退结果。')
+  if (ENABLE_CROSS_DOMAIN_DISCOVERY && authStore.isLoggedIn && crossDomainStatus.value === 'failed') notes.push('个性化相关内容推荐当前不可用。')
   return notes.slice(0, 4)
 })
 const overviewState = computed<ExploreOverviewState>(() => {
@@ -1195,6 +1280,22 @@ const primaryMeta = (post: Post) => {
   return post.extension?.scenario || stacks[0] || post.extension?.company || post.extension?.position || ''
 }
 
+const latestPostCoverUrl = (post: Post) => {
+  const extension = post.extension || {}
+  const fallbackImages = Array.isArray(extension.images)
+    ? extension.images
+    : Array.isArray(extension.gallery)
+      ? extension.gallery
+      : []
+  const imageUrl = String(post.coverUrl || fallbackImages[0] || extension.coverUrl || '').trim()
+  return imageUrl && !failedLatestCoverUrls.value.has(imageUrl) ? imageUrl : ''
+}
+
+const handleLatestPostCoverError = (imageUrl: string) => {
+  if (!imageUrl) return
+  failedLatestCoverUrls.value = new Set(failedLatestCoverUrls.value).add(imageUrl)
+}
+
 const userDisplaySignature = (user: User) => {
   const signature = user.signature?.trim()
   return signature && !isSyntheticVisibleText(signature)
@@ -1281,8 +1382,8 @@ const loadExploreData = async () => {
   requestStates.users = 'loading'
   requestStates.posts = 'loading'
   requestStates.dashboard = 'loading'
-  requestStates.crossDomain = authStore.isLoggedIn ? 'loading' : 'idle'
-  crossDomainStatus.value = authStore.isLoggedIn ? 'loading' : 'unauthenticated'
+  requestStates.crossDomain = ENABLE_CROSS_DOMAIN_DISCOVERY && authStore.isLoggedIn ? 'loading' : 'idle'
+  crossDomainStatus.value = ENABLE_CROSS_DOMAIN_DISCOVERY && authStore.isLoggedIn ? 'loading' : 'unauthenticated'
   const tasks: Array<Promise<any>> = [
     domainApi.listPublic(),
     postApi.getTags(),
@@ -1291,7 +1392,7 @@ const loadExploreData = async () => {
     loadChannelLatestPosts(),
     dashboardApi.getTrendDashboard('30d', activeDomain.value),
   ]
-  if (authStore.isLoggedIn) {
+  if (ENABLE_CROSS_DOMAIN_DISCOVERY && authStore.isLoggedIn) {
     tasks.push(recommendationsApi.listCrossDomain(undefined, 6))
   }
   const [domainRes, tagRes, topicRes, userRes, postRes, dashboardRes, crossDomainRes] = await Promise.allSettled(tasks)
@@ -1332,7 +1433,7 @@ const loadExploreData = async () => {
   } else {
     requestStates.dashboard = 'failed'
   }
-  if (!authStore.isLoggedIn) {
+  if (!ENABLE_CROSS_DOMAIN_DISCOVERY || !authStore.isLoggedIn) {
     crossDomainPage.value = null
     requestStates.crossDomain = 'idle'
   } else if (crossDomainRes?.status === 'fulfilled') {
@@ -1557,6 +1658,21 @@ watch(() => authStore.isLoggedIn, async () => {
 .overview-status-card--neutral {
   border-color: rgb(191 219 254);
   background: rgb(248 250 255 / 0.95);
+}
+
+.latest-post-cover {
+  overflow: hidden;
+  border-radius: 0.625rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  aspect-ratio: 16 / 9;
+}
+
+.latest-post-cover img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
 }
 
 .overview-status-card--neutral .overview-status-card__eyebrow {
@@ -1852,6 +1968,75 @@ watch(() => authStore.isLoggedIn, async () => {
   border-color: rgb(253 230 138);
   background: rgb(255 251 235);
   color: rgb(146 64 14);
+}
+
+.channel-featured-direction-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.channel-featured-direction {
+  display: flex;
+  min-height: 9.25rem;
+  flex-direction: column;
+  gap: 0.55rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgb(199 210 254);
+  background: rgb(238 242 255 / 0.58);
+  padding: 0.95rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.channel-featured-direction:hover {
+  transform: translateY(-1px);
+  border-color: rgb(129 140 248);
+  background: rgb(238 242 255 / 0.86);
+}
+
+.channel-featured-direction__badge {
+  width: fit-content;
+  border-radius: 999px;
+  background: white;
+  padding: 0.26rem 0.58rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: rgb(67 56 202);
+}
+
+.channel-featured-direction strong {
+  font-size: 0.96rem;
+  color: rgb(15 23 42);
+}
+
+.channel-featured-direction p,
+.channel-featured-direction small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  line-height: 1.55;
+}
+
+.channel-featured-direction p {
+  -webkit-line-clamp: 2;
+  font-size: 0.82rem;
+  color: rgb(51 65 85);
+}
+
+.channel-featured-direction small {
+  margin-top: auto;
+  -webkit-line-clamp: 2;
+  font-size: 0.76rem;
+  color: rgb(100 116 139);
+}
+
+.channel-featured-direction--risk {
+  border-color: rgb(253 186 116);
+  background: rgb(255 247 237);
+}
+
+.channel-featured-direction--risk .channel-featured-direction__badge {
+  color: rgb(194 65 12);
 }
 
 .reading-pilot-card {
@@ -2293,6 +2478,42 @@ watch(() => authStore.isLoggedIn, async () => {
   color: rgb(253 186 116);
 }
 
+.dark .channel-featured-direction {
+  border-color: rgb(67 56 202 / 0.68);
+  background: rgb(49 46 129 / 0.28);
+}
+
+.dark .channel-featured-direction:hover {
+  border-color: rgb(129 140 248 / 0.78);
+  background: rgb(49 46 129 / 0.42);
+}
+
+.dark .channel-featured-direction__badge {
+  background: rgb(15 23 42 / 0.82);
+  color: rgb(199 210 254);
+}
+
+.dark .channel-featured-direction strong {
+  color: rgb(248 250 252);
+}
+
+.dark .channel-featured-direction p {
+  color: rgb(203 213 225);
+}
+
+.dark .channel-featured-direction small {
+  color: rgb(148 163 184);
+}
+
+.dark .channel-featured-direction--risk {
+  border-color: rgb(154 52 18 / 0.82);
+  background: rgb(67 20 7 / 0.45);
+}
+
+.dark .channel-featured-direction--risk .channel-featured-direction__badge {
+  color: rgb(253 186 116);
+}
+
 .dark .reading-pilot-card {
   background:
     radial-gradient(circle at top right, rgb(67 56 202 / 0.26), transparent 48%),
@@ -2392,6 +2613,11 @@ watch(() => authStore.isLoggedIn, async () => {
   color: rgb(253 186 116);
 }
 
+.dark .latest-post-cover {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
 .dark .filter-input::placeholder {
   color: rgb(100 116 139);
 }
@@ -2403,6 +2629,10 @@ watch(() => authStore.isLoggedIn, async () => {
 }
 
 @media (min-width: 768px) {
+  .channel-featured-direction-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .browse-playbook__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

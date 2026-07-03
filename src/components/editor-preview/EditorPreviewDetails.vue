@@ -11,6 +11,26 @@
     </section>
 
     <section class="preview-detail-card">
+      <p class="preview-detail-label">{{ copy.contentTypeLabel }}</p>
+      <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+        {{ preview.contentType.label }}
+      </p>
+      <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+        {{ preview.contentType.description }}
+      </p>
+    </section>
+
+    <section class="preview-detail-card">
+      <p class="preview-detail-label">{{ copy.coverLabel }}</p>
+      <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+        {{ preview.cover.visible ? copy.coverReady : copy.coverMissing }}
+      </p>
+      <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+        {{ preview.cover.description }}
+      </p>
+    </section>
+
+    <section class="preview-detail-card">
       <p class="preview-detail-label">{{ copy.anonymousLabel }}</p>
       <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
         {{ preview.anonymous.label }}
@@ -57,6 +77,10 @@ import type { EditorPreviewModel } from '@/utils/editorPreview'
 
 const copy = {
   summaryLabel: '\u6458\u8981\u9884\u89c8',
+  contentTypeLabel: '\u5185\u5bb9\u5f62\u6001',
+  coverLabel: '\u5c01\u9762\u72b6\u6001',
+  coverReady: '\u5df2\u8bbe\u7f6e\u5c01\u9762',
+  coverMissing: '\u672a\u8bbe\u7f6e\u5c01\u9762',
   anonymousLabel: '\u533f\u540d\u72b6\u6001',
   seriesLabel: '\u7cfb\u5217\u5f52\u5c5e',
   tagsLabel: '\u6807\u7b7e\u5c55\u793a',

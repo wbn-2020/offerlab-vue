@@ -202,6 +202,12 @@
             <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
               控制社区互动和系统提醒的打扰程度；关闭后事件仍会发生，只是不再提醒你。
             </p>
+            <p class="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400" data-phase14-retention-preference-note data-existing-notification-preferences>
+              复访摘要只作为站内入口展示；讨论回访沿用互动通知偏好，关注作者和话题更新沿用系统通知偏好，这里不新增无法持久化的独立复访开关。
+            </p>
+            <p class="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400" data-phase15-suggestion-preference-note data-existing-notification-preferences>
+              内容补充和纠错建议沿用现有互动通知或系统通知偏好；当前没有后端持久化字段，因此不展示独立建议开关。
+            </p>
           </div>
           <button type="button" class="secondary-button" :disabled="isNotificationLoading" @click="loadNotificationPreferences">
             {{ isNotificationLoading ? '加载中...' : '重新加载' }}

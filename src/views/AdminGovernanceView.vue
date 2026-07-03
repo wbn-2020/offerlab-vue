@@ -560,6 +560,20 @@
               <option value="medium">中</option>
               <option value="low">低</option>
             </select>
+            <select v-model="queueFilters.queueStatus" class="field-input">
+              <option value="">全部状态</option>
+              <option value="pending">待处理</option>
+              <option value="claimed">已认领</option>
+              <option value="approved">已通过</option>
+              <option value="rejected">已拒绝</option>
+              <option value="closed">已关闭</option>
+            </select>
+            <select v-model="queueFilters.domain" class="field-input">
+              <option value="">全部频道</option>
+              <option v-for="domain in governanceDomainOptions" :key="domain.value" :value="domain.value">{{ domain.label }}</option>
+            </select>
+            <input v-model="queueFilters.startDate" class="field-input" type="date" aria-label="队列创建开始时间" />
+            <input v-model="queueFilters.endDate" class="field-input" type="date" aria-label="队列创建结束时间" />
             <button type="button" class="secondary-button" :disabled="isLoading" @click="loadReviewQueue">
               <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
               刷新队列
@@ -588,6 +602,7 @@
                 <div class="flex flex-wrap items-center gap-2">
                   <span :class="['status-pill', queueRiskClass(item.riskLevel)]">{{ queueRiskText(item.riskLevel) }}</span>
                   <span class="meta-chip">{{ item.sourceLabel }}</span>
+                  <span class="meta-chip">频道：{{ queueDomainText(item.domain) }}</span>
                   <span class="meta-chip">{{ queueTargetText(item.targetType) }} {{ item.targetId }}</span>
                   <strong class="text-slate-950 dark:text-slate-50">{{ item.title }}</strong>
                 </div>
@@ -635,6 +650,9 @@
           <h2 class="panel-title">治理说明</h2>
           <div class="space-y-3 text-sm leading-6 text-slate-500">
             <p>帖子/评论举报仍由现有审核接口处理，治理中心提供统一入口和指标。</p>
+            <p>举报能力真实承接到帖子和评论举报接口；重复举报或频率限制会向用户显示失败态，不显示虚假的提交成功。</p>
+            <p>高风险内容不提供专业建议背书；投资、医疗、法律、心理等内容只作为经验讨论，并保留风险提示。</p>
+            <p>内容不可见、已删除、已下架或受限时，列表和详情页应展示温和失效态，不进入热榜、频道精选或推荐池。</p>
             <p>关键词、禁言、封禁、精选等高风险操作使用确认弹窗，并写入后台审计日志。</p>
             <p>下一步可把待审帖子队列、标签合并和低质检测继续拆成独立后台表格。</p>
           </div>
@@ -778,6 +796,7 @@ interface ReviewQueueItem {
   title: string
   summary: string
   riskLevel: ReviewQueueRisk
+  domain?: number
   status: string
   createdAt?: string | number
   actionPath: string
@@ -855,7 +874,7 @@ const tagForm = reactive({ name: '', tagType: 4, status: 1, recommended: false, 
 const tagActionKey = ref('')
 const tagPage = ref(1)
 const tagPageSize = ref(6)
-const queueFilters = reactive({ sourceType: '', riskLevel: '' })
+const queueFilters = reactive({ sourceType: '', riskLevel: '', queueStatus: '', domain: '' as number | '', startDate: '', endDate: '' })
 const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
 
 const canOps = computed(() => Boolean(permissions.value?.ops || permissions.value?.admin))
@@ -926,7 +945,9 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         title: item.postTitle || `帖子举报 ${item.postId}`,
         summary: queueSummary([item.reason, item.detail, item.postSummary]),
         riskLevel: 'high',
+        domain: (item as { domain?: number }).domain,
         status: '待处理举报',
+        queueStatus: 'pending',
         createdAt: item.createTime,
         actionPath: `/post/${item.postId}`,
         actionLabel: '查看帖子',
@@ -945,7 +966,9 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         title: item.postTitle || `评论举报 ${item.commentId}`,
         summary: queueSummary([item.reason, item.detail, item.commentSummary]),
         riskLevel: 'high',
+        domain: (item as { domain?: number }).domain,
         status: '待处理举报',
+        queueStatus: 'pending',
         createdAt: item.createTime,
         actionPath: `/post/${item.postId}`,
         actionLabel: '查看原帖',
@@ -964,7 +987,9 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         title: `${moderationScopeText(item.scope || 'CONTENT')}命中 ${item.keyword}`,
         summary: item.contentSummary || '命中内容暂无摘要',
         riskLevel: 'medium',
+        domain: (item as { domain?: number }).domain,
         status: '待人工巡检',
+        queueStatus: 'pending',
         createdAt: item.createTime,
         actionPath: '/admin/governance',
         actionLabel: '查看命中日志',
@@ -983,7 +1008,9 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         title: item.questionText || `待审知识卡 ${item.id}`,
         summary: queueSummary([item.examPoint, item.qualityReason, item.sourceSnippet]),
         riskLevel: 'medium',
+        domain: (item as { domain?: number }).domain,
         status: '待知识卡审核',
+        queueStatus: 'pending',
         createdAt: item.updatedAt || item.createdAt,
         actionPath: '/admin/questions',
         actionLabel: '进入知识卡审核',
@@ -1001,7 +1028,9 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         title: `AI 任务失败：帖子 ${item.postId}`,
         summary: queueSummary([item.errorCode, item.errorMessage, `重试 ${item.retryCount ?? 0} 次`]),
         riskLevel: Number(item.retryCount ?? 0) >= 3 ? 'critical' : 'high',
+        domain: (item as { domain?: number }).domain,
         status: '待排查或重试',
+        queueStatus: 'pending',
         createdAt: item.updateTime || item.createTime,
         actionPath: '/admin/ops',
         actionLabel: '进入运维中心',
@@ -1026,6 +1055,9 @@ const reviewQueueSourceText = computed(() => (
 const filteredReviewQueueItems = computed(() => reviewQueueItems.value.filter((item) => {
   if (queueFilters.sourceType && item.sourceType !== queueFilters.sourceType) return false
   if (queueFilters.riskLevel && item.riskLevel !== queueFilters.riskLevel) return false
+  if (queueFilters.queueStatus && item.queueStatus !== queueFilters.queueStatus) return false
+  if (queueFilters.domain !== '' && Number(item.domain) !== Number(queueFilters.domain)) return false
+  if (!isQueueCreatedInRange(item.createdAt)) return false
   return true
 }))
 const highRiskQueueCount = computed(() => reviewQueueItems.value.filter((item) => item.riskLevel === 'critical' || item.riskLevel === 'high').length)
@@ -1100,6 +1132,16 @@ const setSelectedGovernanceDomain = async (domain: number | '') => {
 }
 
 const domainLabel = (domain?: number | null) => getDomainLabel(domain)
+const queueDomainText = (domain?: number) => (domain ? getDomainLabel(domain) : '未标注频道')
+
+const isQueueCreatedInRange = (value?: string | number) => {
+  if (!value) return !(queueFilters.startDate || queueFilters.endDate)
+  const time = new Date(value).getTime()
+  if (!Number.isFinite(time)) return false
+  if (queueFilters.startDate && time < new Date(`${queueFilters.startDate}T00:00:00`).getTime()) return false
+  if (queueFilters.endDate && time > new Date(`${queueFilters.endDate}T23:59:59`).getTime()) return false
+  return true
+}
 
 const ensureActiveTab = () => {
   const requested = requestedGovernanceTab()
@@ -1311,6 +1353,7 @@ const toReviewQueueItem = (item: BackendReviewQueueItem): ReviewQueueItem => ({
   title: item.title || `${queueSourceLabel(item.sourceType)} ${item.sourceId || item.id}`,
   summary: item.summary || item.handleNote || '',
   riskLevel: normalizeQueueRisk(item.riskLevel),
+  domain: item.domain,
   status: queueStatusText(item.queueStatus),
   createdAt: item.createTime || item.updateTime,
   actionPath: queueActionPath(item),
@@ -1332,6 +1375,10 @@ const loadBackendReviewQueue = async (showToast = true) => {
     const res = await opsApi.listReviewQueue({
       sourceType: queueFilters.sourceType || undefined,
       riskLevel: (queueFilters.riskLevel || undefined) as ReviewQueueRiskLevel | undefined,
+      status: (queueFilters.queueStatus || undefined) as ReviewQueueStatus | undefined,
+      domain: queueFilters.domain || undefined,
+      startDate: queueFilters.startDate || undefined,
+      endDate: queueFilters.endDate || undefined,
       limit: 80,
     })
     backendReviewQueueItems.value = Array.isArray(res.data) ? res.data : []

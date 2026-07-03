@@ -5,16 +5,23 @@ import { adaptPage, adaptPost } from './adapters'
 import { normalizeDomain } from '@/utils/domains'
 import { safeStorage } from '@/utils/safeStorage'
 import { sanitizeVisibleText } from '@/utils/textQuality'
+import { isPublicCollectionVisible, isPublicPostVisible } from '@/utils/recommendationGovernance'
 
 export interface ContentSeriesRecord {
   id: string
   creatorUid?: ApiId
   title: string
   summary?: string
+  coverUrl?: string
   domain: number
   visibility: 'public' | 'private'
   goalCount: number
   status: 'active' | 'paused' | 'completed'
+  deleted?: boolean
+  restricted?: boolean
+  riskLevel?: string | number
+  moderationStatus?: string | number
+  reviewStatus?: string | number
   items: ContentSeriesItem[]
   progress: ContentSeriesProgress
   createdAt: number
@@ -24,6 +31,7 @@ export interface ContentSeriesRecord {
 export interface ContentSeriesDraftPayload {
   title: string
   summary?: string
+  coverUrl?: string
   domain: number
   visibility?: 'public' | 'private'
   goalCount?: number
@@ -122,12 +130,18 @@ const adaptSeriesRecord = (raw: any): ContentSeriesRecord => {
   return decorateRecord({
     id: safeText(raw?.id) || createLocalId('series'),
     creatorUid: raw?.creatorUid == null ? undefined : String(raw.creatorUid),
-    title: safeText(raw?.title) || '未命名系列',
+    title: safeText(raw?.title) || '未命名合集',
     summary: safeText(raw?.summary ?? raw?.description) || undefined,
+    coverUrl: safeText(raw?.coverUrl) || undefined,
     domain: normalizeDomain(raw?.domain),
     visibility: normalizeVisibility(raw?.visibility),
     goalCount: Math.max(1, Number(raw?.goalCount || raw?.progress?.totalPostCount || items.length || 3)),
     status: raw?.status === 'paused' || raw?.status === 'completed' ? raw.status : 'active',
+    deleted: raw?.deleted ?? raw?.isDeleted,
+    restricted: raw?.restricted ?? raw?.isRestricted,
+    riskLevel: raw?.riskLevel ?? raw?.risk,
+    moderationStatus: raw?.moderationStatus ?? raw?.governanceStatus,
+    reviewStatus: raw?.reviewStatus,
     items,
     createdAt: numericTime(raw?.createdAt ?? raw?.createTime),
     updatedAt: numericTime(raw?.updatedAt ?? raw?.updateTime),
@@ -139,8 +153,9 @@ const mergeRemoteSeriesRecord = (raw: any, localRecord?: ContentSeriesRecord): C
   return decorateRecord({
     id: remoteRecord.id,
     creatorUid: remoteRecord.creatorUid || localRecord?.creatorUid,
-    title: remoteRecord.title || localRecord?.title || '未命名系列',
+    title: remoteRecord.title || localRecord?.title || '未命名合集',
     summary: remoteRecord.summary || localRecord?.summary,
+    coverUrl: remoteRecord.coverUrl || localRecord?.coverUrl,
     domain: normalizeDomain(remoteRecord.domain ?? localRecord?.domain),
     visibility: remoteRecord.visibility || localRecord?.visibility || 'private',
     goalCount: Math.max(
@@ -150,15 +165,34 @@ const mergeRemoteSeriesRecord = (raw: any, localRecord?: ContentSeriesRecord): C
       Number(remoteRecord.progress.totalCount || 0),
     ),
     status: localRecord?.status || remoteRecord.status || 'active',
+    deleted: remoteRecord.deleted ?? localRecord?.deleted,
+    restricted: remoteRecord.restricted ?? localRecord?.restricted,
+    riskLevel: remoteRecord.riskLevel ?? localRecord?.riskLevel,
+    moderationStatus: remoteRecord.moderationStatus ?? localRecord?.moderationStatus,
+    reviewStatus: remoteRecord.reviewStatus ?? localRecord?.reviewStatus,
     items: localRecord?.items || remoteRecord.items,
     createdAt: localRecord?.createdAt || remoteRecord.createdAt,
     updatedAt: Math.max(remoteRecord.updatedAt, localRecord?.updatedAt || 0),
   }, raw?.progress)
 }
 
+export const isPublicContentSeriesAssetVisible = (record: ContentSeriesRecord) => (
+  record.visibility === 'public' && isPublicCollectionVisible(record)
+)
+
+export const isPublicContentSeriesPostVisible = (post: Post) => isPublicPostVisible(post)
+
+const assertPublicContentSeriesAssetVisible = (record: ContentSeriesRecord) => {
+  if (!isPublicContentSeriesAssetVisible(record)) {
+    throw new BizException(10404, '公开合集暂不可见')
+  }
+  return record
+}
+
 const toRemoteSeriesPayload = (payload: ContentSeriesDraftPayload) => ({
   title: safeText(payload.title),
   description: safeText(payload.summary) || undefined,
+  coverUrl: safeText(payload.coverUrl) || undefined,
   domain: normalizeDomain(payload.domain),
   visibility: visibilityCodeOf(payload.visibility),
 })
@@ -273,8 +307,9 @@ export const contentSeriesApi = {
     const localRecord = decorateRecord({
       id: createLocalId('series'),
       creatorUid: ownerId == null ? undefined : String(ownerId),
-      title: safeText(payload.title) || '未命名系列',
+      title: safeText(payload.title) || '未命名合集',
       summary: safeText(payload.summary) || undefined,
+      coverUrl: safeText(payload.coverUrl) || undefined,
       domain: normalizeDomain(payload.domain),
       visibility: payload.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || 3)),
@@ -302,8 +337,9 @@ export const contentSeriesApi = {
     const localRecord = decorateRecord({
       id: String(seriesId),
       creatorUid: current?.creatorUid || (ownerId == null ? undefined : String(ownerId)),
-      title: safeText(payload.title) || current?.title || '未命名系列',
+      title: safeText(payload.title) || current?.title || '未命名合集',
       summary: safeText(payload.summary) || current?.summary || undefined,
+      coverUrl: safeText(payload.coverUrl) || current?.coverUrl || undefined,
       domain: normalizeDomain(payload.domain ?? current?.domain),
       visibility: payload.visibility || current?.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || current?.goalCount || 3)),
@@ -346,23 +382,29 @@ export const contentSeriesApi = {
 
   getPublicDetail: async (seriesId: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord>> => {
     const res = await client.get(`/api/v1/content-series/${seriesId}`) as Result<any>
-    return { ...res, data: adaptSeriesRecord(res.data), status: 'remote' }
+    return { ...res, data: assertPublicContentSeriesAssetVisible(adaptSeriesRecord(res.data)), status: 'remote' }
   },
 
   listPublicByUser: async (uid: ApiId, cursor?: string, size = 12): Promise<ContentSeriesResult<ContentSeriesRecord[]>> => {
     const res = await client.get(`/api/v1/content-series/users/${uid}`, { params: { cursor, size } }) as Result<any>
     return {
       ...res,
-      data: Array.isArray(res.data) ? res.data.map(adaptSeriesRecord) : [],
+      data: Array.isArray(res.data) ? res.data.map(adaptSeriesRecord).filter(isPublicContentSeriesAssetVisible) : [],
       status: 'remote',
     }
   },
 
   listPublicPosts: async (seriesId: ApiId, cursor?: string, size = 20): Promise<ContentSeriesResult<PaginatedResponse<Post> | null>> => {
     const res = await client.get(`/api/v1/content-series/${seriesId}/posts`, { params: { cursor, size } }) as Result<any>
+    const data = res.data ? adaptPage(res.data, adaptPost) : null
     return {
       ...res,
-      data: res.data ? adaptPage(res.data, adaptPost) : null,
+      data: data
+        ? {
+            ...data,
+            items: data.items.filter(isPublicContentSeriesPostVisible),
+          }
+        : null,
       status: 'remote',
     }
   },

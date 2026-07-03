@@ -18,9 +18,17 @@
 
       <template v-else-if="collection">
         <section class="collection-header">
-          <div class="collection-mark">{{ collection.title.charAt(0).toUpperCase() }}</div>
+          <div class="collection-cover">
+            <img
+              v-if="showCollectionCover"
+              :src="collection.coverUrl"
+              :alt="collection.title"
+              @error="handleCollectionCoverError"
+            />
+            <span v-else class="collection-mark">{{ collection.title.charAt(0).toUpperCase() }}</span>
+          </div>
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">公开合集</p>
+            <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">公开内容资产</p>
             <h1 class="mt-2 text-2xl font-black text-slate-950 dark:text-slate-50">{{ collection.title }}</h1>
             <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
               {{ collection.summary || '这个合集暂未填写简介。' }}
@@ -44,7 +52,7 @@
           <div class="section-title">
             <div>
               <h2>合集内容</h2>
-              <p>按作者整理的公开内容继续阅读。</p>
+              <p>按作者整理的公开内容继续阅读，只展示公开且通过治理过滤的内容。</p>
             </div>
           </div>
 
@@ -92,6 +100,7 @@ import type { ApiId, Post } from '@/api/types'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { usePostInteraction } from '@/composables/usePostInteraction'
+import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 
 const route = useRoute()
 const collection = ref<ContentSeriesRecord | null>(null)
@@ -102,8 +111,11 @@ const isLoadingCollection = ref(false)
 const isLoadingPosts = ref(false)
 const collectionError = ref('')
 const postsError = ref('')
+const failedCollectionCoverUrl = ref('')
 
 const collectionId = computed(() => String(route.params.id || ''))
+const showCollectionCover = computed(() => Boolean(collection.value?.coverUrl)
+  && failedCollectionCoverUrl.value !== collection.value?.coverUrl)
 
 const formatTime = (value: number) => {
   if (!value) return '刚刚更新'
@@ -132,6 +144,7 @@ const loadCollection = async () => {
   try {
     const res = await contentSeriesApi.getPublicDetail(collectionId.value)
     collection.value = res.data
+    failedCollectionCoverUrl.value = ''
     await loadPosts(false)
   } catch (error: any) {
     collection.value = null
@@ -148,7 +161,8 @@ const loadPosts = async (append = false) => {
   try {
     const res = await contentSeriesApi.listPublicPosts(collectionId.value, append ? cursor.value : undefined, 10)
     const page = res.data
-    posts.value = append ? [...posts.value, ...(page?.items || [])] : (page?.items || [])
+    const cleanItems = filterVisiblePosts(page?.items || [])
+    posts.value = append ? [...posts.value, ...cleanItems] : cleanItems
     cursor.value = page?.nextCursor
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
   } catch (error: any) {
@@ -179,6 +193,10 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
   })
 }
 
+const handleCollectionCoverError = () => {
+  failedCollectionCoverUrl.value = collection.value?.coverUrl || ''
+}
+
 watch(collectionId, loadCollection)
 onMounted(loadCollection)
 </script>
@@ -200,6 +218,7 @@ onMounted(loadCollection)
   align-items: flex-start;
 }
 
+.collection-cover,
 .collection-mark {
   display: flex;
   height: 3.5rem;
@@ -208,10 +227,18 @@ onMounted(loadCollection)
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
+  overflow: hidden;
   background: rgb(15 23 42);
   color: white;
   font-size: 1.35rem;
   font-weight: 900;
+}
+
+.collection-cover img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
 }
 
 .info-chip {

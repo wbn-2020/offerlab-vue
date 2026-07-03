@@ -30,6 +30,19 @@ export interface CommunityChannel {
   riskNote?: string
 }
 
+export const HIGH_RISK_DOMAIN_NOTES = {
+  investment: '投资理财内容仅供经验交流，不构成投资建议，请自行判断风险。',
+  medical: '医疗健康内容仅供经验交流，不构成医疗建议；如涉及诊断、用药或治疗，请咨询合格专业人员。',
+  legal: '法律相关内容仅供经验交流，不构成法律意见；涉及具体权益处置时，请咨询合格专业人员。',
+  mentalHealth: '情绪心理内容仅供经验交流，不构成心理诊断或治疗建议；如存在紧急风险，请及时寻求线下帮助。',
+} as const
+
+export type HighRiskDomainNoteKey = keyof typeof HIGH_RISK_DOMAIN_NOTES
+
+export const getDomainRiskNote = (key?: HighRiskDomainNoteKey | null): string => {
+  return key ? HIGH_RISK_DOMAIN_NOTES[key] : ''
+}
+
 export const DOMAIN_OPTIONS: DomainOption[] = [
   { value: DOMAIN.TECH, label: '科技数码', icon: '💻', description: '编程、AI 工具、产品体验、数码设备和效率工具' },
   { value: DOMAIN.CAREER, label: '职场经验', icon: '💼', description: '求职面试、实习转行、工作复盘和职场选择' },
@@ -40,7 +53,7 @@ export const DOMAIN_OPTIONS: DomainOption[] = [
     label: '投资理财',
     icon: '💡',
     description: '理财心得、投资复盘和风险认知',
-    riskNote: '投资理财内容仅供经验交流，不构成投资建议，请自行判断风险。',
+    riskNote: getDomainRiskNote('investment'),
   },
 ]
 
@@ -115,7 +128,7 @@ export const SECONDARY_COMMUNITY_CHANNELS: CommunityChannel[] = [
     domain: DOMAIN.INVESTMENT,
     tags: ['风险复盘', '理财心得', '资产配置'],
     topics: ['投资风险复盘', '理财经验交流'],
-    riskNote: '投资理财内容仅供经验交流，不构成投资建议，请自行判断风险。',
+    riskNote: getDomainRiskNote('investment'),
   },
 ]
 

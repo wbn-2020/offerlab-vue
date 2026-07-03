@@ -16,6 +16,9 @@
           <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
             {{ topic?.description || '围绕真实经验、问题求助、攻略清单、资源推荐和观点讨论沉淀形成的话题集合。' }}
           </p>
+          <p v-if="canFollowTopic" class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            关注主题会让你更容易回到这个话题，不会自动关注某个帖子的后续回复；帖子新回复请在详情页理解为关注讨论。
+          </p>
           <div v-if="topicTags.length" class="mt-4 flex flex-wrap gap-2">
             <RouterLink
               v-for="tag in topicTags"

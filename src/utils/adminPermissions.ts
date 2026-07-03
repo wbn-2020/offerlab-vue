@@ -67,6 +67,11 @@ export const hasAdminPermission = (
   return requiredList.some((key) => Boolean(permissions[key]))
 }
 
+export const canAccessAdminCapability = (
+  permissions: MyAdminPermissions | null | undefined,
+  required?: AdminPermissionKey | AdminPermissionKey[],
+) => hasAdminPermission(permissions, required)
+
 export const adminPermissionLabel = (key: AdminPermissionKey) => {
   if (key === 'admin') return '系统管理员'
   if (key === 'ops') return '运维管理员'

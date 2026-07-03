@@ -1,5 +1,6 @@
-import type { Comment, CommentReport, CommunityTopic, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
+import type { ApiId, Comment, CommentReport, CommunityTopic, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
 import { normalizeDomain } from '@/utils/domains'
+import { filterDistributionPosts, isPublicCollectionVisible, isPublicPostVisible, neutralizeHighRiskRecommendationReason, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 
 export function adaptId(value: any): string {
@@ -26,6 +27,135 @@ export function adaptPage<T>(raw: any, itemAdapter: (item: any) => T): Paginated
     fallbackReason: raw?.fallbackReason ? String(raw.fallbackReason) : undefined,
     scanLimit: raw?.scanLimit === undefined || raw?.scanLimit === null ? undefined : Number(raw.scanLimit),
     diagnostics: raw?.diagnostics && typeof raw.diagnostics === 'object' ? raw.diagnostics : undefined,
+  }
+}
+
+export function adaptDistributionPage<T>(raw: any, itemAdapter: (item: any) => T): PaginatedResponse<T> {
+  const rawItems = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : []
+  const items = rawItems.filter((item: any) => filterDistributionPosts(item?.item?.post ? [item.item.post] : [item]).length > 0)
+  return {
+    items: items.map(itemAdapter),
+    nextCursor: raw?.nextCursor ? String(raw.nextCursor) : undefined,
+    hasMore: Boolean(raw?.hasMore),
+    total: Number(raw?.total ?? items.length),
+    source: raw?.source ? String(raw.source) : undefined,
+    degraded: raw?.degraded === undefined || raw?.degraded === null ? undefined : Boolean(raw.degraded),
+    fallbackReason: raw?.fallbackReason ? String(raw.fallbackReason) : undefined,
+    scanLimit: raw?.scanLimit === undefined || raw?.scanLimit === null ? undefined : Number(raw.scanLimit),
+    diagnostics: raw?.diagnostics && typeof raw.diagnostics === 'object' ? raw.diagnostics : undefined,
+  }
+}
+
+export type ContentListVisibility = 'public' | 'private'
+
+export interface ContentListItem {
+  id: string
+  postId: ApiId
+  post?: Post
+  sortOrder: number
+  addedAt: number
+}
+
+export interface ContentListSummary {
+  id: string
+  title: string
+  description?: string
+  visibility: ContentListVisibility
+  ownerId?: ApiId
+  itemCount: number
+  items: ContentListItem[]
+  updatedAt: number
+  source: 'remote' | 'local_demo_only'
+  localOnly: boolean
+  ownerVisible: boolean
+  discoverable: boolean
+  searchable: boolean
+  recommendable: boolean
+  rankable: boolean
+  operable: boolean
+}
+
+export interface ContentListAsset extends ContentListSummary {}
+
+const normalizeContentListVisibility = (value: unknown): ContentListVisibility => {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  return normalized === 'public' || normalized === '1' ? 'public' : 'private'
+}
+
+export const isPublicAssetPostVisible = (entry: unknown) => (
+  isPublicPostVisible((entry as { post?: unknown })?.post ?? entry)
+)
+
+export const isPublicContentListVisible = (asset: unknown) => isPublicCollectionVisible(asset)
+
+const ASSET_ENTRY_BLOCKED_COPY_PATTERNS = [
+  /权威/g,
+  /专家/g,
+  /专业建议/g,
+  /认证资料库/g,
+  /支付/g,
+  /会员/g,
+  /订阅/g,
+  /课程/g,
+  /广告/g,
+  /收益/g,
+  /CodeCoachAI/gi,
+]
+
+export const neutralizeHighRiskAssetEntryCopy = (value: unknown) => {
+  let text = sanitizeVisibleText(value)
+  for (const pattern of ASSET_ENTRY_BLOCKED_COPY_PATTERNS) {
+    text = text.replace(pattern, '社区整理')
+  }
+  return text
+}
+
+const adaptContentListItem = (raw: any, index: number): ContentListItem => {
+  const post = raw?.post ? adaptPost(raw.post) : undefined
+  return {
+    id: adaptId(raw?.id ?? raw?.itemId ?? raw?.postId ?? post?.postId ?? `content-list-item-${index}`),
+    postId: adaptId(raw?.postId ?? post?.postId),
+    post,
+    sortOrder: Number(raw?.sortOrder ?? raw?.order ?? index),
+    addedAt: adaptTime(raw?.addedAt ?? raw?.createdAt ?? raw?.createTime),
+  }
+}
+
+export function adaptContentList(raw: any): ContentListSummary {
+  const visibility = normalizeContentListVisibility(raw?.visibility)
+  const rawItems: any[] = Array.isArray(raw?.items) ? raw.items : []
+  const items: ContentListItem[] = rawItems
+    .map(adaptContentListItem)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+  const localOnly = Boolean(raw?.localOnly) || raw?.source === 'local_demo_only'
+  const title = safeVisibleText(
+    neutralizeHighRiskAssetEntryCopy(raw?.title),
+    visibility === 'public' ? '公开清单' : '稍后读',
+  )
+  const assetForGovernance = {
+    ...raw,
+    title,
+    visibility,
+    deleted: raw?.deleted ?? raw?.isDeleted,
+    restricted: raw?.restricted ?? raw?.isRestricted,
+  }
+  return {
+    id: adaptId(raw?.id),
+    title,
+    description: neutralizeHighRiskAssetEntryCopy(raw?.description) || undefined,
+    visibility,
+    ownerId: raw?.ownerId == null ? undefined : adaptId(raw.ownerId),
+    itemCount: Number(raw?.itemCount ?? items.length),
+    items: items.filter(isPublicAssetPostVisible),
+    updatedAt: adaptTime(raw?.updatedAt ?? raw?.updateTime),
+    source: localOnly ? 'local_demo_only' : 'remote',
+    localOnly,
+    ownerVisible: visibility === 'private' || visibility === 'public',
+    discoverable: visibility === 'public' && isPublicContentListVisible(assetForGovernance) && !localOnly,
+    searchable: visibility === 'public' && isPublicContentListVisible(assetForGovernance) && !localOnly,
+    recommendable: visibility === 'public' && isPublicContentListVisible(assetForGovernance) && !localOnly,
+    rankable: visibility === 'public' && isPublicContentListVisible(assetForGovernance) && !localOnly,
+    operable: visibility === 'public' && isPublicContentListVisible(assetForGovernance) && !localOnly,
   }
 }
 
@@ -218,11 +348,13 @@ export function adaptPost(raw: any): Post {
     restricted: Boolean(source?.restricted ?? source?.isRestricted ?? false),
     riskLevel: source?.riskLevel,
     moderationStatus: source?.moderationStatus,
-    recommendationReasons: Array.isArray(raw?.recommendationReasons)
-      ? raw.recommendationReasons.map((item: unknown) => sanitizeVisibleText(item)).filter(Boolean)
+    recommendationReasons: (Array.isArray(raw?.recommendationReasons)
+      ? raw.recommendationReasons
       : Array.isArray(source?.recommendationReasons)
-        ? source.recommendationReasons.map((item: unknown) => sanitizeVisibleText(item)).filter(Boolean)
-        : undefined,
+        ? source.recommendationReasons
+        : [])
+      .map((item: unknown) => neutralizeHighRiskRecommendationReason(normalizeRecommendationReason(sanitizeVisibleText(item)), source))
+      .filter(Boolean),
     myInteraction: {
       liked: Boolean(myInteraction.liked ?? source?.liked ?? false),
       favorited: Boolean(myInteraction.favorited ?? source?.favorited ?? false),

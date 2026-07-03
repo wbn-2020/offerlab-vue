@@ -425,6 +425,111 @@ export interface GrowthReportHighlightPost {
   featured: boolean
 }
 
+export interface CreatorFeedbackWindow {
+  days: 7 | 30 | number
+  label: string
+  viewCount: number
+  likeCount: number
+  favoriteCount: number
+  commentCount: number
+  followerCount: number
+  replyCount: number
+  feedbackCopy: string
+}
+
+export interface CreatorFeedbackSummary {
+  updatedAt: number
+  degraded: boolean
+  degradationReasons: string[]
+  windows: CreatorFeedbackWindow[]
+  responseRate: number
+  unreadCommentCount: number
+  topFeedbackSignals: string[]
+}
+
+export interface CreatorTopPost {
+  postId: ApiId
+  title: string
+  summary?: string
+  domain?: number
+  domainName?: string
+  viewCount: number
+  likeCount: number
+  favoriteCount: number
+  commentCount: number
+  feedbackScore: number
+  reason: string
+  href?: string
+}
+
+export interface CreatorReplyOpportunity {
+  id: ApiId
+  postId: ApiId
+  postTitle: string
+  commentId?: ApiId
+  commenterName?: string
+  excerpt: string
+  reason: string
+  priority: 'high' | 'medium' | 'low' | string
+  suggestedReplyTone: string
+  href?: string
+  createdAt?: number
+}
+
+export interface CreatorRepresentativePost {
+  postId: ApiId
+  title: string
+  summary?: string
+  domain?: number
+  domainName?: string
+  heat: number
+  featured: boolean
+  publicCollectionCount: number
+  reason: string
+  source?: 'manual_profile_display' | 'auto_profile_candidate' | 'neutral_profile_candidate' | string
+  publicVisible?: boolean
+  boundaryCopy?: string
+  href?: string
+}
+
+export interface CreatorTopicIdea {
+  id: ApiId
+  title: string
+  prompt: string
+  reason: string
+  sourceType?: 'hot_topic' | 'search_term' | 'comment_question' | 'own_post_feedback' | 'series_gap' | 'content_type_template' | string
+  sourceSignals: string[]
+  targetDomain?: number
+  targetDomainName?: string
+  suggestedFormat?: string
+  editorQuery: {
+    source: string
+    title?: string
+    postType?: string
+    topic?: string
+    seriesId?: string
+  }
+}
+
+export interface CreatorIncentiveCopy {
+  title: string
+  description: string
+  boundary: string
+  ctaLabel?: string
+}
+
+export interface CreatorGrowthWorkspace {
+  updatedAt: number
+  degraded: boolean
+  degradationReasons: string[]
+  feedbackSummary: CreatorFeedbackSummary
+  topPosts: CreatorTopPost[]
+  replyOpportunities: CreatorReplyOpportunity[]
+  representativePosts: CreatorRepresentativePost[]
+  topicIdeas: CreatorTopicIdea[]
+  incentiveCopy: CreatorIncentiveCopy
+}
+
 export interface ExpertCertificationCheckItem {
   code: string
   label: string

@@ -148,6 +148,12 @@ const routes = [
     meta: { title: '运维中心', requiresAuth: true, adminPermission: ['ops', 'questionOperator', 'contentModerator', 'admin'] },
   },
   {
+    path: '/admin/operations',
+    name: 'AdminOperations',
+    component: () => import('@/views/AdminOperationsView.vue'),
+    meta: { title: '运营编排', requiresAuth: true, adminPermission: 'admin' },
+  },
+  {
     path: '/admin/questions',
     name: 'AdminQuestions',
     component: () => import('@/views/AdminQuestionsView.vue'),

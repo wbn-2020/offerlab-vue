@@ -30,14 +30,14 @@
       <button
         type="button"
         :aria-label="favoritePending ? '收藏处理中' : '收藏帖子'"
-        :title="favoritePending ? '收藏处理中' : '收藏帖子'"
+        :title="favoritePending ? '收藏处理中' : '收藏内容，不默认提醒新回复'"
         :aria-busy="favoritePending"
         :disabled="favoritePending"
         class="interaction-action transition-colors hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
         @click="handleFavorite"
       >
         <Star class="h-4 w-4" :class="post.myInteraction?.favorited ? 'fill-current text-amber-500' : ''" />
-        <span class="action-label">收藏</span>
+        <span class="action-label">收藏内容</span>
         {{ formatNumber(post.counter.favorite) }}
       </button>
     </div>

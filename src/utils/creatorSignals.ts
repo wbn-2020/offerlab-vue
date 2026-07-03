@@ -1,4 +1,4 @@
-import type { Post, User } from '@/api/types'
+import type { CreatorTopicIdea, Post, User } from '@/api/types'
 import type { ContentSeriesRecord } from '@/api/contentSeries'
 import { getDomainLabel } from '@/utils/domains'
 import { getContentTypeShortLabel } from '@/utils/contentTypes'
@@ -9,6 +9,57 @@ export interface CreatorActionItem {
   title: string
   description: string
   href: string
+}
+
+export type Phase10P0CreatorSignal =
+  | 'feedback_summary'
+  | 'top_posts'
+  | 'reply_opportunities'
+  | 'representative_posts'
+  | 'public_collections'
+  | 'topic_ideas'
+  | 'non_payment_incentive'
+
+const PHASE10_P0_CREATOR_SIGNALS = new Set<Phase10P0CreatorSignal>([
+  'feedback_summary',
+  'top_posts',
+  'reply_opportunities',
+  'representative_posts',
+  'public_collections',
+  'topic_ideas',
+  'non_payment_incentive',
+])
+
+export const CREATOR_NON_PAYMENT_INCENTIVE_COPY = '非支付激励：不涉及支付，不承诺收益，不代表平台专业背书。'
+
+export const isPhase10P0CreatorSignal = (value: unknown): value is Phase10P0CreatorSignal => (
+  PHASE10_P0_CREATOR_SIGNALS.has(String(value) as Phase10P0CreatorSignal)
+)
+
+export const buildCreatorFeedbackWindowCopy = (
+  days: 7 | 30 | number,
+  metrics: Partial<{
+    commentCount: number
+    favoriteCount: number
+    replyCount: number
+  }> = {},
+) => {
+  const label = days === 7 ? '近 7 天' : days === 30 ? '近 30 天' : `近 ${Math.max(1, Number(days) || 30)} 天`
+  const comments = Math.max(0, Number(metrics.commentCount || 0))
+  const favorites = Math.max(0, Number(metrics.favoriteCount || 0))
+  const replies = Math.max(0, Number(metrics.replyCount || 0))
+  if (!comments && !favorites && !replies) {
+    return `${label}反馈会汇总公开内容的评论、收藏和回应线索；暂无数据时只展示空状态，不伪装真实趋势。`
+  }
+  return `${label}反馈：${comments} 条评论、${favorites} 次收藏、${replies} 条可继续回应的线索。`
+}
+
+export const buildCreatorTopicIdeaCopy = (idea: Pick<CreatorTopicIdea, 'title' | 'reason' | 'sourceType'> | string) => {
+  if (typeof idea === 'string') {
+    return `选题灵感：${idea}。来源会标明为示例或公开内容反馈，不承诺推荐、涨粉或曝光效果。`
+  }
+  const sourceCopy = idea.sourceType ? `来源：${idea.sourceType}。` : ''
+  return `选题灵感：${idea.title}。${sourceCopy}${idea.reason || '基于公开内容反馈或示例规则生成，可自行调整方向。'}`
 }
 
 const engagementScore = (post: Post) => (
@@ -81,7 +132,6 @@ export const buildCreatorActions = (
   posts: Post[],
   contribution: ContributionSummary,
   hasPublicCollections: boolean,
-  hasCertificationEntry = true,
 ): CreatorActionItem[] => {
   const actions: CreatorActionItem[] = []
   if (!posts.length) {
@@ -103,13 +153,6 @@ export const buildCreatorActions = (
       title: '打磨一篇代表内容',
       description: '标题、摘要、标签和内容结构越清楚，越容易被读者收藏。',
       href: '/me?tab=posts',
-    })
-  }
-  if (hasCertificationEntry) {
-    actions.push({
-      title: '查看认证作者条件',
-      description: '认证是社区贡献标识，会经过人工审核，不代表平台对每条内容背书。',
-      href: '/certification/apply',
     })
   }
   return actions.slice(0, 4)

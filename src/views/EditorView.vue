@@ -574,7 +574,7 @@ type PublishTemplate = {
   content: string
 }
 
-const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
+const COMMUNITY_PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
   TECH_ARTICLE: {
     title: '攻略清单模板',
     description: '适合整理步骤、方法、避坑清单和可照着执行的经验。',
@@ -617,22 +617,6 @@ const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
 ## 可能的反例
 
 ## 想听听大家怎么看
-`,
-  },
-  INTERVIEW_RECAP: {
-    title: '面试复盘模板',
-    description: '职场经验频道保留模板，记录问题、追问、表达卡点和后续补强。',
-    content: `## 面试背景
-
-## 被问到的问题
-
-## 追问路径
-
-## 回答卡点
-
-## 可复用 STAR 素材
-
-## 后续补强计划
 `,
   },
   PITFALL: {
@@ -689,6 +673,30 @@ const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
   },
 }
 
+const LEGACY_PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
+  INTERVIEW_RECAP: {
+    title: '面试复盘模板',
+    description: '仅用于历史面试复盘内容的兼容编辑，不作为默认发布入口。',
+    content: `## 面试背景
+
+## 被问到的问题
+
+## 追问路径
+
+## 回答卡点
+
+## 可复用素材
+
+## 后续补充
+`,
+  },
+}
+
+const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
+  ...COMMUNITY_PUBLISH_TEMPLATES,
+  ...LEGACY_PUBLISH_TEMPLATES,
+}
+
 const extensionValue = computed<Record<string, any>>(() => form.value.extension && typeof form.value.extension === 'object'
   ? form.value.extension as Record<string, any>
   : {})
@@ -711,7 +719,7 @@ const requiresStructuredExperience = computed(() => ['PROJECT_REVIEW', 'PITFALL'
 const hasBackgroundSection = computed(() => hasContentAny(['背景', '现象', '上下文']))
 const hasProblemSection = computed(() => hasContentAny(['难点', '根因', '问题', '挑战', '瓶颈']))
 const hasSolutionSection = computed(() => hasContentAny(['方案', '修复', '实现', '设计', '落地']))
-const hasResultSection = computed(() => hasContentAny(['结果', '指标', '收益', '提升', '降低', '复盘']))
+const hasResultSection = computed(() => hasContentAny(['结果', '指标', '效果', '收获', '提升', '降低', '复盘']))
 const hasQuestionBackground = computed(() => hasContentAny(['背景', '限制', '上下文', '场景', '情况']))
 const hasQuestionTried = computed(() => hasContentAny(['尝试', '试过', '已尝试', '已经试', '做过', '查过']))
 const hasQuestionHelp = computed(() => hasContentAny(['想获得', '希望', '请教', '建议', '推荐', '怎么看', '怎么选']))
@@ -743,7 +751,7 @@ const structuredQualityChecks = computed<QualityCheck[]>(() => {
     {
       key: 'structured-result',
       title: '结果或指标',
-      description: '需要补充结果、指标、收益、提升或复盘结论。',
+      description: '需要补充结果、指标、效果、收获或复盘结论。',
       passed: hasResultSection.value,
       required: true,
     },
@@ -862,19 +870,23 @@ const knowledgeSummary = computed(() => {
 const qualityChecklistResult = computed(() => buildEditorQualityChecklist({
   title: normalizedTitle.value,
   content: normalizedContent.value,
+  summary: extensionValue.value.summary,
   domain: selectedDomain.value,
   domainLabel: selectedDomainMeta.value?.domainName,
   tags: selectedTags.value,
   anonymous: anonymousCareerPost.value,
   seriesId: selectedSeriesId.value,
   seriesTitle: selectedSeriesRecord.value?.title,
+  riskNotice: extensionValue.value.riskNotice,
   minContentLength: Math.max(80, activePostType.value.minContentLength),
 }))
 const publishGateItems = computed(() => qualityChecks.value.filter((item) => item.required || !item.passed))
 const editorPreviewModel = computed(() => mapEditorDraftToPreview(
   {
+    postType: form.value.postType,
     title: form.value.title,
     content: form.value.content,
+    coverUrl: form.value.coverUrl,
     domain: selectedDomain.value,
     tags: form.value.tags,
     tagLabels: selectedTags.value,
@@ -1242,6 +1254,12 @@ const applyActiveTemplate = () => {
     form.value.extension = {
       ...extensionValue.value,
       contentType: activeTypeCode.value,
+      templateCode: activeTypeCode.value,
+    }
+  } else if (!extensionValue.value.templateCode) {
+    form.value.extension = {
+      ...extensionValue.value,
+      templateCode: activeTypeCode.value,
     }
   }
   scheduleAutoSave()
@@ -1372,6 +1390,7 @@ const currentDraftReq = () => ({
     domain: selectedDomain.value,
     anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
     contentType: contentTypeCodeOf(form.value.postType),
+    templateCode: contentTypeCodeOf(form.value.postType),
     tags: normalizedTags.value,
     topicNames: selectedTopicNames.value,
     seriesId: selectedSeriesId.value || undefined,
@@ -1511,6 +1530,72 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
   }
 }
 
+const topicIdeaQueryText = (value: unknown, maxLength = 80) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  const text = sanitizeVisibleText(typeof raw === 'string' ? raw : '')
+  return text.length > maxLength ? text.slice(0, maxLength) : text
+}
+
+const topicIdeaEditorQuery = () => {
+  const raw = Array.isArray(route.query.editorQuery) ? route.query.editorQuery[0] : route.query.editorQuery
+  if (typeof raw !== 'string' || !raw.trim()) return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
+  } catch {
+    const params = new URLSearchParams(raw)
+    return Object.fromEntries(params.entries())
+  }
+}
+
+const topicIdeaQueryValue = (key: 'source' | 'title' | 'topic' | 'seriesId' | 'postType') => {
+  const editorQuery = topicIdeaEditorQuery()
+  return editorQuery[key] ?? route.query[key]
+}
+
+const normalizeTopicIdeaPostType = (value: unknown): PostTypeValue | undefined => {
+  const raw = topicIdeaQueryText(value, 32)
+  if (!raw) return undefined
+  const upperCode = raw.toUpperCase()
+  const numericValue = Number(raw)
+  const option = COMMUNITY_CONTENT_TYPES.find((item) => (
+    item.code === upperCode
+    || item.value === numericValue
+  ))
+  return option?.value
+}
+
+const applyTopicIdeaQuery = () => {
+  if (isEditing.value || hasMeaningfulDraft.value) return false
+  const source = topicIdeaQueryText(topicIdeaQueryValue('source'), 32)
+  const allowedSources = new Set(['own_post_feedback', 'series_gap', 'content_type_template', 'topic_idea', 'creator_topic_idea', 'creator_workbench'])
+  if (!allowedSources.has(source)) return false
+
+  const title = topicIdeaQueryText(topicIdeaQueryValue('title'), 96)
+  const topic = topicIdeaQueryText(topicIdeaQueryValue('topic'), 32)
+  const seriesId = topicIdeaQueryText(topicIdeaQueryValue('seriesId'), 32)
+  const postType = normalizeTopicIdeaPostType(topicIdeaQueryValue('postType'))
+  const nextTopics = new Set(selectedTopicNames.value)
+  if (topic) nextTopics.add(topic)
+
+  if (title && !form.value.title.trim()) form.value.title = title
+  if (postType) form.value.postType = postType
+  if (seriesId && seriesRecords.value.some((item) => String(item.id) === String(seriesId))) {
+    selectedSeriesId.value = seriesId
+  }
+  applyEditorExtension({
+    topicIdeaSource: source,
+    topicNames: [...nextTopics],
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+  })
+  persistLocalDraft()
+  toast.success('已带入选题灵感，可继续编辑标题和话题')
+  return true
+}
+
 watch(draftOwner, (_nextOwner, prevOwner) => {
   if (prevOwner) {
     safeStorage.remove(localDraftKey(prevOwner))
@@ -1581,7 +1666,8 @@ onMounted(async () => {
 
   // 从 localStorage 恢复草稿
   await loadServerDrafts()
-  restoreLocalDraft(true)
+  const restoredLocalDraft = restoreLocalDraft(true)
+  if (!restoredLocalDraft) applyTopicIdeaQuery()
   clearStageThreeAssistState()
 })
 
@@ -1616,7 +1702,7 @@ const saveDraft = async () => {
     toast.success('草稿已同步到服务端')
   } catch (error) {
     await syncSeriesAssignment('draft')
-    toast.warning(getErrorMessage(error, '已保存本地草稿，服务端同步失败'))
+    toast.warning(getErrorMessage(error, '已保护到本地草稿，服务端草稿同步失败'))
   } finally {
     isSavingDraft.value = false
   }
@@ -1651,6 +1737,7 @@ const publishPost = async () => {
         ...form.value.extension,
         anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
         contentType: contentTypeCodeOf(form.value.postType),
+        templateCode: contentTypeCodeOf(form.value.postType),
         tags: normalizedTags.value,
         topicNames: selectedTopicNames.value,
         seriesId: selectedSeriesId.value || undefined,

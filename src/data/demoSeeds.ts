@@ -6,7 +6,22 @@ import type {
   UserWeeklyPrepReport,
 } from '@/api/question'
 import type { InterviewMaterialPack } from '@/api/post'
-import type { GrowthProfile, GrowthReport, PaginatedResponse, Post, Tag, User } from '@/api/types'
+import type { ContentListSummary } from '@/api/adapters'
+import type {
+  CreatorFeedbackSummary,
+  CreatorGrowthWorkspace,
+  CreatorIncentiveCopy,
+  CreatorReplyOpportunity,
+  CreatorRepresentativePost,
+  CreatorTopPost,
+  CreatorTopicIdea,
+  GrowthProfile,
+  GrowthReport,
+  PaginatedResponse,
+  Post,
+  Tag,
+  User,
+} from '@/api/types'
 import type { ContributionSummary } from '@/utils/communityMetrics'
 
 const now = Date.now()
@@ -42,6 +57,11 @@ const post = (id: string, postType: number, title: string, summary: string, tagL
   author: demoAuthor,
   counter: { view: 1280, like: 96, comment: 18, favorite: 54 },
   domain: 1,
+  extension: {
+    source: 'local_demo_seed',
+    example: true,
+    exampleLabel: '示例数据',
+  },
   recommendationReasons: ['demo seed', '冷启动示例'],
   myInteraction: { liked: false, favorited: true },
   createdAt: now - 12 * day,
@@ -63,6 +83,57 @@ export const demoPosts: Post[] = [
     '把排障过程拆成监控信号、消费瓶颈、扩容策略和复盘行动，适合系统设计追问。',
     [tags.kafka, tags.interview, tags.java],
   ),
+]
+
+export const demoContentLists: ContentListSummary[] = [
+  {
+    id: 'demo-list-read-later',
+    title: '稍后读',
+    description: '默认保存未整理收藏，当前仅用于本机演示整理入口。',
+    visibility: 'private',
+    ownerId: 'demo-user',
+    itemCount: 2,
+    items: demoPosts.map((item, index) => ({
+      id: `demo-list-read-later-${item.postId}`,
+      postId: item.postId,
+      post: item,
+      sortOrder: index,
+      addedAt: now - (index + 1) * day,
+    })),
+    updatedAt: now - day,
+    source: 'local_demo_only',
+    localOnly: true,
+    ownerVisible: true,
+    discoverable: false,
+    searchable: false,
+    recommendable: false,
+    rankable: false,
+    operable: false,
+  },
+  {
+    id: 'demo-list-public-system-design',
+    title: '系统设计复盘清单',
+    description: '只展示公开且通过治理过滤的内容，当前为本机示例。',
+    visibility: 'public',
+    ownerId: demoAuthor.uid,
+    itemCount: 2,
+    items: demoPosts.map((item, index) => ({
+      id: `demo-list-public-system-design-${item.postId}`,
+      postId: item.postId,
+      post: item,
+      sortOrder: index,
+      addedAt: now - (index + 2) * day,
+    })),
+    updatedAt: now - 2 * day,
+    source: 'local_demo_only',
+    localOnly: true,
+    ownerVisible: true,
+    discoverable: false,
+    searchable: false,
+    recommendable: false,
+    rankable: false,
+    operable: false,
+  },
 ]
 
 export const demoQuestions: Question[] = [
@@ -155,6 +226,10 @@ const pageOf = <T>(items: T[], total = items.length): PaginatedResponse<T> => ({
   source: 'local_demo_seed',
   degraded: true,
   fallbackReason: 'demo_seed',
+  diagnostics: {
+    example: true,
+    exampleLabel: '示例数据',
+  },
 })
 
 const includes = (value: string | undefined, query: string | undefined) => (
@@ -347,7 +422,7 @@ export const demoGrowthProfile: GrowthProfile = {
   degradationReasons: ['local_demo_seed'],
   strongestDomain: '科技数码',
   emergingDomain: '学习成长',
-  nextFocus: '作者主页 demo：继续发布经验分享、攻略清单和资源推荐，系统会自动聚合你的内容影响力。',
+  nextFocus: '作者主页 demo：继续发布经验分享、攻略清单和资源推荐，系统会汇总公开内容反馈和主页展示线索。',
   domains: [
     {
       domain: 1,
@@ -393,6 +468,142 @@ export const demoGrowthReport: GrowthReport = {
     featured: item.postId === 'demo-post-coupon-stock',
   })),
   nextActions: ['补充一次使用数据', '把 Kafka 堆积复盘整理成攻略清单', '为学习成长频道补 3 条资源'],
+}
+
+export const demoCreatorFeedbackSummary: CreatorFeedbackSummary = {
+  updatedAt: now,
+  degraded: true,
+  degradationReasons: ['local_demo_seed'],
+  windows: [
+    {
+      days: 7,
+      label: '近 7 天',
+      viewCount: 860,
+      likeCount: 42,
+      favoriteCount: 31,
+      commentCount: 9,
+      followerCount: 6,
+      replyCount: 5,
+      feedbackCopy: '近 7 天示例反馈：公开内容仍在被阅读、收藏和评论。',
+    },
+    {
+      days: 30,
+      label: '近 30 天',
+      viewCount: 2480,
+      likeCount: 96,
+      favoriteCount: 54,
+      commentCount: 18,
+      followerCount: 16,
+      replyCount: 11,
+      feedbackCopy: '近 30 天示例反馈：几篇代表作和公开合集带来了持续回访。',
+    },
+  ],
+  responseRate: 62,
+  unreadCommentCount: 3,
+  topFeedbackSignals: [
+    '示例反馈：资源推荐类内容被收藏较多。',
+    '示例反馈：复盘内容仍有读者继续追问。',
+  ],
+}
+
+export const demoCreatorTopPosts: CreatorTopPost[] = demoPosts.map((item, index) => ({
+  postId: item.postId,
+  title: item.title,
+  summary: item.summary,
+  domain: item.domain,
+  domainName: '科技数码',
+  viewCount: item.counter.view,
+  likeCount: item.counter.like,
+  favoriteCount: item.counter.favorite,
+  commentCount: item.counter.comment,
+  feedbackScore: item.counter.favorite * 6 + item.counter.comment * 4 + item.counter.like * 2,
+  reason: index === 0 ? '示例反馈：近期收藏较多，适合继续扩写。' : '示例反馈：评论仍在增加，可以回到讨论补充细节。',
+  href: `/post/${item.postId}`,
+}))
+
+export const demoCreatorReplyOpportunities: CreatorReplyOpportunity[] = [
+  {
+    id: 'demo-reply-opportunity-1',
+    postId: demoPosts[0].postId,
+    postTitle: demoPosts[0].title,
+    commentId: 'demo-comment-1',
+    commenterName: '读者提问',
+    excerpt: '如果把这套方案迁移到低流量业务，哪些部分可以先简化？',
+    reason: '示例反馈：评论里有具体追问，适合回到公共讨论继续回应。',
+    priority: 'high',
+    suggestedReplyTone: '补充上下文和取舍理由，不承诺唯一答案。',
+    href: `/post/${demoPosts[0].postId}#comments`,
+    createdAt: now - 2 * day,
+  },
+]
+
+export const demoCreatorRepresentativePosts: CreatorRepresentativePost[] = demoPosts.map((item) => ({
+  postId: item.postId,
+  title: item.title,
+  summary: item.summary,
+  domain: item.domain,
+  domainName: '科技数码',
+  heat: item.counter.view + item.counter.favorite * 6 + item.counter.comment * 4,
+  featured: item.postId === 'demo-post-coupon-stock',
+  publicCollectionCount: 1,
+  reason: '示例代表作：仅用于空数据兜底，真实展示需过滤公开可见内容。',
+  href: `/post/${item.postId}`,
+}))
+
+export const demoCreatorTopicIdeas: CreatorTopicIdea[] = [
+  {
+    id: 'demo-topic-idea-resource-checklist',
+    title: '把高收藏内容整理成资源清单',
+    prompt: '从已有公开内容里挑 5 个可复用工具或步骤，写成一篇清单。',
+    reason: '示例灵感：你的资源推荐类内容近期被收藏较多。',
+    sourceType: 'own_post_feedback',
+    sourceSignals: ['own_post_feedback', 'content_type_template'],
+    targetDomain: 1,
+    targetDomainName: '科技数码',
+    suggestedFormat: 'RESOURCE',
+    editorQuery: {
+      source: 'own_post_feedback',
+      title: '把高收藏内容整理成资源清单',
+      postType: 'RESOURCE',
+      topic: '资源清单',
+    },
+  },
+  {
+    id: 'demo-topic-idea-comment-followup',
+    title: '回应评论里的具体追问',
+    prompt: '围绕读者追问补充一个场景、一个取舍和一个可验证结果。',
+    reason: '示例灵感：评论里有人继续追问实现细节。',
+    sourceType: 'comment_question',
+    sourceSignals: ['comment_question'],
+    targetDomain: 1,
+    targetDomainName: '科技数码',
+    suggestedFormat: 'NOTE',
+    editorQuery: {
+      source: 'comment_question',
+      title: '回应评论里的具体追问',
+      postType: 'NOTE',
+      topic: '公共讨论',
+    },
+  },
+]
+
+export const demoCreatorIncentiveCopy: CreatorIncentiveCopy = {
+  title: '继续经营公开内容',
+  description: '把近期反馈沉淀成代表作、公开合集和下一篇可解释的选题。',
+  boundary: '非支付激励：不涉及支付，不承诺收益，不代表平台专业背书。',
+  ctaLabel: '查看选题灵感',
+}
+
+export const demoCreatorGrowthWorkspace: CreatorGrowthWorkspace = {
+  updatedAt: now,
+  degraded: true,
+  degradationReasons: ['local_demo_seed'],
+  feedbackSummary: demoCreatorFeedbackSummary,
+  topPosts: demoCreatorTopPosts,
+  replyOpportunities: demoCreatorReplyOpportunities,
+  representativePosts: demoCreatorRepresentativePosts,
+  topicIdeas: demoCreatorTopicIdeas,
+  incentiveCopy: demoCreatorIncentiveCopy,
 }
 
 export const demoProfileContribution: ContributionSummary = {

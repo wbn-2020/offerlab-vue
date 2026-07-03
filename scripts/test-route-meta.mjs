@@ -50,6 +50,7 @@ const adminRoles = ['ops', 'questionOperator', 'contentModerator', 'domainModera
 const adminRouteAccess = {
   '/admin': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
   '/admin/ops': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
+  '/admin/operations': { ops: false, questionOperator: false, contentModerator: false, domainModerator: false, admin: true },
   '/admin/questions': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
   '/admin/company-aliases': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
   '/admin/governance': { ops: true, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },

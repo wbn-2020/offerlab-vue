@@ -1,13 +1,16 @@
 import type { ContentSeriesRecord } from '@/api/contentSeries'
 import type { PublicDomainConfig } from '@/api/domains'
+import { getContentTypeOption } from '@/utils/contentTypes'
 import { DOMAIN, getDomainOption, normalizeDomain } from '@/utils/domains'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 
 type PreviewTagLike = string | number | { name?: unknown; label?: unknown; value?: unknown } | null | undefined
 
 export interface EditorPreviewDraftInput {
+  postType?: unknown
   title?: unknown
   content?: unknown
+  coverUrl?: unknown
   domain?: number | string | null
   tags?: PreviewTagLike[]
   tagLabels?: PreviewTagLike[]
@@ -39,6 +42,18 @@ export interface EditorPreviewModel {
     value: number
     label: string
     icon: string
+    description: string
+  }
+  contentType: {
+    code: string
+    label: string
+    shortLabel: string
+    description: string
+  }
+  cover: {
+    visible: boolean
+    url: string
+    alt: string
     description: string
   }
   tags: string[]
@@ -74,6 +89,8 @@ export const EDITOR_PREVIEW_COPY = {
   seriesUnselectedTitle: '\u672a\u52a0\u5165\u7cfb\u5217',
   seriesUnselectedDescription: '\u5f53\u524d\u5185\u5bb9\u5c06\u4ee5\u72ec\u7acb\u5e16\u5b50\u53d1\u5e03\uff1b\u5982\u679c\u8fd9\u662f\u8fde\u7eed\u66f4\u65b0\u5185\u5bb9\uff0c\u5efa\u8bae\u8865\u5145\u7cfb\u5217\u5f52\u5c5e\u3002',
   selectedSeriesFallback: '\u5df2\u9009\u62e9\u7cfb\u5217',
+  coverReady: '\u5c01\u9762\u5df2\u8bbe\u7f6e\uff0c\u53d1\u5e03\u5361\u7247\u4f1a\u4f18\u5148\u5c55\u793a\u8fd9\u5f20\u56fe\u7247\u3002',
+  coverMissing: '\u672a\u8bbe\u7f6e\u5c01\u9762\uff0c\u5361\u7247\u5c06\u4ee5\u6587\u5b57\u6458\u8981\u548c\u5185\u5bb9\u5f62\u6001\u4f5c\u4e3a\u9996\u5c4f\u4fe1\u606f\u3002',
 } as const
 
 const DEFAULT_SUMMARY_LENGTH = 96
@@ -179,6 +196,27 @@ const resolveDomain = (domainValue: unknown, domains: EditorPreviewDomainInput[]
   }
 }
 
+const resolveContentType = (postType: unknown) => {
+  const value = typeof postType === 'number' || typeof postType === 'string' ? Number(postType) : undefined
+  const option = getContentTypeOption(value)
+  return {
+    code: option.code,
+    label: option.label,
+    shortLabel: option.shortLabel,
+    description: option.description,
+  }
+}
+
+const resolveCover = (draft: EditorPreviewDraftInput, title: string) => {
+  const url = normalizeText(draft.coverUrl) || normalizeText(draft.extension?.coverUrl)
+  return {
+    visible: Boolean(url),
+    url,
+    alt: title || EDITOR_PREVIEW_COPY.titlePlaceholder,
+    description: url ? EDITOR_PREVIEW_COPY.coverReady : EDITOR_PREVIEW_COPY.coverMissing,
+  }
+}
+
 const resolveAnonymous = (domainValue: number, anonymousCareerPost: boolean) => {
   const enabled = domainValue === DOMAIN.CAREER && Boolean(anonymousCareerPost)
   if (enabled) {
@@ -232,7 +270,9 @@ export const mapEditorDraftToPreview = (
 ): EditorPreviewModel => {
   const title = normalizeText(draft.title)
   const domain = resolveDomain(draft.domain, options.domains)
+  const contentType = resolveContentType(draft.postType)
   const summary = resolveSummary(draft, options)
+  const cover = resolveCover(draft, title)
   const tags = collectTags(draft)
   const anonymous = resolveAnonymous(domain.value, Boolean(draft.anonymousCareerPost))
   const series = resolveSeries(draft, options.seriesRecords)
@@ -247,6 +287,8 @@ export const mapEditorDraftToPreview = (
     summaryPlaceholder: summary.placeholder,
     summarySource: summary.source,
     domain,
+    contentType,
+    cover,
     tags,
     anonymous,
     series,

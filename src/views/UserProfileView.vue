@@ -65,14 +65,14 @@
           <section class="profile-panel">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">作者数据</h2>
+                <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">公开内容反馈</h2>
                 <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  {{ contribution.level }} · {{ contribution.badge }}，{{ contributionSourceText }}。
+                  {{ contributionSourceText }}。这些反馈只用于了解公开内容表现，不代表平台排名或等级。
                 </p>
               </div>
-              <div class="score-card">
-                <strong>{{ contribution.score }}</strong>
-                <span>影响力</span>
+              <div class="score-card public-feedback-card">
+                <strong>{{ visiblePosts.length }}</strong>
+                <span>公开内容</span>
               </div>
             </div>
             <div class="mt-5 grid gap-3 sm:grid-cols-4">
@@ -91,12 +91,52 @@
             </div>
           </section>
 
+          <section
+            class="profile-panel"
+            data-phase15-public-identity
+            data-public-governance-filtered
+            data-explainable-trust-signals
+          >
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">社区身份摘要</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  {{ publicIdentitySummary.sourceNote }}
+                </p>
+              </div>
+              <span class="identity-neutral-pill">公开来源解释</span>
+            </div>
+            <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <article v-for="signal in publicIdentitySummary.signals" :key="signal.key" class="identity-signal-card">
+                <span>{{ signal.label }}</span>
+                <strong>{{ signal.value }}</strong>
+                <p>{{ signal.description }}</p>
+              </article>
+            </div>
+            <div v-if="publicIdentitySummary.focusLabels.length" class="mt-5 flex flex-wrap gap-2">
+              <span v-for="label in publicIdentitySummary.focusLabels" :key="label" class="tag-pill">{{ label }}</span>
+            </div>
+            <div
+              v-if="authStore.isLoggedIn && relationshipContext.visibleToViewer"
+              class="relationship-context-box"
+              data-relationship-context-private
+            >
+              <strong>仅你可见的关系上下文</strong>
+              <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <article v-for="item in relationshipContext.items" :key="item.key">
+                  <span>{{ item.label }} · {{ item.value }}</span>
+                  <p>{{ item.description }}</p>
+                </article>
+              </div>
+            </div>
+          </section>
+
           <section class="profile-panel">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">为什么值得关注</h2>
                 <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  结合公开内容、互动反馈和公开合集，帮助读者快速判断这位作者的创作方向。
+                  结合过滤后的代表内容、公开合集和内容类型，帮助读者理解这位作者常写什么。
                 </p>
               </div>
               <RouterLink v-if="publicCollections.length" :to="`/collections/${publicCollections[0].id}`" class="open-link">
@@ -134,13 +174,13 @@
 
           <section class="profile-panel">
             <div class="border-b border-slate-200 pb-4 dark:border-slate-800">
-              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">代表内容</h2>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">代表作</h2>
               <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
                 优先展示精选、高互动和近期活跃的公开内容，匿名内容不会进入作者主页。
               </p>
             </div>
             <div v-if="representativePosts.length === 0" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
-              这位作者还没有可展示的代表内容。
+              这位作者还没有可展示的代表作。
             </div>
             <div v-else class="space-y-4 pt-5">
               <article v-for="post in representativePosts" :key="post.postId" class="post-row">
@@ -175,9 +215,9 @@
 
           <section class="profile-panel">
             <div class="border-b border-slate-200 pb-4 dark:border-slate-800">
-              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">公开合集</h2>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">公开内容资产</h2>
               <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                作者公开整理过的主题内容，会展示在这里作为可继续阅读的内容资产。
+                作者公开整理过的公开合集会展示在这里作为可继续阅读的内容资产；仅展示公开且通过治理过滤的内容。
               </p>
             </div>
             <div v-if="isLoadingCollections" class="py-8 text-sm text-slate-500 dark:text-slate-400">
@@ -191,6 +231,15 @@
             </div>
             <div v-else class="collection-grid pt-5">
               <article v-for="collection in publicCollections" :key="collection.id" class="collection-card">
+                <div class="collection-cover">
+                  <img
+                    v-if="showCollectionCover(collection)"
+                    :src="collection.coverUrl"
+                    :alt="collection.title"
+                    @error="handleCollectionCoverError(collection.coverUrl)"
+                  />
+                  <span v-else>{{ collection.title.charAt(0).toUpperCase() }}</span>
+                </div>
                 <div>
                   <div class="flex flex-wrap items-center gap-2">
                     <h3>{{ collection.title }}</h3>
@@ -233,6 +282,8 @@ import {
   publicAuthorPosts,
   safeCreatorBio,
 } from '@/utils/creatorSignals'
+import { filterVisibleCollections, filterVisiblePosts } from '@/utils/recommendationGovernance'
+import { buildPublicIdentitySummary, buildRelationshipContext } from '@/utils/communityIdentity'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -246,6 +297,7 @@ const isLoading = ref(false)
 const isLoadingCollections = ref(false)
 const loadError = ref('')
 const collectionsError = ref('')
+const failedCollectionCoverUrls = ref(new Set<string>())
 const isFollowBusy = ref(false)
 
 const avatarText = computed(() => user.value?.nickname?.charAt(0) || '?')
@@ -253,7 +305,7 @@ const profileDescription = computed(() => {
   if (!user.value || user.value.profileVisible === false) return '访问范围由该用户的隐私设置决定。'
   return safeCreatorBio(user.value.signature)
 })
-const visiblePosts = computed(() => publicAuthorPosts(posts.value))
+const visiblePosts = computed(() => publicAuthorPosts(filterVisiblePosts(posts.value)))
 const contribution = computed(() => backendContribution.value || { ...buildContributionSummary(visiblePosts.value), source: 'frontend_estimate', estimated: true })
 const contributionSourceText = computed(() => {
   if (contribution.value.source === 'backend_aggregate') return '按公开内容和互动数据汇总'
@@ -265,6 +317,15 @@ const representativePosts = computed(() => pickRepresentativePosts(visiblePosts.
 const latestPosts = computed(() => latestPublicPosts(visiblePosts.value, 6))
 const creatorFocusLabels = computed(() => buildCreatorFocusLabels(visiblePosts.value, 6))
 const followReasons = computed(() => buildFollowReasons(user.value, visiblePosts.value, contribution.value, publicCollections.value))
+const publicIdentitySummary = computed(() => buildPublicIdentitySummary(user.value, visiblePosts.value, publicCollections.value, contribution.value))
+const relationshipContext = computed(() => authStore.isLoggedIn
+  ? buildRelationshipContext({
+      viewerUid: authStore.user?.uid,
+      author: user.value,
+      isLoggedIn: authStore.isLoggedIn,
+      isPublicVisitor: false,
+    })
+  : { visibleToViewer: false, items: [] })
 
 const formatTime = (value: number) => {
   if (!value) return '刚刚更新'
@@ -275,12 +336,23 @@ const formatTime = (value: number) => {
   return `${Math.max(1, Math.floor(diff / 86_400_000))} 天前更新`
 }
 
+const showCollectionCover = (collection: ContentSeriesRecord) => {
+  const coverUrl = String(collection.coverUrl || '')
+  return Boolean(coverUrl) && !failedCollectionCoverUrls.value.has(coverUrl)
+}
+
+const handleCollectionCoverError = (coverUrl?: string) => {
+  const safeCoverUrl = String(coverUrl || '')
+  if (!safeCoverUrl) return
+  failedCollectionCoverUrls.value = new Set([...failedCollectionCoverUrls.value, safeCoverUrl])
+}
+
 const loadPublicCollections = async (uid: string) => {
   isLoadingCollections.value = true
   collectionsError.value = ''
   try {
     const res = await contentSeriesApi.listPublicByUser(uid, undefined, 6)
-    publicCollections.value = res.data || []
+    publicCollections.value = filterVisibleCollections(res.data || [])
   } catch (error: any) {
     publicCollections.value = []
     collectionsError.value = getErrorMessage(error, '公开合集加载失败')
@@ -309,7 +381,7 @@ const loadProfile = async () => {
       userApi.getContribution(uid),
     ])
     userIntent.value = intent.status === 'fulfilled' ? intent.value.data : null
-    posts.value = authoredPosts.status === 'fulfilled' ? publicAuthorPosts(authoredPosts.value.data?.items || []) : []
+    posts.value = authoredPosts.status === 'fulfilled' ? filterVisiblePosts(authoredPosts.value.data?.items || []) : []
     backendContribution.value = contributionRes.status === 'fulfilled' ? contributionRes.value.data : null
     await loadPublicCollections(uid)
   } catch (error: any) {
@@ -407,6 +479,10 @@ onMounted(loadProfile)
   text-align: center;
 }
 
+.public-feedback-card strong {
+  color: rgb(37 99 235);
+}
+
 .score-card strong,
 .mini-stat strong {
   display: block;
@@ -429,6 +505,61 @@ onMounted(loadProfile)
   font-size: 0.78rem;
   font-weight: 700;
   color: rgb(100 116 139);
+}
+
+.identity-neutral-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  background: rgb(240 253 244);
+  padding: 0.35rem 0.75rem;
+  color: rgb(22 101 52);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.identity-signal-card {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 1rem;
+}
+
+.identity-signal-card span,
+.relationship-context-box span {
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.identity-signal-card strong {
+  margin-top: 0.25rem;
+  display: block;
+  color: rgb(15 23 42);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.identity-signal-card p,
+.relationship-context-box p {
+  margin-top: 0.5rem;
+  color: rgb(100 116 139);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.relationship-context-box {
+  margin-top: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.relationship-context-box > strong {
+  color: rgb(30 64 175);
+  font-size: 0.875rem;
 }
 
 .post-row {
@@ -520,9 +651,32 @@ onMounted(loadProfile)
 
 .collection-card {
   display: grid;
+  grid-template-columns: 4.25rem minmax(0, 1fr);
   gap: 0.9rem;
+  align-items: start;
   border-bottom: 1px solid rgb(241 245 249);
   padding-bottom: 1rem;
+}
+
+.collection-cover {
+  display: flex;
+  aspect-ratio: 1;
+  width: 4.25rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: rgb(15 23 42);
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.collection-cover img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
 }
 
 .collection-card h3 {
@@ -538,7 +692,7 @@ onMounted(loadProfile)
   line-height: 1.6;
 }
 
-.collection-card span {
+.collection-card > div:not(.collection-cover) span {
   border-radius: 999px;
   background: rgb(239 246 255);
   padding: 0.25rem 0.6rem;
@@ -614,6 +768,10 @@ onMounted(loadProfile)
   border-bottom-color: rgb(30 41 59);
 }
 
+.dark .collection-cover {
+  background: rgb(30 41 59);
+}
+
 .dark .collection-card h3 {
   color: rgb(248 250 252);
 }
@@ -622,12 +780,16 @@ onMounted(loadProfile)
   color: rgb(148 163 184);
 }
 
-.dark .collection-card span {
+.dark .collection-card > div:not(.collection-cover) span {
   background: rgb(30 41 59);
   color: rgb(191 219 254);
 }
 
 @media (max-width: 640px) {
+  .collection-card {
+    grid-template-columns: 1fr;
+  }
+
   .follow-button {
     width: 100%;
   }

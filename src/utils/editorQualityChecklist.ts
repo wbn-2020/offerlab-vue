@@ -5,10 +5,12 @@ export type EditorQualityChecklistState = 'complete' | 'needs-work' | 'tip'
 export type EditorQualityChecklistKey =
   | 'title'
   | 'content'
+  | 'summary'
   | 'domain'
   | 'tags'
   | 'anonymous'
   | 'series'
+  | 'risk'
 
 export interface EditorQualityChecklistTagLike {
   label?: string | null
@@ -19,12 +21,14 @@ export interface EditorQualityChecklistTagLike {
 export interface EditorQualityChecklistInput {
   title?: string | null
   content?: string | null
+  summary?: string | null
   domain?: number | string | null
   domainLabel?: string | null
   tags?: Array<string | EditorQualityChecklistTagLike> | null
   anonymous?: boolean | null
   seriesId?: string | number | null
   seriesTitle?: string | null
+  riskNotice?: string | null
   minTitleLength?: number
   maxTitleLength?: number
   minContentLength?: number
@@ -59,12 +63,14 @@ export interface EditorQualityChecklistResult {
   normalized: {
     title: string
     content: string
+    summary: string
     plainText: string
     domain?: DomainValue
     domainLabel: string
     tags: string[]
     anonymous: boolean
     hasSeries: boolean
+    riskNotice: string
   }
 }
 
@@ -153,6 +159,7 @@ export const evaluateEditorQualityChecklist = (
 ): EditorQualityChecklistResult => {
   const title = normalizeText(input.title)
   const content = normalizeText(input.content)
+  const summary = normalizeText(input.summary)
   const plainText = stripMarkdown(content)
   const tags = (input.tags || []).map((item) => normalizeTag(item)).filter(Boolean)
   const anonymous = Boolean(input.anonymous)
@@ -161,6 +168,7 @@ export const evaluateEditorQualityChecklist = (
     ? undefined
     : normalizeDomain(input.domain)
   const domainLabel = normalizeText(input.domainLabel) || (domain ? getDomainLabel(domain) : '')
+  const riskNotice = normalizeText(input.riskNotice)
 
   const minTitleLength = Math.max(1, input.minTitleLength ?? DEFAULT_MIN_TITLE_LENGTH)
   const maxTitleLength = Math.max(minTitleLength, input.maxTitleLength ?? DEFAULT_MAX_TITLE_LENGTH)
@@ -171,6 +179,7 @@ export const evaluateEditorQualityChecklist = (
   const contentLength = plainText.length
   const seriesCue = hasSeriesCue(title, content)
   const isCareerDomain = domain === DOMAIN.CAREER
+  const isHighRiskDomain = domain === DOMAIN.INVESTMENT
   const hasSensitiveCareerCue = isCareerDomain && hasSensitiveCareerDetails(title, content)
 
   const items: EditorQualityChecklistItem[] = [
@@ -199,6 +208,16 @@ export const evaluateEditorQualityChecklist = (
           : 'needs-work',
       complete: contentLength >= strongContentLength || paragraphCount >= 3,
       required: true,
+    },
+    {
+      key: 'summary',
+      title: '摘要',
+      description: summary.length >= 12
+        ? '摘要已经能帮助读者在列表中快速判断是否继续阅读。'
+        : '建议补一句清晰摘要，说明这篇内容解决什么问题或适合什么场景。',
+      state: summary.length >= 12 ? 'complete' : 'tip',
+      complete: summary.length >= 12,
+      required: false,
     },
     {
       key: 'domain',
@@ -260,6 +279,22 @@ export const evaluateEditorQualityChecklist = (
       complete: hasSeries,
       required: false,
     },
+    {
+      key: 'risk',
+      title: '高风险提示',
+      description: isHighRiskDomain || riskNotice
+        ? `${riskNotice || '涉及投资理财等高风险话题时，请补充风险边界。'} 内容仅供交流，不构成专业建议。`
+        : '当前领域未命中高风险提示；如果内容涉及投资、医疗、法律等判断，请主动补充边界说明。',
+      state: isHighRiskDomain
+        ? riskNotice
+          ? 'complete'
+          : 'needs-work'
+        : riskNotice
+          ? 'complete'
+          : 'tip',
+      complete: isHighRiskDomain ? Boolean(riskNotice) : true,
+      required: false,
+    },
   ]
 
   const completed = items.filter((item) => item.state === 'complete').length
@@ -285,12 +320,14 @@ export const evaluateEditorQualityChecklist = (
     normalized: {
       title,
       content,
+      summary,
       plainText,
       domain,
       domainLabel,
       tags,
       anonymous,
       hasSeries,
+      riskNotice,
     },
   }
 }

@@ -60,6 +60,11 @@
                 {{ searchEntryNotice }}
               </div>
 
+              <div v-if="governanceUnavailableState" class="governance-unavailable-state" role="note">
+                <strong>{{ governanceUnavailableState.title }}</strong>
+                <span>{{ governanceUnavailableState.description }}</span>
+              </div>
+
               <div
                 v-if="publishStatusItems.length"
                 class="publish-status-bar mb-6"
@@ -126,12 +131,13 @@
                   </span>
                 </div>
 
-                <div v-if="domainDetailSurface.images.length" class="domain-detail-gallery">
+                <div v-if="visibleDetailImages.length" class="domain-detail-gallery">
                   <img
-                    v-for="(image, index) in domainDetailSurface.images"
+                    v-for="(image, index) in visibleDetailImages"
                     :key="image"
                     :src="image"
                     :alt="`${domainDetailSurface.title} ${index + 1}`"
+                    @error="handleDetailImageError(image)"
                   />
                 </div>
 
@@ -347,6 +353,148 @@
                 </RouterLink>
               </div>
 
+              <section
+                v-if="contentTrustSignals.length || publicAcceptedSuggestionNotes.length"
+                class="content-trust-panel"
+                data-phase15-content-trust
+                data-explainable-trust-signals
+              >
+                <div>
+                  <p class="content-trust-kicker">公开信号说明</p>
+                  <h2>为什么展示这些信息</h2>
+                  <p>仅展示公开、可访问、治理过滤后的事实型上下文，不作为平台结论。</p>
+                </div>
+                <div class="content-trust-grid">
+                  <article v-for="signal in contentTrustSignals" :key="signal.key">
+                    <span>{{ signal.label }}</span>
+                    <strong>{{ signal.value }}</strong>
+                    <p>{{ signal.description }}</p>
+                  </article>
+                  <article v-for="note in publicAcceptedSuggestionNotes" :key="`accepted-note-${note}`">
+                    <span>读者建议</span>
+                    <strong>作者已补充</strong>
+                    <p>{{ note }}</p>
+                  </article>
+                </div>
+                <div
+                  v-if="detailRelationshipContext.visibleToViewer"
+                  class="content-relationship-note"
+                  data-relationship-context-private
+                >
+                  <span v-for="item in detailRelationshipContext.items" :key="item.key">{{ item.label }}：{{ item.value }}</span>
+                </div>
+              </section>
+
+              <section
+                class="content-suggestion-panel"
+                data-phase15-content-suggestion
+                data-suggestions-private
+                data-not-comment-flow
+                data-suggestion-notification-preferences
+              >
+                <div class="content-suggestion-head">
+                  <div>
+                    <p class="content-trust-kicker">补充 / 纠错建议</p>
+                    <h2>给这篇内容补一点上下文</h2>
+                    <p>{{ contentSuggestionVisibilityNote }}</p>
+                    <p v-if="highRiskSuggestionGuidance" class="content-suggestion-risk">{{ highRiskSuggestionGuidance }}</p>
+                  </div>
+                  <RouterLink to="/me/settings?tab=notifications" class="content-suggestion-link">通知偏好</RouterLink>
+                </div>
+
+                <div v-if="contentSuggestionError" class="content-suggestion-error" role="alert">
+                  {{ contentSuggestionError }}
+                </div>
+                <div v-if="contentSuggestionFeedback" class="content-suggestion-feedback" role="status" aria-live="polite">
+                  {{ contentSuggestionFeedback }}
+                </div>
+
+                <div v-if="isOwnPost" class="content-suggestion-author" data-author-suggestion-actions>
+                  <div class="content-suggestion-author-actions">
+                    <button type="button" class="content-suggestion-secondary" :disabled="isLoadingContentSuggestions" @click="loadContentSuggestions">
+                      {{ isLoadingContentSuggestions ? '加载中...' : '刷新建议' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="content-suggestion-secondary"
+                      data-author-close-suggestion-entry
+                      :disabled="isHandlingContentSuggestion || postSuggestionEntryOpen === false"
+                      @click="closePostSuggestionEntry"
+                    >
+                      {{ postSuggestionEntryOpen === false ? '建议入口已关闭' : '关闭这篇建议入口' }}
+                    </button>
+                  </div>
+                  <div v-if="isLoadingContentSuggestions" class="content-suggestion-empty">正在加载读者建议...</div>
+                  <div v-else-if="contentSuggestions.length === 0" class="content-suggestion-empty">暂无待处理建议。</div>
+                  <article v-for="item in contentSuggestions" v-else :key="item.id" class="content-suggestion-item">
+                    <div class="content-suggestion-item-head">
+                      <span>{{ contentSuggestionTypeText(item.type) }}</span>
+                      <strong>{{ contentSuggestionStatusText(item.status) }}</strong>
+                    </div>
+                    <p>{{ item.detail }}</p>
+                    <a v-if="item.sourceUrl" :href="item.sourceUrl" target="_blank" rel="noreferrer">查看补充链接</a>
+                    <p v-if="item.allowPublicAttribution && item.submitterNickname" class="content-suggestion-meta">
+                      提交者允许公开昵称：{{ item.submitterNickname }}
+                    </p>
+                    <textarea v-model="contentSuggestionReplyDrafts[String(item.id)]" rows="2" maxlength="1000" placeholder="给提交者的处理说明，可选" />
+                    <div class="content-suggestion-actions">
+                      <button type="button" :disabled="isHandlingContentSuggestion" @click="handleContentSuggestionAction(item, 'ACCEPTED')">采纳</button>
+                      <button type="button" :disabled="isHandlingContentSuggestion" @click="handleContentSuggestionAction(item, 'REPLIED')">回复</button>
+                      <button type="button" :disabled="isHandlingContentSuggestion" @click="handleContentSuggestionAction(item, 'IGNORED')">忽略</button>
+                      <button type="button" :disabled="isHandlingContentSuggestion" @click="handleContentSuggestionAction(item, 'CLOSED')">关闭</button>
+                    </div>
+                  </article>
+                </div>
+
+                <form v-else-if="authStore.isLoggedIn" class="content-suggestion-form" @submit.prevent="submitContentSuggestion">
+                  <label>
+                    <span>建议类型</span>
+                    <select v-model="contentSuggestionForm.type">
+                      <option v-for="option in CONTENT_SUGGESTION_TYPE_OPTIONS" :key="option.value" :value="option.value">
+                        {{ option.label }} · {{ option.description }}
+                      </option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>具体建议</span>
+                    <textarea v-model="contentSuggestionForm.detail" rows="4" maxlength="2000" placeholder="写下你希望作者补充、核对或澄清的内容" />
+                  </label>
+                  <label>
+                    <span>相关链接（可选）</span>
+                    <input v-model="contentSuggestionForm.sourceUrl" type="url" placeholder="https://..." />
+                  </label>
+                  <label class="content-suggestion-checkbox">
+                    <input v-model="contentSuggestionForm.allowPublicAttribution" type="checkbox" />
+                    <span>如果作者采纳，允许展示我的昵称；默认不公开提交者身份。</span>
+                  </label>
+                  <div class="content-suggestion-form-actions">
+                    <span>{{ contentSuggestionSubmitGuard.reason }}</span>
+                    <button type="submit" :disabled="contentSuggestionSubmitDisabled">
+                      {{ isSubmittingContentSuggestion ? '提交中...' : '提交给作者' }}
+                    </button>
+                  </div>
+                </form>
+
+                <div v-else class="content-suggestion-empty">
+                  登录后可以给作者提交补充或纠错建议，建议不会自动公开。
+                  <button type="button" @click="requireLogin()">去登录</button>
+                </div>
+              </section>
+
+              <section class="discussion-follow-panel" aria-labelledby="discussion-follow-title">
+                <div>
+                  <p class="discussion-follow-kicker">关注讨论</p>
+                  <h2 id="discussion-follow-title">有新回复时提醒我</h2>
+                  <p>{{ discussionFollowDescription }}</p>
+                </div>
+                <div class="discussion-follow-actions">
+                  <RouterLink to="/me/settings?tab=notifications" class="discussion-follow-link">
+                    查看通知偏好
+                  </RouterLink>
+                  <span>{{ discussionFollowStatusText }}</span>
+                </div>
+              </section>
+
               <div v-if="authStore.isLoggedIn" class="mt-4 flex justify-end gap-3">
                 <template v-if="isOwnPost">
                   <button
@@ -434,6 +582,7 @@
                 v-else
                 :post-id="postId"
                 :comments="comments"
+                :post-author-uid="post.author.uid"
                 :can-like-comments="authStore.isLoggedIn"
                 :can-report-comments="true"
                 :can-reply-comments="authStore.isLoggedIn"
@@ -489,6 +638,16 @@
                 <p>{{ authorFollowReason }}</p>
                 <RouterLink :to="authorProfileTo">查看作者主页</RouterLink>
               </div>
+              <div v-if="isOwnPost" class="creator-feedback-box">
+                <strong>本篇内容反馈</strong>
+                <div class="creator-feedback-grid">
+                  <span>{{ post.counter.comment }} 条评论</span>
+                  <span>{{ post.counter.favorite }} 次收藏</span>
+                  <span>{{ post.counter.like }} 次点赞</span>
+                </div>
+                <p>这里仅展示这篇公开内容的回应信号；完整的 7 天/30 天概览请回到创作者工作台查看。</p>
+                <RouterLink to="/me" class="creator-feedback-link">回到创作者工作台</RouterLink>
+              </div>
             </section>
 
             <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
@@ -512,7 +671,69 @@
     </main>
 
     <div v-if="isReportDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" @click.self="closeReportDialog">
-      <form class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" @submit.prevent="submitReport">
+      <form class="report-dialog-panel w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" @submit.prevent="submitReport">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="report-dialog-title" class="text-lg font-bold text-slate-950 dark:text-slate-50">举报{{ reportTargetLabel }}</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">说明问题后提交给平台处理，结果会结合上下文判断。</p>
+          </div>
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" @click="closeReportDialog">
+            关闭
+          </button>
+        </div>
+
+        <div
+          v-if="reportFeedback && isReportSubmitSuccess"
+          class="report-feedback report-feedback--success"
+          role="status"
+          aria-live="polite"
+        >
+          <strong>{{ reportFeedback.title }}</strong>
+          <span>{{ reportFeedback.message }}</span>
+        </div>
+        <div
+          v-else-if="reportFeedback"
+          class="report-feedback"
+          :class="reportFeedback.tone === 'warning' ? 'report-feedback--warning' : 'report-feedback--error'"
+          role="alert"
+        >
+          <strong>{{ reportFeedback.title }}</strong>
+          <span>{{ reportFeedback.message || '内容状态已变化，无需重复举报。' }}</span>
+        </div>
+
+        <label class="mt-5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+          举报类型
+          <select v-model="reportForm.reason" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+            <option v-for="reason in REPORT_REASON_OPTIONS" :key="reason.value" :value="reason.value">
+              {{ reason.label }}
+            </option>
+          </select>
+        </label>
+
+        <label class="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+          补充说明
+          <textarea
+            v-model.trim="reportForm.detail"
+            rows="4"
+            maxlength="1000"
+            placeholder="可补充你看到的问题，避免填写个人敏感信息"
+            class="mt-2 w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          />
+        </label>
+
+        <div class="mt-5 flex justify-end gap-3">
+          <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" @click="closeReportDialog">
+            {{ isReportSubmitSuccess ? '完成' : '取消' }}
+          </button>
+          <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60" :disabled="isReporting || isReportSubmitSuccess">
+            {{ isReporting ? '提交中...' : '提交举报' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="false && isReportDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" @click.self="closeReportDialog">
+      <form class="report-dialog-panel w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" @submit.prevent="submitReport">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">{{ reportTarget.type === 'comment' ? '举报评论' : '举报帖子' }}</h2>
@@ -615,6 +836,16 @@ import { postApi, type InterviewMaterialPack } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import { userApi } from '@/api/user'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
+import {
+  CONTENT_SUGGESTION_STATUS_LABELS,
+  CONTENT_SUGGESTION_TYPE_OPTIONS,
+  buildContentSuggestionDuplicateKey,
+  canSubmitContentSuggestion,
+  contentSuggestionApi,
+  type ContentSuggestionRecord,
+  type ContentSuggestionStatus,
+  type ContentSuggestionType,
+} from '@/api/contentSuggestions'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -634,6 +865,16 @@ import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 import { buildFollowReasons, isPublicAuthor, safeCreatorBio } from '@/utils/creatorSignals'
 import { findHighRiskContentWarning } from '@/utils/recommendationGovernance'
+import { buildContentTrustSignals, buildRelationshipContext } from '@/utils/communityIdentity'
+import { safeStorage } from '@/utils/safeStorage'
+import {
+  REPORT_REASON_OPTIONS,
+  getUnavailableContentCopy,
+  mapReportErrorToFeedback,
+  normalizeRiskNoticeForUsers,
+  reportSuccessFeedback,
+  type GovernanceFeedback,
+} from '@/utils/governanceDisplay'
 
 const route = useRoute()
 const router = useRouter()
@@ -658,6 +899,34 @@ const isReportDialogOpen = ref(false)
 const isFollowingAuthor = ref(false)
 const reportForm = ref({ reason: 'OTHER', detail: '' })
 const reportTarget = ref<{ type: 'post' | 'comment'; id?: Comment['commentId'] }>({ type: 'post' })
+const reportFeedback = ref<GovernanceFeedback | null>(null)
+const isReportSubmitSuccess = ref(false)
+const contentSuggestions = ref<ContentSuggestionRecord[]>([])
+const isLoadingContentSuggestions = ref(false)
+const isSubmittingContentSuggestion = ref(false)
+const isHandlingContentSuggestion = ref(false)
+const contentSuggestionError = ref('')
+const contentSuggestionFeedback = ref('')
+const postSuggestionEntryOpen = ref(true)
+const contentSuggestionReplyDrafts = ref<Record<string, string>>({})
+const contentSuggestionLocalKeys = ref(new Set<string>())
+const contentSuggestionDailyCount = ref(0)
+const contentSuggestionForm = ref<{
+  type: ContentSuggestionType
+  detail: string
+  sourceUrl: string
+  allowPublicAttribution: boolean
+}>({
+  type: 'SUPPLEMENT',
+  detail: '',
+  sourceUrl: '',
+  allowPublicAttribution: false,
+})
+const unavailableReportFeedbackMessage = '内容状态已变化，无需重复举报'
+const duplicateReportFeedbackMessage = '重复举报已收到，已有待处理举报，请勿重复提交。'
+const rateLimitedReportFeedbackMessage = '举报太频繁，请稍后再提交。'
+const reportFailedFeedbackMessage = '举报提交失败，暂时无法提交举报。'
+const reportSubmittedFeedbackMessage = '感谢反馈，我们会根据社区规则处理。'
 const comments = ref<Comment[]>([])
 const commentTreeRef = ref<{ markCommentLikeSettled: (commentId: Comment['commentId']) => void } | null>(null)
 const relatedPosts = ref<Post[]>([])
@@ -710,7 +979,17 @@ const clonePost = (source?: Post | null): Post | null => {
   }
 }
 
+const readPostSuggestionEntryOpen = (source?: Post | null) => {
+  if (!source) return true
+  const value = (source as any).suggestionsOpen
+    ?? (source as any).contentSuggestionsOpen
+    ?? source.extension?.suggestionsOpen
+    ?? source.extension?.contentSuggestionsOpen
+  return value === false || value === 'false' ? false : true
+}
+
 const post = ref<Post | null>(null)
+const failedDetailImages = ref<string[]>([])
 const publishStatus = computed<PostPublishStatus | null>(() => publishStatusData.value?.data || null)
 const authorUid = computed(() => String(post.value?.author.uid ?? ''))
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(post.value?.author.uid ?? ''))
@@ -824,6 +1103,14 @@ const discussionReplyPlaceholder = computed(() => (
     : '写下回复...'
 ))
 const discussionReplySubmitLabel = computed(() => (isQuestionPost.value ? '补充讨论' : '回复'))
+const discussionFollowDescription = computed(() => (
+  isQuestionPost.value
+    ? '关注讨论用于跟进这个问题后续的新建议和追问。收藏只保存内容，不会默认开启新回复提醒。'
+    : '关注讨论用于跟进这个帖子后续的新回复。收藏只保存内容，不会默认开启新回复提醒。'
+))
+const discussionFollowStatusText = computed(() => (
+  '当前版本先展示关注讨论入口，等帖子级关注接口承接后再保存关注状态。'
+))
 const relatedSectionTitle = computed(() => (isQuestionPost.value ? '相关问题求助' : '相关帖子'))
 const relatedEmptyText = computed(() => (isQuestionPost.value ? '暂无相似讨论' : '暂无相关内容'))
 const isLegacyInterview = computed(() => isLegacyInterviewType(post.value?.postType))
@@ -831,17 +1118,111 @@ const visibleTechStacks = computed(() => Array.isArray(post.value?.extension?.te
   ? post.value.extension.techStacks.map(String).filter(Boolean).slice(0, 8)
   : [])
 const domainDetailSurface = computed(() => post.value ? buildDomainDetailSurface(post.value) : null)
+const visibleDetailImages = computed(() => {
+  const failed = new Set(failedDetailImages.value)
+  return (domainDetailSurface.value?.images || []).filter((image) => !failed.has(image))
+})
 const effectiveRiskNotice = computed(() => {
-  if (domainDetailSurface.value?.riskNotice) return domainDetailSurface.value.riskNotice
+  if (domainDetailSurface.value?.riskNotice) return normalizeRiskNoticeForUsers(domainDetailSurface.value.riskNotice)
   if (!post.value) return ''
-  return findHighRiskContentWarning([
+  return normalizeRiskNoticeForUsers(findHighRiskContentWarning([
     getDomainLabel(post.value.domain),
     post.value.title,
     post.value.summary,
     post.value.content,
     ...(post.value.tags || []).map((tag) => tag.name),
-  ].filter(Boolean).join(' '))
+  ].filter(Boolean).join(' ')))
 })
+const contentTrustSignals = computed(() => buildContentTrustSignals(post.value))
+const detailRelationshipContext = computed(() => buildRelationshipContext({
+  viewerUid: authStore.user?.uid,
+  author: post.value?.author,
+  post: post.value,
+  isLoggedIn: authStore.isLoggedIn,
+  isPublicVisitor: !authStore.isLoggedIn,
+}))
+const contentSuggestionVisibilityNote = computed(() => (
+  '建议默认仅提交者、作者和必要治理角色可见，不会进入公开讨论；相关提醒沿用现有互动或系统通知偏好。'
+))
+const highRiskSuggestionGuidance = computed(() => {
+  if (!effectiveRiskNotice.value) return ''
+  return contentSuggestionForm.value.type === 'CORRECTION'
+    ? '高风险频道的事实更正只作为请作者补充来源或上下文，不由平台裁定专业结论。'
+    : '高风险频道建议保持中性说明，优先补充来源、上下文和风险边界。'
+})
+const publicAcceptedSuggestionNotes = computed(() => {
+  const source = post.value?.extension?.acceptedSuggestionNotes
+    ?? post.value?.extension?.publicAcceptedSuggestionNotes
+    ?? post.value?.extension?.publicAcceptedSuggestions
+  const items = Array.isArray(source) ? source : []
+  return items
+    .map((item) => {
+      if (typeof item === 'string') return item
+      return String(item?.acceptedPublicNote || item?.publicNote || '').trim()
+    })
+    .filter(Boolean)
+    .slice(0, 3)
+})
+const contentSuggestionDuplicateKey = computed(() => buildContentSuggestionDuplicateKey({
+  postId: post.value?.postId,
+  submitterUid: authStore.user?.uid,
+  type: contentSuggestionForm.value.type,
+  detail: contentSuggestionForm.value.detail,
+}))
+const hasDuplicatePendingContentSuggestion = computed(() => (
+  contentSuggestionLocalKeys.value.has(contentSuggestionDuplicateKey.value)
+  || contentSuggestions.value.some((item) => item.status === 'PENDING'
+    && item.type === contentSuggestionForm.value.type
+    && String(item.detail || '').replace(/\s+/g, ' ').trim().toLowerCase() === String(contentSuggestionForm.value.detail || '').replace(/\s+/g, ' ').trim().toLowerCase())
+))
+const contentSuggestionSubmitGuard = computed(() => canSubmitContentSuggestion({
+  isLoggedIn: authStore.isLoggedIn,
+  isAuthor: isOwnPost.value,
+  suggestionsOpen: postSuggestionEntryOpen.value,
+  post: post.value,
+  type: contentSuggestionForm.value.type,
+  detail: contentSuggestionForm.value.detail,
+  duplicatePending: hasDuplicatePendingContentSuggestion.value,
+  dailySubmissionCount: contentSuggestionDailyCount.value,
+  blockedByAuthor: Boolean((post.value?.author as any)?.blockedByAuthor),
+  governanceRestricted: Boolean((authStore.user as any)?.muted || (authStore.user as any)?.banned),
+}))
+const contentSuggestionSubmitDisabled = computed(() => isSubmittingContentSuggestion.value || !contentSuggestionSubmitGuard.value.allowed)
+const contentSuggestionStatusText = (status: ContentSuggestionStatus) => CONTENT_SUGGESTION_STATUS_LABELS[status] || status
+const contentSuggestionTypeText = (type: ContentSuggestionType) => CONTENT_SUGGESTION_TYPE_OPTIONS.find((item) => item.value === type)?.label || type
+const contentSuggestionStoragePrefix = computed(() => `phase15-content-suggestions:${authStore.user?.uid || 'guest'}:${postId.value}`)
+
+const loadLocalContentSuggestionGuards = () => {
+  if (typeof window === 'undefined') return
+  const key = contentSuggestionStoragePrefix.value
+  try {
+    const raw = JSON.parse(safeStorage.get(key) || '{}') as { date?: string; count?: number; keys?: string[] }
+    const today = new Date().toISOString().slice(0, 10)
+    contentSuggestionDailyCount.value = raw.date === today ? Math.max(0, Number(raw.count || 0)) : 0
+    contentSuggestionLocalKeys.value = new Set(raw.date === today && Array.isArray(raw.keys) ? raw.keys.map(String) : [])
+  } catch {
+    contentSuggestionDailyCount.value = 0
+    contentSuggestionLocalKeys.value = new Set()
+  }
+}
+
+const rememberLocalContentSuggestionGuard = () => {
+  if (typeof window === 'undefined') return
+  const today = new Date().toISOString().slice(0, 10)
+  const nextKeys = new Set([...contentSuggestionLocalKeys.value, contentSuggestionDuplicateKey.value].filter(Boolean))
+  contentSuggestionLocalKeys.value = nextKeys
+  contentSuggestionDailyCount.value += 1
+  safeStorage.set(contentSuggestionStoragePrefix.value, JSON.stringify({
+    date: today,
+    count: contentSuggestionDailyCount.value,
+    keys: [...nextKeys],
+  }))
+}
+const handleDetailImageError = (image: string) => {
+  if (!failedDetailImages.value.includes(image)) {
+    failedDetailImages.value = [...failedDetailImages.value, image]
+  }
+}
 const knowledgeSummary = computed(() => post.value?.extension?.summary || post.value?.summary || '')
 const knowledgeTags = computed(() => {
   const extension = post.value?.extension || {}
@@ -994,10 +1375,20 @@ const materialStatusText = computed(() => {
 const isContentModerator = computed(() => Boolean(adminPermissions.value?.contentModerator || adminPermissions.value?.admin))
 const canViewVersionHistory = computed(() => Boolean(authStore.isLoggedIn && post.value && (isOwnPost.value || isContentModerator.value)))
 const postErrorCode = computed(() => errorCodeOf(postError.value))
-const postUnavailableTitle = computed(() => postErrorCode.value === 10403 || postErrorCode.value === 403 ? '无权访问' : '内容不可见')
+const postUnavailableTitle = computed(() => postErrorCode.value === 10403 || postErrorCode.value === 403
+  ? getUnavailableContentCopy(postErrorCode.value).title
+  : getUnavailableContentCopy(postErrorCode.value).title)
 const postUnavailableDescription = computed(() => postErrorCode.value === 10403 || postErrorCode.value === 403
-  ? '当前账号没有权限查看这篇帖子，评论也不会被公开展示。'
-  : '该帖子可能已被删除、下架，或当前不可公开访问。')
+  ? getUnavailableContentCopy(postErrorCode.value).description
+  : getUnavailableContentCopy(postErrorCode.value).description)
+const governanceUnavailableState = computed(() => {
+  if (!postError.value) return null
+  return {
+    title: postUnavailableTitle.value,
+    description: postUnavailableDescription.value,
+  }
+})
+const reportTargetLabel = computed(() => (reportTarget.value.type === 'comment' ? '评论' : '帖子'))
 const detailSeoDescription = computed(() => {
   if (post.value) {
     return summarizeSeoText(post.value.summary || post.value.extension?.summary || post.value.content, postUnavailableDescription.value)
@@ -1100,6 +1491,135 @@ const toggleFollowAuthor = async () => {
     toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     isFollowingAuthor.value = false
+  }
+}
+
+const mergeContentSuggestion = (item: ContentSuggestionRecord) => {
+  const rest = contentSuggestions.value.filter((current) => String(current.id) !== String(item.id))
+  contentSuggestions.value = [item, ...rest].sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0))
+}
+
+const rememberPublicAcceptedSuggestionNote = (note?: string) => {
+  const safeNote = String(note || '').trim()
+  if (!post.value || !safeNote) return
+  const currentNotes = publicAcceptedSuggestionNotes.value
+  post.value = {
+    ...post.value,
+    extension: {
+      ...(post.value.extension || {}),
+      acceptedSuggestionNotes: [...new Set([safeNote, ...currentNotes])].slice(0, 3),
+    },
+  }
+}
+
+const loadContentSuggestions = async () => {
+  loadLocalContentSuggestionGuards()
+  contentSuggestionFeedback.value = ''
+  if (!post.value || !authStore.isLoggedIn) {
+    contentSuggestions.value = []
+    return
+  }
+  isLoadingContentSuggestions.value = true
+  contentSuggestionError.value = ''
+  try {
+    const res = isOwnPost.value
+      ? await contentSuggestionApi.listForAuthorPost(post.value.postId)
+      : await contentSuggestionApi.listMineForPost(post.value.postId)
+    contentSuggestions.value = res.data || []
+  } catch (error: any) {
+    contentSuggestions.value = []
+    contentSuggestionError.value = getErrorMessage(error, '补充建议接口暂不可用，当前不会伪造提交成功。')
+  } finally {
+    isLoadingContentSuggestions.value = false
+  }
+}
+
+const submitContentSuggestion = async () => {
+  if (!post.value) return
+  if (!requireLogin()) return
+  const guard = contentSuggestionSubmitGuard.value
+  if (!guard.allowed) {
+    contentSuggestionFeedback.value = guard.reason
+    return
+  }
+  isSubmittingContentSuggestion.value = true
+  contentSuggestionFeedback.value = ''
+  contentSuggestionError.value = ''
+  try {
+    const res = await contentSuggestionApi.submit(post.value.postId, {
+      type: contentSuggestionForm.value.type,
+      detail: contentSuggestionForm.value.detail,
+      sourceUrl: contentSuggestionForm.value.sourceUrl || undefined,
+      allowPublicAttribution: contentSuggestionForm.value.allowPublicAttribution,
+    })
+    if (res.data) mergeContentSuggestion(res.data)
+    rememberLocalContentSuggestionGuard()
+    contentSuggestionForm.value = {
+      type: 'SUPPLEMENT',
+      detail: '',
+      sourceUrl: '',
+      allowPublicAttribution: false,
+    }
+    contentSuggestionFeedback.value = '已提交给作者处理，不会进入公开讨论。'
+    toast.success('补充建议已提交给作者')
+  } catch (error: any) {
+    contentSuggestionError.value = getErrorMessage(error, '补充建议暂未提交成功。')
+  } finally {
+    isSubmittingContentSuggestion.value = false
+  }
+}
+
+const handleContentSuggestionAction = async (
+  item: ContentSuggestionRecord,
+  action: 'ACCEPTED' | 'REPLIED' | 'IGNORED' | 'CLOSED',
+) => {
+  if (!isOwnPost.value || isHandlingContentSuggestion.value) return
+  isHandlingContentSuggestion.value = true
+  contentSuggestionError.value = ''
+  try {
+    const reply = contentSuggestionReplyDrafts.value[String(item.id)]?.trim()
+    const res = action === 'ACCEPTED'
+      ? await contentSuggestionApi.accept(item.id, { publicNote: '作者已根据读者建议补充。' })
+      : action === 'REPLIED'
+        ? await contentSuggestionApi.reply(item.id, { reply })
+        : action === 'IGNORED'
+          ? await contentSuggestionApi.ignore(item.id)
+          : await contentSuggestionApi.close(item.id, { reply })
+    const nextSuggestion = res.data || { ...item, status: action, authorReply: reply, updatedAt: Date.now() }
+    mergeContentSuggestion(nextSuggestion)
+    if (action === 'ACCEPTED') {
+      rememberPublicAcceptedSuggestionNote(nextSuggestion.acceptedPublicNote || '作者已根据读者建议补充。')
+    }
+    if (action === 'REPLIED' || action === 'CLOSED') {
+      contentSuggestionReplyDrafts.value = { ...contentSuggestionReplyDrafts.value, [String(item.id)]: '' }
+    }
+    toast.success('建议状态已更新')
+  } catch (error: any) {
+    contentSuggestionError.value = getErrorMessage(error, '建议处理暂不可用。')
+  } finally {
+    isHandlingContentSuggestion.value = false
+  }
+}
+
+const closePostSuggestionEntry = async () => {
+  if (!post.value || !isOwnPost.value || isHandlingContentSuggestion.value) return
+  isHandlingContentSuggestion.value = true
+  contentSuggestionError.value = ''
+  try {
+    const res = await contentSuggestionApi.closePostEntry(post.value.postId)
+    postSuggestionEntryOpen.value = res.data?.suggestionsOpen !== true ? false : postSuggestionEntryOpen.value
+    post.value = {
+      ...post.value,
+      extension: {
+        ...(post.value.extension || {}),
+        suggestionsOpen: postSuggestionEntryOpen.value,
+      },
+    }
+    toast.success('已关闭这篇内容的建议入口')
+  } catch (error: any) {
+    contentSuggestionError.value = getErrorMessage(error, '建议入口暂无法关闭。')
+  } finally {
+    isHandlingContentSuggestion.value = false
   }
 }
 
@@ -1228,22 +1748,30 @@ const closeReportDialog = () => {
   isReportDialogOpen.value = false
   reportForm.value = { reason: 'OTHER', detail: '' }
   reportTarget.value = { type: 'post' }
+  reportFeedback.value = null
+  isReportSubmitSuccess.value = false
 }
 
 const openPostReportDialog = () => {
   if (!requireLogin()) return
   reportTarget.value = { type: 'post' }
+  reportFeedback.value = null
+  isReportSubmitSuccess.value = false
   isReportDialogOpen.value = true
 }
 
 const openCommentReportDialog = (commentId: Comment['commentId']) => {
   if (!requireLogin()) return
   reportTarget.value = { type: 'comment', id: commentId }
+  reportFeedback.value = null
+  isReportSubmitSuccess.value = false
   isReportDialogOpen.value = true
 }
 
 const submitReport = async () => {
   isReporting.value = true
+  reportFeedback.value = null
+  isReportSubmitSuccess.value = false
   try {
     const payload = {
       reason: reportForm.value.reason,
@@ -1254,12 +1782,36 @@ const submitReport = async () => {
     } else {
       await postApi.report(postId.value, payload)
     }
-    toast.success('感谢反馈，我们会根据社区规则处理')
-    isReportDialogOpen.value = false
-    reportForm.value = { reason: 'OTHER', detail: '' }
-    reportTarget.value = { type: 'post' }
+    isReportSubmitSuccess.value = true
+    reportFeedback.value = reportSuccessFeedback
+    toast.success(reportSubmittedFeedbackMessage)
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '举报提交失败'))
+    isReportSubmitSuccess.value = false
+    reportFeedback.value = mapReportErrorToFeedback(error)
+    const errorCode = error instanceof BizException ? error.code : error?.response?.status
+    if (errorCode === 30001) {
+      reportFeedback.value = {
+        ...reportFeedback.value,
+        message: duplicateReportFeedbackMessage,
+      }
+    } else if (errorCode === 10429 || errorCode === 429) {
+      reportFeedback.value = {
+        ...reportFeedback.value,
+        message: rateLimitedReportFeedbackMessage,
+      }
+    } else if (reportFeedback.value.tone === 'error') {
+      reportFeedback.value = {
+        ...reportFeedback.value,
+        message: reportFailedFeedbackMessage,
+      }
+    } else if (reportFeedback.value.message.includes(unavailableReportFeedbackMessage)) {
+      reportFeedback.value = {
+        ...reportFeedback.value,
+        message: `${unavailableReportFeedbackMessage}。`,
+      }
+    }
+    const notify = reportFeedback.value.tone === 'error' ? toast.error : toast.warning
+    notify(reportFeedback.value.message)
   } finally {
     isReporting.value = false
   }
@@ -1485,6 +2037,7 @@ const handleSaveMaterialToPrep = async () => {
 
 watch(() => postData.value?.data, (value) => {
   post.value = clonePost(value)
+  postSuggestionEntryOpen.value = readPostSuggestionEntryOpen(value)
 }, { immediate: true })
 
 watch([post, postErrorCode, postId], () => {
@@ -1498,6 +2051,7 @@ watch([post, postErrorCode, postId], () => {
 watch(post, () => {
   loadRelatedPosts()
   loadInteractionState()
+  loadContentSuggestions()
   if (showStageTwoDetailPanels) {
     loadInterviewMaterial()
   } else {
@@ -1506,8 +2060,15 @@ watch(post, () => {
   }
 })
 
+watch([post, () => route.query.report, () => authStore.isLoggedIn], () => {
+  if (route.query.report !== 'post') return
+  if (!post.value || isOwnPost.value || isReportDialogOpen.value || !authStore.isLoggedIn) return
+  openPostReportDialog()
+}, { immediate: true })
+
 watch(postId, () => {
   loadComments(true)
+  loadContentSuggestions()
   versionHistories.value = []
   versionLoadAttempted.value = false
 })
@@ -1519,6 +2080,7 @@ onMounted(() => {
 
 watch(() => authStore.token, () => {
   loadAdminPermissions()
+  loadContentSuggestions()
   if (showStageTwoDetailPanels) loadInterviewMaterial()
 })
 
@@ -1528,6 +2090,71 @@ watch(canViewVersionHistory, (allowed) => {
 </script>
 
 <style scoped>
+.report-dialog-panel {
+  max-height: min(calc(100vh - 2rem), 720px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+.report-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(203 213 225);
+  padding: 0.75rem 0.9rem;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.report-feedback strong {
+  font-weight: 800;
+}
+
+.report-feedback span {
+  line-height: 1.6;
+}
+
+.report-feedback--success {
+  border-color: rgb(187 247 208);
+  background: rgb(240 253 244);
+  color: rgb(22 101 52);
+}
+
+.report-feedback--warning {
+  border-color: rgb(254 240 138);
+  background: rgb(254 252 232);
+  color: rgb(133 77 14);
+}
+
+.report-feedback--error {
+  border-color: rgb(254 202 202);
+  background: rgb(254 242 242);
+  color: rgb(153 27 27);
+}
+
+.governance-unavailable-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(203 213 225);
+  background: rgb(248 250 252);
+  padding: 0.85rem 1rem;
+  color: rgb(71 85 105);
+  overflow-wrap: anywhere;
+}
+
+.governance-unavailable-state strong {
+  color: rgb(15 23 42);
+  font-weight: 800;
+}
+
+.governance-unavailable-state span {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
 .meta-pill {
   border-radius: 0.5rem;
   background: rgb(248 250 252);
@@ -1624,6 +2251,253 @@ watch(canViewVersionHistory, (allowed) => {
   color: rgb(4 120 87);
 }
 
+.content-trust-panel,
+.content-suggestion-panel {
+  margin-top: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1.25rem;
+}
+
+.content-trust-kicker {
+  color: rgb(37 99 235);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.content-trust-panel h2,
+.content-suggestion-panel h2 {
+  margin-top: 0.25rem;
+  color: rgb(15 23 42);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.content-trust-panel p,
+.content-suggestion-panel p {
+  margin-top: 0.35rem;
+  color: rgb(71 85 105);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.content-trust-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.content-trust-grid article,
+.content-suggestion-item {
+  border-radius: 0.625rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.9rem;
+}
+
+.content-trust-grid span,
+.content-suggestion-item-head span,
+.content-suggestion-form label > span {
+  color: rgb(71 85 105);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.content-trust-grid strong,
+.content-suggestion-item-head strong {
+  margin-top: 0.2rem;
+  display: block;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+}
+
+.content-relationship-note {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.content-relationship-note span {
+  border-radius: 999px;
+  background: rgb(219 234 254);
+  padding: 0.3rem 0.65rem;
+  color: rgb(30 64 175);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.content-suggestion-head,
+.content-suggestion-author-actions,
+.content-suggestion-form-actions,
+.content-suggestion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.content-suggestion-link,
+.content-suggestion-secondary,
+.content-suggestion-actions button,
+.content-suggestion-form-actions button,
+.content-suggestion-empty button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(37 99 235);
+  padding: 0.45rem 0.8rem;
+  color: rgb(37 99 235);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.content-suggestion-form-actions button {
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.content-suggestion-form-actions button:disabled,
+.content-suggestion-secondary:disabled,
+.content-suggestion-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.content-suggestion-risk {
+  color: rgb(146 64 14) !important;
+}
+
+.content-suggestion-error,
+.content-suggestion-feedback,
+.content-suggestion-empty {
+  margin-top: 1rem;
+  border-radius: 0.5rem;
+  padding: 0.85rem;
+  font-size: 0.875rem;
+}
+
+.content-suggestion-error {
+  border: 1px solid rgb(254 202 202);
+  background: rgb(254 242 242);
+  color: rgb(185 28 28);
+}
+
+.content-suggestion-feedback,
+.content-suggestion-empty {
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  color: rgb(30 64 175);
+}
+
+.content-suggestion-author,
+.content-suggestion-form {
+  margin-top: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.content-suggestion-form label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.content-suggestion-form textarea,
+.content-suggestion-form input,
+.content-suggestion-form select,
+.content-suggestion-item textarea {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  padding: 0.7rem 0.8rem;
+  color: rgb(15 23 42);
+  outline: none;
+}
+
+.content-suggestion-checkbox {
+  display: flex !important;
+  grid-template-columns: none !important;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.content-suggestion-checkbox input {
+  margin-top: 0.2rem;
+  width: auto;
+}
+
+.content-suggestion-meta {
+  color: rgb(30 64 175) !important;
+  font-size: 0.78rem !important;
+}
+
+.discussion-follow-panel {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.discussion-follow-kicker {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(29 78 216);
+}
+
+.discussion-follow-panel h2 {
+  margin-top: 0.25rem;
+  color: rgb(15 23 42);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.discussion-follow-panel p:not(.discussion-follow-kicker) {
+  margin-top: 0.35rem;
+  max-width: 42rem;
+  color: rgb(51 65 85);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.discussion-follow-actions {
+  display: flex;
+  min-width: 14rem;
+  flex: 0 1 18rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.discussion-follow-link {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: rgb(37 99 235);
+  padding: 0.55rem 0.9rem;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 900;
+}
+
+.discussion-follow-actions span {
+  color: rgb(71 85 105);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 .author-reason-box {
   margin-top: 1rem;
   border-radius: 0.75rem;
@@ -1654,6 +2528,51 @@ watch(canViewVersionHistory, (allowed) => {
   font-weight: 900;
 }
 
+.creator-feedback-box {
+  margin-top: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(167 243 208);
+  background: rgb(236 253 245);
+  padding: 0.85rem;
+}
+
+.creator-feedback-box strong {
+  display: block;
+  color: rgb(4 120 87);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.creator-feedback-grid {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.creator-feedback-grid span {
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.5rem 0.65rem;
+  color: rgb(6 95 70);
+  font-size: 0.8125rem;
+  font-weight: 900;
+}
+
+.creator-feedback-box p {
+  margin-top: 0.65rem;
+  color: rgb(51 65 85);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.creator-feedback-link {
+  margin-top: 0.7rem;
+  display: inline-flex;
+  color: rgb(5 150 105);
+  font-size: 0.8125rem;
+  font-weight: 900;
+}
+
 .dark .favorite-feedback-row {
   border-color: rgb(6 95 70);
   background: rgb(6 78 59 / 0.35);
@@ -1662,6 +2581,30 @@ watch(canViewVersionHistory, (allowed) => {
 
 .dark .favorite-feedback-row a {
   color: rgb(187 247 208);
+}
+
+.dark .discussion-follow-panel {
+  border-color: rgb(30 64 175);
+  background: rgb(30 41 59);
+}
+
+.dark .discussion-follow-kicker,
+.dark .discussion-follow-link {
+  color: rgb(191 219 254);
+}
+
+.dark .discussion-follow-link {
+  background: rgb(29 78 216);
+  color: white;
+}
+
+.dark .discussion-follow-panel h2 {
+  color: rgb(248 250 252);
+}
+
+.dark .discussion-follow-panel p:not(.discussion-follow-kicker),
+.dark .discussion-follow-actions span {
+  color: rgb(203 213 225);
 }
 
 .dark .author-reason-box {
@@ -1676,6 +2619,28 @@ watch(canViewVersionHistory, (allowed) => {
 
 .dark .author-reason-box p {
   color: rgb(203 213 225);
+}
+
+.dark .creator-feedback-box {
+  border-color: rgb(6 95 70);
+  background: rgb(6 78 59 / 0.35);
+}
+
+.dark .creator-feedback-box strong {
+  color: rgb(167 243 208);
+}
+
+.dark .creator-feedback-grid span {
+  background: rgb(15 23 42);
+  color: rgb(187 247 208);
+}
+
+.dark .creator-feedback-box p {
+  color: rgb(203 213 225);
+}
+
+.dark .creator-feedback-link {
+  color: rgb(167 243 208);
 }
 
 .publish-status-warn {

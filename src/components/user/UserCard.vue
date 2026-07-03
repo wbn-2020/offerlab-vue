@@ -38,25 +38,33 @@
       </div>
     </div>
 
-    <!-- 关注按钮 -->
-    <button
-      v-if="!isOwnUser"
-      @click="toggleFollow"
-      :disabled="isFollowingBusy"
-      :class="[
-        'w-full px-4 py-2 rounded-lg font-medium text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-        isFollowing
-          ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'
-          : 'bg-primary-600 text-white hover:bg-primary-700'
-      ]"
-    >
-      {{ isFollowing ? '已关注' : '关注' }}
-    </button>
+    <div class="mt-auto grid w-full gap-2">
+      <RouterLink :to="profilePath" class="profile-link">
+        查看主页
+        <span>回访作者主页</span>
+      </RouterLink>
+
+      <!-- 关注按钮 -->
+      <button
+        v-if="!isOwnUser"
+        @click="toggleFollow"
+        :disabled="isFollowingBusy"
+        :class="[
+          'w-full px-4 py-2 rounded-lg font-medium text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+          isFollowing
+            ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'
+            : 'bg-primary-600 text-white hover:bg-primary-700'
+        ]"
+      >
+        {{ isFollowing ? '已关注' : '关注作者' }}
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import type { User } from '@/api/types'
@@ -80,6 +88,7 @@ const isOwnUser = computed(() => authStore.user?.uid === props.user.uid)
 const isFollowing = ref(Boolean(props.user.isFollowing))
 const isFollowingBusy = ref(false)
 const followerCount = ref(props.user.followerCount ?? 0)
+const profilePath = computed(() => `/u/${props.user.uid}`)
 
 watch(
   () => props.user,
@@ -112,3 +121,40 @@ const toggleFollow = async () => {
   }
 }
 </script>
+
+<style scoped>
+.profile-link {
+  display: grid;
+  gap: 0.1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: rgb(37 99 235);
+}
+
+.profile-link span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgb(100 116 139);
+}
+
+.profile-link:hover {
+  background: rgb(248 250 252);
+}
+
+.dark .profile-link {
+  border-color: rgb(51 65 85);
+  color: rgb(147 197 253);
+}
+
+.dark .profile-link span {
+  color: rgb(148 163 184);
+}
+
+.dark .profile-link:hover {
+  background: rgb(30 41 59);
+}
+</style>

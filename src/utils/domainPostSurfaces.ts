@@ -273,7 +273,16 @@ const buildSurface = (post: Post) => {
   }
 }
 
-export const buildDomainCardSurface = (post: Post): DomainCardSurface => buildSurface(post).card
+export const buildDomainCardSurface = (post: Post): DomainCardSurface => {
+  const surface: DomainCardSurface = buildSurface(post).card
+  const images = imageList(post, extensionOf(post))
+  if (surface.imageUrl || !images[0]) return surface
+  return {
+    ...surface,
+    imageUrl: images[0],
+    imageAlt: post.title,
+  }
+}
 
 export const buildDomainDetailSurface = (post: Post): DomainDetailSurface | null => {
   const detail = buildSurface(post).detail

@@ -10,6 +10,9 @@
         <span class="preview-pill preview-pill-domain">
           {{ preview.domain.icon }} {{ preview.domain.label }}
         </span>
+        <span class="preview-pill preview-pill-type">
+          {{ preview.contentType.shortLabel }}
+        </span>
         <span :class="['preview-pill', preview.anonymous.enabled ? 'preview-pill-anonymous' : 'preview-pill-public']">
           {{ preview.anonymous.label }}
         </span>
@@ -22,6 +25,13 @@
     <h3 :class="['mb-3 line-clamp-2 text-[1.05rem] font-bold leading-7 text-slate-950', preview.titlePlaceholder ? 'text-slate-400' : '']">
       {{ preview.title }}
     </h3>
+
+    <div v-if="showCoverPreview" class="preview-cover mb-4">
+      <img :src="preview.cover.url" :alt="preview.cover.alt" @error="handleCoverError" />
+    </div>
+    <div v-else class="preview-cover-fallback mb-4">
+      {{ preview.cover.description }}
+    </div>
 
     <p :class="['mb-4 line-clamp-4 min-h-[5.5rem] text-sm leading-6 text-slate-600', preview.summaryPlaceholder ? 'text-slate-400' : '']">
       {{ preview.summary }}
@@ -55,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { EditorPreviewModel } from '@/utils/editorPreview'
 
 const copy = {
@@ -69,7 +79,15 @@ const props = defineProps<{
   preview: EditorPreviewModel
 }>()
 
+const failedCoverUrl = ref('')
 const visibleTags = computed(() => props.preview.tags.slice(0, 4))
+const showCoverPreview = computed(() => props.preview.cover.visible
+  && Boolean(props.preview.cover.url)
+  && failedCoverUrl.value !== props.preview.cover.url)
+
+const handleCoverError = () => {
+  failedCoverUrl.value = props.preview.cover.url
+}
 </script>
 
 <style scoped>
@@ -110,6 +128,11 @@ const visibleTags = computed(() => props.preview.tags.slice(0, 4))
   color: rgb(29 78 216);
 }
 
+.preview-pill-type {
+  background: rgb(255 247 237);
+  color: rgb(194 65 12);
+}
+
 .preview-pill-anonymous {
   background: rgb(238 242 255);
   color: rgb(79 70 229);
@@ -141,6 +164,34 @@ const visibleTags = computed(() => props.preview.tags.slice(0, 4))
   color: rgb(71 85 105);
 }
 
+.preview-cover,
+.preview-cover-fallback {
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  aspect-ratio: 16 / 9;
+}
+
+.preview-cover img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.preview-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: rgb(100 116 139);
+}
+
 .dark .preview-card {
   border-color: rgb(51 65 85 / 0.9);
   background: rgb(15 23 42 / 0.95);
@@ -163,6 +214,11 @@ const visibleTags = computed(() => props.preview.tags.slice(0, 4))
   color: rgb(191 219 254);
 }
 
+.dark .preview-pill-type {
+  background: rgb(124 45 18 / 0.42);
+  color: rgb(253 186 116);
+}
+
 .dark .preview-pill-anonymous {
   background: rgb(67 56 202 / 0.24);
   color: rgb(199 210 254);
@@ -181,6 +237,12 @@ const visibleTags = computed(() => props.preview.tags.slice(0, 4))
 .dark .preview-series-chip-idle {
   background: rgb(30 41 59);
   color: rgb(203 213 225);
+}
+
+.dark .preview-cover,
+.dark .preview-cover-fallback {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42 / 0.75);
 }
 
 .dark .bg-slate-50\/90 {

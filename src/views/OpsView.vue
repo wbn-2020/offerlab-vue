@@ -526,6 +526,7 @@
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">评论举报审核</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">通过会隐藏评论或整段回复，驳回仅关闭当前举报。</p>
+              <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">统一审核队列暂不可用时，请进入治理中心审核队列查看降级预览；预览只用于定位来源，不当作真实队列处理结果。</p>
             </div>
             <div class="flex flex-wrap gap-2">
               <button
@@ -1233,6 +1234,7 @@
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">帖子举报审核</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">通过会下架帖子，驳回仅关闭当前举报。</p>
+              <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">统一审核队列暂不可用时，请进入治理中心审核队列查看降级预览；预览只用于定位来源，不当作真实队列处理结果。</p>
             </div>
             <div class="flex flex-wrap gap-2">
               <button
