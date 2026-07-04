@@ -1,7 +1,7 @@
 <template>
   <article class="rounded-xl border border-slate-200 bg-white/90 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/80 dark:hover:border-primary-800">
     <div class="mb-3 flex flex-wrap items-center gap-2">
-      <RouterLink v-if="question.company" :to="`/companies/${encodeURIComponent(question.company)}/prep`" class="meta-chip meta-company">
+      <RouterLink v-if="question.company" :to="{ path: '/search', query: { q: question.company, mode: 'posts' } }" class="meta-chip meta-company">
         {{ question.company }}
       </RouterLink>
       <span v-if="question.position" class="meta-chip">{{ question.position }}</span>
@@ -42,6 +42,7 @@
       <span v-else-if="question.favorite" class="shrink-0 text-amber-600">已收藏</span>
       <span v-else-if="effectiveProgressStatus" class="shrink-0">{{ progressText(effectiveProgressStatus) }}</span>
       <button
+        v-if="enableLegacyTrainingTools"
         type="button"
         class="review-action shrink-0"
         :disabled="isAddingReview || isReviewQueued"
@@ -70,6 +71,7 @@ const emit = defineEmits<{
 }>()
 
 const { requireLogin } = useLoginRedirect()
+const enableLegacyTrainingTools = false
 const isAddingReview = ref(false)
 const localProgressStatus = ref<Question['progressStatus'] | undefined>()
 

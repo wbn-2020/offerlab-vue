@@ -35,7 +35,7 @@ const routes = [
   {
     path: '/companies/:company/prep',
     name: 'CompanyPrep',
-    component: () => import('@/views/CompanyPrepView.vue'),
+    redirect: (to: any) => ({ name: 'Search', query: { q: String(to.params.company || ''), mode: 'posts' } }),
     meta: { title: '主题学习包' },
   },
   {
@@ -107,13 +107,13 @@ const routes = [
   {
     path: '/me/prep',
     name: 'MePrep',
-    component: () => import('@/views/MePrepView.vue'),
+    redirect: '/me',
     meta: { title: '个人学习空间', requiresAuth: true },
   },
   {
     path: '/mock-interview',
     name: 'MockInterview',
-    component: () => import('@/views/MockInterviewView.vue'),
+    redirect: '/questions',
     meta: { title: '个人练习归档', requiresAuth: true },
   },
   {

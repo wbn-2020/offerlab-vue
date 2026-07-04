@@ -39,13 +39,23 @@
               <span class="info-chip">{{ formatTime(collection.updatedAt) }}</span>
             </div>
           </div>
-          <RouterLink
-            v-if="collection.creatorUid"
-            :to="`/u/${collection.creatorUid}`"
-            class="secondary-button"
-          >
-            返回作者主页
-          </RouterLink>
+          <div class="header-actions">
+            <PublicShareButton
+              :title="collection.title"
+              :text="collectionSeoDescription"
+              :canonical="`/collections/${collectionId}`"
+              label="分享合集"
+              :disabled="!canShareCollection"
+              disabled-reason="这个合集当前不可公开分享"
+            />
+            <RouterLink
+              v-if="collection.creatorUid"
+              :to="`/u/${collection.creatorUid}`"
+              class="secondary-button"
+            >
+              返回作者主页
+            </RouterLink>
+          </div>
         </section>
 
         <section class="mt-6 space-y-4">
@@ -98,9 +108,11 @@ import { getErrorMessage } from '@/api/client'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import type { ApiId, Post } from '@/api/types'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { usePostInteraction } from '@/composables/usePostInteraction'
-import { filterVisiblePosts } from '@/utils/recommendationGovernance'
+import { filterVisiblePosts, isPublicCollectionVisible } from '@/utils/recommendationGovernance'
+import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 
 const route = useRoute()
 const collection = ref<ContentSeriesRecord | null>(null)
@@ -116,6 +128,11 @@ const failedCollectionCoverUrl = ref('')
 const collectionId = computed(() => String(route.params.id || ''))
 const showCollectionCover = computed(() => Boolean(collection.value?.coverUrl)
   && failedCollectionCoverUrl.value !== collection.value?.coverUrl)
+const collectionSeoDescription = computed(() => summarizeSeoText(
+  collection.value?.summary,
+  collection.value ? '作者整理的公开内容合集，只展示公开且通过治理过滤的内容。' : '公开合集暂时无法打开。',
+))
+const canShareCollection = computed(() => Boolean(collection.value && isPublicCollectionVisible(collection.value)))
 
 const formatTime = (value: number) => {
   if (!value) return '刚刚更新'
@@ -198,6 +215,13 @@ const handleCollectionCoverError = () => {
 }
 
 watch(collectionId, loadCollection)
+watch([collection, collectionId, collectionError], () => {
+  applyPageSeo({
+    title: collection.value?.title || (collectionError.value ? '合集暂时无法打开' : '公开合集'),
+    description: collectionSeoDescription.value,
+    canonical: `/collections/${collectionId.value}`,
+  })
+}, { immediate: true })
 onMounted(loadCollection)
 </script>
 
@@ -254,6 +278,13 @@ onMounted(loadCollection)
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .section-title h2,
@@ -358,7 +389,8 @@ onMounted(loadCollection)
   }
 
   .primary-button,
-  .secondary-button {
+  .secondary-button,
+  .header-actions {
     width: 100%;
   }
 }

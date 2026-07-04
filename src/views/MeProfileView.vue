@@ -191,14 +191,14 @@
 
         <article class="creator-cert-panel">
           <p class="text-xs font-black text-primary-600 dark:text-primary-300">作者主页经营</p>
-          <h2>认证作者、代表作和公开合集</h2>
+          <h2>社区身份、代表作和公开合集</h2>
           <p>
             P0 先用公开内容和公开合集经营主页；正式手动代表作设置需要后续 adapter 校验作者、内容状态和可见性。
           </p>
           <span class="creator-cert-meta">当前公开合集 {{ publicCollectionCount }} 个</span>
           <div class="creator-cert-actions">
             <RouterLink to="/me?tab=posts" class="primary-button">选择代表内容</RouterLink>
-            <RouterLink to="/certification/apply" class="secondary-button">认证作者申请</RouterLink>
+            <RouterLink to="/certification/apply" class="secondary-button">社区身份申请</RouterLink>
             <RouterLink to="/me/settings" class="secondary-button">完善作者资料</RouterLink>
           </div>
         </article>

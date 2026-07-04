@@ -2,13 +2,6 @@ import client, { BizException, type Result } from './client'
 import { adaptPage, adaptPost, adaptId, adaptTime, adaptTag } from './adapters'
 import type { ApiId, PaginatedResponse, Post, Tag } from './types'
 import { adaptInterviewMaterialPack, type InterviewMaterialPack } from './post'
-import {
-  demoCompanyPrep,
-  demoQuestionPage,
-  demoUserKnowledge,
-  demoUserPrepOverview,
-  demoWeeklyPrepReport,
-} from '@/data/demoSeeds'
 
 export interface Question {
   id: ApiId
@@ -604,6 +597,10 @@ const localDemoResult = <T>(data: T, message = 'local_demo_seed'): Result<T> => 
   data,
 })
 
+const legacyTrainingDisabled = <T>(): Promise<Result<T>> => (
+  Promise.reject(new BizException(10404, '该个人训练能力已从闻野公共社区关闭'))
+)
+
 const shouldUseDemoFallback = (error: unknown) => {
   if (error instanceof BizException) {
     if (error.code === 10401 || error.code === 10403) return false
@@ -660,15 +657,9 @@ const emptyCompanyPrep = (company: string): CompanyPrep => ({
 
 export const questionApi = {
   list: async (params: QuestionQuery): Promise<Result<PaginatedResponse<Question>>> => {
-    try {
-      const res = await client.get('/api/v1/questions', { params }) as Result<any>
-      const data = res.data ? adaptPage(res.data, adaptQuestion) : null
-      if (canUseQuestionListDemo(data, params)) return localDemoResult(demoQuestionPage(params))
-      return { ...res, data }
-    } catch (error) {
-      if (shouldUseDemoFallback(error)) return localDemoResult(demoQuestionPage(params))
-      throw error
-    }
+    const res = await client.get('/api/v1/questions', { params }) as Result<any>
+    const data = res.data ? adaptPage(res.data, adaptQuestion) : null
+    return { ...res, data }
   },
 
   detail: async (id: ApiId): Promise<Result<QuestionDetail>> => {
@@ -682,11 +673,11 @@ export const questionApi = {
   unfavorite: (id: ApiId): Promise<Result<{ questionId: ApiId; favorite: boolean }>> =>
     client.delete(`/api/v1/questions/${id}/favorite`),
 
-  updateProgress: (id: ApiId, status: string): Promise<Result<{ questionId: ApiId; status: string }>> =>
-    client.put(`/api/v1/questions/${id}/progress`, { status }),
+  updateProgress: (_id: ApiId, _status: string): Promise<Result<{ questionId: ApiId; status: string }>> =>
+    legacyTrainingDisabled<{ questionId: ApiId; status: string }>(),
 
-  updateNote: (id: ApiId, data: QuestionNotePayload): Promise<Result<QuestionNoteResult>> =>
-    client.put(`/api/v1/questions/${id}/note`, data),
+  updateNote: (_id: ApiId, _data: QuestionNotePayload): Promise<Result<QuestionNoteResult>> =>
+    legacyTrainingDisabled<QuestionNoteResult>(),
 
   postBlock: async (postId: ApiId): Promise<Result<PostQuestionBlock>> => {
     const res = await client.get(`/api/v1/posts/${postId}/questions`) as Result<any>
@@ -699,40 +690,16 @@ export const questionApi = {
   suggestCompanies: (q: string, size = 10): Promise<Result<string[]>> =>
     client.get('/api/v1/companies/suggest', { params: { q, size } }),
 
-  companyPrep: async (company: string): Promise<Result<CompanyPrep>> => {
-    try {
-      const res = await client.get(`/api/v1/companies/${encodeURIComponent(company)}/prep-pack`) as Result<any>
-      const data = res.data ? adaptCompanyPrep(res.data) : null
-      return { ...res, data: data || emptyCompanyPrep(company) }
-    } catch (error) {
-      if (shouldUseDemoFallback(error)) return localDemoResult(demoCompanyPrep(), 'local_demo_company_prep_sample')
-      throw error
-    }
-  },
+  companyPrep: async (_company: string): Promise<Result<CompanyPrep>> =>
+    legacyTrainingDisabled<CompanyPrep>(),
 
-  myPrepOverview: async (): Promise<Result<UserPrepOverview>> => {
-    try {
-      const res = await client.get('/api/v1/me/prep/overview') as Result<any>
-      const data = res.data ? adaptUserPrepOverview(res.data) : null
-      return { ...res, data }
-    } catch (error) {
-      if (shouldUseDemoFallback(error)) return localDemoResult(demoUserPrepOverview)
-      throw error
-    }
-  },
+  myPrepOverview: async (): Promise<Result<UserPrepOverview>> =>
+    legacyTrainingDisabled<UserPrepOverview>(),
 
-  myWeeklyPrepReport: async (): Promise<Result<UserWeeklyPrepReport>> => {
-    try {
-      const res = await client.get('/api/v1/me/prep/weekly-report') as Result<any>
-      const data = res.data ? adaptUserWeeklyPrepReport(res.data) : null
-      return { ...res, data }
-    } catch (error) {
-      if (shouldUseDemoFallback(error)) return localDemoResult(demoWeeklyPrepReport)
-      throw error
-    }
-  },
+  myWeeklyPrepReport: async (): Promise<Result<UserWeeklyPrepReport>> =>
+    legacyTrainingDisabled<UserWeeklyPrepReport>(),
 
-  myKnowledge: async (params?: {
+  myKnowledge: async (_params?: {
     company?: string
     position?: string
     techStack?: string
@@ -740,57 +707,33 @@ export const questionApi = {
     postType?: number
     savedOnly?: boolean
     limit?: number
-  }): Promise<Result<UserKnowledge>> => {
-    try {
-      const res = await client.get('/api/v1/me/knowledge', { params }) as Result<any>
-      const data = res.data ? adaptUserKnowledge(res.data) : null
-      return { ...res, data }
-    } catch (error) {
-      if (shouldUseDemoFallback(error)) return localDemoResult(demoUserKnowledge)
-      throw error
-    }
-  },
+  }): Promise<Result<UserKnowledge>> =>
+    legacyTrainingDisabled<UserKnowledge>(),
 
-  addPrepTarget: async (data: { targetType: string; targetValue: string; interviewDate?: string; priority?: string; note?: string }): Promise<Result<PrepTarget>> => {
-    const res = await client.post('/api/v1/me/prep/targets', data) as Result<any>
-    return { ...res, data: res.data ? adaptPrepTarget(res.data) : null }
-  },
+  addPrepTarget: async (_data: { targetType: string; targetValue: string; interviewDate?: string; priority?: string; note?: string }): Promise<Result<PrepTarget>> =>
+    legacyTrainingDisabled<PrepTarget>(),
 
-  deletePrepTarget: (id: ApiId): Promise<Result<{ id: ApiId; deleted: boolean }>> =>
-    client.delete(`/api/v1/me/prep/targets/${id}`),
+  deletePrepTarget: (_id: ApiId): Promise<Result<{ id: ApiId; deleted: boolean }>> =>
+    legacyTrainingDisabled<{ id: ApiId; deleted: boolean }>(),
 
-  startMockInterview: async (data: { company?: string; position?: string; difficulty?: string; focusTag?: string; questionCount?: number }): Promise<Result<MockInterviewSession>> => {
-    const res = await client.post('/api/v1/mock-interviews', data) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  startMockInterview: async (_data: { company?: string; position?: string; difficulty?: string; focusTag?: string; questionCount?: number }): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  saveMockInterviewDraft: async (id: ApiId, data: { durationSeconds: number; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> => {
-    const res = await client.put(`/api/v1/mock-interviews/${id}/draft`, data) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  saveMockInterviewDraft: async (_id: ApiId, _data: { durationSeconds: number; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  submitMockInterview: async (id: ApiId, data: { durationSeconds: number; aiReviewEnabled?: boolean; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> => {
-    const res = await client.post(`/api/v1/mock-interviews/${id}/submit`, data) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  submitMockInterview: async (_id: ApiId, _data: { durationSeconds: number; aiReviewEnabled?: boolean; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  retryMockInterviewAiReview: async (id: ApiId): Promise<Result<MockInterviewSession>> => {
-    const res = await client.post(`/api/v1/mock-interviews/${id}/ai-review/retry`) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  retryMockInterviewAiReview: async (_id: ApiId): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  recentMockInterviews: async (limit = 5): Promise<Result<MockInterviewSession[]>> => {
-    const res = await client.get('/api/v1/mock-interviews', { params: { limit } }) as Result<any>
-    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptMockInterviewSession) : [] }
-  },
+  recentMockInterviews: async (_limit = 5): Promise<Result<MockInterviewSession[]>> =>
+    legacyTrainingDisabled<MockInterviewSession[]>(),
 
-  mockInterviewDetail: async (id: ApiId): Promise<Result<MockInterviewSession>> => {
-    const res = await client.get(`/api/v1/mock-interviews/${id}`) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  mockInterviewDetail: async (_id: ApiId): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  mockInterviewStats: async (): Promise<Result<MockInterviewStats>> => {
-    const res = await client.get('/api/v1/mock-interviews/stats') as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewStats(res.data) : null }
-  },
+  mockInterviewStats: async (): Promise<Result<MockInterviewStats>> =>
+    legacyTrainingDisabled<MockInterviewStats>(),
 }

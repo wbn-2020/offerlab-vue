@@ -6,12 +6,12 @@
       <section class="surface-card p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="stage4-kicker">认证作者体系</span>
+            <span class="stage4-kicker">社区身份体系</span>
             <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
-              认证作者申请
+              社区身份申请
             </h1>
             <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              认证用于标识持续贡献和领域经验，提交后进入人工审核；认证不代表平台对每条内容背书。
+              身份说明用于标识持续贡献和领域经验，提交后进入人工审核；不代表平台对每条内容背书。
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -28,8 +28,8 @@
       <section class="mt-6">
         <EmptyState
           v-if="!authStore.isLoggedIn"
-          title="登录后提交认证作者申请"
-          description="认证申请会读取你的公开内容，并保留可审核的资格解释与证据摘要。"
+          title="登录后提交社区身份申请"
+          description="身份申请会读取你的公开内容，并保留可审核的资格解释与证据摘要。"
           action-text="去登录"
           :action-href="loginHref"
         />
@@ -40,7 +40,7 @@
               <div>
                 <h2 class="text-lg font-black text-slate-950 dark:text-white">资格检查</h2>
                 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  认证门槛默认看同领域至少 3 篇公开内容，并且 90 天内至少有 1 篇更新。
+                  身份申请标准默认看同领域至少 3 篇公开内容，并且 90 天内至少有 1 篇更新。
                 </p>
               </div>
               <button type="button" class="secondary-action" :disabled="loadingEligibility" @click="loadEligibility">
@@ -389,7 +389,7 @@ const submitApplication = async () => {
 const revokeApplication = async (applicationId: ApiId) => {
   revokingId.value = String(applicationId)
   try {
-    await expertCertificationApi.revoke(applicationId, '用户从认证作者申请页撤回。')
+    await expertCertificationApi.revoke(applicationId, '用户从社区身份申请页撤回。')
     toast.success('申请已撤销')
     await loadApplications()
   } catch (err) {

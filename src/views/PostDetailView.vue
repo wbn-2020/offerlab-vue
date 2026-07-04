@@ -335,6 +335,11 @@
                 :post="post"
                 :like-pending="isTogglingLike"
                 :favorite-pending="isTogglingFavorite"
+                :share-title="post.title"
+                :share-text="detailSeoDescription"
+                :share-canonical="`/post/${postId}`"
+                :share-disabled="!canSharePost"
+                :share-disabled-reason="shareDisabledReason"
                 @like="handleLike"
                 @favorite="handleFavorite"
               />
@@ -864,7 +869,7 @@ import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 import { buildFollowReasons, isPublicAuthor, safeCreatorBio } from '@/utils/creatorSignals'
-import { findHighRiskContentWarning } from '@/utils/recommendationGovernance'
+import { findHighRiskContentWarning, isPublicPostVisible } from '@/utils/recommendationGovernance'
 import { buildContentTrustSignals, buildRelationshipContext } from '@/utils/communityIdentity'
 import { safeStorage } from '@/utils/safeStorage'
 import {
@@ -963,7 +968,7 @@ const { data: postData, isLoading, error: postError } = useQuery({
 const { data: publishStatusData } = useQuery({
   queryKey: computed(() => ['post-publish-status', postId.value]),
   queryFn: () => postApi.getPublishStatus(postId.value),
-  enabled: computed(() => Boolean(postId.value)),
+  enabled: computed(() => false),
   retry: false,
 })
 
@@ -1015,13 +1020,11 @@ const safeSearchFallbackReason = (reason: string) => {
 }
 const searchEntryNotice = computed(() => {
   if (route.query.from !== 'search') return ''
-  const source = typeof route.query.source === 'string' ? route.query.source : ''
-  const degraded = route.query.degraded === '1'
-  const fallbackReason = typeof route.query.fallbackReason === 'string' ? route.query.fallbackReason : ''
-  const scanLimit = typeof route.query.scanLimit === 'string' && /^\d+$/.test(route.query.scanLimit)
-    ? route.query.scanLimit
-    : ''
-  const testDataMode = route.query.includeTestData === '1'
+  return '来自搜索结果'
+  const source: string = ''
+  const degraded = false
+  const fallbackReason: string = ''
+  const scanLimit: string = ''
   const sourceText = source === 'elasticsearch'
     ? '来自实时搜索索引'
     : source === 'mysql'
@@ -1034,49 +1037,35 @@ const searchEntryNotice = computed(() => {
   const reasonText = safeSearchFallbackReason(fallbackReason)
   if (reasonText) parts.push(`原因：${reasonText}`)
   if (scanLimit) parts.push(`扫描上限 ${scanLimit} 条`)
-  if (testDataMode) parts.push('已开启测试数据模式')
   return parts.join('，')
 })
 const publishStatusItems = computed(() => {
   const status = publishStatus.value
   if (!status) return []
-  const outboxLatest = status.outbox?.latest
-  const retryTask = status.index?.retryTask
   return [
     {
       key: 'database',
-      label: status.database?.landed ? '已落库' : '未确认落库',
-      ok: Boolean(status.database?.landed),
-      detail: status.database?.publiclyVisible ? '公开列表可见' : status.database?.visibleWithTestData ? '仅测试数据模式可见' : '数据库暂未返回公开可见记录',
-    },
-    {
-      key: 'index',
-      label: status.index?.documentFound ? '索引已写入' : retryTask ? '索引待补偿' : '索引待确认',
-      ok: Boolean(status.index?.documentFound) || Boolean(retryTask),
-      detail: retryTask
-        ? `补偿任务 ${(retryTask.statusText || retryTask.status) ?? 'unknown'}，重试 ${retryTask.retryCount ?? 0} 次`
-        : (status.index?.documentFound ? 'Elasticsearch 文档可读' : '可能存在索引延迟或降级'),
+      label: status.database?.publiclyVisible ? 'Public list visible' : 'Public list pending',
+      ok: Boolean(status.database?.publiclyVisible),
+      detail: status.database?.publiclyVisible
+        ? 'This post meets public list visibility rules'
+        : 'No public database record is visible yet',
     },
     {
       key: 'search',
-      label: status.search?.visible ? '搜索可见' : '搜索待同步',
+      label: status.search?.visible ? 'Search visible' : 'Search pending',
       ok: Boolean(status.search?.visible),
-      detail: status.search?.fallbackReason ? `搜索来源 ${status.search?.source || '-'}，原因 ${status.search.fallbackReason}` : `搜索来源 ${status.search?.source || '-'}`,
-    },
-    {
-      key: 'outbox',
-      label: outboxLatest ? `Outbox ${outboxLatest.statusText || (outboxLatest.status ?? 'unknown')}` : 'Outbox 未发现',
-      ok: !outboxLatest || outboxLatest.statusText === 'sent',
-      detail: outboxLatest ? `topic ${outboxLatest.topic || '-'}，重试 ${outboxLatest.retryCount ?? 0} 次` : '未找到该帖子最近事务消息',
+      detail: status.search?.visible
+        ? 'Public search can recall this post'
+        : 'Search has not returned a public record yet',
     },
   ]
 })
+
 const publishStatusSummary = computed(() => {
   const status = publishStatus.value
   if (!status) return ''
-  if (status.ready) return '搜索链路已闭环'
-  if (status.search?.degraded) return '当前通过降级链路可诊断'
-  return '如刚发布，索引和 Outbox 可能有短暂延迟'
+  return status.ready ? 'Public distribution is ready' : 'Search sync may lag briefly after publishing'
 })
 const contentTypeLabel = computed(() => getContentTypeLabel(post.value?.postType))
 const isQuestionPost = computed(() => Number(post.value?.postType) === POST_TYPE.QUESTION)
@@ -1113,7 +1102,7 @@ const discussionFollowStatusText = computed(() => (
 ))
 const relatedSectionTitle = computed(() => (isQuestionPost.value ? '相关问题求助' : '相关帖子'))
 const relatedEmptyText = computed(() => (isQuestionPost.value ? '暂无相似讨论' : '暂无相关内容'))
-const isLegacyInterview = computed(() => isLegacyInterviewType(post.value?.postType))
+const isLegacyInterview = computed(() => false)
 const visibleTechStacks = computed(() => Array.isArray(post.value?.extension?.techStacks)
   ? post.value.extension.techStacks.map(String).filter(Boolean).slice(0, 8)
   : [])
@@ -1395,6 +1384,8 @@ const detailSeoDescription = computed(() => {
   }
   return summarizeSeoText(postUnavailableDescription.value)
 })
+const canSharePost = computed(() => Boolean(post.value && isPublicPostVisible(post.value)))
+const shareDisabledReason = computed(() => canSharePost.value ? '' : '这篇内容当前不可公开分享')
 
 const errorCodeOf = (error: unknown) => {
   if (error instanceof BizException) return error.code

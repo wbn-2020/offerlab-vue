@@ -56,6 +56,7 @@ has(searchView, /v-if="includeTestData"[\s\S]*包含测试数据/, 'Test-data mo
 has(postCard, /showReasonPanel[\s\S]*showRecommendFeedback/, 'PostCard must separate reason display from recommendation feedback controls.')
 has(postCard, /reasonPanelTitle[\s\S]*命中说明/, 'PostCard must label search result reasons as hit explanations, not recommendations.')
 has(postCard, /isSearchContext[\s\S]*from.*search/, 'PostCard must detect search context from route detail query metadata.')
+has(postCard, /const hotReasonLabel[\s\S]*if \(isSearchContext\.value\) return normalizedReason/, 'Search-context cards must not show hot/recommendation interaction reasons as search explanations.')
 has(searchFacade, /setRecommendationReasons|recommendationReasons/, 'Backend search results must attach verifiable per-item hit reasons.')
 has(searchFacade, /标题高亮命中|摘要高亮命中|标签匹配搜索词|结构化字段匹配/, 'Backend hit reasons must come from highlight, title, summary, tags, or structured fields.')
 missing(searchFacade, /FALLBACK_HOT/, 'Backend hot searches must not expose static fallback seeds as real trends.')

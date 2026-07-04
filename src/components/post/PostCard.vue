@@ -327,7 +327,7 @@ const reportTo = computed(() => ({
   query: { ...normalizedDetailQuery.value, report: 'post' },
 }))
 const contentTypeLabel = computed(() => getContentTypeShortLabel(props.post.postType))
-const isLegacyInterview = computed(() => isLegacyInterviewType(props.post.postType))
+const isLegacyInterview = computed(() => false)
 const domainCardSurface = computed(() => buildDomainCardSurface(props.post))
 const displayCardImageUrl = computed(() => {
   const imageUrl = domainCardSurface.value.imageUrl || ''
@@ -361,6 +361,7 @@ const cardUnavailableState = computed(() => getPostUnavailableState(props.post))
 const hotReasonLabel = computed(() => {
   const reasons = props.post.recommendationReasons || []
   const normalizedReason = reasons.map(normalizeRecommendationReason).find(Boolean)
+  if (isSearchContext.value) return normalizedReason ? `${reasonPanelTitle.value}：${normalizedReason}` : ''
   const commentCount = Number(props.post.counter?.comment || 0)
   const favoriteCount = Number(props.post.counter?.favorite || 0)
   const likeCount = Number(props.post.counter?.like || 0)

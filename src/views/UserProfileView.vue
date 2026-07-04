@@ -29,15 +29,25 @@
                 </p>
               </div>
             </div>
-            <button
-              v-if="user.profileVisible !== false"
-              type="button"
-              class="follow-button"
-              :disabled="isFollowBusy"
-              @click="toggleFollow"
-            >
-              {{ isFollowBusy ? '处理中...' : user.isFollowing ? '已关注' : '关注' }}
-            </button>
+            <div class="profile-actions">
+              <PublicShareButton
+                :title="user.profileVisible === false ? '主页暂不可用' : user.nickname"
+                :text="profileSeoDescription"
+                :canonical="`/u/${profileUid}`"
+                label="分享主页"
+                :disabled="user.profileVisible === false"
+                disabled-reason="该作者主页当前不可公开分享"
+              />
+              <button
+                v-if="user.profileVisible !== false"
+                type="button"
+                class="follow-button"
+                :disabled="isFollowBusy"
+                @click="toggleFollow"
+              >
+                {{ isFollowBusy ? '处理中...' : user.isFollowing ? '已关注' : '关注' }}
+              </button>
+            </div>
           </div>
         </section>
 
@@ -262,7 +272,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
@@ -272,6 +282,7 @@ import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import type { Post, User, UserIntent } from '@/api/types'
 import { buildContributionSummary, buildTypeDistribution, type ContributionSummary } from '@/utils/communityMetrics'
 import {
@@ -284,6 +295,7 @@ import {
 } from '@/utils/creatorSignals'
 import { filterVisibleCollections, filterVisiblePosts } from '@/utils/recommendationGovernance'
 import { buildPublicIdentitySummary, buildRelationshipContext } from '@/utils/communityIdentity'
+import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -300,11 +312,18 @@ const collectionsError = ref('')
 const failedCollectionCoverUrls = ref(new Set<string>())
 const isFollowBusy = ref(false)
 
+const profileUid = computed(() => String(route.params.uid || ''))
 const avatarText = computed(() => user.value?.nickname?.charAt(0) || '?')
 const profileDescription = computed(() => {
   if (!user.value || user.value.profileVisible === false) return '访问范围由该用户的隐私设置决定。'
   return safeCreatorBio(user.value.signature)
 })
+const profileSeoDescription = computed(() => summarizeSeoText(
+  user.value?.profileVisible === false ? '' : user.value?.signature,
+  user.value?.profileVisible === false
+    ? '该作者主页当前不可公开浏览。'
+    : '作者公开主页，展示公开内容、公开合集和社区内公开行为摘要。',
+))
 const visiblePosts = computed(() => publicAuthorPosts(filterVisiblePosts(posts.value)))
 const contribution = computed(() => backendContribution.value || { ...buildContributionSummary(visiblePosts.value), source: 'frontend_estimate', estimated: true })
 const contributionSourceText = computed(() => {
@@ -362,10 +381,15 @@ const loadPublicCollections = async (uid: string) => {
 }
 
 const loadProfile = async () => {
-  const uid = route.params.uid as string
+  const uid = profileUid.value
   if (!uid) return
   isLoading.value = true
   loadError.value = ''
+  user.value = null
+  posts.value = []
+  publicCollections.value = []
+  userIntent.value = null
+  backendContribution.value = null
   try {
     const profile = await userApi.getProfile(uid)
     user.value = profile.data
@@ -415,7 +439,16 @@ const toggleFollow = async () => {
   }
 }
 
-onMounted(loadProfile)
+watch(profileUid, loadProfile, { immediate: true })
+watch([user, loadError, profileUid], () => {
+  applyPageSeo({
+    title: user.value?.profileVisible === false
+      ? '主页暂不可用'
+      : user.value?.nickname || (loadError.value ? '作者主页暂不可用' : '作者主页'),
+    description: profileSeoDescription.value,
+    canonical: `/u/${profileUid.value}`,
+  })
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -452,6 +485,14 @@ onMounted(loadProfile)
   color: white;
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .follow-button:disabled {
@@ -790,7 +831,8 @@ onMounted(loadProfile)
     grid-template-columns: 1fr;
   }
 
-  .follow-button {
+  .follow-button,
+  .profile-actions {
     width: 100%;
   }
 

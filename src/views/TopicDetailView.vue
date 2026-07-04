@@ -34,12 +34,21 @@
           <strong>{{ displayCount }}</strong>
           <span>篇内容</span>
         </div>
-        <div v-if="canFollowTopic" class="topic-actions">
-          <div class="topic-count topic-follow-count">
+        <div v-if="topicReady" class="topic-actions">
+          <div v-if="canFollowTopic" class="topic-count topic-follow-count">
             <strong>{{ topic?.followerCount || 0 }}</strong>
             <span>关注</span>
           </div>
+          <PublicShareButton
+            :title="topic?.name || fallbackName"
+            :text="topicSeoDescription"
+            :canonical="`/topics/${topicSlug}`"
+            label="分享话题"
+            :disabled="topicLoadFailed"
+            disabled-reason="这个话题当前不可公开分享"
+          />
           <button
+            v-if="canFollowTopic"
             type="button"
             :class="['primary-button', topic?.followed ? 'topic-followed-button' : '']"
             :disabled="isFollowBusy || !topic"
@@ -131,6 +140,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { postApi } from '@/api/post'
 import { usePostInteraction } from '@/composables/usePostInteraction'
@@ -140,6 +150,7 @@ import { postTypeSummary } from '@/utils/communityMetrics'
 import { useAuthStore } from '@/stores/auth'
 import { filterPublicContent } from '@/utils/textQuality'
 import { filterVisiblePosts } from '@/utils/recommendationGovernance'
+import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 
 const route = useRoute()
 const router = useRouter()
@@ -155,6 +166,7 @@ const postErrorMessage = ref('')
 const activeType = ref<number | undefined>()
 const featuredOnly = ref(false)
 
+const topicSlug = computed(() => String(route.params.slug || ''))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
 const fallbackName = computed(() => String(route.params.slug || '专题'))
 const topicInitial = computed(() => (topic.value?.name || fallbackName.value).charAt(0).toUpperCase())
@@ -164,6 +176,10 @@ const typeSummary = computed(() => postTypeSummary(posts.value))
 const topicLoadFailed = computed(() => Boolean(topicErrorMessage.value && !topic.value))
 const topicReady = computed(() => Boolean(topic.value && !topicLoadFailed.value))
 const canFollowTopic = computed(() => Boolean(topic.value?.id && !topic.value?.virtualTopic))
+const topicSeoDescription = computed(() => summarizeSeoText(
+  topic.value?.description,
+  topicLoadFailed.value ? '话题暂时无法打开。' : '围绕公开内容形成的话题集合，只展示公开且通过治理过滤的内容。',
+))
 const topicTypeText = computed(() => {
   const type = topic.value?.topicType
   if (type === 'tech_stack') return '知识技能'
@@ -297,6 +313,13 @@ const toggleTopicFollow = async () => {
 }
 
 watch(() => route.params.slug, loadTopic)
+watch([topic, topicErrorMessage, topicSlug], () => {
+  applyPageSeo({
+    title: topic.value?.name || (topicLoadFailed.value ? '话题暂时无法打开' : fallbackName.value),
+    description: topicSeoDescription.value,
+    canonical: `/topics/${topicSlug.value}`,
+  })
+}, { immediate: true })
 onMounted(loadTopic)
 </script>
 

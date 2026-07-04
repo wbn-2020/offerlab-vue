@@ -41,7 +41,7 @@
               <option value="medium">中等</option>
               <option value="hard">困难</option>
             </select>
-            <select v-model="filters.mistakeReason" class="filter-input" aria-label="知识库错因筛选">
+            <select v-if="enableLegacyTrainingTools" v-model="filters.mistakeReason" class="filter-input" aria-label="知识库错因筛选">
               <option value="">全部错因</option>
               <option value="any">任意错因</option>
               <option value="concept">概念不熟</option>
@@ -51,7 +51,7 @@
               <option value="careless">粗心失误</option>
               <option value="other">其他错因</option>
             </select>
-            <select v-model="filters.progressStatus" class="filter-input" aria-label="知识库学习状态筛选">
+            <select v-if="enableLegacyTrainingTools" v-model="filters.progressStatus" class="filter-input" aria-label="知识库学习状态筛选">
               <option value="">全部状态</option>
               <option value="todo">待学习</option>
               <option value="learning">学习中</option>
@@ -109,7 +109,7 @@
           <button v-if="hasActiveFilters" type="button" class="primary-action px-5 py-2.5" @click="resetFilters">清空筛选</button>
           <RouterLink v-else to="/editor" class="primary-action inline-flex items-center justify-center px-5 py-2.5">发布内容</RouterLink>
           <RouterLink to="/explore" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">去发现</RouterLink>
-          <RouterLink to="/me/prep" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">查看学习台</RouterLink>
+          <RouterLink to="/me" class="secondary-action inline-flex items-center justify-center px-5 py-2.5">查看个人主页</RouterLink>
         </div>
       </section>
       <section v-else class="grid gap-4 lg:grid-cols-2">
@@ -140,6 +140,7 @@ import { filterPublicContent } from '@/utils/textQuality'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const enableLegacyTrainingTools = false
 
 const filters = reactive({
   keyword: '',
@@ -185,18 +186,17 @@ const demoSeedNotice = computed(() => listSource.value === 'local_demo_seed'
   ? '当前展示本地 demo 知识库：包含技术经验帖、面试复盘和结构化知识卡样例；连接真实服务后会自动切换到你的数据。'
   : ''
 )
-const sourceIfDemoSeed = (value?: string) => value === 'local_demo_seed' ? value : ''
 
 const syncFromRoute = () => {
   filters.keyword = String(route.query.keyword ?? route.query.q ?? '')
   filters.company = String(route.query.company ?? '')
   filters.position = String(route.query.position ?? '')
   filters.difficulty = String(route.query.difficulty ?? '')
-  filters.mistakeReason = String(route.query.mistakeReason ?? '')
-  filters.progressStatus = String(route.query.progressStatus ?? '')
-  filters.hasNote = route.query.hasNote === 'true'
-  filters.hasAnswerDraft = route.query.hasAnswerDraft === 'true'
-  filters.hasStarStory = route.query.hasStarStory === 'true'
+  filters.mistakeReason = ''
+  filters.progressStatus = ''
+  filters.hasNote = false
+  filters.hasAnswerDraft = false
+  filters.hasStarStory = false
   filters.sort = String(route.query.sort ?? 'latest')
   page.value = Number(route.query.page ?? 1) || 1
 }
@@ -227,11 +227,11 @@ const fetchQuestions = async (append = false, targetPage = page.value) => {
       company: filters.company || undefined,
       position: filters.position || undefined,
       difficulty: filters.difficulty || undefined,
-      mistakeReason: filters.mistakeReason || undefined,
-      progressStatus: filters.progressStatus || undefined,
-      hasNote: filters.hasNote || undefined,
-      hasAnswerDraft: filters.hasAnswerDraft || undefined,
-      hasStarStory: filters.hasStarStory || undefined,
+      mistakeReason: undefined,
+      progressStatus: undefined,
+      hasNote: undefined,
+      hasAnswerDraft: undefined,
+      hasStarStory: undefined,
       sort: filters.sort,
       page: targetPage,
       pageSize: 20,
@@ -240,7 +240,7 @@ const fetchQuestions = async (append = false, targetPage = page.value) => {
     const items = filterPublicContent(res.data?.items || [])
     questions.value = append ? [...questions.value, ...items] : items
     hasMore.value = Boolean(res.data?.hasMore)
-    if (!append) listSource.value = sourceIfDemoSeed(res.data?.source) || sourceIfDemoSeed(res.message)
+    if (!append) listSource.value = ''
     page.value = targetPage
   } catch (error: any) {
     if (requestId !== listRequestId) return
@@ -270,11 +270,6 @@ const applyFilters = async () => {
       ...(filters.company ? { company: filters.company } : {}),
       ...(filters.position ? { position: filters.position } : {}),
       ...(filters.difficulty ? { difficulty: filters.difficulty } : {}),
-      ...(filters.mistakeReason ? { mistakeReason: filters.mistakeReason } : {}),
-      ...(filters.progressStatus ? { progressStatus: filters.progressStatus } : {}),
-      ...(filters.hasNote ? { hasNote: 'true' } : {}),
-      ...(filters.hasAnswerDraft ? { hasAnswerDraft: 'true' } : {}),
-      ...(filters.hasStarStory ? { hasStarStory: 'true' } : {}),
       ...(filters.sort && filters.sort !== 'latest' ? { sort: filters.sort } : {}),
     },
   })
@@ -316,50 +311,7 @@ const applyQuickFilter = async (patch: Partial<typeof filters>) => {
   await applyFilters()
 }
 
-const quickFilters = [
-  {
-    key: 'review',
-    label: '只看待复习',
-    active: () => filters.progressStatus === 'review',
-    apply: () => applyQuickFilter({ progressStatus: 'review', mistakeReason: '', hasNote: false, hasAnswerDraft: false, hasStarStory: false, sort: 'latest' }),
-  },
-  {
-    key: 'learning',
-    label: '学习中',
-    active: () => filters.progressStatus === 'learning',
-    apply: () => applyQuickFilter({ progressStatus: 'learning', mistakeReason: '', hasNote: false, hasAnswerDraft: false, hasStarStory: false, sort: 'latest' }),
-  },
-  {
-    key: 'mistakes',
-    label: '只看我的错因',
-    active: () => Boolean(filters.mistakeReason),
-    apply: () => applyQuickFilter({ progressStatus: '', mistakeReason: filters.mistakeReason || 'any', hasNote: false, hasAnswerDraft: false, hasStarStory: false, sort: 'latest' }),
-  },
-  {
-    key: 'notes',
-    label: '只看我的笔记',
-    active: () => filters.hasNote,
-    apply: () => applyQuickFilter({ progressStatus: '', mistakeReason: '', hasNote: true, hasAnswerDraft: false, hasStarStory: false, sort: 'latest' }),
-  },
-  {
-    key: 'answer-cards',
-    label: '只看回答卡片',
-    active: () => filters.hasAnswerDraft,
-    apply: () => applyQuickFilter({ progressStatus: '', mistakeReason: '', hasNote: false, hasAnswerDraft: true, hasStarStory: false, sort: 'latest' }),
-  },
-  {
-    key: 'star-stories',
-    label: '只看 STAR 素材',
-    active: () => filters.hasStarStory,
-    apply: () => applyQuickFilter({ progressStatus: '', mistakeReason: '', hasNote: false, hasAnswerDraft: false, hasStarStory: true, sort: 'latest' }),
-  },
-  {
-    key: 'clear-personal',
-    label: '清除个人筛选',
-    active: () => Boolean(filters.progressStatus || filters.mistakeReason || filters.hasNote || filters.hasAnswerDraft || filters.hasStarStory),
-    apply: () => applyQuickFilter({ progressStatus: '', mistakeReason: '', hasNote: false, hasAnswerDraft: false, hasStarStory: false, sort: 'latest' }),
-  },
-]
+const quickFilters: Array<{ key: string; label: string; active: () => boolean; apply: () => void | Promise<void> }> = []
 
 watch(() => route.query, () => {
   syncFromRoute()

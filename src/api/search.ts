@@ -60,7 +60,7 @@ export interface SearchIndexTask {
 }
 
 export interface SearchAnalyticsTrackReq {
-  eventType: 'PREP_CLICK' | 'COMMUNITY_RECOMMEND_CLICK'
+  eventType: 'COMMUNITY_RECOMMEND_CLICK'
   keyword?: string
   company?: string
   target?: string
@@ -68,7 +68,9 @@ export interface SearchAnalyticsTrackReq {
 
 export const searchApi = {
   searchPosts: async (params: SearchParams): Promise<Result<PaginatedResponse<Post>>> => {
-    const res = await client.get('/api/v1/search/posts', { params }) as Result<any>
+    const publicParams = { ...(params || {}) }
+    delete publicParams.includeTestData
+    const res = await client.get('/api/v1/search/posts', { params: publicParams }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 
@@ -77,9 +79,6 @@ export const searchApi = {
 
   hotSearches: (): Promise<Result<string[]>> =>
     client.get('/api/v1/search/hot'),
-
-  status: (): Promise<Result<SearchStatus>> =>
-    client.get('/api/v1/search/status'),
 
   rebuildIndex: (remark?: string): Promise<Result<SearchIndexTask>> =>
     client.post('/api/v1/search/admin/rebuild', riskConfirmPayload(remark)),

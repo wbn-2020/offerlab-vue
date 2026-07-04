@@ -11,7 +11,7 @@
               知识关系探索
             </h1>
             <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              轻量查看内容、标签、专题、领域和系列之间的关系，用于发现结构化连接，而不是做重型知识图谱。
+              轻量查看内容、标签、专题和领域之间的关系，用于发现结构化连接，而不是做重型知识图谱。
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -25,7 +25,7 @@
               成长档案
             </RouterLink>
             <RouterLink to="/certification/apply" class="secondary-action">
-              认证作者
+              社区身份
             </RouterLink>
           </div>
         </div>

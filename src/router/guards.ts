@@ -59,6 +59,7 @@ export function setupRouterGuards(router: Router) {
 
   router.afterEach((to) => {
     const title = to.meta.title as string
-    applyPageSeo({ title })
+    const description = to.meta.description as string | undefined
+    applyPageSeo({ title, description, canonical: to.path })
   })
 }

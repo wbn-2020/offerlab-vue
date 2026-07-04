@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 import { authTokenStore } from '@/utils/authTokenStore'
 import { useAuthStore } from '@/stores/auth'
+import { safeRedirect } from '@/utils/navigation'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -107,7 +108,7 @@ const client: AxiosInstance = axios.create({
 
 const redirectToLogin = () => {
   if (window.location.pathname === '/login') return
-  const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  const redirect = safeRedirect(`${window.location.pathname}${window.location.search}${window.location.hash}`)
   const target = redirect && redirect !== '/' ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
   window.location.assign(target)
 }

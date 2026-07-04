@@ -16,6 +16,14 @@
           <strong>{{ displayCount }}</strong>
           <span>篇内容</span>
         </div>
+        <PublicShareButton
+          :title="tagId ? tagName : '标签暂未找到'"
+          :text="tagSeoDescription"
+          :canonical="`/tag/${tagSlug}`"
+          label="分享标签"
+          :disabled="!tagId"
+          disabled-reason="这个标签当前不可公开分享"
+        />
       </section>
 
       <section class="filter-panel">
@@ -86,6 +94,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { postApi } from '@/api/post'
 import { usePostInteraction } from '@/composables/usePostInteraction'
@@ -94,6 +103,7 @@ import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
 import { postTypeSummary } from '@/utils/communityMetrics'
 import { filterPublicContent } from '@/utils/textQuality'
 import { filterVisiblePosts } from '@/utils/recommendationGovernance'
+import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 
 const route = useRoute()
 const tagName = ref('标签')
@@ -107,6 +117,7 @@ const errorMessage = ref('')
 const activeType = ref<number | undefined>()
 const featuredOnly = ref(false)
 
+const tagSlug = computed(() => String(route.params.slug || ''))
 const displayCount = computed(() => declaredCount.value || posts.value.length)
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
 const typeSummary = computed(() => postTypeSummary(posts.value))
@@ -114,6 +125,10 @@ const emptyTitle = computed(() => tagId.value ? '这个标签下还没有内容'
 const emptyDescription = computed(() => tagId.value
   ? '去发现相关内容，或发布第一篇经验、问题、攻略或资源。'
   : '可以换个关键词搜索，或去发现页看看相近内容。')
+const tagSeoDescription = computed(() => summarizeSeoText(
+  tagId.value ? `汇总「${tagName.value}」标签下的公开内容。` : '',
+  tagId.value ? '标签公开索引，只展示公开且通过治理过滤的内容。' : '标签暂时无法打开。',
+))
 
 const findPost = (postId: ApiId) => posts.value.find((item) => String(item.postId) === String(postId))
 const updatePost = (postId: ApiId, updater: (post: Post) => void) => {
@@ -206,6 +221,13 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
 }
 
 watch(() => route.params.slug, loadTag)
+watch([tagName, tagId, tagSlug, errorMessage], () => {
+  applyPageSeo({
+    title: tagId.value ? tagName.value : (errorMessage.value ? '标签暂时无法打开' : '标签'),
+    description: tagSeoDescription.value,
+    canonical: `/tag/${tagSlug.value}`,
+  })
+}, { immediate: true })
 onMounted(loadTag)
 </script>
 

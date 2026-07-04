@@ -73,41 +73,10 @@ export interface PostPublishStatus {
   postId: ApiId
   ready?: boolean
   database?: {
-    landed?: boolean
     publiclyVisible?: boolean
-    visibleWithTestData?: boolean
-    postType?: number
-    title?: string
-  }
-  index?: {
-    documentFound?: boolean
-    status?: Record<string, unknown>
-    retryTask?: {
-      id?: ApiId
-      operation?: string
-      status?: number
-      statusText?: string
-      retryCount?: number
-      updateTime?: string
-    } | null
   }
   search?: {
     visible?: boolean
-    source?: string
-    degraded?: boolean
-    fallbackReason?: string
-    diagnostics?: Record<string, unknown>
-  }
-  outbox?: {
-    latest?: {
-      id?: ApiId
-      topic?: string
-      status?: number
-      statusText?: string
-      retryCount?: number
-      nextRetryTime?: string
-      updateTime?: string
-    } | null
   }
 }
 

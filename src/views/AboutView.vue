@@ -73,8 +73,6 @@
               如有建议或反馈，欢迎通过以下方式联系我们：
             </p>
             <ul class="space-y-2 text-slate-700 dark:text-slate-300">
-              <li>邮箱：contact@interviewcircle.com</li>
-              <li>GitHub：github.com/interviewcircle</li>
               <li>站内反馈：通过举报、评论和设置页反馈入口联系我们</li>
             </ul>
           </section>

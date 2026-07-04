@@ -572,7 +572,7 @@ const searchDiagnosticText = computed(() => {
     return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、标签或频道。'
   }
   const filtered = Number(diagnostics.syntheticFiltered || 0)
-  if (filtered > 0 && !includeTestData.value) {
+  if (filtered > 0) {
     return `已隐藏 ${filtered} 条自动化回归记录，公开搜索只展示真实公开内容。`
   }
   if (searchResultMeta.value?.scanLimit) {
@@ -581,14 +581,9 @@ const searchDiagnosticText = computed(() => {
   return ''
 })
 const postDetailQuery = computed<Record<string, string>>(() => {
-  if (!searchResultMeta.value) return {}
+  if (!searchResultMeta.value) return {} as Record<string, string>
   return {
     from: 'search',
-    ...(searchResultMeta.value.source ? { source: searchResultMeta.value.source } : {}),
-    ...(searchResultMeta.value.degraded ? { degraded: '1' } : {}),
-    ...(searchResultMeta.value.fallbackReason ? { fallbackReason: searchResultMeta.value.fallbackReason } : {}),
-    ...(searchResultMeta.value.scanLimit ? { scanLimit: String(searchResultMeta.value.scanLimit) } : {}),
-    ...(includeTestData.value ? { includeTestData: '1' } : {}),
   }
 })
 const emptyTitle = computed(() => {
@@ -623,9 +618,7 @@ const userFacingSearchStatusMessage = (message?: string | null) => {
   return value
 }
 const searchStatusText = computed(() => {
-  if (isSearchStatusLoading.value && !searchStatus.value) return '正在检测搜索状态'
-  if (searchStatusError.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、社区问题求助和搜作者入口'
-  if (!searchStatus.value) return '搜索状态暂不可用，本页已保留社区兜底入口'
+  if (!searchStatus.value) return '公开搜索仅展示已发布、公开、可分发的社区内容'
   if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、社区问题求助和搜作者入口'
   if (searchStatus.value.publicSearchSource === 'mysql') {
     const mode = searchStatus.value.fallbackMode === 'compat' ? '兼容模式' : '完整标签治理模式'
@@ -648,12 +641,12 @@ const searchStatusBadge = computed(() => {
   if (searchStatus.value?.publicSearchSource === 'elasticsearch') return '实时'
   if (searchStatus.value?.publicSearchSource === 'mysql') return '兜底'
   if (searchStatus.value?.publicSearchAvailable === false) return '不可用'
-  return searchStatus.value?.available ? '实时' : '降级'
+  return searchStatus.value?.available ? '实时' : '公开'
 })
 const searchStatusPillClass = computed(() => {
   if (searchStatus.value?.publicSearchSource === 'elasticsearch') return 'status-ok'
   if (searchStatus.value?.publicSearchAvailable === false) return 'status-danger'
-  return 'status-warn'
+  return 'status-ok'
 })
 const communityQuestionQuery = computed(() => {
   const keyword = filters.q || filters.company || filters.position
@@ -818,7 +811,7 @@ const syncFromRoute = () => {
   }
   filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
   searchMode.value = nextMode
-  includeTestData.value = route.query.includeTestData === '1' || route.query.includeTestData === 'true'
+  includeTestData.value = false
 }
 
 const pushQuery = () => {
@@ -832,7 +825,6 @@ const pushQuery = () => {
       ...(filters.type ? { type: String(filters.type) } : {}),
       ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
       ...(searchMode.value !== 'posts' ? { mode: searchMode.value } : {}),
-      ...(includeTestData.value ? { includeTestData: '1' } : {}),
     },
   }).finally(() => {
     isPushingQuery = false
@@ -1092,11 +1084,6 @@ const clearTypeFilter = () => {
   runSearch(false)
 }
 
-const enableTestDataMode = () => {
-  includeTestData.value = true
-  runSearch(false)
-}
-
 const runSearch = async (append = false, syncRoute = true) => {
   if (!append) clearSearchDebounce()
   if (append && (isLoading.value || !hasMore.value)) return
@@ -1159,12 +1146,12 @@ const runSearch = async (append = false, syncRoute = true) => {
       sort: filters.sort,
       cursor: append ? cursor.value : undefined,
       size: 20,
-      includeTestData: includeTestData.value,
+      includeTestData: false,
     } as Parameters<typeof searchApi.searchPosts>[0]
     const res = await searchApi.searchPosts(params)
     const page = res.data
     if (requestId !== searchRequestId) return
-    const rawItems = includeTestData.value ? (page?.items || []) : filterPublicContent(page?.items || [])
+    const rawItems = filterPublicContent(page?.items || [])
     const cleanItems = filterVisiblePosts(rawItems)
     searchResults.value = append ? [...searchResults.value, ...cleanItems] : cleanItems
     userResults.value = []
@@ -1196,7 +1183,6 @@ const runSearch = async (append = false, syncRoute = true) => {
       cursor.value = undefined
       hasMore.value = false
     }
-    await loadSearchStatus()
   } finally {
     if (requestId === searchRequestId) {
       isLoading.value = false
@@ -1289,20 +1275,6 @@ const loadSuggestions = () => {
   }, 250)
 }
 
-const loadSearchStatus = async () => {
-  isSearchStatusLoading.value = true
-  searchStatusError.value = false
-  try {
-    const res = await searchApi.status()
-    searchStatus.value = res.data
-  } catch {
-    searchStatus.value = null
-    searchStatusError.value = true
-  } finally {
-    isSearchStatusLoading.value = false
-  }
-}
-
 const findPost = (postId: ApiId) => searchResults.value.find((item) => String(item.postId) === String(postId))
 const updatePost = (postId: ApiId, updater: (post: Post) => void) => {
   const post = findPost(postId)
@@ -1338,10 +1310,7 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
 onMounted(async () => {
   loadSearchSnapshots()
   syncFromRoute()
-  await Promise.all([
-    loadSearchStatus(),
-    searchApi.hotSearches().then((res) => { hotWords.value = filterVisibleSearchTerms(res.data) }).catch(() => { hotWords.value = [] }),
-  ])
+  await searchApi.hotSearches().then((res) => { hotWords.value = filterVisibleSearchTerms(res.data) }).catch(() => { hotWords.value = [] })
   if (shouldAutoRunSearch.value) {
     await runSearch(false)
   }
