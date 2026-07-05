@@ -107,6 +107,16 @@
               <span>{{ item.governanceState || 'eligible' }}</span>
               <RouterLink v-if="item.href" :to="item.href">查看</RouterLink>
             </div>
+            <div class="action-row">
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="isActing || !canAddCandidateToHomeFeatured(item)"
+                @click="addSlotItemToHomeFeatured(item)"
+              >
+                加入 HOME_FEATURED
+              </button>
+            </div>
           </article>
         </div>
         <div v-else class="empty-panel">暂无可运营候选；接口未接通时页面不会生成本地候选。</div>
@@ -155,6 +165,39 @@
                 <h3>{{ slot.title }}</h3>
                 <p>{{ slot.description || slot.explanation || '暂无说明' }}</p>
                 <small>{{ slot.slotCode }} · {{ slot.items.length }} 个条目</small>
+                <ul v-if="slot.items.length" class="slot-item-list">
+                  <li v-for="slotItem in slot.items" :key="String(slotItem.id)">
+                    <div>
+                      <strong>{{ slotItem.title }}</strong>
+                      <span>{{ slotItem.contentType }} · #{{ slotItem.rank }} · {{ slotItem.reasonText || slotItem.reason || '无展示理由' }}</span>
+                    </div>
+                    <div class="action-row">
+                      <button type="button" class="icon-button" :disabled="isActing || !canMutate('publish')" title="上移" @click="moveHomeFeaturedItem(slot, slotItem, slotItem.rank - 10)">
+                        ↑
+                      </button>
+                      <button type="button" class="icon-button" :disabled="isActing || !canMutate('publish')" title="下移" @click="moveHomeFeaturedItem(slot, slotItem, slotItem.rank + 10)">
+                        ↓
+                      </button>
+                      <button type="button" class="secondary-button" :disabled="isActing || !canMutate('publish')" @click="updateHomeFeaturedItemReason(slot, slotItem)">
+                        改理由
+                      </button>
+                      <button type="button" class="secondary-button" :disabled="isActing || !canMutate('offline')" @click="removeSlotItemFromHomeFeatured(slot, slotItem)">
+                        移除
+                      </button>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              <div v-if="isSupportedOperationSlot(slot.slotCode)" class="action-row">
+                <button type="button" class="icon-button" :disabled="isActing || !canMutate('publish')" :title="`发布 ${slot.slotCode}`" @click="publishHomeFeaturedSlot(slot)">
+                  <UploadCloud class="h-4 w-4" />
+                </button>
+                <button type="button" class="icon-button" :disabled="isActing || !canMutate('offline')" :title="`下线 ${slot.slotCode}`" @click="offlineHomeFeaturedSlot(slot)">
+                  <Archive class="h-4 w-4" />
+                </button>
+                <button type="button" class="icon-button" :disabled="isActing || !canMutate('rollback')" :title="`回滚 ${slot.slotCode}`" @click="rollbackHomeFeaturedSlot(slot)">
+                  <RotateCcw class="h-4 w-4" />
+                </button>
               </div>
             </article>
           </div>
@@ -166,7 +209,7 @@
           <ul class="constraint-list">
             <li>固定高度，条目数变化不会撑乱首页布局。</li>
             <li>接口失败时展示降级或空状态。</li>
-            <li>明确标识运营整理、示例/fallback 来源。</li>
+            <li>只展示远端已发布条目，降级或接口失败时保持空态。</li>
             <li>不绕过治理过滤和用户反馈边界。</li>
           </ul>
         </aside>
@@ -252,6 +295,8 @@ import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import {
+  HOME_FEATURED_SLOT_CODE,
+  PUBLIC_OPERATION_SLOT_CODES,
   operationsApi,
   type CurationPoolItem,
   type OperationAction,
@@ -260,6 +305,7 @@ import {
   type OperationCapability,
   type OperationResourceKind,
   type OperationSlot,
+  type OperationSlotItem,
   type OperationStatus,
   type OperationTopic,
 } from '@/api/operations'
@@ -303,6 +349,8 @@ const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } =
 
 const opsPermissions = computed(() => permissions.value as OpsOrchestrationPermissions | null)
 const canEnter = computed(() => canAccessOpsOrchestrationAdmin(permissions.value))
+const homeFeaturedSlot = computed(() => slots.value.items.find((slot) => slot.slotCode === HOME_FEATURED_SLOT_CODE) || null)
+const isSupportedOperationSlot = (slotCode: string) => PUBLIC_OPERATION_SLOT_CODES.includes(slotCode as typeof PUBLIC_OPERATION_SLOT_CODES[number])
 const capabilityCards = computed(() => [
   { label: '候选池', available: candidates.value.available, text: sourceLabel(candidates.value) },
   { label: '精选池', available: curationPool.value.available, text: sourceLabel(curationPool.value) },
@@ -367,6 +415,22 @@ const refreshAll = async () => {
 
 const canMutate = (action: OpsOrchestrationAction) => canMutateOpsOrchestration(opsPermissions.value, action)
 
+const nextHomeFeaturedRank = (slot: OperationSlot) => {
+  const maxRank = Math.max(0, ...slot.items.map((item) => Number(item.rank) || 0))
+  return maxRank + 10
+}
+
+const canAddCandidateToHomeFeatured = (item: OperationCandidate) => (
+  candidates.value.available
+  && !candidates.value.degraded
+  && slots.value.available
+  && !slots.value.degraded
+  && Boolean(homeFeaturedSlot.value)
+  && homeFeaturedSlot.value?.source === 'remote'
+  && item.governanceState !== 'filtered'
+  && canMutate('publish')
+)
+
 const actionLabel = (action: OperationAction) => {
   const labels: Record<OperationAction, string> = {
     preview: '预览',
@@ -378,6 +442,108 @@ const actionLabel = (action: OperationAction) => {
 }
 
 const requireRiskConfirm = (request: RiskConfirmRequest) => confirmRisk(request)
+
+const addSlotItemToHomeFeatured = async (item: OperationCandidate) => {
+  const slot = homeFeaturedSlot.value
+  if (!slot || !canAddCandidateToHomeFeatured(item) || isActing.value) return
+  const note = window.prompt('记录加入 HOME_FEATURED 的展示理由', item.reason || '社区精选内容')
+  if (note === null) return
+  isActing.value = true
+  try {
+    await operationsApi.addSlotItemToHomeFeatured(slot.id, item.sourceType, item.sourceId, note, nextHomeFeaturedRank(slot))
+    await refreshAll()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '加入 HOME_FEATURED 失败'
+  } finally {
+    isActing.value = false
+  }
+}
+
+const removeSlotItemFromHomeFeatured = async (slot: OperationSlot, item: OperationSlotItem) => {
+  if (isActing.value || !canMutate('offline')) return
+  const note = await requireRiskConfirm({
+    title: `移除 ${slot.slotCode} 条目`,
+    level: 'critical',
+    reversible: true,
+    impactCount: 1,
+    objects: [`${slot.slotCode}:${item.contentId}`],
+    context: ['从公开运营位移除该条目', '写入后台审计日志'],
+    confirmText: '移除',
+    requireNote: true,
+    notePlaceholder: '记录移除原因',
+    confirmationPhrase: 'CONFIRM',
+  })
+  if (note === null) return
+  isActing.value = true
+  try {
+    await operationsApi.removeSlotItemFromHomeFeatured(item.id, note)
+    await refreshAll()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : `移除 ${slot.slotCode} 条目失败`
+  } finally {
+    isActing.value = false
+  }
+}
+
+const updateHomeFeaturedItemReason = async (slot: OperationSlot, item: OperationSlotItem) => {
+  if (isActing.value || !isSupportedOperationSlot(slot.slotCode) || !canMutate('publish')) return
+  const reasonText = window.prompt(`更新 ${slot.slotCode} 展示理由`, item.reasonText || item.reason || '')
+  if (reasonText === null) return
+  isActing.value = true
+  try {
+    await operationsApi.updateHomeFeaturedItemReason(slot.id, item, reasonText)
+    await refreshAll()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : `更新 ${slot.slotCode} 展示理由失败`
+  } finally {
+    isActing.value = false
+  }
+}
+
+const moveHomeFeaturedItem = async (slot: OperationSlot, item: OperationSlotItem, rank: number) => {
+  if (isActing.value || !isSupportedOperationSlot(slot.slotCode) || !canMutate('publish')) return
+  isActing.value = true
+  try {
+    await operationsApi.moveHomeFeaturedItem(slot.id, item, Math.max(1, rank))
+    await refreshAll()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : `调整 ${slot.slotCode} 排序失败`
+  } finally {
+    isActing.value = false
+  }
+}
+
+const runHomeFeaturedSlotLifecycle = async (slot: OperationSlot, action: OpsOrchestrationAction) => {
+  if (isActing.value || !isSupportedOperationSlot(slot.slotCode) || !canMutate(action)) return
+  const note = await requireRiskConfirm({
+    title: `${actionLabel(action)} ${slot.slotCode}`,
+    level: 'critical',
+    reversible: action !== 'publish',
+    impactCount: slot.items.length,
+    objects: [`${slot.slotCode}:${slot.id}`],
+    context: ['改变公开运营位的展示状态', '写入后台审计日志'],
+    confirmText: actionLabel(action),
+    requireNote: true,
+    notePlaceholder: `记录本次 ${slot.slotCode} 操作原因`,
+    confirmationPhrase: 'CONFIRM',
+  })
+  if (note === null) return
+  isActing.value = true
+  try {
+    if (action === 'publish') await operationsApi.publishHomeFeaturedSlot(slot.id, note, opsPermissions.value)
+    if (action === 'offline') await operationsApi.offlineHomeFeaturedSlot(slot.id, note, opsPermissions.value)
+    if (action === 'rollback') await operationsApi.rollbackHomeFeaturedSlot(slot.id, note, opsPermissions.value)
+    await refreshAll()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : `${actionLabel(action)} ${slot.slotCode} 失败`
+  } finally {
+    isActing.value = false
+  }
+}
+
+const publishHomeFeaturedSlot = (slot: OperationSlot) => runHomeFeaturedSlotLifecycle(slot, 'publish')
+const offlineHomeFeaturedSlot = (slot: OperationSlot) => runHomeFeaturedSlotLifecycle(slot, 'offline')
+const rollbackHomeFeaturedSlot = (slot: OperationSlot) => runHomeFeaturedSlotLifecycle(slot, 'rollback')
 
 const runLifecycleAction = async (resourceKind: OperationResourceKind, resourceId: string | number, action: OperationAction) => {
   if (isActing.value) return

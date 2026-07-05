@@ -1,5 +1,5 @@
 <template>
-  <section class="operation-slot-card" :class="{ 'operation-slot-card--degraded': isFallback }">
+  <section class="operation-slot-card" :class="{ 'operation-slot-card--degraded': isUnavailable }">
     <div class="operation-slot-head">
       <div class="min-w-0">
         <span class="operation-slot-label">{{ labelText }}</span>
@@ -15,16 +15,16 @@
       <span>正在读取运营整理入口</span>
     </div>
 
-    <div v-else-if="items.length" class="operation-slot-grid">
+    <div v-else-if="isRenderableSlot && visibleItems.length" class="operation-slot-grid">
       <RouterLink
-        v-for="item in items"
+        v-for="item in visibleItems"
         :key="String(item.id)"
         :to="item.href || '/explore'"
         class="operation-slot-item"
       >
-        <span>{{ item.sourceType === 'OPERATION_TOPIC' || item.sourceType === 'TOPIC' ? '专题入口' : '内容入口' }}</span>
+        <span>{{ item.contentType === 'OPERATION_TOPIC' || item.sourceType === 'OPERATION_TOPIC' || item.sourceType === 'TOPIC' ? '专题入口' : '内容入口' }}</span>
         <strong>{{ item.title }}</strong>
-        <small>{{ item.summary || item.reason || '来自公开可见内容的运营整理' }}</small>
+        <small>{{ item.summary || item.reasonText || item.reason || '来自公开可见内容的运营整理' }}</small>
       </RouterLink>
     </div>
 
@@ -39,14 +39,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Archive, RefreshCw, Sparkles } from 'lucide-vue-next'
-import { operationsApi, type OperationSlot } from '@/api/operations'
+import { HOME_FEATURED_SLOT_CODE, operationsApi, type OperationSlot } from '@/api/operations'
 import { isOpsOrchestrationCopyAllowed } from '@/utils/opsOrchestrationGuard'
 
 const props = withDefaults(defineProps<{
   slotCode?: string
   title?: string
 }>(), {
-  slotCode: 'HOME_FEATURED',
+  slotCode: HOME_FEATURED_SLOT_CODE,
   title: '社区运营整理',
 })
 
@@ -54,14 +54,22 @@ const slot = ref<OperationSlot | null>(null)
 const isLoading = ref(false)
 const loadError = ref('')
 
-const items = computed(() => (slot.value?.items || [])
-  .filter((item) => isOpsOrchestrationCopyAllowed(`${item.title} ${item.summary || ''} ${item.reason || ''}`))
+const isRenderableSlot = computed(() => (
+  props.slotCode === HOME_FEATURED_SLOT_CODE
+  && slot.value?.slotCode === HOME_FEATURED_SLOT_CODE
+  && slot.value?.source === 'remote'
+  && slot.value?.status === 'PUBLISHED'
+  && !slot.value?.degraded
+))
+const visibleItems = computed(() => (slot.value?.items || [])
+  .filter((item) => !item.blocked && item.source === 'remote')
+  .filter((item) => isOpsOrchestrationCopyAllowed(`${item.title} ${item.summary || ''} ${item.reasonText || item.reason || ''}`))
   .slice(0, 4))
-const isFallback = computed(() => Boolean(slot.value?.fallback || loadError.value))
-const labelText = computed(() => isFallback.value ? '示例/fallback' : (slot.value?.displayLabel || '运营整理'))
+const isUnavailable = computed(() => Boolean(slot.value?.degraded || loadError.value))
+const labelText = computed(() => isUnavailable.value ? '运营位暂不可用' : (slot.value?.displayLabel || '运营整理'))
 const explanationText = computed(() => {
   if (loadError.value) return '运营位接口暂不可用，前台不会伪装成自然推荐；当前保留稳定空状态。'
-  if (isFallback.value) return slot.value?.explanation || '后端运营位未接通时展示的示例入口，不代表正式发布配置。'
+  if (isUnavailable.value) return slot.value?.explanation || '后端运营位未接通时展示稳定空状态，不代表正式发布配置。'
   return slot.value?.explanation || '由社区运营从公开可见内容中整理，展示原因和自然推荐分开说明。'
 })
 const emptyText = computed(() => (

@@ -1,4 +1,4 @@
-import type { ApiId, Comment, CommentReport, CommunityTopic, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
+import type { ApiId, Comment, CommentReport, CommunityTopic, CreatorCurationFeedback, DisplayableCurationFeedbackSource, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
 import { normalizeDomain } from '@/utils/domains'
 import { filterDistributionPosts, isPublicCollectionVisible, isPublicPostVisible, neutralizeHighRiskRecommendationReason, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
@@ -162,8 +162,48 @@ export function adaptContentList(raw: any): ContentListSummary {
 function safeSameSitePath(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const path = value.trim()
-  if (!path || !path.startsWith('/') || path.startsWith('//') || /\s/.test(path)) return undefined
+  if (!path || !path.startsWith('/') || path.startsWith('//') || path.startsWith('/api/') || /\s/.test(path)) return undefined
   return path
+}
+
+const displayableCurationFeedbackSources: ReadonlySet<DisplayableCurationFeedbackSource> = new Set([
+  'operation-curation',
+  'topic-detail',
+  'home-featured',
+  'discovery-topic',
+  'manual-curation',
+  'remote',
+])
+
+const curationFeedbackTextBlockers = [
+  'fallback-demo',
+  'demo seed',
+  'fixture',
+  'local_demo',
+  'Code' + 'CoachAI',
+  'mock' + 'Interview',
+  'resume' + 'Match',
+  'private' + 'Goal',
+  'application' + 'Task',
+  'AI ' + '教练',
+  '私人' + '训练',
+  '训练' + '计划',
+  '模拟' + '面试',
+  '简历' + '匹配',
+  '简历' + '/JD',
+  'JD ' + '分析',
+  '投递' + '任务',
+]
+
+const safeCurationFeedbackText = (value: unknown, fallback = '') => {
+  const text = safeVisibleText(value, fallback)
+  const normalized = text.toLowerCase()
+  return curationFeedbackTextBlockers.some((blocker) => normalized.includes(blocker.toLowerCase())) ? fallback : text
+}
+
+const isDisplayableCurationFeedbackSource = (value: unknown): value is DisplayableCurationFeedbackSource => {
+  const source = sanitizeVisibleText(value).toLowerCase()
+  return displayableCurationFeedbackSources.has(source as DisplayableCurationFeedbackSource)
 }
 
 export function adaptUser(raw: any): User {
@@ -440,6 +480,7 @@ export function adaptCommentReport(raw: any): CommentReport {
 export function adaptNotification(raw: any): Notification {
   const content = typeof raw?.content === 'object' && raw.content ? raw.content : {}
   const type = raw?.type ?? 'system'
+  const curationFeedback = adaptNotificationCurationFeedback(content)
   const aggregateCount = Number((raw?.aggregateCount ?? content.aggregateCount) || 0)
   const unreadCount = Number(raw?.unreadCount ?? content.unreadCount ?? ((raw?.read ?? raw?.isRead) ? 0 : 1))
   const targetId = content.postId ?? content.commentId ?? content.userId ?? content.targetId
@@ -453,6 +494,7 @@ export function adaptNotification(raw: any): Notification {
   const userId = type === 'follower' ? content.userId ?? senderUserId(raw?.sender) : undefined
   const targetPath = safeSameSitePath(raw?.targetPath)
     ?? safeSameSitePath(raw?.jumpPath)
+    ?? curationFeedback?.href
     ?? safeSameSitePath(content.targetPath)
     ?? safeSameSitePath(content.jumpPath)
   const sender = raw?.sender ? adaptUser(raw.sender) : undefined
@@ -462,6 +504,7 @@ export function adaptNotification(raw: any): Notification {
     type,
     title: notificationHeading(type, content, sender?.nickname, aggregateCount),
     content: notificationContent(type, content, sender?.nickname, aggregateCount),
+    curationFeedback,
     sender,
     relatedId: targetId ? adaptId(targetId) : undefined,
     targetPath: targetPath ?? (userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined),
@@ -469,6 +512,39 @@ export function adaptNotification(raw: any): Notification {
     aggregateCount: aggregateCount > 1 ? aggregateCount : undefined,
     unreadCount,
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
+  }
+}
+
+const isCurationFeedbackPayload = (content: Record<string, any>) => {
+  return ['creator_curation_feedback', 'curation_feedback', 'content_curation_feedback'].includes(String(content.action || ''))
+}
+
+function adaptNotificationCurationFeedback(content: Record<string, any>): CreatorCurationFeedback | undefined {
+  if (!isCurationFeedbackPayload(content)) return undefined
+  const contentId = adaptId(content.contentId ?? content.postId ?? content.targetId)
+  const source = sanitizeVisibleText(content.source || 'operation-curation') || 'operation-curation'
+  const displayableSource = isDisplayableCurationFeedbackSource(source) ? source : undefined
+  if (!displayableSource) return undefined
+  const href = safeSameSitePath(content.href)
+    ?? safeSameSitePath(content.targetPath)
+    ?? safeSameSitePath(content.jumpPath)
+    ?? (contentId ? `/post/${contentId}` : undefined)
+  return {
+    eventId: adaptId(content.eventId ?? content.id ?? `${contentId}:${content.triggeredAt ?? content.createdAt ?? ''}`),
+    contentId,
+    contentTitle: safeCurationFeedbackText(content.contentTitle ?? content.postTitle ?? content.title, '公开内容标题暂未返回'),
+    placementLabel: safeCurationFeedbackText(content.placementLabel ?? content.topicTitle ?? content.sectionTitle ?? content.slotName, '公开内容收录'),
+    reasonText: safeCurationFeedbackText(content.reasonText ?? content.curationReason ?? content.reason, '运营收录理由暂未返回'),
+    href,
+    triggeredAt: adaptTime(content.triggeredAt ?? content.createdAt ?? content.createTime),
+    source,
+    displayableSource,
+    publicMetrics: content.publicMetrics || content.metrics ? {
+      viewCount: Number((content.publicMetrics ?? content.metrics)?.viewCount ?? 0),
+      likeCount: Number((content.publicMetrics ?? content.metrics)?.likeCount ?? 0),
+      favoriteCount: Number((content.publicMetrics ?? content.metrics)?.favoriteCount ?? 0),
+      commentCount: Number((content.publicMetrics ?? content.metrics)?.commentCount ?? 0),
+    } : undefined,
   }
 }
 
@@ -483,6 +559,7 @@ function senderUserId(sender?: any): string | undefined {
 }
 
 function notificationHeading(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {
+  if (type === 'system' && isCurationFeedbackPayload(content)) return '公开内容入选反馈'
   if (type === 'system' && content.action === 'question_extract_succeeded') return '题目已整理完成'
   if (type === 'system' && content.action === 'question_extract_failed') return '题目整理失败'
   if (type === 'system' && content.action === 'topic_post_published') return '关注专题有新内容'
@@ -510,6 +587,13 @@ function notificationTitle(type: string, senderName?: string, aggregateCount = 0
 }
 
 function notificationContent(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {
+  if (type === 'system' && isCurationFeedbackPayload(content)) {
+    const contentTitle = safeCurationFeedbackText(content.contentTitle ?? content.postTitle ?? content.title, '公开内容标题暂未返回')
+    const placementLabel = safeCurationFeedbackText(content.placementLabel ?? content.topicTitle ?? content.sectionTitle ?? content.slotName, '公开内容收录')
+    return contentTitle && placementLabel
+      ? `《${contentTitle}》已收录到 ${placementLabel}。`
+      : '你的公开内容有新的收录反馈。'
+  }
   if (type === 'system' && content.action === 'question_extract_succeeded') {
     const count = Number(content.questionCount || 0)
     const postTitle = sanitizeVisibleText(content.postTitle)

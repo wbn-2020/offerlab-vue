@@ -12,7 +12,7 @@ const search = readFileSync(new URL('../src/views/SearchView.vue', import.meta.u
 const tagDetail = readFileSync(new URL('../src/views/TagDetailView.vue', import.meta.url), 'utf8')
 const meProfile = readFileSync(new URL('../src/views/MeProfileView.vue', import.meta.url), 'utf8')
 
-assert.match(loginRedirect, /query: \{ redirect \ }|query: \{ redirect \}/, 'login redirect helper must keep the target route')
+assert.match(loginRedirect, /query: [{] redirect [}]/, 'login redirect helper must keep the target route')
 assert.match(composable, /useLoginRedirect/, 'post interaction composable must use the shared login redirect helper')
 assert.match(composable, /const \{ requireLogin \} = useLoginRedirect\(\)/, 'post interaction composable must acquire the shared login gate')
 assert.match(composable, /pendingActions\s*=\s*ref\(new Set<string>\(\)\)/, 'post interaction composable must keep per-action pending state')

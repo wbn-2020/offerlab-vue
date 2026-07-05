@@ -207,6 +207,7 @@ export interface Notification {
   type: string
   title: string
   content: string
+  curationFeedback?: CreatorCurationFeedback
   sender?: User
   relatedId?: ApiId
   targetPath?: string
@@ -414,6 +415,53 @@ export interface CreatorFeedbackSummary {
   responseRate: number
   unreadCommentCount: number
   topFeedbackSignals: string[]
+}
+
+export type CurationFeedbackSource =
+  | 'operation-curation'
+  | 'topic-detail'
+  | 'home-featured'
+  | 'discovery-topic'
+  | 'manual-curation'
+  | 'fallback-demo'
+  | 'unavailable'
+  | string
+
+export type DisplayableCurationFeedbackSource =
+  | 'operation-curation'
+  | 'topic-detail'
+  | 'home-featured'
+  | 'discovery-topic'
+  | 'manual-curation'
+  | 'remote'
+
+export interface CreatorCurationMetrics {
+  viewCount: number
+  likeCount: number
+  favoriteCount: number
+  commentCount: number
+}
+
+export interface CreatorCurationFeedback {
+  eventId: ApiId
+  contentId: ApiId
+  contentTitle: string
+  placementLabel: string
+  reasonText: string
+  href?: string
+  triggeredAt: number
+  source: CurationFeedbackSource
+  displayableSource?: DisplayableCurationFeedbackSource
+  publicMetrics?: CreatorCurationMetrics
+}
+
+export interface CreatorCurationFeedbackSummary {
+  updatedAt: number
+  degraded: boolean
+  fallbackReason?: string
+  total: number
+  items: CreatorCurationFeedback[]
+  recentItems: CreatorCurationFeedback[]
 }
 
 export interface CreatorTopPost {

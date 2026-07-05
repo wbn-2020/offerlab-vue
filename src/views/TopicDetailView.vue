@@ -7,17 +7,18 @@
         <div class="topic-mark">{{ topicInitial }}</div>
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
-            <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">社区话题</p>
+            <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">
+              {{ isCuratedTopic ? '社区专题' : '社区话题' }}
+            </p>
+            <span v-if="isCuratedTopic" class="status-pill status-featured">已发布专题</span>
             <span v-if="topic?.featured" class="status-pill status-featured">精选话题</span>
             <span v-if="topic?.virtualTopic" class="status-pill status-muted">自动聚合</span>
             <span v-if="topic?.topicType" class="status-pill status-muted">{{ topicTypeText }}</span>
           </div>
-          <h1 class="mt-2 text-2xl font-black text-slate-950 dark:text-slate-50">{{ topic?.name || fallbackName }}</h1>
-          <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            {{ topic?.description || '围绕真实经验、问题求助、攻略清单、资源推荐和观点讨论沉淀形成的话题集合。' }}
-          </p>
+          <h1 class="mt-2 text-2xl font-black text-slate-950 dark:text-slate-50">{{ currentTopicTitle }}</h1>
+          <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ currentTopicSummary }}</p>
           <p v-if="canFollowTopic" class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-            关注主题会让你更容易回到这个话题，不会自动关注某个帖子的后续回复；帖子新回复请在详情页理解为关注讨论。
+            关注主题后，可以更方便地回到这个公开内容集合；新回复仍以帖子详情页为准。
           </p>
           <div v-if="topicTags.length" class="mt-4 flex flex-wrap gap-2">
             <RouterLink
@@ -32,7 +33,7 @@
         </div>
         <div class="topic-count">
           <strong>{{ displayCount }}</strong>
-          <span>篇内容</span>
+          <span>{{ displayCountLabel }}</span>
         </div>
         <div v-if="topicReady" class="topic-actions">
           <div v-if="canFollowTopic" class="topic-count topic-follow-count">
@@ -40,7 +41,7 @@
             <span>关注</span>
           </div>
           <PublicShareButton
-            :title="topic?.name || fallbackName"
+            :title="currentTopicTitle"
             :text="topicSeoDescription"
             :canonical="`/topics/${topicSlug}`"
             label="分享话题"
@@ -59,7 +60,7 @@
         </div>
       </section>
 
-      <section v-if="topicReady" class="filter-panel">
+      <section v-if="topicReady && !isCuratedTopic" class="filter-panel">
         <div>
           <h2>话题内容</h2>
           <p>{{ typeSummary }}</p>
@@ -83,7 +84,43 @@
       </section>
 
       <section class="mt-6 space-y-4">
-        <div v-if="topicLoadFailed" class="empty-panel topic-error-panel">
+        <template v-if="isCuratedTopic && curatedTopic">
+          <div class="curated-meta">
+            <span>{{ curatedTopic.sourceNote }}</span>
+            <span>{{ curatedTopic.sortNote }}</span>
+          </div>
+          <article
+            v-for="section in curatedTopic.sections"
+            :key="section.id"
+            class="curated-section"
+          >
+            <div class="curated-section-head">
+              <div>
+                <span class="status-pill status-muted">Section {{ section.sortOrder }}</span>
+                <h2>{{ section.title }}</h2>
+              </div>
+              <p v-if="section.reasonText">{{ section.reasonText }}</p>
+            </div>
+            <div class="curated-item-list">
+              <div
+                v-for="item in section.items"
+                :key="item.id"
+                class="curated-item"
+              >
+                <div>
+                  <span class="curated-item-source">{{ item.sourceType }} · {{ item.sortOrder }}</span>
+                  <h3>{{ item.title }}</h3>
+                  <p v-if="item.summary">{{ item.summary }}</p>
+                  <small v-if="item.reasonText">收录理由：{{ item.reasonText }}</small>
+                </div>
+                <RouterLink v-if="!item.disabled && item.href" :to="item.href" class="secondary-button">阅读</RouterLink>
+                <button v-else type="button" class="secondary-button" disabled>暂不可读</button>
+              </div>
+            </div>
+          </article>
+        </template>
+
+        <div v-else-if="topicLoadFailed" class="empty-panel topic-error-panel">
           <h2>话题暂时无法打开</h2>
           <p>{{ topicErrorMessage }}</p>
           <div class="mt-4 flex flex-wrap justify-center gap-2">
@@ -116,7 +153,7 @@
 
         <div v-else class="empty-panel">
           <h2>这个话题还没有内容</h2>
-          <p>可以先去发现页看看相近内容，搜索相关关键词，或发布一篇经验、问题、攻略、资源或复盘。</p>
+          <p>可以先去发现页浏览相近内容，搜索相关关键词，或发布一篇公开经验、问题、攻略、资源或复盘。</p>
           <div class="mt-4 flex flex-wrap justify-center gap-2">
             <RouterLink to="/explore" class="primary-button">去发现内容</RouterLink>
             <RouterLink :to="{ path: '/search', query: { q: fallbackName } }" class="secondary-button">搜索相似内容</RouterLink>
@@ -124,7 +161,7 @@
           </div>
         </div>
 
-        <div v-if="hasMore" class="text-center">
+        <div v-if="hasMore && !isCuratedTopic" class="text-center">
           <button type="button" class="secondary-button" :disabled="isLoading" @click="loadPosts(true)">
             {{ isLoading ? '加载中...' : '加载更多' }}
           </button>
@@ -143,6 +180,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { postApi } from '@/api/post'
+import { topicDetailApi, type CuratedTopicDetail } from '@/api/topicDetail'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, Post } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
@@ -155,6 +193,7 @@ import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const curatedTopic = ref<CuratedTopicDetail | null>(null)
 const topic = ref<CommunityTopic | null>(null)
 const posts = ref<Post[]>([])
 const cursor = ref<string | undefined>()
@@ -169,16 +208,25 @@ const featuredOnly = ref(false)
 const topicSlug = computed(() => String(route.params.slug || ''))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
 const fallbackName = computed(() => String(route.params.slug || '专题'))
-const topicInitial = computed(() => (topic.value?.name || fallbackName.value).charAt(0).toUpperCase())
-const topicTags = computed(() => topic.value?.tags || [])
-const displayCount = computed(() => topic.value?.postCount || posts.value.length)
+const isCuratedTopic = computed(() => curatedTopic.value?.status === 'READY')
+const currentTopicTitle = computed(() => curatedTopic.value?.title || topic.value?.name || fallbackName.value)
+const currentTopicSummary = computed(() => curatedTopic.value?.summary || topic.value?.description || '围绕公开内容形成的社区集合，只展示已经通过治理过滤且仍然可见的内容。')
+const topicInitial = computed(() => currentTopicTitle.value.charAt(0).toUpperCase())
+const topicTags = computed(() => isCuratedTopic.value ? [] : topic.value?.tags || [])
+const displayCount = computed(() => {
+  if (isCuratedTopic.value) {
+    return curatedTopic.value?.sections.reduce((sum, section) => sum + section.items.length, 0) || 0
+  }
+  return topic.value?.postCount || posts.value.length
+})
+const displayCountLabel = computed(() => isCuratedTopic.value ? '篇收录' : '篇内容')
 const typeSummary = computed(() => postTypeSummary(posts.value))
-const topicLoadFailed = computed(() => Boolean(topicErrorMessage.value && !topic.value))
-const topicReady = computed(() => Boolean(topic.value && !topicLoadFailed.value))
-const canFollowTopic = computed(() => Boolean(topic.value?.id && !topic.value?.virtualTopic))
+const topicLoadFailed = computed(() => Boolean(topicErrorMessage.value && !topic.value && !isCuratedTopic.value))
+const topicReady = computed(() => Boolean(isCuratedTopic.value || (topic.value && !topicLoadFailed.value)))
+const canFollowTopic = computed(() => Boolean(!isCuratedTopic.value && topic.value?.id && !topic.value?.virtualTopic))
 const topicSeoDescription = computed(() => summarizeSeoText(
-  topic.value?.description,
-  topicLoadFailed.value ? '话题暂时无法打开。' : '围绕公开内容形成的话题集合，只展示公开且通过治理过滤的内容。',
+  currentTopicSummary.value,
+  topicLoadFailed.value ? '话题暂时无法打开。' : '围绕公开内容形成的社区集合，只展示公开且通过治理过滤的内容。',
 ))
 const topicTypeText = computed(() => {
   const type = topic.value?.topicType
@@ -188,6 +236,10 @@ const topicTypeText = computed(() => {
   if (type === 'project') return '实践复盘'
   return '综合话题'
 })
+
+const curatedTopicFallbackAllowed = (detail?: CuratedTopicDetail | null) => (
+  detail?.fallbackReason === 'operation_topic_not_found'
+)
 
 const findPost = (postId: ApiId) => posts.value.find((item) => String(item.postId) === String(postId))
 const updatePost = (postId: ApiId, updater: (post: Post) => void) => {
@@ -199,6 +251,7 @@ const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updat
 const loadTopic = async () => {
   const slug = String(route.params.slug || '')
   if (!slug) return
+  curatedTopic.value = null
   topic.value = null
   posts.value = []
   cursor.value = undefined
@@ -207,6 +260,17 @@ const loadTopic = async () => {
   postErrorMessage.value = ''
   isLoading.value = true
   try {
+    const curatedRes = await topicDetailApi.getCuratedTopicDetail(slug)
+    if (curatedRes.data?.status === 'READY') {
+      curatedTopic.value = curatedRes.data
+      return
+    }
+    if (!curatedTopicFallbackAllowed(curatedRes.data)) {
+      curatedTopic.value = curatedRes.data ?? null
+      topicErrorMessage.value = '运营专题暂时不可用'
+      return
+    }
+
     const res = await postApi.getTopic(slug)
     topic.value = res.data
     if (!topic.value?.virtualTopic) {
@@ -232,7 +296,7 @@ const loadTopicFollowStatus = async (slug: string) => {
 
 const loadPosts = async (append = false) => {
   const slug = String(route.params.slug || '')
-  if (!slug || !topic.value || topicLoadFailed.value || (append && !hasMore.value) || (isLoading.value && append)) return
+  if (!slug || isCuratedTopic.value || !topic.value || topicLoadFailed.value || (append && !hasMore.value) || (isLoading.value && append)) return
   isLoading.value = true
   postErrorMessage.value = ''
   try {
@@ -313,9 +377,9 @@ const toggleTopicFollow = async () => {
 }
 
 watch(() => route.params.slug, loadTopic)
-watch([topic, topicErrorMessage, topicSlug], () => {
+watch([curatedTopic, topic, topicErrorMessage, topicSlug], () => {
   applyPageSeo({
-    title: topic.value?.name || (topicLoadFailed.value ? '话题暂时无法打开' : fallbackName.value),
+    title: topicLoadFailed.value ? '话题暂时无法打开' : currentTopicTitle.value,
     description: topicSeoDescription.value,
     canonical: `/topics/${topicSlug.value}`,
   })
@@ -412,18 +476,23 @@ onMounted(loadTopic)
   color: rgb(71 85 105);
 }
 
+.filter-panel,
+.curated-section {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+}
+
 .filter-panel {
   margin-top: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.75rem;
-  background: white;
   padding: 1rem;
 }
 
-.filter-panel h2 {
+.filter-panel h2,
+.curated-section h2 {
   font-size: 0.95rem;
   font-weight: 900;
   color: rgb(15 23 42);
@@ -450,6 +519,63 @@ onMounted(loadTopic)
   border-color: rgb(199 210 254);
   background: rgb(238 242 255);
   color: rgb(67 56 202);
+}
+
+.curated-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+}
+
+.curated-section {
+  overflow: hidden;
+}
+
+.curated-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgb(226 232 240);
+  padding: 1rem;
+}
+
+.curated-section-head p {
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+}
+
+.curated-item-list {
+  display: grid;
+  gap: 0;
+}
+
+.curated-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-top: 1px solid rgb(241 245 249);
+  padding: 1rem;
+}
+
+.curated-item:first-child {
+  border-top: 0;
+}
+
+.curated-item h3 {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.curated-item p,
+.curated-item small,
+.curated-item-source {
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 
 .primary-button,
@@ -514,45 +640,12 @@ onMounted(loadTopic)
     align-items: center;
   }
 
-  .filter-panel {
+  .filter-panel,
+  .curated-section-head,
+  .curated-item {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
   }
-}
-
-.dark .topic-header,
-.dark .topic-count,
-.dark .filter-panel,
-.dark .secondary-button,
-.dark .empty-panel,
-.dark .loading-panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
-}
-
-.dark .topic-count strong,
-.dark .filter-panel h2,
-.dark .empty-panel h2 {
-  color: rgb(248 250 252);
-}
-
-.dark .filter-panel p {
-  color: rgb(148 163 184);
-}
-
-.dark .filter-chip,
-.dark .tag-chip {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
-}
-
-.dark .filter-chip-active,
-.dark .filter-chip:hover {
-  border-color: rgb(67 56 202);
-  background: rgb(49 46 129 / 0.45);
-  color: rgb(199 210 254);
 }
 </style>

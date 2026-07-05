@@ -146,6 +146,36 @@
                 </span>
               </div>
               <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ notif.content }}</p>
+              <div v-if="curationFeedbackPayload(notif)" class="curation-feedback-card mt-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="curation-feedback-label">入选反馈</span>
+                  <strong class="text-sm text-slate-900 dark:text-slate-100">
+                    内容标题：{{ curationFeedbackPayload(notif)?.contentTitle }}
+                  </strong>
+                </div>
+                <dl class="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+                  <div>
+                    <dt>收录位置</dt>
+                    <dd>{{ curationFeedbackPayload(notif)?.placementLabel }}</dd>
+                  </div>
+                  <div>
+                    <dt>触发时间</dt>
+                    <dd>{{ formatTime(curationFeedbackPayload(notif)?.triggeredAt || notif.createdAt) }}</dd>
+                  </div>
+                  <div class="sm:col-span-2">
+                    <dt>收录理由</dt>
+                    <dd>{{ curationFeedbackPayload(notif)?.reasonText }}</dd>
+                  </div>
+                </dl>
+                <RouterLink
+                  v-if="curationFeedbackPayload(notif)?.href"
+                  :to="curationFeedbackPayload(notif)?.href || '/'"
+                  class="curation-feedback-link"
+                  @click.stop
+                >
+                  查看入口
+                </RouterLink>
+              </div>
               <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
                 <span>{{ formatTime(notif.createdAt) }}</span>
                 <span v-if="notif.targetPath">{{ nextStepText(notif) }}</span>
@@ -187,7 +217,7 @@ import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, User
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { interactionPreferenceMuted, notificationApi, normalizeNotificationPreference } from '@/api/notification'
-import type { ApiId, Notification, NotificationPreference, NotificationUnreadCount } from '@/api/types'
+import type { ApiId, CreatorCurationFeedback, Notification, NotificationPreference, NotificationUnreadCount } from '@/api/types'
 import { formatTime } from '@/lib/format'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
@@ -293,6 +323,8 @@ const labelFor = (type: string) => {
 const syncUnread = (value: NotificationUnreadCount) => {
   realtimeStore.setUnreadCount({ ...emptyUnreadCount(), ...value })
 }
+
+const curationFeedbackPayload = (notif: Notification): CreatorCurationFeedback | undefined => notif.curationFeedback
 
 const loadUnread = async () => {
   const res = await notificationApi.getUnreadCount()
@@ -405,6 +437,7 @@ const notificationActionLabel = (notif: Notification) => {
 }
 
 const nextStepText = (notif: Notification) => {
+  if (curationFeedbackPayload(notif)) return '查看入选内容'
   if (notif.type === 'follower') return '查看作者主页'
   if (notif.type === 'comment' || notif.type === 'mention') return '回到讨论'
   if (notif.type === 'system') return '查看相关内容'
@@ -548,6 +581,45 @@ onMounted(async () => {
   color: rgb(29 78 216);
 }
 
+.curation-feedback-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(248 250 252);
+  padding: 0.85rem;
+}
+
+.curation-feedback-label {
+  border-radius: 999px;
+  background: rgb(219 234 254);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: rgb(29 78 216);
+}
+
+.curation-feedback-card dt {
+  font-weight: 900;
+  color: rgb(71 85 105);
+}
+
+.curation-feedback-card dd {
+  margin-top: 0.15rem;
+  line-height: 1.55;
+}
+
+.curation-feedback-link {
+  margin-top: 0.65rem;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  border-radius: 0.5rem;
+  background: rgb(37 99 235);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: white;
+}
+
 .dark .metric-card {
   border-color: rgb(51 65 85);
 }
@@ -595,6 +667,20 @@ onMounted(async () => {
 .dark .feedback-revisit-actions a {
   background: rgb(30 41 59);
   color: rgb(191 219 254);
+}
+
+.dark .curation-feedback-card {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .curation-feedback-label {
+  background: rgb(30 58 138);
+  color: rgb(191 219 254);
+}
+
+.dark .curation-feedback-card dt {
+  color: rgb(148 163 184);
 }
 
 @media (max-width: 640px) {

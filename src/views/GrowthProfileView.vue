@@ -100,6 +100,32 @@
             </article>
           </section>
 
+          <section class="surface-card p-6">
+            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 class="text-lg font-black text-slate-950 dark:text-white">最近入选反馈</h2>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  展示公开内容被社区收录后的可回访信息。
+                </p>
+              </div>
+              <span v-if="curationFeedbackSummary?.degraded" class="curation-state-pill">降级空态</span>
+            </div>
+            <div v-if="recentCurationFeedbackItems.length" class="grid gap-3 lg:grid-cols-3">
+              <RouterLink
+                v-for="item in recentCurationFeedbackItems"
+                :key="item.eventId"
+                :to="item.href"
+                class="curation-card"
+              >
+                <span class="curation-card-kicker">收录位置：{{ item.placementLabel }}</span>
+                <h3>{{ item.contentTitle }}</h3>
+                <p>收录理由：{{ item.reasonText }}</p>
+                <small>{{ formatTime(item.triggeredAt) }}</small>
+              </RouterLink>
+            </div>
+            <p v-else class="curation-empty">暂无公开内容入选反馈</p>
+          </section>
+
           <section class="grid gap-4 lg:grid-cols-2">
             <article
               v-for="domain in profile.domains"
@@ -189,9 +215,11 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import { getErrorMessage } from '@/api/client'
+import { creatorFeedbackApi } from '@/api/creatorFeedback'
 import { growthApi } from '@/api/growth'
 import { useAuthStore } from '@/stores/auth'
-import type { GrowthProfile, GrowthProfileDomain } from '@/api/types'
+import type { CreatorCurationFeedback, CreatorCurationFeedbackSummary, GrowthProfile, GrowthProfileDomain } from '@/api/types'
+import { formatTime } from '@/lib/format'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 
 const authStore = useAuthStore()
@@ -209,6 +237,7 @@ const days = ref(30)
 const loading = ref(false)
 const error = ref('')
 const profile = ref<GrowthProfile | null>(null)
+const curationFeedbackSummary = ref<CreatorCurationFeedbackSummary | null>(null)
 
 const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 const primaryDomain = computed(() => profile.value?.domains?.[0] ?? null)
@@ -218,6 +247,9 @@ const profileDemoNotice = computed(() => profile.value?.degradationReasons?.incl
   ? '这些内容是本地样例，用来说明成长档案会如何组织公开内容，不代表你的真实成长画像。'
   : ''
 )
+const recentCurationFeedbackItems = computed(() => (
+  curationFeedbackSummary.value?.recentItems.filter((item): item is CreatorCurationFeedback & { href: string } => Boolean(item.href)) ?? []
+))
 
 const totalScore = (domain: GrowthProfileDomain) => (
   domain.dimensions.reduce((sum, item) => sum + Number(item.score || 0), 0)
@@ -226,16 +258,23 @@ const totalScore = (domain: GrowthProfileDomain) => (
 const loadProfile = async () => {
   if (!authStore.isLoggedIn) {
     profile.value = null
+    curationFeedbackSummary.value = null
     error.value = ''
     return
   }
   loading.value = true
   error.value = ''
   try {
-    const res = await growthApi.getProfile(days.value)
-    profile.value = res.data
+    const [profileResult, curationResult] = await Promise.allSettled([
+      growthApi.getProfile(days.value),
+      creatorFeedbackApi.getCurationFeedbackSummary(),
+    ])
+    if (profileResult.status === 'rejected') throw profileResult.reason
+    profile.value = profileResult.value.data
+    curationFeedbackSummary.value = curationResult.status === 'fulfilled' ? curationResult.value.data : null
   } catch (err) {
     profile.value = null
+    curationFeedbackSummary.value = null
     error.value = getErrorMessage(err, '加载成长档案失败')
   } finally {
     loading.value = false
@@ -405,6 +444,62 @@ onMounted(async () => {
   color: rgb(37 99 235);
 }
 
+.curation-state-pill,
+.curation-card-kicker {
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.curation-state-pill {
+  align-self: flex-start;
+  background: rgb(255 247 237);
+  padding: 0.3rem 0.65rem;
+  color: rgb(154 52 18);
+}
+
+.curation-card {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.82);
+  padding: 1rem;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.curation-card:hover {
+  border-color: rgb(191 219 254);
+  transform: translateY(-1px);
+}
+
+.curation-card-kicker {
+  display: inline-flex;
+  background: rgb(239 246 255);
+  padding: 0.25rem 0.55rem;
+  color: rgb(29 78 216);
+}
+
+.curation-card h3 {
+  margin-top: 0.75rem;
+  font-size: 0.98rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.curation-card p,
+.curation-card small,
+.curation-empty {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: rgb(100 116 139);
+}
+
+.curation-empty {
+  border-radius: 1rem;
+  border: 1px dashed rgb(203 213 225);
+  padding: 1rem;
+}
+
 .dark .growth-kicker {
   background: rgb(8 47 73);
   color: rgb(125 211 252);
@@ -461,5 +556,34 @@ onMounted(async () => {
 
 .dark .dimension-bar {
   background: rgb(30 41 59);
+}
+
+.dark .curation-state-pill {
+  background: rgb(67 20 7 / 0.45);
+  color: rgb(253 186 116);
+}
+
+.dark .curation-card {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42 / 0.88);
+}
+
+.dark .curation-card-kicker {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .curation-card h3 {
+  color: rgb(241 245 249);
+}
+
+.dark .curation-card p,
+.dark .curation-card small,
+.dark .curation-empty {
+  color: rgb(148 163 184);
+}
+
+.dark .curation-empty {
+  border-color: rgb(51 65 85);
 }
 </style>

@@ -1,6 +1,6 @@
 import client, { BizException, type Result } from './client'
 import { postApi } from './post'
-import type { ApiId, CommunityTopic, Post } from './types'
+import type { ApiId, Post } from './types'
 import { filterStrongExposurePosts, filterVisiblePosts } from '@/utils/recommendationGovernance'
 import {
   canMutateOpsOrchestration,
@@ -11,13 +11,22 @@ import {
   type OpsOrchestrationPermissions,
 } from '@/utils/opsOrchestrationGuard'
 
+export const HOME_FEATURED_SLOT_CODE = 'HOME_FEATURED'
+export const DISCOVERY_FEATURED_TOPICS_SLOT_CODE = 'DISCOVERY_FEATURED_TOPICS'
+export const PUBLIC_OPERATION_SLOT_CODES = [
+  HOME_FEATURED_SLOT_CODE,
+  DISCOVERY_FEATURED_TOPICS_SLOT_CODE,
+] as const
+export type PublicOperationSlotCode = typeof PUBLIC_OPERATION_SLOT_CODES[number]
+
+export type OperationSource = 'remote' | 'legacy-featured' | 'public-content-query' | 'fallback-demo' | 'unavailable'
 export type OperationStatus = 'DRAFT' | 'PREVIEW' | 'PUBLISHED' | 'OFFLINE' | 'ACTIVE' | 'PAUSED' | 'HIDDEN' | string
 export type OperationResourceKind = 'topic' | 'slot'
 export type OperationAction = 'preview' | 'publish' | 'offline' | 'rollback'
 
 export interface OperationCapability<T> {
   available: boolean
-  source: 'remote' | 'legacy-featured' | 'public-content-query' | 'fallback-demo' | 'unavailable'
+  source: OperationSource
   degraded: boolean
   fallbackReason?: string
   items: T[]
@@ -57,12 +66,22 @@ export interface CurationPoolItem {
 
 export interface OperationSlotItem {
   id: ApiId
+  contentId: ApiId
+  contentType: string
   title: string
   summary?: string
   href?: string
   sourceType?: string
   sourceId?: ApiId
   reason?: string
+  reasonText?: string
+  rank: number
+  source: OperationSource
+  blocked?: boolean
+  blockReasons?: string[]
+  fallback?: boolean
+  example?: boolean
+  exampleLabel?: string
 }
 
 export interface OperationSlot {
@@ -73,6 +92,11 @@ export interface OperationSlot {
   status: OperationStatus
   displayLabel?: string
   explanation?: string
+  source?: OperationSource
+  degraded?: boolean
+  fallbackReason?: string
+  currentVersion?: number
+  publishedAt?: string
   items: OperationSlotItem[]
   updatedAt?: string
   fallback?: boolean
@@ -143,7 +167,15 @@ interface RemoteOperationSlotItem {
   id?: ApiId
   sourceType?: string
   sourceId?: ApiId
+  contentId?: ApiId
+  contentType?: string
   note?: string
+  reasonText?: string
+  rank?: number
+  sortOrder?: number
+  source?: OperationSource
+  blocked?: boolean
+  blockReasons?: string[]
   post?: RemotePostBrief
   topic?: RemoteOperationTopic
 }
@@ -156,6 +188,10 @@ interface RemoteOperationSlot {
   description?: string
   status?: OperationStatus
   defaultLimit?: number
+  source?: OperationSource
+  degraded?: boolean
+  fallbackReason?: string
+  currentVersion?: number
   items?: RemoteOperationSlotItem[]
   updateTime?: string
 }
@@ -174,7 +210,7 @@ const unavailableResult = <T>(items: T[] = [], fallbackReason = 'operations_back
 
 const capabilityResult = <T>(
   items: T[],
-  source: OperationCapability<T>['source'],
+  source: OperationSource,
   options: { available?: boolean; degraded?: boolean; fallbackReason?: string } = {},
 ): Result<OperationCapability<T>> => ({
   code: 0,
@@ -209,10 +245,14 @@ const postIdOf = (post: RemotePostBrief | Post | undefined) => {
   const value = post as { postId?: ApiId; id?: ApiId } | undefined
   return value?.postId ?? value?.id
 }
+
 const postHref = (postId: ApiId) => `/post/${postId}`
 const topicHref = (slug?: string) => slug ? `/topics/${encodeURIComponent(slug)}` : '/explore'
+const isPublicOperationSlotCode = (slotCode: string): slotCode is PublicOperationSlotCode => (
+  PUBLIC_OPERATION_SLOT_CODES.includes(slotCode as PublicOperationSlotCode)
+)
 
-const adaptRemotePostItem = (post: RemotePostBrief | undefined, fallbackTitle = '未命名内容') => {
+const adaptRemotePostItem = (post: RemotePostBrief | undefined, fallbackTitle = 'Untitled public content') => {
   const id = postIdOf(post) ?? fallbackTitle
   return {
     id,
@@ -224,7 +264,7 @@ const adaptRemotePostItem = (post: RemotePostBrief | undefined, fallbackTitle = 
 
 const adaptRemoteCandidate = (item: any): OperationCandidate => {
   const post = item?.post as RemotePostBrief | undefined
-  const postItem = adaptRemotePostItem(post, '公开内容')
+  const postItem = adaptRemotePostItem(post, 'Public content')
   return {
     id: `${item?.sourceType || 'POST'}:${item?.sourceId || postItem.id}`,
     title: postItem.title,
@@ -242,7 +282,7 @@ const adaptRemoteCandidate = (item: any): OperationCandidate => {
 
 const adaptRemoteCuration = (item: any): CurationPoolItem => {
   const post = item?.post as RemotePostBrief | undefined
-  const postItem = adaptRemotePostItem(post, '精选池条目')
+  const postItem = adaptRemotePostItem(post, 'Curation pool item')
   return {
     id: item?.id ?? `${item?.sourceType || 'POST'}:${item?.sourceId || postItem.id}`,
     title: postItem.title,
@@ -259,7 +299,7 @@ const adaptRemoteCuration = (item: any): CurationPoolItem => {
 const adaptRemoteTopic = (topic: RemoteOperationTopic): OperationTopic => ({
   id: topic.id || topic.slug || 'topic',
   slug: topic.slug,
-  title: topic.name || topic.title || '专题草稿',
+  title: topic.name || topic.title || 'Topic draft',
   summary: topic.description,
   entryPath: topicHref(topic.slug),
   status: topic.status || 'DRAFT',
@@ -270,45 +310,71 @@ const adaptRemoteTopic = (topic: RemoteOperationTopic): OperationTopic => ({
   itemCount: Array.isArray(topic.sections) ? topic.sections.length : 0,
 })
 
-const adaptRemoteSlotItem = (item: RemoteOperationSlotItem): OperationSlotItem => {
+const adaptRemoteSlotItem = (item: RemoteOperationSlotItem, rankFallback: number): OperationSlotItem => {
   if (item.topic) {
     const topic = adaptRemoteTopic(item.topic)
+    const id = item.id || `topic:${topic.id}`
+    const sourceId = item.sourceId || item.contentId || topic.id
     return {
-      id: item.id || `topic:${topic.id}`,
+      id,
+      contentId: sourceId,
+      contentType: item.contentType || item.sourceType || 'OPERATION_TOPIC',
       title: topic.title,
       summary: topic.summary || item.note,
       href: topic.entryPath,
       sourceType: item.sourceType || 'OPERATION_TOPIC',
-      sourceId: item.sourceId || topic.id,
-      reason: item.note || '来自专题整理',
+      sourceId,
+      reason: item.note || item.reasonText || 'Curated public topic',
+      reasonText: item.reasonText || item.note,
+      rank: item.rank ?? item.sortOrder ?? rankFallback,
+      source: item.source || 'remote',
+      blocked: Boolean(item.blocked),
+      blockReasons: item.blockReasons || [],
     }
   }
-  const postItem = adaptRemotePostItem(item.post, '运营整理内容')
+  const postItem = adaptRemotePostItem(item.post, 'Curated public content')
+  const sourceId = item.sourceId || item.contentId || postItem.id
   return {
-    id: item.id || `post:${item.sourceId || postItem.id}`,
+    id: item.id || `post:${sourceId}`,
+    contentId: sourceId,
+    contentType: item.contentType || item.sourceType || 'POST',
     title: postItem.title,
     summary: postItem.summary || item.note,
     href: postItem.href,
     sourceType: item.sourceType || 'POST',
-    sourceId: item.sourceId || postItem.id,
-    reason: item.note || '来自公开内容整理',
+    sourceId,
+    reason: item.note || item.reasonText || 'Curated from public content',
+    reasonText: item.reasonText || item.note,
+    rank: item.rank ?? item.sortOrder ?? rankFallback,
+    source: item.source || 'remote',
+    blocked: Boolean(item.blocked),
+    blockReasons: item.blockReasons || [],
   }
 }
 
-const adaptRemoteSlot = (slot: RemoteOperationSlot): OperationSlot => ({
-  id: slot.id || slot.slotCode || 'slot',
-  slotCode: slot.slotCode || 'HOME_FEATURED',
-  title: slot.name || slot.title || '社区运营整理',
-  description: slot.description,
-  status: slot.status || 'DRAFT',
-  displayLabel: '运营整理',
-  explanation: slot.description || '由社区运营从公开可见内容中整理，和自然推荐分开说明。',
-  items: (slot.items || [])
-    .map(adaptRemoteSlotItem)
-    .filter((item) => isOpsOrchestrationCopyAllowed(`${item.title} ${item.summary || ''} ${item.reason || ''}`))
-    .slice(0, slot.defaultLimit || 5),
-  updatedAt: slot.updateTime,
-})
+const adaptRemoteSlot = (slot: RemoteOperationSlot): OperationSlot => {
+  const source = slot.source || 'remote'
+  const degraded = Boolean(slot.degraded || source !== 'remote')
+  return {
+    id: slot.id || slot.slotCode || HOME_FEATURED_SLOT_CODE,
+    slotCode: slot.slotCode || HOME_FEATURED_SLOT_CODE,
+    title: slot.name || slot.title || 'Community Featured',
+    description: slot.description,
+    status: slot.status || 'DRAFT',
+    displayLabel: 'Community curation',
+    explanation: slot.description || 'Curated by community operations from public, governed content.',
+    source,
+    degraded,
+    fallbackReason: slot.fallbackReason,
+    currentVersion: slot.currentVersion,
+    items: (slot.items || [])
+      .map((item, index) => adaptRemoteSlotItem(item, index + 1))
+      .filter((item) => isOpsOrchestrationCopyAllowed(`${item.title} ${item.summary || ''} ${item.reasonText || item.reason || ''}`))
+      .slice(0, slot.defaultLimit || 5),
+    updatedAt: slot.updateTime,
+    fallback: degraded,
+  }
+}
 
 const adaptPostCandidate = (post: Post): OperationCandidate => ({
   id: `post:${post.postId}`,
@@ -318,7 +384,7 @@ const adaptPostCandidate = (post: Post): OperationCandidate => ({
   sourceId: post.postId,
   domain: post.domain,
   contentType: post.tags?.[0]?.name,
-  reason: post.recommendationReasons?.[0] || '公开内容查询降级',
+  reason: post.recommendationReasons?.[0] || 'public content query fallback',
   governanceState: 'degraded',
   href: postHref(post.postId),
   fallback: true,
@@ -337,55 +403,26 @@ const adaptPostCuration = (post: Post): CurationPoolItem => ({
   ...markOpsOrchestrationExample({}),
 })
 
-const adaptTopicSlotItem = (topic: CommunityTopic): OperationSlotItem => ({
-  id: `topic:${topic.id}`,
-  title: topic.name,
-  summary: topic.description,
-  href: topicHref(topic.slug),
-  sourceType: 'TOPIC',
-  sourceId: topic.id,
-  reason: '公开专题降级示例',
+const emptyPublicOperationSlot = (
+  slotCode = HOME_FEATURED_SLOT_CODE,
+  fallbackReason = 'operation_slot_backend_unavailable',
+): Result<OperationSlot> => ({
+  code: 0,
+  message: 'operation slot unavailable',
+  data: {
+    id: `unavailable:${slotCode}`,
+    slotCode,
+    title: 'Community Featured',
+    description: 'The featured slot is temporarily unavailable.',
+    status: 'OFFLINE',
+    displayLabel: 'Unavailable',
+    explanation: 'The public featured slot is empty while the backend curation service is unavailable.',
+    source: 'unavailable',
+    degraded: true,
+    fallbackReason,
+    items: [],
+  },
 })
-
-const publicFallbackSlot = async (slotCode: string): Promise<Result<OperationSlot>> => {
-  const [topicRes, featuredRes] = await Promise.allSettled([
-    postApi.listTopics({ featured: true, limit: 4 }),
-    postApi.list({ featured: true, size: 4 }),
-  ])
-  const topicItems = topicRes.status === 'fulfilled'
-    ? (topicRes.value.data || []).filter((item) => item.status == null || Number(item.status) === 1).map(adaptTopicSlotItem)
-    : []
-  const postItems = featuredRes.status === 'fulfilled'
-    ? filterOpsOrchestrationDisplayItems(filterStrongExposurePosts(featuredRes.value.data?.items || [], 4), {}, 4).map((post) => ({
-      id: `post:${post.postId}`,
-      title: post.title,
-      summary: post.summary,
-      href: postHref(post.postId),
-      sourceType: 'POST',
-      sourceId: post.postId,
-      reason: '公开精选内容降级示例',
-    }))
-    : []
-  const items = [...topicItems, ...postItems]
-    .filter((item) => isOpsOrchestrationCopyAllowed(`${item.title} ${item.summary || ''} ${item.reason || ''}`))
-    .slice(0, 4)
-  return {
-    code: 0,
-    message: 'fallback example operations slot',
-    data: {
-      id: `fallback:${slotCode}`,
-      slotCode,
-      title: '社区运营整理入口',
-      description: '后端运营位不可用时，由公开内容组成的降级示例。',
-      status: 'HIDDEN',
-      displayLabel: '示例/fallback',
-      explanation: '后端运营位暂不可用；此处明确标记为示例，不代表真实发布配置。',
-      items,
-      fallback: true,
-      ...markOpsOrchestrationExample({}),
-    },
-  }
-}
 
 export const operationsApi = {
   listOperationCandidates: async (params?: { domain?: number; keyword?: string; limit?: number }): Promise<Result<OperationCapability<OperationCandidate>>> => {
@@ -421,7 +458,10 @@ export const operationsApi = {
   listOperationSlots: async (): Promise<Result<OperationCapability<OperationSlot>>> => {
     try {
       const res = await client.get('/api/v1/operations/admin/slots') as Result<unknown>
-      return capabilityResult(normalizeItems<RemoteOperationSlot>(res.data).map(adaptRemoteSlot), 'remote')
+      const items = normalizeItems<RemoteOperationSlot>(res.data)
+        .map(adaptRemoteSlot)
+        .filter((slot) => isPublicOperationSlotCode(slot.slotCode))
+      return capabilityResult(items, 'remote')
     } catch (error) {
       if (!operationUnavailable(error)) throw error
       return unavailableResult([])
@@ -429,13 +469,17 @@ export const operationsApi = {
   },
 
   getPublicOperationSlot: async (slotCode: string): Promise<Result<OperationSlot>> => {
+    const normalizedSlotCode = slotCode
+    if (!isPublicOperationSlotCode(normalizedSlotCode)) {
+      return emptyPublicOperationSlot(normalizedSlotCode, 'unsupported_operation_slot')
+    }
     try {
-      const res = await client.get(`/api/v1/operations/slots/${encodeURIComponent(slotCode)}`) as Result<RemoteOperationSlot>
-      if (!res.data) return publicFallbackSlot(slotCode)
+      const res = await client.get(`/api/v1/operations/slots/${encodeURIComponent(normalizedSlotCode)}`) as Result<RemoteOperationSlot>
+      if (!res.data) return emptyPublicOperationSlot(normalizedSlotCode, 'operation_slot_empty')
       return { ...res, data: adaptRemoteSlot(res.data) }
     } catch (error) {
       if (!operationUnavailable(error)) throw error
-      return publicFallbackSlot(slotCode)
+      return emptyPublicOperationSlot(normalizedSlotCode)
     }
   },
 
@@ -458,6 +502,66 @@ export const operationsApi = {
       return unavailableResult([], 'operation_audit_backend_unavailable')
     }
   },
+
+  addSlotItemToHomeFeatured: (
+    slotId: ApiId,
+    sourceType: string,
+    sourceId: ApiId,
+    note?: string,
+    sortOrder = 100,
+  ): Promise<Result<OperationSlotItem>> => client.post(`/api/v1/operations/admin/slots/${slotId}/items`, {
+    sourceType,
+    sourceId,
+    note,
+    sortOrder,
+    status: 'ACTIVE',
+  }),
+
+  removeSlotItemFromHomeFeatured: (itemId: ApiId, note?: string): Promise<Result<void>> => (
+    client.delete(`/api/v1/operations/admin/slots/items/${itemId}`, { params: { note } })
+  ),
+
+  updateHomeFeaturedItemReason: (
+    slotId: ApiId,
+    item: OperationSlotItem,
+    reasonText: string,
+  ): Promise<Result<OperationSlotItem>> => client.post(`/api/v1/operations/admin/slots/${slotId}/items`, {
+    sourceType: item.sourceType || item.contentType,
+    sourceId: item.sourceId || item.contentId,
+    note: reasonText,
+    sortOrder: item.rank,
+    status: item.blocked ? 'PAUSED' : 'ACTIVE',
+  }),
+
+  moveHomeFeaturedItem: (
+    slotId: ApiId,
+    item: OperationSlotItem,
+    rank: number,
+  ): Promise<Result<OperationSlotItem>> => client.post(`/api/v1/operations/admin/slots/${slotId}/items`, {
+    sourceType: item.sourceType || item.contentType,
+    sourceId: item.sourceId || item.contentId,
+    note: item.reasonText || item.reason,
+    sortOrder: rank,
+    status: item.blocked ? 'PAUSED' : 'ACTIVE',
+  }),
+
+  publishHomeFeaturedSlot: (
+    slotId: ApiId,
+    note?: string,
+    permissions?: OpsOrchestrationPermissions | null,
+  ) => operationsApi.runLifecycleAction('slot', slotId, 'publish', note, permissions),
+
+  offlineHomeFeaturedSlot: (
+    slotId: ApiId,
+    note?: string,
+    permissions?: OpsOrchestrationPermissions | null,
+  ) => operationsApi.runLifecycleAction('slot', slotId, 'offline', note, permissions),
+
+  rollbackHomeFeaturedSlot: (
+    slotId: ApiId,
+    note?: string,
+    permissions?: OpsOrchestrationPermissions | null,
+  ) => operationsApi.runLifecycleAction('slot', slotId, 'rollback', note, permissions),
 
   runLifecycleAction: (
     resourceKind: OperationResourceKind,

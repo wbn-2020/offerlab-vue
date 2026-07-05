@@ -132,7 +132,7 @@ has(operationsApi, /markOpsOrchestrationExample/, 'Operations API fallback data 
 has(operationsApi, /isOpsOrchestrationCopyAllowed/, 'Operations API must filter forbidden operation copy before public fallback display.')
 has(operationsApi, /confirmationPhrase:\s*action === 'preview' \? undefined : 'CONFIRM'/, 'Critical lifecycle actions must pass the backend confirmation phrase.')
 has(operationSlotCard, /isOpsOrchestrationCopyAllowed/, 'Public operation slot component must filter forbidden copy before rendering.')
-has(operationSlotCard, /示例\/fallback/, 'Public operation slot fallback must be visibly labeled as an example.')
+missing(operationSlotCard, /示例\/fallback|fallback demo|demo\/fallback/i, 'V3 public operation slot empty state must not expose fallback/demo wording.')
 has(adminOperationsView, /canAccessOpsOrchestrationAdmin/, 'Ops orchestration admin page must gate local actions by admin access.')
 has(adminOperationsView, /canMutateOpsOrchestration\(opsPermissions\.value, action as OpsOrchestrationAction\)/, 'Ops orchestration admin page must block publish/offline/rollback before confirmation when action permission is absent.')
 has(adminOperationsView, /runLifecycleAction\(resourceKind, resourceId, action, note, opsPermissions\.value\)/, 'Ops orchestration admin page must pass permissions into lifecycle API guard.')
