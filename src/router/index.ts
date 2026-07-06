@@ -105,6 +105,13 @@ const routes = [
     meta: { title: '我的主页', requiresAuth: true },
   },
   {
+    path: '/me/creator',
+    alias: '/creator/workbench',
+    name: 'CreatorWorkbench',
+    component: () => import('@/views/MeProfileView.vue'),
+    meta: { title: '创作者工作台', requiresAuth: true },
+  },
+  {
     path: '/me/prep',
     name: 'MePrep',
     redirect: '/me',

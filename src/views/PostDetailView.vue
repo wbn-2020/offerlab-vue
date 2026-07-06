@@ -299,9 +299,9 @@
               <section v-if="showStageTwoDetailPanels" class="knowledge-path-panel mb-8" aria-label="知识资产路径">
                 <div>
                   <p class="knowledge-path-kicker">知识资产路径</p>
-                  <h2>从经验帖到可复用知识</h2>
+                  <h2>从经验帖到公共阅读路径</h2>
                   <p>
-                    这篇内容会沿着摘要、知识卡、主题路径和个人复盘空间继续沉淀，方便后续搜索、讨论和回看。
+                    这篇内容可以沿着摘要、知识卡、主题和相似公开内容继续阅读；这里只提供公共阅读建议。
                   </p>
                 </div>
                 <div class="knowledge-path-steps">
@@ -314,7 +314,45 @@
                 <div class="knowledge-path-actions">
                   <RouterLink :to="{ path: '/questions', query: knowledgeTopicQuery }">查看知识卡</RouterLink>
                   <RouterLink :to="{ path: '/search', query: knowledgeSearchQuery }">发现相似经验</RouterLink>
-                  <RouterLink to="/me/prep">加入个人复盘空间</RouterLink>
+                  <RouterLink :to="{ path: '/knowledge/explore', query: { assetType: 'post', assetId: post.postId } }">查看公共关系</RouterLink>
+                </div>
+              </section>
+
+              <section v-if="detailKnowledgeLoading || postKnowledgeAssets.length || postKnowledgePaths.length || postKnowledgeRelations.length" class="post-knowledge-assets mb-8" aria-label="相关公共知识资产">
+                <div class="post-knowledge-head">
+                  <div>
+                    <p>相关公共知识资产</p>
+                    <h2>内容详情页的公共关系入口</h2>
+                    <span>只展示公开资产、来源解释和只读诊断；local-only/fallback/demo 不作为正式关系。</span>
+                  </div>
+                  <RouterLink :to="{ path: '/knowledge/explore', query: { assetType: 'post', assetId: post.postId } }">知识探索</RouterLink>
+                </div>
+                <p v-if="detailKnowledgeError" class="post-knowledge-note">{{ detailKnowledgeError }}</p>
+                <p v-else-if="detailKnowledgeLoading" class="post-knowledge-note">正在读取相关公共知识资产...</p>
+                <div v-if="postKnowledgeAssets.length" class="post-knowledge-grid">
+                  <article v-for="asset in postKnowledgeAssets" :key="`${asset.assetType}:${asset.assetId}`" class="post-knowledge-card">
+                    <div class="post-knowledge-card-tags">
+                      <span>{{ postKnowledgeAssetTypeLabel(asset.assetType) }}</span>
+                      <span v-if="asset.assetStatus === 'archived'">归档知识资产</span>
+                      <span v-if="asset.previewSource !== 'remote'">{{ postKnowledgePreviewLabel(asset.previewSource) }} · 只读展示</span>
+                    </div>
+                    <strong>{{ asset.title }}</strong>
+                    <p>{{ asset.summary || asset.sourceNote }}</p>
+                    <small>来源解释：{{ asset.sourceNote }}</small>
+                    <RouterLink v-if="asset.targetHref" :to="asset.targetHref">打开入口</RouterLink>
+                  </article>
+                </div>
+                <div v-if="postKnowledgeRelations.length" class="post-knowledge-list">
+                  <strong>关系来源解释</strong>
+                  <p v-for="relation in postKnowledgeRelations" :key="relation.relationId">
+                    {{ relation.sourceAssetId }} -> {{ relation.targetAssetId }}：{{ relation.reasonText }}
+                  </p>
+                </div>
+                <div v-if="postKnowledgePaths.length" class="post-knowledge-list">
+                  <strong>知识路径</strong>
+                  <p v-for="path in postKnowledgePaths" :key="path.pathId">
+                    {{ path.title }}：{{ path.summary }}
+                  </p>
                 </div>
               </section>
 
@@ -548,7 +586,7 @@
               </div>
             </article>
 
-            <section class="rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+            <section id="comments" class="rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
               <h2 class="mb-6 text-xl font-bold text-slate-900 dark:text-slate-100">{{ discussionSectionTitle }}</h2>
 
               <div v-if="authStore.isLoggedIn" class="mb-6 border-b border-slate-200 pb-6 dark:border-slate-800">
@@ -651,7 +689,16 @@
                   <span>{{ post.counter.like }} 次点赞</span>
                 </div>
                 <p>这里仅展示这篇公开内容的回应信号；完整的 7 天/30 天概览请回到创作者工作台查看。</p>
-                <RouterLink to="/me" class="creator-feedback-link">回到创作者工作台</RouterLink>
+                <div class="creator-feedback-actions">
+                  <RouterLink :to="{ path: '/me', hash: '#creator-workbench' }" class="creator-feedback-link">回到创作者工作台</RouterLink>
+                  <RouterLink :to="{ path: `/post/${postId}`, hash: '#comments' }" class="creator-feedback-link">查看评论区</RouterLink>
+                  <RouterLink
+                    :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'update', contextType: 'post', postId: String(post.postId), title: post.title, reasonText: '本篇公开内容反馈入口', returnHref: `/post/${postId}` } }"
+                    class="creator-feedback-link"
+                  >
+                    带上下文进入编辑器
+                  </RouterLink>
+                </div>
               </div>
             </section>
 
@@ -864,6 +911,7 @@ import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
 import { BizException, getErrorMessage } from '@/api/client'
 import type { Comment, Post, PostPublishStatus, PostVersionHistory } from '@/api/types'
+import { isPersistableKnowledgeRelation, knowledgeApi, type KnowledgeExploreResponse, type KnowledgePath, type KnowledgePreviewSource, type KnowledgeRelation, type PublicKnowledgeAsset, type PublicKnowledgeAssetType } from '@/api/knowledge'
 import { POST_TYPE, getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
@@ -893,6 +941,9 @@ const isLoadingVersions = ref(false)
 const versionLoadAttempted = ref(false)
 const showStageTwoDetailPanels = false
 const postId = computed(() => route.params.id as string)
+const detailKnowledge = ref<KnowledgeExploreResponse | null>(null)
+const detailKnowledgeLoading = ref(false)
+const detailKnowledgeError = ref('')
 const commentText = ref('')
 const isSubmittingComment = ref(false)
 const isReporting = ref(false)
@@ -1331,6 +1382,104 @@ const primaryKnowledgeTopic = computed(() => {
 })
 const knowledgeTopicQuery = computed(() => ({ q: primaryKnowledgeTopic.value }))
 const knowledgeSearchQuery = computed(() => ({ q: primaryKnowledgeTopic.value, sort: 'relevance' }))
+const postKnowledgeAssetTypeLabel = (type: PublicKnowledgeAssetType) => {
+  const labels: Record<string, string> = {
+    post: '内容',
+    series: '所属系列',
+    collection: '合集',
+    topic: '相关专题',
+    tag: '相关标签',
+    search_entry: '搜索入口',
+  }
+  return labels[type] || type
+}
+const postKnowledgePreviewLabel = (source?: KnowledgePreviewSource) => {
+  if (source === 'local') return 'local-only'
+  if (source === 'fallback') return 'fallback'
+  if (source === 'demo') return 'demo'
+  return 'remote'
+}
+const buildLocalPostKnowledgeAsset = (
+  assetType: PublicKnowledgeAssetType,
+  assetId: string,
+  title: string,
+  summary: string,
+  targetHref: string,
+  sourceNote: string,
+): PublicKnowledgeAsset => ({
+  assetId,
+  assetType,
+  title,
+  summary,
+  assetStatus: 'active',
+  visibilityState: 'visible',
+  source: assetType === 'search_entry' ? 'search' : assetType,
+  previewSource: 'local',
+  sourceNote,
+  targetHref,
+  updatedAt: post.value?.updatedAt ? new Date(post.value.updatedAt).toISOString() : '',
+})
+const localPostKnowledgeAssets = computed(() => {
+  const current = post.value
+  if (!current) return [] as PublicKnowledgeAsset[]
+  const assets: PublicKnowledgeAsset[] = []
+  const extension = current.extension || {}
+  const seriesId = String(extension.seriesId || extension.contentSeriesId || '').trim()
+  const seriesTitle = String(extension.seriesTitle || extension.contentSeriesTitle || '').trim()
+  if (seriesId || seriesTitle) {
+    assets.push(buildLocalPostKnowledgeAsset(
+      'series',
+      seriesId || seriesTitle,
+      seriesTitle || '所属系列',
+      '由当前帖子扩展字段推导的所属系列入口。',
+      seriesId ? `/series/${encodeURIComponent(seriesId)}` : '',
+      'local-only 推导，仅在详情页只读展示，需后端确认后才可成为正式知识资产。',
+    ))
+  }
+  const topicSlug = String(extension.topicSlug || extension.curatedTopicSlug || '').trim()
+  const topicTitle = String(extension.topicTitle || extension.curatedTopicTitle || '').trim()
+  if (topicSlug || topicTitle) {
+    assets.push(buildLocalPostKnowledgeAsset(
+      'topic',
+      topicSlug || topicTitle,
+      topicTitle || topicSlug || '相关专题',
+      '由当前帖子扩展字段推导的相关专题。',
+      topicSlug ? `/topics/${encodeURIComponent(topicSlug)}` : '',
+      'local-only 推导，仅作公开关系提示，不进入普通知识路径。',
+    ))
+  }
+  for (const tag of current.tags || []) {
+    assets.push(buildLocalPostKnowledgeAsset(
+      'tag',
+      String(tag.id || tag.slug || tag.name),
+      tag.name,
+      '由当前公开帖子标签推导的相关标签入口。',
+      `/tag/${encodeURIComponent(String(tag.slug || tag.id))}`,
+      'local-only 推导，展示为只读入口。',
+    ))
+  }
+  if (primaryKnowledgeTopic.value) {
+    assets.push(buildLocalPostKnowledgeAsset(
+      'search_entry',
+      primaryKnowledgeTopic.value,
+      primaryKnowledgeTopic.value,
+      '由当前帖子公开主题生成的搜索入口候选。',
+      `/search?q=${encodeURIComponent(primaryKnowledgeTopic.value)}&sort=relevance`,
+      'local-only 搜索入口，仅辅助本次体验。',
+    ))
+  }
+  return assets.slice(0, 8)
+})
+const postKnowledgeAssets = computed(() => {
+  const remoteAssets = detailKnowledge.value?.assets?.filter((asset) => asset.visibilityState !== 'excluded') || []
+  return remoteAssets.length ? remoteAssets : localPostKnowledgeAssets.value
+})
+const postKnowledgeRelations = computed((): KnowledgeRelation[] => (detailKnowledge.value?.relations || []).filter((relation) => {
+  return isPersistableKnowledgeRelation(relation)
+}))
+const postKnowledgePaths = computed((): KnowledgePath[] => (detailKnowledge.value?.paths || []).filter((path) => (
+  path.pathStatus !== 'archived' || path.steps.length > 0
+)))
 const knowledgePathSteps = computed(() => [
   {
     index: '01',
@@ -1858,6 +2007,32 @@ const loadRelatedPosts = async () => {
   }
 }
 
+const loadDetailKnowledgeAssets = async () => {
+  const current = post.value
+  if (!current?.postId || !isPublicPostVisible(current)) {
+    detailKnowledge.value = null
+    detailKnowledgeError.value = ''
+    return
+  }
+  detailKnowledgeLoading.value = true
+  detailKnowledgeError.value = ''
+  try {
+    const res = await knowledgeApi.assets({
+      postId: current.postId,
+      assetId: current.postId,
+      assetType: 'post',
+      domain: current.domain,
+      limit: 8,
+    })
+    detailKnowledge.value = res.data
+  } catch (error: any) {
+    detailKnowledge.value = null
+    detailKnowledgeError.value = getErrorMessage(error, '知识关系服务暂时不可用，以下仅展示 local-only 只读入口。')
+  } finally {
+    detailKnowledgeLoading.value = false
+  }
+}
+
 const loadInteractionState = async () => {
   if (!post.value || !authStore.isLoggedIn) return
   try {
@@ -2041,6 +2216,7 @@ watch([post, postErrorCode, postId], () => {
 
 watch(post, () => {
   loadRelatedPosts()
+  loadDetailKnowledgeAssets()
   loadInteractionState()
   loadContentSuggestions()
   if (showStageTwoDetailPanels) {
@@ -2562,6 +2738,17 @@ watch(canViewVersionHistory, (allowed) => {
   color: rgb(5 150 105);
   font-size: 0.8125rem;
   font-weight: 900;
+}
+
+.creator-feedback-actions {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.creator-feedback-actions .creator-feedback-link {
+  margin-top: 0;
 }
 
 .dark .favorite-feedback-row {
@@ -3158,6 +3345,88 @@ watch(canViewVersionHistory, (allowed) => {
   padding: 0.5rem 0.85rem;
   font-size: 0.8125rem;
   font-weight: 900;
+  color: rgb(29 78 216);
+}
+
+.post-knowledge-assets {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 1rem;
+  background: rgb(248 250 252);
+  padding: 1.25rem;
+}
+
+.post-knowledge-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.post-knowledge-head p {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: rgb(37 99 235);
+}
+
+.post-knowledge-head h2 {
+  margin-top: 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.post-knowledge-head span,
+.post-knowledge-note,
+.post-knowledge-card p,
+.post-knowledge-card small,
+.post-knowledge-list p {
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.post-knowledge-head a,
+.post-knowledge-card a {
+  align-self: flex-start;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(37 99 235);
+}
+
+.post-knowledge-grid {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.post-knowledge-card,
+.post-knowledge-list {
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.85rem;
+  background: white;
+  padding: 1rem;
+}
+
+.post-knowledge-card strong,
+.post-knowledge-list strong {
+  color: rgb(15 23 42);
+  font-weight: 900;
+}
+
+.post-knowledge-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.post-knowledge-card-tags span {
+  border-radius: 999px;
+  background: rgb(239 246 255);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
   color: rgb(29 78 216);
 }
 

@@ -17,6 +17,10 @@ export interface ContentSeriesRecord {
   visibility: 'public' | 'private'
   goalCount: number
   status: 'active' | 'paused' | 'completed'
+  assetStatus?: 'active' | 'archived'
+  previewSource?: 'remote' | 'local' | 'fallback' | 'demo'
+  sourceNote?: string
+  targetHref?: string
   deleted?: boolean
   restricted?: boolean
   riskLevel?: string | number
@@ -107,6 +111,13 @@ const clampRate = (value: number) => Math.max(0, Math.min(100, Math.round(value)
 const normalizeVisibility = (value: unknown): ContentSeriesRecord['visibility'] => (
   value === 2 || value === '2' || value === 'private' || value === 'PRIVATE' ? 'private' : 'public'
 )
+const normalizePreviewSource = (raw: any): NonNullable<ContentSeriesRecord['previewSource']> => {
+  const value = safeText(raw?.previewSource).toLowerCase()
+  if (value === 'fallback' || raw?.source === 'fallback' || raw?.fallback) return 'fallback'
+  if (value === 'demo') return 'demo'
+  if (value === 'local' || String(raw?.id || '').startsWith('series_')) return 'local'
+  return 'remote'
+}
 const visibilityCodeOf = (value?: ContentSeriesDraftPayload['visibility']) => value === 'public' ? 1 : 2
 
 const decorateRecord = (record: Omit<ContentSeriesRecord, 'progress'>, remoteProgress?: any): ContentSeriesRecord => ({
@@ -137,6 +148,10 @@ const adaptSeriesRecord = (raw: any): ContentSeriesRecord => {
     visibility: normalizeVisibility(raw?.visibility),
     goalCount: Math.max(1, Number(raw?.goalCount || raw?.progress?.totalPostCount || items.length || 3)),
     status: raw?.status === 'paused' || raw?.status === 'completed' ? raw.status : 'active',
+    assetStatus: raw?.assetStatus === 'archived' ? 'archived' : 'active',
+    previewSource: normalizePreviewSource(raw),
+    sourceNote: safeText(raw?.sourceNote) || '公开系列来自内容系列接口；local-only/fallback 仅作只读展示。',
+    targetHref: safeText(raw?.targetHref ?? raw?.href) || undefined,
     deleted: raw?.deleted ?? raw?.isDeleted,
     restricted: raw?.restricted ?? raw?.isRestricted,
     riskLevel: raw?.riskLevel ?? raw?.risk,
@@ -165,6 +180,10 @@ const mergeRemoteSeriesRecord = (raw: any, localRecord?: ContentSeriesRecord): C
       Number(remoteRecord.progress.totalCount || 0),
     ),
     status: localRecord?.status || remoteRecord.status || 'active',
+    assetStatus: remoteRecord.assetStatus || localRecord?.assetStatus || 'active',
+    previewSource: 'remote',
+    sourceNote: remoteRecord.sourceNote || localRecord?.sourceNote || '公开系列来自内容系列接口。',
+    targetHref: remoteRecord.targetHref || localRecord?.targetHref,
     deleted: remoteRecord.deleted ?? localRecord?.deleted,
     restricted: remoteRecord.restricted ?? localRecord?.restricted,
     riskLevel: remoteRecord.riskLevel ?? localRecord?.riskLevel,
@@ -314,6 +333,10 @@ export const contentSeriesApi = {
       visibility: payload.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || 3)),
       status: payload.status || 'active',
+      assetStatus: 'active',
+      previewSource: 'local',
+      sourceNote: 'local-only 系列仅保存在本地，不能进入公共知识资产。',
+      targetHref: undefined,
       items: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -344,6 +367,10 @@ export const contentSeriesApi = {
       visibility: payload.visibility || current?.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || current?.goalCount || 3)),
       status: payload.status || current?.status || 'active',
+      assetStatus: current?.assetStatus || 'active',
+      previewSource: current?.previewSource || 'local',
+      sourceNote: current?.sourceNote || 'local-only 系列仅保存在本地，不能进入公共知识资产。',
+      targetHref: current?.targetHref,
       items: current?.items || [],
       createdAt: current?.createdAt || Date.now(),
       updatedAt: Date.now(),

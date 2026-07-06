@@ -30,7 +30,7 @@
       <img :src="preview.cover.url" :alt="preview.cover.alt" @error="handleCoverError" />
     </div>
     <div v-else class="preview-cover-fallback mb-4">
-      {{ preview.cover.description }}
+      {{ coverFallbackText }}
     </div>
 
     <p :class="['mb-4 line-clamp-4 min-h-[5.5rem] text-sm leading-6 text-slate-600', preview.summaryPlaceholder ? 'text-slate-400' : '']">
@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { EditorPreviewModel } from '@/utils/editorPreview'
 
 const copy = {
@@ -73,20 +73,28 @@ const copy = {
   standaloneContent: '\u72ec\u7acb\u5185\u5bb9',
   pendingTags: '\u5f85\u8865\u5145\u6807\u7b7e',
   footerLabel: '\u53d1\u5e03\u5361\u7247\u5e95\u90e8\u4fe1\u606f',
+  coverLoadFailed: '\u56fe\u7247\u52a0\u8f7d\u5931\u8d25\uff0c\u5df2\u6539\u7528\u6587\u5b57\u9884\u89c8\u3002',
 } as const
 
 const props = defineProps<{
   preview: EditorPreviewModel
+  failedCoverUrl?: string
 }>()
 
-const failedCoverUrl = ref('')
+const emit = defineEmits<{
+  coverError: [url: string]
+}>()
+
 const visibleTags = computed(() => props.preview.tags.slice(0, 4))
 const showCoverPreview = computed(() => props.preview.cover.visible
   && Boolean(props.preview.cover.url)
-  && failedCoverUrl.value !== props.preview.cover.url)
+  && props.failedCoverUrl !== props.preview.cover.url)
+const coverFallbackText = computed(() => (
+  props.failedCoverUrl === props.preview.cover.url ? copy.coverLoadFailed : props.preview.cover.description
+))
 
 const handleCoverError = () => {
-  failedCoverUrl.value = props.preview.cover.url
+  emit('coverError', props.preview.cover.url)
 }
 </script>
 

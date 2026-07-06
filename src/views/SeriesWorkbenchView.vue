@@ -186,8 +186,23 @@
             <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span class="series-meta-pill">{{ domainNameOf(record.domain) }}</span>
               <span class="series-meta-pill">{{ record.visibility === 'private' ? '私密合集' : '公开合集' }}</span>
+              <span class="series-meta-pill">{{ seriesKnowledgeAssetLabel(record) }}</span>
+              <span v-if="seriesSource !== 'remote' || record.previewSource !== 'remote'" class="series-meta-pill">
+                {{ seriesPreviewSourceLabel(record) }} · 只读展示
+              </span>
               <span class="series-meta-pill">目标 {{ record.goalCount }} 篇</span>
               <span class="series-meta-pill">最近更新 {{ formatTimestamp(record.updatedAt) }}</span>
+            </div>
+
+            <div class="series-knowledge-asset mt-4">
+              <strong>{{ record.visibility === 'public' ? '公开知识资产' : '非公共知识资产' }}</strong>
+              <p>{{ seriesKnowledgeAssetCopy(record) }}</p>
+              <RouterLink
+                v-if="record.visibility === 'public' && seriesSource === 'remote' && record.previewSource === 'remote'"
+                :to="{ path: '/knowledge/explore', query: { assetType: 'series', assetId: record.id } }"
+              >
+                查看公共关系
+              </RouterLink>
             </div>
 
             <div class="mt-5">
@@ -292,6 +307,28 @@ const seriesStatusLabel = (status: ContentSeriesRecord['status']) => {
   if (status === 'completed') return '已完结'
   if (status === 'paused') return '暂停更新'
   return '进行中'
+}
+
+const seriesPreviewSourceLabel = (record: ContentSeriesRecord) => {
+  if (seriesSource.value === 'fallback') return 'fallback'
+  if (record.previewSource === 'local') return 'local-only'
+  if (record.previewSource === 'demo') return 'demo'
+  if (record.previewSource === 'fallback') return 'fallback'
+  return 'remote'
+}
+
+const seriesKnowledgeAssetLabel = (record: ContentSeriesRecord) => {
+  if (record.visibility !== 'public') return '不进入公共资产'
+  if (seriesSource.value !== 'remote' || record.previewSource !== 'remote') return '只读展示'
+  return record.assetStatus === 'archived' ? '归档公共资产' : '可作为公共资产'
+}
+
+const seriesKnowledgeAssetCopy = (record: ContentSeriesRecord) => {
+  if (record.visibility !== 'public') return '私密合集只用于个人管理，不进入 PublicKnowledgeAsset。'
+  if (seriesSource.value !== 'remote' || record.previewSource !== 'remote') {
+    return `${seriesPreviewSourceLabel(record)} 系列只能只读展示，不能进入公共知识资产，也不会生成正式关系。`
+  }
+  return record.sourceNote || '公开系列可作为 PublicKnowledgeAsset，与公开内容、专题和标签形成来源可解释的关系。'
 }
 
 const formatTimestamp = (value: number) => {
@@ -512,6 +549,34 @@ onMounted(async () => {
   padding: 0.85rem 0.95rem;
 }
 
+.series-knowledge-asset {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: rgb(248 250 252);
+  padding: 0.85rem 0.95rem;
+}
+
+.series-knowledge-asset strong {
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  font-weight: 900;
+}
+
+.series-knowledge-asset p {
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.series-knowledge-asset a {
+  justify-self: start;
+  color: rgb(37 99 235);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
 .series-item-status {
   flex-shrink: 0;
   border-radius: 999px;
@@ -542,10 +607,19 @@ onMounted(async () => {
 
 .dark .series-input,
 .dark .series-textarea,
-.dark .series-item-row {
+.dark .series-item-row,
+.dark .series-knowledge-asset {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
   color: rgb(226 232 240);
+}
+
+.dark .series-knowledge-asset strong {
+  color: rgb(241 245 249);
+}
+
+.dark .series-knowledge-asset p {
+  color: rgb(148 163 184);
 }
 
 .dark .series-input:focus,

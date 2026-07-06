@@ -258,9 +258,14 @@ export interface PaginatedResponse<T> {
   diagnostics?: Record<string, unknown>
 }
 
+export type ContentAssistSuggestionType = 'tag' | 'topic'
+
+export type ContentAssistSource = 'remote' | 'fallback' | 'demo'
+
 export interface ContentAssistSuggestion {
   id: string
   label: string
+  type: ContentAssistSuggestionType
   detail?: string
   reason?: string
   confidence?: number
@@ -279,9 +284,19 @@ export interface ContentAssistQualityMetric {
   detail: string
 }
 
+export interface ContentAssistTopicCandidateHint {
+  topicId?: ApiId
+  title: string
+  href?: string
+  reasonText: string
+  status: 'candidate'
+}
+
 export interface ContentAssistResult {
   status: 'ready' | 'disabled' | 'degraded' | 'failed'
-  source: 'remote' | 'fallback'
+  source: ContentAssistSource
+  sourceLabel?: string
+  sourceMessage?: string
   summary: string
   qualityScore: number
   qualityLabel: string
@@ -291,7 +306,130 @@ export interface ContentAssistResult {
   tagSuggestions: ContentAssistSuggestion[]
   topicSuggestions: ContentAssistSuggestion[]
   seriesHints: ContentAssistSeriesHint[]
+  topicCandidateHints?: ContentAssistTopicCandidateHint[]
   fallbackReason?: string
+}
+
+export type OperationTopicLifecycleStatus =
+  | 'DRAFT'
+  | 'PREVIEW'
+  | 'PUBLISHED'
+  | 'OFFLINE'
+  | 'ARCHIVED'
+
+export type OperationTopicDisplayStatus = OperationTopicLifecycleStatus | 'DEGRADED'
+
+export interface OperationTopicContentItem {
+  id: ApiId
+  sourceType: 'POST' | string
+  sourceId: ApiId
+  status: 'ACTIVE' | 'PAUSED' | string
+  sortOrder: number
+  reasonText: string
+}
+
+export interface OperationTopicSectionContract {
+  id?: ApiId
+  key: string
+  title: string
+  status: 'ACTIVE' | 'PAUSED' | string
+  sortOrder: number
+  reasonText?: string
+  items: OperationTopicContentItem[]
+}
+
+export interface OperationTopicPublishCheckContract {
+  topicId: ApiId
+  canPublish: boolean
+  items: Array<{
+    code: string
+    label: string
+    passed: boolean
+    detail: string
+  }>
+}
+
+export type EditorAssistContextSource =
+  | 'creator_workbench'
+  | 'post_detail'
+  | 'series_entry'
+  | 'topic_candidate'
+  | 'content_type_template'
+  | 'manual_publish'
+
+export type EditorAssistAction =
+  | 'update'
+  | 'reply'
+  | 'continue'
+  | 'series'
+  | 'topic'
+  | 'template'
+
+export type EditorAssistContextType =
+  | 'post'
+  | 'reply'
+  | 'idea'
+  | 'series'
+  | 'topic'
+  | 'template'
+
+export interface EditorAssistContext {
+  source: EditorAssistContextSource
+  action: EditorAssistAction
+  contextType: EditorAssistContextType
+  postId?: string
+  commentId?: string
+  ideaId?: string
+  seriesId?: string
+  topicId?: string
+  templateCode?: string
+  returnHref?: string
+  title?: string
+  postType?: string
+  topic?: string
+  reasonText?: string
+  contextSource?: string
+  legacySource?: string
+  degraded?: boolean
+  degradedReason?: string
+}
+
+export interface EditorSearchGapContext {
+  source: 'search_gap' | 'search_discovery'
+  keyword: string
+  clusterId?: string
+  reasonText: string
+  templateCode?: string
+  topicId?: string
+  topicSlug?: string
+  returnHref?: string
+}
+
+export type EditorAssistSource = EditorAssistContextSource
+
+export type EditorAssistFallbackReason =
+  | 'missing_source'
+  | 'invalid_source'
+  | 'context_only_source'
+  | 'missing_action'
+  | 'invalid_action'
+  | 'missing_context_type'
+  | 'invalid_context_type'
+  | 'missing_context_id'
+
+export interface EditorAssistSourceHint {
+  title: string
+  detail: string
+  returnHref?: string
+}
+
+export interface EditorAssistContextParseResult {
+  context: EditorAssistContext | null
+  source?: EditorAssistSource
+  degraded: boolean
+  fallbackReason?: EditorAssistFallbackReason
+  canShowSourceHint: boolean
+  sourceHint?: EditorAssistSourceHint | null
 }
 
 export interface ContentSeriesItem {
@@ -398,18 +536,23 @@ export interface GrowthReportHighlightPost {
 export interface CreatorFeedbackWindow {
   days: 7 | 30 | number
   label: string
+  postCount: number
   viewCount: number
   likeCount: number
   favoriteCount: number
   commentCount: number
-  followerCount: number
+  followerCount?: number
   replyCount: number
   feedbackCopy: string
 }
 
+export type CreatorWorkspaceSource = 'remote' | 'empty' | 'demo' | 'fallback'
+
 export interface CreatorFeedbackSummary {
+  source: CreatorWorkspaceSource
   updatedAt: number
   degraded: boolean
+  fallbackReason?: string
   degradationReasons: string[]
   windows: CreatorFeedbackWindow[]
   responseRate: number
@@ -435,6 +578,8 @@ export type DisplayableCurationFeedbackSource =
   | 'manual-curation'
   | 'remote'
 
+export type CreatorCurationFeedbackStatus = 'active' | 'archived' | 'offline' | 'degraded'
+
 export interface CreatorCurationMetrics {
   viewCount: number
   likeCount: number
@@ -446,22 +591,46 @@ export interface CreatorCurationFeedback {
   eventId: ApiId
   contentId: ApiId
   contentTitle: string
+  placementType?: string
+  placementId?: ApiId
   placementLabel: string
+  topicSlug?: string
+  topicTitle?: string
+  sectionKey?: string
+  sectionTitle?: string
   reasonText: string
   href?: string
   triggeredAt: number
+  includedAt?: number
+  status: CreatorCurationFeedbackStatus
   source: CurationFeedbackSource
   displayableSource?: DisplayableCurationFeedbackSource
   publicMetrics?: CreatorCurationMetrics
 }
 
 export interface CreatorCurationFeedbackSummary {
+  source: CreatorWorkspaceSource
   updatedAt: number
   degraded: boolean
   fallbackReason?: string
   total: number
   items: CreatorCurationFeedback[]
   recentItems: CreatorCurationFeedback[]
+}
+
+export interface CreatorWorkspaceSummary {
+  periodDays: number
+  publicPostCount: number
+  totalFeedbackCount: number
+  viewCount: number
+  likeCount: number
+  favoriteCount: number
+  commentCount: number
+  curationCount: number
+  replyOpportunityCount: number
+  representativeCount: number
+  updatedAt: number
+  copy: string
 }
 
 export interface CreatorTopPost {
@@ -477,6 +646,11 @@ export interface CreatorTopPost {
   feedbackScore: number
   reason: string
   href?: string
+}
+
+export interface CreatorMaintainablePost extends CreatorTopPost {
+  actionHint?: string
+  editorQuery?: CreatorTopicEditorQuery
 }
 
 export interface CreatorReplyOpportunity {
@@ -509,6 +683,24 @@ export interface CreatorRepresentativePost {
   href?: string
 }
 
+export interface CreatorTopicEditorQuery {
+  source: 'creator_workbench'
+  action?: EditorAssistAction
+  contextType?: EditorAssistContextType
+  title?: string
+  postType?: string
+  topic?: string
+  seriesId?: string
+  postId?: string
+  commentId?: string
+  ideaId?: string
+  topicId?: string
+  templateCode?: string
+  returnHref?: string
+  contextSource?: string
+  reasonText?: string
+}
+
 export interface CreatorTopicIdea {
   id: ApiId
   title: string
@@ -519,13 +711,22 @@ export interface CreatorTopicIdea {
   targetDomain?: number
   targetDomainName?: string
   suggestedFormat?: string
-  editorQuery: {
-    source: string
-    title?: string
-    postType?: string
-    topic?: string
-    seriesId?: string
-  }
+  editorQuery: CreatorTopicEditorQuery
+  editorHref: string
+}
+
+export interface CreatorSearchGap {
+  id: ApiId
+  keyword: string
+  title: string
+  reasonText: string
+  demandLabel?: string
+  clusterId?: string
+  topicId?: ApiId
+  topicSlug?: string
+  templateCode?: string
+  editorContext: EditorSearchGapContext
+  editorHref: string
 }
 
 export interface CreatorIncentiveCopy {
@@ -535,15 +736,38 @@ export interface CreatorIncentiveCopy {
   ctaLabel?: string
 }
 
+export interface CreatorWorkspaceAction {
+  id: ApiId
+  label: string
+  href?: string
+  kind: 'open_editor' | 'open_posts' | 'open_series' | 'view_feedback' | string
+  type?: 'open_post' | 'reply' | 'edit' | 'topic' | 'series' | string
+  description?: string
+  postId?: ApiId
+  commentId?: ApiId
+  query?: CreatorTopicEditorQuery
+  editorQuery?: CreatorTopicEditorQuery
+  reason?: string
+  disabled?: boolean
+}
+
 export interface CreatorGrowthWorkspace {
+  source: CreatorWorkspaceSource
   updatedAt: number
+  periodDays: number
   degraded: boolean
+  fallbackReason?: string
   degradationReasons: string[]
+  summary: CreatorWorkspaceSummary
+  maintainablePosts: CreatorMaintainablePost[]
+  curationFeedback: CreatorCurationFeedback[]
+  actions: CreatorWorkspaceAction[]
   feedbackSummary: CreatorFeedbackSummary
   topPosts: CreatorTopPost[]
   replyOpportunities: CreatorReplyOpportunity[]
   representativePosts: CreatorRepresentativePost[]
   topicIdeas: CreatorTopicIdea[]
+  searchGaps: CreatorSearchGap[]
   incentiveCopy: CreatorIncentiveCopy
 }
 

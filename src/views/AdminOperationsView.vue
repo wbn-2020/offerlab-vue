@@ -116,6 +116,14 @@
               >
                 加入 HOME_FEATURED
               </button>
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="isActing || !canAddCandidateToSelectedTopic(item)"
+                @click="addCandidateToSelectedTopic(item)"
+              >
+                加入当前章节
+              </button>
             </div>
           </article>
         </div>
@@ -215,39 +223,119 @@
         </aside>
       </section>
 
-      <section v-else-if="activeTab === 'topics'" class="panel">
-        <div class="panel-head">
-          <div>
-            <h2>专题/活动草稿</h2>
-            <p>支持预览、发布、下线和回滚。发布、下线、回滚需要管理员与运营权限。</p>
+      <section v-else-if="activeTab === 'topics'" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>专题生命周期</h2>
+              <p>支持草稿、预览、发布、下线、回滚和归档。DEGRADED 只展示为降级态，不作为专题持久状态保存。</p>
+            </div>
+            <span :class="['status-pill', topics.available ? 'status-ok' : 'status-warn']">{{ sourceLabel(topics) }}</span>
           </div>
-          <span :class="['status-pill', topics.available ? 'status-ok' : 'status-warn']">{{ sourceLabel(topics) }}</span>
-        </div>
-        <div v-if="topics.items.length" class="slot-list">
-          <article v-for="topic in topics.items" :key="String(topic.id)" class="row-card">
-            <div class="row-main">
-              <span :class="['status-pill', statusClass(topic.status)]">{{ statusLabel(topic.status) }}</span>
-              <h3>{{ topic.title }}</h3>
-              <p>{{ topic.summary || '暂无说明' }}</p>
-              <small>{{ topic.activityType || 'TOPIC' }} · {{ topic.itemCount ?? 0 }} 个内容区块</small>
+          <div v-if="topics.items.length" class="slot-list">
+            <article v-for="topic in topics.items" :key="String(topic.id)" :class="['row-card', selectedTopicDraft?.id === topic.id ? 'row-card-active' : '']">
+              <div class="row-main">
+                <span :class="['status-pill', statusClass(topic.status)]">{{ statusLabel(topic.status) }}</span>
+                <h3>{{ topic.title }}</h3>
+                <p>{{ topic.summary || '暂无说明' }}</p>
+                <small>{{ topic.activityType || 'TOPIC' }} · {{ topic.itemCount ?? 0 }} 条内容 · v{{ topic.currentVersion ?? 0 }}</small>
+                <div v-if="isTopicReadOnly(topic)" class="inline-warning">只读：后端未接入、降级或示例数据不能保存、发布或触发反馈。</div>
+              </div>
+              <div class="action-row">
+                <button type="button" class="secondary-button" :disabled="isActing" @click="selectTopicForEdit(topic)">
+                  编辑
+                </button>
+                <button type="button" class="icon-button" :disabled="isActing || !canMutateTopic('preview', topic)" title="预览" @click="runTopicLifecycleAction(topic, 'preview')">
+                  <Eye class="h-4 w-4" />
+                </button>
+                <button type="button" class="icon-button" :disabled="isActing || !canMutateTopic('publish', topic)" title="发布" @click="runTopicLifecycleAction(topic, 'publish')">
+                  <UploadCloud class="h-4 w-4" />
+                </button>
+                <button type="button" class="icon-button" :disabled="isActing || !canMutateTopic('offline', topic)" title="下线" @click="runTopicLifecycleAction(topic, 'offline')">
+                  <Archive class="h-4 w-4" />
+                </button>
+                <button type="button" class="icon-button" :disabled="isActing || !canMutateTopic('rollback', topic)" title="回滚" @click="runTopicLifecycleAction(topic, 'rollback')">
+                  <RotateCcw class="h-4 w-4" />
+                </button>
+                <button type="button" class="secondary-button" :disabled="isActing || !canMutateTopic('archive', topic)" @click="runTopicLifecycleAction(topic, 'archive')">
+                  归档
+                </button>
+              </div>
+            </article>
+          </div>
+          <div v-else class="empty-panel">暂无专题/活动草稿；未接通后端时不提供看似可配置的假后台。</div>
+        </article>
+
+        <aside class="panel topic-editor">
+          <div class="panel-head">
+            <div>
+              <h2>专题编辑</h2>
+              <p>{{ selectedTopicDraft ? 'P0 只维护标题、摘要、章节、内容顺序和公开 reasonText。' : '选择一个专题后维护章节和候选收录。' }}</p>
             </div>
-            <div class="action-row">
-              <button type="button" class="icon-button" :disabled="isActing || !topics.available" title="预览" @click="runLifecycleAction('topic', topic.id, 'preview')">
-                <Eye class="h-4 w-4" />
-              </button>
-              <button type="button" class="icon-button" :disabled="isActing || !canMutate('publish')" title="发布" @click="runLifecycleAction('topic', topic.id, 'publish')">
-                <UploadCloud class="h-4 w-4" />
-              </button>
-              <button type="button" class="icon-button" :disabled="isActing || !canMutate('offline')" title="下线" @click="runLifecycleAction('topic', topic.id, 'offline')">
-                <Archive class="h-4 w-4" />
-              </button>
-              <button type="button" class="icon-button" :disabled="isActing || !canMutate('rollback')" title="回滚" @click="runLifecycleAction('topic', topic.id, 'rollback')">
-                <RotateCcw class="h-4 w-4" />
-              </button>
+          </div>
+          <div v-if="selectedTopicDraft" class="editor-stack">
+            <label class="field-label">
+              标题
+              <input v-model="selectedTopicDraft.title" class="text-field" :disabled="selectedTopicReadOnly" />
+            </label>
+            <label class="field-label">
+              摘要
+              <textarea v-model="selectedTopicDraft.summary" class="text-field" rows="3" :disabled="selectedTopicReadOnly" />
+            </label>
+            <div class="editor-actions">
+              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly" @click="addLocalTopicSection">新增章节</button>
+              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly" @click="saveSelectedTopicDraft">保存草稿</button>
+              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly" @click="runSelectedTopicPublishCheck">发布前检查</button>
             </div>
-          </article>
-        </div>
-        <div v-else class="empty-panel">暂无专题/活动草稿；未接通后端时不提供看似可配置的假后台。</div>
+            <section v-if="topicPublishCheck" :class="['publish-check', topicPublishCheck.canPublish ? 'publish-check-ok' : 'publish-check-warn']">
+              <strong>{{ topicPublishCheck.canPublish ? '检查通过，可进入发布确认' : '检查未通过，发布前需要处理' }}</strong>
+              <ul>
+                <li v-for="item in topicPublishCheck.items" :key="item.code">
+                  <span :class="['status-pill', item.passed ? 'status-ok' : 'status-warn']">{{ item.passed ? '通过' : '阻断' }}</span>
+                  {{ item.label }}：{{ item.detail }}
+                </li>
+              </ul>
+            </section>
+            <div v-if="selectedTopicReadOnly" class="inline-warning">当前专题为只读态：fallback/demo/降级数据只能查看，不能保存、发布或触发真实反馈。</div>
+            <label v-if="sortedTopicSections.length" class="field-label">
+              候选加入章节
+              <select v-model="selectedSectionKey" class="text-field" :disabled="selectedTopicReadOnly">
+                <option v-for="section in sortedTopicSections" :key="section.key" :value="section.key">{{ section.title }}</option>
+              </select>
+            </label>
+            <div v-if="sortedTopicSections.length" class="section-list">
+              <section v-for="section in sortedTopicSections" :key="section.key" class="topic-section-card">
+                <div class="section-head">
+                  <div>
+                    <span :class="['status-pill', statusClass(section.status)]">{{ statusLabel(section.status) }}</span>
+                    <h3>{{ section.title }}</h3>
+                    <small>{{ section.key }} · #{{ section.sortOrder }} · {{ section.items.length }} 条内容</small>
+                  </div>
+                  <div class="action-row">
+                    <button type="button" class="icon-button" :disabled="isActing || selectedTopicReadOnly" title="章节上移" @click="moveTopicSection(section, -10)">↑</button>
+                    <button type="button" class="icon-button" :disabled="isActing || selectedTopicReadOnly" title="章节下移" @click="moveTopicSection(section, 10)">↓</button>
+                  </div>
+                </div>
+                <ul v-if="section.items.length" class="topic-item-list">
+                  <li v-for="item in sortedSectionItems(section)" :key="String(item.id)">
+                    <div>
+                      <strong>{{ item.title }}</strong>
+                      <span>{{ item.sourceType }} {{ item.sourceId }} · #{{ item.sortOrder }} · {{ item.reasonText || '缺少公开理由' }}</span>
+                    </div>
+                    <div class="action-row">
+                      <button type="button" class="icon-button" :disabled="isActing || selectedTopicReadOnly" title="内容上移" @click="moveTopicItem(section, item, -10)">↑</button>
+                      <button type="button" class="icon-button" :disabled="isActing || selectedTopicReadOnly" title="内容下移" @click="moveTopicItem(section, item, 10)">↓</button>
+                      <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly" @click="updateTopicItemReason(section, item)">改 reasonText</button>
+                    </div>
+                  </li>
+                </ul>
+                <div v-else class="empty-panel">空章节可以保存草稿，但发布前会被检查或过滤。</div>
+              </section>
+            </div>
+            <div v-else class="empty-panel">还没有章节。P0 不做复杂 CMS，可先新增章节并从候选池收录公开内容。</div>
+          </div>
+          <div v-else class="empty-panel">从左侧选择专题后，可以编辑章节、排序、公开理由，并进入预览/发布/下线/回滚/归档确认。</div>
+        </aside>
       </section>
 
       <section v-else class="panel">
@@ -308,6 +396,9 @@ import {
   type OperationSlotItem,
   type OperationStatus,
   type OperationTopic,
+  type OperationTopicItem,
+  type OperationTopicPublishCheck,
+  type OperationTopicSection,
 } from '@/api/operations'
 import { canAccessOpsOrchestrationAdmin, canMutateOpsOrchestration, type OpsOrchestrationAction, type OpsOrchestrationPermissions } from '@/utils/opsOrchestrationGuard'
 
@@ -333,6 +424,8 @@ const statusFlow = [
   { status: 'PUBLISHED', label: '发布', title: '前台可见', description: '只展示公开、合规、仍然可见的条目。' },
   { status: 'OFFLINE', label: '下线', title: '停止展示', description: '配置保留，前台不再读取。' },
   { status: 'ROLLBACK', label: '回滚', title: '恢复快照', description: '从已发布快照恢复到上一个稳定版本。' },
+  { status: 'ARCHIVED', label: '归档', title: '公开复访', description: '保留最后公开快照，不再进入活跃运营队列。' },
+  { status: 'DEGRADED', label: '降级', title: '只读展示', description: '只表达本次响应不完整，不能保存为生命周期状态。' },
 ]
 
 const activeTab = ref<(typeof tabs)[number]['key']>('overview')
@@ -345,12 +438,19 @@ const curationPool = ref<OperationCapability<CurationPoolItem>>(emptyCapability(
 const slots = ref<OperationCapability<OperationSlot>>(emptyCapability())
 const topics = ref<OperationCapability<OperationTopic>>(emptyCapability())
 const auditLogs = ref<OperationCapability<OperationAuditLog>>(emptyCapability())
+const selectedTopicDraft = ref<OperationTopic | null>(null)
+const selectedSectionKey = ref('')
+const topicPublishCheck = ref<OperationTopicPublishCheck | null>(null)
 const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
 
 const opsPermissions = computed(() => permissions.value as OpsOrchestrationPermissions | null)
 const canEnter = computed(() => canAccessOpsOrchestrationAdmin(permissions.value))
 const homeFeaturedSlot = computed(() => slots.value.items.find((slot) => slot.slotCode === HOME_FEATURED_SLOT_CODE) || null)
 const isSupportedOperationSlot = (slotCode: string) => PUBLIC_OPERATION_SLOT_CODES.includes(slotCode as typeof PUBLIC_OPERATION_SLOT_CODES[number])
+const sortedTopicSections = computed(() => (
+  [...(selectedTopicDraft.value?.sections || [])].sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+))
+const selectedTopicReadOnly = computed(() => selectedTopicDraft.value ? isTopicReadOnly(selectedTopicDraft.value) : true)
 const capabilityCards = computed(() => [
   { label: '候选池', available: candidates.value.available, text: sourceLabel(candidates.value) },
   { label: '精选池', available: curationPool.value.available, text: sourceLabel(curationPool.value) },
@@ -373,6 +473,8 @@ function statusLabel(status?: OperationStatus) {
     PREVIEW: '预览',
     PUBLISHED: '已发布',
     OFFLINE: '已下线',
+    ARCHIVED: '已归档',
+    DEGRADED: '降级展示',
     ACTIVE: '启用',
     PAUSED: '暂停',
     HIDDEN: '隐藏',
@@ -384,7 +486,8 @@ function statusClass(status?: OperationStatus) {
   const value = String(status || '').toUpperCase()
   if (value === 'PUBLISHED' || value === 'ACTIVE') return 'status-ok'
   if (value === 'PREVIEW') return 'status-info'
-  if (value === 'OFFLINE' || value === 'PAUSED' || value === 'HIDDEN') return 'status-warn'
+  if (value === 'ARCHIVED') return 'status-info'
+  if (value === 'OFFLINE' || value === 'PAUSED' || value === 'HIDDEN' || value === 'DEGRADED') return 'status-warn'
   return 'status-muted'
 }
 
@@ -415,6 +518,127 @@ const refreshAll = async () => {
 
 const canMutate = (action: OpsOrchestrationAction) => canMutateOpsOrchestration(opsPermissions.value, action)
 
+const permissionActionFor = (action: OperationAction): OpsOrchestrationAction => {
+  if (action === 'offline' || action === 'archive') return 'offline'
+  if (action === 'rollback') return 'rollback'
+  return 'publish'
+}
+
+const cloneTopic = (topic: OperationTopic): OperationTopic => JSON.parse(JSON.stringify({
+  ...topic,
+  sections: topic.sections || [],
+}))
+
+const isTopicReadOnly = (topic: OperationTopic) => (
+  !topics.value.available
+  || topics.value.degraded
+  || Boolean(topic.fallback || topic.degraded || topic.example)
+  || (topic.source !== undefined && topic.source !== 'remote')
+)
+
+const canMutateTopic = (action: OperationAction, topic: OperationTopic | null = selectedTopicDraft.value) => {
+  if (!topic || isActing.value || isTopicReadOnly(topic)) return false
+  if (action === 'preview') return canEnter.value
+  return canMutate(permissionActionFor(action))
+}
+
+const sortedSectionItems = (section: OperationTopicSection) => (
+  [...(section.items || [])].sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+)
+
+const nextTopicSortOrder = (items: Array<{ sortOrder?: number }>) => {
+  const maxOrder = Math.max(0, ...items.map((item) => Number(item.sortOrder) || 0))
+  return maxOrder + 10
+}
+
+const selectTopicForEdit = async (topic: OperationTopic) => {
+  selectedTopicDraft.value = cloneTopic(topic)
+  selectedSectionKey.value = selectedTopicDraft.value.sections?.[0]?.key || ''
+  topicPublishCheck.value = topic.publishCheck || null
+  if (isTopicReadOnly(topic)) return
+  isActing.value = true
+  try {
+    const res = await operationsApi.getOperationTopic(topic.id)
+    const detail = res.data || topic
+    selectedTopicDraft.value = cloneTopic(detail)
+    selectedSectionKey.value = selectedTopicDraft.value.sections?.[0]?.key || ''
+    topicPublishCheck.value = detail.publishCheck || null
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '读取专题详情失败'
+  } finally {
+    isActing.value = false
+  }
+}
+
+const addLocalTopicSection = () => {
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value) return
+  const title = window.prompt('新增章节标题', '专题章节')
+  if (title === null) return
+  const sections = selectedTopicDraft.value.sections || []
+  const sortOrder = nextTopicSortOrder(sections)
+  const key = `section-${Date.now()}`
+  selectedTopicDraft.value.sections = [
+    ...sections,
+    {
+      key,
+      title: title.trim() || '专题章节',
+      status: 'ACTIVE',
+      sortOrder,
+      items: [],
+    },
+  ]
+  selectedSectionKey.value = key
+  topicPublishCheck.value = null
+}
+
+const moveTopicSection = (section: OperationTopicSection, delta: number) => {
+  if (selectedTopicReadOnly.value) return
+  section.sortOrder = Math.max(1, Number(section.sortOrder || 0) + delta)
+  topicPublishCheck.value = null
+}
+
+const moveTopicItem = (section: OperationTopicSection, item: OperationTopicItem, delta: number) => {
+  if (selectedTopicReadOnly.value) return
+  item.sortOrder = Math.max(1, Number(item.sortOrder || 0) + delta)
+  topicPublishCheck.value = null
+}
+
+const updateTopicItemReason = (section: OperationTopicSection, item: OperationTopicItem) => {
+  if (selectedTopicReadOnly.value) return
+  const reasonText = window.prompt('更新公开 reasonText', item.reasonText || '')
+  if (reasonText === null) return
+  item.reasonText = reasonText.trim()
+  section.status = section.status || 'ACTIVE'
+  topicPublishCheck.value = null
+}
+
+const saveSelectedTopicDraft = async () => {
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || isActing.value) return
+  isActing.value = true
+  try {
+    const res = await operationsApi.saveOperationTopicDraft(selectedTopicDraft.value)
+    selectedTopicDraft.value = cloneTopic(res.data || selectedTopicDraft.value)
+    await refreshAll()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '保存专题草稿失败'
+  } finally {
+    isActing.value = false
+  }
+}
+
+const runSelectedTopicPublishCheck = async () => {
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || isActing.value) return
+  isActing.value = true
+  try {
+    const res = await operationsApi.runTopicPublishCheck(selectedTopicDraft.value.id)
+    topicPublishCheck.value = res.data
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '发布前检查失败'
+  } finally {
+    isActing.value = false
+  }
+}
+
 const nextHomeFeaturedRank = (slot: OperationSlot) => {
   const maxRank = Math.max(0, ...slot.items.map((item) => Number(item.rank) || 0))
   return maxRank + 10
@@ -431,12 +655,25 @@ const canAddCandidateToHomeFeatured = (item: OperationCandidate) => (
   && canMutate('publish')
 )
 
+const canAddCandidateToSelectedTopic = (item: OperationCandidate) => (
+  Boolean(selectedTopicDraft.value)
+  && Boolean(selectedSectionKey.value)
+  && candidates.value.available
+  && !candidates.value.degraded
+  && !selectedTopicReadOnly.value
+  && item.sourceType === 'POST'
+  && item.governanceState !== 'filtered'
+  && !item.fallback
+  && canMutate('publish')
+)
+
 const actionLabel = (action: OperationAction) => {
   const labels: Record<OperationAction, string> = {
     preview: '预览',
     publish: '发布',
     offline: '下线',
     rollback: '回滚',
+    archive: '归档',
   }
   return labels[action]
 }
@@ -454,6 +691,29 @@ const addSlotItemToHomeFeatured = async (item: OperationCandidate) => {
     await refreshAll()
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '加入 HOME_FEATURED 失败'
+  } finally {
+    isActing.value = false
+  }
+}
+
+const addCandidateToSelectedTopic = async (item: OperationCandidate) => {
+  const topic = selectedTopicDraft.value
+  const section = topic?.sections?.find((candidateSection) => candidateSection.key === selectedSectionKey.value)
+  if (!topic || !section || !canAddCandidateToSelectedTopic(item) || isActing.value) return
+  const reasonText = window.prompt('确认公开 reasonText。该理由会进入发布快照，可被前台展示。', item.reasonText || item.reason || '')
+  if (reasonText === null) return
+  isActing.value = true
+  try {
+    const res = await operationsApi.addTopicCandidateToSection(topic.id, section.key, item, reasonText.trim(), nextTopicSortOrder(section.items))
+    if (res.data) {
+      section.items.push(res.data)
+      topicPublishCheck.value = null
+      await operationsApi.saveOperationTopicDraft(topic)
+    }
+    await selectTopicForEdit(topic)
+    activeTab.value = 'topics'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '加入专题章节失败'
   } finally {
     isActing.value = false
   }
@@ -547,17 +807,21 @@ const rollbackHomeFeaturedSlot = (slot: OperationSlot) => runHomeFeaturedSlotLif
 
 const runLifecycleAction = async (resourceKind: OperationResourceKind, resourceId: string | number, action: OperationAction) => {
   if (isActing.value) return
-  if (action !== 'preview' && !canMutateOpsOrchestration(opsPermissions.value, action as OpsOrchestrationAction)) {
+  const permissionAction = permissionActionFor(action)
+  if (action !== 'preview' && !canMutateOpsOrchestration(opsPermissions.value, permissionAction)) {
     loadError.value = '当前账号缺少运营编排变更权限'
     return
   }
   const note = await requireRiskConfirm({
     title: `${actionLabel(action)}专题/活动`,
     level: action === 'preview' ? 'medium' : 'critical',
-    reversible: action !== 'publish',
+    reversible: action !== 'publish' && action !== 'archive',
     impactCount: 1,
     objects: [`${resourceKind}:${resourceId}`],
-    context: ['改变专题/活动在前台的展示状态', '写入后台审计日志'],
+    context: [
+      action === 'publish' ? '发布前以后端公开可见性和治理过滤为准' : '改变专题/活动在前台的展示状态',
+      action === 'archive' ? '归档会保留最后公开快照，但不做 ARCHIVED -> restore 完整恢复链路' : '写入后台审计日志',
+    ],
     confirmText: actionLabel(action),
     requireNote: action !== 'preview',
     notePlaceholder: '记录本次运营编排操作原因',
@@ -573,6 +837,16 @@ const runLifecycleAction = async (resourceKind: OperationResourceKind, resourceI
   } finally {
     isActing.value = false
   }
+}
+
+const runTopicLifecycleAction = async (topic: OperationTopic, action: OperationAction) => {
+  if (!canMutateTopic(action, topic)) return
+  if (action === 'publish' && selectedTopicDraft.value?.id === topic.id && topicPublishCheck.value && !topicPublishCheck.value.canPublish) {
+    loadError.value = '发布前检查未通过，请先处理阻断项'
+    return
+  }
+  await runLifecycleAction('topic', topic.id, action)
+  if (selectedTopicDraft.value?.id === topic.id) await selectTopicForEdit(topic)
 }
 
 onMounted(refreshAll)
@@ -695,7 +969,9 @@ onMounted(refreshAll)
 
 .status-flow,
 .capability-list,
-.slot-list {
+.slot-list,
+.editor-stack,
+.section-list {
   display: grid;
   gap: 0.75rem;
 }
@@ -723,6 +999,11 @@ onMounted(refreshAll)
   gap: 1rem;
 }
 
+.row-card-active {
+  border-color: rgb(14 165 233);
+  background: rgb(240 249 255);
+}
+
 .row-main {
   min-width: 0;
 }
@@ -737,6 +1018,7 @@ onMounted(refreshAll)
 .action-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
@@ -819,10 +1101,103 @@ onMounted(refreshAll)
   padding-left: 1rem;
 }
 
+.topic-editor {
+  align-self: start;
+}
+
+.field-label {
+  display: grid;
+  gap: 0.35rem;
+  color: rgb(51 65 85);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.text-field {
+  width: 100%;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.6rem 0.7rem;
+  color: rgb(15 23 42);
+  font-weight: 700;
+}
+
+.text-field:disabled {
+  background: rgb(241 245 249);
+  color: rgb(100 116 139);
+}
+
+.editor-actions,
+.section-head,
+.topic-item-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.topic-section-card,
+.publish-check {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.625rem;
+  background: rgb(248 250 252);
+  padding: 0.85rem;
+}
+
+.topic-section-card h3 {
+  margin-top: 0.35rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.topic-item-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.topic-item-list li {
+  border-top: 1px solid rgb(226 232 240);
+  padding-top: 0.65rem;
+}
+
+.topic-item-list span,
+.inline-warning {
+  display: block;
+  color: rgb(100 116 139);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.inline-warning {
+  margin-top: 0.5rem;
+  color: rgb(146 64 14);
+}
+
+.publish-check ul {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+}
+
+.publish-check-ok {
+  border-color: rgb(187 247 208);
+  background: rgb(240 253 244);
+}
+
+.publish-check-warn {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235);
+}
+
 @media (max-width: 760px) {
   .capability-row,
   .row-card,
-  .panel-head {
+  .panel-head,
+  .editor-actions,
+  .section-head,
+  .topic-item-list li {
     flex-direction: column;
   }
 }

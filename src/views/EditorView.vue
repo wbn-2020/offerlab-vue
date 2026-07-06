@@ -108,15 +108,69 @@
           </button>
         </div>
 
+        <section v-if="hasEditorAssistContext" class="editor-assist-context mx-4">
+          <div>
+            <p>{{ editorAssistContextSource || '编辑器上下文' }}</p>
+            <strong>{{ editorAssistContextTitle }}</strong>
+            <span>{{ editorAssistContextCopy }}</span>
+            <small v-if="editorAssistContextResult.degraded">{{ editorAssistContextResult.fallbackReason }}</small>
+          </div>
+          <RouterLink v-if="editorAssistReturnHref" :to="editorAssistReturnHref">返回来源</RouterLink>
+        </section>
+
+        <section v-if="hasEditorSearchGapContext" class="editor-assist-context mx-4">
+          <div>
+            <p>{{ editorSearchGapContextTitle }}</p>
+            <strong>{{ editorSearchGapKeyword }}</strong>
+            <span>{{ editorSearchGapContextCopy }}</span>
+            <small>仅作为辅助上下文，正文与发布仍需手动确认，也不承诺收录、精选、曝光、收益或排名。</small>
+          </div>
+          <RouterLink v-if="editorSearchGapReturnHref" :to="editorSearchGapReturnHref">返回来源</RouterLink>
+        </section>
+
         <section class="template-helper mx-4">
           <div>
-            <p>发布模板</p>
+            <p>公共内容模板</p>
             <strong>{{ activeTemplate.title }}</strong>
             <span>{{ activeTemplate.description }}</span>
+            <small>{{ activeTemplateBoundary }}</small>
+            <div class="template-chip-row">
+              <button
+                v-for="tag in activeTemplate.recommendedTags"
+                :key="`tag-${tag}`"
+                type="button"
+                class="template-chip"
+                @click="applyTemplateTag(tag)"
+              >
+                # {{ tag }}
+              </button>
+              <button
+                v-for="topic in activeTemplate.recommendedTopics"
+                :key="`topic-${topic}`"
+                type="button"
+                class="template-chip template-chip-topic"
+                @click="applyTemplateTopic(topic)"
+              >
+                {{ topic }}
+              </button>
+            </div>
           </div>
-          <button type="button" :disabled="Boolean(form.content.trim())" @click="applyActiveTemplate">
-            {{ form.content.trim() ? '正文已有内容' : '套用模板' }}
-          </button>
+          <div class="template-control-group">
+            <select v-model="selectedAssistTemplateCode" class="template-select" aria-label="公共内容模板">
+              <option value="">按上下文推荐</option>
+              <option v-for="template in assistTemplateOptions" :key="template.code" :value="template.code">
+                {{ template.title }}
+              </option>
+            </select>
+            <button type="button" :disabled="Boolean(form.content.trim())" @click="applyActiveTemplate">
+              {{ form.content.trim() ? '正文已有内容' : '套用模板' }}
+            </button>
+            <button type="button" @click="replaceWithActiveTemplate">
+              {{ form.content.trim() ? '切换模板' : '写入模板' }}
+            </button>
+            <button type="button" :disabled="!form.content.trim()" @click="clearTemplateDraft">清空正文</button>
+            <button type="button" @click="cancelSelectedTemplate">取消选择</button>
+          </div>
         </section>
 
         <!-- 领域选择 -->
@@ -212,6 +266,9 @@
             <div class="stage3-assist-head-actions">
               <span :class="['assist-status-pill', `assist-status-${stageThreeAssistStatus}`]">
                 {{ stageThreeAssistStatusLabel }}
+              </span>
+              <span v-if="stageThreeAssist?.sourceLabel" class="assist-status-pill">
+                {{ stageThreeAssist.sourceLabel }}
               </span>
               <button type="button" class="assist-head-button" @click="toggleAssistPanelEnabled">
                 {{ assistPanelEnabled ? '关闭建议' : '开启建议' }}
@@ -318,7 +375,12 @@
                   <button type="button" @click="removeTopicSuggestion(topic)">×</button>
                 </span>
               </div>
-              <p v-else class="stage3-empty-copy">话题建议会写入扩展字段，帮助发现页、话题页和合集工作台持续聚合同主题内容。</p>
+              <div v-if="assistTopicCandidateHints.length" class="stage3-hint-list">
+                <span v-for="item in assistTopicCandidateHints" :key="`${item.topicId || item.title}`">
+                  {{ item.title }}<small>{{ item.reasonText }}</small>
+                </span>
+              </div>
+              <p v-if="!selectedTopicNames.length && !assistTopicCandidateHints.length" class="stage3-empty-copy">话题建议只作为候选参考，会写入扩展字段，供后续组织同主题内容时人工判断。</p>
             </article>
 
             <article class="stage3-card stage3-card-series">
@@ -448,8 +510,11 @@
             placeholder="输入图片 URL..."
             class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
-          <div v-if="form.coverUrl" class="mt-2 rounded-lg overflow-hidden max-h-64">
-            <img :src="form.coverUrl" :alt="form.title" class="w-full h-auto object-cover" />
+          <div v-if="form.coverUrl && !formCoverHasFailed" class="mt-2 rounded-lg overflow-hidden max-h-64">
+            <img :src="form.coverUrl" :alt="form.title" class="w-full h-auto object-cover" @error="handleFormCoverError" />
+          </div>
+          <div v-else-if="form.coverUrl" class="mt-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400" role="status">
+            {{ formCoverFallbackText }}
           </div>
         </div>
       </div>
@@ -471,7 +536,23 @@ import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { postApi, type PostDraft } from '@/api/post'
 import type { ContentAssistQualityMetric, ContentAssistResult, ContentAssistSuggestion } from '@/api/types'
+import {
+  EDITOR_ASSIST_TEMPLATE_BOUNDARY,
+  EDITOR_ASSIST_TEMPLATES,
+  buildEditorAssistTemplateMarkdown,
+  getEditorAssistTemplate,
+  recommendEditorAssistTemplate,
+  type EditorAssistTemplate,
+  type EditorAssistTemplateCode,
+} from '@/data/editorAssistTemplates'
 import { toast } from 'vue-sonner'
+import {
+  describeEditorAssistContext,
+  editorAssistContextDetail,
+  editorAssistSourceLabel,
+  parseEditorAssistContext,
+  parseEditorSearchGapContext,
+} from '@/utils/editorAssistContext'
 import { mapEditorDraftToPreview } from '@/utils/editorPreview'
 import { buildEditorQualityChecklist } from '@/utils/editorQualityChecklist'
 import { safeStorage } from '@/utils/safeStorage'
@@ -527,6 +608,18 @@ const form = ref<EditorForm>({
   coverUrl: ''
 })
 
+const formCoverFailedUrl = ref('')
+const formCoverHasFailed = computed(() => Boolean(form.value.coverUrl) && formCoverFailedUrl.value === form.value.coverUrl)
+const formCoverFallbackText = computed(() => (
+  formCoverHasFailed.value ? '\u56fe\u7247\u52a0\u8f7d\u5931\u8d25\uff0c\u5df2\u6539\u7528\u6587\u5b57\u9884\u89c8\u3002' : ''
+))
+const handleFormCoverError = () => {
+  formCoverFailedUrl.value = form.value.coverUrl
+}
+watch(() => form.value.coverUrl, () => {
+  formCoverFailedUrl.value = ''
+})
+
 const tagInput = ref('')
 const selectedTags = ref<string[]>([])
 const selectedDomain = ref<number>(DOMAIN.LIFESTYLE)
@@ -549,6 +642,7 @@ const seriesRecords = ref<ContentSeriesRecord[]>([])
 const seriesSource = ref<'remote' | 'fallback'>('fallback')
 const isSeriesLoading = ref(false)
 const selectedSeriesId = ref('')
+const selectedAssistTemplateCode = ref<EditorAssistTemplateCode | ''>('')
 const assistPanelEnabled = ref(false)
 const stageThreeAssist = ref<ContentAssistResult | null>(null)
 const isStageThreeAssistLoading = ref(false)
@@ -707,7 +801,27 @@ const contentLength = computed(() => form.value.content.length)
 const isContentOverLimit = computed(() => contentLength.value > CONTENT_MAX_LENGTH)
 const activePostType = computed(() => getContentTypeOption(form.value.postType))
 const activeTypeCode = computed(() => contentTypeCodeOf(form.value.postType))
-const activeTemplate = computed(() => PUBLISH_TEMPLATES[activeTypeCode.value] || PUBLISH_TEMPLATES.NOTE)
+const editorAssistContextResult = computed(() => parseEditorAssistContext(route.query as Record<string, unknown>))
+const editorAssistContext = computed(() => editorAssistContextResult.value.context)
+const hasEditorAssistContext = computed(() => editorAssistContextResult.value.canShowSourceHint)
+const editorAssistContextTitle = computed(() => describeEditorAssistContext(editorAssistContext.value))
+const editorAssistContextCopy = computed(() => editorAssistContextDetail(editorAssistContext.value))
+const editorAssistContextSource = computed(() => editorAssistSourceLabel(editorAssistContext.value))
+const editorAssistReturnHref = computed(() => editorAssistContext.value?.returnHref || '')
+const editorSearchGapContextResult = computed(() => parseEditorSearchGapContext(route.query as Record<string, unknown>))
+const editorSearchGapContext = computed(() => editorSearchGapContextResult.value.context)
+const hasEditorSearchGapContext = computed(() => editorSearchGapContextResult.value.canShowSourceHint)
+const editorSearchGapContextTitle = computed(() => editorSearchGapContextResult.value.sourceHint?.title || '搜索缺口')
+const editorSearchGapContextCopy = computed(() => editorSearchGapContextResult.value.sourceHint?.detail || '')
+const editorSearchGapKeyword = computed(() => editorSearchGapContext.value?.keyword || '')
+const editorSearchGapReturnHref = computed(() => editorSearchGapContext.value?.returnHref || '')
+const assistTemplateOptions = EDITOR_ASSIST_TEMPLATES
+const recommendedAssistTemplate = computed(() => recommendEditorAssistTemplate(editorAssistContext.value, activeTypeCode.value))
+const activeTemplate = computed<EditorAssistTemplate>(() => (
+  getEditorAssistTemplate(selectedAssistTemplateCode.value) || recommendedAssistTemplate.value
+))
+const activeTemplateMarkdown = computed(() => buildEditorAssistTemplateMarkdown(activeTemplate.value, editorAssistContext.value))
+const activeTemplateBoundary = EDITOR_ASSIST_TEMPLATE_BOUNDARY
 const isQuestionPost = computed(() => activeTypeCode.value === 'QUESTION')
 const isInterviewPost = computed(() => isLegacyInterviewType(form.value.postType))
 const hasCompany = computed(() => Boolean(String(extensionValue.value.company || '').trim()))
@@ -1000,6 +1114,7 @@ const displayTopicSuggestions = computed(() => (stageThreeAssist.value?.topicSug
   adopted: selectedTopicNames.value.some((topic) => topic.toLowerCase() === item.label.toLowerCase()),
 })))
 const assistSeriesHints = computed(() => stageThreeAssist.value?.seriesHints || [])
+const assistTopicCandidateHints = computed(() => stageThreeAssist.value?.topicCandidateHints || [])
 const stageThreeAssistStatus = computed(() => {
   if (!authStore.isLoggedIn) return 'unauthenticated'
   if (!assistPanelEnabled.value) return 'disabled'
@@ -1057,6 +1172,8 @@ const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
   tags: normalizedTags.value,
   extension: {
     ...extensionValue.value,
+    assistContext: editorAssistContext.value || undefined,
+    assistTemplateCode: activeTemplate.value.code,
     topicNames: selectedTopicNames.value,
     seriesId: selectedSeriesId.value || undefined,
     seriesTitle: selectedSeriesRecord.value?.title || undefined,
@@ -1247,9 +1364,63 @@ const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: stri
   }
 }
 
+const addTemplateTags = (tags: string[]) => {
+  tags.forEach((tag) => {
+    const label = sanitizeVisibleText(tag)
+    if (label && !normalizedTags.value.some((item) => item.toLowerCase() === label.toLowerCase())) {
+      selectedTags.value.push(label)
+    }
+  })
+}
+
+const addTemplateTopics = (topics: string[]) => {
+  const nextTopics = new Set(selectedTopicNames.value)
+  topics.map((topic) => sanitizeVisibleText(topic)).filter(Boolean).forEach((topic) => nextTopics.add(topic))
+  if (nextTopics.size) {
+    applyEditorExtension({
+      topicNames: [...nextTopics],
+      seriesId: selectedSeriesId.value || undefined,
+      seriesTitle: selectedSeriesRecord.value?.title || undefined,
+    })
+  }
+}
+
+const applyTemplateTag = (tag: string) => {
+  addTemplateTags([tag])
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+  toast.success('已采纳模板标签')
+}
+
+const applyTemplateTopic = (topic: string) => {
+  addTemplateTopics([topic])
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+  toast.success('已采纳模板话题')
+}
+
+const writeActiveTemplateToDraft = () => {
+  form.value.content = activeTemplateMarkdown.value
+  addTemplateTags(activeTemplate.value.recommendedTags)
+  addTemplateTopics([
+    ...activeTemplate.value.recommendedTopics,
+    editorAssistContext.value?.topic || '',
+  ])
+  applyEditorExtension({
+    contentType: activeTypeCode.value,
+    templateCode: activeTypeCode.value,
+    assistTemplateCode: activeTemplate.value.code,
+    assistContext: editorAssistContext.value || undefined,
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+  })
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+}
+
 const applyActiveTemplate = () => {
   if (form.value.content.trim()) return
-  form.value.content = activeTemplate.value.content
+  writeActiveTemplateToDraft()
   if (!extensionValue.value.contentType) {
     form.value.extension = {
       ...extensionValue.value,
@@ -1264,6 +1435,26 @@ const applyActiveTemplate = () => {
   }
   scheduleAutoSave()
   toast.success('已套用发布模板')
+}
+
+const replaceWithActiveTemplate = () => {
+  if (form.value.content.trim() && !window.confirm('当前正文已有内容，确认用所选公共模板替换正文？')) return
+  writeActiveTemplateToDraft()
+  toast.success('已写入公共内容模板')
+}
+
+const clearTemplateDraft = () => {
+  if (!form.value.content.trim()) return
+  if (!window.confirm('确认清空当前正文？标题、标签和话题会保留。')) return
+  form.value.content = ''
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+  toast.success('已清空正文')
+}
+
+const cancelSelectedTemplate = () => {
+  selectedAssistTemplateCode.value = ''
+  toast.success('已恢复按上下文推荐模板')
 }
 
 const copyKnowledgeAssist = async () => {
@@ -1550,7 +1741,7 @@ const topicIdeaEditorQuery = () => {
   }
 }
 
-const topicIdeaQueryValue = (key: 'source' | 'title' | 'topic' | 'seriesId' | 'postType') => {
+const topicIdeaQueryValue = (key: 'source' | 'title' | 'topic' | 'seriesId' | 'postType' | 'postId' | 'ideaId' | 'action' | 'contextSource') => {
   const editorQuery = topicIdeaEditorQuery()
   return editorQuery[key] ?? route.query[key]
 }
@@ -1569,30 +1760,74 @@ const normalizeTopicIdeaPostType = (value: unknown): PostTypeValue | undefined =
 
 const applyTopicIdeaQuery = () => {
   if (isEditing.value || hasMeaningfulDraft.value) return false
-  const source = topicIdeaQueryText(topicIdeaQueryValue('source'), 32)
-  const allowedSources = new Set(['own_post_feedback', 'series_gap', 'content_type_template', 'topic_idea', 'creator_topic_idea', 'creator_workbench'])
-  if (!allowedSources.has(source)) return false
+  const context = editorAssistContext.value
+  const searchGapContext = editorSearchGapContext.value
+  if (!context && !searchGapContext) return false
+  if (!context && searchGapContext) {
+    const template = getEditorAssistTemplate(searchGapContext.templateCode)
+    const nextTopics = new Set(selectedTopicNames.value)
+    if (searchGapContext.keyword) nextTopics.add(searchGapContext.keyword)
+    if (searchGapContext.topicSlug) nextTopics.add(searchGapContext.topicSlug)
+    if (searchGapContext.keyword && !form.value.title.trim()) form.value.title = searchGapContext.keyword
+    if (template) selectedAssistTemplateCode.value = template.code
+    applyEditorExtension({
+      topicIdeaSource: searchGapContext.source,
+      topicIdeaAction: 'topic',
+      topicIdeaContextSource: 'search_gap',
+      topicIdeaContextType: 'topic',
+      topicNames: [...nextTopics],
+      contextTopicId: searchGapContext.topicId,
+      assistContext: searchGapContext,
+      assistTemplateCode: template?.code || activeTemplate.value.code,
+      returnHref: searchGapContext.returnHref || undefined,
+    })
+    persistLocalDraft()
+    toast.success('已带入聚合搜索缺口上下文，可继续手动编辑标题、话题和正文')
+    return true
+  }
+  if (!context) return false
 
-  const title = topicIdeaQueryText(topicIdeaQueryValue('title'), 96)
-  const topic = topicIdeaQueryText(topicIdeaQueryValue('topic'), 32)
-  const seriesId = topicIdeaQueryText(topicIdeaQueryValue('seriesId'), 32)
-  const postType = normalizeTopicIdeaPostType(topicIdeaQueryValue('postType'))
+  const creatorWorkbenchSource = 'creator_workbench'
+  const legacyTitle = topicIdeaQueryText(topicIdeaQueryValue('title'), 96)
+  const legacyTopic = topicIdeaQueryText(topicIdeaQueryValue('topic'), 32)
+  const legacyPostId = topicIdeaQueryText(topicIdeaQueryValue('postId'), 32)
+  const legacyIdeaId = topicIdeaQueryText(topicIdeaQueryValue('ideaId'), 64)
+  const title = context.title || legacyTitle
+  const topic = context.topic || legacyTopic
+  const seriesId = context.seriesId || ''
+  const postType = normalizeTopicIdeaPostType(context.postType)
+  const contextPostId = context.postId || legacyPostId
+  const ideaId = context.ideaId || legacyIdeaId
+  const action = context.action || ''
+  const contextSource = context.contextSource || context.legacySource || ''
+  const template = getEditorAssistTemplate(context.templateCode)
   const nextTopics = new Set(selectedTopicNames.value)
   if (topic) nextTopics.add(topic)
 
   if (title && !form.value.title.trim()) form.value.title = title
   if (postType) form.value.postType = postType
+  if (template) selectedAssistTemplateCode.value = template.code
   if (seriesId && seriesRecords.value.some((item) => String(item.id) === String(seriesId))) {
     selectedSeriesId.value = seriesId
   }
   applyEditorExtension({
-    topicIdeaSource: source,
+    topicIdeaSource: context.source || creatorWorkbenchSource,
+    topicIdeaAction: action || undefined,
+    topicIdeaContextSource: contextSource || undefined,
+    topicIdeaContextType: context.contextType || undefined,
     topicNames: [...nextTopics],
     seriesId: selectedSeriesId.value || undefined,
     seriesTitle: selectedSeriesRecord.value?.title || undefined,
+    contextPostId,
+    contextCommentId: context.commentId,
+    contextTopicId: context.topicId,
+    ideaId,
+    assistContext: context,
+    assistTemplateCode: template?.code || activeTemplate.value.code,
+    returnHref: context.returnHref || undefined,
   })
   persistLocalDraft()
-  toast.success('已带入选题灵感，可继续编辑标题和话题')
+  toast.success('已带入公开创作上下文，可继续编辑标题和话题')
   return true
 }
 
@@ -1900,6 +2135,7 @@ const safeReturnPath = () => {
     ? window.history.state as Record<string, unknown> | null
     : null
   const candidates = [
+    route.query.returnHref,
     route.query.from,
     route.query.returnTo,
     route.query.redirect,
@@ -2127,18 +2363,36 @@ onBeforeUnmount(() => {
   padding: 1rem;
 }
 
+.editor-assist-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(187 247 208);
+  background: rgb(240 253 244);
+  padding: 1rem;
+}
+
+.editor-assist-context p,
 .template-helper p {
   font-size: 0.75rem;
   font-weight: 900;
   color: rgb(37 99 235);
 }
 
+.editor-assist-context p {
+  color: rgb(21 128 61);
+}
+
+.editor-assist-context strong,
 .template-helper strong {
   margin-top: 0.15rem;
   display: block;
   color: rgb(15 23 42);
 }
 
+.editor-assist-context span,
 .template-helper span {
   margin-top: 0.25rem;
   display: block;
@@ -2147,6 +2401,17 @@ onBeforeUnmount(() => {
   color: rgb(71 85 105);
 }
 
+.editor-assist-context small,
+.template-helper small {
+  margin-top: 0.35rem;
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: rgb(100 116 139);
+}
+
+.editor-assist-context a,
 .template-helper button {
   flex: 0 0 auto;
   border-radius: 0.5rem;
@@ -2157,9 +2422,54 @@ onBeforeUnmount(() => {
   color: white;
 }
 
+.editor-assist-context a {
+  background: rgb(22 163 74);
+}
+
 .template-helper button:disabled {
   cursor: not-allowed;
   background: rgb(148 163 184);
+}
+
+.template-chip-row {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.template-helper .template-chip {
+  min-height: 1.85rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  color: rgb(37 99 235);
+}
+
+.template-helper .template-chip-topic {
+  border-color: rgb(187 247 208);
+  color: rgb(22 101 52);
+}
+
+.template-control-group {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.template-select {
+  min-height: 2.25rem;
+  max-width: 12rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 0 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(30 64 175);
 }
 
 .knowledge-assist {
@@ -2758,17 +3068,30 @@ onBeforeUnmount(() => {
   color: rgb(254 202 202);
 }
 
+.dark .editor-assist-context,
 .dark .template-helper {
   border-color: rgb(30 64 175);
   background: rgb(15 23 42);
 }
 
+.dark .editor-assist-context strong,
 .dark .template-helper strong {
   color: rgb(248 250 252);
 }
 
+.dark .editor-assist-context span,
+.dark .editor-assist-context small,
+.dark .template-helper small,
 .dark .template-helper span {
   color: rgb(203 213 225);
+}
+
+.dark .editor-assist-context a,
+.dark .template-select,
+.dark .template-helper .template-chip {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
 }
 
 .dark .knowledge-assist {
@@ -2982,14 +3305,26 @@ onBeforeUnmount(() => {
     margin-inline: 0;
   }
 
+  .editor-assist-context,
   .template-helper {
     margin-inline: 0;
     flex-direction: column;
     align-items: stretch;
   }
 
+  .editor-assist-context a,
+  .template-select,
   .template-helper button {
     min-height: 44px;
+  }
+
+  .template-control-group {
+    justify-content: stretch;
+  }
+
+  .template-control-group > * {
+    flex: 1 1 100%;
+    max-width: none;
   }
 
   .knowledge-assist {

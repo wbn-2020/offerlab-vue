@@ -8,6 +8,7 @@ import type {
 import type { InterviewMaterialPack } from '@/api/post'
 import type { ContentListSummary } from '@/api/adapters'
 import type {
+  CreatorCurationFeedbackSummary,
   CreatorFeedbackSummary,
   CreatorGrowthWorkspace,
   CreatorIncentiveCopy,
@@ -15,6 +16,8 @@ import type {
   CreatorRepresentativePost,
   CreatorTopPost,
   CreatorTopicIdea,
+  CreatorWorkspaceAction,
+  CreatorWorkspaceSummary,
   GrowthProfile,
   GrowthReport,
   PaginatedResponse,
@@ -471,29 +474,31 @@ export const demoGrowthReport: GrowthReport = {
 }
 
 export const demoCreatorFeedbackSummary: CreatorFeedbackSummary = {
+  source: 'demo',
   updatedAt: now,
   degraded: true,
+  fallbackReason: 'local_demo_seed',
   degradationReasons: ['local_demo_seed'],
   windows: [
     {
       days: 7,
       label: '近 7 天',
+      postCount: 2,
       viewCount: 860,
       likeCount: 42,
       favoriteCount: 31,
       commentCount: 9,
-      followerCount: 6,
       replyCount: 5,
       feedbackCopy: '近 7 天示例反馈：公开内容仍在被阅读、收藏和评论。',
     },
     {
       days: 30,
       label: '近 30 天',
+      postCount: 2,
       viewCount: 2480,
       likeCount: 96,
       favoriteCount: 54,
       commentCount: 18,
-      followerCount: 16,
       replyCount: 11,
       feedbackCopy: '近 30 天示例反馈：几篇代表作和公开合集带来了持续回访。',
     },
@@ -562,11 +567,16 @@ export const demoCreatorTopicIdeas: CreatorTopicIdea[] = [
     targetDomainName: '科技数码',
     suggestedFormat: 'RESOURCE',
     editorQuery: {
-      source: 'own_post_feedback',
+      source: 'creator_workbench',
+      action: 'continue',
+      contextType: 'idea',
       title: '把高收藏内容整理成资源清单',
       postType: 'RESOURCE',
       topic: '资源清单',
+      templateCode: 'resource_note',
+      returnHref: '/me#creator-workbench',
     },
+    editorHref: '/editor?source=creator_workbench&action=continue&contextType=idea&title=resource-checklist&postType=RESOURCE&topic=resources&templateCode=resource_note&returnHref=%2Fme%23creator-workbench',
   },
   {
     id: 'demo-topic-idea-comment-followup',
@@ -579,11 +589,16 @@ export const demoCreatorTopicIdeas: CreatorTopicIdea[] = [
     targetDomainName: '科技数码',
     suggestedFormat: 'NOTE',
     editorQuery: {
-      source: 'comment_question',
+      source: 'creator_workbench',
+      action: 'reply',
+      contextType: 'reply',
       title: '回应评论里的具体追问',
       postType: 'NOTE',
       topic: '公共讨论',
+      templateCode: 'discussion_prompt',
+      returnHref: '/me#creator-workbench',
     },
+    editorHref: '/editor?source=creator_workbench&action=reply&contextType=reply&title=comment-followup&postType=NOTE&topic=discussion&templateCode=discussion_prompt&returnHref=%2Fme%23creator-workbench',
   },
 ]
 
@@ -594,15 +609,70 @@ export const demoCreatorIncentiveCopy: CreatorIncentiveCopy = {
   ctaLabel: '查看选题灵感',
 }
 
-export const demoCreatorGrowthWorkspace: CreatorGrowthWorkspace = {
+export const demoCreatorCurationFeedbackSummary: CreatorCurationFeedbackSummary = {
+  source: 'demo',
   updatedAt: now,
   degraded: true,
+  fallbackReason: 'local_demo_seed',
+  total: 0,
+  items: [],
+  recentItems: [],
+}
+
+export const demoCreatorWorkspaceSummary: CreatorWorkspaceSummary = {
+  periodDays: 30,
+  publicPostCount: demoPosts.length,
+  totalFeedbackCount: 168,
+  viewCount: 2480,
+  likeCount: 96,
+  favoriteCount: 54,
+  commentCount: 18,
+  curationCount: demoCreatorCurationFeedbackSummary.recentItems.length,
+  replyOpportunityCount: demoCreatorReplyOpportunities.length,
+  representativeCount: demoCreatorRepresentativePosts.length,
+  updatedAt: now,
+  copy: '示例反馈只说明公开内容结构，不承诺曝光效果。',
+}
+
+export const demoCreatorWorkspaceActions: CreatorWorkspaceAction[] = [
+  {
+    id: 'demo-creator-workbench-editor',
+    label: '继续写公开内容',
+    href: '/editor?source=creator_workbench&action=template&contextType=template&returnHref=%2Fme%23creator-workbench',
+    kind: 'open_editor',
+    query: {
+      source: 'creator_workbench',
+      action: 'template',
+      contextType: 'template',
+      returnHref: '/me#creator-workbench',
+    },
+    reason: 'local_demo_seed',
+  },
+  {
+    id: 'demo-creator-workbench-posts',
+    label: '查看公开内容',
+    href: '/me?tab=posts',
+    kind: 'open_posts',
+  },
+]
+
+export const demoCreatorGrowthWorkspace: CreatorGrowthWorkspace = {
+  source: 'demo',
+  updatedAt: now,
+  periodDays: 30,
+  degraded: true,
+  fallbackReason: 'local_demo_seed',
   degradationReasons: ['local_demo_seed'],
+  summary: demoCreatorWorkspaceSummary,
+  maintainablePosts: demoCreatorTopPosts,
+  curationFeedback: demoCreatorCurationFeedbackSummary.recentItems,
+  actions: demoCreatorWorkspaceActions,
   feedbackSummary: demoCreatorFeedbackSummary,
   topPosts: demoCreatorTopPosts,
   replyOpportunities: demoCreatorReplyOpportunities,
   representativePosts: demoCreatorRepresentativePosts,
   topicIdeas: demoCreatorTopicIdeas,
+  searchGaps: [],
   incentiveCopy: demoCreatorIncentiveCopy,
 }
 

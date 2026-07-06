@@ -1,6 +1,15 @@
 import client, { Result } from './client'
 import type { ApiId, Post, PaginatedResponse } from './types'
 import { adaptPage, adaptPost } from './adapters'
+import {
+  adaptSearchSuggestionItems,
+  buildZeroResultActions,
+  isDownstreamSearchDiscoveryItem,
+  isDownstreamZeroResultAction,
+  isFormalZeroResultAction,
+  isPersistableSearchDiscoveryItem,
+  normalizeSearchSuggestionItem,
+} from '@/utils/searchSuggestionDiscovery'
 
 const cleanRemark = (remark?: string | null) => {
   const value = remark?.trim()
@@ -66,6 +75,38 @@ export interface SearchAnalyticsTrackReq {
   target?: string
 }
 
+export type SearchSuggestionType = 'keyword' | 'tag' | 'topic' | 'collection' | 'correction' | 'synonym'
+export type SearchDiscoverySource = 'remote' | 'local' | 'fallback' | 'demo'
+export type SearchReviewStatus = 'SAFE' | 'REVIEW_REQUIRED' | 'REJECTED'
+
+export interface SearchSuggestionItem {
+  text: string
+  suggestionType: SearchSuggestionType
+  source: SearchDiscoverySource
+  reasonText?: string
+  targetHref?: string
+  persistable: boolean
+  reviewStatus: SearchReviewStatus
+}
+
+export type ZeroResultActionType =
+  | 'relax_filter'
+  | 'try_keyword'
+  | 'open_topic'
+  | 'open_tag'
+  | 'create_gap'
+  | 'open_editor'
+
+export interface ZeroResultAction {
+  actionType: ZeroResultActionType
+  label: string
+  targetHref?: string
+  payload?: Record<string, unknown>
+  requiresLogin: boolean
+  requiresReview: boolean
+  source: SearchDiscoverySource
+}
+
 export const searchApi = {
   searchPosts: async (params: SearchParams): Promise<Result<PaginatedResponse<Post>>> => {
     const publicParams = { ...(params || {}) }
@@ -74,11 +115,26 @@ export const searchApi = {
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 
-  suggest: (q: string): Promise<Result<any>> =>
-    client.get('/api/v1/search/suggest', { params: { prefix: q } }),
+  suggest: async (q: string): Promise<Result<SearchSuggestionItem[]>> => {
+    const res = await client.get('/api/v1/search/suggest', { params: { prefix: q } }) as Result<unknown>
+    return {
+      ...res,
+      data: adaptSearchSuggestionItems(res.data, { source: 'remote', reviewStatus: 'SAFE' }),
+    }
+  },
 
-  hotSearches: (): Promise<Result<string[]>> =>
-    client.get('/api/v1/search/hot'),
+  hotSearches: async (): Promise<Result<SearchSuggestionItem[]>> => {
+    const res = await client.get('/api/v1/search/hot') as Result<unknown>
+    return {
+      ...res,
+      data: adaptSearchSuggestionItems(res.data, {
+        suggestionType: 'keyword',
+        source: 'remote',
+        reviewStatus: 'SAFE',
+        reasonText: 'hot',
+      }),
+    }
+  },
 
   rebuildIndex: (remark?: string): Promise<Result<SearchIndexTask>> =>
     client.post('/api/v1/search/admin/rebuild', riskConfirmPayload(remark)),
@@ -91,4 +147,14 @@ export const searchApi = {
 
   trackAnalytics: (data: SearchAnalyticsTrackReq): Promise<Result<{ tracked: boolean }>> =>
     client.post('/api/v1/search/analytics/track', data),
+}
+
+export {
+  adaptSearchSuggestionItems,
+  buildZeroResultActions,
+  isDownstreamSearchDiscoveryItem,
+  isDownstreamZeroResultAction,
+  isFormalZeroResultAction,
+  isPersistableSearchDiscoveryItem,
+  normalizeSearchSuggestionItem,
 }

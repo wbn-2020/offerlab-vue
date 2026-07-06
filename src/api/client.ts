@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios'
+import axios, { AxiosError, AxiosInstance } from 'axios'
 import { authTokenStore } from '@/utils/authTokenStore'
 import { useAuthStore } from '@/stores/auth'
 import { safeRedirect } from '@/utils/navigation'
@@ -65,7 +65,7 @@ export function getErrorMessage(error: unknown, fallback = '操作失败') {
   if (axios.isAxiosError(error)) {
     if (error.response?.status === 400) return errorMessageMap[10001]
     if (error.response?.status === 401) return errorMessageMap[10401]
-    if (error.response?.status === 403) return '当前账号没有权限执行该操作'
+    if (error.response?.status === 403) return errorMessageMap[10403]
     if (error.response?.status === 404) return '接口或资源不存在'
     if (error.response?.status === 409) return errorMessageMap[30002]
     if (error.response?.status === 429) return errorMessageMap[10429]

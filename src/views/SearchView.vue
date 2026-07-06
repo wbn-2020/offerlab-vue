@@ -20,7 +20,7 @@
               <option v-for="item in suggestions" :key="item" :value="item" />
             </datalist>
             <p v-if="suggestions.length || hotWords.length" class="search-signal-note">
-              搜索建议来自公开内容和近期公共搜索趋势。
+              {{ searchSignalNote }}
             </p>
           </div>
 
@@ -224,8 +224,8 @@
               <button type="button" @click="runSearch(false)">重试</button>
               <button type="button" @click="searchHotContentFromError">热门内容</button>
               <button type="button" @click="switchToUserSearchFromError">搜作者</button>
-              <RouterLink :to="communityQuestionQuery" @click="trackCommunityRecommendationClick('error:community-question')">社区问题求助</RouterLink>
-              <RouterLink to="/explore" @click="trackCommunityRecommendationClick('error:explore')">发现</RouterLink>
+              <RouterLink :to="communityQuestionQuery" @click="trackCommunityRecommendationClick('error:community-question', 'local')">社区问题求助</RouterLink>
+              <RouterLink to="/explore" @click="trackCommunityRecommendationClick('error:explore', 'local')">发现</RouterLink>
             </div>
           </div>
 
@@ -324,19 +324,22 @@
               <div v-if="relaxActions.length" class="recommend-group">
                 <span>放宽筛选</span>
                 <button v-for="item in relaxActions" :key="item.key" type="button" class="recommend-chip" @click="runRecommendationAction(item)">
-                  {{ item.label }}
+                  <span>{{ item.label }}</span>
+                  <small>{{ sourceLabel(item.source) }}</small>
                 </button>
               </div>
-              <div v-if="noResultWords.length" class="recommend-group">
+              <div v-if="noResultWordActions.length" class="recommend-group">
                 <span>换个关键词</span>
-                <button v-for="word in noResultWords" :key="word" type="button" class="recommend-chip" @click="useRecommendedWord(word)">
-                  {{ word }}
+                <button v-for="item in noResultWordActions" :key="item.label" type="button" class="recommend-chip" @click="useRecommendedWord(item)">
+                  <span>{{ item.label }}</span>
+                  <small>{{ sourceLabel(item.source) }}</small>
                 </button>
               </div>
               <div v-if="filters.company" class="recommend-group">
                 <span>继续发现</span>
                 <RouterLink :to="`/tag/${encodeURIComponent(filters.company)}`" class="recommend-chip" @click="trackTagRecommendationClick">
-                  查看 {{ filters.company }} 专题
+                  <span>查看 {{ filters.company }} 专题</span>
+                  <small>{{ sourceLabel('local') }}</small>
                 </RouterLink>
               </div>
             </div>
@@ -346,9 +349,10 @@
                 <RouterLink
                   :to="communityQuestionQuery"
                   class="recommend-chip"
-                  @click="trackCommunityRecommendationClick('question-help')"
+                  @click="trackCommunityRecommendationClick('question-help', 'local')"
                 >
-                  社区问题求助
+                  <span>社区问题求助</span>
+                  <small>{{ sourceLabel('local') }}</small>
                 </RouterLink>
               </div>
               <div class="recommend-group">
@@ -358,9 +362,10 @@
                   :key="channel.key"
                   :to="{ path: '/explore', query: { channel: channel.key } }"
                   class="recommend-chip"
-                  @click="trackCommunityRecommendationClick(`channel:${channel.key}`)"
+                  @click="trackCommunityRecommendationClick(`channel:${channel.key}`, 'fallback')"
                 >
-                  {{ channel.name }}
+                  <span>{{ channel.name }}</span>
+                  <small>{{ sourceLabel('fallback') }}</small>
                 </RouterLink>
               </div>
               <div class="recommend-group">
@@ -370,9 +375,10 @@
                   :key="topic"
                   :to="`/topics/${encodeURIComponent(topic)}`"
                   class="recommend-chip"
-                  @click="trackCommunityRecommendationClick(`topic:${topic}`)"
+                  @click="trackCommunityRecommendationClick(`topic:${topic}`, 'fallback')"
                 >
-                  {{ topic }}
+                  <span>{{ topic }}</span>
+                  <small>{{ sourceLabel('fallback') }}</small>
                 </RouterLink>
               </div>
               <div class="recommend-group">
@@ -382,9 +388,10 @@
                   :key="tag"
                   :to="`/tag/${encodeURIComponent(tag)}`"
                   class="recommend-chip"
-                  @click="trackCommunityRecommendationClick(`tag:${tag}`)"
+                  @click="trackCommunityRecommendationClick(`tag:${tag}`, 'fallback')"
                 >
-                  {{ tag }}
+                  <span>{{ tag }}</span>
+                  <small>{{ sourceLabel('fallback') }}</small>
                 </RouterLink>
               </div>
             </div>
@@ -393,7 +400,7 @@
               <button v-if="searchMode === 'posts'" type="button" class="secondary-button" @click="searchHotContentFromEmpty">热门内容</button>
               <RouterLink v-if="searchMode === 'topics' && filters.q" :to="`/topics/${encodeURIComponent(filters.q)}`" class="secondary-button">查看话题</RouterLink>
               <RouterLink v-if="searchMode === 'tags' && filters.q" :to="`/tag/${encodeURIComponent(filters.q)}`" class="secondary-button">查看标签</RouterLink>
-              <RouterLink to="/explore" class="secondary-button" @click="trackCommunityRecommendationClick('explore')">去发现页</RouterLink>
+              <RouterLink to="/explore" class="secondary-button" @click="trackCommunityRecommendationClick('explore', 'local')">去发现页</RouterLink>
             </div>
           </div>
 
@@ -413,7 +420,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Bookmark, Check, Eraser, FileText, Hash, Pencil, Search, Trash2, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { getErrorMessage } from '@/api/client'
+import client, { getErrorMessage, type Result } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import { postApi } from '@/api/post'
@@ -458,10 +465,18 @@ type SearchResultMeta = {
   diagnostics?: Record<string, unknown>
 }
 
+type RecommendationSource = 'remote' | 'local' | 'fallback' | 'demo'
+
 type RecommendationAction = {
   key: string
   label: string
+  source: RecommendationSource
   action: () => void | Promise<void>
+}
+
+type KeywordRecommendation = {
+  label: string
+  source: RecommendationSource
 }
 
 const RECENT_SEARCH_KEY = 'recent-searches'
@@ -502,6 +517,8 @@ const cursor = ref<string | undefined>()
 const hasMore = ref(false)
 const hotWords = ref<string[]>([])
 const suggestions = ref<string[]>([])
+const hotWordsSource = ref<RecommendationSource>('fallback')
+const suggestionSource = ref<RecommendationSource>('fallback')
 const recentSearches = ref<SearchSnapshot[]>([])
 const savedSearches = ref<SearchSnapshot[]>([])
 const searchUndoAction = ref<SearchUndoAction | null>(null)
@@ -586,6 +603,14 @@ const postDetailQuery = computed<Record<string, string>>(() => {
     from: 'search',
   }
 })
+const searchSignalNote = computed(() => {
+  const sources = new Set<RecommendationSource>()
+  if (suggestions.value.length) sources.add(suggestionSource.value)
+  if (hotWords.value.length) sources.add(hotWordsSource.value)
+  if (!sources.size) return ''
+  const labels = Array.from(sources).map(sourceLabel).join(' / ')
+  return `搜索建议仅来自公开内容信号，来源：${labels}；最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议。`
+})
 const emptyTitle = computed(() => {
   if (searchMode.value === 'users') return filters.q ? '没有找到这个作者' : '先输入作者昵称'
   if (searchMode.value === 'topics') return filters.q ? '准备查看这个话题' : '先输入话题关键词'
@@ -602,14 +627,29 @@ const noResultWords = computed(() => {
   const words = hotWords.value.filter((word) => word && word !== filters.q).slice(0, 6)
   return words.length ? words : ['AI 工具', '学习方法', '租房经验', '书单推荐', '求建议', '城市生活']
 })
+const noResultWordActions = computed<KeywordRecommendation[]>(() => {
+  const remoteWords = hotWords.value.filter((word) => word && word !== filters.q).slice(0, 6)
+  if (remoteWords.length) return remoteWords.map((label) => ({ label, source: hotWordsSource.value }))
+  return noResultWords.value.map((label) => ({ label, source: 'fallback' }))
+})
 const relaxActions = computed(() => {
   const actions: RecommendationAction[] = []
-  if (filters.type) actions.push({ key: 'type', label: '不限内容类型', action: clearTypeFilter })
-  if (filters.position) actions.push({ key: 'position', label: '不限场景', action: clearPositionFilter })
-  if (filters.company) actions.push({ key: 'company', label: '不限标签', action: clearCompanyFilter })
-  if (filters.q) actions.push({ key: 'keyword', label: '只看热门内容', action: searchHotContent })
+  if (filters.type) actions.push({ key: 'type', label: '不限内容类型', source: 'local', action: clearTypeFilter })
+  if (filters.position) actions.push({ key: 'position', label: '不限场景', source: 'local', action: clearPositionFilter })
+  if (filters.company) actions.push({ key: 'company', label: '不限标签', source: 'local', action: clearCompanyFilter })
+  if (filters.q) actions.push({ key: 'keyword', label: '只看热门内容', source: hotWordsSource.value, action: searchHotContent })
   return actions
 })
+const sourceLabel = (source: RecommendationSource) => {
+  const labels: Record<RecommendationSource, string> = {
+    remote: 'remote',
+    local: 'local',
+    fallback: 'fallback',
+    demo: 'demo',
+  }
+  return labels[source]
+}
+const shouldTrackPublicRecommendation = (source: RecommendationSource) => source === 'remote'
 const userFacingSearchStatusMessage = (message?: string | null) => {
   const value = message?.trim()
   if (!value) return ''
@@ -618,18 +658,19 @@ const userFacingSearchStatusMessage = (message?: string | null) => {
   return value
 }
 const searchStatusText = computed(() => {
-  if (!searchStatus.value) return '公开搜索仅展示已发布、公开、可分发的社区内容'
+  if (searchStatusError.value && !searchStatus.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、社区问题求助和搜作者入口'
+  if (!searchStatus.value) return '公开搜索仅展示已发布、公开、可分发的社区内容；个人最近搜索和保存搜索不参与公共趋势、创作者建议、编辑器建议或专题候选'
   if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、社区问题求助和搜作者入口'
   if (searchStatus.value.publicSearchSource === 'mysql') {
     const mode = searchStatus.value.fallbackMode === 'compat' ? '兼容模式' : '完整标签治理模式'
-    return `公开搜索当前由数据库兜底服务（${mode}），结果可能不完整，排序能力受限`
+    return `公开搜索当前由数据库兜底服务（${mode}），结果可能不完整，排序能力受限，不代表内容获得额外曝光或排名`
   }
   if (!searchStatus.value.enabled) return '搜索索引未启用，当前使用数据库搜索，结果可能不完整'
   if (!searchStatus.value.available) return '搜索索引暂不可用，当前使用数据库兜底搜索，结果可能不完整'
   if (!searchStatus.value.indexExists) return '搜索索引尚未创建，当前结果可能不完整'
   const backendMessage = userFacingSearchStatusMessage(searchStatus.value.message)
   if (backendMessage) return backendMessage
-  return '搜索索引已就绪，新发布内容会优先进入实时搜索'
+  return '搜索索引已就绪；结果只按公开内容和当前筛选返回，不承诺曝光、精选或排名'
 })
 const searchErrorStatusText = computed(() => {
   if (!errorMessage.value) return searchStatusText.value
@@ -674,9 +715,9 @@ const searchSourceDescription = computed(() => {
   const meta = searchResultMeta.value
   if (!meta) return ''
   const scan = meta.scanLimit ? `扫描上限 ${meta.scanLimit} 条。` : ''
-  if (!meta.degraded) return `索引可用，按当前筛选和排序返回。${scan}`
+  if (!meta.degraded) return `索引可用，按当前筛选和排序返回，不代表曝光、精选或排名。${scan}`
   if (isVisibilitySupplementReason(meta.fallbackReason)) return `${fallbackReasonText(meta.fallbackReason)}，搜索服务仍可用。${scan}`
-  return `${fallbackReasonText(meta.fallbackReason)}，结果可能不完整，排序能力受限。${scan}`
+  return `${fallbackReasonText(meta.fallbackReason)}，结果可能不完整，排序能力受限，不代表曝光、精选或排名。${scan}`
 })
 const highRiskSearchWarning = computed(() => (
   findHighRiskContentWarning([filters.q, filters.company, filters.position].filter(Boolean).join(' '))
@@ -749,7 +790,22 @@ const fallbackReasonText = (reason?: string) => {
 
 const analyticsKeyword = () => filters.q || filters.company || filters.position || (filters.type ? postTypeText(filters.type) : '') || 'empty-result'
 
-const trackCommunityRecommendationClick = (target: string) => {
+const loadSearchStatus = async () => {
+  isSearchStatusLoading.value = true
+  searchStatusError.value = false
+  try {
+    const res = await client.get('/api/v1/search/status') as Result<SearchStatus>
+    searchStatus.value = res.data || null
+  } catch {
+    searchStatusError.value = true
+    searchStatus.value = null
+  } finally {
+    isSearchStatusLoading.value = false
+  }
+}
+
+const trackCommunityRecommendationClick = (target: string, source: RecommendationSource = 'remote') => {
+  if (!shouldTrackPublicRecommendation(source)) return
   searchApi.trackAnalytics({
     eventType: 'COMMUNITY_RECOMMEND_CLICK',
     keyword: analyticsKeyword(),
@@ -758,31 +814,31 @@ const trackCommunityRecommendationClick = (target: string) => {
 }
 
 const runRecommendationAction = (item: RecommendationAction) => {
-  trackCommunityRecommendationClick(`relax:${item.key}`)
+  trackCommunityRecommendationClick(`relax:${item.key}`, item.source)
   void item.action()
 }
 
-const useRecommendedWord = async (word: string) => {
-  trackCommunityRecommendationClick(`keyword:${word}`)
-  await useHotWord(word)
+const useRecommendedWord = async (item: KeywordRecommendation) => {
+  trackCommunityRecommendationClick(`keyword:${item.label}`, item.source)
+  await useHotWord(item.label)
 }
 
 const trackTagRecommendationClick = () => {
-  trackCommunityRecommendationClick(`tag:${filters.company}`)
+  trackCommunityRecommendationClick(`tag:${filters.company}`, 'local')
 }
 
 const searchHotContentFromEmpty = async () => {
-  trackCommunityRecommendationClick('hot-content')
+  trackCommunityRecommendationClick('hot-content', hotWordsSource.value)
   await searchHotContent()
 }
 
 const searchHotContentFromError = async () => {
-  trackCommunityRecommendationClick('error:hot-content')
+  trackCommunityRecommendationClick('error:hot-content', 'local')
   await searchHotContent()
 }
 
 const switchToUserSearchFromError = async () => {
-  trackCommunityRecommendationClick('error:user-search')
+  trackCommunityRecommendationClick('error:user-search', 'local')
   const keyword = filters.q || filters.company || filters.position
   searchMode.value = 'users'
   filters.q = keyword
@@ -1170,6 +1226,7 @@ const runSearch = async (append = false, syncRoute = true) => {
   } catch (error: any) {
     if (requestId !== searchRequestId) return
     errorMessage.value = `${getErrorMessage(error, '搜索接口暂不可用')}。已刷新搜索状态，并保留热门内容、发现页、社区问题求助和搜作者入口。`
+    await loadSearchStatus()
     if (!append) {
       searchResults.value = []
       userResults.value = []
@@ -1258,6 +1315,7 @@ const loadSuggestions = () => {
   }
   if (searchMode.value !== 'posts' || filters.q.length < 2) {
     suggestions.value = []
+    suggestionSource.value = 'fallback'
     suggestionRequestId += 1
     return
   }
@@ -1268,9 +1326,13 @@ const loadSuggestions = () => {
       const res = await searchApi.suggest(q)
       if (requestId === suggestionRequestId && q === filters.q) {
         suggestions.value = filterVisibleSearchTerms(res.data)
+        suggestionSource.value = suggestions.value.length ? 'remote' : 'fallback'
       }
     } catch {
-      if (requestId === suggestionRequestId) suggestions.value = []
+      if (requestId === suggestionRequestId) {
+        suggestions.value = []
+        suggestionSource.value = 'fallback'
+      }
     }
   }, 250)
 }
@@ -1310,7 +1372,14 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
 onMounted(async () => {
   loadSearchSnapshots()
   syncFromRoute()
-  await searchApi.hotSearches().then((res) => { hotWords.value = filterVisibleSearchTerms(res.data) }).catch(() => { hotWords.value = [] })
+  await loadSearchStatus()
+  await searchApi.hotSearches().then((res) => {
+    hotWords.value = filterVisibleSearchTerms(res.data)
+    hotWordsSource.value = hotWords.value.length ? 'remote' : 'fallback'
+  }).catch(() => {
+    hotWords.value = []
+    hotWordsSource.value = 'fallback'
+  })
   if (shouldAutoRunSearch.value) {
     await runSearch(false)
   }
@@ -1537,6 +1606,11 @@ onBeforeUnmount(() => {
 .status-warn {
   background: rgb(254 243 199);
   color: rgb(180 83 9);
+}
+
+.status-danger {
+  background: rgb(254 226 226);
+  color: rgb(185 28 28);
 }
 
 .mini-count {
@@ -1803,6 +1877,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   min-height: 32px;
   align-items: center;
+  gap: 0.4rem;
   border-radius: 999px;
   border: 1px solid rgb(191 219 254);
   background: rgb(239 246 255);
@@ -1810,6 +1885,16 @@ onBeforeUnmount(() => {
   font-size: 0.8125rem;
   font-weight: 800;
   color: rgb(29 78 216);
+}
+
+.recommend-chip small {
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.82);
+  padding: 0.1rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1.2;
+  color: rgb(71 85 105);
 }
 
 @media (max-width: 640px) {
@@ -1983,6 +2068,11 @@ onBeforeUnmount(() => {
   border-color: rgb(30 64 175);
   background: rgb(23 37 84);
   color: rgb(191 219 254);
+}
+
+.dark .recommend-chip small {
+  background: rgb(15 23 42 / 0.82);
+  color: rgb(203 213 225);
 }
 
 .dark .search-hit-reasons span {

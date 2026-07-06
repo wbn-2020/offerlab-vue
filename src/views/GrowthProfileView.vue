@@ -100,7 +100,7 @@
             </article>
           </section>
 
-          <section class="surface-card p-6">
+          <section id="curation-feedback" class="surface-card p-6">
             <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 class="text-lg font-black text-slate-950 dark:text-white">最近入选反馈</h2>
@@ -117,10 +117,10 @@
                 :to="item.href"
                 class="curation-card"
               >
-                <span class="curation-card-kicker">收录位置：{{ item.placementLabel }}</span>
+                <span class="curation-card-kicker">收录位置：{{ curationFeedbackLocation(item) }}</span>
                 <h3>{{ item.contentTitle }}</h3>
                 <p>收录理由：{{ item.reasonText }}</p>
-                <small>{{ formatTime(item.triggeredAt) }}</small>
+                <small>{{ curationFeedbackStatusLabel(item) }} · {{ formatTime(item.includedAt || item.triggeredAt) }}</small>
               </RouterLink>
             </div>
             <p v-else class="curation-empty">暂无公开内容入选反馈</p>
@@ -250,6 +250,19 @@ const profileDemoNotice = computed(() => profile.value?.degradationReasons?.incl
 const recentCurationFeedbackItems = computed(() => (
   curationFeedbackSummary.value?.recentItems.filter((item): item is CreatorCurationFeedback & { href: string } => Boolean(item.href)) ?? []
 ))
+
+const curationFeedbackStatusLabel = (item: CreatorCurationFeedback) => {
+  if (item.status === 'archived') return '专题已归档'
+  if (item.status === 'offline') return '专题已下线'
+  if (item.status === 'degraded') return '降级可见'
+  return '已收录'
+}
+
+const curationFeedbackLocation = (item: CreatorCurationFeedback) => {
+  const topic = item.topicTitle || item.placementLabel || (item.topicSlug ? `专题 ${item.topicSlug}` : '公开专题')
+  const section = item.sectionTitle || item.sectionKey
+  return section ? `${topic} / ${section}` : topic
+}
 
 const totalScore = (domain: GrowthProfileDomain) => (
   domain.dimensions.reduce((sum, item) => sum + Number(item.score || 0), 0)

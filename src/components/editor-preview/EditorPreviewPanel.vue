@@ -24,7 +24,11 @@
           :title="preview.placeholder.title"
           :description="preview.placeholder.description"
         />
-        <EditorPreviewDetails v-else :preview="preview" />
+        <EditorPreviewDetails
+          v-else
+          :preview="preview"
+          :failed-cover-url="failedCoverUrl"
+        />
       </div>
 
       <aside class="preview-device-shell rounded-[1.5rem] border border-slate-200/80 bg-slate-950 p-3 shadow-inner shadow-slate-950/25 dark:border-slate-700/80">
@@ -34,7 +38,11 @@
         </div>
         <div class="preview-device-screen rounded-[1.9rem] bg-[linear-gradient(180deg,#f8fafc,#eff6ff_42%,#f8fafc)] p-3 dark:bg-[linear-gradient(180deg,#0f172a,#111827_42%,#020617)]">
           <div class="mx-auto mb-4 h-1.5 w-20 rounded-full bg-slate-300/90 dark:bg-slate-700/80" />
-          <EditorPreviewCard :preview="preview" />
+          <EditorPreviewCard
+            :preview="preview"
+            :failed-cover-url="failedCoverUrl"
+            @cover-error="handleCoverError"
+          />
         </div>
       </aside>
     </div>
@@ -42,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import EditorPreviewCard from '@/components/editor-preview/EditorPreviewCard.vue'
 import EditorPreviewDetails from '@/components/editor-preview/EditorPreviewDetails.vue'
@@ -53,7 +62,7 @@ const copy = {
   previewState: '\u9884\u89c8\u4e2d',
 } as const
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   preview: EditorPreviewModel
   title?: string
   description?: string
@@ -62,6 +71,16 @@ withDefaults(defineProps<{
   title: '\u53d1\u5e03\u524d\u9884\u89c8',
   description: '\u8fd9\u91cc\u5c55\u793a\u53d1\u5e03\u540e\u7684\u79fb\u52a8\u7aef\u5361\u7247\u6548\u679c\uff0c\u4ee5\u53ca\u6458\u8981\u3001\u533f\u540d\u548c\u7cfb\u5217\u5f52\u5c5e\u7b49\u5173\u952e\u4fe1\u606f\u3002',
   eyebrow: 'Editor Preview',
+})
+
+const failedCoverUrl = ref('')
+
+const handleCoverError = (url: string) => {
+  failedCoverUrl.value = url
+}
+
+watch(() => props.preview.cover.url, () => {
+  failedCoverUrl.value = ''
 })
 </script>
 

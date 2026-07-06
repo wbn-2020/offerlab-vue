@@ -20,9 +20,74 @@ export const PUBLIC_OPERATION_SLOT_CODES = [
 export type PublicOperationSlotCode = typeof PUBLIC_OPERATION_SLOT_CODES[number]
 
 export type OperationSource = 'remote' | 'legacy-featured' | 'public-content-query' | 'fallback-demo' | 'unavailable'
-export type OperationStatus = 'DRAFT' | 'PREVIEW' | 'PUBLISHED' | 'OFFLINE' | 'ACTIVE' | 'PAUSED' | 'HIDDEN' | string
+export type OperationStatus = 'DRAFT' | 'PREVIEW' | 'PUBLISHED' | 'OFFLINE' | 'ARCHIVED' | 'ACTIVE' | 'PAUSED' | 'HIDDEN' | string
 export type OperationResourceKind = 'topic' | 'slot'
-export type OperationAction = 'preview' | 'publish' | 'offline' | 'rollback'
+export type OperationAction = 'preview' | 'publish' | 'offline' | 'rollback' | 'archive'
+export type ContentGapSourceStatus = 'remote' | 'fallback-demo' | 'unavailable'
+export type ContentGapSourceKind = 'topic' | 'search'
+
+export interface ContentGapSourceRef {
+  readonly kind: ContentGapSourceKind
+  readonly id: ApiId
+  readonly status: ContentGapSourceStatus
+  readonly fallback?: boolean
+  readonly demo?: boolean
+}
+
+export interface TopicContentGap {
+  readonly id: ApiId
+  readonly title: string
+  readonly summary?: string
+  readonly source: 'topic'
+  readonly sourceRef: ContentGapSourceRef
+  readonly sourceStatus: ContentGapSourceStatus
+  readonly readOnly: boolean
+}
+
+export interface SearchContentGap {
+  readonly id: ApiId
+  readonly title: string
+  readonly summary?: string
+  readonly source: 'search'
+  readonly sourceRef: ContentGapSourceRef
+  readonly sourceStatus: ContentGapSourceStatus
+  readonly readOnly: boolean
+}
+
+export interface SearchTopicGap extends SearchContentGap {
+  readonly topicSlug?: string
+}
+
+export interface MergedContentGap {
+  readonly id: ApiId
+  readonly title: string
+  readonly summary?: string
+  readonly sourceRefs: readonly ContentGapSourceRef[]
+  readonly sourceStatuses: readonly ContentGapSourceStatus[]
+  readonly readOnly: boolean
+  readonly dispatchAllowed: boolean
+}
+
+export interface KnowledgeEntryQuery {
+  readonly phase: 'phase-5-reserved'
+  readonly assetId: ApiId
+  readonly assetType: 'topic' | 'post' | 'content-gap'
+  readonly topicSlug?: string
+  readonly includeArchived?: boolean
+  readonly limit?: number
+}
+
+export interface SearchAssetMapping {
+  readonly assetId: ApiId
+  readonly assetType: 'topic' | 'post'
+  readonly title: string
+  readonly href?: string
+  readonly status: 'PUBLISHED' | 'ARCHIVED' | 'OFFLINE'
+  readonly displayState: 'public' | 'archived' | 'offline'
+  readonly ordinarySearchIncluded: boolean
+  readonly readOnly: boolean
+  readonly sourceRef: ContentGapSourceRef
+}
 
 export interface OperationCapability<T> {
   available: boolean
@@ -38,9 +103,14 @@ export interface OperationCandidate {
   summary?: string
   sourceType: string
   sourceId: ApiId
+  topicId?: ApiId
+  topicSlug?: string
+  sectionKey?: string
   domain?: number
   contentType?: string
   reason?: string
+  reasonText?: string
+  visibilityCheck?: string
   governanceState?: string
   updatedAt?: string
   href?: string
@@ -104,6 +174,52 @@ export interface OperationSlot {
   exampleLabel?: string
 }
 
+export interface OperationTopicItem {
+  id: ApiId
+  sourceType: 'POST' | string
+  sourceId: ApiId
+  contentId?: ApiId
+  title: string
+  summary?: string
+  href?: string
+  status: OperationStatus
+  sortOrder: number
+  reasonText: string
+  source?: OperationSource
+  blocked?: boolean
+  blockReasons?: string[]
+  fallback?: boolean
+  example?: boolean
+  exampleLabel?: string
+}
+
+export interface OperationTopicSection {
+  id?: ApiId
+  key: string
+  title: string
+  summary?: string
+  status: OperationStatus
+  sortOrder: number
+  reasonText?: string
+  items: OperationTopicItem[]
+}
+
+export interface OperationTopicPublishCheckItem {
+  code: string
+  label: string
+  passed: boolean
+  detail: string
+}
+
+export interface OperationTopicPublishCheck {
+  topicId: ApiId
+  canPublish: boolean
+  source: OperationSource
+  degraded: boolean
+  checkedAt?: string
+  items: OperationTopicPublishCheckItem[]
+}
+
 export interface OperationTopic {
   id: ApiId
   slug?: string
@@ -116,7 +232,16 @@ export interface OperationTopic {
   endTime?: string
   previewToken?: string
   itemCount?: number
+  currentVersion?: number
+  archivedReason?: string
+  source?: OperationSource
+  degraded?: boolean
+  fallbackReason?: string
+  sections?: OperationTopicSection[]
+  publishCheck?: OperationTopicPublishCheck
   fallback?: boolean
+  example?: boolean
+  exampleLabel?: string
 }
 
 export interface OperationAuditLog {
@@ -159,8 +284,54 @@ interface RemoteOperationTopic {
   startsAt?: string
   endsAt?: string
   previewToken?: string
-  sections?: unknown[]
+  currentVersion?: number
+  version?: number
+  archivedReason?: string
+  source?: OperationSource
+  degraded?: boolean
+  fallbackReason?: string
+  sections?: RemoteOperationTopicSection[]
+  publishCheck?: OperationTopicPublishCheck
   updateTime?: string
+}
+
+interface RemoteOperationTopicSection {
+  id?: ApiId
+  key?: string
+  sectionKey?: string
+  title?: string
+  name?: string
+  summary?: string
+  description?: string
+  sourceType?: string
+  sourceId?: ApiId
+  post?: RemotePostBrief
+  status?: OperationStatus
+  sortOrder?: number
+  rank?: number
+  note?: string
+  reasonText?: string
+  items?: RemoteOperationTopicItem[]
+  contents?: RemoteOperationTopicItem[]
+}
+
+interface RemoteOperationTopicItem {
+  id?: ApiId
+  sourceType?: string
+  sourceId?: ApiId
+  contentId?: ApiId
+  postId?: ApiId
+  title?: string
+  summary?: string
+  note?: string
+  reasonText?: string
+  status?: OperationStatus
+  sortOrder?: number
+  rank?: number
+  source?: OperationSource
+  blocked?: boolean
+  blockReasons?: string[]
+  post?: RemotePostBrief
 }
 
 interface RemoteOperationSlotItem {
@@ -248,9 +419,88 @@ const postIdOf = (post: RemotePostBrief | Post | undefined) => {
 
 const postHref = (postId: ApiId) => `/post/${postId}`
 const topicHref = (slug?: string) => slug ? `/topics/${encodeURIComponent(slug)}` : '/explore'
+const isReadOnlyGapStatus = (status: ContentGapSourceStatus) => status === 'fallback-demo' || status === 'unavailable'
 const isPublicOperationSlotCode = (slotCode: string): slotCode is PublicOperationSlotCode => (
   PUBLIC_OPERATION_SLOT_CODES.includes(slotCode as PublicOperationSlotCode)
 )
+
+export const canDispatchMergedContentGap = (gap: Pick<MergedContentGap, 'sourceRefs' | 'readOnly'>) => {
+  if (gap.readOnly) return false
+  if (gap.sourceRefs.some((ref) => ref.status === 'fallback-demo' || ref.fallback || ref.demo)) return false
+  if (gap.sourceRefs.some((ref) => ref.status === 'unavailable')) return false
+  return true
+}
+
+export const mergeContentGaps = (
+  topicGap: TopicContentGap,
+  searchGap?: SearchContentGap | SearchTopicGap | null,
+): MergedContentGap => {
+  const sourceRefs = [topicGap.sourceRef, ...(searchGap ? [searchGap.sourceRef] : [])]
+  const sourceStatuses = sourceRefs.map((ref) => ref.status)
+  const readOnly = topicGap.readOnly
+    || Boolean(searchGap?.readOnly)
+    || sourceStatuses.some(isReadOnlyGapStatus)
+  const merged: MergedContentGap = {
+    id: searchGap?.id || topicGap.id,
+    title: searchGap?.title || topicGap.title,
+    summary: searchGap?.summary || topicGap.summary,
+    sourceRefs: [topicGap.sourceRef, ...(searchGap ? [searchGap.sourceRef] : [])],
+    sourceStatuses,
+    readOnly,
+    dispatchAllowed: false,
+  }
+  return {
+    ...merged,
+    dispatchAllowed: canDispatchMergedContentGap(merged),
+  }
+}
+
+export const toSearchAssetMapping = (asset: {
+  assetId: ApiId
+  assetType: 'topic' | 'post'
+  title: string
+  href?: string
+  status: 'PUBLISHED' | 'ARCHIVED' | 'OFFLINE'
+  sourceRef: ContentGapSourceRef
+}): SearchAssetMapping => {
+  if (asset.status === 'OFFLINE') {
+    return {
+      assetId: asset.assetId,
+      assetType: asset.assetType,
+      title: asset.title,
+      href: asset.href,
+      status: 'OFFLINE',
+      displayState: 'offline',
+      ordinarySearchIncluded: false,
+      readOnly: true,
+      sourceRef: asset.sourceRef,
+    }
+  }
+  if (asset.status === 'ARCHIVED') {
+    return {
+      assetId: asset.assetId,
+      assetType: asset.assetType,
+      title: asset.title,
+      href: asset.href,
+      status: 'ARCHIVED',
+      displayState: 'archived',
+      ordinarySearchIncluded: true,
+      readOnly: true,
+      sourceRef: asset.sourceRef,
+    }
+  }
+  return {
+    assetId: asset.assetId,
+    assetType: asset.assetType,
+    title: asset.title,
+    href: asset.href,
+    status: 'PUBLISHED',
+    displayState: 'public',
+    ordinarySearchIncluded: true,
+    readOnly: false,
+    sourceRef: asset.sourceRef,
+  }
+}
 
 const adaptRemotePostItem = (post: RemotePostBrief | undefined, fallbackTitle = 'Untitled public content') => {
   const id = postIdOf(post) ?? fallbackTitle
@@ -271,9 +521,14 @@ const adaptRemoteCandidate = (item: any): OperationCandidate => {
     summary: postItem.summary,
     sourceType: item?.sourceType || 'POST',
     sourceId: item?.sourceId ?? postIdOf(post) ?? postItem.id,
+    topicId: item?.topicId,
+    topicSlug: item?.topicSlug,
+    sectionKey: item?.sectionKey,
     domain: post?.domain,
     contentType: post?.tags?.[0]?.name || post?.tags?.[0]?.tagName,
     reason: item?.reason || 'PUBLIC_VISIBLE_GOVERNED',
+    reasonText: item?.reasonText || item?.reason,
+    visibilityCheck: item?.visibilityCheck,
     governanceState: item?.operable === false ? 'filtered' : 'eligible',
     updatedAt: post?.createTime,
     href: postItem.href,
@@ -296,19 +551,82 @@ const adaptRemoteCuration = (item: any): CurationPoolItem => {
   }
 }
 
-const adaptRemoteTopic = (topic: RemoteOperationTopic): OperationTopic => ({
-  id: topic.id || topic.slug || 'topic',
-  slug: topic.slug,
-  title: topic.name || topic.title || 'Topic draft',
-  summary: topic.description,
-  entryPath: topicHref(topic.slug),
-  status: topic.status || 'DRAFT',
-  activityType: topic.operationType,
-  startTime: topic.startsAt,
-  endTime: topic.endsAt,
-  previewToken: topic.previewToken,
-  itemCount: Array.isArray(topic.sections) ? topic.sections.length : 0,
-})
+const adaptRemoteTopicItem = (item: RemoteOperationTopicItem, sortFallback: number): OperationTopicItem => {
+  const post = item.post
+  const postItem = adaptRemotePostItem(post, item.title || 'Topic content')
+  const sourceId = item.sourceId || item.contentId || item.postId || postIdOf(post) || postItem.id
+  return {
+    id: item.id || `${item.sourceType || 'POST'}:${sourceId}`,
+    sourceType: item.sourceType || 'POST',
+    sourceId,
+    contentId: item.contentId || item.postId || sourceId,
+    title: item.title || postItem.title,
+    summary: item.summary || postItem.summary || item.note,
+    href: postItem.href || (sourceId ? postHref(sourceId) : undefined),
+    status: item.status || 'ACTIVE',
+    sortOrder: item.sortOrder ?? item.rank ?? sortFallback,
+    reasonText: item.reasonText || item.note || '',
+    source: item.source || 'remote',
+    blocked: Boolean(item.blocked),
+    blockReasons: item.blockReasons || [],
+    fallback: item.source ? item.source !== 'remote' : false,
+  }
+}
+
+const adaptRemoteTopicSection = (section: RemoteOperationTopicSection, sortFallback: number): OperationTopicSection => {
+  const sourceId = section.sourceId || postIdOf(section.post)
+  const items = section.items || section.contents || (sourceId ? [{
+    id: section.id,
+    sourceType: section.sourceType || 'POST',
+    sourceId,
+    title: section.title || section.name,
+    summary: section.summary || section.description,
+    note: section.note,
+    reasonText: section.reasonText || section.note,
+    status: section.status,
+    sortOrder: section.sortOrder ?? section.rank,
+    post: section.post,
+  }] : [])
+  const key = section.key || section.sectionKey || `section-${sortFallback}`
+  return {
+    id: section.id,
+    key,
+    title: section.title || section.name || key,
+    summary: section.summary || section.description,
+    status: section.status || 'ACTIVE',
+    sortOrder: section.sortOrder ?? section.rank ?? sortFallback,
+    reasonText: section.reasonText,
+    items: items.map((item, index) => adaptRemoteTopicItem(item, index + 1)),
+  }
+}
+
+const adaptRemoteTopic = (topic: RemoteOperationTopic): OperationTopic => {
+  const source = topic.source || 'remote'
+  const degraded = Boolean(topic.degraded || source !== 'remote')
+  const sections = (topic.sections || []).map((section, index) => adaptRemoteTopicSection(section, index + 1))
+  const itemCount = sections.reduce((total, section) => total + section.items.length, 0)
+  return {
+    id: topic.id || topic.slug || 'topic',
+    slug: topic.slug,
+    title: topic.name || topic.title || 'Topic draft',
+    summary: topic.description,
+    entryPath: topicHref(topic.slug),
+    status: topic.status || 'DRAFT',
+    activityType: topic.operationType,
+    startTime: topic.startsAt,
+    endTime: topic.endsAt,
+    previewToken: topic.previewToken,
+    itemCount: itemCount || sections.length,
+    currentVersion: topic.currentVersion ?? topic.version,
+    archivedReason: topic.archivedReason,
+    source,
+    degraded,
+    fallbackReason: topic.fallbackReason,
+    sections,
+    publishCheck: topic.publishCheck,
+    fallback: degraded,
+  }
+}
 
 const adaptRemoteSlotItem = (item: RemoteOperationSlotItem, rankFallback: number): OperationSlotItem => {
   if (item.topic) {
@@ -493,6 +811,72 @@ export const operationsApi = {
     }
   },
 
+  getOperationTopic: async (topicId: ApiId): Promise<Result<OperationTopic>> => {
+    const res = await client.get(`/api/v1/operations/admin/topics/${topicId}`) as Result<RemoteOperationTopic>
+    return { ...res, data: adaptRemoteTopic(res.data || { id: topicId }) }
+  },
+
+  saveOperationTopicDraft: async (topic: OperationTopic): Promise<Result<OperationTopic>> => {
+    const res = await client.put(`/api/v1/operations/admin/topics/${topic.id}`, {
+      name: topic.title,
+      description: topic.summary,
+      status: topic.status,
+      operationType: topic.activityType || 'TOPIC',
+      startsAt: topic.startTime,
+      endsAt: topic.endTime,
+      sections: (topic.sections || []).flatMap((section) => {
+        const sectionItems = section.items || []
+        if (!sectionItems.length) return []
+        return sectionItems.map((item) => ({
+          title: section.title,
+          sourceType: item.sourceType,
+          sourceId: item.sourceId,
+          status: item.status,
+          sortOrder: item.sortOrder,
+          reasonText: item.reasonText || section.reasonText,
+          reasonConfirmed: Boolean(item.reasonText || section.reasonText),
+          note: item.reasonText || section.reasonText,
+        }))
+      }),
+    }) as Result<RemoteOperationTopic>
+    return { ...res, data: adaptRemoteTopic(res.data || topic) }
+  },
+
+  addTopicCandidateToSection: async (
+    topicId: ApiId,
+    sectionKey: string,
+    candidate: OperationCandidate,
+    reasonText: string,
+    sortOrder = 100,
+  ): Promise<Result<OperationTopicItem>> => Promise.resolve({ code: 0, message: 'ok', data: {
+    id: `draft:${topicId}:${sectionKey}:${candidate.sourceType}:${candidate.sourceId}`,
+    sourceType: candidate.sourceType,
+    sourceId: candidate.sourceId,
+    contentId: candidate.sourceId,
+    title: candidate.title,
+    summary: candidate.summary,
+    href: candidate.href,
+    status: 'ACTIVE',
+    sortOrder,
+    reasonText,
+    source: 'remote',
+    fallback: false,
+  } }),
+
+  runTopicPublishCheck: async (topicId: ApiId): Promise<Result<OperationTopicPublishCheck>> => {
+    const res = await client.post(`/api/v1/operations/admin/topics/${topicId}/publish-check`) as Result<OperationTopicPublishCheck>
+    return {
+      ...res,
+      data: res.data || {
+        topicId,
+        canPublish: false,
+        source: 'unavailable',
+        degraded: true,
+        items: [],
+      },
+    }
+  },
+
   listOperationAudit: async (params?: { limit?: number }): Promise<Result<OperationCapability<OperationAuditLog>>> => {
     try {
       const res = await client.get('/api/v1/operations/admin/audit-logs', { params }) as Result<unknown>
@@ -570,7 +954,8 @@ export const operationsApi = {
     note?: string,
     permissions?: OpsOrchestrationPermissions | null,
   ): Promise<Result<OperationActionResult>> => {
-    if (action !== 'preview' && !canMutateOpsOrchestration(permissions, action as OpsOrchestrationAction)) {
+    const permissionAction = action === 'archive' ? 'offline' : action
+    if (action !== 'preview' && !canMutateOpsOrchestration(permissions, permissionAction as OpsOrchestrationAction)) {
       return Promise.reject(new BizException(10403, 'operation orchestration permission required'))
     }
     return client.post(`/api/v1/operations/admin/${resourceKind}s/${id}/${action}`, {
@@ -579,3 +964,15 @@ export const operationsApi = {
     })
   },
 }
+
+export const createKnowledgeEntryQuery = (
+  mapping: Pick<SearchAssetMapping, 'assetId' | 'assetType' | 'status'> & { topicSlug?: string },
+  limit = 8,
+): KnowledgeEntryQuery => ({
+  phase: 'phase-5-reserved',
+  assetId: mapping.assetId,
+  assetType: mapping.assetType === 'topic' ? 'topic' : 'post',
+  topicSlug: mapping.topicSlug,
+  includeArchived: mapping.status === 'ARCHIVED',
+  limit,
+})
