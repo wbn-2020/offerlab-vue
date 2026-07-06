@@ -28,7 +28,7 @@
       <div v-else class="grid gap-8 lg:grid-cols-3">
         <article class="rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
           <div class="mb-5 flex flex-wrap gap-2">
-            <RouterLink v-if="question.company" :to="`/companies/${encodeURIComponent(question.company)}/prep`" class="pill company">{{ question.company }}</RouterLink>
+            <RouterLink v-if="question.company" :to="{ path: '/search', query: { q: question.company, mode: 'posts' } }" class="pill company">{{ question.company }}</RouterLink>
             <span v-if="question.position" class="pill">{{ question.position }}</span>
             <span v-if="question.interviewRound" class="pill">{{ question.interviewRound }}</span>
             <span class="pill">{{ difficultyText(question.difficulty) }}</span>
@@ -83,7 +83,7 @@
             </div>
           </section>
 
-          <section class="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-5 dark:border-blue-900 dark:bg-blue-950/30">
+          <section v-if="enableLegacyTrainingTools" class="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-5 dark:border-blue-900 dark:bg-blue-950/30">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 class="text-sm font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">我的笔记</h2>
@@ -165,7 +165,7 @@
             <button class="primary-action" :disabled="isTogglingFavorite" @click="toggleFavorite">
               {{ isTogglingFavorite ? '处理中...' : (question.favorite ? '取消收藏' : '收藏题目') }}
             </button>
-            <select v-model="selectedProgress" class="state-select" :disabled="isUpdatingProgress" @change="updateProgress">
+            <select v-if="enableLegacyTrainingTools" v-model="selectedProgress" class="state-select" :disabled="isUpdatingProgress" @change="updateProgress">
               <option value="">学习状态</option>
               <option value="todo">待学习</option>
               <option value="learning">学习中</option>
@@ -173,16 +173,16 @@
               <option value="review">待复习</option>
             </select>
             <RouterLink
-              :to="mockInterviewLink"
+              to="/questions"
               class="secondary-action inline-flex items-center justify-center"
             >
-              加入知识复盘
+              返回知识库
             </RouterLink>
             <RouterLink
-              :to="prepReturnLink"
+              to="/me"
               class="secondary-action inline-flex items-center justify-center"
             >
-              回学习空间
+              回个人主页
             </RouterLink>
             <RouterLink
               v-if="detail.sourcePosts.length"
@@ -246,6 +246,7 @@ import { buildQuestionAnswerCardMarkdown } from '@/utils/prepPackExport'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const enableLegacyTrainingTools = false
 const questionId = computed(() => route.params.id as string)
 const selectedProgress = ref('')
 const noteText = ref('')
@@ -277,18 +278,6 @@ const isQuestionLoading = computed(() => isLoading.value && !isError.value)
 const sourcePostCount = computed(() => question.value ? Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1) : 1)
 const isCanonicalRoot = computed(() => !question.value?.canonicalId || String(question.value.canonicalId) === String(question.value.id))
 const hasReviewSchedule = computed(() => Boolean(question.value?.nextReviewAt || question.value?.lastReviewedAt || (question.value?.reviewCount ?? 0) > 0))
-const primaryFocusTag = computed(() => question.value?.tags?.[0]?.name || question.value?.examPoint || '')
-const mockInterviewLink = computed(() => ({
-  path: '/mock-interview',
-  query: {
-    company: question.value?.company || undefined,
-    position: question.value?.position || undefined,
-    difficulty: question.value?.difficulty || undefined,
-    focusTag: primaryFocusTag.value || undefined,
-    questionCount: 5,
-  },
-}))
-const prepReturnLink = computed(() => question.value?.company ? `/companies/${encodeURIComponent(question.value.company)}/prep` : '/me/prep')
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const noteDraftKey = computed(() => `offerlab:${storageOwner.value}:question-note-draft:${questionId.value}`)
 const draftScope = computed(() => `${storageOwner.value}:${questionId.value}`)

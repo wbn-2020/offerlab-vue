@@ -20,18 +20,18 @@
       <input
         v-model="localMeta.scenario"
         type="text"
-        placeholder="如：性能优化、部署运维、架构复盘"
+        placeholder="如：旅行准备、效率工具、读书复盘"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         @input="emitUpdate"
       />
     </div>
 
     <div class="flex flex-col gap-2 sm:col-span-2">
-      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">技术栈</label>
+      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">关键词/相关工具</label>
       <input
         v-model="techStackText"
         type="text"
-        placeholder="用逗号分隔，如：Spring Boot, Redis, Kafka"
+        placeholder="用逗号分隔，如：Notion, 清单模板, 周末计划"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         @input="emitTechStacks"
       />

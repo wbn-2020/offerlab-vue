@@ -26,15 +26,16 @@ assert.match(router, /SeriesWorkbenchView\.vue/, 'router must lazy-load the seri
 assert.match(router, /requiresAuth:\s*true/, 'series workbench route must require login')
 
 assert.match(seriesView, /contentSeriesApi/, 'SeriesWorkbenchView must use the content series API')
-assert.match(seriesView, /系列工作台/, 'SeriesWorkbenchView must render the workbench title')
-assert.match(seriesView, /创建系列/, 'SeriesWorkbenchView must provide a create action')
-assert.match(seriesView, /编辑系列/, 'SeriesWorkbenchView must provide an edit action')
+assert.match(seriesView, /合集工作台/, 'SeriesWorkbenchView must render the user-facing collection workbench title')
+assert.match(seriesView, /创建合集/, 'SeriesWorkbenchView must provide a user-facing create collection action')
+assert.match(seriesView, /编辑合集/, 'SeriesWorkbenchView must provide a user-facing edit collection action')
+assert.doesNotMatch(seriesView, /系列工作台|创建系列|编辑系列|系列归属/, 'SeriesWorkbenchView must not expose legacy series wording to users')
 assert.match(seriesView, /进度/, 'SeriesWorkbenchView must render series progress')
 assert.match(seriesView, /series-progress-bar/, 'SeriesWorkbenchView must render a visual progress bar')
 assert.match(seriesView, /loadSeriesWorkbench/, 'SeriesWorkbenchView must load workbench data')
 assert.match(seriesView, /saveSeriesDraft/, 'SeriesWorkbenchView must save create or edit changes')
 
-assert.match(header, /系列工作台/, 'AppHeader must expose the series workbench entry')
-assert.match(home, /系列工作台/, 'HomeView must surface the series workbench entry')
+assert.match(header, /内容合集/, 'AppHeader must expose the series workbench entry as a downgraded content collection link')
+assert.match(home, /内容合集/, 'HomeView must surface the series workbench entry as a content collection link')
 
 console.log('stage3 series workbench guard passed')

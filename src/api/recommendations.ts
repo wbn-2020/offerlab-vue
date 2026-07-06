@@ -1,6 +1,7 @@
 import client, { type Result } from './client'
-import { adaptPage, adaptPost } from './adapters'
+import { adaptDistributionPage, adaptPost } from './adapters'
 import type { CrossDomainRecommendation, PaginatedResponse } from './types'
+import { filterDistributionPosts, neutralizeHighRiskRecommendationReason, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 
 const safeText = (value: unknown, fallback = '') => {
   if (typeof value !== 'string') return fallback
@@ -16,9 +17,14 @@ const adaptCrossDomainRecommendation = (raw: any): CrossDomainRecommendation => 
   sourceDomainName: safeText(raw?.sourceDomainName),
   targetDomain: raw?.targetDomain == null ? undefined : Number(raw.targetDomain),
   targetDomainName: safeText(raw?.targetDomainName),
-  recommendationReason: safeText(raw?.recommendationReason, 'Based on your recent community activity.'),
+  recommendationReason: neutralizeHighRiskRecommendationReason(
+    normalizeRecommendationReason(safeText(raw?.recommendationReason, '近期社区互动热度较高')),
+    raw?.item?.post,
+  ),
   degraded: Boolean(raw?.degraded),
 })
+
+const isVisibleCrossDomainRecommendation = (raw: any) => filterDistributionPosts(raw?.item?.post ? [raw.item.post] : []).length > 0
 
 export const recommendationsApi = {
   listCrossDomain: async (cursor?: string, size = 6): Promise<Result<PaginatedResponse<CrossDomainRecommendation>>> => {
@@ -28,7 +34,12 @@ export const recommendationsApi = {
     }) as Result<any>
     return {
       ...res,
-      data: res.data ? adaptPage(res.data, adaptCrossDomainRecommendation) : null,
+      data: res.data
+        ? adaptDistributionPage({
+            ...res.data,
+            items: (Array.isArray(res.data.items) ? res.data.items : []).filter(isVisibleCrossDomainRecommendation),
+          }, adaptCrossDomainRecommendation)
+        : null,
     }
   },
 }

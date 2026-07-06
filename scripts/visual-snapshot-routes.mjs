@@ -212,6 +212,18 @@ async function collectPageMetrics(page) {
       const style = getComputedStyle(element)
       return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
     }
+    const isAllowedHorizontalScroll = (element) => {
+      let current = element.parentElement
+      while (current && current !== document.body && current !== document.documentElement) {
+        const style = getComputedStyle(current)
+        const overflowX = style.overflowX
+        if ((overflowX === 'auto' || overflowX === 'scroll') && current.scrollWidth > current.clientWidth + 2) {
+          return true
+        }
+        current = current.parentElement
+      }
+      return false
+    }
     const textOf = (element) => (element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim()
     const selectorChecks = [
       { selector: '.metric-value', name: 'home metric value', minContrast: 4.5, noLightSurface: false },
@@ -243,9 +255,11 @@ async function collectPageMetrics(page) {
           text: (element.textContent || '').trim().slice(0, 80),
           right: Math.round(rect.right),
           width: Math.round(rect.width),
+          allowedHorizontalScroll: isAllowedHorizontalScroll(element),
         }
       })
       .filter((item) => item.right > window.innerWidth + 2 && item.width > 20)
+      .filter((item) => !item.allowedHorizontalScroll)
       .slice(0, 6)
     const keyComponentChecks = selectorChecks.flatMap((check) => {
       return Array.from(document.querySelectorAll(check.selector))

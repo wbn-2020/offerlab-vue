@@ -19,11 +19,13 @@ assert.match(types, /export interface ContentAssistResult\b/, 'shared types must
 
 assert.match(editor, /contentAssistApi/, 'EditorView must import the content assist API')
 assert.match(editor, /stage3-assist-panel/, 'EditorView must render the stage3 assist panel shell')
+assert.match(editor, /发布体验助手/, 'EditorView must frame assist as publishing guidance, not a primary AI product')
+assert.match(editor, /写作助手/, 'EditorView must keep writing assistant entry copy')
 assert.match(editor, /loadStageThreeAssist/, 'EditorView must load stage3 assist data')
 assert.match(editor, /const assistPanelEnabled = ref\(false\)/, 'EditorView must default the assist panel to disabled')
-assert.match(editor, /assistPanelEnabled\.value = safeStorage\.get\(stageThreeAssistPreferenceKey\.value\) === '1'/, 'EditorView must only restore AI assist after an explicit opt-in')
-assert.match(editor, /const clearStageThreeAssistState = \(\) => \{\s*clearStageThreeAssistTimer\(\)\s*stageThreeAssist\.value = null\s*stageThreeAssistError\.value = ''\s*\}/s, 'EditorView must clear local assist state when AI stays disabled')
-assert.match(editor, /if \(!assistPanelEnabled\.value\) \{\s*clearStageThreeAssistState\(\)\s*return\s*\}/s, 'EditorView must not request content assist while AI remains disabled')
+assert.match(editor, /assistPanelEnabled\.value = safeStorage\.get\(stageThreeAssistPreferenceKey\.value\) === '1'/, 'EditorView must only restore publishing assist after an explicit opt-in')
+assert.match(editor, /const clearStageThreeAssistState = \(\) => \{[\s\S]*clearStageThreeAssistTimer\(\)[\s\S]*stageThreeAssistRequestId \+= 1[\s\S]*stageThreeAssist\.value = null[\s\S]*stageThreeAssistError\.value = ''[\s\S]*isStageThreeAssistLoading\.value = false[\s\S]*\}/, 'EditorView must clear local assist state and invalidate pending requests when publishing assist stays disabled')
+assert.match(editor, /if \(!assistPanelEnabled\.value\) \{\s*clearStageThreeAssistState\(\)\s*return\s*\}/s, 'EditorView must not request content assist while publishing assist remains disabled')
 assert.doesNotMatch(editor, /getEditorAssist\(\{ \.\.\.buildStageThreeAssistRequest\(\), aiEnabled: false \}\)/, 'EditorView must not issue disabled-state assist requests automatically')
 assert.doesNotMatch(
   editor,
@@ -35,22 +37,24 @@ assert.doesNotMatch(
   /watch\(\(\) => authStore\.isLoggedIn, async \(loggedIn\) => \{[\s\S]*?await loadStageThreeAssist\(\)/,
   'EditorView must not automatically request content assist when login state changes',
 )
-assert.doesNotMatch(
+assert.match(
   editor,
-  /const scheduleStageThreeAssist = \(\) => \{[\s\S]*?loadStageThreeAssist\(\)/,
-  'EditorView must not auto-schedule content assist requests without an explicit user action',
+  /const scheduleStageThreeAssist = \(\) => \{[\s\S]*if \(!authStore\.isLoggedIn \|\| !assistPanelEnabled\.value \|\| isForbiddenEdit\.value\) return[\s\S]*loadStageThreeAssist\(false\)/,
+  'EditorView may debounce-refresh assist suggestions only after explicit opt-in and valid auth/edit state',
 )
+assert.match(editor, /stageThreeAssistRequestId/, 'EditorView must track assist request freshness')
+assert.match(editor, /if \(requestId !== stageThreeAssistRequestId\) return/, 'EditorView must ignore stale assist responses')
 assert.match(editor, /applyTagSuggestion/, 'EditorView must let users adopt tag suggestions')
 assert.match(editor, /applyTopicSuggestion/, 'EditorView must let users adopt topic suggestions')
 assert.match(editor, /applyAssistSummary/, 'EditorView must let users adopt writing summary suggestions')
 assert.match(editor, /qualityScoreValue/, 'EditorView must compute a numeric quality score')
 assert.match(editor, /selectedSeriesId/, 'EditorView must keep selected series state')
 assert.match(editor, /stageThreeAssistStatus\.value === 'unauthenticated'/, 'EditorView must handle unauthenticated stage3 assist state')
-assert.match(editor, /stageThreeAssistStatus\.value === 'disabled'/, 'EditorView must handle AI disabled stage3 assist state')
+assert.match(editor, /stageThreeAssistStatus\.value === 'disabled'/, 'EditorView must handle disabled stage3 assist state')
 assert.match(editor, /stageThreeAssistStatus\.value === 'loading'/, 'EditorView must handle loading stage3 assist state')
 assert.match(editor, /stageThreeAssistStatus\.value === 'degraded'/, 'EditorView must handle rules-only degraded stage3 assist state')
 assert.match(editor, /stageThreeAssistStatus\.value === 'failed'/, 'EditorView must handle failed stage3 assist state')
-assert.match(editor, /return 'AI关闭'/, 'EditorView must surface an AI disabled status label')
+assert.match(editor, /return '建议关闭'/, 'EditorView must surface a disabled publishing-assist status label')
 assert.match(editor, /return '规则降级'/, 'EditorView must surface a degraded rules-only status label')
 assert.match(editor, /return '加载失败'/, 'EditorView must surface a failed status label')
 assert.match(editor, /item\.adopted \? '已采纳' : '采纳'/, 'EditorView must show adoption state for tag/topic suggestions')

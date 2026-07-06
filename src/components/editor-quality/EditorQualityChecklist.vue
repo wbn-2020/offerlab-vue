@@ -14,6 +14,12 @@
     </header>
 
     <div class="editor-quality-checklist__meta">
+      <span
+        v-if="resolvedSummary.blocking"
+        class="editor-quality-checklist__meta-pill editor-quality-checklist__meta-pill--blocking"
+      >
+        边界 {{ resolvedSummary.blocking }}
+      </span>
       <span class="editor-quality-checklist__meta-pill">
         待完善 {{ resolvedSummary.needsWork }}
       </span>
@@ -115,12 +121,14 @@ const fallbackResult = computed<EditorQualityChecklistResult>(() => {
       normalized: {
         title: '',
         content: '',
+        summary: '',
         plainText: '',
         domain: undefined,
         domainLabel: '',
         tags: [],
         anonymous: false,
         hasSeries: false,
+        riskNotice: '',
       },
     }
   }
@@ -132,6 +140,7 @@ const resolvedSummary = computed(() => fallbackResult.value.summary)
 
 const stateSymbol = (state: EditorQualityChecklistState) => {
   if (state === 'complete') return '✓'
+  if (state === 'blocking') return '×'
   if (state === 'needs-work') return '!'
   return '·'
 }
@@ -231,6 +240,11 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
   color: rgb(51, 65, 85);
 }
 
+.editor-quality-checklist__meta-pill--blocking {
+  background: rgba(254, 226, 226, 0.92);
+  color: rgb(185, 28, 28);
+}
+
 .editor-quality-checklist__list {
   margin-top: 16px;
   display: grid;
@@ -254,6 +268,11 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 .editor-quality-checklist__item--needs-work {
   border-color: rgba(245, 158, 11, 0.3);
   background: rgba(255, 251, 235, 0.9);
+}
+
+.editor-quality-checklist__item--blocking {
+  border-color: rgba(220, 38, 38, 0.34);
+  background: rgba(254, 242, 242, 0.92);
 }
 
 .editor-quality-checklist__item--tip {
@@ -373,6 +392,11 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
   color: rgb(226, 232, 240);
 }
 
+.dark .editor-quality-checklist__meta-pill--blocking {
+  background: rgba(127, 29, 29, 0.75);
+  color: rgb(254, 202, 202);
+}
+
 .dark .editor-quality-checklist__required {
   background: rgba(127, 29, 29, 0.75);
   color: rgb(254, 202, 202);
@@ -386,6 +410,11 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 .dark .editor-quality-checklist__item--needs-work {
   background: rgba(120, 53, 15, 0.34);
   border-color: rgba(245, 158, 11, 0.42);
+}
+
+.dark .editor-quality-checklist__item--blocking {
+  background: rgba(127, 29, 29, 0.4);
+  border-color: rgba(248, 113, 113, 0.42);
 }
 
 .dark .editor-quality-checklist__item--tip {

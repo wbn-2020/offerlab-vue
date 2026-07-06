@@ -13,7 +13,11 @@ assert.match(
   /<router-link[\s\S]*?to="\/"[\s\S]*?>[\s\S]*?综合[\s\S]*?<\/router-link>/,
   'The 综合 entry must route to / without a domain query',
 )
-assert.match(homeView, /v-for="d in DOMAIN_OPTIONS"/, 'Domain entries must still be rendered from DOMAIN_OPTIONS')
+assert.match(
+  homeView,
+  /v-for="d in COMMUNITY_CHANNELS"/,
+  'Domain/channel entries must be rendered from COMMUNITY_CHANNELS while preserving DOMAIN_OPTIONS validation',
+)
 assert.match(
   homeView,
   /const\s+legalDomainValues\s*=\s*new\s+Set/,
@@ -33,6 +37,16 @@ assert.match(
   infiniteFeed,
   /apiMap\[currentFeed\.value\]\(pageParam,\s*pageSize,\s*currentDomain\.value\)/,
   'useInfiniteFeed must pass currentDomain.value into the selected feed API call, including featured',
+)
+assert.match(
+  infiniteFeed,
+  /const\s+maxPages\s*=\s*6/,
+  'useInfiniteFeed must cap retained pages to avoid unbounded feed memory growth',
+)
+assert.match(
+  infiniteFeed,
+  /data\.value\?\.pages\.slice\(-maxPages\)\.flatMap/,
+  'useInfiniteFeed must render only the capped recent pages instead of flattening every loaded page',
 )
 assert.match(
   feedApi,

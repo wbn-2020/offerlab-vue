@@ -12,7 +12,7 @@
             ← 返回
           </button>
           <h1 class="editor-heading text-xl font-bold text-slate-900 dark:text-slate-100">
-            {{ isEditing ? '编辑社区内容' : '发布社区内容' }}
+            {{ isEditing ? '编辑内容' : '发布内容' }}
           </h1>
         </div>
         <div class="editor-toolbar-actions flex flex-wrap items-center justify-end gap-3">
@@ -91,14 +91,14 @@
         </div>
 
         <!-- 内容类型 Tab -->
-        <div class="content-type-tabs flex gap-2 border-b border-slate-200 dark:border-slate-800 px-4">
+        <div class="content-type-tabs flex min-w-0 max-w-full gap-2 overflow-x-auto border-b border-slate-200 px-4 dark:border-slate-800">
           <button
             v-for="type in postTypes"
             :key="type.value"
             @click="form.postType = type.value"
             :disabled="isEditing"
             :class="[
-              'content-type-tab px-4 py-3 font-medium text-sm transition-colors border-b-2',
+              'content-type-tab shrink-0 whitespace-nowrap px-4 py-3 font-medium text-sm transition-colors border-b-2',
               form.postType === type.value
                 ? 'text-primary-600 border-primary-600'
                 : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
@@ -108,20 +108,74 @@
           </button>
         </div>
 
+        <section v-if="hasEditorAssistContext" class="editor-assist-context mx-4">
+          <div>
+            <p>{{ editorAssistContextSource || '编辑器上下文' }}</p>
+            <strong>{{ editorAssistContextTitle }}</strong>
+            <span>{{ editorAssistContextCopy }}</span>
+            <small v-if="editorAssistContextResult.degraded">{{ editorAssistContextResult.fallbackReason }}</small>
+          </div>
+          <RouterLink v-if="editorAssistReturnHref" :to="editorAssistReturnHref">返回来源</RouterLink>
+        </section>
+
+        <section v-if="hasEditorSearchGapContext" class="editor-assist-context mx-4">
+          <div>
+            <p>{{ editorSearchGapContextTitle }}</p>
+            <strong>{{ editorSearchGapKeyword }}</strong>
+            <span>{{ editorSearchGapContextCopy }}</span>
+            <small>仅作为辅助上下文，正文与发布仍需手动确认，也不承诺收录、精选、曝光、收益或排名。</small>
+          </div>
+          <RouterLink v-if="editorSearchGapReturnHref" :to="editorSearchGapReturnHref">返回来源</RouterLink>
+        </section>
+
         <section class="template-helper mx-4">
           <div>
-            <p>发布模板</p>
+            <p>公共内容模板</p>
             <strong>{{ activeTemplate.title }}</strong>
             <span>{{ activeTemplate.description }}</span>
+            <small>{{ activeTemplateBoundary }}</small>
+            <div class="template-chip-row">
+              <button
+                v-for="tag in activeTemplate.recommendedTags"
+                :key="`tag-${tag}`"
+                type="button"
+                class="template-chip"
+                @click="applyTemplateTag(tag)"
+              >
+                # {{ tag }}
+              </button>
+              <button
+                v-for="topic in activeTemplate.recommendedTopics"
+                :key="`topic-${topic}`"
+                type="button"
+                class="template-chip template-chip-topic"
+                @click="applyTemplateTopic(topic)"
+              >
+                {{ topic }}
+              </button>
+            </div>
           </div>
-          <button type="button" :disabled="Boolean(form.content.trim())" @click="applyActiveTemplate">
-            {{ form.content.trim() ? '正文已有内容' : '套用模板' }}
-          </button>
+          <div class="template-control-group">
+            <select v-model="selectedAssistTemplateCode" class="template-select" aria-label="公共内容模板">
+              <option value="">按上下文推荐</option>
+              <option v-for="template in assistTemplateOptions" :key="template.code" :value="template.code">
+                {{ template.title }}
+              </option>
+            </select>
+            <button type="button" :disabled="Boolean(form.content.trim())" @click="applyActiveTemplate">
+              {{ form.content.trim() ? '正文已有内容' : '套用模板' }}
+            </button>
+            <button type="button" @click="replaceWithActiveTemplate">
+              {{ form.content.trim() ? '切换模板' : '写入模板' }}
+            </button>
+            <button type="button" :disabled="!form.content.trim()" @click="clearTemplateDraft">清空正文</button>
+            <button type="button" @click="cancelSelectedTemplate">取消选择</button>
+          </div>
         </section>
 
         <!-- 领域选择 -->
         <div class="px-4 flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">领域</label>
+          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">频道</label>
           <select
             v-model="selectedDomain"
             class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -160,7 +214,7 @@
             <EditorQualityChecklist
               :result="qualityChecklistResult"
               title="创作质量检查清单 Lite"
-              eyebrow="FEAT-003 / Quality Checklist"
+              eyebrow="发布前检查"
               tone="soft"
             />
 
@@ -168,14 +222,14 @@
               <div class="flex items-start justify-between gap-4">
                 <div>
                   <h2 class="text-sm font-extrabold text-slate-900 dark:text-slate-100">当前发布门禁</h2>
-                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Lite 清单只做提示；发布按钮继续沿用当前基础校验与结构化要求，不额外新增 AI 或服务端依赖。</p>
+                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Lite 清单只做提示；发布按钮继续沿用当前基础校验与结构化要求，不额外新增服务端依赖。</p>
                 </div>
                 <span :class="['quality-score', blockingQualityIssues.length ? 'quality-score-warn' : 'quality-score-ok']">
                   {{ passedQualityCount }}/{{ qualityChecks.length }}
                 </span>
               </div>
               <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
-                {{ publishDisabledReason || '当前基础门禁已满足，可继续优化摘要、标签、匿名提示和系列归属。' }}
+                {{ publishDisabledReason || '当前基础门禁已满足，可继续优化摘要、标签、匿名提示和合集归属。' }}
               </p>
               <div class="mt-3 grid gap-2">
                 <div
@@ -196,16 +250,16 @@
 
           <EditorPreviewPanel
             :preview="editorPreviewModel"
-            eyebrow="FEAT-001 / Public Card Preview"
+            eyebrow="公开卡片预览"
             title="发布前预览与公开卡片预览"
-            description="基于当前标题、正文、领域、标签、匿名状态和系列归属做前端实时映射，不新增接口，也不会自动触发 AI 请求。"
+            description="基于当前标题、正文、频道、标签、匿名状态和合集归属做前端实时映射；发布建议面板开启后才会触发建议请求。"
           />
         </section>
 
         <section class="stage3-assist-panel mx-4">
           <div class="stage3-assist-head">
             <div>
-              <p class="stage3-assist-kicker">阶段 3 发布体验</p>
+              <p class="stage3-assist-kicker">发布体验助手</p>
               <h2>写作助手</h2>
               <p>{{ stageThreeAssistHeadline }}</p>
             </div>
@@ -213,8 +267,11 @@
               <span :class="['assist-status-pill', `assist-status-${stageThreeAssistStatus}`]">
                 {{ stageThreeAssistStatusLabel }}
               </span>
+              <span v-if="stageThreeAssist?.sourceLabel" class="assist-status-pill">
+                {{ stageThreeAssist.sourceLabel }}
+              </span>
               <button type="button" class="assist-head-button" @click="toggleAssistPanelEnabled">
-                {{ assistPanelEnabled ? '关闭 AI' : '开启 AI' }}
+                {{ assistPanelEnabled ? '关闭建议' : '开启建议' }}
               </button>
               <button
                 type="button"
@@ -229,15 +286,15 @@
 
           <div v-if="!authStore.isLoggedIn" class="stage3-assist-state">
             <strong>未登录</strong>
-            <p>登录后可获得写作助手、质量评分、标签/话题建议和系列归属建议。</p>
+            <p>登录后可获得写作助手、质量评分、标签/话题建议和合集归属建议。</p>
           </div>
           <div v-else-if="!assistPanelEnabled" class="stage3-assist-state">
-            <strong>AI 已关闭</strong>
-            <p>AI 默认关闭。当前仅保留发布检查、草稿保护和手动填写流程；显式开启后，如后端未配置 AI 将自动回退到规则建议。</p>
+            <strong>建议已关闭</strong>
+            <p>发布建议默认关闭。当前仅保留发布检查、草稿保护和手动填写流程；显式开启后，如后端未配置建议服务将自动回退到规则建议。</p>
           </div>
           <div v-else-if="isStageThreeAssistLoading" class="stage3-assist-state">
             <strong>加载中...</strong>
-            <p>正在生成写作助手、质量评分和系列归属建议。</p>
+            <p>正在生成写作助手、质量评分和合集归属建议。</p>
           </div>
           <div v-else-if="stageThreeAssistStatus === 'failed'" class="stage3-assist-state stage3-assist-state-error">
             <strong>建议暂时不可用</strong>
@@ -318,33 +375,38 @@
                   <button type="button" @click="removeTopicSuggestion(topic)">×</button>
                 </span>
               </div>
-              <p v-else class="stage3-empty-copy">话题建议会帮助首页、发现页和系列工作台更快聚合同主题内容。</p>
+              <div v-if="assistTopicCandidateHints.length" class="stage3-hint-list">
+                <span v-for="item in assistTopicCandidateHints" :key="`${item.topicId || item.title}`">
+                  {{ item.title }}<small>{{ item.reasonText }}</small>
+                </span>
+              </div>
+              <p v-if="!selectedTopicNames.length && !assistTopicCandidateHints.length" class="stage3-empty-copy">话题建议只作为候选参考，会写入扩展字段，供后续组织同主题内容时人工判断。</p>
             </article>
 
             <article class="stage3-card stage3-card-series">
               <div class="stage3-card-head">
-                <strong>系列归属</strong>
-                <RouterLink to="/series/workbench">系列工作台</RouterLink>
+                <strong>合集归属</strong>
+                <RouterLink to="/series/workbench">合集工作台</RouterLink>
               </div>
               <select
                 v-model="selectedSeriesId"
                 class="stage3-series-select"
                 :disabled="isSeriesLoading"
               >
-                <option value="">暂不归入系列</option>
+                <option value="">暂不归入合集</option>
                 <option v-for="item in seriesRecords" :key="item.id" :value="item.id">
                   {{ item.title }} · {{ item.progress.label }}
                 </option>
               </select>
               <p class="stage3-card-copy">
-                {{ selectedSeriesRecord ? selectedSeriesRecord.progress.label : '未归档到系列，适合单篇独立发布。' }}
+                {{ selectedSeriesRecord ? selectedSeriesRecord.progress.label : '未归档到合集，适合单篇独立发布。' }}
               </p>
               <div v-if="assistSeriesHints.length" class="stage3-hint-list">
                 <span v-for="item in assistSeriesHints" :key="`${item.id || 'new'}-${item.title}`">
                   {{ item.title }}<small>{{ item.progressText }}</small>
                 </span>
               </div>
-              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">系列列表当前来自本地 fallback，未依赖真实后端。</p>
+              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">合集列表当前来自本地 fallback，未依赖真实后端。</p>
             </article>
           </div>
         </section>
@@ -352,7 +414,7 @@
         <section v-if="showStageTwoPublishingAssist" class="knowledge-assist mx-4">
           <div class="knowledge-assist-head">
             <div>
-              <h2>知识沉淀辅助</h2>
+              <h2>内容整理辅助</h2>
               <p>发布前先把内容整理成社区可搜索、可讨论、可复用的知识资产。</p>
             </div>
             <span>{{ knowledgeAssistReadiness }}</span>
@@ -384,7 +446,7 @@
             <input
               v-model="tagInput"
               type="text"
-              placeholder="输入标签，按 Enter 添加"
+              :placeholder="tagInputPlaceholder"
               @keydown.enter="addTag"
               class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               data-field="tags"
@@ -448,8 +510,11 @@
             placeholder="输入图片 URL..."
             class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
-          <div v-if="form.coverUrl" class="mt-2 rounded-lg overflow-hidden max-h-64">
-            <img :src="form.coverUrl" :alt="form.title" class="w-full h-auto object-cover" />
+          <div v-if="form.coverUrl && !formCoverHasFailed" class="mt-2 rounded-lg overflow-hidden max-h-64">
+            <img :src="form.coverUrl" :alt="form.title" class="w-full h-auto object-cover" @error="handleFormCoverError" />
+          </div>
+          <div v-else-if="form.coverUrl" class="mt-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400" role="status">
+            {{ formCoverFallbackText }}
           </div>
         </div>
       </div>
@@ -471,7 +536,23 @@ import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { postApi, type PostDraft } from '@/api/post'
 import type { ContentAssistQualityMetric, ContentAssistResult, ContentAssistSuggestion } from '@/api/types'
+import {
+  EDITOR_ASSIST_TEMPLATE_BOUNDARY,
+  EDITOR_ASSIST_TEMPLATES,
+  buildEditorAssistTemplateMarkdown,
+  getEditorAssistTemplate,
+  recommendEditorAssistTemplate,
+  type EditorAssistTemplate,
+  type EditorAssistTemplateCode,
+} from '@/data/editorAssistTemplates'
 import { toast } from 'vue-sonner'
+import {
+  describeEditorAssistContext,
+  editorAssistContextDetail,
+  editorAssistSourceLabel,
+  parseEditorAssistContext,
+  parseEditorSearchGapContext,
+} from '@/utils/editorAssistContext'
 import { mapEditorDraftToPreview } from '@/utils/editorPreview'
 import { buildEditorQualityChecklist } from '@/utils/editorQualityChecklist'
 import { safeStorage } from '@/utils/safeStorage'
@@ -527,9 +608,21 @@ const form = ref<EditorForm>({
   coverUrl: ''
 })
 
+const formCoverFailedUrl = ref('')
+const formCoverHasFailed = computed(() => Boolean(form.value.coverUrl) && formCoverFailedUrl.value === form.value.coverUrl)
+const formCoverFallbackText = computed(() => (
+  formCoverHasFailed.value ? '\u56fe\u7247\u52a0\u8f7d\u5931\u8d25\uff0c\u5df2\u6539\u7528\u6587\u5b57\u9884\u89c8\u3002' : ''
+))
+const handleFormCoverError = () => {
+  formCoverFailedUrl.value = form.value.coverUrl
+}
+watch(() => form.value.coverUrl, () => {
+  formCoverFailedUrl.value = ''
+})
+
 const tagInput = ref('')
 const selectedTags = ref<string[]>([])
-const selectedDomain = ref<number>(DOMAIN.TECH)
+const selectedDomain = ref<number>(DOMAIN.LIFESTYLE)
 const anonymousCareerPost = ref(false)
 const isPublishing = ref(false)
 const isEditing = ref(false)
@@ -549,6 +642,7 @@ const seriesRecords = ref<ContentSeriesRecord[]>([])
 const seriesSource = ref<'remote' | 'fallback'>('fallback')
 const isSeriesLoading = ref(false)
 const selectedSeriesId = ref('')
+const selectedAssistTemplateCode = ref<EditorAssistTemplateCode | ''>('')
 const assistPanelEnabled = ref(false)
 const stageThreeAssist = ref<ContentAssistResult | null>(null)
 const isStageThreeAssistLoading = ref(false)
@@ -558,6 +652,7 @@ const fallbackReturnPath = computed(() => authStore.isLoggedIn ? '/me' : '/')
 const stageThreeAssistPreferenceKey = computed(() => `editor_stage3_assist:${draftOwner.value}`)
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let stageThreeAssistTimer: ReturnType<typeof setTimeout> | null = null
+let stageThreeAssistRequestId = 0
 
 type QualityCheck = {
   key: string
@@ -573,106 +668,80 @@ type PublishTemplate = {
   content: string
 }
 
-const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
+const COMMUNITY_PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
   TECH_ARTICLE: {
-    title: '技术文章模板',
-    description: '适合沉淀方案、源码阅读、架构实践和技术总结。',
+    title: '攻略清单模板',
+    description: '适合整理步骤、方法、避坑清单和可照着执行的经验。',
     content: `## 背景
 
 ## 核心问题
 
-## 方案设计
+## 方法步骤
 
-## 关键实现
+## 清单与提醒
 
-## 效果与复盘
+## 适合人群
 `,
   },
   PROJECT_REVIEW: {
-    title: '项目复盘模板',
-    description: '突出背景、目标、架构、难点、取舍、指标和结果。',
+    title: '复盘记录模板',
+    description: '复盘一次项目、活动、经历或决策，记录过程、结果和下一步。',
     content: `## 背景
 
 ## 目标
 
-## 架构与技术栈
+## 过程
 
 ## 难点与取舍
 
-## 落地过程
-
 ## 指标与结果
 
-## 复盘
+## 下一步
 `,
   },
   SYSTEM_DESIGN: {
-    title: '系统设计模板',
-    description: '适合拆解目标、容量、模块边界、数据模型、取舍和演进。',
-    content: `## 业务目标
+    title: '观点讨论模板',
+    description: '适合表达观察、判断和取舍，并邀请大家讨论。',
+    content: `## 观点
 
-## 核心场景与约束
+## 背景
 
-## 容量估算
+## 我的理由
 
-## 架构方案
+## 可能的反例
 
-## 数据模型
-
-## 关键取舍
-
-## 风险与演进
-`,
-  },
-  INTERVIEW_RECAP: {
-    title: '面试复盘模板',
-    description: '记录问题、追问、回答卡点、可复用素材和后续补强。',
-    content: `## 面试背景
-
-## 被问到的问题
-
-## 追问路径
-
-## 回答卡点
-
-## 可复用 STAR 素材
-
-## 后续补强计划
+## 想听听大家怎么看
 `,
   },
   PITFALL: {
-    title: '线上故障/踩坑模板',
-    description: '适合记录现象、影响范围、时间线、根因、修复和防复发。',
-    content: `## 现象
+    title: '图文笔记模板',
+    description: '适合轻量记录灵感、日常观察、实用片段和图文式分享。',
+    content: `## 这条笔记想分享什么
 
-## 影响范围
+## 关键细节
 
-## 时间线
+## 图片或素材说明
 
-## 根因
-
-## 修复方案
-
-## 监控与防复发
-
-## 复盘
+## 可以怎么用
 `,
   },
   QUESTION: {
-    title: '技术问答模板',
-    description: '把问题、上下文、已尝试方案和期望结果说清楚。',
-    content: `## 问题
+    title: '问题求助模板',
+    description: '把问题、背景限制、已尝试方法和希望大家怎么帮说清楚。',
+    content: `## 问题是什么
 
-## 上下文
+## 背景和限制
 
-## 已尝试方案
+## 我已经尝试过什么
 
-## 期望结果
+## 想获得什么帮助
+
+## 相关频道或标签线索
 `,
   },
   RESOURCE: {
-    title: '资源分享模板',
-    description: '说明资源适用人群、使用方式、优缺点和实践建议。',
+    title: '资源推荐模板',
+    description: '说明资源适用人群、使用方式、优缺点和推荐理由。',
     content: `## 资源简介
 
 ## 适用场景
@@ -685,17 +754,41 @@ const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
 `,
   },
   NOTE: {
-    title: '经验笔记模板',
-    description: '快速记录场景、做法、命令配置和注意事项。',
-    content: `## 场景
+    title: '经验分享模板',
+    description: '快速记录亲身经历、做法、结果和可复用的提醒。',
+    content: `## 经历背景
 
-## 做法
+## 我怎么做
 
-## 命令或配置
+## 结果
 
-## 注意事项
+## 给后来者的提醒
 `,
   },
+}
+
+const LEGACY_PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
+  INTERVIEW_RECAP: {
+    title: '面试复盘模板',
+    description: '仅用于历史面试复盘内容的兼容编辑，不作为默认发布入口。',
+    content: `## 面试背景
+
+## 被问到的问题
+
+## 追问路径
+
+## 回答卡点
+
+## 可复用素材
+
+## 后续补充
+`,
+  },
+}
+
+const PUBLISH_TEMPLATES: Record<string, PublishTemplate> = {
+  ...COMMUNITY_PUBLISH_TEMPLATES,
+  ...LEGACY_PUBLISH_TEMPLATES,
 }
 
 const extensionValue = computed<Record<string, any>>(() => form.value.extension && typeof form.value.extension === 'object'
@@ -708,7 +801,28 @@ const contentLength = computed(() => form.value.content.length)
 const isContentOverLimit = computed(() => contentLength.value > CONTENT_MAX_LENGTH)
 const activePostType = computed(() => getContentTypeOption(form.value.postType))
 const activeTypeCode = computed(() => contentTypeCodeOf(form.value.postType))
-const activeTemplate = computed(() => PUBLISH_TEMPLATES[activeTypeCode.value] || PUBLISH_TEMPLATES.TECH_ARTICLE)
+const editorAssistContextResult = computed(() => parseEditorAssistContext(route.query as Record<string, unknown>))
+const editorAssistContext = computed(() => editorAssistContextResult.value.context)
+const hasEditorAssistContext = computed(() => editorAssistContextResult.value.canShowSourceHint)
+const editorAssistContextTitle = computed(() => describeEditorAssistContext(editorAssistContext.value))
+const editorAssistContextCopy = computed(() => editorAssistContextDetail(editorAssistContext.value))
+const editorAssistContextSource = computed(() => editorAssistSourceLabel(editorAssistContext.value))
+const editorAssistReturnHref = computed(() => editorAssistContext.value?.returnHref || '')
+const editorSearchGapContextResult = computed(() => parseEditorSearchGapContext(route.query as Record<string, unknown>))
+const editorSearchGapContext = computed(() => editorSearchGapContextResult.value.context)
+const hasEditorSearchGapContext = computed(() => editorSearchGapContextResult.value.canShowSourceHint)
+const editorSearchGapContextTitle = computed(() => editorSearchGapContextResult.value.sourceHint?.title || '搜索缺口')
+const editorSearchGapContextCopy = computed(() => editorSearchGapContextResult.value.sourceHint?.detail || '')
+const editorSearchGapKeyword = computed(() => editorSearchGapContext.value?.keyword || '')
+const editorSearchGapReturnHref = computed(() => editorSearchGapContext.value?.returnHref || '')
+const assistTemplateOptions = EDITOR_ASSIST_TEMPLATES
+const recommendedAssistTemplate = computed(() => recommendEditorAssistTemplate(editorAssistContext.value, activeTypeCode.value))
+const activeTemplate = computed<EditorAssistTemplate>(() => (
+  getEditorAssistTemplate(selectedAssistTemplateCode.value) || recommendedAssistTemplate.value
+))
+const activeTemplateMarkdown = computed(() => buildEditorAssistTemplateMarkdown(activeTemplate.value, editorAssistContext.value))
+const activeTemplateBoundary = EDITOR_ASSIST_TEMPLATE_BOUNDARY
+const isQuestionPost = computed(() => activeTypeCode.value === 'QUESTION')
 const isInterviewPost = computed(() => isLegacyInterviewType(form.value.postType))
 const hasCompany = computed(() => Boolean(String(extensionValue.value.company || '').trim()))
 const hasPosition = computed(() => Boolean(String(extensionValue.value.position || '').trim()))
@@ -719,7 +833,11 @@ const requiresStructuredExperience = computed(() => ['PROJECT_REVIEW', 'PITFALL'
 const hasBackgroundSection = computed(() => hasContentAny(['背景', '现象', '上下文']))
 const hasProblemSection = computed(() => hasContentAny(['难点', '根因', '问题', '挑战', '瓶颈']))
 const hasSolutionSection = computed(() => hasContentAny(['方案', '修复', '实现', '设计', '落地']))
-const hasResultSection = computed(() => hasContentAny(['结果', '指标', '收益', '提升', '降低', '复盘']))
+const hasResultSection = computed(() => hasContentAny(['结果', '指标', '效果', '收获', '提升', '降低', '复盘']))
+const hasQuestionBackground = computed(() => hasContentAny(['背景', '限制', '上下文', '场景', '情况']))
+const hasQuestionTried = computed(() => hasContentAny(['尝试', '试过', '已尝试', '已经试', '做过', '查过']))
+const hasQuestionHelp = computed(() => hasContentAny(['想获得', '希望', '请教', '建议', '推荐', '怎么看', '怎么选']))
+const hasQuestionTopicClue = computed(() => normalizedTags.value.length > 0 || selectedTopicNames.value.length > 0 || hasContentAny(['标签', '话题', '频道']))
 const structuredQualityChecks = computed<QualityCheck[]>(() => {
   if (!requiresStructuredExperience.value) return []
   return [
@@ -747,9 +865,42 @@ const structuredQualityChecks = computed<QualityCheck[]>(() => {
     {
       key: 'structured-result',
       title: '结果或指标',
-      description: '需要补充结果、指标、收益、提升或复盘结论。',
+      description: '需要补充结果、指标、效果、收获或复盘结论。',
       passed: hasResultSection.value,
       required: true,
+    },
+  ]
+})
+const questionQualityChecks = computed<QualityCheck[]>(() => {
+  if (!isQuestionPost.value) return []
+  return [
+    {
+      key: 'question-background',
+      title: '问题背景',
+      description: '补充背景、限制或具体场景，别人更容易判断该怎么帮。',
+      passed: hasQuestionBackground.value,
+      required: false,
+    },
+    {
+      key: 'question-tried',
+      title: '已尝试方法',
+      description: '写出已经试过什么、哪里卡住，避免大家重复给出无效建议。',
+      passed: hasQuestionTried.value,
+      required: false,
+    },
+    {
+      key: 'question-help',
+      title: '想获得的帮助',
+      description: '说明你想要建议、推荐、经验征集、选择讨论还是问题排查。',
+      passed: hasQuestionHelp.value,
+      required: false,
+    },
+    {
+      key: 'question-topic-clue',
+      title: '标签或话题线索',
+      description: '补一个场景、人群或问题类型标签，也可以采纳相关话题建议。',
+      passed: hasQuestionTopicClue.value,
+      required: false,
     },
   ]
 })
@@ -785,8 +936,8 @@ const qualityChecks = computed<QualityCheck[]>(() => [
   },
   {
     key: 'tags',
-    title: '技术标签',
-    description: '至少 1 个标签；项目复盘和踩坑记录建议补充技术栈标签。',
+    title: '内容标签',
+    description: '至少 1 个标签；标签用于搜索和标签页聚合，话题会写入扩展字段，用于发现页入口和后续同主题聚合。',
     passed: normalizedTags.value.length >= (isInterviewPost.value ? 2 : 1),
     required: true,
   },
@@ -798,6 +949,7 @@ const qualityChecks = computed<QualityCheck[]>(() => [
     required: false,
   },
   ...structuredQualityChecks.value,
+  ...questionQualityChecks.value,
 ])
 const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) => item.required && !item.passed))
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
@@ -808,6 +960,11 @@ const publishDisabledReason = computed(() => {
 })
 const isPublishDisabled = computed(() => isPublishing.value || isLoadingPost.value || blockingQualityIssues.value.length > 0)
 const canRetryWithTextTagsOnly = computed(() => normalizedTags.value.length > 0 && form.value.tags.length > 0)
+const tagInputPlaceholder = computed(() => (
+  isQuestionPost.value
+    ? '添加场景 / 人群 / 问题类型标签'
+    : '输入标签，按 Enter 添加'
+))
 const metaErrorMessages = computed(() => ['company', 'position', 'interviewRound', 'round', 'yearsOfExp', 'interviewResult', 'interviewRounds', 'extension']
   .map((field) => fieldErrors.value[field])
   .filter(Boolean))
@@ -827,19 +984,23 @@ const knowledgeSummary = computed(() => {
 const qualityChecklistResult = computed(() => buildEditorQualityChecklist({
   title: normalizedTitle.value,
   content: normalizedContent.value,
+  summary: extensionValue.value.summary,
   domain: selectedDomain.value,
   domainLabel: selectedDomainMeta.value?.domainName,
   tags: selectedTags.value,
   anonymous: anonymousCareerPost.value,
   seriesId: selectedSeriesId.value,
   seriesTitle: selectedSeriesRecord.value?.title,
+  riskNotice: extensionValue.value.riskNotice,
   minContentLength: Math.max(80, activePostType.value.minContentLength),
 }))
 const publishGateItems = computed(() => qualityChecks.value.filter((item) => item.required || !item.passed))
 const editorPreviewModel = computed(() => mapEditorDraftToPreview(
   {
+    postType: form.value.postType,
     title: form.value.title,
     content: form.value.content,
+    coverUrl: form.value.coverUrl,
     domain: selectedDomain.value,
     tags: form.value.tags,
     tagLabels: selectedTags.value,
@@ -861,7 +1022,7 @@ const knowledgeFaqHint = computed(() => {
   return '补充一个真实问题、排查过程和最终结论后，可沉淀为 FAQ。'
 })
 const knowledgeCardHint = computed(() => {
-  const techTags = normalizedTags.value.slice(0, 4).join('、') || '技术栈'
+  const techTags = normalizedTags.value.slice(0, 4).join('、') || '内容标签'
   if (normalizedContent.value.length >= activePostType.value.minContentLength) {
     return `${activePostType.value.label} · ${techTags} · 可沉淀为摘要、FAQ 和相似内容推荐素材。`
   }
@@ -869,10 +1030,10 @@ const knowledgeCardHint = computed(() => {
 })
 const knowledgeAssistReadiness = computed(() => blockingQualityIssues.value.length ? '待补齐' : '可沉淀')
 const knowledgeAssistMarkdown = computed(() => [
-  `# ${normalizedTitle.value || '待补充标题的技术经验'}`,
+  `# ${normalizedTitle.value || '待补充标题的内容'}`,
   '',
   `内容类型：${activePostType.value.label}`,
-  normalizedTags.value.length ? `技术标签：${normalizedTags.value.join('、')}` : '技术标签：待补充',
+  normalizedTags.value.length ? `内容标签：${normalizedTags.value.join('、')}` : '内容标签：待补充',
   '',
   '## 摘要建议',
   knowledgeSummary.value,
@@ -901,8 +1062,8 @@ const selectedDomainMeta = computed(() => (
 ))
 const editorDomainSourceSummary = computed(() => (
   domainSource.value === 'remote'
-    ? `领域来源已同步 /api/v1/domains · 当前 ${selectedDomainMeta.value?.domainName || '技术'}`
-    : `接口暂未返回，当前使用本地 fallback · 当前 ${selectedDomainMeta.value?.domainName || '技术'}`
+    ? `频道来源已同步 /api/v1/domains · 当前 ${selectedDomainMeta.value?.domainName || '生活方式'}`
+    : `接口暂未返回，当前使用本地 fallback · 当前 ${selectedDomainMeta.value?.domainName || '生活方式'}`
 ))
 const selectedTopicNames = computed(() => topicNamesFromExtension(extensionValue.value))
 const selectedSeriesRecord = computed(() => (
@@ -939,7 +1100,7 @@ const qualityScoreLabel = computed(() => {
 const qualityScoreReason = computed(() => (
   stageThreeAssist.value?.qualityReason
   || (qualityScoreValue.value >= 85
-    ? '关键信息较完整，发布后也适合纳入系列沉淀。'
+    ? '关键信息较完整，发布后也适合纳入合集沉淀。'
     : qualityScoreValue.value >= 65
       ? '结构已成型，补一轮标签或结果会更稳。'
       : '建议先补背景、步骤和结论，再进入发布。')
@@ -953,6 +1114,7 @@ const displayTopicSuggestions = computed(() => (stageThreeAssist.value?.topicSug
   adopted: selectedTopicNames.value.some((topic) => topic.toLowerCase() === item.label.toLowerCase()),
 })))
 const assistSeriesHints = computed(() => stageThreeAssist.value?.seriesHints || [])
+const assistTopicCandidateHints = computed(() => stageThreeAssist.value?.topicCandidateHints || [])
 const stageThreeAssistStatus = computed(() => {
   if (!authStore.isLoggedIn) return 'unauthenticated'
   if (!assistPanelEnabled.value) return 'disabled'
@@ -963,20 +1125,20 @@ const stageThreeAssistStatus = computed(() => {
 })
 const stageThreeAssistStatusLabel = computed(() => {
   if (stageThreeAssistStatus.value === 'unauthenticated') return '未登录'
-  if (stageThreeAssistStatus.value === 'disabled') return 'AI关闭'
+  if (stageThreeAssistStatus.value === 'disabled') return '建议关闭'
   if (stageThreeAssistStatus.value === 'loading') return '加载中'
   if (stageThreeAssistStatus.value === 'degraded') return '规则降级'
   if (stageThreeAssistStatus.value === 'failed') return '加载失败'
   return '建议采纳'
 })
 const stageThreeAssistHeadline = computed(() => {
-  if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和系列工作台联动。'
-  if (stageThreeAssistStatus.value === 'disabled') return 'AI 默认关闭，当前仅保留发布检查、草稿保护和系列选择；显式开启后，如后端未配置 AI 会自动回退到规则建议。'
-  if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成阶段 3 建议。'
-  if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || 'AI 接口未返回结果，当前使用本地规则降级建议。'
+  if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和合集工作台联动。'
+  if (stageThreeAssistStatus.value === 'disabled') return '发布建议默认关闭，当前仅保留发布检查、草稿保护和合集选择；显式开启后，如后端未配置建议服务会自动回退到规则建议。'
+  if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成发布建议。'
+  if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || '建议接口未返回结果，当前使用本地规则降级建议。'
   if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
-  if (!stageThreeAssist.value) return 'AI 已开启，但不会自动请求内容辅助；点击“刷新建议”后才会触发，并在后端未配置 AI 时回退到规则建议。'
-  return '围绕写作助手、质量评分、标签/话题建议和系列归属整理发布前动作。'
+  if (!stageThreeAssist.value) return '发布建议已开启，开启后会在标题、正文、标签或频道变化时自动刷新建议；也可以手动点击“刷新建议”。后端未配置建议服务时会回退到规则建议。'
+  return '围绕写作助手、质量评分、标签/话题建议和合集归属整理发布前动作。'
 })
 
 const clearFieldErrors = () => {
@@ -1010,6 +1172,8 @@ const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
   tags: normalizedTags.value,
   extension: {
     ...extensionValue.value,
+    assistContext: editorAssistContext.value || undefined,
+    assistTemplateCode: activeTemplate.value.code,
     topicNames: selectedTopicNames.value,
     seriesId: selectedSeriesId.value || undefined,
     seriesTitle: selectedSeriesRecord.value?.title || undefined,
@@ -1063,8 +1227,10 @@ const clearStageThreeAssistTimer = () => {
 
 const clearStageThreeAssistState = () => {
   clearStageThreeAssistTimer()
+  stageThreeAssistRequestId += 1
   stageThreeAssist.value = null
   stageThreeAssistError.value = ''
+  isStageThreeAssistLoading.value = false
 }
 
 const loadStageThreeAssist = async (manual = false) => {
@@ -1081,10 +1247,13 @@ const loadStageThreeAssist = async (manual = false) => {
     return
   }
 
+  const requestId = ++stageThreeAssistRequestId
   isStageThreeAssistLoading.value = true
   stageThreeAssistError.value = ''
   try {
     const res = await contentAssistApi.getEditorAssist(buildStageThreeAssistRequest())
+    if (requestId !== stageThreeAssistRequestId) return
+    if (!assistPanelEnabled.value || isForbiddenEdit.value) return
     stageThreeAssist.value = res.data
     if (res.data?.status === 'failed') {
       stageThreeAssistError.value = res.data.fallbackReason || '建议暂时不可用'
@@ -1093,16 +1262,23 @@ const loadStageThreeAssist = async (manual = false) => {
       toast.warning('已切换到规则降级建议')
     }
   } catch (error) {
+    if (requestId !== stageThreeAssistRequestId) return
     stageThreeAssist.value = null
     stageThreeAssistError.value = getErrorMessage(error, '建议暂时不可用')
   } finally {
-    isStageThreeAssistLoading.value = false
+    if (requestId === stageThreeAssistRequestId) {
+      isStageThreeAssistLoading.value = false
+    }
   }
 }
 
 const scheduleStageThreeAssist = () => {
   clearStageThreeAssistTimer()
   if (!authStore.isLoggedIn || !assistPanelEnabled.value || isForbiddenEdit.value) return
+  stageThreeAssistTimer = setTimeout(() => {
+    stageThreeAssistTimer = null
+    void loadStageThreeAssist(false)
+  }, 650)
 }
 
 const toggleAssistPanelEnabled = async () => {
@@ -1110,10 +1286,10 @@ const toggleAssistPanelEnabled = async () => {
   safeStorage.set(stageThreeAssistPreferenceKey.value, assistPanelEnabled.value ? '1' : '0')
   if (!assistPanelEnabled.value) {
     clearStageThreeAssistState()
-    toast.success('已关闭 AI 建议，不再自动请求内容辅助')
+    toast.success('已关闭发布建议，不再自动请求内容辅助')
     return
   }
-  toast.success('已开启 AI 建议，如未配置 AI 将自动回退到规则建议')
+  toast.success('已开启发布建议，如未配置建议服务将自动回退到规则建议')
   await loadStageThreeAssist(true)
 }
 
@@ -1178,33 +1354,113 @@ const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: stri
   }, authStore.user?.uid)
   seriesSource.value = res.status
   if (res.status === 'fallback') {
-    toast.warning('系列归属暂时仅保存在本地，尚未完成远端同步。')
+    toast.warning('合集归属暂时仅保存在本地，尚未完成远端同步。')
   }
   const refreshed = await contentSeriesApi.listMine(authStore.user?.uid)
   seriesRecords.value = refreshed.data || seriesRecords.value
   seriesSource.value = refreshed.status
   if (refreshed.status === 'fallback') {
-    toast.warning('系列工作台当前展示的是本地 fallback 结果。')
+    toast.warning('合集工作台当前展示的是本地 fallback 结果。')
   }
+}
+
+const addTemplateTags = (tags: string[]) => {
+  tags.forEach((tag) => {
+    const label = sanitizeVisibleText(tag)
+    if (label && !normalizedTags.value.some((item) => item.toLowerCase() === label.toLowerCase())) {
+      selectedTags.value.push(label)
+    }
+  })
+}
+
+const addTemplateTopics = (topics: string[]) => {
+  const nextTopics = new Set(selectedTopicNames.value)
+  topics.map((topic) => sanitizeVisibleText(topic)).filter(Boolean).forEach((topic) => nextTopics.add(topic))
+  if (nextTopics.size) {
+    applyEditorExtension({
+      topicNames: [...nextTopics],
+      seriesId: selectedSeriesId.value || undefined,
+      seriesTitle: selectedSeriesRecord.value?.title || undefined,
+    })
+  }
+}
+
+const applyTemplateTag = (tag: string) => {
+  addTemplateTags([tag])
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+  toast.success('已采纳模板标签')
+}
+
+const applyTemplateTopic = (topic: string) => {
+  addTemplateTopics([topic])
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+  toast.success('已采纳模板话题')
+}
+
+const writeActiveTemplateToDraft = () => {
+  form.value.content = activeTemplateMarkdown.value
+  addTemplateTags(activeTemplate.value.recommendedTags)
+  addTemplateTopics([
+    ...activeTemplate.value.recommendedTopics,
+    editorAssistContext.value?.topic || '',
+  ])
+  applyEditorExtension({
+    contentType: activeTypeCode.value,
+    templateCode: activeTypeCode.value,
+    assistTemplateCode: activeTemplate.value.code,
+    assistContext: editorAssistContext.value || undefined,
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+  })
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
 }
 
 const applyActiveTemplate = () => {
   if (form.value.content.trim()) return
-  form.value.content = activeTemplate.value.content
+  writeActiveTemplateToDraft()
   if (!extensionValue.value.contentType) {
     form.value.extension = {
       ...extensionValue.value,
       contentType: activeTypeCode.value,
+      templateCode: activeTypeCode.value,
+    }
+  } else if (!extensionValue.value.templateCode) {
+    form.value.extension = {
+      ...extensionValue.value,
+      templateCode: activeTypeCode.value,
     }
   }
   scheduleAutoSave()
   toast.success('已套用发布模板')
 }
 
+const replaceWithActiveTemplate = () => {
+  if (form.value.content.trim() && !window.confirm('当前正文已有内容，确认用所选公共模板替换正文？')) return
+  writeActiveTemplateToDraft()
+  toast.success('已写入公共内容模板')
+}
+
+const clearTemplateDraft = () => {
+  if (!form.value.content.trim()) return
+  if (!window.confirm('确认清空当前正文？标题、标签和话题会保留。')) return
+  form.value.content = ''
+  scheduleAutoSave()
+  scheduleStageThreeAssist()
+  toast.success('已清空正文')
+}
+
+const cancelSelectedTemplate = () => {
+  selectedAssistTemplateCode.value = ''
+  toast.success('已恢复按上下文推荐模板')
+}
+
 const copyKnowledgeAssist = async () => {
   try {
     await navigator.clipboard.writeText(knowledgeAssistMarkdown.value)
-    toast.success('已复制知识沉淀草稿')
+    toast.success('已复制内容整理草稿')
   } catch {
     toast.error('复制失败，请手动选择内容')
   }
@@ -1325,6 +1581,7 @@ const currentDraftReq = () => ({
     domain: selectedDomain.value,
     anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
     contentType: contentTypeCodeOf(form.value.postType),
+    templateCode: contentTypeCodeOf(form.value.postType),
     tags: normalizedTags.value,
     topicNames: selectedTopicNames.value,
     seriesId: selectedSeriesId.value || undefined,
@@ -1345,7 +1602,7 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
   } catch {
     extension = {}
   }
-  selectedDomain.value = normalizeDomain(draft.domain ?? extension.domain ?? (extension.anonymous ? DOMAIN.CAREER : DOMAIN.TECH))
+  selectedDomain.value = normalizeDomain(draft.domain ?? extension.domain ?? (extension.anonymous ? DOMAIN.CAREER : DOMAIN.LIFESTYLE))
   form.value = {
     postType: getContentTypeOption(draft.postType || DEFAULT_POST_TYPE).value,
     title: draft.title || '',
@@ -1464,6 +1721,116 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
   }
 }
 
+const topicIdeaQueryText = (value: unknown, maxLength = 80) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  const text = sanitizeVisibleText(typeof raw === 'string' ? raw : '')
+  return text.length > maxLength ? text.slice(0, maxLength) : text
+}
+
+const topicIdeaEditorQuery = () => {
+  const raw = Array.isArray(route.query.editorQuery) ? route.query.editorQuery[0] : route.query.editorQuery
+  if (typeof raw !== 'string' || !raw.trim()) return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
+  } catch {
+    const params = new URLSearchParams(raw)
+    return Object.fromEntries(params.entries())
+  }
+}
+
+const topicIdeaQueryValue = (key: 'source' | 'title' | 'topic' | 'seriesId' | 'postType' | 'postId' | 'ideaId' | 'action' | 'contextSource') => {
+  const editorQuery = topicIdeaEditorQuery()
+  return editorQuery[key] ?? route.query[key]
+}
+
+const normalizeTopicIdeaPostType = (value: unknown): PostTypeValue | undefined => {
+  const raw = topicIdeaQueryText(value, 32)
+  if (!raw) return undefined
+  const upperCode = raw.toUpperCase()
+  const numericValue = Number(raw)
+  const option = COMMUNITY_CONTENT_TYPES.find((item) => (
+    item.code === upperCode
+    || item.value === numericValue
+  ))
+  return option?.value
+}
+
+const applyTopicIdeaQuery = () => {
+  if (isEditing.value || hasMeaningfulDraft.value) return false
+  const context = editorAssistContext.value
+  const searchGapContext = editorSearchGapContext.value
+  if (!context && !searchGapContext) return false
+  if (!context && searchGapContext) {
+    const template = getEditorAssistTemplate(searchGapContext.templateCode)
+    const nextTopics = new Set(selectedTopicNames.value)
+    if (searchGapContext.keyword) nextTopics.add(searchGapContext.keyword)
+    if (searchGapContext.topicSlug) nextTopics.add(searchGapContext.topicSlug)
+    if (searchGapContext.keyword && !form.value.title.trim()) form.value.title = searchGapContext.keyword
+    if (template) selectedAssistTemplateCode.value = template.code
+    applyEditorExtension({
+      topicIdeaSource: searchGapContext.source,
+      topicIdeaAction: 'topic',
+      topicIdeaContextSource: 'search_gap',
+      topicIdeaContextType: 'topic',
+      topicNames: [...nextTopics],
+      contextTopicId: searchGapContext.topicId,
+      assistContext: searchGapContext,
+      assistTemplateCode: template?.code || activeTemplate.value.code,
+      returnHref: searchGapContext.returnHref || undefined,
+    })
+    persistLocalDraft()
+    toast.success('已带入聚合搜索缺口上下文，可继续手动编辑标题、话题和正文')
+    return true
+  }
+  if (!context) return false
+
+  const creatorWorkbenchSource = 'creator_workbench'
+  const legacyTitle = topicIdeaQueryText(topicIdeaQueryValue('title'), 96)
+  const legacyTopic = topicIdeaQueryText(topicIdeaQueryValue('topic'), 32)
+  const legacyPostId = topicIdeaQueryText(topicIdeaQueryValue('postId'), 32)
+  const legacyIdeaId = topicIdeaQueryText(topicIdeaQueryValue('ideaId'), 64)
+  const title = context.title || legacyTitle
+  const topic = context.topic || legacyTopic
+  const seriesId = context.seriesId || ''
+  const postType = normalizeTopicIdeaPostType(context.postType)
+  const contextPostId = context.postId || legacyPostId
+  const ideaId = context.ideaId || legacyIdeaId
+  const action = context.action || ''
+  const contextSource = context.contextSource || context.legacySource || ''
+  const template = getEditorAssistTemplate(context.templateCode)
+  const nextTopics = new Set(selectedTopicNames.value)
+  if (topic) nextTopics.add(topic)
+
+  if (title && !form.value.title.trim()) form.value.title = title
+  if (postType) form.value.postType = postType
+  if (template) selectedAssistTemplateCode.value = template.code
+  if (seriesId && seriesRecords.value.some((item) => String(item.id) === String(seriesId))) {
+    selectedSeriesId.value = seriesId
+  }
+  applyEditorExtension({
+    topicIdeaSource: context.source || creatorWorkbenchSource,
+    topicIdeaAction: action || undefined,
+    topicIdeaContextSource: contextSource || undefined,
+    topicIdeaContextType: context.contextType || undefined,
+    topicNames: [...nextTopics],
+    seriesId: selectedSeriesId.value || undefined,
+    seriesTitle: selectedSeriesRecord.value?.title || undefined,
+    contextPostId,
+    contextCommentId: context.commentId,
+    contextTopicId: context.topicId,
+    ideaId,
+    assistContext: context,
+    assistTemplateCode: template?.code || activeTemplate.value.code,
+    returnHref: context.returnHref || undefined,
+  })
+  persistLocalDraft()
+  toast.success('已带入公开创作上下文，可继续编辑标题和话题')
+  return true
+}
+
 watch(draftOwner, (_nextOwner, prevOwner) => {
   if (prevOwner) {
     safeStorage.remove(localDraftKey(prevOwner))
@@ -1493,7 +1860,7 @@ const loadPostForEdit = async (postId: string) => {
       extension: post.extension || {},
       coverUrl: post.coverUrl || ''
     }
-    selectedDomain.value = normalizeDomain(post.domain ?? (post.anonymous ? DOMAIN.CAREER : DOMAIN.TECH))
+    selectedDomain.value = normalizeDomain(post.domain ?? (post.anonymous ? DOMAIN.CAREER : DOMAIN.LIFESTYLE))
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
     selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)
@@ -1534,7 +1901,8 @@ onMounted(async () => {
 
   // 从 localStorage 恢复草稿
   await loadServerDrafts()
-  restoreLocalDraft(true)
+  const restoredLocalDraft = restoreLocalDraft(true)
+  if (!restoredLocalDraft) applyTopicIdeaQuery()
   clearStageThreeAssistState()
 })
 
@@ -1569,7 +1937,7 @@ const saveDraft = async () => {
     toast.success('草稿已同步到服务端')
   } catch (error) {
     await syncSeriesAssignment('draft')
-    toast.warning(getErrorMessage(error, '已保存本地草稿，服务端同步失败'))
+    toast.warning(getErrorMessage(error, '已保护到本地草稿，服务端草稿同步失败'))
   } finally {
     isSavingDraft.value = false
   }
@@ -1604,6 +1972,7 @@ const publishPost = async () => {
         ...form.value.extension,
         anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
         contentType: contentTypeCodeOf(form.value.postType),
+        templateCode: contentTypeCodeOf(form.value.postType),
         tags: normalizedTags.value,
         topicNames: selectedTopicNames.value,
         seriesId: selectedSeriesId.value || undefined,
@@ -1766,6 +2135,7 @@ const safeReturnPath = () => {
     ? window.history.state as Record<string, unknown> | null
     : null
   const candidates = [
+    route.query.returnHref,
     route.query.from,
     route.query.returnTo,
     route.query.redirect,
@@ -1993,18 +2363,36 @@ onBeforeUnmount(() => {
   padding: 1rem;
 }
 
+.editor-assist-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(187 247 208);
+  background: rgb(240 253 244);
+  padding: 1rem;
+}
+
+.editor-assist-context p,
 .template-helper p {
   font-size: 0.75rem;
   font-weight: 900;
   color: rgb(37 99 235);
 }
 
+.editor-assist-context p {
+  color: rgb(21 128 61);
+}
+
+.editor-assist-context strong,
 .template-helper strong {
   margin-top: 0.15rem;
   display: block;
   color: rgb(15 23 42);
 }
 
+.editor-assist-context span,
 .template-helper span {
   margin-top: 0.25rem;
   display: block;
@@ -2013,6 +2401,17 @@ onBeforeUnmount(() => {
   color: rgb(71 85 105);
 }
 
+.editor-assist-context small,
+.template-helper small {
+  margin-top: 0.35rem;
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: rgb(100 116 139);
+}
+
+.editor-assist-context a,
 .template-helper button {
   flex: 0 0 auto;
   border-radius: 0.5rem;
@@ -2023,9 +2422,54 @@ onBeforeUnmount(() => {
   color: white;
 }
 
+.editor-assist-context a {
+  background: rgb(22 163 74);
+}
+
 .template-helper button:disabled {
   cursor: not-allowed;
   background: rgb(148 163 184);
+}
+
+.template-chip-row {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.template-helper .template-chip {
+  min-height: 1.85rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  color: rgb(37 99 235);
+}
+
+.template-helper .template-chip-topic {
+  border-color: rgb(187 247 208);
+  color: rgb(22 101 52);
+}
+
+.template-control-group {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.template-select {
+  min-height: 2.25rem;
+  max-width: 12rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(191 219 254);
+  background: white;
+  padding: 0 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(30 64 175);
 }
 
 .knowledge-assist {
@@ -2624,17 +3068,30 @@ onBeforeUnmount(() => {
   color: rgb(254 202 202);
 }
 
+.dark .editor-assist-context,
 .dark .template-helper {
   border-color: rgb(30 64 175);
   background: rgb(15 23 42);
 }
 
+.dark .editor-assist-context strong,
 .dark .template-helper strong {
   color: rgb(248 250 252);
 }
 
+.dark .editor-assist-context span,
+.dark .editor-assist-context small,
+.dark .template-helper small,
 .dark .template-helper span {
   color: rgb(203 213 225);
+}
+
+.dark .editor-assist-context a,
+.dark .template-select,
+.dark .template-helper .template-chip {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
 }
 
 .dark .knowledge-assist {
@@ -2848,14 +3305,26 @@ onBeforeUnmount(() => {
     margin-inline: 0;
   }
 
+  .editor-assist-context,
   .template-helper {
     margin-inline: 0;
     flex-direction: column;
     align-items: stretch;
   }
 
+  .editor-assist-context a,
+  .template-select,
   .template-helper button {
     min-height: 44px;
+  }
+
+  .template-control-group {
+    justify-content: stretch;
+  }
+
+  .template-control-group > * {
+    flex: 1 1 100%;
+    max-width: none;
   }
 
   .knowledge-assist {

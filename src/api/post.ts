@@ -213,6 +213,10 @@ const emptyResult = <T>(data: T | null): Result<T> => ({
   data,
 })
 
+const legacyTrainingDisabled = <T>(): Promise<Result<T>> => (
+  Promise.reject(new BizException(10404, '该个人训练能力已从闻野公共社区关闭'))
+)
+
 const shouldDisableServerDrafts = (error: unknown) => {
   if (error instanceof BizException) {
     return error.code === 10404 || error.code >= 20000
@@ -322,7 +326,9 @@ export const postApi = {
     cursor?: string
     size?: number
   }): Promise<Result<PaginatedResponse<Post>>> => {
-    const res = await client.get('/api/v1/posts', { params }) as Result<any>
+    const publicParams = { ...(params || {}) }
+    delete publicParams.includeTestData
+    const res = await client.get('/api/v1/posts', { params: publicParams }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 
@@ -331,30 +337,20 @@ export const postApi = {
     return { ...res, data: Array.isArray(res.data) ? res.data : [] }
   },
 
-  getPublishStatus: async (postId: ApiId): Promise<Result<PostPublishStatus>> => {
-    const res = await client.get(`/api/v1/search/posts/${postId}/publish-status`, { skipAuthRedirect: true }) as Result<PostPublishStatus>
-    return { ...res, data: res.data || null }
-  },
+  getPublishStatus: async (_postId: ApiId): Promise<Result<PostPublishStatus>> =>
+    legacyTrainingDisabled<PostPublishStatus>(),
 
-  getInterviewMaterials: async (postId: ApiId): Promise<Result<InterviewMaterialPack>> => {
-    const res = await client.get(`/api/v1/posts/${postId}/interview-materials`) as Result<any>
-    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
-  },
+  getInterviewMaterials: async (_postId: ApiId): Promise<Result<InterviewMaterialPack>> =>
+    legacyTrainingDisabled<InterviewMaterialPack>(),
 
-  generateInterviewMaterials: async (postId: ApiId): Promise<Result<InterviewMaterialPack>> => {
-    const res = await client.post(`/api/v1/posts/${postId}/interview-materials/generate`) as Result<any>
-    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
-  },
+  generateInterviewMaterials: async (_postId: ApiId): Promise<Result<InterviewMaterialPack>> =>
+    legacyTrainingDisabled<InterviewMaterialPack>(),
 
-  updateInterviewMaterial: async (id: ApiId, req: InterviewMaterialUpdateReq): Promise<Result<InterviewMaterialPack>> => {
-    const res = await client.put(`/api/v1/interview-materials/${id}`, req) as Result<any>
-    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
-  },
+  updateInterviewMaterial: async (_id: ApiId, _req: InterviewMaterialUpdateReq): Promise<Result<InterviewMaterialPack>> =>
+    legacyTrainingDisabled<InterviewMaterialPack>(),
 
-  saveInterviewMaterialToPrep: async (id: ApiId): Promise<Result<InterviewMaterialPack>> => {
-    const res = await client.post(`/api/v1/interview-materials/${id}/save-to-prep`) as Result<any>
-    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
-  },
+  saveInterviewMaterialToPrep: async (_id: ApiId): Promise<Result<InterviewMaterialPack>> =>
+    legacyTrainingDisabled<InterviewMaterialPack>(),
 
   getTags: async (): Promise<Result<Tag[]>> => {
     const res = await client.get('/api/v1/tags') as Result<any>
@@ -458,6 +454,22 @@ export const postApi = {
   getMyFavorites: async (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> => {
     const res = await client.get('/api/v1/users/me/favorite-posts', { params: { cursor, size } }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
+  },
+
+  getMyUnorganizedFavorites: async (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> => {
+    const res = await client.get('/api/v1/users/me/favorite-posts', { params: { cursor, size } }) as Result<any>
+    return {
+      ...res,
+      message: typeof res.message === 'string' && res.message ? res.message : 'server_favorite_only',
+      data: res.data
+        ? {
+            ...adaptPage(res.data, adaptPost),
+            source: 'server_favorites_unorganized_view',
+            degraded: true,
+            fallbackReason: 'content_lists_backend_not_connected',
+          }
+        : null,
+    }
   },
 
   getMyLikedPosts: async (cursor?: string, size = 20): Promise<Result<PaginatedResponse<Post>>> => {

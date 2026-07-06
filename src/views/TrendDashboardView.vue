@@ -163,6 +163,68 @@
         </section>
 
         <section class="panel">
+          <div class="mb-5 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">Distribution Ops</p>
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">推荐与搜索运营摘要</h2>
+              <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                汇总热门搜索、无结果词和推荐入口点击，仅用于内容组织和发现体验观察。
+              </p>
+            </div>
+            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+              {{ opsSummaryStatusLabel }}
+            </span>
+          </div>
+
+          <div class="grid gap-4 lg:grid-cols-3">
+            <div class="ops-summary-column">
+              <h3>热门搜索</h3>
+              <button
+                v-for="item in hotSearchRows"
+                :key="`hot:${item.name}`"
+                type="button"
+                class="ops-summary-row"
+                @click="openSearchTerm(item.name)"
+              >
+                <span>{{ item.name }}</span>
+                <strong>{{ item.count }}</strong>
+              </button>
+              <div v-if="!hotSearchRows.length" class="ops-summary-empty">暂无可展示热词</div>
+            </div>
+
+            <div class="ops-summary-column">
+              <h3>推荐入口点击</h3>
+              <button
+                v-for="item in recommendClickRows"
+                :key="`recommend:${item.name}`"
+                type="button"
+                class="ops-summary-row"
+                @click="openSearchTerm(item.name)"
+              >
+                <span>{{ item.name }}</span>
+                <strong>{{ item.count }}</strong>
+              </button>
+              <div v-if="!recommendClickRows.length" class="ops-summary-empty">暂无推荐入口数据</div>
+            </div>
+
+            <div class="ops-summary-column">
+              <h3>无结果词</h3>
+              <button
+                v-for="item in noResultRows"
+                :key="`empty:${item.name}`"
+                type="button"
+                class="ops-summary-row"
+                @click="openSearchTerm(item.name)"
+              >
+                <span>{{ item.name }}</span>
+                <strong>{{ item.count }}</strong>
+              </button>
+              <div v-if="!noResultRows.length" class="ops-summary-empty">暂无无结果词</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
           <div class="mb-5 flex items-center justify-between gap-4">
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">发布趋势</h2>
@@ -195,10 +257,13 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { getErrorMessage } from '@/api/client'
 import { dashboardApi, type RankedMetric, type TrendDashboard, type TrendRange } from '@/api/dashboard'
+import { opsApi, type SearchAnalytics } from '@/api/ops'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { DOMAIN_OPTIONS, getDomainLabel } from '@/utils/domains'
+import { filterSearchSuggestionTerms } from '@/utils/recommendationGovernance'
 
 const periods: Array<{ value: TrendRange; label: string }> = [
   { value: '7d', label: '近 7 天' },
@@ -210,8 +275,11 @@ const activeRange = ref<TrendRange>('30d')
 const activeDomain = ref<number | undefined>(undefined)
 const dashboard = ref<TrendDashboard | null>(null)
 const comparisonDashboard = ref<TrendDashboard | null>(null)
+const searchAnalytics = ref<SearchAnalytics | null>(null)
+const opsSummaryError = ref('')
 const isLoading = ref(false)
 const errorText = ref('')
+const router = useRouter()
 
 interface DomainComparisonRow {
   value: number
@@ -234,6 +302,18 @@ const activeRangeLabel = computed(() => periods.find((period) => period.value ==
 const domainDistribution = computed(() => comparisonDashboard.value?.domainDistribution || [])
 const domainHotContent = computed(() => comparisonDashboard.value?.domainHotContent || [])
 const maxDomainCount = computed(() => Math.max(1, ...domainDistribution.value.map((item) => item.count)))
+const opsSummaryStatusLabel = computed(() => opsSummaryError.value ? '已降级' : '近 30 天')
+const analyticsRows = (items: SearchAnalytics['hotKeywords'] | undefined) => {
+  const source = items || []
+  const visibleNames = filterSearchSuggestionTerms(source.map((item) => item.keyword || item.company || item.target || ''), 8)
+  return visibleNames.map((name) => {
+    const hit = source.find((item) => (item.keyword || item.company || item.target || '') === name)
+    return { name, count: Number(hit?.count || hit?.noResultCount || 0) }
+  })
+}
+const hotSearchRows = computed(() => analyticsRows(searchAnalytics.value?.hotKeywords))
+const recommendClickRows = computed(() => analyticsRows(searchAnalytics.value?.recommendClicks))
+const noResultRows = computed(() => analyticsRows(searchAnalytics.value?.noResultKeywords))
 const domainComparisonRows = computed<DomainComparisonRow[]>(() => {
   const backendRows = comparisonDashboard.value?.domainComparison || []
   if (backendRows.length > 0) {
@@ -289,17 +369,27 @@ const domainComparisonRows = computed<DomainComparisonRow[]>(() => {
 const loadDashboard = async () => {
   isLoading.value = true
   errorText.value = ''
+  opsSummaryError.value = ''
   try {
-    const [selectedRes, comparisonRes] = await Promise.all([
+    const [selectedRes, comparisonRes, analyticsRes] = await Promise.all([
       dashboardApi.getTrendDashboard(activeRange.value, activeDomain.value),
       dashboardApi.getTrendDashboard(activeRange.value),
+      opsApi.searchAnalytics({ days: 30, limit: 8 }),
     ])
     dashboard.value = selectedRes.data
     comparisonDashboard.value = comparisonRes.data
+    searchAnalytics.value = analyticsRes.data
   } catch (error: any) {
     errorText.value = getErrorMessage(error, '趋势数据暂不可用')
     dashboard.value = null
     comparisonDashboard.value = null
+    try {
+      const analyticsRes = await opsApi.searchAnalytics({ days: 30, limit: 8 })
+      searchAnalytics.value = analyticsRes.data
+    } catch (analyticsError: any) {
+      opsSummaryError.value = getErrorMessage(analyticsError, '运营摘要暂不可用')
+      searchAnalytics.value = null
+    }
   } finally {
     isLoading.value = false
   }
@@ -311,6 +401,10 @@ const setRange = (range: TrendRange) => {
 
 const setDomain = (domain?: number) => {
   activeDomain.value = domain
+}
+
+const openSearchTerm = (keyword: string) => {
+  router.push({ path: '/search', query: { q: keyword, sort: 'hot' } })
 }
 
 const barHeight = (count: number) => {
@@ -498,6 +592,62 @@ watch([activeRange, activeDomain], loadDashboard)
   color: rgb(15 23 42);
 }
 
+.ops-summary-column {
+  min-width: 0;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252 / 0.72);
+  padding: 1rem;
+}
+
+.ops-summary-column h3 {
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.ops-summary-row {
+  display: flex;
+  width: 100%;
+  min-height: 2.6rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  font-size: 0.82rem;
+  color: rgb(51 65 85);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ops-summary-row:hover {
+  background: white;
+  color: rgb(37 99 235);
+}
+
+.ops-summary-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ops-summary-row strong {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: rgb(100 116 139);
+}
+
+.ops-summary-empty {
+  border-radius: 0.6rem;
+  border: 1px dashed rgb(203 213 225);
+  padding: 0.8rem;
+  font-size: 0.82rem;
+  color: rgb(100 116 139);
+}
+
 @media (min-width: 640px) {
   .domain-comparison-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -546,10 +696,30 @@ watch([activeRange, activeDomain], loadDashboard)
 }
 
 .dark .domain-icon,
-.dark .comparison-stat {
+.dark .comparison-stat,
+.dark .ops-summary-column {
   border-color: rgb(51 65 85 / 0.86);
   background: rgb(15 23 42 / 0.78);
   box-shadow: none;
+}
+
+.dark .ops-summary-column h3,
+.dark .ops-summary-row {
+  color: rgb(226 232 240);
+}
+
+.dark .ops-summary-row:hover {
+  background: rgb(30 41 59);
+  color: rgb(147 197 253);
+}
+
+.dark .ops-summary-row strong,
+.dark .ops-summary-empty {
+  color: rgb(148 163 184);
+}
+
+.dark .ops-summary-empty {
+  border-color: rgb(51 65 85);
 }
 
 .dark .status-pill--hot {

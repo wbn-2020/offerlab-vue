@@ -6,6 +6,7 @@ export type FeedType = 'following' | 'recommend' | 'latest' | 'hot' | 'featured'
 
 export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest', domain?: MaybeRef<number | undefined>) {
   const pageSize = 20
+  const maxPages = 6
   const currentFeed = computed(() => unref(feedType))
   const currentDomain = computed(() => unref(domain))
 
@@ -35,7 +36,7 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest', domain?
   })
 
   const posts = computed(() => {
-    return data.value?.pages.flatMap(page => page.data?.items || []) || []
+    return data.value?.pages.slice(-maxPages).flatMap(page => page.data?.items || []) || []
   })
 
   return {

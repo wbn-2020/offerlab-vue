@@ -16,8 +16,8 @@
         </div>
         <!-- Header -->
         <div class="text-center mb-8">
-          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">加入 OfferLab</h1>
-          <p class="text-sm text-slate-600 dark:text-slate-400">创建账号，开始分享技术经验</p>
+          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">加入 {{ siteBrand.displayName }}</h1>
+          <p class="text-sm text-slate-600 dark:text-slate-400">创建账号，分享见闻、参与讨论、收藏有用参考</p>
         </div>
 
         <!-- Form -->
@@ -101,6 +101,7 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { redirectQuery, safeRedirect } from '@/utils/navigation'
 import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
+import { siteBrand } from '@/utils/brand'
 import { z } from 'zod'
 
 const router = useRouter()

@@ -1,14 +1,17 @@
 import { DOMAIN, getDomainLabel, normalizeDomain, type DomainValue } from '@/utils/domains'
 
-export type EditorQualityChecklistState = 'complete' | 'needs-work' | 'tip'
+export type EditorQualityChecklistState = 'complete' | 'needs-work' | 'tip' | 'blocking'
 
 export type EditorQualityChecklistKey =
   | 'title'
   | 'content'
+  | 'summary'
   | 'domain'
   | 'tags'
   | 'anonymous'
   | 'series'
+  | 'risk'
+  | 'safety'
 
 export interface EditorQualityChecklistTagLike {
   label?: string | null
@@ -19,12 +22,14 @@ export interface EditorQualityChecklistTagLike {
 export interface EditorQualityChecklistInput {
   title?: string | null
   content?: string | null
+  summary?: string | null
   domain?: number | string | null
   domainLabel?: string | null
   tags?: Array<string | EditorQualityChecklistTagLike> | null
   anonymous?: boolean | null
   seriesId?: string | number | null
   seriesTitle?: string | null
+  riskNotice?: string | null
   minTitleLength?: number
   maxTitleLength?: number
   minContentLength?: number
@@ -45,6 +50,7 @@ export interface EditorQualityChecklistSummary {
   completed: number
   needsWork: number
   tips: number
+  blocking: number
   requiredTotal: number
   requiredCompleted: number
   progressPercent: number
@@ -59,12 +65,14 @@ export interface EditorQualityChecklistResult {
   normalized: {
     title: string
     content: string
+    summary: string
     plainText: string
     domain?: DomainValue
     domainLabel: string
     tags: string[]
     anonymous: boolean
     hasSeries: boolean
+    riskNotice: string
   }
 }
 
@@ -86,6 +94,13 @@ const SENSITIVE_CAREER_PATTERNS = [
   /hr/iu,
   /面试/u,
   /offer/iu,
+]
+
+const PRIVATE_CAREER_BOUNDARY_PATTERNS = [
+  /简历/u,
+  /\bjd\b/iu,
+  /投递/u,
+  /模拟面试/u,
 ]
 
 const SERIES_CUE_PATTERNS = [
@@ -131,14 +146,29 @@ const hasSensitiveCareerDetails = (title: string, content: string) => {
   return SENSITIVE_CAREER_PATTERNS.some((pattern) => pattern.test(source))
 }
 
-const buildHeadline = (completed: number, needsWork: number, tips: number) => {
+const hasPrivateCareerBoundary = (title: string, content: string, tags: string[]) => {
+  const source = `${title}\n${content}\n${tags.join('\n')}`
+  const boundaryMatches = PRIVATE_CAREER_BOUNDARY_PATTERNS.filter((pattern) => pattern.test(source)).length
+  const privateCue = /私人|个人|训练/u.test(source)
+  return boundaryMatches >= 1 && (privateCue || boundaryMatches >= 2)
+}
+
+const buildHeadline = (completed: number, needsWork: number, tips: number, blocking: number) => {
+  if (blocking > 0) return '命中治理或安全边界，当前助手只给边界提示。'
   if (needsWork === 0 && tips === 0) return '信息已经比较完整，可以进入发布前最后检查。'
   if (needsWork === 0) return '核心信息已齐，可以按提示再补一层可读性和归档信息。'
   if (completed <= 1) return '先把最基本的发布信息补齐，读者会更容易理解你在写什么。'
   return '主体已经成型，再补几项关键信息会更稳。'
 }
 
-const buildHint = (needsWorkItems: EditorQualityChecklistItem[], tipItems: EditorQualityChecklistItem[]) => {
+const buildHint = (
+  blockingItems: EditorQualityChecklistItem[],
+  needsWorkItems: EditorQualityChecklistItem[],
+  tipItems: EditorQualityChecklistItem[],
+) => {
+  if (blockingItems.length > 0) {
+    return `优先处理：${blockingItems.slice(0, 2).map((item) => item.title).join('、')}`
+  }
   if (needsWorkItems.length > 0) {
     return `优先补齐：${needsWorkItems.slice(0, 2).map((item) => item.title).join('、')}`
   }
@@ -153,6 +183,7 @@ export const evaluateEditorQualityChecklist = (
 ): EditorQualityChecklistResult => {
   const title = normalizeText(input.title)
   const content = normalizeText(input.content)
+  const summary = normalizeText(input.summary)
   const plainText = stripMarkdown(content)
   const tags = (input.tags || []).map((item) => normalizeTag(item)).filter(Boolean)
   const anonymous = Boolean(input.anonymous)
@@ -161,6 +192,7 @@ export const evaluateEditorQualityChecklist = (
     ? undefined
     : normalizeDomain(input.domain)
   const domainLabel = normalizeText(input.domainLabel) || (domain ? getDomainLabel(domain) : '')
+  const riskNotice = normalizeText(input.riskNotice)
 
   const minTitleLength = Math.max(1, input.minTitleLength ?? DEFAULT_MIN_TITLE_LENGTH)
   const maxTitleLength = Math.max(minTitleLength, input.maxTitleLength ?? DEFAULT_MAX_TITLE_LENGTH)
@@ -171,7 +203,9 @@ export const evaluateEditorQualityChecklist = (
   const contentLength = plainText.length
   const seriesCue = hasSeriesCue(title, content)
   const isCareerDomain = domain === DOMAIN.CAREER
+  const isHighRiskDomain = domain === DOMAIN.INVESTMENT
   const hasSensitiveCareerCue = isCareerDomain && hasSensitiveCareerDetails(title, content)
+  const privateCareerBoundary = hasPrivateCareerBoundary(title, content, tags)
 
   const items: EditorQualityChecklistItem[] = [
     {
@@ -201,10 +235,20 @@ export const evaluateEditorQualityChecklist = (
       required: true,
     },
     {
+      key: 'summary',
+      title: '摘要',
+      description: summary.length >= 12
+        ? '摘要已经能帮助读者在列表中快速判断是否继续阅读。'
+        : '建议补一句清晰摘要，说明这篇内容解决什么问题或适合什么场景。',
+      state: summary.length >= 12 ? 'complete' : 'tip',
+      complete: summary.length >= 12,
+      required: false,
+    },
+    {
       key: 'domain',
       title: '领域',
       description: domain
-        ? `当前归类到“${domainLabel || getDomainLabel(domain)}”，有助于推荐给更匹配的读者。`
+        ? `当前归类到“${domainLabel || getDomainLabel(domain)}”，有助于读者检索和理解内容位置。`
         : '请选择最贴近的内容领域，方便社区分发、筛选和后续沉淀。',
       state: domain ? 'complete' : 'needs-work',
       complete: Boolean(domain),
@@ -214,12 +258,22 @@ export const evaluateEditorQualityChecklist = (
       key: 'tags',
       title: '标签',
       description: tags.length >= 2
-        ? '标签信息比较完整，方便搜索、相关推荐和后续专题聚合。'
+        ? '标签信息比较完整，方便搜索、关联内容聚合和后续专题整理。'
         : tags.length === 1
           ? '已经有基础标签，若再补一个主题或场景标签会更利于被发现。'
           : '至少补 1 个标签，最好同时覆盖主题词和场景词。',
       state: tags.length >= 2 ? 'complete' : tags.length === 1 ? 'tip' : 'needs-work',
       complete: tags.length >= 2,
+      required: true,
+    },
+    {
+      key: 'safety',
+      title: '治理边界',
+      description: privateCareerBoundary
+        ? '当前内容包含私人材料或求职准备记录，编辑器助手不会生成写作、标签、话题或系列建议。'
+        : '当前未命中私人材料、删除违规内容或审核中内容的助手边界。',
+      state: privateCareerBoundary ? 'blocking' : 'complete',
+      complete: !privateCareerBoundary,
       required: true,
     },
     {
@@ -260,9 +314,26 @@ export const evaluateEditorQualityChecklist = (
       complete: hasSeries,
       required: false,
     },
+    {
+      key: 'risk',
+      title: '高风险提示',
+      description: isHighRiskDomain || riskNotice
+        ? `${riskNotice || '涉及投资理财等高风险话题时，请补充风险边界。'} 内容仅供交流，不构成专业建议。`
+        : '当前领域未命中高风险提示；如果内容涉及投资、医疗、法律等判断，请主动补充边界说明。',
+      state: isHighRiskDomain
+        ? riskNotice
+          ? 'complete'
+          : 'needs-work'
+        : riskNotice
+          ? 'complete'
+          : 'tip',
+      complete: isHighRiskDomain ? Boolean(riskNotice) : true,
+      required: false,
+    },
   ]
 
   const completed = items.filter((item) => item.state === 'complete').length
+  const blockingItems = items.filter((item) => item.state === 'blocking')
   const needsWorkItems = items.filter((item) => item.state === 'needs-work')
   const tipItems = items.filter((item) => item.state === 'tip')
   const requiredItems = items.filter((item) => item.required)
@@ -275,22 +346,25 @@ export const evaluateEditorQualityChecklist = (
       completed,
       needsWork: needsWorkItems.length,
       tips: tipItems.length,
+      blocking: blockingItems.length,
       requiredTotal: requiredItems.length,
       requiredCompleted,
       progressPercent: Math.round((completed / Math.max(items.length, 1)) * 100),
-      headline: buildHeadline(completed, needsWorkItems.length, tipItems.length),
-      hint: buildHint(needsWorkItems, tipItems),
-      nextFocus: needsWorkItems.concat(tipItems).slice(0, 3).map((item) => item.title),
+      headline: buildHeadline(completed, needsWorkItems.length, tipItems.length, blockingItems.length),
+      hint: buildHint(blockingItems, needsWorkItems, tipItems),
+      nextFocus: blockingItems.concat(needsWorkItems, tipItems).slice(0, 3).map((item) => item.title),
     },
     normalized: {
       title,
       content,
+      summary,
       plainText,
       domain,
       domainLabel,
       tags,
       anonymous,
       hasSeries,
+      riskNotice,
     },
   }
 }

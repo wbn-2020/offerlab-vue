@@ -1,0 +1,693 @@
+import type {
+  CompanyPrep,
+  Question,
+  UserKnowledge,
+  UserPrepOverview,
+  UserWeeklyPrepReport,
+} from '@/api/question'
+import type { InterviewMaterialPack } from '@/api/post'
+import type { ContentListSummary } from '@/api/adapters'
+import type {
+  CreatorCurationFeedbackSummary,
+  CreatorFeedbackSummary,
+  CreatorGrowthWorkspace,
+  CreatorIncentiveCopy,
+  CreatorReplyOpportunity,
+  CreatorRepresentativePost,
+  CreatorTopPost,
+  CreatorTopicIdea,
+  CreatorWorkspaceAction,
+  CreatorWorkspaceSummary,
+  GrowthProfile,
+  GrowthReport,
+  PaginatedResponse,
+  Post,
+  Tag,
+  User,
+} from '@/api/types'
+import type { ContributionSummary } from '@/utils/communityMetrics'
+
+const now = Date.now()
+const day = 24 * 60 * 60 * 1000
+
+const demoAuthor: User = {
+  uid: 'demo-author-001',
+  nickname: '闻野示例作者',
+  avatar: '',
+  signature: '用真实项目复盘沉淀可复用的面试素材。',
+  createdAt: now - 180 * day,
+  followerCount: 328,
+  followingCount: 42,
+  postCount: 18,
+  isBigV: true,
+}
+
+const tags = {
+  redis: { id: 'tag-redis', name: 'Redis', slug: 'redis', category: 'backend', count: 42 },
+  kafka: { id: 'tag-kafka', name: 'Kafka', slug: 'kafka', category: 'backend', count: 31 },
+  systemDesign: { id: 'tag-system-design', name: '系统设计', slug: 'system-design', category: 'architecture', count: 28 },
+  interview: { id: 'tag-interview', name: '面试复盘', slug: 'interview-review', category: 'career', count: 24 },
+  java: { id: 'tag-java', name: 'Java 后端', slug: 'java-backend', category: 'backend', count: 37 },
+} satisfies Record<string, Tag>
+
+const post = (id: string, postType: number, title: string, summary: string, tagList: Tag[]): Post => ({
+  postId: id,
+  postType,
+  title,
+  content: `${title}\n\n${summary}`,
+  summary,
+  tags: tagList,
+  author: demoAuthor,
+  counter: { view: 1280, like: 96, comment: 18, favorite: 54 },
+  domain: 1,
+  extension: {
+    source: 'local_demo_seed',
+    example: true,
+    exampleLabel: '示例数据',
+  },
+  recommendationReasons: ['demo seed', '冷启动示例'],
+  myInteraction: { liked: false, favorited: true },
+  createdAt: now - 12 * day,
+  updatedAt: now - 2 * day,
+})
+
+export const demoPosts: Post[] = [
+  post(
+    'demo-post-coupon-stock',
+    1,
+    '高并发优惠券库存扣减复盘',
+    '从 Redis 预扣、MySQL 最终一致和 MQ 补偿三个层面复盘一次秒杀库存治理。',
+    [tags.redis, tags.kafka, tags.systemDesign],
+  ),
+  post(
+    'demo-post-kafka-review',
+    2,
+    'Kafka 消息堆积面试复盘',
+    '把排障过程拆成监控信号、消费瓶颈、扩容策略和复盘行动，适合系统设计追问。',
+    [tags.kafka, tags.interview, tags.java],
+  ),
+]
+
+export const demoContentLists: ContentListSummary[] = [
+  {
+    id: 'demo-list-read-later',
+    title: '稍后读',
+    description: '默认保存未整理收藏，当前仅用于本机演示整理入口。',
+    visibility: 'private',
+    ownerId: 'demo-user',
+    itemCount: 2,
+    items: demoPosts.map((item, index) => ({
+      id: `demo-list-read-later-${item.postId}`,
+      postId: item.postId,
+      post: item,
+      sortOrder: index,
+      addedAt: now - (index + 1) * day,
+    })),
+    updatedAt: now - day,
+    source: 'local_demo_only',
+    localOnly: true,
+    ownerVisible: true,
+    discoverable: false,
+    searchable: false,
+    recommendable: false,
+    rankable: false,
+    operable: false,
+  },
+  {
+    id: 'demo-list-public-system-design',
+    title: '系统设计复盘清单',
+    description: '只展示公开且通过治理过滤的内容，当前为本机示例。',
+    visibility: 'public',
+    ownerId: demoAuthor.uid,
+    itemCount: 2,
+    items: demoPosts.map((item, index) => ({
+      id: `demo-list-public-system-design-${item.postId}`,
+      postId: item.postId,
+      post: item,
+      sortOrder: index,
+      addedAt: now - (index + 2) * day,
+    })),
+    updatedAt: now - 2 * day,
+    source: 'local_demo_only',
+    localOnly: true,
+    ownerVisible: true,
+    discoverable: false,
+    searchable: false,
+    recommendable: false,
+    rankable: false,
+    operable: false,
+  },
+]
+
+export const demoQuestions: Question[] = [
+  {
+    id: 'demo-question-redis-hot-key',
+    questionText: 'Redis 热 key 如何治理？请结合一次线上读流量突增的排查过程回答。',
+    answerHint: '先定位热 key，再拆读写链路、缓存副本、本地缓存、限流与降级。',
+    examPoint: '缓存治理、容量评估、故障复盘',
+    referenceAnswer: '可以从监控发现、热点隔离、多级缓存、过期策略和回滚预案展开。',
+    company: '字节跳动',
+    position: 'Java 后端',
+    interviewRound: '二面',
+    difficulty: 'medium',
+    confidence: 0.86,
+    sourcePostId: 'demo-post-coupon-stock',
+    sourceAuthorUid: demoAuthor.uid,
+    appearCount: 7,
+    qualityScore: 92,
+    tags: [tags.redis, tags.systemDesign],
+    favorite: true,
+    progressStatus: 'review',
+    note: '回答时补上监控指标和容量测算，不要只讲缓存方案。',
+    mistakeReason: 'project',
+    answerDraft: 'S: 大促前读流量集中到库存详情页；T: 保证库存查询稳定且不击穿 DB；A: 拆分热点 key、本地缓存兜底、MQ 异步刷新、限流降级；R: 峰值 RT 稳定在 80ms 内。',
+    starStory: '用一次优惠券库存系统治理说明从发现问题到复盘改进的闭环。',
+    nextReviewAt: now + day,
+    lastReviewedAt: now - 2 * day,
+    reviewCount: 3,
+    reviewIntervalDays: 3,
+    sourcePostCount: 2,
+    createdAt: now - 15 * day,
+    updatedAt: now - day,
+  },
+  {
+    id: 'demo-question-kafka-lag',
+    questionText: 'Kafka 消息堆积时，你会如何判断是生产端、Broker 还是消费端问题？',
+    answerHint: '按 lag、生产速率、消费 TPS、rebalance、批处理耗时和下游依赖逐层排查。',
+    examPoint: '消息队列可靠性、可观测性、容量扩展',
+    referenceAnswer: '先用监控判断堆积范围，再分析消费者耗时和分区并行度，最后给出扩容与削峰方案。',
+    company: '腾讯',
+    position: '后端开发',
+    interviewRound: '系统设计',
+    difficulty: 'hard',
+    confidence: 0.81,
+    sourcePostId: 'demo-post-kafka-review',
+    sourceAuthorUid: demoAuthor.uid,
+    appearCount: 5,
+    qualityScore: 89,
+    tags: [tags.kafka, tags.systemDesign],
+    favorite: false,
+    progressStatus: 'learning',
+    note: '准备一段真实排障时间线。',
+    mistakeReason: 'concept',
+    answerDraft: '先确认是否全 topic 堆积，再看消费者组 lag、rebalance 日志、批处理耗时和下游 DB 写入瓶颈。',
+    nextReviewAt: now + 2 * day,
+    lastReviewedAt: now - day,
+    reviewCount: 2,
+    reviewIntervalDays: 2,
+    sourcePostCount: 1,
+    createdAt: now - 10 * day,
+    updatedAt: now - day,
+  },
+  {
+    id: 'demo-question-idempotency',
+    questionText: '支付回调或优惠券发放接口如何设计幂等？',
+    answerHint: '幂等键、唯一约束、状态机、重试语义和对账补偿。',
+    examPoint: '分布式事务、接口设计、异常补偿',
+    company: '美团',
+    position: '服务端工程师',
+    interviewRound: '一面',
+    difficulty: 'medium',
+    confidence: 0.84,
+    appearCount: 4,
+    qualityScore: 88,
+    tags: [tags.java, tags.systemDesign],
+    favorite: true,
+    progressStatus: 'todo',
+    reviewCount: 0,
+    reviewIntervalDays: 1,
+    sourcePostCount: 1,
+    createdAt: now - 8 * day,
+    updatedAt: now - 2 * day,
+  },
+]
+
+const pageOf = <T>(items: T[], total = items.length): PaginatedResponse<T> => ({
+  items,
+  hasMore: false,
+  total,
+  source: 'local_demo_seed',
+  degraded: true,
+  fallbackReason: 'demo_seed',
+  diagnostics: {
+    example: true,
+    exampleLabel: '示例数据',
+  },
+})
+
+const includes = (value: string | undefined, query: string | undefined) => (
+  !query || String(value || '').toLowerCase().includes(query.toLowerCase())
+)
+
+export const demoQuestionPage = (params: {
+  keyword?: string
+  company?: string
+  position?: string
+  difficulty?: string
+  progressStatus?: string
+  mistakeReason?: string
+  hasNote?: boolean
+  hasAnswerDraft?: boolean
+  hasStarStory?: boolean
+} = {}): PaginatedResponse<Question> => {
+  const keyword = params.keyword?.trim().toLowerCase()
+  const items = demoQuestions.filter((item) => {
+    const keywordHit = !keyword || [
+      item.questionText,
+      item.answerHint,
+      item.examPoint,
+      item.company,
+      item.position,
+      ...item.tags.map((tag) => tag.name),
+    ].some((value) => String(value || '').toLowerCase().includes(keyword))
+    return keywordHit
+      && includes(item.company, params.company)
+      && includes(item.position, params.position)
+      && (!params.difficulty || item.difficulty === params.difficulty)
+      && (!params.progressStatus || item.progressStatus === params.progressStatus)
+      && (!params.mistakeReason || params.mistakeReason === 'any' || item.mistakeReason === params.mistakeReason)
+      && (!params.hasNote || Boolean(item.note))
+      && (!params.hasAnswerDraft || Boolean(item.answerDraft))
+      && (!params.hasStarStory || Boolean(item.starStory))
+  })
+  return pageOf(items)
+}
+
+export const demoCompanyPrep = (company = '字节跳动'): CompanyPrep => ({
+  company: company || '字节跳动',
+  aliases: [company || '字节跳动', 'ByteDance', '抖音电商'],
+  relatedPositionCount: 3,
+  recentPosts: demoPosts,
+  topQuestions: demoQuestions,
+  recommendedQuestions: demoQuestions.slice(0, 2),
+  topTags: [
+    { name: 'Redis', count: 8 },
+    { name: 'Kafka', count: 6 },
+    { name: '系统设计', count: 5 },
+  ],
+  hotPositions: [
+    { name: 'Java 后端', count: 9 },
+    { name: '服务端工程师', count: 6 },
+  ],
+  trend30Days: [
+    { name: '近 30 天经验帖', count: 12 },
+    { name: '近 30 天面试复盘', count: 7 },
+  ],
+  trend90Days: [
+    { name: '近 90 天经验帖', count: 34 },
+    { name: '近 90 天面试复盘', count: 18 },
+  ],
+  interviewResultDistribution: [
+    { name: '通过', count: 8 },
+    { name: '待补强', count: 4 },
+  ],
+  recentResultDistribution: [
+    { name: '通过', count: 3 },
+    { name: '待补强', count: 2 },
+  ],
+  questionSampleCount: demoQuestions.length,
+  postSampleCount: demoPosts.length,
+  resultSampleCount: 12,
+  recentResultSampleCount: 5,
+  dataUpdatedAt: now,
+  prepScore: 76,
+  checklist: [
+    { key: 'read-review', title: '读 2 篇面试复盘', description: '先了解近期高频追问和项目表达方式。', done: true, current: 2, target: 2, actionHref: '/search?q=面试复盘' },
+    { key: 'practice-system', title: '练 3 道系统设计题', description: '围绕缓存、消息队列和幂等整理回答卡片。', done: false, current: 1, target: 3, actionHref: '/questions?company=字节跳动' },
+  ],
+  nextActions: ['收藏 2 道系统设计题', '把优惠券库存复盘整理成 STAR 素材', '完成一次 Kafka 专项知识复盘'],
+  myProgress: {
+    favoriteCount: 2,
+    learningCount: 1,
+    masteredCount: 1,
+    reviewCount: 1,
+  },
+})
+
+const demoMaterialPack: InterviewMaterialPack = {
+  id: 'demo-material-coupon-stock',
+  uid: 'demo-user',
+  postId: 'demo-post-coupon-stock',
+  generationStatus: 'SUCCEEDED',
+  starSituation: '大促前优惠券库存读写流量集中，库存一致性和查询稳定性同时承压。',
+  starTask: '在不影响发券链路的前提下，降低 DB 压力并保留异常补偿能力。',
+  starAction: '引入 Redis 预扣、Kafka 异步确认、幂等状态机和对账补偿任务。',
+  starResult: '峰值期间核心接口稳定，异常库存通过补偿任务自动修复。',
+  resumeBullets: ['负责优惠券库存扣减链路稳定性治理，设计 Redis 预扣与 MQ 补偿方案。'],
+  followUpQuestions: ['如何证明没有超发？', '补偿任务失败时怎么告警？'],
+  technicalHighlights: ['Redis 热 key 治理', 'Kafka 补偿链路', '幂等状态机'],
+  missingHints: ['补充压测数据', '补充告警阈值'],
+  savedToPrep: true,
+  provider: 'local_demo_seed',
+  fallbackUsed: true,
+  sourcePost: demoPosts[0],
+  createTime: now - 4 * day,
+  updateTime: now - day,
+}
+
+export const demoUserKnowledge: UserKnowledge = {
+  materialPackCount: 2,
+  savedMaterialPackCount: 1,
+  favoritePostCount: demoPosts.length,
+  favoriteQuestionCount: 2,
+  materialPacks: [demoMaterialPack],
+  favoritePosts: demoPosts,
+  favoriteQuestions: demoQuestions.filter((item) => item.favorite),
+  targets: [
+    { id: 'demo-target-bytedance', uid: 'demo-user', targetType: 'company', targetValue: '字节跳动', priority: 'high', note: '后端系统设计与项目复盘', createTime: new Date(now - 9 * day).toISOString() },
+  ],
+  weakTags: [
+    { name: '系统设计', count: 3 },
+    { name: 'Kafka', count: 2 },
+  ],
+  materialGapHints: ['补一段压测数据', '把 Kafka 堆积排障整理成 STAR', '准备 Redis 热 key 兜底方案图'],
+}
+
+export const demoUserPrepOverview: UserPrepOverview = {
+  favoriteCount: 2,
+  todoCount: 1,
+  learningCount: 1,
+  masteredCount: 1,
+  reviewCount: 1,
+  noteCount: 2,
+  answerDraftCount: 2,
+  targets: demoUserKnowledge.targets,
+  favoriteQuestions: demoUserKnowledge.favoriteQuestions,
+  reviewQuestions: [demoQuestions[0]],
+  answerDraftQuestions: demoQuestions.filter((item) => item.answerDraft),
+  recommendedQuestions: demoQuestions,
+  targetSummaries: [
+    {
+      target: demoUserKnowledge.targets[0],
+      questionCount: 3,
+      favoriteCount: 2,
+      learningCount: 1,
+      masteredCount: 1,
+      reviewCount: 1,
+      recommendedQuestions: demoQuestions.slice(0, 2),
+    },
+  ],
+  mistakeReasonCounts: [
+    { reason: 'project', count: 1 },
+    { reason: 'concept', count: 1 },
+  ],
+  focusTagCounts: demoUserKnowledge.weakTags,
+  reviewPlan: {
+    todayCount: 1,
+    weekTouchedCount: 4,
+    todayQuestions: [demoQuestions[0]],
+    weekTouchedQuestions: demoQuestions.slice(0, 2),
+  },
+}
+
+export const demoWeeklyPrepReport: UserWeeklyPrepReport = {
+  windowStart: now - 7 * day,
+  windowEnd: now,
+  touchedQuestionCount: 6,
+  masteredQuestionCount: 1,
+  reviewQuestionCount: 2,
+  noteCount: 3,
+  answerDraftCount: 2,
+  mockSessionCount: 2,
+  mockCompletedCount: 1,
+  mockAnsweredQuestionCount: 5,
+  mockAverageScorePercent: 78,
+  mockBestScorePercent: 86,
+  mistakeReasonCounts: demoUserPrepOverview.mistakeReasonCounts,
+  focusTagCounts: demoUserPrepOverview.focusTagCounts,
+  touchedQuestions: demoQuestions,
+  nextActions: ['复盘 Redis 热 key 题', '补齐 Kafka 堆积排障时间线', '把优惠券项目整理成 2 分钟版本'],
+}
+
+export const demoGrowthProfile: GrowthProfile = {
+  days: 30,
+  degraded: true,
+  degradationReasons: ['local_demo_seed'],
+  strongestDomain: '科技数码',
+  emergingDomain: '学习成长',
+  nextFocus: '作者主页 demo：继续发布经验分享、攻略清单和资源推荐，系统会汇总公开内容反馈和主页展示线索。',
+  domains: [
+    {
+      domain: 1,
+      domainName: '科技数码',
+      postCount: 2,
+      seriesCount: 1,
+      activeDays: 5,
+      interactionCount: 168,
+      viewCount: 2480,
+      dimensions: [
+        { key: 'depth', label: '技术深度', score: 82, explanation: '能把 Redis、Kafka 和幂等设计串成完整链路。' },
+        { key: 'review', label: '复盘完整度', score: 76, explanation: '已经包含问题、行动和结果，可继续补充量化指标。' },
+      ],
+      representativePosts: demoPosts.map((item) => ({
+        postId: item.postId,
+        title: item.title,
+        domain: item.domain,
+        heat: item.counter.view + item.counter.like * 5,
+        featured: true,
+      })),
+    },
+  ],
+}
+
+export const demoGrowthReport: GrowthReport = {
+  period: 'weekly',
+  days: 7,
+  degraded: true,
+  degradationReasons: ['local_demo_seed'],
+  publishedPostCount: 2,
+  interactionCount: 168,
+  featuredPostCount: 1,
+  seriesContributionCount: 1,
+  domainChanges: [
+    { domain: 1, domainName: '科技数码', currentPostCount: 2, previousPostCount: 0, trend: 'up', reason: '新增经验分享和复盘记录各 1 篇。' },
+  ],
+  highlightPosts: demoPosts.map((item) => ({
+    postId: item.postId,
+    title: item.title,
+    domain: item.domain,
+    domainName: '科技数码',
+    interactionCount: item.counter.like + item.counter.comment + item.counter.favorite,
+    featured: item.postId === 'demo-post-coupon-stock',
+  })),
+  nextActions: ['补充一次使用数据', '把 Kafka 堆积复盘整理成攻略清单', '为学习成长频道补 3 条资源'],
+}
+
+export const demoCreatorFeedbackSummary: CreatorFeedbackSummary = {
+  source: 'demo',
+  updatedAt: now,
+  degraded: true,
+  fallbackReason: 'local_demo_seed',
+  degradationReasons: ['local_demo_seed'],
+  windows: [
+    {
+      days: 7,
+      label: '近 7 天',
+      postCount: 2,
+      viewCount: 860,
+      likeCount: 42,
+      favoriteCount: 31,
+      commentCount: 9,
+      replyCount: 5,
+      feedbackCopy: '近 7 天示例反馈：公开内容仍在被阅读、收藏和评论。',
+    },
+    {
+      days: 30,
+      label: '近 30 天',
+      postCount: 2,
+      viewCount: 2480,
+      likeCount: 96,
+      favoriteCount: 54,
+      commentCount: 18,
+      replyCount: 11,
+      feedbackCopy: '近 30 天示例反馈：几篇代表作和公开合集带来了持续回访。',
+    },
+  ],
+  responseRate: 62,
+  unreadCommentCount: 3,
+  topFeedbackSignals: [
+    '示例反馈：资源推荐类内容被收藏较多。',
+    '示例反馈：复盘内容仍有读者继续追问。',
+  ],
+}
+
+export const demoCreatorTopPosts: CreatorTopPost[] = demoPosts.map((item, index) => ({
+  postId: item.postId,
+  title: item.title,
+  summary: item.summary,
+  domain: item.domain,
+  domainName: '科技数码',
+  viewCount: item.counter.view,
+  likeCount: item.counter.like,
+  favoriteCount: item.counter.favorite,
+  commentCount: item.counter.comment,
+  feedbackScore: item.counter.favorite * 6 + item.counter.comment * 4 + item.counter.like * 2,
+  reason: index === 0 ? '示例反馈：近期收藏较多，适合继续扩写。' : '示例反馈：评论仍在增加，可以回到讨论补充细节。',
+  href: `/post/${item.postId}`,
+}))
+
+export const demoCreatorReplyOpportunities: CreatorReplyOpportunity[] = [
+  {
+    id: 'demo-reply-opportunity-1',
+    postId: demoPosts[0].postId,
+    postTitle: demoPosts[0].title,
+    commentId: 'demo-comment-1',
+    commenterName: '读者提问',
+    excerpt: '如果把这套方案迁移到低流量业务，哪些部分可以先简化？',
+    reason: '示例反馈：评论里有具体追问，适合回到公共讨论继续回应。',
+    priority: 'high',
+    suggestedReplyTone: '补充上下文和取舍理由，不承诺唯一答案。',
+    href: `/post/${demoPosts[0].postId}#comments`,
+    createdAt: now - 2 * day,
+  },
+]
+
+export const demoCreatorRepresentativePosts: CreatorRepresentativePost[] = demoPosts.map((item) => ({
+  postId: item.postId,
+  title: item.title,
+  summary: item.summary,
+  domain: item.domain,
+  domainName: '科技数码',
+  heat: item.counter.view + item.counter.favorite * 6 + item.counter.comment * 4,
+  featured: item.postId === 'demo-post-coupon-stock',
+  publicCollectionCount: 1,
+  reason: '示例代表作：仅用于空数据兜底，真实展示需过滤公开可见内容。',
+  href: `/post/${item.postId}`,
+}))
+
+export const demoCreatorTopicIdeas: CreatorTopicIdea[] = [
+  {
+    id: 'demo-topic-idea-resource-checklist',
+    title: '把高收藏内容整理成资源清单',
+    prompt: '从已有公开内容里挑 5 个可复用工具或步骤，写成一篇清单。',
+    reason: '示例灵感：你的资源推荐类内容近期被收藏较多。',
+    sourceType: 'own_post_feedback',
+    sourceSignals: ['own_post_feedback', 'content_type_template'],
+    targetDomain: 1,
+    targetDomainName: '科技数码',
+    suggestedFormat: 'RESOURCE',
+    editorQuery: {
+      source: 'creator_workbench',
+      action: 'continue',
+      contextType: 'idea',
+      title: '把高收藏内容整理成资源清单',
+      postType: 'RESOURCE',
+      topic: '资源清单',
+      templateCode: 'resource_note',
+      returnHref: '/me#creator-workbench',
+    },
+    editorHref: '/editor?source=creator_workbench&action=continue&contextType=idea&title=resource-checklist&postType=RESOURCE&topic=resources&templateCode=resource_note&returnHref=%2Fme%23creator-workbench',
+  },
+  {
+    id: 'demo-topic-idea-comment-followup',
+    title: '回应评论里的具体追问',
+    prompt: '围绕读者追问补充一个场景、一个取舍和一个可验证结果。',
+    reason: '示例灵感：评论里有人继续追问实现细节。',
+    sourceType: 'comment_question',
+    sourceSignals: ['comment_question'],
+    targetDomain: 1,
+    targetDomainName: '科技数码',
+    suggestedFormat: 'NOTE',
+    editorQuery: {
+      source: 'creator_workbench',
+      action: 'reply',
+      contextType: 'reply',
+      title: '回应评论里的具体追问',
+      postType: 'NOTE',
+      topic: '公共讨论',
+      templateCode: 'discussion_prompt',
+      returnHref: '/me#creator-workbench',
+    },
+    editorHref: '/editor?source=creator_workbench&action=reply&contextType=reply&title=comment-followup&postType=NOTE&topic=discussion&templateCode=discussion_prompt&returnHref=%2Fme%23creator-workbench',
+  },
+]
+
+export const demoCreatorIncentiveCopy: CreatorIncentiveCopy = {
+  title: '继续经营公开内容',
+  description: '把近期反馈沉淀成代表作、公开合集和下一篇可解释的选题。',
+  boundary: '非支付激励：不涉及支付，不承诺收益，不代表平台专业背书。',
+  ctaLabel: '查看选题灵感',
+}
+
+export const demoCreatorCurationFeedbackSummary: CreatorCurationFeedbackSummary = {
+  source: 'demo',
+  updatedAt: now,
+  degraded: true,
+  fallbackReason: 'local_demo_seed',
+  total: 0,
+  items: [],
+  recentItems: [],
+}
+
+export const demoCreatorWorkspaceSummary: CreatorWorkspaceSummary = {
+  periodDays: 30,
+  publicPostCount: demoPosts.length,
+  totalFeedbackCount: 168,
+  viewCount: 2480,
+  likeCount: 96,
+  favoriteCount: 54,
+  commentCount: 18,
+  curationCount: demoCreatorCurationFeedbackSummary.recentItems.length,
+  replyOpportunityCount: demoCreatorReplyOpportunities.length,
+  representativeCount: demoCreatorRepresentativePosts.length,
+  updatedAt: now,
+  copy: '示例反馈只说明公开内容结构，不承诺曝光效果。',
+}
+
+export const demoCreatorWorkspaceActions: CreatorWorkspaceAction[] = [
+  {
+    id: 'demo-creator-workbench-editor',
+    label: '继续写公开内容',
+    href: '/editor?source=creator_workbench&action=template&contextType=template&returnHref=%2Fme%23creator-workbench',
+    kind: 'open_editor',
+    query: {
+      source: 'creator_workbench',
+      action: 'template',
+      contextType: 'template',
+      returnHref: '/me#creator-workbench',
+    },
+    reason: 'local_demo_seed',
+  },
+  {
+    id: 'demo-creator-workbench-posts',
+    label: '查看公开内容',
+    href: '/me?tab=posts',
+    kind: 'open_posts',
+  },
+]
+
+export const demoCreatorGrowthWorkspace: CreatorGrowthWorkspace = {
+  source: 'demo',
+  updatedAt: now,
+  periodDays: 30,
+  degraded: true,
+  fallbackReason: 'local_demo_seed',
+  degradationReasons: ['local_demo_seed'],
+  summary: demoCreatorWorkspaceSummary,
+  maintainablePosts: demoCreatorTopPosts,
+  curationFeedback: demoCreatorCurationFeedbackSummary.recentItems,
+  actions: demoCreatorWorkspaceActions,
+  feedbackSummary: demoCreatorFeedbackSummary,
+  topPosts: demoCreatorTopPosts,
+  replyOpportunities: demoCreatorReplyOpportunities,
+  representativePosts: demoCreatorRepresentativePosts,
+  topicIdeas: demoCreatorTopicIdeas,
+  searchGaps: [],
+  incentiveCopy: demoCreatorIncentiveCopy,
+}
+
+export const demoProfileContribution: ContributionSummary = {
+  level: 'L2',
+  badge: '作者主页 demo',
+  score: 168,
+  postCount: 2,
+  featuredCount: 1,
+  viewCount: 2480,
+  likeCount: 96,
+  favoriteCount: 54,
+  commentCount: 18,
+  source: 'local_demo_seed',
+  estimated: true,
+}
+
+export const demoPostPage = (): PaginatedResponse<Post> => pageOf(demoPosts)

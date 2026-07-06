@@ -5,8 +5,11 @@ import type {
   ContentAssistResult,
   ContentAssistSeriesHint,
   ContentAssistSuggestion,
+  ContentAssistSuggestionType,
+  ContentAssistTopicCandidateHint,
 } from './types'
 import { DOMAIN, getDomainLabel, normalizeDomain } from '@/utils/domains'
+import { POST_TYPE } from '@/utils/contentTypes'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 
 export interface ContentAssistRequest {
@@ -21,6 +24,10 @@ export interface ContentAssistRequest {
 }
 
 const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)))
+const LOCAL_RULE_SOURCE_LABEL = '本地规则降级'
+const REMOTE_SOURCE_LABEL = '远端助手'
+const MIXED_SOURCE_LABEL = '远端助手 + 本地规则'
+const PRIVATE_CAREER_BOUNDARY_REASON = 'private_career_training_boundary'
 
 const firstReadableLine = (value: string) => {
   const lines = value
@@ -32,11 +39,26 @@ const firstReadableLine = (value: string) => {
 }
 
 const safeText = (value: unknown) => sanitizeVisibleText(value) || ''
+const isQuestionRequest = (req: ContentAssistRequest) => Number(req.postType) === POST_TYPE.QUESTION
+const privateCareerBoundaryText = (req: ContentAssistRequest) => `${req.title}\n${req.content}\n${req.tags.join('\n')}`
+const hasPrivateCareerBoundary = (req: ContentAssistRequest) => {
+  const text = privateCareerBoundaryText(req)
+  const sensitiveMatches = [
+    /简历/u,
+    /\bjd\b/iu,
+    /投递/u,
+    /模拟面试/u,
+  ].filter((pattern) => pattern.test(text)).length
+  const privateCue = /私人|个人|训练/u.test(text)
+  return sensitiveMatches >= 1 && (privateCue || sensitiveMatches >= 2)
+}
 
 const summarizeContent = (req: ContentAssistRequest) => {
   const firstLine = firstReadableLine(req.content)
   if (firstLine) return firstLine.length > 88 ? `${firstLine.slice(0, 88)}...` : firstLine
   const title = safeText(req.title)
+  if (isQuestionRequest(req) && title) return `围绕“${title.slice(0, 32)}”补充背景、已经尝试过什么、卡点和想获得的帮助。`
+  if (isQuestionRequest(req)) return `补一段 ${getDomainLabel(req.domain)} 频道里的具体问题背景，说明希望大家怎么帮。`
   if (title) return `围绕“${title.slice(0, 32)}”补充背景、过程、结果和可复用建议。`
   return `补一段 ${getDomainLabel(req.domain)} 领域的真实实践背景，助手会继续完善摘要建议。`
 }
@@ -47,8 +69,21 @@ const qualityMetricsOf = (req: ContentAssistRequest): ContentAssistQualityMetric
   const tagCount = req.tags.filter(Boolean).length
   const titleScore = clampScore(titleLength >= 10 ? 100 : titleLength * 8)
   const contentScore = clampScore(Math.min(100, (contentLength / 18) * 10))
+  if (isQuestionRequest(req)) {
+    const structureScore = clampScore(
+      ['背景', '限制', '尝试', '试过', '卡点', '建议', '请教', '帮助']
+        .filter((keyword) => req.content.includes(keyword)).length * 16,
+    )
+    const tagScore = clampScore(tagCount >= 3 ? 100 : tagCount * 34)
+    return [
+      { label: '标题清晰度', score: titleScore, detail: '标题是否能快速说明问题、场景和需要讨论的点。' },
+      { label: '问题上下文', score: contentScore, detail: '是否补充了背景、限制和当前卡点，便于他人判断。' },
+      { label: '求助完整度', score: structureScore, detail: '是否写清背景、已尝试方法、卡点和想获得的帮助。' },
+      { label: '标签覆盖度', score: tagScore, detail: '标签是否能标出场景、人群或问题类型，方便相关用户看到。' },
+    ]
+  }
   const structureScore = clampScore(
-    ['背景', '问题', '方案', '结果', '复盘', '总结', '步骤', '收益']
+    ['背景', '问题', '方案', '结果', '复盘', '总结', '步骤', '效果']
       .filter((keyword) => req.content.includes(keyword)).length * 22,
   )
   const tagScore = clampScore(tagCount >= 4 ? 100 : tagCount * 25)
@@ -56,7 +91,7 @@ const qualityMetricsOf = (req: ContentAssistRequest): ContentAssistQualityMetric
     { label: '标题清晰度', score: titleScore, detail: '标题是否能快速说明主题、场景和结果。' },
     { label: '正文完整度', score: contentScore, detail: '正文是否具备足够上下文，便于他人复用。' },
     { label: '结构完整度', score: structureScore, detail: '是否写清背景、问题、方案、结果等关键段落。' },
-    { label: '标签覆盖度', score: tagScore, detail: '标签是否足够支撑搜索、推荐和系列归档。' },
+    { label: '标签覆盖度', score: tagScore, detail: '标签是否足够支撑搜索、话题和系列归档。' },
   ]
 }
 
@@ -65,6 +100,13 @@ const qualitySummaryOf = (metrics: ContentAssistQualityMetric[]) => {
   if (score >= 85) return { score, label: '可直接发布', reason: '核心信息比较完整，适合进入发布与系列归档。' }
   if (score >= 65) return { score, label: '再补一轮', reason: '主体已经成型，再补标签或结构化段落会更稳。' }
   return { score, label: '建议补充', reason: '建议先完善背景、过程和结论，再进入发布。' }
+}
+
+const questionQualitySummaryOf = (metrics: ContentAssistQualityMetric[]) => {
+  const score = clampScore(metrics.reduce((sum, item) => sum + item.score, 0) / Math.max(metrics.length, 1))
+  if (score >= 85) return { score, label: '可以提问', reason: '问题背景、已尝试方法和求助方向比较清楚，适合进入讨论。' }
+  if (score >= 65) return { score, label: '再补一轮', reason: '问题已经成型，再补一点背景、卡点或标签会更容易获得回应。' }
+  return { score, label: '建议补充', reason: '建议先写清问题背景、已经试过什么，以及希望别人怎么帮。' }
 }
 
 const qualityLevelLabel = (value: unknown) => {
@@ -121,9 +163,17 @@ const uniqueActionItems = (items: Array<unknown>) => {
     })
 }
 
-const suggestion = (id: string, label: string, detail: string, reason: string, confidence = 0.7): ContentAssistSuggestion => ({
+const suggestion = (
+  type: ContentAssistSuggestionType,
+  id: string,
+  label: string,
+  detail: string,
+  reason: string,
+  confidence = 0.7,
+): ContentAssistSuggestion => ({
   id,
   label,
+  type,
   detail,
   reason,
   confidence,
@@ -152,28 +202,48 @@ const tagSuggestionsOf = (req: ContentAssistRequest) => {
     [/spring|spring boot|springboot/, 'Spring Boot', '适合补齐 Java 服务端技术栈标签。'],
     [/vue|vite|前端/, 'Vue', '内容涉及 Vue 或前端工程实践。'],
     [/排查|故障|告警|线上/, '稳定性治理', '适合沉淀故障排查与稳定性治理经验。'],
-    [/面试|offer|求职/, '面试复盘', '内容与求职/面试经验直接相关。'],
     [/读书|书单|阅读/, '读书笔记', '内容适合沉淀为阅读或方法论笔记。'],
   ]
 
   keywordRules.forEach(([pattern, label, detail], index) => {
     if (pattern.test(text)) {
-      suggestions.push(suggestion(`tag-keyword-${index}`, label, detail, '由标题和正文关键词推断', 0.82))
+      suggestions.push(suggestion('tag', `tag-keyword-${index}`, label, detail, '由标题和正文关键词推断', 0.82))
     }
   })
 
   const domainSeeds: Record<number, Array<[string, string]>> = {
     [DOMAIN.TECH]: [['技术复盘', '适合承接技术经验和方案总结。'], ['实践总结', '方便归并同主题实战内容。']],
-    [DOMAIN.CAREER]: [['求职经验', '突出投递、面试和 offer 经验。'], ['职场成长', '适合沟通、协作和成长型内容。']],
+    [DOMAIN.CAREER]: [['职场经验', '适合沉淀公开工作复盘和职业选择观察。'], ['职场成长', '适合沟通、协作和成长型内容。']],
     [DOMAIN.READING]: [['阅读方法', '适合提炼读书方法和知识吸收路径。'], ['方法论摘记', '便于和书单、笔记内容串联。']],
     [DOMAIN.LIFESTYLE]: [['生活实践', '适合记录长期实践或兴趣项目。'], ['兴趣沉淀', '便于归并持续更新的生活系列。']],
     [DOMAIN.INVESTMENT]: [['风险复盘', '帮助区分复盘内容与观点表达。'], ['资产配置', '适合围绕策略和配置思路建立检索入口。']],
   }
 
   ;(domainSeeds[normalizeDomain(req.domain)] || []).forEach(([label, detail], index) => {
-    suggestions.push(suggestion(`tag-domain-${index}`, label, detail, `来自 ${getDomainLabel(req.domain)} 领域默认补全`, 0.68))
+    suggestions.push(suggestion('tag', `tag-domain-${index}`, label, detail, `来自 ${getDomainLabel(req.domain)} 领域默认补全`, 0.68))
   })
 
+  return uniqueSuggestions(suggestions, req.tags).slice(0, 6)
+}
+
+const questionTagSuggestionsOf = (req: ContentAssistRequest) => {
+  const suggestions: ContentAssistSuggestion[] = [
+    suggestion('tag', 'question-help', '求助', '标记为开放求助，便于愿意给建议的人看到。', '问题求助类型默认补全', 0.76),
+    suggestion('tag', 'question-decision', '决策咨询', '适合“怎么选、要不要、哪种更合适”的选择讨论。', '问题求助类型默认补全', 0.72),
+    suggestion('tag', 'question-experience', '经验请教', '适合征集亲身经历、避坑经验和真实反馈。', '问题求助类型默认补全', 0.72),
+    suggestion('tag', 'question-pitfall', '避坑求助', '适合租房、消费、工具选择等需要提前规避风险的场景。', '问题求助类型默认补全', 0.68),
+  ]
+  const text = `${req.title}\n${req.content}`.toLowerCase()
+  const rules: Array<[RegExp, string, string]> = [
+    [/租房|看房|合租|房东|中介/, '城市租房', '内容涉及租房、看房或城市生活选择。'],
+    [/推荐|工具|app|网站|书|课程/, '求推荐', '内容正在征集工具、书单、课程或资源推荐。'],
+    [/选择|纠结|要不要|适合|对比/, '选择讨论', '内容需要比较不同选项和取舍。'],
+    [/排查|卡住|失败|报错|原因/, '问题排查', '内容需要补充排查思路或可能原因。'],
+    [/学习|读书|考试|成长/, '学习求助', '内容与学习方法、读书或成长路径相关。'],
+  ]
+  rules.forEach(([pattern, label, detail], index) => {
+    if (pattern.test(text)) suggestions.push(suggestion('tag', `question-keyword-${index}`, label, detail, '由标题和正文关键词推断', 0.78))
+  })
   return uniqueSuggestions(suggestions, req.tags).slice(0, 6)
 }
 
@@ -184,26 +254,59 @@ const topicSuggestionsOf = (req: ContentAssistRequest) => {
     [/复盘|总结/, '复盘方法论', '适合聚合持续输出的复盘类内容。'],
     [/架构|系统设计/, '系统设计复盘', '适合架构、容量和系统设计主题。'],
     [/故障|排查|告警/, '稳定性与故障排查', '适合线上问题、告警和排查流程沉淀。'],
-    [/面试|offer/, '面试实战', '适合求职、面试和谈薪经验。'],
     [/阅读|书单|读书/, '阅读与知识吸收', '适合阅读总结和书单延展。'],
   ]
   rules.forEach(([pattern, label, detail], index) => {
     if (pattern.test(text)) {
-      suggestions.push(suggestion(`topic-rule-${index}`, label, detail, '由正文关键词推断', 0.78))
+      suggestions.push(suggestion('topic', `topic-rule-${index}`, label, detail, '由正文关键词推断', 0.78))
     }
   })
-  if (normalizeDomain(req.domain) === DOMAIN.TECH) {
-    suggestions.push(suggestion('topic-tech', '工程实践周记', '适合持续沉淀迭代中的实践记录。', '来自技术领域默认推荐', 0.62))
+  const domainTopicSeeds: Record<number, Array<[string, string]>> = {
+    [DOMAIN.TECH]: [['AI 工具实测', '适合持续沉淀工具体验、产品效率和数码设备内容。'], ['效率工作流', '适合串联工具、流程和自动化实践。']],
+    [DOMAIN.CAREER]: [['职业选择观察', '适合聚合同一阶段的公开经历和选择复盘。'], ['职场沟通复盘', '适合沉淀协作、沟通和工作复盘内容。']],
+    [DOMAIN.READING]: [['阅读清单共读', '适合串联多篇书单、摘记和方法论内容。'], ['学习方法复盘', '适合沉淀学习路径、考试经验和技能提升内容。']],
+    [DOMAIN.LIFESTYLE]: [['城市租房避坑', '适合聚合租房、城市生活和消费经验。'], ['日常健康记录', '适合持续记录生活方式、健康和情绪管理。']],
+    [DOMAIN.INVESTMENT]: [['投资风险复盘', '适合强调风险边界和经验复盘，不构成投资建议。']],
   }
-  if (normalizeDomain(req.domain) === DOMAIN.READING) {
-    suggestions.push(suggestion('topic-reading', '阅读清单共读', '适合串联多篇书单、摘记和方法论内容。', '来自阅读领域默认推荐', 0.64))
-  }
+  ;(domainTopicSeeds[normalizeDomain(req.domain)] || []).forEach(([label, detail], index) => {
+    suggestions.push(suggestion('topic', `topic-domain-${index}`, label, detail, `来自 ${getDomainLabel(req.domain)} 频道默认补全`, 0.62))
+  })
+  return uniqueSuggestions(suggestions, []).slice(0, 4)
+}
+
+const questionTopicSuggestionsOf = (req: ContentAssistRequest) => {
+  const text = `${req.title}\n${req.content}`
+  const suggestions: ContentAssistSuggestion[] = [
+    suggestion('topic', 'question-topic-community-help', '社区求助互助', '聚合需要经验建议和排查思路的问题。', '问题求助类型默认补全', 0.68),
+  ]
+  const rules: Array<[RegExp, string, string]> = [
+    [/租房|看房|城市|合租/, '城市租房避坑', '适合聚合租房、城市生活和消费避坑问题。'],
+    [/工具|app|网站|效率|软件/, '工具推荐与实测', '适合征集工具推荐和使用体验反馈。'],
+    [/学习|读书|考试|课程/, '学习方法互助', '适合学习路径、读书方法和考试经验求助。'],
+    [/职场|转行|工作|沟通/, '职场选择讨论', '适合工作选择、沟通协作和转行经验请教。'],
+  ]
+  rules.forEach(([pattern, label, detail], index) => {
+    if (pattern.test(text)) suggestions.push(suggestion('topic', `question-topic-${index}`, label, detail, '由问题场景推断', 0.74))
+  })
   return uniqueSuggestions(suggestions, []).slice(0, 4)
 }
 
 const seriesHintsOf = (req: ContentAssistRequest, tagSuggestions: ContentAssistSuggestion[]): ContentAssistSeriesHint[] => {
   const domainLabel = getDomainLabel(req.domain)
   const primaryTag = req.tags[0] || tagSuggestions[0]?.label || domainLabel
+  if (isQuestionRequest(req)) {
+    return [
+      {
+        id: req.seriesId,
+        title: `${primaryTag} 问题记录`,
+        progressText: '适合把同类求助、补充信息和后续反馈归档，方便回访。',
+      },
+      {
+        title: `${domainLabel} 讨论线索`,
+        progressText: '适合整理同频道下的经验征集、推荐和选择讨论。',
+      },
+    ]
+  }
   return [
     {
       id: req.seriesId,
@@ -219,22 +322,58 @@ const seriesHintsOf = (req: ContentAssistRequest, tagSuggestions: ContentAssistS
 
 const actionItemsOf = (req: ContentAssistRequest, metrics: ContentAssistQualityMetric[]) => {
   const actions: string[] = []
+  if (isQuestionRequest(req)) {
+    if (metrics[0]?.score < 70) actions.push('把标题改成“场景 + 具体问题”的结构，让别人一眼知道你在问什么。')
+    if (metrics[1]?.score < 70) actions.push('补充背景、限制条件和当前卡点，避免问题过于泛泛。')
+    if (metrics[2]?.score < 60) actions.push('正文建议至少补齐“背景 / 已尝试 / 想获得的帮助”中的 2 项。')
+    if (metrics[3]?.score < 75) actions.push('再补 1 到 3 个场景、人群或问题类型标签。')
+    return actions.slice(0, 4)
+  }
   if (metrics[0]?.score < 70) actions.push('把标题改成“场景 + 问题/动作 + 结果”的结构，减少泛标题。')
   if (metrics[1]?.score < 70) actions.push('补 1 到 2 段背景、关键步骤和结果数据，方便他人快速理解。')
   if (metrics[2]?.score < 60) actions.push('正文建议至少补齐“背景 / 问题 / 方案 / 结果”中的 3 项。')
-  if (metrics[3]?.score < 75) actions.push('再补 1 到 3 个能代表技术栈或主题的标签。')
+  if (metrics[3]?.score < 75) actions.push('再补 1 到 3 个能代表频道、场景或主题的标签。')
   if (normalizeDomain(req.domain) === DOMAIN.INVESTMENT) {
     actions.push('投资理财领域建议补充风险边界和非建议声明，降低误解风险。')
   }
   return actions.slice(0, 4)
 }
 
+const topicCandidateHintsOf = (topics: ContentAssistSuggestion[]): ContentAssistTopicCandidateHint[] => topics
+  .slice(0, 3)
+  .map((item) => ({
+    topicId: item.id,
+    title: item.label,
+    reasonText: item.reason || item.detail || '这个话题可能适合当前内容。',
+    status: 'candidate',
+  }))
+
+const buildPrivateCareerBoundaryAssist = (): ContentAssistResult => ({
+  status: 'degraded',
+  source: 'fallback',
+  sourceLabel: LOCAL_RULE_SOURCE_LABEL,
+  sourceMessage: '已切换为本地边界提示',
+  summary: '编辑器助手只服务公共内容生产；涉及私人材料或求职准备记录时，不生成写作、标签、话题或系列建议。',
+  qualityScore: 0,
+  qualityLabel: '边界提示',
+  qualityReason: '请移除私人材料后，再继续编辑公开经验内容。',
+  qualityMetrics: [],
+  actionItems: ['当前边界提示不影响你手动编辑草稿，但不会继续提供助手建议。'],
+  tagSuggestions: [],
+  topicSuggestions: [],
+  seriesHints: [],
+  topicCandidateHints: [],
+  fallbackReason: PRIVATE_CAREER_BOUNDARY_REASON,
+})
+
 const buildDisabledAssist = (req: ContentAssistRequest): ContentAssistResult => {
   const metrics = qualityMetricsOf(req)
-  const quality = qualitySummaryOf(metrics)
+  const quality = isQuestionRequest(req) ? questionQualitySummaryOf(metrics) : qualitySummaryOf(metrics)
   return {
     status: 'disabled',
     source: 'fallback',
+    sourceLabel: LOCAL_RULE_SOURCE_LABEL,
+    sourceMessage: 'AI 已关闭',
     summary: 'AI 已关闭，当前仅保留本地规则检查与手动发布流程。',
     qualityScore: quality.score,
     qualityLabel: quality.label,
@@ -250,6 +389,8 @@ const buildDisabledAssist = (req: ContentAssistRequest): ContentAssistResult => 
 const buildFailedAssist = (message: string): ContentAssistResult => ({
   status: 'failed',
   source: 'fallback',
+  sourceLabel: LOCAL_RULE_SOURCE_LABEL,
+  sourceMessage: '建议暂不可用',
   summary: '',
   qualityScore: 0,
   qualityLabel: '建议暂不可用',
@@ -259,17 +400,20 @@ const buildFailedAssist = (message: string): ContentAssistResult => ({
   tagSuggestions: [],
   topicSuggestions: [],
   seriesHints: [],
+  topicCandidateHints: [],
   fallbackReason: message,
 })
 
 const buildFallbackAssist = (req: ContentAssistRequest, fallbackReason = ''): ContentAssistResult => {
   const metrics = qualityMetricsOf(req)
-  const quality = qualitySummaryOf(metrics)
-  const tags = tagSuggestionsOf(req)
-  const topics = topicSuggestionsOf(req)
+  const quality = isQuestionRequest(req) ? questionQualitySummaryOf(metrics) : qualitySummaryOf(metrics)
+  const tags = isQuestionRequest(req) ? questionTagSuggestionsOf(req) : tagSuggestionsOf(req)
+  const topics = isQuestionRequest(req) ? questionTopicSuggestionsOf(req) : topicSuggestionsOf(req)
   return {
     status: 'degraded',
     source: 'fallback',
+    sourceLabel: LOCAL_RULE_SOURCE_LABEL,
+    sourceMessage: '远端暂不可用，已使用本地规则建议',
     summary: summarizeContent(req),
     qualityScore: quality.score,
     qualityLabel: quality.label,
@@ -279,6 +423,7 @@ const buildFallbackAssist = (req: ContentAssistRequest, fallbackReason = ''): Co
     tagSuggestions: tags,
     topicSuggestions: topics,
     seriesHints: seriesHintsOf(req, tags),
+    topicCandidateHints: topicCandidateHintsOf(topics),
     fallbackReason: fallbackReason || '内容助手接口暂不可用，已切换为本地规则建议。',
   }
 }
@@ -289,6 +434,8 @@ const buildWritingCmd = (req: ContentAssistRequest) => ({
   title: safeText(req.title) || undefined,
   content: safeText(req.content),
   tagNames: req.tags.map((item) => safeText(item)).filter(Boolean).slice(0, 8),
+  assistContext: req.extension?.assistContext,
+  assistTemplateCode: safeText(req.extension?.assistTemplateCode) || undefined,
 })
 
 const buildQualityCmd = (req: ContentAssistRequest) => ({
@@ -297,21 +444,26 @@ const buildQualityCmd = (req: ContentAssistRequest) => ({
   title: safeText(req.title) || undefined,
   content: safeText(req.content),
   tagNames: req.tags.map((item) => safeText(item)).filter(Boolean).slice(0, 8),
+  assistContext: req.extension?.assistContext,
+  assistTemplateCode: safeText(req.extension?.assistTemplateCode) || undefined,
 })
 
 const buildTagTopicCmd = (req: ContentAssistRequest) => ({
   domain: normalizeDomain(req.domain),
   title: safeText(req.title) || undefined,
   content: safeText(req.content),
+  assistContext: req.extension?.assistContext,
+  assistTemplateCode: safeText(req.extension?.assistTemplateCode) || undefined,
 })
 
-const adaptSuggestionList = (value: unknown, prefix: string): ContentAssistSuggestion[] => {
+const adaptSuggestionList = (value: unknown, prefix: string, type: ContentAssistSuggestionType): ContentAssistSuggestion[] => {
   if (!Array.isArray(value)) return []
   return value
     .map((raw, index) => {
       const label = safeText((raw as any)?.label ?? (raw as any)?.name ?? (raw as any)?.title ?? raw)
       if (!label) return null
       return suggestion(
+        type,
         safeText((raw as any)?.id) || `${prefix}-${index}`,
         label,
         safeText((raw as any)?.detail),
@@ -360,11 +512,11 @@ const mergeRemoteAssist = (
   },
 ): ContentAssistResult => {
   const metrics = adaptQualityMetrics(payload.quality?.explanations, req)
-  const defaultQuality = qualitySummaryOf(metrics)
-  const remoteTagSuggestions = uniqueSuggestions(adaptSuggestionList(payload.tagTopic?.tags, 'remote-tag'), req.tags).slice(0, 6)
-  const remoteTopicSuggestions = adaptSuggestionList(payload.tagTopic?.topics, 'remote-topic').slice(0, 4)
-  const tagSuggestions = remoteTagSuggestions.length ? remoteTagSuggestions : tagSuggestionsOf(req)
-  const topicSuggestions = remoteTopicSuggestions.length ? remoteTopicSuggestions : topicSuggestionsOf(req)
+  const defaultQuality = isQuestionRequest(req) ? questionQualitySummaryOf(metrics) : qualitySummaryOf(metrics)
+  const remoteTagSuggestions = uniqueSuggestions(adaptSuggestionList(payload.tagTopic?.tags, 'remote-tag', 'tag'), req.tags).slice(0, 6)
+  const remoteTopicSuggestions = adaptSuggestionList(payload.tagTopic?.topics, 'remote-topic', 'topic').slice(0, 4)
+  const tagSuggestions = remoteTagSuggestions.length ? remoteTagSuggestions : isQuestionRequest(req) ? questionTagSuggestionsOf(req) : tagSuggestionsOf(req)
+  const topicSuggestions = remoteTopicSuggestions.length ? remoteTopicSuggestions : isQuestionRequest(req) ? questionTopicSuggestionsOf(req) : topicSuggestionsOf(req)
   const actionItems = uniqueActionItems([
     ...(Array.isArray(payload.writing?.suggestions) ? payload.writing.suggestions : []),
     ...(Array.isArray(payload.quality?.suggestions) ? payload.quality.suggestions : []),
@@ -394,6 +546,8 @@ const mergeRemoteAssist = (
   return {
     status: degraded ? 'degraded' : 'ready',
     source: 'remote',
+    sourceLabel: degraded ? MIXED_SOURCE_LABEL : REMOTE_SOURCE_LABEL,
+    sourceMessage: degraded ? '部分建议来自本地规则降级' : '远端助手返回',
     summary: safeText(payload.writing?.summary) || summarizeContent(req),
     qualityScore: clampScore(Number(payload.quality?.score ?? defaultQuality.score)),
     qualityLabel: qualityLevelLabel(payload.quality?.level) || defaultQuality.label,
@@ -403,12 +557,20 @@ const mergeRemoteAssist = (
     tagSuggestions,
     topicSuggestions,
     seriesHints: seriesHintsOf(req, tagSuggestions),
+    topicCandidateHints: topicCandidateHintsOf(topicSuggestions),
     fallbackReason: fallbackReason || undefined,
   }
 }
 
 export const contentAssistApi = {
   getEditorAssist: async (req: ContentAssistRequest): Promise<Result<ContentAssistResult>> => {
+    if (hasPrivateCareerBoundary(req)) {
+      return {
+        code: 0,
+        message: PRIVATE_CAREER_BOUNDARY_REASON,
+        data: buildPrivateCareerBoundaryAssist(),
+      }
+    }
     if (req.aiEnabled === false) {
       return {
         code: 0,

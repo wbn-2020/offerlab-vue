@@ -34,10 +34,10 @@ assert.match(api, /createTopic:\s*async[\s\S]*client\.post\('\/api\/v1\/topics\/
 assert.match(api, /updateTopic:\s*async[\s\S]*client\.put\(`\/api\/v1\/topics\/admin\/\$\{topicId\}`/, 'post API must expose admin topic update')
 assert.match(api, /updateTopicStatus:\s*async[\s\S]*\/api\/v1\/topics\/admin\/\$\{topicId\}\/status/, 'post API must expose admin topic status changes')
 
-for (const [name, source] of Object.entries({ homeView, exploreView })) {
-  assert.match(source, /postApi\.listTopics/, `${name} must prefer real community topics over local aggregates`)
-  assert.match(source, /\/topics\/\$\{topic\.slug\}/, `${name} topic links must navigate to topic detail pages`)
-}
+assert.match(homeView, /postApi\.listTopics/, 'homeView must prefer real community topics over local aggregates')
+assert.match(homeView, /\/topics\/\$\{topic\.slug\}/, 'homeView topic links must navigate to topic detail pages')
+assert.match(exploreView, /useDiscoveryMap/, 'exploreView must use the V3 DiscoveryMap entry contract')
+assert.match(exploreView, /:to="item\.href"/, 'exploreView topic links must navigate through backend-provided topic hrefs')
 
 assert.match(topicDetailView, /postApi\.getTopic\(slug\)/, 'topic detail page must load topic metadata from backend')
 assert.match(topicDetailView, /postApi\.getTopicPosts\(slug/, 'topic detail page must page topic posts from backend')

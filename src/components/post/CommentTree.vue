@@ -1,10 +1,34 @@
 <template>
   <div class="space-y-5">
+    <section v-if="featuredComments.length" class="discussion-signal-panel" aria-label="评论互动信号">
+      <div class="discussion-signal-head">
+        <span>讨论现场</span>
+        <p>基于已有点赞数、回复数和作者回应突出展示，暂不提供质量标记或固定展示保存操作。</p>
+      </div>
+      <div class="discussion-signal-list">
+        <article
+          v-for="item in featuredComments"
+          :key="`featured-${item.comment.commentId}`"
+          class="discussion-signal-item"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="signal-badge">{{ item.badge }}</span>
+            <strong>{{ item.comment.author.nickname || '未知用户' }}</strong>
+          </div>
+          <p>{{ item.comment.content }}</p>
+          <div class="signal-metrics">
+            <span>{{ item.comment.likeCount }} 赞</span>
+            <span>回复 {{ branchReplyCount(item.comment) }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <template v-if="comments.length">
       <article
         v-for="comment in comments"
         :key="comment.commentId"
-        class="border-l-2 border-slate-200 pl-4 dark:border-slate-800"
+        :class="['comment-branch', isAuthorComment(comment) ? 'comment-branch-author' : '', isHotComment(comment) ? 'comment-branch-hot' : '']"
       >
         <div class="flex gap-3">
           <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-xs font-bold text-white">
@@ -17,6 +41,8 @@
               <RouterLink :to="`/u/${comment.author.uid}`" class="text-sm font-semibold text-slate-900 hover:text-primary-600 dark:text-slate-100">
                 {{ comment.author.nickname || '未知用户' }}
               </RouterLink>
+              <span v-if="isAuthorComment(comment)" class="comment-signal-pill comment-signal-author">作者回应</span>
+              <span v-if="isHotComment(comment)" class="comment-signal-pill comment-signal-hot">热门评论</span>
               <span class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(comment.createdAt) }}</span>
             </div>
 
@@ -25,8 +51,12 @@
             <div class="mt-2 flex flex-wrap items-center gap-4">
               <button type="button" class="comment-action" @click="startReply(comment)">
                 <MessageCircle class="h-3.5 w-3.5" />
-                回复
+                {{ replyActionLabel }}
               </button>
+              <span v-if="branchReplyCount(comment)" class="comment-action-static">
+                <MessageCircle class="h-3.5 w-3.5" />
+                回复 {{ branchReplyCount(comment) }}
+              </span>
               <button
                 type="button"
                 class="comment-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -63,7 +93,8 @@
             <ReplyComposer
               v-if="replyingTo?.commentId === comment.commentId"
               class="mt-3"
-              :placeholder="`回复 ${comment.author.nickname || '这条评论'}`"
+              :placeholder="replyPlaceholderFor(comment)"
+              :submit-label="replySubmitLabel"
               @cancel="cancelReply"
               @submit="(content) => submitReply(comment, content)"
             />
@@ -84,6 +115,7 @@
                       <RouterLink :to="`/u/${reply.author.uid}`" class="text-xs font-semibold text-slate-900 hover:text-primary-600 dark:text-slate-100">
                         {{ reply.author.nickname || '未知用户' }}
                       </RouterLink>
+                      <span v-if="isAuthorComment(reply)" class="comment-signal-pill comment-signal-author">作者回应</span>
                       <span v-if="reply.replyToUser" class="text-xs text-slate-500 dark:text-slate-400">
                         回复 {{ reply.replyToUser.nickname || '用户' }}
                       </span>
@@ -94,7 +126,7 @@
                     <div class="mt-2 flex flex-wrap items-center gap-4">
                       <button type="button" class="comment-action" @click="startReply(reply)">
                         <MessageCircle class="h-3.5 w-3.5" />
-                        回复
+                        {{ replyActionLabel }}
                       </button>
                       <button
                         type="button"
@@ -132,7 +164,8 @@
                     <ReplyComposer
                       v-if="replyingTo?.commentId === reply.commentId"
                       class="mt-3"
-                      :placeholder="`回复 ${reply.author.nickname || '这条评论'}`"
+                      :placeholder="replyPlaceholderFor(reply)"
+                      :submit-label="replySubmitLabel"
                       @cancel="cancelReply"
                       @submit="(content) => submitReply(reply, content)"
                     />
@@ -146,13 +179,13 @@
     </template>
 
     <div v-else class="rounded-lg border border-dashed border-slate-300 py-10 text-center dark:border-slate-700">
-      <p class="text-sm text-slate-500 dark:text-slate-400">还没有评论，来抢沙发吧</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h, ref } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Flag, MessageCircle, ThumbsUp, Trash2 } from 'lucide-vue-next'
 import type { Comment } from '@/api/types'
@@ -164,10 +197,19 @@ const props = withDefaults(defineProps<{
   canLikeComments?: boolean
   canReportComments?: boolean
   canReplyComments?: boolean
+  postAuthorUid?: string | number
+  emptyText?: string
+  replyActionLabel?: string
+  replyPlaceholder?: string
+  replySubmitLabel?: string
 }>(), {
   canLikeComments: false,
   canReportComments: false,
   canReplyComments: false,
+  emptyText: '还没有评论，来抢沙发吧',
+  replyActionLabel: '回复',
+  replyPlaceholder: '写下回复...',
+  replySubmitLabel: '回复',
 })
 
 const emit = defineEmits<{
@@ -184,6 +226,32 @@ const replyingTo = ref<Comment | null>(null)
 const pendingCommentLikes = ref(new Set<string>())
 
 const initial = (name?: string) => name?.charAt(0) || '?'
+const userKey = (value?: string | number) => String(value ?? '')
+const canMatchAuthorUid = computed(() => {
+  const key = userKey(props.postAuthorUid)
+  return key !== '' && key !== '0'
+})
+const branchReplyCount = (comment: Comment) => comment.replies?.length ?? 0
+const isAuthorComment = (comment: Comment) => canMatchAuthorUid.value && userKey(comment.author.uid) === userKey(props.postAuthorUid)
+const isHotComment = (comment: Comment) => comment.likeCount > 0 || branchReplyCount(comment) > 0
+const commentSignalScore = (comment: Comment) => (comment.likeCount * 2) + branchReplyCount(comment) + (isAuthorComment(comment) ? 3 : 0)
+const commentsWithReplies = computed(() => props.comments.flatMap((comment) => [
+  comment,
+  ...(comment.replies || []),
+]))
+const featuredComments = computed(() => commentsWithReplies.value
+  .filter((comment) => isAuthorComment(comment) || isHotComment(comment))
+  .sort((a, b) => commentSignalScore(b) - commentSignalScore(a))
+  .slice(0, 2)
+  .map((comment) => ({
+    comment,
+    badge: isAuthorComment(comment) ? '作者回应' : '热门评论',
+  })))
+const replyPlaceholderFor = (comment: Comment) => (
+  props.replyPlaceholder === '写下回复...'
+    ? `回复 ${comment.author.nickname || '这条评论'}`
+    : `${props.replyPlaceholder} · ${comment.author.nickname || '这条评论'}`
+)
 const commentLikeKey = (commentId: Comment['commentId']) => String(commentId)
 const isCommentLikePending = (commentId: Comment['commentId']) => pendingCommentLikes.value.has(commentLikeKey(commentId))
 const startCommentLike = (commentId: Comment['commentId']) => {
@@ -246,6 +314,10 @@ const ReplyComposer = defineComponent({
       type: String,
       default: '写下回复...',
     },
+    submitLabel: {
+      type: String,
+      default: '回复',
+    },
   },
   emits: ['submit', 'cancel'],
   setup(componentProps, { emit }) {
@@ -278,7 +350,7 @@ const ReplyComposer = defineComponent({
           disabled: !text.value.trim(),
           class: 'rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50',
           onClick: submit,
-        }, '回复'),
+        }, componentProps.submitLabel),
       ]),
     ])
   },
@@ -297,11 +369,175 @@ void props.postId
   transition: color 0.15s ease;
 }
 
+.comment-branch {
+  border-left: 2px solid rgb(226 232 240);
+  padding-left: 1rem;
+}
+
+.comment-branch-author {
+  border-left-color: rgb(59 130 246);
+}
+
+.comment-branch-hot {
+  border-left-color: rgb(251 146 60);
+}
+
+.comment-action-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.comment-signal-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.comment-signal-author {
+  background: rgb(219 234 254);
+  color: rgb(29 78 216);
+}
+
+.comment-signal-hot {
+  background: rgb(255 237 213);
+  color: rgb(194 65 12);
+}
+
+.discussion-signal-panel {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1rem;
+}
+
+.discussion-signal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.discussion-signal-head span {
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.discussion-signal-head p {
+  max-width: 30rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgb(100 116 139);
+}
+
+.discussion-signal-list {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.discussion-signal-item {
+  border-radius: 0.625rem;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  padding: 0.85rem;
+}
+
+.discussion-signal-item strong {
+  font-size: 0.8125rem;
+  color: rgb(15 23 42);
+}
+
+.discussion-signal-item p {
+  margin-top: 0.45rem;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgb(51 65 85);
+}
+
+.signal-badge {
+  border-radius: 999px;
+  background: rgb(238 242 255);
+  padding: 0.18rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: rgb(67 56 202);
+}
+
+.signal-metrics {
+  margin-top: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: rgb(100 116 139);
+}
+
 .comment-action:hover {
   color: rgb(79 70 229);
 }
 
 .dark .comment-action {
   color: rgb(148 163 184);
+}
+
+.dark .comment-branch {
+  border-left-color: rgb(30 41 59);
+}
+
+.dark .comment-branch-author {
+  border-left-color: rgb(96 165 250);
+}
+
+.dark .comment-branch-hot {
+  border-left-color: rgb(251 146 60);
+}
+
+.dark .comment-action-static {
+  color: rgb(148 163 184);
+}
+
+.dark .comment-signal-author {
+  background: rgb(30 64 175 / 0.45);
+  color: rgb(191 219 254);
+}
+
+.dark .comment-signal-hot {
+  background: rgb(124 45 18 / 0.55);
+  color: rgb(254 215 170);
+}
+
+.dark .discussion-signal-panel,
+.dark .discussion-signal-item {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .discussion-signal-head span,
+.dark .discussion-signal-item strong {
+  color: rgb(248 250 252);
+}
+
+.dark .discussion-signal-head p,
+.dark .discussion-signal-item p,
+.dark .signal-metrics {
+  color: rgb(203 213 225);
+}
+
+.dark .signal-badge {
+  background: rgb(49 46 129 / 0.45);
+  color: rgb(199 210 254);
 }
 </style>

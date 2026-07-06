@@ -1,4 +1,4 @@
-import client, { Result } from './client'
+import client, { BizException, type Result } from './client'
 import { adaptPage, adaptPost, adaptId, adaptTime, adaptTag } from './adapters'
 import type { ApiId, PaginatedResponse, Post, Tag } from './types'
 import { adaptInterviewMaterialPack, type InterviewMaterialPack } from './post'
@@ -591,10 +591,75 @@ function adaptMockInterviewStats(raw: any): MockInterviewStats {
   }
 }
 
+const localDemoResult = <T>(data: T, message = 'local_demo_seed'): Result<T> => ({
+  code: 0,
+  message,
+  data,
+})
+
+const legacyTrainingDisabled = <T>(): Promise<Result<T>> => (
+  Promise.reject(new BizException(10404, '该个人训练能力已从闻野公共社区关闭'))
+)
+
+const shouldUseDemoFallback = (error: unknown) => {
+  if (error instanceof BizException) {
+    if (error.code === 10401 || error.code === 10403) return false
+    return error.code === 10404
+  }
+  const status = (error as { response?: { status?: number } })?.response?.status
+  if (status === 401 || status === 403) return false
+  return status === 404
+}
+
+const isEmptyPage = (page: PaginatedResponse<any> | null | undefined) => (
+  Boolean(page) && (!Array.isArray(page?.items) || page.items.length === 0) && !page?.hasMore
+)
+
+const hasActiveQuestionFilters = (params: QuestionQuery = {}) => Boolean(
+  params.keyword?.trim()
+  || params.company?.trim()
+  || params.position?.trim()
+  || params.difficulty
+  || params.round
+  || params.mistakeReason
+  || params.progressStatus
+  || params.hasNote
+  || params.hasAnswerDraft
+  || params.hasStarStory
+  || (Array.isArray(params.tagIds) && params.tagIds.length > 0)
+)
+
+const canUseQuestionListDemo = (data: PaginatedResponse<any> | null | undefined, params: QuestionQuery) => (
+  isEmptyPage(data) && !hasActiveQuestionFilters(params)
+)
+
+const emptyCompanyPrep = (company: string): CompanyPrep => ({
+  company: company || '未命名公司',
+  aliases: company ? [company] : [],
+  relatedPositionCount: 0,
+  recentPosts: [],
+  topQuestions: [],
+  recommendedQuestions: [],
+  topTags: [],
+  hotPositions: [],
+  trend30Days: [],
+  trend90Days: [],
+  interviewResultDistribution: [],
+  recentResultDistribution: [],
+  questionSampleCount: 0,
+  postSampleCount: 0,
+  resultSampleCount: 0,
+  recentResultSampleCount: 0,
+  prepScore: 0,
+  checklist: [],
+  nextActions: [],
+})
+
 export const questionApi = {
   list: async (params: QuestionQuery): Promise<Result<PaginatedResponse<Question>>> => {
     const res = await client.get('/api/v1/questions', { params }) as Result<any>
-    return { ...res, data: res.data ? adaptPage(res.data, adaptQuestion) : null }
+    const data = res.data ? adaptPage(res.data, adaptQuestion) : null
+    return { ...res, data }
   },
 
   detail: async (id: ApiId): Promise<Result<QuestionDetail>> => {
@@ -608,11 +673,11 @@ export const questionApi = {
   unfavorite: (id: ApiId): Promise<Result<{ questionId: ApiId; favorite: boolean }>> =>
     client.delete(`/api/v1/questions/${id}/favorite`),
 
-  updateProgress: (id: ApiId, status: string): Promise<Result<{ questionId: ApiId; status: string }>> =>
-    client.put(`/api/v1/questions/${id}/progress`, { status }),
+  updateProgress: (_id: ApiId, _status: string): Promise<Result<{ questionId: ApiId; status: string }>> =>
+    legacyTrainingDisabled<{ questionId: ApiId; status: string }>(),
 
-  updateNote: (id: ApiId, data: QuestionNotePayload): Promise<Result<QuestionNoteResult>> =>
-    client.put(`/api/v1/questions/${id}/note`, data),
+  updateNote: (_id: ApiId, _data: QuestionNotePayload): Promise<Result<QuestionNoteResult>> =>
+    legacyTrainingDisabled<QuestionNoteResult>(),
 
   postBlock: async (postId: ApiId): Promise<Result<PostQuestionBlock>> => {
     const res = await client.get(`/api/v1/posts/${postId}/questions`) as Result<any>
@@ -625,22 +690,16 @@ export const questionApi = {
   suggestCompanies: (q: string, size = 10): Promise<Result<string[]>> =>
     client.get('/api/v1/companies/suggest', { params: { q, size } }),
 
-  companyPrep: async (company: string): Promise<Result<CompanyPrep>> => {
-    const res = await client.get(`/api/v1/companies/${encodeURIComponent(company)}/prep-pack`) as Result<any>
-    return { ...res, data: res.data ? adaptCompanyPrep(res.data) : null }
-  },
+  companyPrep: async (_company: string): Promise<Result<CompanyPrep>> =>
+    legacyTrainingDisabled<CompanyPrep>(),
 
-  myPrepOverview: async (): Promise<Result<UserPrepOverview>> => {
-    const res = await client.get('/api/v1/me/prep/overview') as Result<any>
-    return { ...res, data: res.data ? adaptUserPrepOverview(res.data) : null }
-  },
+  myPrepOverview: async (): Promise<Result<UserPrepOverview>> =>
+    legacyTrainingDisabled<UserPrepOverview>(),
 
-  myWeeklyPrepReport: async (): Promise<Result<UserWeeklyPrepReport>> => {
-    const res = await client.get('/api/v1/me/prep/weekly-report') as Result<any>
-    return { ...res, data: res.data ? adaptUserWeeklyPrepReport(res.data) : null }
-  },
+  myWeeklyPrepReport: async (): Promise<Result<UserWeeklyPrepReport>> =>
+    legacyTrainingDisabled<UserWeeklyPrepReport>(),
 
-  myKnowledge: async (params?: {
+  myKnowledge: async (_params?: {
     company?: string
     position?: string
     techStack?: string
@@ -648,51 +707,33 @@ export const questionApi = {
     postType?: number
     savedOnly?: boolean
     limit?: number
-  }): Promise<Result<UserKnowledge>> => {
-    const res = await client.get('/api/v1/me/knowledge', { params }) as Result<any>
-    return { ...res, data: res.data ? adaptUserKnowledge(res.data) : null }
-  },
+  }): Promise<Result<UserKnowledge>> =>
+    legacyTrainingDisabled<UserKnowledge>(),
 
-  addPrepTarget: async (data: { targetType: string; targetValue: string; interviewDate?: string; priority?: string; note?: string }): Promise<Result<PrepTarget>> => {
-    const res = await client.post('/api/v1/me/prep/targets', data) as Result<any>
-    return { ...res, data: res.data ? adaptPrepTarget(res.data) : null }
-  },
+  addPrepTarget: async (_data: { targetType: string; targetValue: string; interviewDate?: string; priority?: string; note?: string }): Promise<Result<PrepTarget>> =>
+    legacyTrainingDisabled<PrepTarget>(),
 
-  deletePrepTarget: (id: ApiId): Promise<Result<{ id: ApiId; deleted: boolean }>> =>
-    client.delete(`/api/v1/me/prep/targets/${id}`),
+  deletePrepTarget: (_id: ApiId): Promise<Result<{ id: ApiId; deleted: boolean }>> =>
+    legacyTrainingDisabled<{ id: ApiId; deleted: boolean }>(),
 
-  startMockInterview: async (data: { company?: string; position?: string; difficulty?: string; focusTag?: string; questionCount?: number }): Promise<Result<MockInterviewSession>> => {
-    const res = await client.post('/api/v1/mock-interviews', data) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  startMockInterview: async (_data: { company?: string; position?: string; difficulty?: string; focusTag?: string; questionCount?: number }): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  saveMockInterviewDraft: async (id: ApiId, data: { durationSeconds: number; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> => {
-    const res = await client.put(`/api/v1/mock-interviews/${id}/draft`, data) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  saveMockInterviewDraft: async (_id: ApiId, _data: { durationSeconds: number; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  submitMockInterview: async (id: ApiId, data: { durationSeconds: number; aiReviewEnabled?: boolean; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> => {
-    const res = await client.post(`/api/v1/mock-interviews/${id}/submit`, data) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  submitMockInterview: async (_id: ApiId, _data: { durationSeconds: number; aiReviewEnabled?: boolean; answers: Array<{ questionId: ApiId; answerText: string; selfReview?: string; score?: number }> }): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  retryMockInterviewAiReview: async (id: ApiId): Promise<Result<MockInterviewSession>> => {
-    const res = await client.post(`/api/v1/mock-interviews/${id}/ai-review/retry`) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  retryMockInterviewAiReview: async (_id: ApiId): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  recentMockInterviews: async (limit = 5): Promise<Result<MockInterviewSession[]>> => {
-    const res = await client.get('/api/v1/mock-interviews', { params: { limit } }) as Result<any>
-    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptMockInterviewSession) : [] }
-  },
+  recentMockInterviews: async (_limit = 5): Promise<Result<MockInterviewSession[]>> =>
+    legacyTrainingDisabled<MockInterviewSession[]>(),
 
-  mockInterviewDetail: async (id: ApiId): Promise<Result<MockInterviewSession>> => {
-    const res = await client.get(`/api/v1/mock-interviews/${id}`) as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewSession(res.data) : null }
-  },
+  mockInterviewDetail: async (_id: ApiId): Promise<Result<MockInterviewSession>> =>
+    legacyTrainingDisabled<MockInterviewSession>(),
 
-  mockInterviewStats: async (): Promise<Result<MockInterviewStats>> => {
-    const res = await client.get('/api/v1/mock-interviews/stats') as Result<any>
-    return { ...res, data: res.data ? adaptMockInterviewStats(res.data) : null }
-  },
+  mockInterviewStats: async (): Promise<Result<MockInterviewStats>> =>
+    legacyTrainingDisabled<MockInterviewStats>(),
 }

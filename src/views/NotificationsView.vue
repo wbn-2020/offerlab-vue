@@ -6,10 +6,16 @@
       <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p class="text-sm font-medium text-primary-600 dark:text-primary-400">消息收件箱</p>
+            <p class="text-sm font-medium text-primary-600 dark:text-primary-400">社区回访中心</p>
             <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-slate-100 sm:text-3xl">通知中心</h1>
             <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              集中处理点赞、评论、收藏、关注和提及，未读消息会同步到顶部铃铛。
+              看清谁回应了你、关联哪条内容，以及下一步回到讨论、作者主页或话题页。
+            </p>
+            <p class="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              轻反馈只覆盖评论、收藏、关注和提及等社区互动；页面尊重通知偏好，只提供回访入口，没有生成新的后端通知。
+            </p>
+            <p v-if="preferenceOffText" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+              {{ preferenceOffText }}
             </p>
           </div>
 
@@ -87,13 +93,26 @@
           <BellOff class="h-6 w-6" />
         </div>
         <h2 class="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">{{ emptyTitle }}</h2>
-        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
+        <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
         <RouterLink to="/explore" class="mt-5 inline-flex items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
-          去发现页看看
+          去发现内容和作者
         </RouterLink>
       </div>
 
       <div v-else class="notification-list space-y-3">
+        <section class="feedback-revisit-panel">
+          <div>
+            <p class="text-xs font-black text-primary-600 dark:text-primary-300">创作者轻反馈</p>
+            <h2>最近可以回访的社区回应</h2>
+            <span>{{ feedbackSummary }}</span>
+          </div>
+          <div class="feedback-revisit-actions">
+            <RouterLink to="/me?tab=posts">我的内容</RouterLink>
+            <RouterLink to="/me?tab=favorites">我的收藏</RouterLink>
+            <RouterLink to="/me?tab=followers">新增关注者</RouterLink>
+          </div>
+        </section>
+
         <article
           v-for="notif in notifications"
           :key="notif.notificationId"
@@ -122,11 +141,44 @@
                   {{ labelFor(notif.type) }}
                 </span>
                 <span v-if="!notif.read" class="rounded-full bg-danger px-2 py-0.5 text-xs font-semibold text-white">未读</span>
+                <span v-if="isMutedByPreference(notif)" class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                  偏好静默
+                </span>
               </div>
               <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ notif.content }}</p>
+              <div v-if="curationFeedbackPayload(notif)" class="curation-feedback-card mt-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="curation-feedback-label">入选反馈</span>
+                  <strong class="text-sm text-slate-900 dark:text-slate-100">
+                    内容标题：{{ curationFeedbackPayload(notif)?.contentTitle }}
+                  </strong>
+                </div>
+                <dl class="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+                  <div>
+                    <dt>收录位置</dt>
+                    <dd>{{ curationFeedbackPayload(notif)?.placementLabel }}</dd>
+                  </div>
+                  <div>
+                    <dt>触发时间</dt>
+                    <dd>{{ formatTime(curationFeedbackPayload(notif)?.triggeredAt || notif.createdAt) }}</dd>
+                  </div>
+                  <div class="sm:col-span-2">
+                    <dt>收录理由</dt>
+                    <dd>{{ curationFeedbackPayload(notif)?.reasonText }}</dd>
+                  </div>
+                </dl>
+                <RouterLink
+                  v-if="curationFeedbackPayload(notif)?.href"
+                  :to="curationFeedbackPayload(notif)?.href || '/'"
+                  class="curation-feedback-link"
+                  @click.stop
+                >
+                  查看入口
+                </RouterLink>
+              </div>
               <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
                 <span>{{ formatTime(notif.createdAt) }}</span>
-                <span v-if="notif.targetPath">点击查看详情</span>
+                <span v-if="notif.targetPath">{{ nextStepText(notif) }}</span>
               </div>
             </div>
             <button
@@ -164,8 +216,8 @@ import { RouterLink, useRouter } from 'vue-router'
 import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
-import { notificationApi } from '@/api/notification'
-import type { ApiId, Notification } from '@/api/types'
+import { interactionPreferenceMuted, notificationApi, normalizeNotificationPreference } from '@/api/notification'
+import type { ApiId, CreatorCurationFeedback, Notification, NotificationPreference, NotificationUnreadCount } from '@/api/types'
 import { formatTime } from '@/lib/format'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
@@ -177,10 +229,11 @@ const activeType = ref('all')
 const notifications = ref<Notification[]>([])
 const isLoading = ref(false)
 const isMutating = ref(false)
-const emptyText = ref('暂无通知')
+const loadErrorText = ref('')
 const nextCursor = ref<string | undefined>()
 const hasMore = ref(false)
-const unread = ref(emptyUnreadCount())
+const unread = computed(() => realtimeStore.unreadCount)
+const preferences = ref<NotificationPreference | null>(null)
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
 const notificationUnreadKeys = ['like', 'comment', 'favorite', 'follower', 'mention', 'system'] as const
@@ -197,7 +250,42 @@ const tabs = computed(() => [
 ])
 
 const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
+const feedbackCounts = computed(() => notifications.value.reduce((counts, notif) => {
+  if (notif.type === 'comment') counts.comment += 1
+  if (notif.type === 'favorite') counts.favorite += 1
+  if (notif.type === 'follower') counts.follower += 1
+  if (notif.type === 'mention') counts.mention += 1
+  return counts
+}, { comment: 0, favorite: 0, follower: 0, mention: 0 }))
+const feedbackSummary = computed(() => {
+  const counts = feedbackCounts.value
+  const parts = [
+    counts.comment ? `${counts.comment} 条评论` : '',
+    counts.favorite ? `${counts.favorite} 次收藏` : '',
+    counts.follower ? `${counts.follower} 位新增关注者` : '',
+    counts.mention ? `${counts.mention} 条提及` : '',
+  ].filter(Boolean)
+  return parts.length
+    ? `${parts.join('、')}可以从通知回到讨论或作者主页。`
+    : '当前列表没有新的评论、收藏或关注反馈，可从我的内容继续查看近期表现。'
+})
 const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
+const emptyText = computed(() => {
+  if (loadErrorText.value) return loadErrorText.value
+  if (preferenceOffText.value) return '当前提醒较安静，你仍然可以继续浏览内容、关注作者和参与讨论。'
+  if (activeType.value === 'all') return '当有人评论、点赞、收藏、关注或提及你时，会在这里形成可回访的社区线索。'
+  if (activeType.value === 'follower') return '有新关注时，可以从这里进入对方主页，决定是否回访或关注。'
+  if (activeType.value === 'system') return '社区公告、话题更新和必要系统通知会在这里出现。'
+  return '这个分类暂时没有新通知，去发现页看看新的讨论和作者。'
+})
+const preferenceOffText = computed(() => {
+  const pref = preferences.value
+  if (!pref) return ''
+  if (!pref.interactionNotification && !pref.systemNotification) return '你已关闭互动和系统提醒；社区事件仍会发生，只是不再打扰你。'
+  if (!pref.interactionNotification) return '你已关闭互动提醒；点赞、评论、关注等事件仍会发生，只是不再提醒。'
+  if (!pref.systemNotification) return '你已关闭系统提醒；社区公告和话题更新不会主动打扰你。'
+  return ''
+})
 const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
 const markAllHint = computed(() => unread.value.total === 0 ? '当前没有未读通知' : '将所有通知标记为已读')
 const isNotificationUnreadKey = (type: string): type is NotificationUnreadKey => {
@@ -232,10 +320,11 @@ const labelFor = (type: string) => {
   return '全部'
 }
 
-const syncUnread = (value: typeof unread.value) => {
-  unread.value = { ...unread.value, ...value }
-  realtimeStore.setUnreadCount(unread.value)
+const syncUnread = (value: NotificationUnreadCount) => {
+  realtimeStore.setUnreadCount({ ...emptyUnreadCount(), ...value })
 }
+
+const curationFeedbackPayload = (notif: Notification): CreatorCurationFeedback | undefined => notif.curationFeedback
 
 const loadUnread = async () => {
   const res = await notificationApi.getUnreadCount()
@@ -250,9 +339,9 @@ const loadNotifications = async () => {
     notifications.value = res.data?.items || []
     nextCursor.value = res.data?.nextCursor
     hasMore.value = Boolean(res.data?.hasMore)
-    emptyText.value = '暂无通知'
+    loadErrorText.value = ''
   } catch (error) {
-    emptyText.value = getErrorMessage(error, '通知接口暂不可用')
+    loadErrorText.value = getErrorMessage(error, '通知接口暂不可用，稍后可以再回来查看社区回应。')
   } finally {
     isLoading.value = false
   }
@@ -336,20 +425,40 @@ const markAllAsRead = async () => {
 }
 
 const openNotification = (notif: Notification) => {
+  if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId], { background: true })
   if (notif.targetPath) {
     router.push(notif.targetPath)
-    if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId], { background: true })
     return
   }
-  if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId])
 }
 
 const notificationActionLabel = (notif: Notification) => {
-  return notif.targetPath ? `${notif.title}，查看通知详情` : undefined
+  return notif.targetPath ? `${notif.title}，${nextStepText(notif)}` : undefined
+}
+
+const nextStepText = (notif: Notification) => {
+  if (curationFeedbackPayload(notif)) return '查看入选内容'
+  if (notif.type === 'follower') return '查看作者主页'
+  if (notif.type === 'comment' || notif.type === 'mention') return '回到讨论'
+  if (notif.type === 'system') return '查看相关内容'
+  return '查看关联内容'
+}
+
+const isMutedByPreference = (notif: Notification) => (
+  preferences.value ? interactionPreferenceMuted(notif.type, preferences.value) : false
+)
+
+const loadPreferences = async () => {
+  try {
+    const res = await notificationApi.getPreferences()
+    preferences.value = normalizeNotificationPreference(res.data)
+  } catch {
+    preferences.value = null
+  }
 }
 
 onMounted(async () => {
-  await Promise.all([loadUnread(), loadNotifications()])
+  await Promise.all([loadUnread(), loadNotifications(), loadPreferences()])
 })
 </script>
 
@@ -425,6 +534,92 @@ onMounted(async () => {
   color: rgb(100 116 139);
 }
 
+.feedback-revisit-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.75rem;
+  background: rgb(239 246 255);
+  padding: 1rem;
+}
+
+.feedback-revisit-panel h2 {
+  margin-top: 0.15rem;
+  font-size: 1rem;
+  font-weight: 900;
+  color: rgb(15 23 42);
+}
+
+.feedback-revisit-panel span {
+  margin-top: 0.35rem;
+  display: block;
+  max-width: 42rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgb(71 85 105);
+}
+
+.feedback-revisit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.feedback-revisit-actions a {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgb(29 78 216);
+}
+
+.curation-feedback-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  background: rgb(248 250 252);
+  padding: 0.85rem;
+}
+
+.curation-feedback-label {
+  border-radius: 999px;
+  background: rgb(219 234 254);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: rgb(29 78 216);
+}
+
+.curation-feedback-card dt {
+  font-weight: 900;
+  color: rgb(71 85 105);
+}
+
+.curation-feedback-card dd {
+  margin-top: 0.15rem;
+  line-height: 1.55;
+}
+
+.curation-feedback-link {
+  margin-top: 0.65rem;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  border-radius: 0.5rem;
+  background: rgb(37 99 235);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: white;
+}
+
 .dark .metric-card {
   border-color: rgb(51 65 85);
 }
@@ -456,6 +651,38 @@ onMounted(async () => {
   color: rgb(148 163 184);
 }
 
+.dark .feedback-revisit-panel {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .feedback-revisit-panel h2 {
+  color: rgb(248 250 252);
+}
+
+.dark .feedback-revisit-panel span {
+  color: rgb(203 213 225);
+}
+
+.dark .feedback-revisit-actions a {
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .curation-feedback-card {
+  border-color: rgb(30 64 175);
+  background: rgb(15 23 42);
+}
+
+.dark .curation-feedback-label {
+  background: rgb(30 58 138);
+  color: rgb(191 219 254);
+}
+
+.dark .curation-feedback-card dt {
+  color: rgb(148 163 184);
+}
+
 @media (max-width: 640px) {
   .metric-card {
     min-width: 0;
@@ -477,6 +704,15 @@ onMounted(async () => {
   }
 
   .mark-read-actions button {
+    width: 100%;
+  }
+
+  .feedback-revisit-panel {
+    flex-direction: column;
+  }
+
+  .feedback-revisit-actions,
+  .feedback-revisit-actions a {
     width: 100%;
   }
 

@@ -46,22 +46,30 @@
           </button>
           <div
             v-if="showFeedbackMenu"
-            class="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-slate-200 bg-white py-2 shadow-lg dark:border-slate-800 dark:bg-slate-900"
+            class="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-slate-200 bg-white py-2 shadow-lg dark:border-slate-800 dark:bg-slate-900"
             @click.prevent
           >
             <button
-              v-for="reason in feedbackReasons"
-              :key="reason.value"
+              v-for="item in feedbackActions"
+              :key="item.action"
               type="button"
               class="feedback-menu-item"
-              @click.stop.prevent="handleNotInterested(reason.value)"
+              @click.stop.prevent="handleNotInterested(item)"
             >
               <EyeOff class="h-4 w-4" />
-              <span>{{ reason.label }}</span>
+              <span>
+                <strong>{{ item.label }}</strong>
+                <small>{{ item.description }}</small>
+              </span>
             </button>
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-if="cardUnavailableState" class="governance-card-unavailable" role="note">
+      <strong>{{ cardUnavailableState.title }}</strong>
+      <span>{{ cardUnavailableState.description }}</span>
     </div>
 
     <RouterLink
@@ -79,11 +87,11 @@
         v-html="displaySummary"
       />
 
-      <div v-if="props.showRecommendFeedback && displayRecommendationReasons.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
-        <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-          <Lightbulb class="h-3.5 w-3.5" />
-          为什么推荐
-        </div>
+      <div v-if="showReasonPanel && displayRecommendationReasons.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
+          <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+            <Lightbulb class="h-3.5 w-3.5" />
+          {{ reasonPanelTitle }}
+          </div>
         <div class="flex flex-wrap gap-1.5">
           <span
             v-for="reason in displayRecommendationReasons"
@@ -95,12 +103,27 @@
         </div>
       </div>
 
+      <div v-if="recommendationFeedbackSubmittedLabel" class="feedback-submitted-note mb-4">
+        {{ recommendationFeedbackSubmittedLabel }}
+      </div>
+
+      <div v-if="hotReasonLabel || riskWarning" class="mb-4 space-y-2">
+        <div v-if="hotReasonLabel" class="post-signal-note post-signal-note--hot">
+          <TrendingUp class="h-3.5 w-3.5" />
+          <span>{{ hotReasonLabel }}</span>
+        </div>
+        <div v-if="riskWarning" class="post-signal-note post-signal-note--risk">
+          <ShieldAlert class="h-3.5 w-3.5" />
+          <span>{{ riskWarning }}</span>
+        </div>
+      </div>
+
       <div
-        v-if="domainCardSurface.imageUrl"
+        v-if="displayCardImageUrl"
         class="domain-card-media mb-3"
         :class="`domain-card-media--${domainCardSurface.tone}`"
       >
-        <img :src="domainCardSurface.imageUrl" :alt="domainCardSurface.imageAlt || post.title" />
+        <img :src="displayCardImageUrl" :alt="domainCardSurface.imageAlt || post.title" @error="handleCardImageError" />
       </div>
 
       <div v-if="domainCardSurface.chips.length" class="mb-3 flex flex-wrap gap-2">
@@ -176,6 +199,23 @@
           <span class="action-label">收藏</span>
           {{ formatNumber(post.counter.favorite) }}
         </button>
+        <PostSaveOrganizer
+          :post-id="post.postId"
+          :favorited="Boolean(post.myInteraction?.favorited)"
+          :open-after-save="Boolean(post.myInteraction?.favorited)"
+          @organize="handleOrganizeSavedPost"
+        />
+        <button
+          v-if="!isOwnPost"
+          type="button"
+          class="card-action hover:text-slate-900 dark:hover:text-slate-100"
+          aria-label="举报帖子"
+          title="举报帖子"
+          @click.prevent="handleReport"
+        >
+          <Flag class="h-4 w-4" />
+          <span class="action-label">举报</span>
+        </button>
       </div>
     </div>
   </article>
@@ -183,8 +223,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { RouterLink } from 'vue-router'
-import { Eye, EyeOff, Heart, Lightbulb, MessageCircle, MoreHorizontal, Star } from 'lucide-vue-next'
+import { RouterLink, useRouter } from 'vue-router'
+import { Eye, EyeOff, Flag, Heart, Lightbulb, MessageCircle, MoreHorizontal, ShieldAlert, Star, TrendingUp } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
@@ -195,10 +235,15 @@ import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { getContentTypeShortLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 import { buildDomainCardSurface } from '@/utils/domainPostSurfaces'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
+import { findHighRiskContentWarning, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
+import { getPostUnavailableState, normalizeRiskNoticeForUsers } from '@/utils/governanceDisplay'
+import type { FeedFeedbackAction } from '@/api/feed'
+import PostSaveOrganizer from '@/components/post/PostSaveOrganizer.vue'
 
 const props = defineProps<{
   post: Post
   showRecommendFeedback?: boolean
+  showReasonPanel?: boolean
   likePending?: boolean
   favoritePending?: boolean
   detailQuery?: Record<string, string | number | boolean | undefined>
@@ -207,18 +252,47 @@ const props = defineProps<{
 const emit = defineEmits<{
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
-  notInterested: [postId: Post['postId'], reason: string]
+  notInterested: [postId: Post['postId'], action: FeedFeedbackAction, reason: string]
   'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
 
 const authStore = useAuthStore()
+const router = useRouter()
 const { requireLogin } = useLoginRedirect()
 const isFollowing = ref(false)
+const failedImageUrl = ref('')
 const showFeedbackMenu = ref(false)
-const feedbackReasons = [
-  { value: 'irrelevant', label: '内容不相关' },
-  { value: 'seen', label: '已经看过' },
-  { value: 'low_quality', label: '质量不高' },
+const recommendationFeedbackSubmittedLabel = ref('')
+const feedbackActions: Array<{
+  action: FeedFeedbackAction
+  label: string
+  reason: string
+  description: string
+}> = [
+  {
+    action: 'not_interested',
+    label: '不感兴趣',
+    reason: 'not_relevant',
+    description: '记录这次反馈，并隐藏当前内容。',
+  },
+  {
+    action: 'less_like_this',
+    label: '少看此类',
+    reason: 'less_like_this',
+    description: '记录偏好线索，暂不表示已改变后续推荐。',
+  },
+  {
+    action: 'hide_author',
+    label: '少看作者',
+    reason: 'less_from_author',
+    description: '记录作者相关反馈，不等同于举报或拉黑。',
+  },
+  {
+    action: 'more_like_this',
+    label: '更多类似',
+    reason: 'more_like_this',
+    description: '记录这次反馈，不会立即改变当前列表。',
+  },
 ]
 
 const authorInitial = computed(() => props.post.author.nickname?.charAt(0) || '?')
@@ -241,13 +315,24 @@ const normalizedDetailQuery = computed(() => Object.fromEntries(
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => [key, typeof value === 'boolean' ? (value ? '1' : '0') : value]),
 ))
+const isSearchContext = computed(() => normalizedDetailQuery.value.from === 'search')
+const reasonPanelTitle = computed(() => isSearchContext.value ? '命中说明' : '为什么推荐')
+const showReasonPanel = computed(() => props.showReasonPanel || props.showRecommendFeedback)
 const detailTo = computed(() => ({
   path: `/post/${props.post.postId}`,
   query: normalizedDetailQuery.value,
 }))
+const reportTo = computed(() => ({
+  path: `/post/${props.post.postId}`,
+  query: { ...normalizedDetailQuery.value, report: 'post' },
+}))
 const contentTypeLabel = computed(() => getContentTypeShortLabel(props.post.postType))
-const isLegacyInterview = computed(() => isLegacyInterviewType(props.post.postType))
+const isLegacyInterview = computed(() => false)
 const domainCardSurface = computed(() => buildDomainCardSurface(props.post))
+const displayCardImageUrl = computed(() => {
+  const imageUrl = domainCardSurface.value.imageUrl || ''
+  return imageUrl && failedImageUrl.value !== imageUrl ? imageUrl : ''
+})
 const legacyInterviewChips = computed(() => {
   if (!isLegacyInterview.value || !props.post.extension) return []
   const chips: Array<{ label: string }> = []
@@ -266,6 +351,25 @@ const legacyInterviewResultText = computed(() => {
   return getResultText(result)
 })
 const visibleTags = computed(() => props.post.tags.slice(0, 4))
+const riskWarning = computed(() => normalizeRiskNoticeForUsers(findHighRiskContentWarning([
+  props.post.title,
+  props.post.summary,
+  props.post.content,
+  props.post.tags.map((tag) => tag.name).join(' '),
+].filter(Boolean).join(' '))))
+const cardUnavailableState = computed(() => getPostUnavailableState(props.post))
+const hotReasonLabel = computed(() => {
+  const reasons = props.post.recommendationReasons || []
+  const normalizedReason = reasons.map(normalizeRecommendationReason).find(Boolean)
+  if (isSearchContext.value) return normalizedReason ? `${reasonPanelTitle.value}：${normalizedReason}` : ''
+  const commentCount = Number(props.post.counter?.comment || 0)
+  const favoriteCount = Number(props.post.counter?.favorite || 0)
+  const likeCount = Number(props.post.counter?.like || 0)
+  if (commentCount > 0) return `热榜理由：近期有 ${formatNumber(commentCount)} 条讨论`
+  if (favoriteCount > 0) return `热榜理由：同频道有 ${formatNumber(favoriteCount)} 次收藏`
+  if (likeCount > 0) return `上升理由：社区成员有 ${formatNumber(likeCount)} 次认可`
+  return normalizedReason ? `${isSearchContext.value ? '命中说明' : '推荐理由'}：${normalizedReason}` : ''
+})
 const displayRecommendationReasons = computed(() => {
   const reasons = props.post.recommendationReasons || []
   return reasons
@@ -287,21 +391,6 @@ const renderSearchHighlight = (highlight: string | undefined, fallback: string) 
   return safe
     .replace(/&lt;em&gt;/g, '<mark class="search-highlight">')
     .replace(/&lt;\/em&gt;/g, '</mark>')
-}
-
-const normalizeRecommendationReason = (reason: string) => {
-  const text = reason.trim()
-  if (!text) return ''
-  if (/目标公司|公司偏好|匹配.*公司|相似公司|目标岗位|岗位偏好|匹配.*岗位/.test(text)) {
-    return '贴近你的技术方向'
-  }
-  if (/面试|求职|Offer|offer/.test(text)) {
-    return '来自可复用工程经验'
-  }
-  if (/AI|智能/.test(text)) {
-    return '基于规则和内容信号推荐'
-  }
-  return text
 }
 
 const getResultClass = (result: number) => {
@@ -332,10 +421,25 @@ const handleFavorite = () => {
   emit('favorite', props.post.postId)
 }
 
-const handleNotInterested = (reason: string) => {
+const handleOrganizeSavedPost = () => {
+  if (!requireLogin()) return
+  toast.success('已记录到本机整理入口；独立清单后端未接入时不会跨设备同步。')
+}
+
+const handleReport = () => {
+  if (!requireLogin()) return
+  router.push(reportTo.value)
+}
+
+const handleCardImageError = () => {
+  failedImageUrl.value = domainCardSurface.value.imageUrl || ''
+}
+
+const handleNotInterested = (item: typeof feedbackActions[number]) => {
   if (!requireLogin()) return
   showFeedbackMenu.value = false
-  emit('notInterested', props.post.postId, reason)
+  recommendationFeedbackSubmittedLabel.value = `已记录：${item.label}`
+  emit('notInterested', props.post.postId, item.action, item.reason)
 }
 
 const handleFollow = async () => {
@@ -377,6 +481,30 @@ const handleFollow = async () => {
 .feedback-menu-item:hover {
   background: rgb(248 250 252);
   color: rgb(15 23 42);
+}
+
+.feedback-menu-item strong,
+.feedback-menu-item small {
+  display: block;
+}
+
+.feedback-menu-item small {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgb(100 116 139);
+}
+
+.feedback-submitted-note {
+  border-radius: 0.7rem;
+  border: 1px solid rgb(187 247 208);
+  background: rgb(240 253 244);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.5;
+  color: rgb(21 128 61);
 }
 
 .card-action {
@@ -460,6 +588,54 @@ const handleFollow = async () => {
   color: rgb(194 65 12);
 }
 
+.post-signal-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  border-radius: 0.7rem;
+  border: 1px solid;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.post-signal-note svg {
+  margin-top: 0.12rem;
+  flex-shrink: 0;
+}
+
+.governance-card-unavailable {
+  margin-bottom: 1rem;
+  display: grid;
+  gap: 0.2rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.75rem 0.85rem;
+  color: rgb(71 85 105);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.governance-card-unavailable strong {
+  color: rgb(15 23 42);
+  font-size: 0.86rem;
+}
+
+.post-signal-note--hot {
+  border-color: rgb(199 210 254);
+  background: rgb(238 242 255 / 0.72);
+  color: rgb(67 56 202);
+}
+
+.post-signal-note--risk {
+  border-color: rgb(253 186 116);
+  background: rgb(255 247 237);
+  color: rgb(154 52 18);
+}
+
 @media (max-width: 420px) {
   article {
     padding: 1rem;
@@ -506,6 +682,16 @@ const handleFollow = async () => {
   color: rgb(248 250 252);
 }
 
+.dark .feedback-menu-item small {
+  color: rgb(148 163 184);
+}
+
+.dark .feedback-submitted-note {
+  border-color: rgb(21 128 61 / 0.58);
+  background: rgb(20 83 45 / 0.22);
+  color: rgb(134 239 172);
+}
+
 .dark .card-action:hover {
   background: rgb(30 41 59);
 }
@@ -538,6 +724,28 @@ const handleFollow = async () => {
 .dark .domain-card-chip--investment {
   background: rgb(124 45 18 / 0.45);
   color: rgb(253 186 116);
+}
+
+.dark .post-signal-note--hot {
+  border-color: rgb(67 56 202 / 0.64);
+  background: rgb(49 46 129 / 0.42);
+  color: rgb(199 210 254);
+}
+
+.dark .post-signal-note--risk {
+  border-color: rgb(154 52 18 / 0.82);
+  background: rgb(67 20 7 / 0.45);
+  color: rgb(253 186 116);
+}
+
+.dark .governance-card-unavailable {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .governance-card-unavailable strong {
+  color: rgb(248 250 252);
 }
 
 .dark :deep(.search-highlight) {

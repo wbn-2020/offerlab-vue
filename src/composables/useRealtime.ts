@@ -1,5 +1,6 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { notificationApi } from '@/api/notification'
+import { adaptNotification } from '@/api/adapters'
 import { useAuthStore } from '@/stores/auth'
 import { useRealtimeStore } from '@/stores/realtime'
 import { encodePacket, decodePacket, Command } from '@/lib/packet-codec'
@@ -110,7 +111,7 @@ export function useRealtime() {
       if (!(event.data instanceof ArrayBuffer)) return
       const packet = decodePacket(event.data)
       if (packet.cmd === Command.NOTIF_PUSH) {
-        realtimeStore.pushNotification(packet.body)
+        realtimeStore.pushNotification(adaptNotification(packet.body))
       } else if (packet.cmd === Command.UNREAD_COUNT) {
         realtimeStore.setUnreadCount(packet.body)
       }

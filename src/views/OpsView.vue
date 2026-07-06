@@ -526,6 +526,7 @@
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">评论举报审核</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">通过会隐藏评论或整段回复，驳回仅关闭当前举报。</p>
+              <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">统一审核队列暂不可用时，请进入治理中心审核队列查看降级预览；预览只用于定位来源，不当作真实队列处理结果。</p>
             </div>
             <div class="flex flex-wrap gap-2">
               <button
@@ -1233,6 +1234,7 @@
             <div>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">帖子举报审核</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">通过会下架帖子，驳回仅关闭当前举报。</p>
+              <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">统一审核队列暂不可用时，请进入治理中心审核队列查看降级预览；预览只用于定位来源，不当作真实队列处理结果。</p>
             </div>
             <div class="flex flex-wrap gap-2">
               <button
@@ -1938,11 +1940,13 @@ const pageCount = (total: number) => Math.max(1, Math.ceil(total / OPS_PAGE_SIZE
 const currentPage = (page: number, total: number) => Math.min(Math.max(page, 1), pageCount(total))
 const sectionTotal = (key: OpsPageKey, loadedTotal: number) => opsPageTotals[key] ?? loadedTotal
 const shouldPaginate = (total: number, key?: OpsPageKey) => (key ? sectionTotal(key, total) : total) > OPS_PAGE_SIZE
+const safeOpsItems = <T,>(items: T[]): T[] => Array.isArray(items) ? items : []
 const pageItems = <T,>(items: T[], page: number, key?: OpsPageKey) => {
-  if (key && serverPagedOpsSections.has(key)) return items
-  const safePage = currentPage(page, items.length)
+  const safeItems = safeOpsItems(items)
+  if (key && serverPagedOpsSections.has(key)) return safeItems
+  const safePage = currentPage(page, safeItems.length)
   const start = (safePage - 1) * OPS_PAGE_SIZE
-  return items.slice(start, start + OPS_PAGE_SIZE)
+  return safeItems.slice(start, start + OPS_PAGE_SIZE)
 }
 const pageRangeText = (total: number, page: number, key?: OpsPageKey) => {
   const effectiveTotal = key ? sectionTotal(key, total) : total
@@ -2623,7 +2627,7 @@ const loadOutbox = async () => {
   isOutboxLoading.value = true
   try {
     const res = await opsApi.pageOutbox({ status: outboxStatusFilter.value, page: opsPages.outbox, pageSize: OPS_PAGE_SIZE })
-    outboxMessages.value = res.data?.items || []
+    outboxMessages.value = Array.isArray(res.data?.items) ? res.data.items : []
     opsPageTotals.outbox = res.data?.total ?? outboxMessages.value.length
     selectedFailedIds.value = selectedFailedIds.value.filter((id) =>
       outboxMessages.value.some((message) => message.id === id && message.msgStatus === 2),
@@ -2642,7 +2646,7 @@ const loadSearchIndexRetryTasks = async () => {
   isSearchIndexRetryTasksLoading.value = true
   try {
     const res = await opsApi.pageSearchIndexRetryTasks({ page: opsPages.searchRetry, pageSize: OPS_PAGE_SIZE })
-    searchIndexRetryTasks.value = res.data?.items || []
+    searchIndexRetryTasks.value = Array.isArray(res.data?.items) ? res.data.items : []
     opsPageTotals.searchRetry = res.data?.total ?? searchIndexRetryTasks.value.length
   } catch (error: any) {
     toast.error(getErrorMessage(error, '搜索索引补偿任务加载失败'))
@@ -2658,7 +2662,7 @@ const loadNotificationRetryTasks = async () => {
   isNotificationRetryTasksLoading.value = true
   try {
     const res = await opsApi.pageNotificationRetryTasks({ page: opsPages.notificationRetry, pageSize: OPS_PAGE_SIZE })
-    notificationRetryTasks.value = res.data?.items || []
+    notificationRetryTasks.value = Array.isArray(res.data?.items) ? res.data.items : []
     opsPageTotals.notificationRetry = res.data?.total ?? notificationRetryTasks.value.length
   } catch (error: any) {
     toast.error(getErrorMessage(error, '通知补偿任务加载失败'))
@@ -3275,6 +3279,28 @@ const submitReviewDialog = async () => {
     return
   }
   reviewDialog.error = ''
+  if (reviewDialog.approved) {
+    const report = reviewDialog.report
+    const targetType = reviewDialog.type === 'comment' ? '评论' : '帖子'
+    const targetId = reviewDialog.type === 'comment'
+      ? `comment:${(report as CommentReport).commentId || report.reportId}`
+      : `post:${(report as PostReport).postId}`
+    const riskNote = await requireRiskConfirm({
+      title: `确认通过${targetType}举报`,
+      level: 'high',
+      reversible: false,
+      impactCount: 1,
+      objects: riskObjects([`report:${report.reportId}`, targetId]),
+      context: riskContext(
+        reviewDialog.type === 'comment' ? '通过后会隐藏评论或整段回复' : '通过后会下架帖子',
+        `举报原因：${report.reason || '未填写原因'}`,
+        `审核备注：${note}`,
+      ),
+      confirmText: '确认通过举报',
+      confirmationPhrase: '确认通过',
+    })
+    if (riskNote === null) return
+  }
   isReviewSubmitting.value = true
   try {
     if (reviewDialog.type === 'post') {

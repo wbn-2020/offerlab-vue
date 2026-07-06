@@ -1,17 +1,31 @@
 import axios from 'axios'
 import client, { BizException, type Result } from './client'
-import type { ApiId, ContentSeriesItem, ContentSeriesProgress } from './types'
+import type { ApiId, ContentSeriesItem, ContentSeriesProgress, PaginatedResponse, Post } from './types'
+import { adaptPage, adaptPost } from './adapters'
 import { normalizeDomain } from '@/utils/domains'
 import { safeStorage } from '@/utils/safeStorage'
 import { sanitizeVisibleText } from '@/utils/textQuality'
+import { isPublicCollectionVisible, isPublicPostVisible } from '@/utils/recommendationGovernance'
 
 export interface ContentSeriesRecord {
   id: string
+  creatorUid?: ApiId
   title: string
   summary?: string
+  coverUrl?: string
   domain: number
+  visibility: 'public' | 'private'
   goalCount: number
   status: 'active' | 'paused' | 'completed'
+  assetStatus?: 'active' | 'archived'
+  previewSource?: 'remote' | 'local' | 'fallback' | 'demo'
+  sourceNote?: string
+  targetHref?: string
+  deleted?: boolean
+  restricted?: boolean
+  riskLevel?: string | number
+  moderationStatus?: string | number
+  reviewStatus?: string | number
   items: ContentSeriesItem[]
   progress: ContentSeriesProgress
   createdAt: number
@@ -21,7 +35,9 @@ export interface ContentSeriesRecord {
 export interface ContentSeriesDraftPayload {
   title: string
   summary?: string
+  coverUrl?: string
   domain: number
+  visibility?: 'public' | 'private'
   goalCount?: number
   status?: 'active' | 'paused' | 'completed'
 }
@@ -92,6 +108,17 @@ const computeProgress = (goalCount: number, items: ContentSeriesItem[], remotePr
 }
 
 const clampRate = (value: number) => Math.max(0, Math.min(100, Math.round(value)))
+const normalizeVisibility = (value: unknown): ContentSeriesRecord['visibility'] => (
+  value === 2 || value === '2' || value === 'private' || value === 'PRIVATE' ? 'private' : 'public'
+)
+const normalizePreviewSource = (raw: any): NonNullable<ContentSeriesRecord['previewSource']> => {
+  const value = safeText(raw?.previewSource).toLowerCase()
+  if (value === 'fallback' || raw?.source === 'fallback' || raw?.fallback) return 'fallback'
+  if (value === 'demo') return 'demo'
+  if (value === 'local' || String(raw?.id || '').startsWith('series_')) return 'local'
+  return 'remote'
+}
+const visibilityCodeOf = (value?: ContentSeriesDraftPayload['visibility']) => value === 'public' ? 1 : 2
 
 const decorateRecord = (record: Omit<ContentSeriesRecord, 'progress'>, remoteProgress?: any): ContentSeriesRecord => ({
   ...record,
@@ -113,11 +140,23 @@ const adaptSeriesRecord = (raw: any): ContentSeriesRecord => {
   const items = Array.isArray(raw?.items) ? raw.items.map(normalizeSeriesItem) : []
   return decorateRecord({
     id: safeText(raw?.id) || createLocalId('series'),
-    title: safeText(raw?.title) || '未命名系列',
+    creatorUid: raw?.creatorUid == null ? undefined : String(raw.creatorUid),
+    title: safeText(raw?.title) || '未命名合集',
     summary: safeText(raw?.summary ?? raw?.description) || undefined,
+    coverUrl: safeText(raw?.coverUrl) || undefined,
     domain: normalizeDomain(raw?.domain),
+    visibility: normalizeVisibility(raw?.visibility),
     goalCount: Math.max(1, Number(raw?.goalCount || raw?.progress?.totalPostCount || items.length || 3)),
     status: raw?.status === 'paused' || raw?.status === 'completed' ? raw.status : 'active',
+    assetStatus: raw?.assetStatus === 'archived' ? 'archived' : 'active',
+    previewSource: normalizePreviewSource(raw),
+    sourceNote: safeText(raw?.sourceNote) || '公开系列来自内容系列接口；local-only/fallback 仅作只读展示。',
+    targetHref: safeText(raw?.targetHref ?? raw?.href) || undefined,
+    deleted: raw?.deleted ?? raw?.isDeleted,
+    restricted: raw?.restricted ?? raw?.isRestricted,
+    riskLevel: raw?.riskLevel ?? raw?.risk,
+    moderationStatus: raw?.moderationStatus ?? raw?.governanceStatus,
+    reviewStatus: raw?.reviewStatus,
     items,
     createdAt: numericTime(raw?.createdAt ?? raw?.createTime),
     updatedAt: numericTime(raw?.updatedAt ?? raw?.updateTime),
@@ -128,9 +167,12 @@ const mergeRemoteSeriesRecord = (raw: any, localRecord?: ContentSeriesRecord): C
   const remoteRecord = adaptSeriesRecord(raw)
   return decorateRecord({
     id: remoteRecord.id,
-    title: remoteRecord.title || localRecord?.title || '未命名系列',
+    creatorUid: remoteRecord.creatorUid || localRecord?.creatorUid,
+    title: remoteRecord.title || localRecord?.title || '未命名合集',
     summary: remoteRecord.summary || localRecord?.summary,
+    coverUrl: remoteRecord.coverUrl || localRecord?.coverUrl,
     domain: normalizeDomain(remoteRecord.domain ?? localRecord?.domain),
+    visibility: remoteRecord.visibility || localRecord?.visibility || 'private',
     goalCount: Math.max(
       1,
       Number(localRecord?.goalCount || 0),
@@ -138,16 +180,40 @@ const mergeRemoteSeriesRecord = (raw: any, localRecord?: ContentSeriesRecord): C
       Number(remoteRecord.progress.totalCount || 0),
     ),
     status: localRecord?.status || remoteRecord.status || 'active',
+    assetStatus: remoteRecord.assetStatus || localRecord?.assetStatus || 'active',
+    previewSource: 'remote',
+    sourceNote: remoteRecord.sourceNote || localRecord?.sourceNote || '公开系列来自内容系列接口。',
+    targetHref: remoteRecord.targetHref || localRecord?.targetHref,
+    deleted: remoteRecord.deleted ?? localRecord?.deleted,
+    restricted: remoteRecord.restricted ?? localRecord?.restricted,
+    riskLevel: remoteRecord.riskLevel ?? localRecord?.riskLevel,
+    moderationStatus: remoteRecord.moderationStatus ?? localRecord?.moderationStatus,
+    reviewStatus: remoteRecord.reviewStatus ?? localRecord?.reviewStatus,
     items: localRecord?.items || remoteRecord.items,
     createdAt: localRecord?.createdAt || remoteRecord.createdAt,
     updatedAt: Math.max(remoteRecord.updatedAt, localRecord?.updatedAt || 0),
   }, raw?.progress)
 }
 
+export const isPublicContentSeriesAssetVisible = (record: ContentSeriesRecord) => (
+  record.visibility === 'public' && isPublicCollectionVisible(record)
+)
+
+export const isPublicContentSeriesPostVisible = (post: Post) => isPublicPostVisible(post)
+
+const assertPublicContentSeriesAssetVisible = (record: ContentSeriesRecord) => {
+  if (!isPublicContentSeriesAssetVisible(record)) {
+    throw new BizException(10404, '公开合集暂不可见')
+  }
+  return record
+}
+
 const toRemoteSeriesPayload = (payload: ContentSeriesDraftPayload) => ({
   title: safeText(payload.title),
   description: safeText(payload.summary) || undefined,
+  coverUrl: safeText(payload.coverUrl) || undefined,
   domain: normalizeDomain(payload.domain),
+  visibility: visibilityCodeOf(payload.visibility),
 })
 
 const readLocalSeries = (ownerId?: ApiId) => {
@@ -259,11 +325,18 @@ export const contentSeriesApi = {
   create: async (payload: ContentSeriesDraftPayload, ownerId?: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord>> => {
     const localRecord = decorateRecord({
       id: createLocalId('series'),
-      title: safeText(payload.title) || '未命名系列',
+      creatorUid: ownerId == null ? undefined : String(ownerId),
+      title: safeText(payload.title) || '未命名合集',
       summary: safeText(payload.summary) || undefined,
+      coverUrl: safeText(payload.coverUrl) || undefined,
       domain: normalizeDomain(payload.domain),
+      visibility: payload.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || 3)),
       status: payload.status || 'active',
+      assetStatus: 'active',
+      previewSource: 'local',
+      sourceNote: 'local-only 系列仅保存在本地，不能进入公共知识资产。',
+      targetHref: undefined,
       items: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -286,11 +359,18 @@ export const contentSeriesApi = {
     const current = records.find((item) => item.id === String(seriesId))
     const localRecord = decorateRecord({
       id: String(seriesId),
-      title: safeText(payload.title) || current?.title || '未命名系列',
+      creatorUid: current?.creatorUid || (ownerId == null ? undefined : String(ownerId)),
+      title: safeText(payload.title) || current?.title || '未命名合集',
       summary: safeText(payload.summary) || current?.summary || undefined,
+      coverUrl: safeText(payload.coverUrl) || current?.coverUrl || undefined,
       domain: normalizeDomain(payload.domain ?? current?.domain),
+      visibility: payload.visibility || current?.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || current?.goalCount || 3)),
       status: payload.status || current?.status || 'active',
+      assetStatus: current?.assetStatus || 'active',
+      previewSource: current?.previewSource || 'local',
+      sourceNote: current?.sourceNote || 'local-only 系列仅保存在本地，不能进入公共知识资产。',
+      targetHref: current?.targetHref,
       items: current?.items || [],
       createdAt: current?.createdAt || Date.now(),
       updatedAt: Date.now(),
@@ -324,6 +404,35 @@ export const contentSeriesApi = {
     } catch (error) {
       if (shouldRethrowSeriesError(error)) throw error
       return localOnlyResult(localRecord)
+    }
+  },
+
+  getPublicDetail: async (seriesId: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord>> => {
+    const res = await client.get(`/api/v1/content-series/${seriesId}`) as Result<any>
+    return { ...res, data: assertPublicContentSeriesAssetVisible(adaptSeriesRecord(res.data)), status: 'remote' }
+  },
+
+  listPublicByUser: async (uid: ApiId, cursor?: string, size = 12): Promise<ContentSeriesResult<ContentSeriesRecord[]>> => {
+    const res = await client.get(`/api/v1/content-series/users/${uid}`, { params: { cursor, size } }) as Result<any>
+    return {
+      ...res,
+      data: Array.isArray(res.data) ? res.data.map(adaptSeriesRecord).filter(isPublicContentSeriesAssetVisible) : [],
+      status: 'remote',
+    }
+  },
+
+  listPublicPosts: async (seriesId: ApiId, cursor?: string, size = 20): Promise<ContentSeriesResult<PaginatedResponse<Post> | null>> => {
+    const res = await client.get(`/api/v1/content-series/${seriesId}/posts`, { params: { cursor, size } }) as Result<any>
+    const data = res.data ? adaptPage(res.data, adaptPost) : null
+    return {
+      ...res,
+      data: data
+        ? {
+            ...data,
+            items: data.items.filter(isPublicContentSeriesPostVisible),
+          }
+        : null,
+      status: 'remote',
     }
   },
 }

@@ -11,6 +11,26 @@
     </section>
 
     <section class="preview-detail-card">
+      <p class="preview-detail-label">{{ copy.contentTypeLabel }}</p>
+      <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+        {{ preview.contentType.label }}
+      </p>
+      <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+        {{ preview.contentType.description }}
+      </p>
+    </section>
+
+    <section class="preview-detail-card">
+      <p class="preview-detail-label">{{ copy.coverLabel }}</p>
+      <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+        {{ coverStatusLabel }}
+      </p>
+      <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+        {{ coverDescription }}
+      </p>
+    </section>
+
+    <section class="preview-detail-card">
       <p class="preview-detail-label">{{ copy.anonymousLabel }}</p>
       <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
         {{ preview.anonymous.label }}
@@ -57,6 +77,11 @@ import type { EditorPreviewModel } from '@/utils/editorPreview'
 
 const copy = {
   summaryLabel: '\u6458\u8981\u9884\u89c8',
+  contentTypeLabel: '\u5185\u5bb9\u5f62\u6001',
+  coverLabel: '\u5c01\u9762\u72b6\u6001',
+  coverReady: '\u5df2\u8bbe\u7f6e\u5c01\u9762',
+  coverMissing: '\u672a\u8bbe\u7f6e\u5c01\u9762',
+  coverLoadFailed: '\u56fe\u7247\u52a0\u8f7d\u5931\u8d25\uff0c\u5df2\u6539\u7528\u6587\u5b57\u9884\u89c8\u3002',
   anonymousLabel: '\u533f\u540d\u72b6\u6001',
   seriesLabel: '\u7cfb\u5217\u5f52\u5c5e',
   tagsLabel: '\u6807\u7b7e\u5c55\u793a',
@@ -68,7 +93,17 @@ const copy = {
 
 const props = defineProps<{
   preview: EditorPreviewModel
+  failedCoverUrl?: string
 }>()
+
+const coverLoadFailed = computed(() => props.failedCoverUrl === props.preview.cover.url)
+const coverStatusLabel = computed(() => {
+  if (coverLoadFailed.value) return copy.coverLoadFailed
+  return props.preview.cover.visible ? copy.coverReady : copy.coverMissing
+})
+const coverDescription = computed(() => (
+  coverLoadFailed.value ? copy.coverLoadFailed : props.preview.cover.description
+))
 
 const summaryHint = computed(() => {
   if (props.preview.summarySource === 'explicit') return copy.summaryExplicit

@@ -7,6 +7,27 @@ export interface CommentCreateResult {
   reviewRequired?: boolean
 }
 
+export interface FavoriteOrganizationTarget {
+  id: 'read_later' | 'unorganized_favorites'
+  title: string
+  visibility: 'private'
+  syncStatus: 'server_favorite_only' | 'local_demo_only'
+}
+
+export interface FavoriteOrganizationResult {
+  favorited: boolean
+  defaultTarget: FavoriteOrganizationTarget
+  boundary: 'server_favorite_only'
+  message: string
+}
+
+const readLaterTarget: FavoriteOrganizationTarget = {
+  id: 'read_later',
+  title: '稍后读',
+  visibility: 'private',
+  syncStatus: 'server_favorite_only',
+}
+
 export const interactionApi = {
   like: (postId: ApiId): Promise<Result<{ liked: boolean; likeCount?: number }>> =>
     client.post(`/api/v1/posts/${postId}/like`),
@@ -16,6 +37,33 @@ export const interactionApi = {
 
   favorite: (postId: ApiId): Promise<Result<{ favorited: boolean }>> =>
     client.post(`/api/v1/posts/${postId}/favorite`),
+
+  favoriteToReadLater: async (postId: ApiId): Promise<Result<FavoriteOrganizationResult>> => {
+    const res = await client.post(`/api/v1/posts/${postId}/favorite`) as Result<{ favorited: boolean }>
+    return {
+      ...res,
+      data: {
+        favorited: Boolean(res.data?.favorited ?? true),
+        defaultTarget: readLaterTarget,
+        boundary: 'server_favorite_only',
+        message: '已收藏；稍后读只是当前收藏整理入口，独立清单后端未接入时不会跨设备同步。',
+      },
+    }
+  },
+
+  listFavoriteOrganizationTargets: async (): Promise<Result<FavoriteOrganizationTarget[]>> => ({
+    code: 0,
+    message: 'local_demo_only',
+    data: [
+      readLaterTarget,
+      {
+        id: 'unorganized_favorites',
+        title: '未整理收藏',
+        visibility: 'private',
+        syncStatus: 'local_demo_only',
+      },
+    ],
+  }),
 
   unfavorite: (postId: ApiId): Promise<Result<{ favorited: boolean }>> =>
     client.delete(`/api/v1/posts/${postId}/favorite`),

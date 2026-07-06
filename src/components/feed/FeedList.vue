@@ -8,8 +8,10 @@
         v-for="post in posts"
         :key="post.postId"
         :post="post"
+        :show-recommend-feedback="showRecommendFeedback"
         @like="$emit('like', post.postId)"
         @favorite="$emit('favorite', post.postId)"
+        @not-interested="(postId, action, reason) => $emit('not-interested', postId, action, reason)"
         @follow-change="(authorUid, following) => $emit('follow-change', authorUid, following)"
       />
     </template>
@@ -41,6 +43,7 @@
 
 <script setup lang="ts">
 import type { Post } from '@/api/types'
+import type { FeedFeedbackAction } from '@/api/feed'
 import PostCard from '@/components/post/PostCard.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -50,6 +53,7 @@ interface Props {
   isLoading: boolean
   isFetching: boolean
   hasNextPage: boolean
+  showRecommendFeedback?: boolean
   emptyTitle?: string
   emptyDescription?: string
 }
@@ -63,6 +67,7 @@ defineEmits<{
   'load-more': []
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
+  'not-interested': [postId: Post['postId'], action: FeedFeedbackAction, reason: string]
   'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
 </script>

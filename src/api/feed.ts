@@ -2,6 +2,18 @@ import client, { Result } from './client'
 import type { Post, PaginatedResponse } from './types'
 import { adaptPage, adaptPost } from './adapters'
 
+export type FeedFeedbackAction = 'not_interested' | 'less_like_this' | 'hide_author' | 'more_like_this'
+type BackendFeedFeedbackAction = 'not_interested'
+
+const feedbackPayload = (action: FeedFeedbackAction, reason: string) => {
+  if (action === 'more_like_this') return null
+  const normalizedReason = reason || action
+  return {
+    action: 'not_interested' as BackendFeedFeedbackAction,
+    reason: action === 'not_interested' ? normalizedReason : `${action}:${normalizedReason}`,
+  }
+}
+
 async function getFeed(path: string, cursor?: string, size = 20, domain?: number): Promise<Result<PaginatedResponse<Post>>> {
   const params: Record<string, unknown> = { cursor, size }
   if (domain != null) params.domain = domain
@@ -29,6 +41,11 @@ export const feedApi = {
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 
-  recordFeedback: (postId: string | number, reason: string, action = 'not_interested'): Promise<Result<void>> =>
-    client.post('/api/v1/feeds/feedback', { postId, action, reason }),
+  recordFeedback: (postId: string | number, action: FeedFeedbackAction = 'not_interested', reason = ''): Promise<Result<void>> => {
+    const payload = feedbackPayload(action, reason)
+    if (!payload) {
+      return Promise.resolve({ code: 0, message: 'recorded locally', data: null })
+    }
+    return client.post('/api/v1/feeds/feedback', { postId, ...payload })
+  },
 }

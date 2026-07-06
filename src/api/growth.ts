@@ -1,4 +1,5 @@
-import client, { type Result } from './client'
+import client, { BizException, type Result } from './client'
+import { demoGrowthProfile, demoGrowthReport } from '@/data/demoSeeds'
 import { adaptId } from './adapters'
 import type {
   GrowthProfile,
@@ -94,26 +95,109 @@ const adaptGrowthReport = (raw: any): GrowthReport => ({
   nextActions: toList(raw?.nextActions, (item) => safeText(item)).filter(Boolean),
 })
 
+const localDemoResult = <T>(data: T): Result<T> => ({
+  code: 0,
+  message: 'local_demo_seed',
+  data,
+})
+
+const emptyGrowthProfile = (days = 30): GrowthProfile => ({
+  days,
+  degraded: true,
+  degradationReasons: ['backend_not_connected'],
+  strongestDomain: undefined,
+  emergingDomain: undefined,
+  nextFocus: undefined,
+  domains: [],
+})
+
+const emptyGrowthReport = (period: 'weekly' | 'monthly' | string = 'weekly'): GrowthReport => ({
+  period,
+  days: period === 'monthly' ? 30 : 7,
+  degraded: true,
+  degradationReasons: ['backend_not_connected'],
+  publishedPostCount: 0,
+  interactionCount: 0,
+  featuredPostCount: 0,
+  seriesContributionCount: 0,
+  domainChanges: [],
+  highlightPosts: [],
+  nextActions: [],
+})
+
+export const isDemoFallbackEnabled = () => {
+  const env = import.meta.env
+  return Boolean(
+    env.DEV
+    || env.VITE_OFFERLAB_DEMO_FALLBACK === 'true'
+    || env.VITE_OFFERLAB_USE_DEMO === 'true',
+  )
+}
+
+const isBackendNotFound = (error: unknown) => {
+  if (error instanceof BizException) {
+    if (error.code === 10401 || error.code === 10403) return false
+    return error.code === 10404
+  }
+  const status = (error as { response?: { status?: number } })?.response?.status
+  if (status === 401 || status === 403) return false
+  return status === 404
+}
+
+const shouldUseDemoFallback = (error: unknown) => {
+  return isDemoFallbackEnabled() && isBackendNotFound(error)
+}
+
 export const growthApi = {
   getProfile: async (days = 30): Promise<Result<GrowthProfile>> => {
-    const res = await client.get('/api/v1/growth/profile', {
-      params: { days },
-      skipAuthRedirect: true,
-    }) as Result<any>
-    return {
-      ...res,
-      data: res.data ? adaptGrowthProfile(res.data) : null,
+    try {
+      const res = await client.get('/api/v1/growth/profile', {
+        params: { days },
+        skipAuthRedirect: true,
+      }) as Result<any>
+      const data = res.data ? adaptGrowthProfile(res.data) : null
+      return {
+        ...res,
+        data,
+      }
+    } catch (error) {
+      if (shouldUseDemoFallback(error)) {
+        return localDemoResult({ ...demoGrowthProfile, days })
+      }
+      if (isBackendNotFound(error)) {
+        return {
+          code: 0,
+          message: 'growth_profile_backend_not_connected',
+          data: emptyGrowthProfile(days),
+        }
+      }
+      throw error
     }
   },
 
   getReport: async (period: 'weekly' | 'monthly' = 'weekly'): Promise<Result<GrowthReport>> => {
-    const res = await client.get('/api/v1/growth/report', {
-      params: { period },
-      skipAuthRedirect: true,
-    }) as Result<any>
-    return {
-      ...res,
-      data: res.data ? adaptGrowthReport(res.data) : null,
+    try {
+      const res = await client.get('/api/v1/growth/report', {
+        params: { period },
+        skipAuthRedirect: true,
+      }) as Result<any>
+      const data = res.data ? adaptGrowthReport(res.data) : null
+      return {
+        ...res,
+        data,
+      }
+    } catch (error) {
+      if (shouldUseDemoFallback(error)) {
+        return localDemoResult({ ...demoGrowthReport, period })
+      }
+      if (isBackendNotFound(error)) {
+        return {
+          code: 0,
+          message: 'growth_report_backend_not_connected',
+          data: emptyGrowthReport(period),
+        }
+      }
+      throw error
     }
   },
 }

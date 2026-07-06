@@ -35,7 +35,7 @@ const routes = [
   {
     path: '/companies/:company/prep',
     name: 'CompanyPrep',
-    component: () => import('@/views/CompanyPrepView.vue'),
+    redirect: (to: any) => ({ name: 'Search', query: { q: String(to.params.company || ''), mode: 'posts' } }),
     meta: { title: '主题学习包' },
   },
   {
@@ -60,7 +60,13 @@ const routes = [
     path: '/series/workbench',
     name: 'SeriesWorkbench',
     component: () => import('@/views/SeriesWorkbenchView.vue'),
-    meta: { title: '系列工作台', requiresAuth: true },
+    meta: { title: '合集工作台', requiresAuth: true },
+  },
+  {
+    path: '/collections/:id',
+    name: 'CollectionDetail',
+    component: () => import('@/views/CollectionDetailView.vue'),
+    meta: { title: '合集详情' },
   },
   {
     path: '/growth/profile',
@@ -84,7 +90,7 @@ const routes = [
     path: '/certification/apply',
     name: 'CertificationApply',
     component: () => import('@/views/CertificationApplyView.vue'),
-    meta: { title: '专家认证试点' },
+    meta: { title: '认证作者申请' },
   },
   {
     path: '/u/:uid',
@@ -99,15 +105,22 @@ const routes = [
     meta: { title: '我的主页', requiresAuth: true },
   },
   {
+    path: '/me/creator',
+    alias: '/creator/workbench',
+    name: 'CreatorWorkbench',
+    component: () => import('@/views/MeProfileView.vue'),
+    meta: { title: '创作者工作台', requiresAuth: true },
+  },
+  {
     path: '/me/prep',
     name: 'MePrep',
-    component: () => import('@/views/MePrepView.vue'),
+    redirect: '/me',
     meta: { title: '个人学习空间', requiresAuth: true },
   },
   {
     path: '/mock-interview',
     name: 'MockInterview',
-    component: () => import('@/views/MockInterviewView.vue'),
+    redirect: '/questions',
     meta: { title: '个人练习归档', requiresAuth: true },
   },
   {
@@ -140,6 +153,12 @@ const routes = [
     name: 'AdminOps',
     component: () => import('@/views/OpsView.vue'),
     meta: { title: '运维中心', requiresAuth: true, adminPermission: ['ops', 'questionOperator', 'contentModerator', 'admin'] },
+  },
+  {
+    path: '/admin/operations',
+    name: 'AdminOperations',
+    component: () => import('@/views/AdminOperationsView.vue'),
+    meta: { title: '运营编排', requiresAuth: true, adminPermission: 'admin' },
   },
   {
     path: '/admin/questions',
@@ -182,7 +201,7 @@ const routes = [
     path: '/topics/:slug',
     name: 'TopicDetail',
     component: () => import('@/views/TopicDetailView.vue'),
-    meta: { title: '专题详情' },
+    meta: { title: '话题详情' },
   },
   {
     path: '/login',

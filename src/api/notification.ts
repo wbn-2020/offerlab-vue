@@ -2,6 +2,31 @@ import client, { Result } from './client'
 import type { Notification, NotificationPreference, NotificationRealtimeStatus, NotificationUnreadCount, PaginatedResponse } from './types'
 import { adaptNotification, adaptPage } from './adapters'
 
+export const normalizeNotificationPreference = (raw?: Partial<NotificationPreference> | null): NotificationPreference => ({
+  interactionNotification: raw?.interactionNotification !== false,
+  systemNotification: raw?.systemNotification !== false,
+  likeNotification: raw?.likeNotification !== false,
+  commentNotification: raw?.commentNotification !== false,
+  followNotification: raw?.followNotification !== false,
+  favoriteNotification: raw?.favoriteNotification !== false,
+  mentionNotification: raw?.mentionNotification !== false,
+})
+
+export const interactionPreferenceMuted = (
+  type: string,
+  preference?: Partial<NotificationPreference> | null,
+) => {
+  const pref = normalizeNotificationPreference(preference)
+  if (['like', 'comment', 'favorite', 'follower', 'mention'].includes(type) && !pref.interactionNotification) return true
+  if (type === 'like') return !pref.likeNotification
+  if (type === 'comment') return !pref.commentNotification
+  if (type === 'favorite') return !pref.favoriteNotification
+  if (type === 'follower') return !pref.followNotification
+  if (type === 'mention') return !pref.mentionNotification
+  if (type === 'system') return !pref.systemNotification
+  return false
+}
+
 const adaptUnreadCount = (raw: any): NotificationUnreadCount => ({
   total: Number(raw?.total || 0),
   like: Number(raw?.like || 0),
