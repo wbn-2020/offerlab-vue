@@ -110,7 +110,6 @@ export interface ZeroResultAction {
 export const searchApi = {
   searchPosts: async (params: SearchParams): Promise<Result<PaginatedResponse<Post>>> => {
     const publicParams = { ...(params || {}) }
-    delete publicParams.includeTestData
     const res = await client.get('/api/v1/search/posts', { params: publicParams }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },

@@ -807,8 +807,11 @@ const rollbackHomeFeaturedSlot = (slot: OperationSlot) => runHomeFeaturedSlotLif
 
 const runLifecycleAction = async (resourceKind: OperationResourceKind, resourceId: string | number, action: OperationAction) => {
   if (isActing.value) return
-  const permissionAction = permissionActionFor(action)
-  if (action !== 'preview' && !canMutateOpsOrchestration(opsPermissions.value, permissionAction)) {
+  if (action === 'archive' && !canMutateOpsOrchestration(opsPermissions.value, 'offline')) {
+    loadError.value = '当前账号缺少运营编排变更权限'
+    return
+  }
+  if (action !== 'preview' && action !== 'archive' && !canMutateOpsOrchestration(opsPermissions.value, action as OpsOrchestrationAction)) {
     loadError.value = '当前账号缺少运营编排变更权限'
     return
   }

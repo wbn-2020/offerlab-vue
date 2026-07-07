@@ -29,15 +29,28 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(post.createdAt) }}</p>
                   </div>
                 </div>
-                <button
-                  v-if="canFollowAuthor"
-                  type="button"
-                  class="rounded-lg border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800"
-                  :disabled="isFollowingAuthor"
-                  @click="toggleFollowAuthor"
-                >
-                  {{ post.author.isFollowing ? '已关注' : '关注' }}
-                </button>
+                <div class="author-action-group">
+                  <button
+                    v-if="canFollowAuthor"
+                    type="button"
+                    class="rounded-lg border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800"
+                    :disabled="isFollowingAuthor"
+                    @click="toggleFollowAuthor"
+                  >
+                    {{ post.author.isFollowing ? '已关注' : '关注' }}
+                  </button>
+                  <template v-if="showContactAuthorEntry">
+                    <button
+                      v-if="canStartContactRequest"
+                      type="button"
+                      class="contact-author-button"
+                      @click="openContactRequestDialog"
+                    >
+                      联系作者
+                    </button>
+                    <span v-else class="contact-author-unavailable">作者暂未开放联系请求</span>
+                  </template>
+                </div>
               </div>
             </section>
 
@@ -299,7 +312,7 @@
               <section v-if="showStageTwoDetailPanels" class="knowledge-path-panel mb-8" aria-label="知识资产路径">
                 <div>
                   <p class="knowledge-path-kicker">知识资产路径</p>
-                  <h2>从经验帖到公共阅读路径</h2>
+                  <h2>从经验帖到可复用知识</h2>
                   <p>
                     这篇内容可以沿着摘要、知识卡、主题和相似公开内容继续阅读；这里只提供公共阅读建议。
                   </p>
@@ -381,6 +394,17 @@
                 @like="handleLike"
                 @favorite="handleFavorite"
               />
+              <div v-if="post.myInteraction?.favorited && !interactionFeedback" class="favorite-organizer-row">
+                <PostSaveOrganizer
+                  :post-id="post.postId"
+                  :favorited="Boolean(post.myInteraction?.favorited)"
+                  :open-after-save="Boolean(post.myInteraction?.favorited)"
+                  :disabled="isTogglingFavorite"
+                  trigger-label="移动到收藏夹"
+                  @moved="handleFavoriteMoved"
+                />
+                <RouterLink to="/me?tab=favorites">查看收藏</RouterLink>
+              </div>
               <div
                 v-if="interactionFeedback"
                 class="favorite-feedback-row"
@@ -388,12 +412,19 @@
                 aria-live="polite"
               >
                 <span>{{ interactionFeedback }}</span>
-                <RouterLink
-                  v-if="post.myInteraction?.favorited"
-                  to="/me?tab=favorites"
-                >
-                  查看我的收藏
-                </RouterLink>
+                <div v-if="post.myInteraction?.favorited" class="favorite-feedback-actions">
+                  <PostSaveOrganizer
+                    :post-id="post.postId"
+                    :favorited="Boolean(post.myInteraction?.favorited)"
+                    :open-after-save="Boolean(post.myInteraction?.favorited)"
+                    :disabled="isTogglingFavorite"
+                    trigger-label="选择分组"
+                    @moved="handleFavoriteMoved"
+                  />
+                  <RouterLink to="/me?tab=favorites">
+                    查看收藏
+                  </RouterLink>
+                </div>
               </div>
 
               <section
@@ -531,6 +562,15 @@
                   <p>{{ discussionFollowDescription }}</p>
                 </div>
                 <div class="discussion-follow-actions">
+                  <button
+                    type="button"
+                    class="discussion-follow-button"
+                    :disabled="discussionFollowState.pending"
+                    aria-pressed="false"
+                    @click="toggleDiscussionFollow"
+                  >
+                    {{ discussionFollowActionLabel }}
+                  </button>
                   <RouterLink to="/me/settings?tab=notifications" class="discussion-follow-link">
                     查看通知偏好
                   </RouterLink>
@@ -587,7 +627,22 @@
             </article>
 
             <section id="comments" class="rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
-              <h2 class="mb-6 text-xl font-bold text-slate-900 dark:text-slate-100">{{ discussionSectionTitle }}</h2>
+              <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">{{ discussionSectionTitle }}</h2>
+                <div class="inline-flex w-full rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800 sm:w-auto" aria-label="评论排序">
+                  <button
+                    v-for="option in commentSortOptions"
+                    :key="option.value"
+                    type="button"
+                    class="flex-1 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
+                    :class="commentSort === option.value ? 'bg-white text-primary-600 shadow-sm dark:bg-slate-900 dark:text-primary-300' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'"
+                    :disabled="isLoadingComments || isLoadingMoreComments"
+                    @click="setCommentSort(option.value)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
 
               <div v-if="authStore.isLoggedIn" class="mb-6 border-b border-slate-200 pb-6 dark:border-slate-800">
                 <textarea
@@ -625,10 +680,13 @@
                 v-else
                 :post-id="postId"
                 :comments="comments"
-                :post-author-uid="post.author.uid"
+                :post-author-uid="canOpenAuthorProfile ? post.author.uid : undefined"
                 :can-like-comments="authStore.isLoggedIn"
                 :can-report-comments="true"
                 :can-reply-comments="authStore.isLoggedIn"
+                :can-mark-helpful-comments="authStore.isLoggedIn"
+                :can-manage-quality-signals="isOwnPost || isContentModerator"
+                :can-moderate-comments="isContentModerator"
                 :empty-text="discussionEmptyText"
                 :reply-action-label="discussionReplyActionLabel"
                 :reply-placeholder="discussionReplyPlaceholder"
@@ -636,6 +694,14 @@
                 @require-login="requireLogin"
                 @like-comment="handleLikeComment"
                 @unlike-comment="handleUnlikeComment"
+                @helpful-comment="handleHelpfulComment"
+                @unhelpful-comment="handleUnhelpfulComment"
+                @pin-comment="handlePinComment"
+                @unpin-comment="handleUnpinComment"
+                @feature-comment="handleFeatureComment"
+                @unfeature-comment="handleUnfeatureComment"
+                @fold-comment="handleFoldComment"
+                @unfold-comment="handleUnfoldComment"
                 @reply-comment="handleReplyComment"
                 @delete-comment="handleDeleteComment"
                 @report-comment="openCommentReportDialog"
@@ -877,6 +943,15 @@
         </div>
       </section>
     </div>
+
+    <ContactRequestDialog
+      v-if="post"
+      v-model="isContactDialogOpen"
+      :receiver-uid="post.author.uid"
+      :receiver-name="post.author.nickname"
+      source-type="post"
+      :source-id="post.postId"
+    />
   </div>
 </template>
 
@@ -886,6 +961,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { postApi, type InterviewMaterialPack } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
+import { adaptComment, adaptPage } from '@/api/adapters'
 import { userApi } from '@/api/user'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import {
@@ -903,13 +979,15 @@ import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownRenderer from '@/components/post/MarkdownRenderer.vue'
 import InteractionBar from '@/components/post/InteractionBar.vue'
+import PostSaveOrganizer from '@/components/post/PostSaveOrganizer.vue'
 import CommentTree from '@/components/post/CommentTree.vue'
 import PostQuestionBlock from '@/components/question/PostQuestionBlock.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ContactRequestDialog from '@/components/contact/ContactRequestDialog.vue'
 import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
-import { BizException, getErrorMessage } from '@/api/client'
+import client, { BizException, getErrorMessage } from '@/api/client'
 import type { Comment, Post, PostPublishStatus, PostVersionHistory } from '@/api/types'
 import { isPersistableKnowledgeRelation, knowledgeApi, type KnowledgeExploreResponse, type KnowledgePath, type KnowledgePreviewSource, type KnowledgeRelation, type PublicKnowledgeAsset, type PublicKnowledgeAssetType } from '@/api/knowledge'
 import { POST_TYPE, getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
@@ -934,6 +1012,20 @@ const router = useRouter()
 const authStore = useAuthStore()
 const { requireLogin } = useLoginRedirect()
 
+type CommentSort = 'latest' | 'quality'
+type CommentQualityAction = 'helpful' | 'unhelpful' | 'pin' | 'unpin' | 'feature' | 'unfeature' | 'fold' | 'unfold'
+type QualityComment = Comment & {
+  authorReply?: boolean
+  authorPinned?: boolean
+  featured?: boolean
+  helpfulCount?: number
+  myHelpful?: boolean
+  hotScore?: number
+  folded?: boolean
+  foldReason?: string
+  qualityBadges?: string[]
+}
+
 const adminPermissions = ref<MyAdminPermissions | null>(null)
 const versionHistories = ref<PostVersionHistory[]>([])
 const isVersionDialogOpen = ref(false)
@@ -951,8 +1043,16 @@ const isDeletingPost = ref(false)
 const isTogglingLike = ref(false)
 const isTogglingFavorite = ref(false)
 const interactionFeedback = ref('')
+const discussionFollowState = ref({
+  followed: false,
+  loading: false,
+  pending: false,
+  loaded: false,
+  error: '',
+})
 const isReportDialogOpen = ref(false)
 const isFollowingAuthor = ref(false)
+const isContactDialogOpen = ref(false)
 const reportForm = ref({ reason: 'OTHER', detail: '' })
 const reportTarget = ref<{ type: 'post' | 'comment'; id?: Comment['commentId'] }>({ type: 'post' })
 const reportFeedback = ref<GovernanceFeedback | null>(null)
@@ -982,10 +1082,18 @@ const unavailableReportFeedbackMessage = '内容状态已变化，无需重复�
 const duplicateReportFeedbackMessage = '重复举报已收到，已有待处理举报，请勿重复提交。'
 const rateLimitedReportFeedbackMessage = '举报太频繁，请稍后再提交。'
 const reportFailedFeedbackMessage = '举报提交失败，暂时无法提交举报。'
-const reportSubmittedFeedbackMessage = '感谢反馈，我们会根据社区规则处理。'
+const reportSubmittedFeedbackMessage = '感谢反馈，我们会根据社区规则处理，可在我的举报查看处理进度。'
 const comments = ref<Comment[]>([])
-const commentTreeRef = ref<{ markCommentLikeSettled: (commentId: Comment['commentId']) => void } | null>(null)
+const commentTreeRef = ref<{
+  markCommentLikeSettled: (commentId: Comment['commentId']) => void
+  markCommentQualitySettled: (commentId: Comment['commentId'], action: CommentQualityAction) => void
+} | null>(null)
 const relatedPosts = ref<Post[]>([])
+const commentSort = ref<CommentSort>('latest')
+const commentSortOptions: Array<{ value: CommentSort; label: string }> = [
+  { value: 'latest', label: '最新' },
+  { value: 'quality', label: '高质量优先' },
+]
 const commentCursor = ref<string | undefined>()
 const hasMoreComments = ref(false)
 const isLoadingComments = ref(false)
@@ -1019,7 +1127,7 @@ const { data: postData, isLoading, error: postError } = useQuery({
 const { data: publishStatusData } = useQuery({
   queryKey: computed(() => ['post-publish-status', postId.value]),
   queryFn: () => postApi.getPublishStatus(postId.value),
-  enabled: computed(() => false),
+  enabled: computed(() => Boolean(postId.value)),
   retry: false,
 })
 
@@ -1056,6 +1164,14 @@ const canOpenAuthorProfile = computed(() => Boolean(post.value)
   && authorUid.value !== ''
   && authorUid.value !== '0')
 const canFollowAuthor = computed(() => canOpenAuthorProfile.value && !isOwnPost.value)
+const isAuthorContactRequestOpen = computed(() => {
+  const author = post.value?.author
+  if (!author || author.profileVisible === false) return false
+  if (author.acceptContactRequest === false) return false
+  return String(author.contactRequestPolicy ?? '').toLowerCase() !== 'off'
+})
+const showContactAuthorEntry = computed(() => canOpenAuthorProfile.value && !isOwnPost.value)
+const canStartContactRequest = computed(() => showContactAuthorEntry.value && isAuthorContactRequestOpen.value)
 const authorProfileTo = computed(() => `/u/${authorUid.value}`)
 const authorBioText = computed(() => safeCreatorBio(post.value?.author.signature, '这位作者还没有填写简介。'))
 const authorFollowReason = computed(() => buildFollowReasons(post.value?.author, post.value ? [post.value] : [])[0])
@@ -1096,19 +1212,27 @@ const publishStatusItems = computed(() => {
   return [
     {
       key: 'database',
-      label: status.database?.publiclyVisible ? 'Public list visible' : 'Public list pending',
+      label: status.database?.publiclyVisible ? '已落库' : '待落库',
       ok: Boolean(status.database?.publiclyVisible),
       detail: status.database?.publiclyVisible
-        ? 'This post meets public list visibility rules'
-        : 'No public database record is visible yet',
+        ? '内容已满足公开列表可见规则'
+        : '公开数据库记录暂未可见',
     },
     {
       key: 'search',
-      label: status.search?.visible ? 'Search visible' : 'Search pending',
+      label: status.search?.visible ? '搜索可见' : '搜索同步中',
       ok: Boolean(status.search?.visible),
       detail: status.search?.visible
-        ? 'Public search can recall this post'
-        : 'Search has not returned a public record yet',
+        ? '公开搜索已能召回这篇内容'
+        : '搜索链路暂未返回公开记录',
+    },
+    {
+      key: 'outbox',
+      label: 'Outbox',
+      ok: Boolean(status.ready),
+      detail: status.ready
+        ? '发布事件已完成公开分发检查'
+        : '发布后 Outbox 与搜索索引可能存在短暂延迟',
     },
   ]
 })
@@ -1116,7 +1240,7 @@ const publishStatusItems = computed(() => {
 const publishStatusSummary = computed(() => {
   const status = publishStatus.value
   if (!status) return ''
-  return status.ready ? 'Public distribution is ready' : 'Search sync may lag briefly after publishing'
+  return status.ready ? '公开分发已就绪' : '发布后搜索同步可能短暂延迟'
 })
 const contentTypeLabel = computed(() => getContentTypeLabel(post.value?.postType))
 const isQuestionPost = computed(() => Number(post.value?.postType) === POST_TYPE.QUESTION)
@@ -1148,9 +1272,14 @@ const discussionFollowDescription = computed(() => (
     ? '关注讨论用于跟进这个问题后续的新建议和追问。收藏只保存内容，不会默认开启新回复提醒。'
     : '关注讨论用于跟进这个帖子后续的新回复。收藏只保存内容，不会默认开启新回复提醒。'
 ))
-const discussionFollowStatusText = computed(() => (
-  '当前版本先展示关注讨论入口，等帖子级关注接口承接后再保存关注状态。'
-))
+const discussionFollowStatusText = computed(() => {
+  if (discussionFollowState.value.error) return discussionFollowState.value.error
+  return '当前版本先展示关注讨论入口，等帖子级关注接口承接后再保存关注状态。'
+})
+const discussionFollowActionLabel = computed(() => {
+  if (discussionFollowState.value.pending) return '处理中'
+  return '关注讨论'
+})
 const relatedSectionTitle = computed(() => (isQuestionPost.value ? '相关问题求助' : '相关帖子'))
 const relatedEmptyText = computed(() => (isQuestionPost.value ? '暂无相似讨论' : '暂无相关内容'))
 const isLegacyInterview = computed(() => false)
@@ -1560,6 +1689,21 @@ const getResultText = (result: number) => {
   return texts[result] || '未知结果'
 }
 
+const resetDiscussionFollowState = () => {
+  discussionFollowState.value = {
+    followed: false,
+    loading: false,
+    pending: false,
+    loaded: false,
+    error: '',
+  }
+}
+
+const loadDiscussionFollowStatus = async () => {
+  resetDiscussionFollowState()
+  discussionFollowState.value.loaded = true
+}
+
 const handleLike = async () => {
   if (!post.value || isTogglingLike.value) return
   isTogglingLike.value = true
@@ -1602,7 +1746,7 @@ const handleFavorite = async () => {
       ? '已取消收藏'
       : isOwnPost.value
         ? '已收藏自己的帖子，已加入回看'
-        : '已收藏到回看'
+        : '已收藏'
     interactionFeedback.value = message
     toast.success(message)
   } catch (error: any) {
@@ -1632,6 +1776,27 @@ const toggleFollowAuthor = async () => {
   } finally {
     isFollowingAuthor.value = false
   }
+}
+
+const openContactRequestDialog = () => {
+  if (!canStartContactRequest.value) return
+  if (!requireLogin()) return
+  isContactDialogOpen.value = true
+}
+
+const handleFavoriteMoved = (_postId: Post['postId'], _folderId: unknown, folderName: string) => {
+  interactionFeedback.value = `已移动到${folderName}`
+  toast.success(`已移动到${folderName}`)
+}
+
+const toggleDiscussionFollow = async () => {
+  if (!post.value?.postId || discussionFollowState.value.pending) return
+  if (!requireLogin()) return
+
+  discussionFollowState.value.pending = true
+  discussionFollowState.value.error = ''
+  toast.warning('当前版本先展示关注讨论入口，等帖子级关注接口承接后再保存关注状态。')
+  discussionFollowState.value.pending = false
 }
 
 const mergeContentSuggestion = (item: ContentSuggestionRecord) => {
@@ -1789,7 +1954,181 @@ const findComment = (commentId: Comment['commentId']) => {
   return undefined
 }
 
+const allComments = () => comments.value.flatMap((comment) => [comment, ...(comment.replies || [])])
+const asQualityComment = (comment: Comment) => comment as QualityComment
 const countCommentBranch = (comment: Comment): number => 1 + (comment.replies?.length ?? 0)
+const defaultFoldReason = '该评论已被折叠'
+
+const adaptQualityComment = (raw: any): Comment => {
+  const comment = adaptComment(raw) as QualityComment
+  comment.authorReply = Boolean(raw?.authorReply ?? false)
+  comment.authorPinned = Boolean(raw?.authorPinned ?? false)
+  comment.featured = Boolean(raw?.featured ?? false)
+  comment.helpfulCount = Number(raw?.helpfulCount ?? 0)
+  comment.myHelpful = Boolean(raw?.myHelpful ?? false)
+  comment.hotScore = Number(raw?.hotScore ?? 0)
+  comment.folded = Boolean(raw?.folded ?? false)
+  comment.foldReason = raw?.foldReason || undefined
+  comment.qualityBadges = Array.isArray(raw?.qualityBadges) ? raw.qualityBadges : undefined
+  comment.replies = Array.isArray(raw?.replies) ? raw.replies.map(adaptQualityComment) : comment.replies
+  return comment
+}
+
+const fetchCommentsPage = async (reset: boolean) => {
+  const res = await client.get(`/api/v1/posts/${postId.value}/comments`, {
+    params: {
+      cursor: reset ? undefined : commentCursor.value,
+      size: 20,
+      sort: commentSort.value,
+    },
+  }) as any
+  return res.data ? adaptPage(res.data, adaptQualityComment) : null
+}
+
+const setCommentSort = (sort: CommentSort) => {
+  if (commentSort.value === sort || isLoadingComments.value || isLoadingMoreComments.value) return
+  commentSort.value = sort
+  loadComments(true)
+}
+
+const markQualitySettled = (commentId: Comment['commentId'], action: CommentQualityAction) => {
+  commentTreeRef.value?.markCommentQualitySettled(commentId, action)
+}
+
+const updateCommentHelpful = (commentId: Comment['commentId'], helpful: boolean) => {
+  const target = findComment(commentId)
+  if (!target) return
+  const comment = asQualityComment(target)
+  const currentCount = Number(comment.helpfulCount ?? 0)
+  comment.myHelpful = helpful
+  comment.helpfulCount = helpful ? currentCount + 1 : Math.max(0, currentCount - 1)
+}
+
+const updateCommentPinned = (commentId: Comment['commentId'], pinned: boolean) => {
+  allComments().forEach((item) => {
+    asQualityComment(item).authorPinned = false
+  })
+  const target = findComment(commentId)
+  if (target) asQualityComment(target).authorPinned = pinned
+}
+
+const updateCommentQualityFlag = (commentId: Comment['commentId'], field: 'featured' | 'folded', active: boolean) => {
+  const target = findComment(commentId)
+  if (!target) return
+  const comment = asQualityComment(target)
+  comment[field] = active
+  if (field === 'folded' && active && !comment.foldReason) comment.foldReason = defaultFoldReason
+}
+
+const handleHelpfulComment = async (commentId: Comment['commentId']) => {
+  if (!requireLogin()) {
+    markQualitySettled(commentId, 'helpful')
+    return
+  }
+  try {
+    await client.post(`/api/v1/comments/${commentId}/helpful`)
+    updateCommentHelpful(commentId, true)
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '标记有帮助失败'))
+    await loadComments(true)
+  } finally {
+    markQualitySettled(commentId, 'helpful')
+  }
+}
+
+const handleUnhelpfulComment = async (commentId: Comment['commentId']) => {
+  if (!requireLogin()) {
+    markQualitySettled(commentId, 'unhelpful')
+    return
+  }
+  try {
+    await client.delete(`/api/v1/comments/${commentId}/helpful`)
+    updateCommentHelpful(commentId, false)
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '取消有帮助失败'))
+    await loadComments(true)
+  } finally {
+    markQualitySettled(commentId, 'unhelpful')
+  }
+}
+
+const handlePinComment = async (commentId: Comment['commentId']) => {
+  try {
+    await client.post(`/api/v1/posts/${postId.value}/comments/${commentId}/pin`)
+    updateCommentPinned(commentId, true)
+    toast.success('已置顶评论')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '置顶评论失败'))
+    await loadComments(true)
+  } finally {
+    markQualitySettled(commentId, 'pin')
+  }
+}
+
+const handleUnpinComment = async (commentId: Comment['commentId']) => {
+  try {
+    await client.delete(`/api/v1/posts/${postId.value}/comments/${commentId}/pin`)
+    updateCommentPinned(commentId, false)
+    toast.success('已取消置顶')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '取消置顶失败'))
+    await loadComments(true)
+  } finally {
+    markQualitySettled(commentId, 'unpin')
+  }
+}
+
+const handleFeatureComment = async (commentId: Comment['commentId']) => {
+  try {
+    await client.post(`/api/v1/comments/${commentId}/featured`)
+    updateCommentQualityFlag(commentId, 'featured', true)
+    toast.success('已设为精选')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '设置精选失败'))
+    await loadComments(true)
+  } finally {
+    markQualitySettled(commentId, 'feature')
+  }
+}
+
+const handleUnfeatureComment = async (commentId: Comment['commentId']) => {
+  try {
+    await client.delete(`/api/v1/comments/${commentId}/featured`)
+    updateCommentQualityFlag(commentId, 'featured', false)
+    toast.success('已取消精选')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '取消精选失败'))
+    await loadComments(true)
+  } finally {
+    markQualitySettled(commentId, 'unfeature')
+  }
+}
+
+const handleFoldComment = async (commentId: Comment['commentId']) => {
+  try {
+    await client.post(`/api/v1/comments/${commentId}/fold`, { reason: defaultFoldReason })
+    updateCommentQualityFlag(commentId, 'folded', true)
+    toast.success('评论已折叠')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '折叠评论失败'))
+    await loadComments(true)
+  } finally {
+    markQualitySettled(commentId, 'fold')
+  }
+}
+
+const handleUnfoldComment = async (commentId: Comment['commentId']) => {
+  try {
+    await client.delete(`/api/v1/comments/${commentId}/fold`)
+    updateCommentQualityFlag(commentId, 'folded', false)
+    toast.success('已取消折叠')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '取消折叠失败'))
+    await loadComments(true)
+  } finally {
+    markQualitySettled(commentId, 'unfold')
+  }
+}
 
 const handleLikeComment = async (commentId: Comment['commentId']) => {
   if (!requireLogin()) {
@@ -1966,8 +2305,7 @@ const loadComments = async (reset = true) => {
     isLoadingMoreComments.value = true
   }
   try {
-    const result = await interactionApi.getComments(postId.value, reset ? undefined : commentCursor.value)
-    const page = result.data
+    const page = await fetchCommentsPage(reset)
     comments.value = reset ? page?.items || [] : [...comments.value, ...(page?.items || [])]
     commentCursor.value = page?.nextCursor
     hasMoreComments.value = Boolean(page?.hasMore)
@@ -2218,6 +2556,7 @@ watch(post, () => {
   loadRelatedPosts()
   loadDetailKnowledgeAssets()
   loadInteractionState()
+  loadDiscussionFollowStatus()
   loadContentSuggestions()
   if (showStageTwoDetailPanels) {
     loadInterviewMaterial()
@@ -2234,6 +2573,8 @@ watch([post, () => route.query.report, () => authStore.isLoggedIn], () => {
 }, { immediate: true })
 
 watch(postId, () => {
+  resetDiscussionFollowState()
+  commentSort.value = 'latest'
   loadComments(true)
   loadContentSuggestions()
   versionHistories.value = []
@@ -2247,6 +2588,7 @@ onMounted(() => {
 
 watch(() => authStore.token, () => {
   loadAdminPermissions()
+  loadDiscussionFollowStatus()
   loadContentSuggestions()
   if (showStageTwoDetailPanels) loadInterviewMaterial()
 })
@@ -2413,7 +2755,25 @@ watch(canViewVersionHistory, (allowed) => {
   color: rgb(6 95 70);
 }
 
-.favorite-feedback-row a {
+.favorite-organizer-row {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.favorite-feedback-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.favorite-feedback-row a,
+.favorite-organizer-row a {
   font-weight: 900;
   color: rgb(4 120 87);
 }
@@ -2640,10 +3000,40 @@ watch(canViewVersionHistory, (allowed) => {
 
 .discussion-follow-actions {
   display: flex;
-  min-width: 14rem;
+  min-width: min(14rem, 100%);
   flex: 0 1 18rem;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.discussion-follow-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(37 99 235);
+  background: rgb(37 99 235);
+  padding: 0.55rem 0.9rem;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 900;
+  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.discussion-follow-button:hover:not(:disabled) {
+  border-color: rgb(29 78 216);
+  background: rgb(29 78 216);
+}
+
+.discussion-follow-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.discussion-follow-button--active {
+  border-color: rgb(15 118 110);
+  background: rgb(15 118 110);
 }
 
 .discussion-follow-link {
@@ -2671,6 +3061,40 @@ watch(canViewVersionHistory, (allowed) => {
   border: 1px solid rgb(199 210 254);
   background: rgb(238 242 255);
   padding: 0.85rem;
+}
+
+.author-action-group {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.contact-author-button,
+.contact-author-unavailable {
+  display: inline-flex;
+  min-height: 2.5rem;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.contact-author-button {
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.contact-author-unavailable {
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  color: rgb(100 116 139);
 }
 
 .author-reason-box strong {
@@ -2757,7 +3181,8 @@ watch(canViewVersionHistory, (allowed) => {
   color: rgb(167 243 208);
 }
 
-.dark .favorite-feedback-row a {
+.dark .favorite-feedback-row a,
+.dark .favorite-organizer-row a {
   color: rgb(187 247 208);
 }
 
@@ -2769,6 +3194,16 @@ watch(canViewVersionHistory, (allowed) => {
 .dark .discussion-follow-kicker,
 .dark .discussion-follow-link {
   color: rgb(191 219 254);
+}
+
+.dark .discussion-follow-button {
+  border-color: rgb(96 165 250);
+  background: rgb(37 99 235);
+}
+
+.dark .discussion-follow-button--active {
+  border-color: rgb(45 212 191);
+  background: rgb(15 118 110);
 }
 
 .dark .discussion-follow-link {
@@ -2788,6 +3223,13 @@ watch(canViewVersionHistory, (allowed) => {
 .dark .author-reason-box {
   border-color: rgb(49 46 129);
   background: rgb(30 41 59);
+}
+
+.dark .contact-author-button,
+.dark .contact-author-unavailable {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
 }
 
 .dark .author-reason-box strong,
@@ -3670,6 +4112,19 @@ watch(canViewVersionHistory, (allowed) => {
 
   .interview-material-actions button {
     flex: 1 1 100%;
+  }
+
+  .discussion-follow-panel,
+  .discussion-follow-actions,
+  .author-action-group {
+    width: 100%;
+  }
+
+  .discussion-follow-button,
+  .discussion-follow-link,
+  .contact-author-button,
+  .contact-author-unavailable {
+    width: 100%;
   }
 
   .ai-knowledge-grid,

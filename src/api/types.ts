@@ -15,6 +15,8 @@ export interface User {
   profileVisible?: boolean
   intentVisible?: boolean
   privacyReason?: string
+  acceptContactRequest?: boolean
+  contactRequestPolicy?: 'all' | 'following' | 'mutual' | 'off' | string
 }
 
 export type UserBrief = User
@@ -69,6 +71,50 @@ export interface Post {
   updatedAt: number
 }
 
+export type FavoriteFolderVisibility = 'public' | 'private'
+
+export interface FavoriteFolder {
+  id: ApiId
+  name: string
+  description?: string
+  visibility: FavoriteFolderVisibility
+  userId?: ApiId
+  ownerId?: ApiId
+  sortOrder?: number
+  isDefault?: boolean
+  defaultFolder?: boolean
+  privateFolder?: boolean
+  postCount: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface FavoriteFolderCreateReq {
+  name: string
+  description?: string
+  visibility?: FavoriteFolderVisibility | 1 | 2
+  isPublic?: boolean
+  privateFolder?: boolean
+}
+
+export interface FavoriteFolderUpdateReq {
+  name?: string
+  description?: string
+  visibility?: FavoriteFolderVisibility | 1 | 2
+  isPublic?: boolean
+  privateFolder?: boolean
+}
+
+export interface FavoriteMoveReq {
+  postId: ApiId
+  folderId?: ApiId | null
+}
+
+export interface FavoriteBatchMoveReq {
+  postIds: ApiId[]
+  folderId?: ApiId | null
+}
+
 export interface PostPublishStatus {
   postId: ApiId
   ready?: boolean
@@ -77,6 +123,10 @@ export interface PostPublishStatus {
   }
   search?: {
     visible?: boolean
+    source?: string
+    degraded?: boolean
+    fallbackReason?: string
+    diagnostics?: Record<string, unknown>
   }
 }
 
@@ -153,10 +203,23 @@ export interface Comment {
   replyToUser?: User
   likeCount: number
   myLiked?: boolean
+  authorReply?: boolean
+  authorPinned?: boolean
+  featured?: boolean
+  helpfulCount?: number
+  myHelpful?: boolean
+  hotScore?: number
+  folded?: boolean
+  foldReason?: string
+  qualityBadges?: string[]
   canDelete?: boolean
+  replyCount?: number
+  hasMoreReplies?: boolean
   createdAt: number
   replies?: Comment[]
 }
+
+export type CommentSort = 'latest' | 'quality'
 
 export interface PostReportReq {
   reason?: string
@@ -179,6 +242,9 @@ export interface PostReport {
   reason: string
   detail?: string
   reportStatus?: number
+  userStatus?: UserReportStatus
+  reporterNotified?: boolean
+  reporterReceiptText?: string
   reviewerUid?: ApiId
   reviewNote?: string
   createTime?: string
@@ -195,16 +261,91 @@ export interface CommentReport {
   reason: string
   detail?: string
   reportStatus?: number
+  userStatus?: UserReportStatus
+  reporterNotified?: boolean
+  reporterReceiptText?: string
   reviewerUid?: ApiId
   reviewNote?: string
   createTime?: string
   reviewTime?: string
 }
 
+export type UserReportStatus = 'PROCESSING' | 'ACTION_TAKEN' | 'NOT_ACCEPTED' | 'CLOSED'
+
+export type UserReportSourceType = 'POST_REPORT' | 'COMMENT_REPORT'
+
+export interface UserReportReceipt {
+  reportId: ApiId
+  sourceType: UserReportSourceType
+  targetId: ApiId
+  postId?: ApiId
+  targetTitle?: string
+  targetSummary?: string
+  reason: string
+  detail?: string
+  userStatus: UserReportStatus
+  resultText: string
+  targetPath?: string
+  createTime?: string
+  reviewTime?: string
+  createdAt: number
+  reviewedAt?: number
+  targetAvailable: boolean
+}
+
+export type ContactRequestStatus =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'IGNORED'
+  | 'REPORTED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+
+export type ContactRequestScene = 'ask' | 'supplement' | 'feedback' | 'collaboration'
+
+export type ContactRequestSourceType = 'profile' | 'post' | 'comment'
+
+export interface ContactRequest {
+  requestId: ApiId
+  requesterUid: ApiId
+  requesterName?: string
+  requester?: UserBrief
+  receiverUid: ApiId
+  receiverName?: string
+  receiver?: UserBrief
+  sourceType: ContactRequestSourceType | string
+  sourceId?: ApiId
+  scene: ContactRequestScene | string
+  messagePreview: string
+  requestStatus: ContactRequestStatus | string
+  createTime?: string
+  updateTime?: string
+  receiverActionTime?: string
+  expireTime?: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ContactRequestSettings {
+  acceptContactRequest: boolean
+  contactRequestPolicy: 'all' | 'following' | 'mutual' | 'off' | string
+  dailyLimit: number
+}
+
+export interface ContactRequestCreateReq {
+  receiverUid: ApiId
+  sourceType: ContactRequestSourceType | string
+  sourceId?: ApiId | null
+  scene: ContactRequestScene | string
+  message: string
+}
+
 export interface Notification {
   notificationId: ApiId
   notificationIds?: ApiId[]
   type: string
+  action?: string
   title: string
   content: string
   curationFeedback?: CreatorCurationFeedback
@@ -244,6 +385,14 @@ export interface NotificationRealtimeStatus {
   serverTime: number
   pollIntervalSeconds: number
   websocketEnabled: boolean
+}
+
+export interface DiscussionFollowStatus {
+  postId: ApiId
+  followed: boolean
+  lastReadCommentId?: ApiId
+  lastNotifiedCommentId?: ApiId
+  source?: string
 }
 
 export interface PaginatedResponse<T> {

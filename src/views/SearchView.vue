@@ -609,7 +609,7 @@ const searchSignalNote = computed(() => {
   if (hotWords.value.length) sources.add(hotWordsSource.value)
   if (!sources.size) return ''
   const labels = Array.from(sources).map(sourceLabel).join(' / ')
-  return `搜索建议仅来自公开内容信号，来源：${labels}；最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议。`
+  return `搜索建议来自公开内容和近期公共搜索趋势，来源：${labels}；最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议。`
 })
 const emptyTitle = computed(() => {
   if (searchMode.value === 'users') return filters.q ? '没有找到这个作者' : '先输入作者昵称'
@@ -867,7 +867,7 @@ const syncFromRoute = () => {
   }
   filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
   searchMode.value = nextMode
-  includeTestData.value = false
+  includeTestData.value = route.query.includeTestData === '1'
 }
 
 const pushQuery = () => {
@@ -881,6 +881,7 @@ const pushQuery = () => {
       ...(filters.type ? { type: String(filters.type) } : {}),
       ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
       ...(searchMode.value !== 'posts' ? { mode: searchMode.value } : {}),
+      ...(includeTestData.value ? { includeTestData: '1' } : {}),
     },
   }).finally(() => {
     isPushingQuery = false
@@ -1202,13 +1203,13 @@ const runSearch = async (append = false, syncRoute = true) => {
       sort: filters.sort,
       cursor: append ? cursor.value : undefined,
       size: 20,
-      includeTestData: false,
+      includeTestData: includeTestData.value,
     } as Parameters<typeof searchApi.searchPosts>[0]
     const res = await searchApi.searchPosts(params)
     const page = res.data
     if (requestId !== searchRequestId) return
-    const rawItems = filterPublicContent(page?.items || [])
-    const cleanItems = filterVisiblePosts(rawItems)
+    const rawItems = includeTestData.value ? (page?.items || []) : filterPublicContent(page?.items || [])
+    const cleanItems = includeTestData.value ? rawItems : filterVisiblePosts(rawItems)
     searchResults.value = append ? [...searchResults.value, ...cleanItems] : cleanItems
     userResults.value = []
     topicResults.value = []

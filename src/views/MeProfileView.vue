@@ -43,10 +43,20 @@
             </div>
           </div>
 
-          <RouterLink to="/me/settings" class="secondary-button shrink-0">
-            <Settings class="h-4 w-4" />
-            编辑资料
-          </RouterLink>
+          <div class="profile-actions">
+            <RouterLink to="/me/contact-requests" class="secondary-button shrink-0">
+              <Mail class="h-4 w-4" />
+              联系请求
+            </RouterLink>
+            <RouterLink to="/me/reports" class="secondary-button shrink-0">
+              <Flag class="h-4 w-4" />
+              我的举报
+            </RouterLink>
+            <RouterLink to="/me/settings" class="secondary-button shrink-0">
+              <Settings class="h-4 w-4" />
+              编辑资料
+            </RouterLink>
+          </div>
         </div>
       </section>
 
@@ -85,7 +95,7 @@
               <span class="workspace-source-pill">{{ creatorWorkspaceStateLabel }}</span>
             </div>
             <h2>公开内容反馈、维护入口和下一篇方向</h2>
-            <span>只聚合公开内容信号，覆盖近 7 天/30 天，不承诺曝光效果；回复、更新和选题入口会带上创作者工作台来源上下文。</span>
+            <span>只聚合公开内容信号，只展示公开内容互动，覆盖近 7 天/30 天，不承诺曝光效果；回复、更新和选题入口会带上创作者工作台来源上下文。</span>
             <span>{{ creatorWorkspaceNotice }}</span>
           </div>
           <div class="creator-feedback-actions">
@@ -108,7 +118,7 @@
             </div>
           </article>
         </div>
-        <div class="mt-5 grid gap-3 sm:grid-cols-4">
+        <div class="mt-5 grid gap-3 sm:grid-cols-5">
           <RouterLink to="/me?tab=posts" class="feedback-stat">
             <MessageCircle class="h-4 w-4 text-primary-600" />
             <strong>{{ publicImpactStats.recentComments }}</strong>
@@ -130,14 +140,14 @@
           <RouterLink :to="topFeedbackPost ? topFeedbackPost.to : '/me?tab=posts'" class="feedback-stat">
             <Heart class="h-4 w-4 text-primary-600" />
             <strong>{{ topFeedbackScore }}</strong>
-            <span>值得维护内容</span>
+            <span>近期表现较好内容</span>
             <small>{{ topFeedbackPost ? '打开内容查看公共反馈' : '发布后会出现' }}</small>
           </RouterLink>
         </div>
         <div class="creator-workbench-grid">
           <article class="creator-workbench-card">
             <div class="creator-workbench-head">
-              <strong>值得继续维护的内容</strong>
+              <strong>近期表现较好内容</strong>
               <RouterLink to="/me?tab=posts">管理内容</RouterLink>
             </div>
             <div v-if="topFeedbackPosts.length" class="creator-link-list">
@@ -165,7 +175,7 @@
           <article class="creator-workbench-card">
             <div class="creator-workbench-head">
               <strong>回复机会</strong>
-              <RouterLink to="/me?tab=posts">查看内容</RouterLink>
+              <RouterLink to="/me?tab=posts">回到内容讨论</RouterLink>
             </div>
             <div v-if="replyOpportunities.length" class="creator-link-list">
               <RouterLink v-for="item in replyOpportunities" :key="item.id" :to="item.to" class="creator-link-main">
@@ -216,6 +226,10 @@
             <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
           </div>
           <div class="creator-action-list">
+            <RouterLink to="/me?tab=followers" class="creator-action-card">
+              <strong>新增关注者</strong>
+              <span>{{ user?.followerCount ?? followers.items.length }} 位作者主页回访线索，只展示公开内容互动。</span>
+            </RouterLink>
             <RouterLink v-for="item in creatorActions" :key="item.href" :to="item.href" class="creator-action-card">
               <strong>{{ item.title }}</strong>
               <span>{{ item.description }}</span>
@@ -232,7 +246,7 @@
           <span class="creator-cert-meta">当前公开合集 {{ publicCollectionCount }} 个</span>
           <div class="creator-cert-actions">
             <RouterLink to="/me?tab=posts" class="primary-button">选择代表内容</RouterLink>
-            <RouterLink to="/certification/apply" class="secondary-button">社区身份申请</RouterLink>
+            <RouterLink to="/certification/apply" class="secondary-button">认证作者申请</RouterLink>
             <RouterLink to="/me/settings" class="secondary-button">完善作者资料</RouterLink>
           </div>
         </article>
@@ -331,24 +345,66 @@
             <div class="favorite-revisit-panel">
               <div>
                 <p class="text-xs font-black text-primary-600 dark:text-primary-300">收藏回看</p>
-                <h2>全部收藏</h2>
-                <span>默认收藏夹会收纳你在社区里保存过的经验、问题、攻略和资源，后续可继续整理到内容合集。</span>
+                <h2>{{ activeFavoriteFolderTitle }}</h2>
+                <span>{{ activeFavoriteFolderDescription }}</span>
               </div>
               <div class="favorite-revisit-actions">
+                <button type="button" @click="handleCreateFavoriteFolder">新建收藏夹</button>
                 <RouterLink to="/explore">去发现</RouterLink>
                 <RouterLink to="/search">搜索内容</RouterLink>
-                <RouterLink to="/series/workbench">整理合集</RouterLink>
               </div>
             </div>
-            <PostList
-              :state="favorites"
-              empty-title="还没有收藏内容"
-              empty-description="看到有用内容时点收藏，之后可以在这里集中回看，也可以整理到内容合集。"
-              @load-more="loadFavorites(true)"
-              @like="handleLike"
-              @favorite="handleFavorite"
-              @follow-change="handlePostAuthorFollowChange"
-            />
+            <div v-if="favoriteFolders.error" class="notice-error">{{ favoriteFolders.error }}</div>
+            <div class="favorite-manager">
+              <aside class="favorite-folder-panel">
+                <div class="favorite-folder-panel-head">
+                  <strong>收藏夹</strong>
+                  <span v-if="favoriteFolders.loading">加载中...</span>
+                </div>
+                <div v-if="favoriteFolders.loading && !favoriteFolderOptions.length" class="favorite-folder-loading">正在加载收藏夹...</div>
+                <button
+                  v-for="folder in favoriteFolderOptions"
+                  :key="folder.id"
+                  type="button"
+                  :class="['favorite-folder-item', selectedFavoriteFolderId === folder.id ? 'favorite-folder-active' : '']"
+                  @click="selectFavoriteFolder(folder.id)"
+                >
+                  <span>
+                    <strong>{{ folder.name }}</strong>
+                    <small>{{ folder.description }}</small>
+                  </span>
+                  <em>{{ folder.count }}</em>
+                </button>
+                <div v-if="!favoriteFolders.loading && !customFavoriteFolders.length" class="favorite-folder-empty">
+                  还没有自定义收藏夹。
+                </div>
+              </aside>
+
+              <div class="favorite-content-panel">
+                <div class="favorite-folder-toolbar">
+                  <div>
+                    <strong>{{ activeFavoriteFolderTitle }}</strong>
+                    <span>{{ activeFavoriteFolderMeta }}</span>
+                  </div>
+                  <div v-if="activeFavoriteFolder && activeFavoriteFolder.id !== 'all'" class="favorite-folder-actions">
+                    <button v-if="activeFavoriteFolder.canRename" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="handleRenameFavoriteFolder">重命名</button>
+                    <button type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="handleToggleFavoriteFolderPublic">
+                      {{ activeFavoriteFolder.isPublic ? '设为私密' : '设为公开' }}
+                    </button>
+                    <button v-if="activeFavoriteFolder.canDelete" type="button" class="secondary-button danger-button" :disabled="favoriteFolderActionLoading" @click="handleDeleteFavoriteFolder">删除</button>
+                  </div>
+                </div>
+                <PostList
+                  :state="activeFavoritePostState"
+                  :empty-title="favoriteEmptyTitle"
+                  :empty-description="favoriteEmptyDescription"
+                  @load-more="loadActiveFavoritePosts(true)"
+                  @like="handleLike"
+                  @favorite="handleFavorite"
+                  @follow-change="handlePostAuthorFollowChange"
+                />
+              </div>
+            </div>
           </section>
 
           <section v-else-if="activeTab === 'liked'" class="space-y-4">
@@ -400,7 +456,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Bookmark, BookmarkCheck, FileText, Globe2, Hash, Heart, Lock, MessageCircle, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
+import { Bookmark, BookmarkCheck, FileText, Flag, Globe2, Hash, Heart, Lock, Mail, MessageCircle, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -410,6 +466,7 @@ import UserCard from '@/components/user/UserCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
 import { userApi } from '@/api/user'
+import { interactionApi } from '@/api/interaction'
 import { creatorFeedbackApi } from '@/api/creatorFeedback'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { usePostInteraction } from '@/composables/usePostInteraction'
@@ -476,6 +533,34 @@ interface WorkbenchSearchGapItem {
   badge?: string
 }
 
+type FavoriteFolderKind = 'all' | 'default' | 'custom' | 'unorganized'
+
+interface FavoriteFolderView {
+  id: string
+  name: string
+  description: string
+  count: number
+  kind: FavoriteFolderKind
+  isPublic: boolean
+  isDefault: boolean
+  canRename: boolean
+  canDelete: boolean
+}
+
+interface FavoriteFolderState {
+  items: FavoriteFolderView[]
+  loading: boolean
+  error: string
+}
+
+type FavoriteFolderApi = {
+  listFavoriteFolders?: () => Promise<{ data?: any[] }>
+  createFavoriteFolder?: (payload: { name: string; visibility?: 'public' | 'private'; isPublic?: boolean }) => Promise<{ data?: any }>
+  updateFavoriteFolder?: (folderId: ApiId, payload: { name?: string; visibility?: 'public' | 'private'; isPublic?: boolean }) => Promise<{ data?: any }>
+  deleteFavoriteFolder?: (folderId: ApiId) => Promise<unknown>
+  listFavoriteFolderPosts?: (folderId: ApiId, cursor?: string, size?: number) => Promise<{ data?: PaginatedResponse<Post> | null }>
+}
+
 const createState = <T,>(): ListState<T> => reactive({
   items: [],
   cursor: undefined,
@@ -491,10 +576,18 @@ const user = ref(authStore.user)
 const activeTab = ref<TabValue>('posts')
 const posts = createState<Post>()
 const favorites = createState<Post>()
+const favoriteFolderPosts = createState<Post>()
 const likedPosts = createState<Post>()
 const following = createState<User>()
 const topics = createState<CommunityTopic>()
 const followers = createState<User>()
+const favoriteFolders = reactive<FavoriteFolderState>({
+  items: [],
+  loading: false,
+  error: '',
+})
+const selectedFavoriteFolderId = ref('all')
+const favoriteFolderActionLoading = ref(false)
 const backendContribution = ref<ContributionSummary | null>(null)
 const creatorWorkspace = ref<CreatorGrowthWorkspace | null>(null)
 const curationFeedbackSummary = ref<CreatorCurationFeedbackSummary | null>(null)
@@ -546,6 +639,107 @@ const typeDistribution = computed(() => buildTypeDistribution(posts.items))
 const publicCollectionCount = computed(() => filterVisibleCollections(myCollections.value).length)
 const privateCollectionCount = computed(() => ownerCollections.value.filter((item) => item.visibility === 'private').length)
 const unorganizedFavoriteCount = computed(() => favorites.items.length)
+const favoriteFolderApi = interactionApi as unknown as FavoriteFolderApi
+const reservedFavoriteFolderIds = new Set(['all', 'default', 'unorganized'])
+const normalizeFavoriteFolder = (raw: any): FavoriteFolderView => {
+  const id = String(raw?.id ?? raw?.folderId ?? raw?.favoriteFolderId ?? raw?.key ?? '')
+  const kind = String(raw?.kind ?? raw?.type ?? '').toLowerCase()
+  const isDefault = Boolean(raw?.isDefault ?? raw?.default ?? (kind === 'default'))
+  const isUnorganized = Boolean(raw?.isUnorganized ?? (kind === 'unorganized' || id === 'unorganized'))
+  const isPublic = Boolean(raw?.isPublic ?? raw?.public ?? raw?.visibility === 'public')
+  return {
+    id: id || (isDefault ? 'default' : isUnorganized ? 'unorganized' : `folder-${Date.now()}`),
+    name: String(raw?.name ?? raw?.title ?? (isUnorganized ? '未整理收藏' : isDefault ? '默认收藏夹' : '收藏夹')),
+    description: String(raw?.description ?? raw?.summary ?? (isUnorganized ? '后端可区分时展示未整理内容' : isDefault ? '一键收藏默认进入这里' : '自定义收藏夹')),
+    count: Number(raw?.count ?? raw?.postCount ?? raw?.favoriteCount ?? raw?.totalCount ?? 0),
+    kind: isUnorganized ? 'unorganized' : isDefault ? 'default' : 'custom',
+    isPublic,
+    isDefault,
+    canRename: Boolean(raw?.canRename ?? !isDefault),
+    canDelete: Boolean(raw?.canDelete ?? (!isDefault && !isUnorganized)),
+  }
+}
+const fallbackFavoriteFolders = computed<FavoriteFolderView[]>(() => [
+  {
+    id: 'default',
+    name: '默认收藏夹',
+    description: '一键收藏默认进入这里',
+    count: favorites.items.length,
+    kind: 'default',
+    isPublic: false,
+    isDefault: true,
+    canRename: false,
+    canDelete: false,
+  },
+  {
+    id: 'unorganized',
+    name: '未整理收藏',
+    description: '后端可区分时展示未整理内容',
+    count: unorganizedFavoriteCount.value,
+    kind: 'unorganized',
+    isPublic: false,
+    isDefault: false,
+    canRename: false,
+    canDelete: false,
+  },
+])
+const customFavoriteFolders = computed(() => favoriteFolders.items.filter((item) => item.kind === 'custom'))
+const favoriteFolderOptions = computed<FavoriteFolderView[]>(() => {
+  const serverFolders = favoriteFolders.items.filter((item) => !reservedFavoriteFolderIds.has(item.id))
+  const defaultFolder = favoriteFolders.items.find((item) => item.kind === 'default' || item.id === 'default') ?? fallbackFavoriteFolders.value[0]
+  const unorganizedFolder = favoriteFolders.items.find((item) => item.kind === 'unorganized' || item.id === 'unorganized') ?? fallbackFavoriteFolders.value[1]
+  return [
+    {
+      id: 'all',
+      name: '全部收藏',
+      description: '查看所有已收藏内容',
+      count: favorites.items.length,
+      kind: 'all',
+      isPublic: false,
+      isDefault: false,
+      canRename: false,
+      canDelete: false,
+    },
+    { ...defaultFolder, id: 'default', count: defaultFolder.count || favorites.items.length },
+    { ...unorganizedFolder, id: 'unorganized', count: unorganizedFolder.count || unorganizedFavoriteCount.value },
+    ...serverFolders,
+  ]
+})
+const activeFavoriteFolder = computed(() => (
+  favoriteFolderOptions.value.find((item) => item.id === selectedFavoriteFolderId.value) ?? favoriteFolderOptions.value[0]
+))
+const activeFavoriteFolderTitle = computed(() => activeFavoriteFolder.value?.name || '全部收藏')
+const activeFavoriteFolderDescription = computed(() => {
+  const folder = activeFavoriteFolder.value
+  if (!folder || folder.id === 'all') return '查看你保存过的经验、问题、攻略和资源，也可以按收藏夹继续整理。'
+  if (folder.kind === 'unorganized') return '后端可区分未整理收藏时，这里只展示尚未放入自定义收藏夹的内容。'
+  return folder.description || (folder.isPublic ? '公开收藏夹只对外展示其中公开可见的内容。' : '私密收藏夹只在你的个人空间可见。')
+})
+const activeFavoriteFolderMeta = computed(() => {
+  const folder = activeFavoriteFolder.value
+  if (!folder) return ''
+  const visibility = folder.id === 'all' ? '汇总视图' : folder.isPublic ? '公开' : '私密'
+  return `${visibility} · ${folder.count} 条内容`
+})
+const favoriteEmptyTitle = computed(() => {
+  const folder = activeFavoriteFolder.value
+  if (folder?.kind === 'custom') return '这个收藏夹还是空的'
+  if (folder?.kind === 'unorganized') return '没有未整理收藏'
+  return '还没有收藏内容'
+})
+const favoriteEmptyDescription = computed(() => {
+  const folder = activeFavoriteFolder.value
+  if (folder?.kind === 'custom') return '收藏夹内容会在后端接入后按所选收藏夹展示；现在可以先创建和管理收藏夹。'
+  if (folder?.kind === 'unorganized') return '如果后端能区分未整理内容，会在这里集中展示；否则使用全部收藏兜底。'
+  return '看到有用内容时点收藏，之后可以在这里集中回看，也可以整理到收藏夹。'
+})
+const activeFavoritePostState = computed(() => (
+  selectedFavoriteFolderId.value === 'all'
+  || selectedFavoriteFolderId.value === 'default'
+  || selectedFavoriteFolderId.value === 'unorganized'
+    ? favorites
+    : favoriteFolderPosts
+))
 const authorPublicPosts = computed(() => publicAuthorPosts(filterVisiblePosts(posts.items)))
 const postFeedbackScore = (post: Post) => (
   Number(post.counter?.comment || 0) * 3
@@ -827,7 +1021,7 @@ const topicIdeas = computed<WorkbenchTopicIdeaItem[]>(() => {
 const mapSearchGap = (gap: CreatorSearchGap): WorkbenchSearchGapItem => ({
   id: String(gap.id),
   title: gap.title || gap.keyword,
-  reason: gap.reasonText || '聚合需求仅作为选题参考，不承诺收录、精选、曝光、收益或排名。',
+  reason: gap.reasonText || '聚合需求仅作为选题参考，不承诺收录、精选、曝光或排序。',
   to: gap.editorHref,
   badge: gap.demandLabel || '聚合需求',
 })
@@ -848,6 +1042,11 @@ const buildCreatorActions = () => [
     description: publicCollectionCount.value > 0
       ? `已有 ${publicCollectionCount.value} 个公开合集，可继续补目录和封面。`
       : '把长期内容整理成公开合集，供作者主页展示。',
+  },
+  {
+    href: '/me/contact-requests',
+    title: '联系请求',
+    description: '查看收到的联系请求和发出的请求状态，并维护接收设置。',
   },
   {
     href: '/me/settings',
@@ -951,6 +1150,133 @@ const loadFavorites = (append = false) => loadPage(
   '收藏列表加载失败',
 )
 
+const loadFavoriteFolders = async () => {
+  favoriteFolders.loading = true
+  favoriteFolders.error = ''
+  try {
+    if (!favoriteFolderApi.listFavoriteFolders) {
+      favoriteFolders.items = []
+      return
+    }
+    const res = await favoriteFolderApi.listFavoriteFolders()
+    favoriteFolders.items = Array.isArray(res.data) ? res.data.map(normalizeFavoriteFolder) : []
+  } catch (error: any) {
+    favoriteFolders.items = []
+    favoriteFolders.error = getErrorMessage(error, '收藏夹加载失败，当前显示全部收藏。')
+  } finally {
+    favoriteFolders.loading = false
+  }
+}
+
+const loadFavoriteFolderPosts = (folderId: ApiId, append = false) => loadPage(
+  favoriteFolderPosts,
+  append,
+  async (cursor) => {
+    if (!favoriteFolderApi.listFavoriteFolderPosts) return { items: [], hasMore: false }
+    const page = (await favoriteFolderApi.listFavoriteFolderPosts(folderId, cursor, 10)).data
+    return page ? { ...page, items: filterVisiblePosts(filterPublicContent(page.items)) } : page
+  },
+  '收藏夹内容加载失败',
+)
+
+const loadActiveFavoritePosts = (append = false) => {
+  const folder = activeFavoriteFolder.value
+  if (!folder || folder.id === 'all' || folder.id === 'default' || folder.id === 'unorganized') return loadFavorites(append)
+  return loadFavoriteFolderPosts(folder.id, append)
+}
+
+const selectFavoriteFolder = async (folderId: string) => {
+  selectedFavoriteFolderId.value = folderId
+  favoriteFolderPosts.items = []
+  favoriteFolderPosts.cursor = undefined
+  favoriteFolderPosts.hasMore = false
+  favoriteFolderPosts.error = ''
+  if (!['all', 'default', 'unorganized'].includes(folderId)) {
+    await loadFavoriteFolderPosts(folderId)
+  }
+}
+
+const refreshFavoriteFolders = async () => {
+  await Promise.all([loadFavoriteFolders(), loadFavorites()])
+}
+
+const handleCreateFavoriteFolder = async () => {
+  const name = window.prompt('新建收藏夹名称')
+  if (!name?.trim()) return
+  if (!favoriteFolderApi.createFavoriteFolder) {
+    toast.error('收藏夹接口暂不可用，请稍后再试')
+    return
+  }
+  favoriteFolderActionLoading.value = true
+  try {
+    const res = await favoriteFolderApi.createFavoriteFolder({ name: name.trim(), visibility: 'private', isPublic: false })
+    await refreshFavoriteFolders()
+    const created = normalizeFavoriteFolder(res.data)
+    if (created.id) await selectFavoriteFolder(created.id)
+    toast.success('收藏夹已创建')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '新建收藏夹失败'))
+  } finally {
+    favoriteFolderActionLoading.value = false
+  }
+}
+
+const handleRenameFavoriteFolder = async () => {
+  const folder = activeFavoriteFolder.value
+  if (!folder || !folder.canRename || !favoriteFolderApi.updateFavoriteFolder) return
+  const name = window.prompt('重命名收藏夹', folder.name)
+  if (!name?.trim() || name.trim() === folder.name) return
+  favoriteFolderActionLoading.value = true
+  try {
+    await favoriteFolderApi.updateFavoriteFolder(folder.id, { name: name.trim() })
+    await loadFavoriteFolders()
+    toast.success('收藏夹已重命名')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '重命名收藏夹失败'))
+  } finally {
+    favoriteFolderActionLoading.value = false
+  }
+}
+
+const handleToggleFavoriteFolderPublic = async () => {
+  const folder = activeFavoriteFolder.value
+  if (!folder || folder.id === 'all' || !favoriteFolderApi.updateFavoriteFolder) return
+  if (!folder.isPublic) {
+    const confirmed = window.confirm('公开后，任何人都可以查看该收藏夹中的公开可见内容。私密、已删除或审核中的内容不会对外展示。')
+    if (!confirmed) return
+  }
+  favoriteFolderActionLoading.value = true
+  try {
+    const nextPublic = !folder.isPublic
+    await favoriteFolderApi.updateFavoriteFolder(folder.id, { visibility: nextPublic ? 'public' : 'private', isPublic: nextPublic })
+    await loadFavoriteFolders()
+    toast.success(nextPublic ? '收藏夹已设为公开' : '收藏夹已设为私密')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '收藏夹可见性更新失败'))
+  } finally {
+    favoriteFolderActionLoading.value = false
+  }
+}
+
+const handleDeleteFavoriteFolder = async () => {
+  const folder = activeFavoriteFolder.value
+  if (!folder || !folder.canDelete || !favoriteFolderApi.deleteFavoriteFolder) return
+  if (!window.confirm(`确认删除收藏夹「${folder.name}」？默认收藏夹不可删除。`)) return
+  favoriteFolderActionLoading.value = true
+  try {
+    await favoriteFolderApi.deleteFavoriteFolder(folder.id)
+    selectedFavoriteFolderId.value = 'all'
+    favoriteFolderPosts.items = []
+    await refreshFavoriteFolders()
+    toast.success('收藏夹已删除')
+  } catch (error: any) {
+    const message = getErrorMessage(error, '删除收藏夹失败')
+    toast.error(`${message}。如果收藏夹里还有内容，请先移动内容后再删除。`)
+  } finally {
+    favoriteFolderActionLoading.value = false
+  }
+}
+
 const loadLikedPosts = (append = false) => loadPage(
   likedPosts,
   append,
@@ -988,7 +1314,7 @@ const loadFollowers = (append = false) => {
   )
 }
 
-const allPostStates = [posts, favorites, likedPosts]
+const allPostStates = [posts, favorites, favoriteFolderPosts, likedPosts]
 
 const updatePostEverywhere = (postId: ApiId, updater: (post: Post) => void) => {
   allPostStates.forEach((state) => {
@@ -1020,6 +1346,7 @@ const handleFavorite = async (postId: ApiId) => {
   const favorited = Boolean(post.myInteraction?.favorited)
   const succeeded = await toggleFavorite(post)
   if (succeeded && favorited && activeTab.value === 'favorites') {
+    removeFromState(activeFavoritePostState.value, postId)
     removeFromState(favorites, postId)
   }
 }
@@ -1229,6 +1556,7 @@ onMounted(async () => {
     loadCreatorWorkspace(),
     loadPosts(),
     loadFavorites(),
+    loadFavoriteFolders(),
     loadLikedPosts(),
     loadMyCollections(),
     loadFollowing(),
@@ -1265,6 +1593,14 @@ watch(() => route.query.tab, (value) => {
   font-size: 2rem;
   font-weight: 800;
   color: white;
+}
+
+.profile-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: flex-end;
 }
 
 .metric-card {
@@ -1768,7 +2104,8 @@ watch(() => route.query.tab, (value) => {
   gap: 0.5rem;
 }
 
-.favorite-revisit-actions a {
+.favorite-revisit-actions a,
+.favorite-revisit-actions button {
   display: inline-flex;
   min-height: 2.25rem;
   align-items: center;
@@ -1779,6 +2116,123 @@ watch(() => route.query.tab, (value) => {
   font-size: 0.8125rem;
   font-weight: 800;
   color: rgb(29 78 216);
+}
+
+.favorite-manager {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(14rem, 0.32fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.favorite-folder-panel,
+.favorite-content-panel {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 1rem;
+}
+
+.favorite-folder-panel {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.favorite-folder-panel-head,
+.favorite-folder-toolbar,
+.favorite-folder-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.favorite-folder-panel-head strong,
+.favorite-folder-toolbar strong {
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.favorite-folder-panel-head span,
+.favorite-folder-toolbar span,
+.favorite-folder-loading,
+.favorite-folder-empty {
+  color: rgb(100 116 139);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.favorite-folder-item {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.625rem;
+  background: rgb(248 250 252);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.favorite-folder-item strong,
+.favorite-folder-item small {
+  display: block;
+}
+
+.favorite-folder-item strong {
+  color: rgb(15 23 42);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.favorite-folder-item small {
+  margin-top: 0.2rem;
+  color: rgb(100 116 139);
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.favorite-folder-item em {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: white;
+  padding: 0.2rem 0.5rem;
+  color: rgb(37 99 235);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.favorite-folder-active {
+  border-color: rgb(147 197 253);
+  background: rgb(239 246 255);
+}
+
+.favorite-content-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.favorite-folder-toolbar {
+  flex-wrap: wrap;
+}
+
+.favorite-folder-toolbar span {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.favorite-folder-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.danger-button {
+  border-color: rgb(254 202 202);
+  color: rgb(185 28 28);
 }
 
 .empty-panel,
@@ -1967,9 +2421,45 @@ html.dark .growth-stat {
   color: rgb(203 213 225);
 }
 
-.dark .favorite-revisit-actions a {
+.dark .favorite-revisit-actions a,
+.dark .favorite-revisit-actions button {
   background: rgb(30 41 59);
   color: rgb(191 219 254);
+}
+
+.dark .favorite-folder-panel,
+.dark .favorite-content-panel {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+}
+
+.dark .favorite-folder-panel-head strong,
+.dark .favorite-folder-toolbar strong,
+.dark .favorite-folder-item strong {
+  color: rgb(248 250 252);
+}
+
+.dark .favorite-folder-panel-head span,
+.dark .favorite-folder-toolbar span,
+.dark .favorite-folder-loading,
+.dark .favorite-folder-empty,
+.dark .favorite-folder-item small {
+  color: rgb(148 163 184);
+}
+
+.dark .favorite-folder-item {
+  border-color: rgb(30 41 59);
+  background: rgb(2 6 23);
+}
+
+.dark .favorite-folder-active {
+  border-color: rgb(30 64 175);
+  background: rgb(30 41 59);
+}
+
+.dark .favorite-folder-item em {
+  background: rgb(15 23 42);
+  color: rgb(147 197 253);
 }
 
 @media (max-width: 640px) {
@@ -2001,12 +2491,27 @@ html.dark .growth-stat {
   }
 
   .favorite-revisit-actions,
-  .favorite-revisit-actions a {
+  .favorite-revisit-actions a,
+  .favorite-revisit-actions button {
+    width: 100%;
+  }
+
+  .favorite-manager {
+    grid-template-columns: 1fr;
+  }
+
+  .favorite-folder-actions,
+  .favorite-folder-actions button {
     width: 100%;
   }
 
   .creator-feedback-actions,
   .creator-feedback-actions a {
+    width: 100%;
+  }
+
+  .profile-actions,
+  .profile-actions a {
     width: 100%;
   }
 }

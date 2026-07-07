@@ -60,6 +60,7 @@ has(adminGovernance, /opsApi\.pageAuditLogs|opsApi\.listAuditLogs/, 'Audit logs 
 has(adminGovernance, /reviewQueueLoadWarnings/, 'Governance center must render degraded review-queue warnings.')
 has(adminGovernance, /reviewQueueSource = ref<'backend' \| 'frontend-fallback'>\('frontend-fallback'\)/, 'Review queue must explicitly track backend versus fallback preview source.')
 has(adminGovernance, /canQueueAction[\s\S]*reviewQueueSource\.value === 'backend'/, 'Fallback review queue items must not expose executable moderation actions.')
+has(adminGovernance, /const queueExtId[\s\S]*\/\^\[1-9\]\\d\*\$\/\.test/, 'Review queue extJson ids must be restricted to positive numeric ids before route construction.')
 has(adminGovernance, /requireRiskConfirm/, 'High-risk admin governance operations must go through the confirmation dialog.')
 has(adminGovernance, /RiskConfirmDialog/, 'Governance center must mount the shared risk confirmation dialog.')
 

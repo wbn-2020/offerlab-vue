@@ -1,4 +1,6 @@
 import client, { BizException, type Result } from './client'
+import type { ApiId, PaginatedResponse, Post } from './types'
+import { adaptPage, adaptPost } from './adapters'
 
 export type DiscoverySource =
   | 'remote'
@@ -251,4 +253,20 @@ export const discoveryApi = {
       }
     }
   },
+
+  listPublicChannelPosts: async (params: {
+    type: number
+    domain?: number
+    cursor?: string
+    size?: number
+  }): Promise<Result<PaginatedResponse<Post>>> => {
+    const res = await client.get('/api/v1/posts', { params }) as Result<any>
+    return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
+  },
+
+  followPublicAuthor: (uid: ApiId): Promise<Result<void>> =>
+    client.post(`/api/v1/users/${uid}/follow`),
+
+  unfollowPublicAuthor: (uid: ApiId): Promise<Result<void>> =>
+    client.delete(`/api/v1/users/${uid}/follow`),
 }

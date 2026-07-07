@@ -203,7 +203,9 @@
           :post-id="post.postId"
           :favorited="Boolean(post.myInteraction?.favorited)"
           :open-after-save="Boolean(post.myInteraction?.favorited)"
-          @organize="handleOrganizeSavedPost"
+          trigger-label="移动分组"
+          :disabled="favoritePending"
+          @moved="handleSavedPostMoved"
         />
         <button
           v-if="!isOwnPost"
@@ -421,9 +423,9 @@ const handleFavorite = () => {
   emit('favorite', props.post.postId)
 }
 
-const handleOrganizeSavedPost = () => {
+const handleSavedPostMoved = (_postId: Post['postId'], _folderId: unknown, folderName: string) => {
   if (!requireLogin()) return
-  toast.success('已记录到本机整理入口；独立清单后端未接入时不会跨设备同步。')
+  toast.success(`已移动到${folderName}`)
 }
 
 const handleReport = () => {

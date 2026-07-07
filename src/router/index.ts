@@ -69,6 +69,12 @@ const routes = [
     meta: { title: '合集详情' },
   },
   {
+    path: '/favorite-folders/:id',
+    name: 'FavoriteFolderDetail',
+    component: () => import('@/views/FavoriteFolderDetailView.vue'),
+    meta: { title: '公开收藏夹' },
+  },
+  {
     path: '/growth/profile',
     name: 'GrowthProfile',
     component: () => import('@/views/GrowthProfileView.vue'),
@@ -105,6 +111,12 @@ const routes = [
     meta: { title: '我的主页', requiresAuth: true },
   },
   {
+    path: '/me/contact-requests',
+    name: 'ContactRequests',
+    component: () => import('@/views/ContactRequestsView.vue'),
+    meta: { title: '联系请求', requiresAuth: true },
+  },
+  {
     path: '/me/creator',
     alias: '/creator/workbench',
     name: 'CreatorWorkbench',
@@ -114,13 +126,13 @@ const routes = [
   {
     path: '/me/prep',
     name: 'MePrep',
-    redirect: '/me',
+    component: () => import('@/views/MePrepView.vue'),
     meta: { title: '个人学习空间', requiresAuth: true },
   },
   {
     path: '/mock-interview',
     name: 'MockInterview',
-    redirect: '/questions',
+    component: () => import('@/views/MockInterviewView.vue'),
     meta: { title: '个人练习归档', requiresAuth: true },
   },
   {
@@ -129,6 +141,12 @@ const routes = [
     name: 'Notifications',
     component: () => import('@/views/NotificationsView.vue'),
     meta: { title: '通知', requiresAuth: true },
+  },
+  {
+    path: '/me/reports',
+    name: 'MyReports',
+    component: () => import('@/views/MyReportsView.vue'),
+    meta: { title: '我的举报', requiresAuth: true },
   },
   {
     path: '/me/settings',

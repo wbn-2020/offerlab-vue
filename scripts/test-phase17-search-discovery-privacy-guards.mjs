@@ -85,7 +85,7 @@ has(operationsApi, /displayLabel:\s*'示例\/fallback'/, 'Operations fallback mu
 has(operationsApi, /filterOpsOrchestrationDisplayItems/, 'Operations fallback pools must use display governance filtering.')
 has(operationsApi, /markOpsOrchestrationExample/, 'Operations fallback data must be marked as example data.')
 has(opsGuard, /isDemoFallbackMarkedExample/, 'Ops guard must reject unmarked demo/fallback entries.')
-has(operationSlotCard, /示例\/fallback/, 'Public operation slot fallback must be visibly labeled as example/fallback.')
+has(operationSlotCard, /isUnavailable\.value \? '暂不可用'/, 'Public operation slot fallback must translate internal example/fallback labels into a safe degraded state.')
 missing(operationsApi, /自然搜索排名|natural search rank|organic rank|付费置顶|浠樿垂缃《/, 'Operational topics must not masquerade as natural search ranking or paid pinning.')
 
 for (const [name, source] of [

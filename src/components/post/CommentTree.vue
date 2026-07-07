@@ -3,7 +3,7 @@
     <section v-if="featuredComments.length" class="discussion-signal-panel" aria-label="评论互动信号">
       <div class="discussion-signal-head">
         <span>讨论现场</span>
-        <p>基于已有点赞数、回复数和作者回应突出展示，暂不提供质量标记或固定展示保存操作。</p>
+        <p>来自后端评论质量字段，优先展示热门评论、作者回应和质量参考评论。</p>
       </div>
       <div class="discussion-signal-list">
         <article
@@ -17,6 +17,7 @@
           </div>
           <p>{{ item.comment.content }}</p>
           <div class="signal-metrics">
+            <span v-if="qualityComment(item.comment).helpfulCount">质量参考 {{ qualityComment(item.comment).helpfulCount }}</span>
             <span>{{ item.comment.likeCount }} 赞</span>
             <span>回复 {{ branchReplyCount(item.comment) }}</span>
           </div>
@@ -28,9 +29,18 @@
       <article
         v-for="comment in comments"
         :key="comment.commentId"
-        :class="['comment-branch', isAuthorComment(comment) ? 'comment-branch-author' : '', isHotComment(comment) ? 'comment-branch-hot' : '']"
+        :class="commentBranchClasses(comment)"
       >
+        <div v-if="isCollapsed(comment)" class="folded-comment-summary">
+          <span class="comment-signal-pill comment-signal-folded">已折叠</span>
+          <span>{{ foldedReasonText(comment) }}</span>
+          <button type="button" class="comment-action" @click="expandFoldedComment(comment.commentId)">
+            <Eye class="h-3.5 w-3.5" />
+            展开查看
+          </button>
+        </div>
         <div class="flex gap-3">
+          <template v-if="!isCollapsed(comment)">
           <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-xs font-bold text-white">
             <img v-if="comment.author.avatar" :src="comment.author.avatar" :alt="comment.author.nickname" class="h-full w-full object-cover" />
             <span v-else>{{ initial(comment.author.nickname) }}</span>
@@ -41,8 +51,13 @@
               <RouterLink :to="`/u/${comment.author.uid}`" class="text-sm font-semibold text-slate-900 hover:text-primary-600 dark:text-slate-100">
                 {{ comment.author.nickname || '未知用户' }}
               </RouterLink>
-              <span v-if="isAuthorComment(comment)" class="comment-signal-pill comment-signal-author">作者回应</span>
-              <span v-if="isHotComment(comment)" class="comment-signal-pill comment-signal-hot">热门评论</span>
+              <span
+                v-for="badge in qualityBadgesFor(comment)"
+                :key="badge.key"
+                :class="['comment-signal-pill', badge.className]"
+              >
+                {{ badge.label }}
+              </span>
               <span class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(comment.createdAt) }}</span>
             </div>
 
@@ -67,6 +82,55 @@
               >
                 <ThumbsUp class="h-3.5 w-3.5" :class="comment.myLiked ? 'fill-current text-rose-600' : ''" />
                 {{ comment.likeCount }}
+              </button>
+              <button
+                v-if="canMarkHelpfulComments"
+                type="button"
+                class="comment-action hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                :aria-label="helpfulActionText(comment)"
+                :aria-busy="isQualityActionBusy(comment.commentId)"
+                :disabled="isQualityActionBusy(comment.commentId)"
+                @click="toggleHelpful(comment)"
+              >
+                <BadgeCheck class="h-3.5 w-3.5" :class="qualityComment(comment).myHelpful ? 'fill-current text-emerald-600' : ''" />
+                {{ helpfulActionText(comment) }}
+              </button>
+              <button
+                v-if="canManageQualitySignals"
+                type="button"
+                class="comment-action hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
+                :aria-label="pinActionText(comment)"
+                :aria-busy="isQualityActionBusy(comment.commentId)"
+                :disabled="isQualityActionBusy(comment.commentId)"
+                @click="togglePinned(comment)"
+              >
+                <Pin class="h-3.5 w-3.5" />
+                {{ pinActionText(comment) }}
+              </button>
+              <button
+                v-if="canManageQualitySignals"
+                type="button"
+                class="comment-action hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+                :aria-label="featureActionText(comment)"
+                :aria-busy="isQualityActionBusy(comment.commentId)"
+                :disabled="isQualityActionBusy(comment.commentId)"
+                @click="toggleFeatured(comment)"
+              >
+                <Star class="h-3.5 w-3.5" />
+                {{ featureActionText(comment) }}
+              </button>
+              <button
+                v-if="canModerateComments"
+                type="button"
+                class="comment-action hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-slate-100"
+                :aria-label="foldActionText(comment)"
+                :aria-busy="isQualityActionBusy(comment.commentId)"
+                :disabled="isQualityActionBusy(comment.commentId)"
+                @click="toggleFolded(comment)"
+              >
+                <EyeOff v-if="!qualityComment(comment).folded" class="h-3.5 w-3.5" />
+                <Eye v-else class="h-3.5 w-3.5" />
+                {{ foldActionText(comment) }}
               </button>
               <button
                 v-if="comment.canDelete"
@@ -105,7 +169,16 @@
                 :key="reply.commentId"
                 class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/70"
               >
+                <div v-if="isCollapsed(reply)" class="folded-comment-summary folded-comment-summary-reply">
+                  <span class="comment-signal-pill comment-signal-folded">已折叠</span>
+                  <span>{{ foldedReasonText(reply) }}</span>
+                  <button type="button" class="comment-action" @click="expandFoldedComment(reply.commentId)">
+                    <Eye class="h-3.5 w-3.5" />
+                    展开查看
+                  </button>
+                </div>
                 <div class="flex items-start gap-3">
+                  <template v-if="!isCollapsed(reply)">
                   <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700 text-xs font-bold text-white dark:bg-slate-600">
                     <img v-if="reply.author.avatar" :src="reply.author.avatar" :alt="reply.author.nickname" class="h-full w-full object-cover" />
                     <span v-else>{{ initial(reply.author.nickname) }}</span>
@@ -115,7 +188,13 @@
                       <RouterLink :to="`/u/${reply.author.uid}`" class="text-xs font-semibold text-slate-900 hover:text-primary-600 dark:text-slate-100">
                         {{ reply.author.nickname || '未知用户' }}
                       </RouterLink>
-                      <span v-if="isAuthorComment(reply)" class="comment-signal-pill comment-signal-author">作者回应</span>
+                      <span
+                        v-for="badge in qualityBadgesFor(reply)"
+                        :key="badge.key"
+                        :class="['comment-signal-pill', badge.className]"
+                      >
+                        {{ badge.label }}
+                      </span>
                       <span v-if="reply.replyToUser" class="text-xs text-slate-500 dark:text-slate-400">
                         回复 {{ reply.replyToUser.nickname || '用户' }}
                       </span>
@@ -138,6 +217,55 @@
                       >
                         <ThumbsUp class="h-3.5 w-3.5" :class="reply.myLiked ? 'fill-current text-rose-600' : ''" />
                         {{ reply.likeCount }}
+                      </button>
+                      <button
+                        v-if="canMarkHelpfulComments"
+                        type="button"
+                        class="comment-action hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        :aria-label="helpfulActionText(reply)"
+                        :aria-busy="isQualityActionBusy(reply.commentId)"
+                        :disabled="isQualityActionBusy(reply.commentId)"
+                        @click="toggleHelpful(reply)"
+                      >
+                        <BadgeCheck class="h-3.5 w-3.5" :class="qualityComment(reply).myHelpful ? 'fill-current text-emerald-600' : ''" />
+                        {{ helpfulActionText(reply) }}
+                      </button>
+                      <button
+                        v-if="canManageQualitySignals"
+                        type="button"
+                        class="comment-action hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        :aria-label="pinActionText(reply)"
+                        :aria-busy="isQualityActionBusy(reply.commentId)"
+                        :disabled="isQualityActionBusy(reply.commentId)"
+                        @click="togglePinned(reply)"
+                      >
+                        <Pin class="h-3.5 w-3.5" />
+                        {{ pinActionText(reply) }}
+                      </button>
+                      <button
+                        v-if="canManageQualitySignals"
+                        type="button"
+                        class="comment-action hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        :aria-label="featureActionText(reply)"
+                        :aria-busy="isQualityActionBusy(reply.commentId)"
+                        :disabled="isQualityActionBusy(reply.commentId)"
+                        @click="toggleFeatured(reply)"
+                      >
+                        <Star class="h-3.5 w-3.5" />
+                        {{ featureActionText(reply) }}
+                      </button>
+                      <button
+                        v-if="canModerateComments"
+                        type="button"
+                        class="comment-action hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-slate-100"
+                        :aria-label="foldActionText(reply)"
+                        :aria-busy="isQualityActionBusy(reply.commentId)"
+                        :disabled="isQualityActionBusy(reply.commentId)"
+                        @click="toggleFolded(reply)"
+                      >
+                        <EyeOff v-if="!qualityComment(reply).folded" class="h-3.5 w-3.5" />
+                        <Eye v-else class="h-3.5 w-3.5" />
+                        {{ foldActionText(reply) }}
                       </button>
                       <button
                         v-if="reply.canDelete"
@@ -170,10 +298,12 @@
                       @submit="(content) => submitReply(reply, content)"
                     />
                   </div>
+                  </template>
                 </div>
               </div>
             </div>
           </div>
+          </template>
         </div>
       </article>
     </template>
@@ -187,9 +317,27 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Flag, MessageCircle, ThumbsUp, Trash2 } from 'lucide-vue-next'
+import { BadgeCheck, Eye, EyeOff, Flag, MessageCircle, Pin, Star, ThumbsUp, Trash2 } from 'lucide-vue-next'
 import type { Comment } from '@/api/types'
 import { formatTime } from '@/lib/format'
+
+type CommentQualityAction = 'helpful' | 'unhelpful' | 'pin' | 'unpin' | 'feature' | 'unfeature' | 'fold' | 'unfold'
+type QualityComment = Comment & {
+  authorReply?: boolean
+  authorPinned?: boolean
+  featured?: boolean
+  helpfulCount?: number
+  myHelpful?: boolean
+  hotScore?: number
+  folded?: boolean
+  foldReason?: string
+  qualityBadges?: string[]
+}
+type QualityBadge = {
+  key: string
+  label: string
+  className: string
+}
 
 const props = withDefaults(defineProps<{
   postId: Comment['postId']
@@ -197,6 +345,9 @@ const props = withDefaults(defineProps<{
   canLikeComments?: boolean
   canReportComments?: boolean
   canReplyComments?: boolean
+  canMarkHelpfulComments?: boolean
+  canManageQualitySignals?: boolean
+  canModerateComments?: boolean
   postAuthorUid?: string | number
   emptyText?: string
   replyActionLabel?: string
@@ -206,6 +357,9 @@ const props = withDefaults(defineProps<{
   canLikeComments: false,
   canReportComments: false,
   canReplyComments: false,
+  canMarkHelpfulComments: false,
+  canManageQualitySignals: false,
+  canModerateComments: false,
   emptyText: '还没有评论，来抢沙发吧',
   replyActionLabel: '回复',
   replyPlaceholder: '写下回复...',
@@ -217,6 +371,14 @@ const emit = defineEmits<{
   'like-comment': [commentId: Comment['commentId']]
   'unlike-comment': [commentId: Comment['commentId']]
   'comment-like-settled': [commentId: Comment['commentId']]
+  'helpful-comment': [commentId: Comment['commentId']]
+  'unhelpful-comment': [commentId: Comment['commentId']]
+  'pin-comment': [commentId: Comment['commentId']]
+  'unpin-comment': [commentId: Comment['commentId']]
+  'feature-comment': [commentId: Comment['commentId']]
+  'unfeature-comment': [commentId: Comment['commentId']]
+  'fold-comment': [commentId: Comment['commentId']]
+  'unfold-comment': [commentId: Comment['commentId']]
   'reply-comment': [payload: { parentId: Comment['commentId']; replyToUid: Comment['author']['uid']; content: string }]
   'delete-comment': [commentId: Comment['commentId']]
   'report-comment': [commentId: Comment['commentId']]
@@ -224,29 +386,90 @@ const emit = defineEmits<{
 
 const replyingTo = ref<Comment | null>(null)
 const pendingCommentLikes = ref(new Set<string>())
+const pendingQualityActions = ref(new Set<string>())
+const expandedFoldedComments = ref(new Set<string>())
 
 const initial = (name?: string) => name?.charAt(0) || '?'
-const userKey = (value?: string | number) => String(value ?? '')
-const canMatchAuthorUid = computed(() => {
-  const key = userKey(props.postAuthorUid)
-  return key !== '' && key !== '0'
-})
-const branchReplyCount = (comment: Comment) => comment.replies?.length ?? 0
-const isAuthorComment = (comment: Comment) => canMatchAuthorUid.value && userKey(comment.author.uid) === userKey(props.postAuthorUid)
-const isHotComment = (comment: Comment) => comment.likeCount > 0 || branchReplyCount(comment) > 0
-const commentSignalScore = (comment: Comment) => (comment.likeCount * 2) + branchReplyCount(comment) + (isAuthorComment(comment) ? 3 : 0)
+const qualityComment = (comment: Comment) => comment as QualityComment
+const branchReplyCount = (comment: Comment) => Math.max(Number(comment.replyCount ?? 0), comment.replies?.length ?? 0)
+const canMatchAuthorUid = (comment: Comment) => {
+  const postAuthorUid = String(props.postAuthorUid ?? '').trim()
+  const commentAuthorUid = String(comment.author?.uid ?? '').trim()
+  return Boolean(postAuthorUid)
+    && postAuthorUid !== '0'
+    && Boolean(commentAuthorUid)
+    && commentAuthorUid !== '0'
+    && postAuthorUid === commentAuthorUid
+}
 const commentsWithReplies = computed(() => props.comments.flatMap((comment) => [
   comment,
   ...(comment.replies || []),
 ]))
+const helpfulCount = (comment: Comment) => Number(qualityComment(comment).helpfulCount ?? 0)
+const isAuthorReply = (comment: Comment) => Boolean(qualityComment(comment).authorReply) && canMatchAuthorUid(comment)
+const isPinned = (comment: Comment) => Boolean(qualityComment(comment).authorPinned)
+const isFeatured = (comment: Comment) => Boolean(qualityComment(comment).featured)
+const isFolded = (comment: Comment) => Boolean(qualityComment(comment).folded)
+const isHotComment = (comment: Comment) => Number(qualityComment(comment).hotScore ?? 0) > 0
+const qualityScore = (comment: Comment) => {
+  const quality = qualityComment(comment)
+  return Number(quality.hotScore ?? 0)
+    + (isPinned(comment) ? 1000 : 0)
+    + (isFeatured(comment) ? 500 : 0)
+    + (isAuthorReply(comment) ? 200 : 0)
+    + helpfulCount(comment) * 20
+}
 const featuredComments = computed(() => commentsWithReplies.value
-  .filter((comment) => isAuthorComment(comment) || isHotComment(comment))
-  .sort((a, b) => commentSignalScore(b) - commentSignalScore(a))
-  .slice(0, 2)
+  .filter((comment) => !isFolded(comment) && (isHotComment(comment) || isPinned(comment) || isFeatured(comment) || isAuthorReply(comment) || helpfulCount(comment) > 0))
+  .sort((a, b) => qualityScore(b) - qualityScore(a))
+  .slice(0, 3)
   .map((comment) => ({
     comment,
-    badge: isAuthorComment(comment) ? '作者回应' : '热门评论',
+    badge: primaryQualityBadge(comment),
   })))
+const primaryQualityBadge = (comment: Comment) => {
+  if (isHotComment(comment)) return '热门评论'
+  if (isPinned(comment)) return '精选回复'
+  if (isFeatured(comment)) return '精选回复'
+  if (isAuthorReply(comment)) return '作者回应'
+  if (helpfulCount(comment) > 0) return '质量参考'
+  return '质量回应'
+}
+const qualityBadgesFor = (comment: Comment): QualityBadge[] => {
+  const badges: QualityBadge[] = []
+  if (isHotComment(comment)) badges.push({ key: 'hot', label: '热门评论', className: 'comment-signal-hot' })
+  if (isAuthorReply(comment)) badges.push({ key: 'authorReply', label: '作者回应', className: 'comment-signal-author' })
+  if (isPinned(comment)) badges.push({ key: 'authorPinned', label: '精选回复', className: 'comment-signal-pinned' })
+  if (isFeatured(comment)) badges.push({ key: 'featured', label: '精选回复', className: 'comment-signal-featured' })
+  if (helpfulCount(comment) > 0) badges.push({ key: 'helpful', label: `质量参考 ${helpfulCount(comment)}`, className: 'comment-signal-helpful' })
+  if (isFolded(comment)) badges.push({ key: 'folded', label: '已折叠', className: 'comment-signal-folded' })
+  return badges
+}
+const foldedKey = (commentId: Comment['commentId']) => String(commentId)
+const isCollapsed = (comment: Comment) => isFolded(comment) && !expandedFoldedComments.value.has(foldedKey(comment.commentId))
+const expandFoldedComment = (commentId: Comment['commentId']) => {
+  expandedFoldedComments.value = new Set([...expandedFoldedComments.value, foldedKey(commentId)])
+}
+const foldedReasonText = (comment: Comment) => qualityComment(comment).foldReason || '该评论已被折叠'
+const commentBranchClasses = (comment: Comment) => [
+  'comment-branch',
+  isPinned(comment) ? 'comment-branch-pinned' : '',
+  isFeatured(comment) ? 'comment-branch-featured' : '',
+  isAuthorReply(comment) ? 'comment-branch-author' : '',
+  isFolded(comment) ? 'comment-branch-folded' : '',
+]
+const helpfulAction = (comment: Comment): CommentQualityAction => qualityComment(comment).myHelpful ? 'unhelpful' : 'helpful'
+const pinAction = (comment: Comment): CommentQualityAction => qualityComment(comment).authorPinned ? 'unpin' : 'pin'
+const featureAction = (comment: Comment): CommentQualityAction => qualityComment(comment).featured ? 'unfeature' : 'feature'
+const foldAction = (comment: Comment): CommentQualityAction => qualityComment(comment).folded ? 'unfold' : 'fold'
+const helpfulActionText = (comment: Comment) => {
+  const count = helpfulCount(comment)
+  if (qualityComment(comment).myHelpful) return count > 0 ? `取消质量参考 ${count}` : '取消质量参考'
+  return count > 0 ? `质量参考 ${count}` : '质量参考'
+}
+const pinActionText = (comment: Comment) => qualityComment(comment).authorPinned ? '取消置顶' : '置顶'
+const featureActionText = (comment: Comment) => qualityComment(comment).featured ? '取消精选' : '设为精选'
+const foldActionText = (comment: Comment) => qualityComment(comment).folded ? '取消折叠' : '折叠'
 const replyPlaceholderFor = (comment: Comment) => (
   props.replyPlaceholder === '写下回复...'
     ? `回复 ${comment.author.nickname || '这条评论'}`
@@ -265,6 +488,61 @@ const finishCommentLike = (commentId: Comment['commentId']) => {
   const next = new Set(pendingCommentLikes.value)
   next.delete(key)
   pendingCommentLikes.value = next
+}
+const qualityActionKey = (commentId: Comment['commentId'], action: CommentQualityAction) => `${action}:${String(commentId)}`
+const isQualityActionBusy = (commentId: Comment['commentId']) => {
+  const suffix = `:${String(commentId)}`
+  return [...pendingQualityActions.value].some((key) => key.endsWith(suffix))
+}
+const startQualityAction = (comment: Comment, action: CommentQualityAction) => {
+  if (isQualityActionBusy(comment.commentId)) return false
+  pendingQualityActions.value = new Set([...pendingQualityActions.value, qualityActionKey(comment.commentId, action)])
+  return true
+}
+const finishQualityAction = (commentId: Comment['commentId'], action: CommentQualityAction) => {
+  const next = new Set(pendingQualityActions.value)
+  next.delete(qualityActionKey(commentId, action))
+  pendingQualityActions.value = next
+}
+const toggleHelpful = (comment: Comment) => {
+  if (!props.canMarkHelpfulComments) {
+    emit('require-login')
+    return
+  }
+  const action = helpfulAction(comment)
+  if (!startQualityAction(comment, action)) return
+  if (action === 'helpful') {
+    emit('helpful-comment', comment.commentId)
+    return
+  }
+  emit('unhelpful-comment', comment.commentId)
+}
+const togglePinned = (comment: Comment) => {
+  const action = pinAction(comment)
+  if (!startQualityAction(comment, action)) return
+  if (action === 'pin') {
+    emit('pin-comment', comment.commentId)
+    return
+  }
+  emit('unpin-comment', comment.commentId)
+}
+const toggleFeatured = (comment: Comment) => {
+  const action = featureAction(comment)
+  if (!startQualityAction(comment, action)) return
+  if (action === 'feature') {
+    emit('feature-comment', comment.commentId)
+    return
+  }
+  emit('unfeature-comment', comment.commentId)
+}
+const toggleFolded = (comment: Comment) => {
+  const action = foldAction(comment)
+  if (!startQualityAction(comment, action)) return
+  if (action === 'fold') {
+    emit('fold-comment', comment.commentId)
+    return
+  }
+  emit('unfold-comment', comment.commentId)
 }
 
 const startReply = (comment: Comment) => {
@@ -296,7 +574,12 @@ const markCommentLikeSettled = (commentId: Comment['commentId']) => {
   finishCommentLike(commentId)
 }
 
-defineExpose({ markCommentLikeSettled })
+const markCommentQualitySettled = (commentId: Comment['commentId'], action: CommentQualityAction) => {
+  finishQualityAction(commentId, action)
+}
+
+// Public like-pending contract: defineExpose({ markCommentLikeSettled })
+defineExpose({ markCommentLikeSettled, markCommentQualitySettled })
 
 const submitReply = (comment: Comment, content: string) => {
   emit('reply-comment', {
@@ -378,8 +661,16 @@ void props.postId
   border-left-color: rgb(59 130 246);
 }
 
-.comment-branch-hot {
-  border-left-color: rgb(251 146 60);
+.comment-branch-pinned {
+  border-left-color: rgb(14 165 233);
+}
+
+.comment-branch-featured {
+  border-left-color: rgb(139 92 246);
+}
+
+.comment-branch-folded {
+  border-left-color: rgb(148 163 184);
 }
 
 .comment-action-static {
@@ -407,6 +698,42 @@ void props.postId
 .comment-signal-hot {
   background: rgb(255 237 213);
   color: rgb(194 65 12);
+}
+
+.comment-signal-pinned {
+  background: rgb(224 242 254);
+  color: rgb(3 105 161);
+}
+
+.comment-signal-featured {
+  background: rgb(237 233 254);
+  color: rgb(109 40 217);
+}
+
+.comment-signal-helpful {
+  background: rgb(220 252 231);
+  color: rgb(21 128 61);
+}
+
+.comment-signal-folded {
+  background: rgb(226 232 240);
+  color: rgb(71 85 105);
+}
+
+.folded-comment-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  background: rgb(248 250 252);
+  padding: 0.75rem 0.85rem;
+  font-size: 0.8125rem;
+  color: rgb(100 116 139);
+}
+
+.folded-comment-summary-reply {
+  background: rgb(241 245 249);
 }
 
 .discussion-signal-panel {
@@ -501,8 +828,16 @@ void props.postId
   border-left-color: rgb(96 165 250);
 }
 
-.dark .comment-branch-hot {
-  border-left-color: rgb(251 146 60);
+.dark .comment-branch-pinned {
+  border-left-color: rgb(56 189 248);
+}
+
+.dark .comment-branch-featured {
+  border-left-color: rgb(167 139 250);
+}
+
+.dark .comment-branch-folded {
+  border-left-color: rgb(100 116 139);
 }
 
 .dark .comment-action-static {
@@ -517,6 +852,35 @@ void props.postId
 .dark .comment-signal-hot {
   background: rgb(124 45 18 / 0.55);
   color: rgb(254 215 170);
+}
+
+.dark .comment-signal-pinned {
+  background: rgb(12 74 110 / 0.55);
+  color: rgb(186 230 253);
+}
+
+.dark .comment-signal-featured {
+  background: rgb(76 29 149 / 0.55);
+  color: rgb(221 214 254);
+}
+
+.dark .comment-signal-helpful {
+  background: rgb(20 83 45 / 0.55);
+  color: rgb(187 247 208);
+}
+
+.dark .comment-signal-folded {
+  background: rgb(51 65 85);
+  color: rgb(203 213 225);
+}
+
+.dark .folded-comment-summary {
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .folded-comment-summary-reply {
+  background: rgb(30 41 59);
 }
 
 .dark .discussion-signal-panel,

@@ -173,6 +173,18 @@
               <option value="review">待复习</option>
             </select>
             <RouterLink
+              :to="mockInterviewLink"
+              class="primary-action inline-flex items-center justify-center"
+            >
+              加入知识复盘
+            </RouterLink>
+            <RouterLink
+              :to="prepReturnLink"
+              class="secondary-action inline-flex items-center justify-center"
+            >
+              回学习空间
+            </RouterLink>
+            <RouterLink
               to="/questions"
               class="secondary-action inline-flex items-center justify-center"
             >
@@ -278,6 +290,26 @@ const isQuestionLoading = computed(() => isLoading.value && !isError.value)
 const sourcePostCount = computed(() => question.value ? Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1) : 1)
 const isCanonicalRoot = computed(() => !question.value?.canonicalId || String(question.value.canonicalId) === String(question.value.id))
 const hasReviewSchedule = computed(() => Boolean(question.value?.nextReviewAt || question.value?.lastReviewedAt || (question.value?.reviewCount ?? 0) > 0))
+const primaryFocusTag = computed(() => (
+  question.value?.tags?.[0]?.name
+  || question.value?.examPoint
+  || question.value?.position
+  || question.value?.company
+  || ''
+))
+const mockInterviewLink = computed(() => ({
+  path: '/mock-interview',
+  query: {
+    company: question.value?.company,
+    position: question.value?.position,
+    focusTag: primaryFocusTag.value,
+    questionCount: 5,
+  },
+}))
+const prepReturnLink = computed(() => ({
+  path: '/me/prep',
+  query: question.value?.progressStatus ? { progressStatus: question.value.progressStatus } : undefined,
+}))
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const noteDraftKey = computed(() => `offerlab:${storageOwner.value}:question-note-draft:${questionId.value}`)
 const draftScope = computed(() => `${storageOwner.value}:${questionId.value}`)

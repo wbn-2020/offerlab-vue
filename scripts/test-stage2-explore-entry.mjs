@@ -50,13 +50,13 @@ assert.match(
 )
 assert.match(
   exploreView,
-  /const loadChannelLatestPosts[\s\S]*Promise\.allSettled\(activeChannelPostTypes\.value\.map[\s\S]*postApi\.list\(\{[\s\S]*type/,
-  'ExploreView must fetch each active channel post type separately before merging latest posts',
+  /const loadChannelLatestPosts[\s\S]*Promise\.allSettled\(activeChannelPostTypes\.value\.map[\s\S]*discoveryApi\.listPublicChannelPosts\(\{[\s\S]*type/,
+  'ExploreView must fetch each active channel post type through the discovery adapter before merging latest posts',
 )
 assert.match(
   exploreView,
-  /postApi\.list\(\{[\s\S]*size:\s*8[\s\S]*domain:\s*activeDomain\.value[\s\S]*type:\s*activeListType\.value/,
-  'ExploreView must keep the normal latest-post request with active domain and single-type filters',
+  /discoveryApi\.listPublicChannelPosts\(\{[\s\S]*type,[\s\S]*size:\s*6[\s\S]*domain:\s*activeDomain\.value/,
+  'ExploreView must read channel latest posts through the discovery adapter with active domain filters',
 )
 assert.match(
   exploreView,

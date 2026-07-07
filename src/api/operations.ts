@@ -733,8 +733,8 @@ const emptyPublicOperationSlot = (
     title: 'Community Featured',
     description: 'The featured slot is temporarily unavailable.',
     status: 'OFFLINE',
-    displayLabel: 'Unavailable',
-    explanation: 'The public featured slot is empty while the backend curation service is unavailable.',
+    displayLabel: '示例/fallback',
+    explanation: '运营整理暂时不可用，当前展示稳定空状态。',
     source: 'unavailable',
     degraded: true,
     fallbackReason,
@@ -954,8 +954,10 @@ export const operationsApi = {
     note?: string,
     permissions?: OpsOrchestrationPermissions | null,
   ): Promise<Result<OperationActionResult>> => {
-    const permissionAction = action === 'archive' ? 'offline' : action
-    if (action !== 'preview' && !canMutateOpsOrchestration(permissions, permissionAction as OpsOrchestrationAction)) {
+    if (action === 'archive' && !canMutateOpsOrchestration(permissions, 'offline')) {
+      return Promise.reject(new BizException(10403, 'operation orchestration permission required'))
+    }
+    if (action !== 'preview' && action !== 'archive' && !canMutateOpsOrchestration(permissions, action as OpsOrchestrationAction)) {
       return Promise.reject(new BizException(10403, 'operation orchestration permission required'))
     }
     return client.post(`/api/v1/operations/admin/${resourceKind}s/${id}/${action}`, {

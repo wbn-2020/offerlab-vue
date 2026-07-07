@@ -66,9 +66,10 @@ export const canMutateOpsOrchestration = (
   if (!canAccessOpsOrchestrationAdmin(permissions)) return false
   if (!permissions?.ops) return false
   if (!permissions.opsOrchestration) return true
-  if (action === 'publish') return Boolean(permissions.opsOrchestration.publish || permissions.opsOrchestrationPublisher)
-  if (action === 'offline') return Boolean(permissions.opsOrchestration.offline || permissions.opsOrchestrationOffline)
-  return Boolean(permissions.opsOrchestration.rollback || permissions.opsOrchestrationRollback)
+  if (action === 'publish') return Boolean(permissions.opsOrchestration?.publish || permissions.opsOrchestrationPublisher)
+  if (action === 'offline') return Boolean(permissions.opsOrchestration?.offline || permissions.opsOrchestrationOffline)
+  if (action === 'rollback') return Boolean(permissions.opsOrchestration.rollback || permissions.opsOrchestrationRollback)
+  return false
 }
 
 export const isOpsOrchestrationCopyAllowed = (value: unknown) => (

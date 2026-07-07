@@ -66,7 +66,7 @@ const visibleItems = computed(() => (slot.value?.items || [])
   .filter((item) => isOpsOrchestrationCopyAllowed(`${item.title} ${item.summary || ''} ${item.reasonText || item.reason || ''}`))
   .slice(0, 4))
 const isUnavailable = computed(() => Boolean(slot.value?.degraded || loadError.value))
-const labelText = computed(() => isUnavailable.value ? '运营位暂不可用' : (slot.value?.displayLabel || '运营整理'))
+const labelText = computed(() => isUnavailable.value ? '暂不可用' : (slot.value?.displayLabel || '运营整理'))
 const explanationText = computed(() => {
   if (loadError.value) return '运营位接口暂不可用，前台不会伪装成自然推荐；当前保留稳定空状态。'
   if (isUnavailable.value) return slot.value?.explanation || '后端运营位未接通时展示稳定空状态，不代表正式发布配置。'

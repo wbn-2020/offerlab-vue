@@ -314,7 +314,6 @@ export const adaptCreatorCurationFeedback = (raw: any): CreatorCurationFeedback 
     raw?.placementLabel ?? topicTitle ?? sectionTitle ?? raw?.slotName,
     topicSlug ? `专题 ${topicSlug}` : '公开内容收录',
   )
-  const triggeredAt = toTimestamp(raw?.triggeredAt ?? raw?.includedAt ?? raw?.createdAt ?? raw?.createTime, Date.now())
   return {
     eventId: adaptId(raw?.eventId ?? raw?.id ?? `${contentId}:${raw?.triggeredAt ?? raw?.createdAt ?? ''}`),
     contentId,
@@ -328,8 +327,8 @@ export const adaptCreatorCurationFeedback = (raw: any): CreatorCurationFeedback 
     sectionTitle: sectionTitle || sectionKey || undefined,
     reasonText: safeCurationText(raw?.reasonText ?? raw?.curationReason ?? raw?.reason, '运营收录理由暂未返回'),
     href: safeSameSitePath(raw?.href ?? raw?.targetPath ?? raw?.jumpPath ?? (contentId ? `/post/${contentId}` : undefined)),
-    triggeredAt,
-    includedAt: triggeredAt,
+    triggeredAt: toTimestamp(raw?.triggeredAt ?? raw?.includedAt ?? raw?.createdAt ?? raw?.createTime, Date.now()),
+    includedAt: toTimestamp(raw?.includedAt ?? raw?.triggeredAt ?? raw?.createdAt ?? raw?.createTime, Date.now()),
     status: normalizeCreatorCurationFeedbackStatus(raw),
     source,
     displayableSource,

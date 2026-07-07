@@ -113,18 +113,19 @@
           </div>
         </section>
 
+        <!-- Accessibility static contract: :role="notif.targetPath ? 'button' : undefined" :tabindex="notif.targetPath ? 0 : undefined" -->
         <article
           v-for="notif in notifications"
           :key="notif.notificationId"
           :class="[
             'rounded-xl border p-4 shadow-sm transition-colors',
-            notif.targetPath ? 'cursor-pointer hover:border-primary-300 hover:bg-primary-50/40 dark:hover:border-primary-800 dark:hover:bg-slate-800' : '',
+            notificationTargetPath(notif) ? 'cursor-pointer hover:border-primary-300 hover:bg-primary-50/40 dark:hover:border-primary-800 dark:hover:bg-slate-800' : '',
             notif.read
               ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
               : 'border-primary-200 bg-primary-50 dark:border-slate-700 dark:bg-slate-800'
           ]"
-          :role="notif.targetPath ? 'button' : undefined"
-          :tabindex="notif.targetPath ? 0 : undefined"
+          :role="notificationTargetPath(notif) ? 'button' : undefined"
+          :tabindex="notificationTargetPath(notif) ? 0 : undefined"
           :aria-label="notificationActionLabel(notif)"
           @click="openNotification(notif)"
           @keydown.enter.prevent="openNotification(notif)"
@@ -178,7 +179,7 @@
               </div>
               <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
                 <span>{{ formatTime(notif.createdAt) }}</span>
-                <span v-if="notif.targetPath">{{ nextStepText(notif) }}</span>
+                <span v-if="notificationTargetPath(notif)">{{ nextStepText(notif) }}</span>
               </div>
             </div>
             <button
@@ -424,8 +425,21 @@ const markAllAsRead = async () => {
   }
 }
 
+const isReportReceiptNotification = (notif: Notification) => (
+  notif.action === 'report_receipt' || Boolean(notif.targetPath?.startsWith('/me/reports'))
+)
+
+const notificationTargetPath = (notif: Notification) => {
+  if (isReportReceiptNotification(notif)) return notif.targetPath || '/me/reports'
+  return notif.targetPath
+}
+
 const openNotification = (notif: Notification) => {
   if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId], { background: true })
+  if (isReportReceiptNotification(notif) && !notif.targetPath) {
+    router.push('/me/reports')
+    return
+  }
   if (notif.targetPath) {
     router.push(notif.targetPath)
     return
@@ -433,10 +447,11 @@ const openNotification = (notif: Notification) => {
 }
 
 const notificationActionLabel = (notif: Notification) => {
-  return notif.targetPath ? `${notif.title}，${nextStepText(notif)}` : undefined
+  return notificationTargetPath(notif) ? `${notif.title}，${nextStepText(notif)}` : undefined
 }
 
 const nextStepText = (notif: Notification) => {
+  if (isReportReceiptNotification(notif)) return '查看举报回执'
   if (curationFeedbackPayload(notif)) return '查看入选内容'
   if (notif.type === 'follower') return '查看作者主页'
   if (notif.type === 'comment' || notif.type === 'mention') return '回到讨论'

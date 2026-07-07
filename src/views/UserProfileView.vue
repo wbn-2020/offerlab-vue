@@ -47,6 +47,17 @@
               >
                 {{ isFollowBusy ? '处理中...' : user.isFollowing ? '已关注' : '关注' }}
               </button>
+              <template v-if="showContactAuthorEntry">
+                <button
+                  v-if="canStartContactRequest"
+                  type="button"
+                  class="contact-author-button"
+                  @click="openContactRequestDialog"
+                >
+                  联系作者
+                </button>
+                <span v-else class="contact-author-unavailable">作者暂未开放联系请求</span>
+              </template>
             </div>
           </div>
         </section>
@@ -268,6 +279,14 @@
       </template>
     </div>
     </main>
+    <ContactRequestDialog
+      v-if="user"
+      v-model="isContactDialogOpen"
+      :receiver-uid="user.uid"
+      :receiver-name="user.nickname"
+      source-type="profile"
+      :source-id="profileUid"
+    />
   </div>
 </template>
 
@@ -283,6 +302,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PublicShareButton from '@/components/common/PublicShareButton.vue'
+import ContactRequestDialog from '@/components/contact/ContactRequestDialog.vue'
 import type { Post, User, UserIntent } from '@/api/types'
 import { buildContributionSummary, buildTypeDistribution, type ContributionSummary } from '@/utils/communityMetrics'
 import {
@@ -311,6 +331,7 @@ const loadError = ref('')
 const collectionsError = ref('')
 const failedCollectionCoverUrls = ref(new Set<string>())
 const isFollowBusy = ref(false)
+const isContactDialogOpen = ref(false)
 
 const profileUid = computed(() => String(route.params.uid || ''))
 const avatarText = computed(() => user.value?.nickname?.charAt(0) || '?')
@@ -345,6 +366,16 @@ const relationshipContext = computed(() => authStore.isLoggedIn
       isPublicVisitor: false,
     })
   : { visibleToViewer: false, items: [] })
+const isViewingSelf = computed(() => String(authStore.user?.uid ?? '') === String(user.value?.uid ?? ''))
+const isContactRequestOpen = computed(() => {
+  if (!user.value || user.value.profileVisible === false) return false
+  if (user.value.acceptContactRequest === false) return false
+  return String(user.value.contactRequestPolicy ?? '').toLowerCase() !== 'off'
+})
+const showContactAuthorEntry = computed(() => Boolean(user.value)
+  && user.value?.profileVisible !== false
+  && !isViewingSelf.value)
+const canStartContactRequest = computed(() => showContactAuthorEntry.value && isContactRequestOpen.value)
 
 const formatTime = (value: number) => {
   if (!value) return '刚刚更新'
@@ -439,6 +470,12 @@ const toggleFollow = async () => {
   }
 }
 
+const openContactRequestDialog = () => {
+  if (!canStartContactRequest.value) return
+  if (!requireLogin()) return
+  isContactDialogOpen.value = true
+}
+
 watch(profileUid, loadProfile, { immediate: true })
 watch([user, loadError, profileUid], () => {
   applyPageSeo({
@@ -473,6 +510,7 @@ watch([user, loadError, profileUid], () => {
 }
 
 .follow-button,
+.contact-author-button,
 .open-link {
   display: inline-flex;
   min-height: 40px;
@@ -487,6 +525,26 @@ watch([user, loadError, profileUid], () => {
   font-weight: 600;
 }
 
+.contact-author-button {
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.contact-author-unavailable {
+  display: inline-flex;
+  min-height: 40px;
+  max-width: 100%;
+  align-items: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.625rem 1rem;
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .profile-actions {
   display: flex;
   flex-wrap: wrap;
@@ -495,7 +553,8 @@ watch([user, loadError, profileUid], () => {
   justify-content: flex-end;
 }
 
-.follow-button:disabled {
+.follow-button:disabled,
+.contact-author-button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
@@ -771,6 +830,13 @@ watch([user, loadError, profileUid], () => {
   color: rgb(226 232 240);
 }
 
+.dark .contact-author-button,
+.dark .contact-author-unavailable {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
 .dark .score-card,
 .dark .mini-stat {
   border-color: rgb(30 41 59);
@@ -832,6 +898,8 @@ watch([user, loadError, profileUid], () => {
   }
 
   .follow-button,
+  .contact-author-button,
+  .contact-author-unavailable,
   .profile-actions {
     width: 100%;
   }

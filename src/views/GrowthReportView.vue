@@ -28,7 +28,7 @@
               成长档案
             </RouterLink>
             <RouterLink to="/certification/apply" class="secondary-action">
-              社区身份
+              认证作者
             </RouterLink>
           </div>
         </div>

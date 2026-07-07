@@ -11,12 +11,13 @@
               Community Knowledge Explore
             </h1>
             <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Explore public posts, series, topics, tags, and search entries as community knowledge assets. This page only provides public reading suggestions and never creates personal routes or completion requirements.
+              Explore public posts, series, topics, tags, and search entries as community knowledge assets. 轻量查看，不是做重型知识图谱；this page only provides public reading suggestions and never creates personal routes or completion requirements.
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
             <RouterLink to="/search?sort=hot" class="secondary-action">Search</RouterLink>
             <RouterLink to="/explore" class="secondary-action">Explore</RouterLink>
+            <RouterLink to="/certification/apply" class="secondary-action">认证作者申请</RouterLink>
           </div>
         </div>
       </section>
@@ -422,7 +423,7 @@ const loadGraph = async () => {
   loading.value = true
   error.value = ''
   try {
-    const res = await knowledgeApi.assets({
+    const res = await knowledgeApi.explore({
       domain: filters.domain || undefined,
       assetId: filters.assetId || undefined,
       assetType: filters.assetType || undefined,

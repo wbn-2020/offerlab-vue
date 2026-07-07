@@ -611,9 +611,13 @@
                   <span>{{ item.status }}</span>
                   <span>{{ formatQueueTime(item.createdAt) }}</span>
                   <span>{{ queueSourceLabel(item.sourceType) }}</span>
+                  <span v-if="item.reporterNotificationText">举报者通知：{{ item.reporterNotificationText }}</span>
                   <span v-if="item.assigneeUid">处理人 {{ item.assigneeUid }}</span>
                   <span v-if="item.handledAt">处理于 {{ formatQueueTime(item.handledAt) }}</span>
                 </div>
+                <p v-if="item.reporterReceiptPreview" class="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                  用户可见回执预览：{{ item.reporterReceiptPreview }}
+                </p>
               </div>
               <div class="flex flex-wrap gap-2">
                 <RouterLink :to="item.actionPath" class="secondary-button">{{ item.actionLabel }}</RouterLink>
@@ -651,6 +655,7 @@
           <div class="space-y-3 text-sm leading-6 text-slate-500">
             <p>帖子/评论举报仍由现有审核接口处理，治理中心提供统一入口和指标。</p>
             <p>举报能力真实承接到帖子和评论举报接口；重复举报或频率限制会向用户显示失败态，不显示虚假的提交成功。</p>
+            <p>举报处理完成后，仅向举报者展示公开回执文案；后台处理人、内部备注和敏感治理规则不会进入用户通知。</p>
             <p>高风险内容不提供专业建议背书；投资、医疗、法律、心理等内容只作为经验讨论，并保留风险提示。</p>
             <p>内容不可见、已删除、已下架或受限时，列表和详情页应展示温和失效态，不进入热榜、频道精选或推荐池。</p>
             <p>关键词、禁言、封禁、精选等高风险操作使用确认弹窗，并写入后台审计日志。</p>
@@ -762,7 +767,7 @@ import { postApi, type DomainModerator } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import type { Question } from '@/api/question'
 import type { AiExtractTask } from '@/api/ops'
-import type { CommentReport, CommunityTopic, Post, PostReport, Tag } from '@/api/types'
+import type { CommentReport, CommunityTopic, Post, PostReport, Tag, UserReportStatus } from '@/api/types'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
 import { DOMAIN_OPTIONS, getDomainLabel } from '@/utils/domains'
@@ -802,6 +807,8 @@ interface ReviewQueueItem {
   actionPath: string
   actionLabel: string
   actionTab?: string
+  reporterNotificationText?: string
+  reporterReceiptPreview?: string
   backendItem?: BackendReviewQueueItem
   queueStatus?: ReviewQueueStatus
   assigneeUid?: string
@@ -931,6 +938,33 @@ const clampTagPage = () => {
 const changeTagPage = (page: number) => {
   tagPage.value = Math.min(Math.max(page, 1), tagPageCount.value)
 }
+
+type AdminReportWithReceipt = Pick<PostReport, 'reportStatus' | 'userStatus' | 'reporterNotified' | 'reporterReceiptText'>
+
+const publicReportReceiptText: Record<UserReportStatus, string> = {
+  PROCESSING: '平台已收到，正在处理。',
+  ACTION_TAKEN: '平台已处理该内容。',
+  NOT_ACCEPTED: '经复核，暂未发现明确违规。',
+  CLOSED: '举报已处理完成。',
+}
+
+const reportUserStatus = (item: AdminReportWithReceipt): UserReportStatus => {
+  if (item.userStatus) return item.userStatus
+  const status = Number(item.reportStatus ?? 0)
+  if (status === 1) return 'ACTION_TAKEN'
+  if (status === 2) return 'NOT_ACCEPTED'
+  if (status === 3) return 'CLOSED'
+  return 'PROCESSING'
+}
+
+const reporterNotificationText = (item: AdminReportWithReceipt) => {
+  if (item.reporterNotified === true) return '已通知'
+  if (item.reporterNotified === false) return Number(item.reportStatus ?? 0) === 0 ? '待处理后通知' : '未通知'
+  return Number(item.reportStatus ?? 0) === 0 ? '待处理后生成' : '后端未返回'
+}
+
+const reporterReceiptPreview = (item: AdminReportWithReceipt) => item.reporterReceiptText || publicReportReceiptText[reportUserStatus(item)]
+
 const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
   const items: ReviewQueueItem[] = []
   postReports.value
@@ -952,6 +986,8 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         actionPath: `/post/${item.postId}`,
         actionLabel: '查看帖子',
         actionTab: 'review',
+        reporterNotificationText: reporterNotificationText(item),
+        reporterReceiptPreview: reporterReceiptPreview(item),
       })
     })
   commentReports.value
@@ -973,6 +1009,8 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         actionPath: `/post/${item.postId}`,
         actionLabel: '查看原帖',
         actionTab: 'review',
+        reporterNotificationText: reporterNotificationText(item),
+        reporterReceiptPreview: reporterReceiptPreview(item),
       })
     })
   hits.value
@@ -1317,9 +1355,31 @@ const queueStatusText = (status?: string) => {
   return status ? labels[status] || status : '待处理'
 }
 
+const queueExtJson = (item: BackendReviewQueueItem): Record<string, unknown> => {
+  if (!item.extJson) return {}
+  try {
+    const parsed = JSON.parse(item.extJson)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}
+  } catch {
+    return {}
+  }
+}
+
+const queueExtId = (item: BackendReviewQueueItem, key: string) => {
+  const value = queueExtJson(item)[key]
+  if (typeof value !== 'string' && typeof value !== 'number') return ''
+  const id = String(value).trim()
+  return /^[1-9]\d*$/.test(id) ? id : ''
+}
+
 const queueActionPath = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'POST_REPORT' || item.sourceType === 'POST') return `/post/${item.sourceId || item.id}`
-  if (item.sourceType === 'COMMENT_REPORT') return item.sourceId ? `/post/${item.sourceId}` : '/admin/governance'
+  if (item.sourceType === 'COMMENT_REPORT') {
+    const postId = queueExtId(item, 'postId')
+    const commentId = queueExtId(item, 'commentId')
+    if (!postId) return '/admin/governance?tab=review'
+    return commentId ? `/post/${postId}#comment-${commentId}` : `/post/${postId}`
+  }
   if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '/admin/questions'
   if (item.sourceType === 'AI_TASK_FAILED' || item.sourceType === 'AI_TASK') return '/admin/ops'
   return '/admin/governance'
@@ -1327,7 +1387,7 @@ const queueActionPath = (item: BackendReviewQueueItem) => {
 
 const queueActionLabel = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'POST_REPORT' || item.sourceType === 'POST') return '查看帖子'
-  if (item.sourceType === 'COMMENT_REPORT') return '查看来源'
+  if (item.sourceType === 'COMMENT_REPORT') return queueExtId(item, 'postId') ? '查看原帖' : '留在治理页'
   if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '进入知识卡审核'
   if (item.sourceType === 'AI_TASK_FAILED' || item.sourceType === 'AI_TASK') return '进入运维中心'
   return '查看来源'

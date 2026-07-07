@@ -8,7 +8,7 @@
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2">
             <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">
-              {{ isCuratedTopic ? '社区专题' : '社区话题' }}
+              社区话题
             </p>
             <span v-if="curatedTopic" :class="['status-pill', curatedStatusClass]">{{ curatedStatusText }}</span>
             <span v-if="topic?.featured" class="status-pill status-featured">精选话题</span>
@@ -21,7 +21,7 @@
             {{ curatedLifecycleCopy }}
           </p>
           <p v-if="canFollowTopic" class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-            关注主题后，可以更方便地回到这个公开内容集合；新回复仍以帖子详情页为准。
+            关注主题后，可以更方便地回到这个公开内容集合；不会自动关注某个帖子的后续回复。
           </p>
           <div v-if="topicTags.length" class="mt-4 flex flex-wrap gap-2">
             <RouterLink
@@ -89,7 +89,7 @@
       <section class="mt-6 space-y-4">
         <template v-if="isCuratedTopic && curatedTopic">
           <div v-if="curatedTopic.degraded || curatedTopic.status === 'ARCHIVED'" class="curated-state-banner">
-            <strong>{{ curatedTopic.status === 'ARCHIVED' ? '归档专题' : '降级提示' }}</strong>
+            <strong>{{ curatedTopic.status === 'ARCHIVED' ? '归档话题集合' : '降级提示' }}</strong>
             <span>{{ curatedLifecycleCopy }}</span>
           </div>
           <div class="curated-meta">
@@ -100,7 +100,7 @@
             <div>
               <span class="status-pill status-archived">归档知识资产</span>
               <h2>{{ curatedTopic.title }}</h2>
-              <p>{{ curatedTopic.summary || '该专题作为公开归档快照继续提供复访入口。' }}</p>
+              <p>{{ curatedTopic.summary || '该话题集合作为公开归档快照继续提供复访入口。' }}</p>
             </div>
             <dl>
               <div>
@@ -109,7 +109,7 @@
               </div>
               <div>
                 <dt>来源解释</dt>
-                <dd>{{ curatedTopic.sourceNote || '来自已发布专题快照。' }}</dd>
+                <dd>{{ curatedTopic.sourceNote || '来自已发布话题集合快照。' }}</dd>
               </div>
             </dl>
           </section>
@@ -231,7 +231,7 @@ const featuredOnly = ref(false)
 
 const topicSlug = computed(() => String(route.params.slug || ''))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
-const fallbackName = computed(() => String(route.params.slug || '专题'))
+const fallbackName = computed(() => String(route.params.slug || '话题'))
 const displayableCuratedStatuses = new Set(['PUBLISHED', 'ARCHIVED'])
 const isCuratedTopic = computed(() => Boolean(curatedTopic.value && displayableCuratedStatuses.has(curatedTopic.value.status)))
 const currentTopicTitle = computed(() => curatedTopic.value?.title || topic.value?.name || fallbackName.value)
@@ -251,11 +251,11 @@ const topicReady = computed(() => Boolean(isCuratedTopic.value || (topic.value &
 const canFollowTopic = computed(() => Boolean(!isCuratedTopic.value && topic.value?.id && !topic.value?.virtualTopic))
 const curatedStatusText = computed(() => {
   if (!curatedTopic.value) return ''
-  if (curatedTopic.value.status === 'PUBLISHED') return curatedTopic.value.degraded ? '已发布专题 · 降级' : '已发布专题'
-  if (curatedTopic.value.status === 'ARCHIVED') return '已归档专题'
-  if (curatedTopic.value.status === 'OFFLINE') return '专题已下线'
-  if (curatedTopic.value.status === 'DEGRADED') return '专题暂不可用'
-  return '专题不可用'
+  if (curatedTopic.value.status === 'PUBLISHED') return curatedTopic.value.degraded ? '已发布话题集合 · 降级' : '已发布话题集合'
+  if (curatedTopic.value.status === 'ARCHIVED') return '已归档话题集合'
+  if (curatedTopic.value.status === 'OFFLINE') return '话题集合已下线'
+  if (curatedTopic.value.status === 'DEGRADED') return '话题集合暂不可用'
+  return '话题集合不可用'
 })
 const curatedStatusClass = computed(() => (
   curatedTopic.value?.status === 'PUBLISHED'
@@ -271,15 +271,15 @@ const curatedLifecycleCopy = computed(() => {
       ? '当前只展示后端返回的公开快照；缺失区块已降级，不读取草稿、预览或示例数据。'
       : '当前展示已发布快照，只包含公开可见内容和公开收录理由。'
   }
-  if (curatedTopic.value.status === 'ARCHIVED') return '专题已归档，仍可作为公开资料浏览；内容顺序和理由来自历史快照。'
-  if (curatedTopic.value.status === 'OFFLINE') return '专题已下线，当前不作为公开专题继续展示。'
-  if (curatedTopic.value.status === 'DEGRADED') return '专题快照暂时不可用，页面不会读取草稿、预览链接或 fallback/demo 数据。'
+  if (curatedTopic.value.status === 'ARCHIVED') return '话题集合已归档，仍可作为公开资料浏览；内容顺序和理由来自历史快照。'
+  if (curatedTopic.value.status === 'OFFLINE') return '话题集合已下线，当前不作为公开话题继续展示。'
+  if (curatedTopic.value.status === 'DEGRADED') return '话题集合快照暂时不可用，页面不会读取草稿、预览链接或 fallback/demo 数据。'
   return ''
 })
 const unavailableTitle = computed(() => {
-  if (curatedTopic.value?.status === 'OFFLINE') return '专题已下线'
-  if (curatedTopic.value?.status === 'DEGRADED') return '专题暂时不可用'
-  return isCuratedTopic.value ? '专题暂时无法打开' : '话题暂时无法打开'
+  if (curatedTopic.value?.status === 'OFFLINE') return '话题集合已下线'
+  if (curatedTopic.value?.status === 'DEGRADED') return '话题集合暂时不可用'
+  return isCuratedTopic.value ? '话题集合暂时无法打开' : '话题暂时无法打开'
 })
 const topicSeoDescription = computed(() => summarizeSeoText(
   currentTopicSummary.value,
@@ -324,7 +324,7 @@ const loadTopic = async () => {
     }
     if (!curatedTopicFallbackAllowed(curatedRes.data)) {
       curatedTopic.value = curatedRes.data ?? null
-      topicErrorMessage.value = curatedLifecycleCopy.value || '专题暂时不可用，页面只展示已发布或已归档的公开快照。'
+      topicErrorMessage.value = curatedLifecycleCopy.value || '话题集合暂时不可用，页面只展示已发布或已归档的公开快照。'
       return
     }
 

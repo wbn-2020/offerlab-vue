@@ -9,6 +9,7 @@ export const RETENTION_BLOCK_DEFAULT_LIMIT = 3
 export const RETENTION_BLOCK_MAX_LIMIT = 5
 export const RETENTION_SAME_SOURCE_DEFAULT_LIMIT = 1
 export const RETENTION_TOPIC_UPDATES_ENABLED = false
+export const RETENTION_SERVER_SUMMARY_ENABLED = false
 
 export const RETENTION_SOURCE_WHITELIST = [
   'favorite',
@@ -235,6 +236,10 @@ export const retentionApi = {
   getSummary: async (authenticated: boolean): Promise<Result<RetentionSummary>> => {
     if (!authenticated) {
       return { code: 0, message: 'unauthenticated', data: emptySummary('unauthenticated') }
+    }
+
+    if (!RETENTION_SERVER_SUMMARY_ENABLED) {
+      return { code: 0, message: 'frontend_fallback_disabled_server_contract', data: await buildFallbackSummary() }
     }
 
     try {

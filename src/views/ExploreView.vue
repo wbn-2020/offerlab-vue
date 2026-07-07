@@ -1,12 +1,12 @@
 <template>
   <main class="explore-page">
     <section class="explore-band explore-band-hero">
-      <div class="explore-shell hero-grid">
+      <div class="mb-8 explore-shell hero-grid">
         <div class="hero-copy">
           <p class="eyebrow">OfferLab Discovery Map</p>
-          <h1>发现页专题广场</h1>
+          <h1>频道广场与话题广场</h1>
           <p class="hero-summary">
-            从运营精选专题、频道入口和活跃话题进入公开社区内容。
+            从运营精选专题、频道入口和活跃话题进入公开社区内容，发现真实经验、攻略和资源。
           </p>
           <form class="hero-search" @submit.prevent="submitSearch">
             <Search class="h-5 w-5" aria-hidden="true" />
@@ -28,6 +28,10 @@
           <div class="status-row">
             <span>话题</span>
             <strong>{{ discoveryMap?.activeTopics.length || 0 }}</strong>
+          </div>
+          <div class="status-row">
+            <span>领域</span>
+            <strong>{{ activeDomainOption?.label || '全部' }}</strong>
           </div>
           <p v-if="loading" class="status-note">正在读取公共内容地图...</p>
           <p v-else-if="degraded" class="status-note">部分模块暂时不可用，页面已保留可访问入口。</p>
@@ -81,7 +85,134 @@
       </div>
     </section>
 
+    <section class="explore-band stage4-cross-domain-panel">
+      <div class="explore-shell section-layout">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Cross-domain discovery</p>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">跨领域推荐</h2>
+            <p class="section-copy">
+              基于公共内容信号与领域差异生成阅读建议，推荐理由会经过安全中和处理。
+            </p>
+          </div>
+          <span class="module-status" :class="{ 'module-status-degraded': crossDomainStatus === 'degraded' || crossDomainStatus === 'failed' }">
+            {{ crossDomainStatusLabel }}
+          </span>
+        </header>
+
+        <div v-if="crossDomainStatus === 'unauthenticated'" class="module-empty">
+          <Inbox class="h-5 w-5" aria-hidden="true" />
+          <span>登录后可查看个性化跨领域推荐，当前只展示公共发现入口。</span>
+        </div>
+        <div v-else-if="crossDomainStatus === 'failed'" class="state-banner state-banner-error">
+          <AlertCircle class="h-5 w-5" aria-hidden="true" />
+          <span>跨领域推荐暂时不可用，已保留公共内容发现入口。</span>
+          <button type="button" @click="loadCrossDomainRecommendations">
+            <RefreshCw class="h-4 w-4" aria-hidden="true" />
+            重试
+          </button>
+        </div>
+        <div v-else-if="crossDomainStatus === 'loading'" class="topic-grid">
+          <SkeletonCard v-for="index in 3" :key="index" />
+        </div>
+        <div v-else-if="crossDomainStatus === 'degraded'" class="state-banner">
+          <AlertCircle class="h-5 w-5" aria-hidden="true" />
+          <span>跨领域推荐处于降级展示，仅呈现已通过公开可见性过滤的内容。</span>
+        </div>
+
+        <div v-if="crossDomainRecommendations.length" class="topic-grid">
+          <RouterLink
+            v-for="item in crossDomainRecommendations"
+            :key="item.item.post?.postId || safeCrossDomainReason(item)"
+            class="feature-card"
+            :to="`/posts/${item.item.post?.postId}`"
+          >
+            <span class="card-kicker">{{ item.sourceDomainName || '公共内容' }} → {{ item.targetDomainName || '延展阅读' }}</span>
+            <h2>{{ item.item.post?.title || '公开内容推荐' }}</h2>
+            <p>{{ safeCrossDomainReason(item) }}</p>
+            <span class="card-link">
+              阅读
+              <ArrowRight class="h-4 w-4" aria-hidden="true" />
+            </span>
+          </RouterLink>
+        </div>
+        <ModuleEmpty v-else-if="crossDomainStatus === 'empty'" />
+      </div>
+    </section>
+
     <section class="explore-band explore-band-muted">
+      <article class="explore-shell section-layout">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Public discovery</p>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">频道广场</h2>
+            <p class="section-copy">
+              选择一个频道后，会在发现页内聚合对应内容类型、代表话题和推荐标签。
+            </p>
+          </div>
+          <span v-if="activeChannel" class="module-status">当前频道：{{ activeChannel.name }}</span>
+        </header>
+        <div v-if="COMMUNITY_CHANNELS.length" class="channel-grid">
+          <RouterLink
+            v-for="channel in COMMUNITY_CHANNELS"
+            :key="channel.key"
+            class="channel-card"
+            :to="{ path: '/explore', query: { channel: channel.key } }"
+          >
+            <span class="channel-icon">{{ channel.icon || 'C' }}</span>
+            <strong>{{ channel.name }}</strong>
+            <p>{{ channel.description }}</p>
+            <small v-if="channel.topics?.length">代表话题：{{ channel.topics.slice(0, 2).join(' / ') }}</small>
+            <small v-if="channel.tags?.length">推荐标签：{{ channel.tags.slice(0, 3).join(' / ') }}</small>
+            <small>计数为近 30 天发布分布：{{ channelContentCount(channel) }}</small>
+            <span class="card-link">
+              {{ activeChannel?.key === channel.key ? '当前频道' : '进入频道聚合' }}
+              <ArrowRight class="h-4 w-4" aria-hidden="true" />
+            </span>
+          </RouterLink>
+        </div>
+        <div v-if="channelFeaturedDirections.length" class="channel-featured-direction-grid">
+          <RouterLink
+            v-for="direction in channelFeaturedDirections"
+            :key="`${direction.channelKey}-${direction.topic}`"
+            class="channel-featured-direction"
+            :to="direction.href"
+          >
+            <span class="card-kicker">精选方向</span>
+            <strong>{{ direction.topic }}</strong>
+            <p>{{ direction.channelName }} · {{ direction.tags.join(' / ') }}</p>
+            <small v-if="direction.riskNote">{{ direction.riskNote }}</small>
+          </RouterLink>
+        </div>
+        <div v-if="activeChannel" class="compact-list">
+          <RouterLink
+            v-for="post in visibleLatestPosts"
+            :key="post.postId"
+            class="compact-row"
+            :to="`/posts/${post.postId}`"
+          >
+            <img v-if="latestPostCoverUrl(post)" :src="latestPostCoverUrl(post)" :alt="post.title" class="latest-post-cover" />
+            <Hash v-else class="h-4 w-4" aria-hidden="true" />
+            <span>{{ post.title }}</span>
+            <small>{{ activeChannel.name }} · {{ getContentTypeShortLabel(post.postType) }}</small>
+          </RouterLink>
+        </div>
+        <div v-if="recommendedAuthors.length" class="compact-list">
+          <button
+            v-for="user in recommendedAuthors"
+            :key="user.uid"
+            type="button"
+            class="compact-row"
+            :disabled="followingBusyIds.has(String(user.uid))"
+            @click="toggleFollowUser(user)"
+          >
+            <Hash class="h-4 w-4" aria-hidden="true" />
+            <span>{{ user.nickname }}</span>
+            <small>{{ user.isFollowing ? '已关注' : '关注作者' }} · {{ user.followerCount || 0 }} 位关注者</small>
+            <small v-for="reason in user.followReasons" :key="reason">{{ reason }}</small>
+          </button>
+        </div>
+      </article>
       <div class="explore-shell section-layout">
         <SectionHeader title="频道入口" :module="moduleOf('channels')" />
         <div v-if="channels.length" class="channel-grid">
@@ -111,13 +242,22 @@
 
         <div class="section-layout">
           <SectionHeader title="搜索延展" :module="moduleOf('searchEntrypoints')" />
-          <div v-if="searchEntrypoints.length" class="search-entry-grid">
+          <div class="search-entry-grid">
+            <RouterLink class="search-entry" :to="communityQuestionQuery">
+              <Search class="h-4 w-4" aria-hidden="true" />
+              <span>社区问答讨论</span>
+            </RouterLink>
+            <RouterLink class="search-entry" :to="{ path: '/explore', query: { channel: 'learning-growth' } }">
+              <Hash class="h-4 w-4" aria-hidden="true" />
+              <span>学习话题</span>
+              <small>阅读、读书、书单、学习方法：阅读清单共读 / 学习方法复盘</small>
+            </RouterLink>
             <RouterLink v-for="item in searchEntrypoints" :key="item.id" class="search-entry" :to="item.href">
               <Search class="h-4 w-4" aria-hidden="true" />
               <span>{{ item.title }}</span>
             </RouterLink>
           </div>
-          <ModuleEmpty v-else :module="moduleOf('searchEntrypoints')" />
+          <ModuleEmpty v-if="!searchEntrypoints.length" :module="moduleOf('searchEntrypoints')" />
         </div>
       </div>
     </section>
@@ -125,27 +265,274 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed, defineComponent, h, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { AlertCircle, ArrowRight, Hash, Inbox, RefreshCw, Search } from 'lucide-vue-next'
+import { dashboardApi, type RankedMetric } from '@/api/dashboard'
+import { localDomainConfigs } from '@/api/domains'
+import { recommendationsApi } from '@/api/recommendations'
+import { useAuthStore } from '@/stores/auth'
 import { useDiscoveryMap } from '@/composables/useDiscoveryMap'
-import type { DiscoveryModuleState } from '@/api/discovery'
+import { COMMUNITY_CHANNELS, DOMAIN_OPTIONS, getCommunityChannel, normalizeDomain, type CommunityChannel, type DomainValue } from '@/utils/domains'
+import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeShortLabel, type PostTypeValue } from '@/utils/contentTypes'
+import { filterDiscoverySuppressedItems, filterVisiblePosts, normalizeRecommendationReason, type ViewerDiscoverySuppressions } from '@/utils/recommendationGovernance'
+import { filterPublicContent } from '@/utils/textQuality'
+import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
+import { discoveryApi, type DiscoveryItem, type DiscoveryModuleState } from '@/api/discovery'
+import type { CrossDomainRecommendation, Post, User } from '@/api/types'
+
+type RecommendedAuthor = User & {
+  followReasons: string[]
+}
 
 const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
 const keyword = ref('')
 const { data: discoveryMap, loading, error, degraded, hasItems, reload } = useDiscoveryMap()
+const defaultChannelPostTypes = [POST_TYPE.NOTE, POST_TYPE.QUESTION, POST_TYPE.TECH_ARTICLE, POST_TYPE.RESOURCE]
+const domainOptions = ref(localDomainConfigs.length
+  ? localDomainConfigs.map((item) => ({
+    value: item.domain as DomainValue,
+    label: item.domainName,
+    icon: item.icon,
+    description: item.description,
+  }))
+  : [...DOMAIN_OPTIONS])
+const latestPosts = ref<Post[]>([])
+const channelLatestPosts = ref<Post[]>([])
+const contentTypeDistribution = ref<RankedMetric[]>([])
+const followingBusyIds = ref(new Set<string>())
+const crossDomainRecommendationItems = ref<CrossDomainRecommendation[]>([])
+const crossDomainStatus = ref<'idle' | 'loading' | 'ready' | 'empty' | 'unauthenticated' | 'failed' | 'degraded'>('idle')
 
-const featuredTopics = computed(() => discoveryMap.value?.featuredTopics || [])
-const channels = computed(() => discoveryMap.value?.channels || [])
-const activeTopics = computed(() => discoveryMap.value?.activeTopics || [])
-const searchEntrypoints = computed(() => discoveryMap.value?.searchEntrypoints || [])
+const viewerDiscoverySuppressions = computed<ViewerDiscoverySuppressions>(() => ({}))
+const visibleDiscoveryItems = (items?: DiscoveryItem[]) => filterDiscoverySuppressedItems(filterVisiblePosts(items || []), viewerDiscoverySuppressions.value)
+const postSummaryForDiscovery = (post: Post) => (post.highlightSummary || post.summary || post.content || '').replace(/\s+/g, ' ').trim().slice(0, 120)
+const postToDiscoveryItem = (post: Post): DiscoveryItem => ({
+  id: `post-${String(post.postId)}`,
+  type: 'post',
+  title: post.highlightTitle || post.title,
+  summary: postSummaryForDiscovery(post),
+  href: `/posts/${encodeURIComponent(String(post.postId))}`,
+  source: 'public-content-query',
+  sourceId: post.postId,
+  domain: post.domain,
+  tags: (post.tags || []).map((tag) => tag.name).filter(Boolean),
+  reasonText: getContentTypeShortLabel(post.postType),
+})
+const cleanTags = computed(() => filterDiscoverySuppressedItems(discoveryMap.value?.searchEntrypoints || [], viewerDiscoverySuppressions.value))
+const cleanTopics = computed(() => filterDiscoverySuppressedItems(visibleDiscoveryItems(discoveryMap.value?.activeTopics), viewerDiscoverySuppressions.value))
+const cleanLatestPosts = computed(() => filterVisiblePosts(
+  filterDiscoverySuppressedItems(filterPublicContent(latestPosts.value).map(postToDiscoveryItem), viewerDiscoverySuppressions.value),
+  5,
+))
+const cleanFeaturedTopics = computed(() => filterDiscoverySuppressedItems(filterVisiblePosts(discoveryMap.value?.featuredTopics || [], 5), viewerDiscoverySuppressions.value))
+const isFeaturedPost = (item: any): item is DiscoveryItem => Boolean(item.href && item.title)
+const featuredPosts = computed(() => cleanLatestPosts.value.filter(isFeaturedPost))
+const featuredTopics = computed<DiscoveryItem[]>(() => featuredPosts.value.length ? featuredPosts.value : cleanFeaturedTopics.value.filter(isFeaturedPost))
+const channels = computed(() => visibleDiscoveryItems(discoveryMap.value?.channels))
+const activeTopics = computed(() => cleanTopics.value)
+const searchEntrypoints = computed(() => cleanTags.value)
+const activeDomain = computed<DomainValue | undefined>(() => {
+  const value = route.query.domain
+  const raw = Array.isArray(value) ? value[0] : value
+  if (!raw) return undefined
+  const numeric = Number(raw)
+  return Number.isFinite(numeric) ? normalizeDomain(numeric) : undefined
+})
+const activeDomainOption = computed(() => domainOptions.value.find((item) => item.value === activeDomain.value))
+const activeChannelQuery = computed(() => {
+  const value = route.query.channel
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string')
+  return typeof value === 'string' ? value : undefined
+})
+const activeChannel = computed(() => getCommunityChannel(activeChannelQuery.value))
+const activeChannelPostTypes = computed(() => (
+  activeChannel.value?.postTypes?.length ? activeChannel.value.postTypes : defaultChannelPostTypes
+))
+const activeChannelPostTypeSet = computed(() => new Set<PostTypeValue>(activeChannelPostTypes.value))
+const channelFeaturedDirections = computed(() => {
+  const source = activeChannel.value ? [activeChannel.value] : COMMUNITY_CHANNELS
+  return source.flatMap((channel) => (channel.topics || []).slice(0, 2).map((topic) => ({
+    channelKey: channel.key,
+    channelName: channel.name,
+    topic,
+    tags: (channel.tags || []).slice(0, 3),
+    riskNote: channel.riskNote,
+    href: {
+      path: '/search',
+      query: {
+        q: topic,
+        channel: channel.key,
+        ...(channel.domain ? { domain: String(channel.domain) } : {}),
+      },
+    },
+  })))
+})
+const visibleLatestPosts = computed(() => filterVisiblePosts(
+  filterDiscoverySuppressedItems(filterPublicContent(channelLatestPosts.value), viewerDiscoverySuppressions.value),
+  6,
+)
+  .filter((post) => activeChannelPostTypeSet.value.has(Number(post.postType) as PostTypeValue)))
+const rawRecommendedAuthors = computed<RecommendedAuthor[]>(() => {
+  const users = new Map<string, User>()
+  const postsByAuthor = new Map<string, Post[]>()
+  visibleLatestPosts.value
+    .filter((post) => isPublicAuthor(post.author))
+    .forEach((post) => {
+      const uid = String(post.author?.uid || '')
+      if (uid && post.author && !users.has(uid)) users.set(uid, post.author)
+      if (uid) postsByAuthor.set(uid, [...(postsByAuthor.get(uid) || []), post])
+    })
+  return Array.from(users.values())
+    .filter(isPublicAuthor)
+    .slice(0, 4)
+    .map((user) => Object.assign(user, {
+      followReasons: buildFollowReasons(user, postsByAuthor.get(String(user.uid)) || []),
+    }))
+})
+const cleanRecommendedUsers = computed(() => filterDiscoverySuppressedItems(rawRecommendedAuthors.value, viewerDiscoverySuppressions.value))
+const recommendedAuthors = computed(() => cleanRecommendedUsers.value)
+const communityQuestionQuery = computed(() => ({
+  path: '/search',
+  query: {
+    mode: 'posts',
+    type: String(POST_TYPE.QUESTION),
+    sort: 'hot',
+  },
+}))
+const crossDomainStatusLabel = computed(() => {
+  if (crossDomainStatus.value === 'unauthenticated') return '登录可用'
+  if (crossDomainStatus.value === 'failed') return '暂不可用'
+  if (crossDomainStatus.value === 'degraded') return '降级展示'
+  if (crossDomainStatus.value === 'loading') return '加载中'
+  if (crossDomainStatus.value === 'empty') return '暂无推荐'
+  return '已过滤'
+})
+const safeCrossDomainReason = (item: CrossDomainRecommendation) => (
+  normalizeRecommendationReason(item.recommendationReason) || '公共内容信号显示这篇内容适合作为延展阅读。'
+)
+const crossDomainRecommendations = computed(() => filterDiscoverySuppressedItems(
+  crossDomainRecommendationItems.value,
+  viewerDiscoverySuppressions.value,
+)
+  .filter((item) => filterVisiblePosts(item.item.post ? [item.item.post] : []).length > 0))
 
 const moduleOf = (key: string): DiscoveryModuleState | undefined => discoveryMap.value?.modules?.[key]
+
+const contentTypeCount = (type: number) => {
+  const option = COMMUNITY_CONTENT_TYPES.find((item) => item.value === type)
+  return contentTypeDistribution.value.find((item) => item.name === option?.label)?.count
+    ?? channelLatestPosts.value.filter((post) => Number(post.postType) === type).length
+}
+
+const channelContentCount = (channel: CommunityChannel) => {
+  const types = channel.postTypes?.length ? channel.postTypes : defaultChannelPostTypes
+  return types.reduce((sum, type) => sum + contentTypeCount(type), 0)
+}
+
+const latestPostCoverUrl = (post: Post) => String(post.coverUrl || '').trim()
+
+const syncAuthorFollowState = (uid: User['uid'], following: boolean, followerCount: number) => {
+  channelLatestPosts.value.forEach((post) => {
+    if (String(post.author.uid) === String(uid)) {
+      post.author.isFollowing = following
+      post.author.followerCount = followerCount
+    }
+  })
+}
+
+const toggleFollowUser = async (user: User) => {
+  const uid = String(user.uid)
+  if (!uid || followingBusyIds.value.has(uid)) return
+  followingBusyIds.value = new Set(followingBusyIds.value).add(uid)
+  const wasFollowing = Boolean(user.isFollowing)
+  try {
+    if (wasFollowing) {
+      await discoveryApi.unfollowPublicAuthor(user.uid)
+    } else {
+      await discoveryApi.followPublicAuthor(user.uid)
+    }
+    const followerCount = Math.max(0, Number(user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
+    user.isFollowing = !wasFollowing
+    user.followerCount = followerCount
+    syncAuthorFollowState(user.uid, user.isFollowing, followerCount)
+  } finally {
+    const next = new Set(followingBusyIds.value)
+    next.delete(uid)
+    followingBusyIds.value = next
+  }
+}
+
+const loadTrendMetrics = async () => {
+  try {
+    const res = await dashboardApi.getTrendDashboard('30d', activeDomain.value)
+    contentTypeDistribution.value = res.data?.contentTypeDistribution || []
+  } catch {
+    contentTypeDistribution.value = []
+  }
+}
+
+const loadChannelLatestPosts = async () => {
+  if (!activeChannel.value) {
+    latestPosts.value = []
+    channelLatestPosts.value = []
+    return
+  }
+  const settled = await Promise.allSettled(activeChannelPostTypes.value.map((type) => discoveryApi.listPublicChannelPosts({
+    type,
+    size: 6,
+    domain: activeDomain.value,
+  })))
+  const postRes = settled.find((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof discoveryApi.listPublicChannelPosts>>> => result.status === 'fulfilled')
+  if (postRes) {
+    latestPosts.value = filterVisiblePosts(filterPublicContent(postRes.value.data?.items || []))
+  } else {
+    latestPosts.value = []
+  }
+  channelLatestPosts.value = filterVisiblePosts(filterPublicContent(settled
+    .flatMap((result) => result.status === 'fulfilled' ? (result.value.data?.items || []) : [])
+    .filter((post, index, source) => source.findIndex((item) => item.postId === post.postId) === index)))
+}
+
+const loadCrossDomainRecommendations = async () => {
+  if (!authStore.token) {
+    crossDomainRecommendationItems.value = []
+    crossDomainStatus.value = 'unauthenticated'
+    return
+  }
+  crossDomainStatus.value = 'loading'
+  try {
+    const res = await recommendationsApi.listCrossDomain(undefined, 6)
+    const items = res.data?.items || []
+    crossDomainRecommendationItems.value = items
+    if (!items.length) {
+      crossDomainStatus.value = 'empty'
+    } else if (items.some((item) => item.degraded)) {
+      crossDomainStatus.value = 'degraded'
+    } else {
+      crossDomainStatus.value = 'ready'
+    }
+  } catch (err) {
+    const status = (err as { response?: { status?: number }, code?: number })?.response?.status
+    const code = (err as { code?: number })?.code
+    crossDomainRecommendationItems.value = []
+    crossDomainStatus.value = status === 401 || code === 10401 ? 'unauthenticated' : 'failed'
+  }
+}
 
 const submitSearch = () => {
   const q = keyword.value.trim()
   router.push({ path: '/search', query: q ? { q, sort: 'hot' } : { sort: 'hot' } })
 }
+
+loadCrossDomainRecommendations()
+
+watch(() => [route.query.channel, route.query.domain] as const, () => {
+  loadTrendMetrics()
+  loadChannelLatestPosts()
+}, { immediate: true })
 
 const SectionHeader = defineComponent({
   props: {
@@ -405,7 +792,8 @@ const SkeletonCard = defineComponent({
 }
 
 .topic-grid,
-.channel-grid {
+.channel-grid,
+.channel-featured-direction-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
@@ -413,6 +801,7 @@ const SkeletonCard = defineComponent({
 
 .feature-card,
 .channel-card,
+.channel-featured-direction,
 .search-entry {
   border: 1px solid #dbe3ea;
   border-radius: 8px;
@@ -431,6 +820,7 @@ const SkeletonCard = defineComponent({
 
 .feature-card:hover,
 .channel-card:hover,
+.channel-featured-direction:hover,
 .search-entry:hover {
   transform: translateY(-2px);
   border-color: #0f766e;
@@ -464,6 +854,23 @@ const SkeletonCard = defineComponent({
   gap: 8px;
   min-height: 156px;
   padding: 16px;
+}
+
+.channel-featured-direction {
+  display: grid;
+  gap: 8px;
+  min-height: 136px;
+  padding: 16px;
+}
+
+.channel-featured-direction strong {
+  color: #111827;
+  font-size: 16px;
+}
+
+.channel-featured-direction small {
+  color: #92400e;
+  line-height: 1.6;
 }
 
 .channel-icon {
@@ -509,6 +916,14 @@ const SkeletonCard = defineComponent({
   color: #64748b;
 }
 
+.latest-post-cover {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
 .search-entry {
   display: flex;
   align-items: center;
@@ -537,7 +952,8 @@ const SkeletonCard = defineComponent({
   }
 
   .topic-grid,
-  .channel-grid {
+  .channel-grid,
+  .channel-featured-direction-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -552,7 +968,8 @@ const SkeletonCard = defineComponent({
   }
 
   .topic-grid,
-  .channel-grid {
+  .channel-grid,
+  .channel-featured-direction-grid {
     grid-template-columns: 1fr;
   }
 
