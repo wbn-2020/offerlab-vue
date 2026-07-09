@@ -241,13 +241,13 @@ const notificationUnreadKeys = ['like', 'comment', 'favorite', 'follower', 'ment
 type NotificationUnreadKey = typeof notificationUnreadKeys[number]
 
 const tabs = computed(() => [
-  { value: 'all', label: '全部', count: unread.value.total, icon: Bell },
-  { value: 'like', label: '点赞', count: unread.value.like, icon: Heart },
-  { value: 'comment', label: '评论', count: unread.value.comment, icon: MessageCircle },
-  { value: 'favorite', label: '收藏', count: unread.value.favorite, icon: Bookmark },
-  { value: 'follower', label: '关注', count: unread.value.follower, icon: UserPlus },
-  { value: 'mention', label: '提及我', count: unread.value.mention, icon: AtSign },
-  { value: 'system', label: '系统', count: unread.value.system, icon: Bell },
+  { value: 'all', label: 'All', count: unread.value.total, icon: Bell },
+  { value: 'like', label: 'Likes', count: unread.value.like, icon: Heart },
+  { value: 'comment', label: 'Comments', count: unread.value.comment, icon: MessageCircle },
+  { value: 'favorite', label: 'Favorites', count: unread.value.favorite, icon: Bookmark },
+  { value: 'follower', label: 'Followers', count: unread.value.follower, icon: UserPlus },
+  { value: 'mention', label: 'Mentions', count: unread.value.mention, icon: AtSign },
+  { value: 'system', label: 'System', count: unread.value.system, icon: Bell },
 ])
 
 const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
@@ -261,34 +261,34 @@ const feedbackCounts = computed(() => notifications.value.reduce((counts, notif)
 const feedbackSummary = computed(() => {
   const counts = feedbackCounts.value
   const parts = [
-    counts.comment ? `${counts.comment} 条评论` : '',
-    counts.favorite ? `${counts.favorite} 次收藏` : '',
-    counts.follower ? `${counts.follower} 位新增关注者` : '',
-    counts.mention ? `${counts.mention} 条提及` : '',
+    counts.comment ? `${counts.comment} comments` : '',
+    counts.favorite ? `${counts.favorite} favorites` : '',
+    counts.follower ? `${counts.follower} new followers` : '',
+    counts.mention ? `${counts.mention} mentions` : '',
   ].filter(Boolean)
   return parts.length
-    ? `${parts.join('、')}可以从通知回到讨论或作者主页。`
-    : '当前列表没有新的评论、收藏或关注反馈，可从我的内容继续查看近期表现。'
+    ? `${parts.join(', ')} can take you back to discussions or profiles.`
+    : 'No new comments, favorites, or followers in this list.'
 })
-const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
+const emptyTitle = computed(() => activeType.value === 'all' ? 'No notifications yet' : `No ${labelFor(activeType.value)} notifications`)
 const emptyText = computed(() => {
   if (loadErrorText.value) return loadErrorText.value
-  if (preferenceOffText.value) return '当前提醒较安静，你仍然可以继续浏览内容、关注作者和参与讨论。'
-  if (activeType.value === 'all') return '当有人评论、点赞、收藏、关注或提及你时，会在这里形成可回访的社区线索。'
-  if (activeType.value === 'follower') return '有新关注时，可以从这里进入对方主页，决定是否回访或关注。'
-  if (activeType.value === 'system') return '社区公告、话题更新和必要系统通知会在这里出现。'
-  return '这个分类暂时没有新通知，去发现页看看新的讨论和作者。'
+  if (preferenceOffText.value) return 'Notifications are muted, but you can still browse and join discussions.'
+  if (activeType.value === 'all') return 'Comments, likes, favorites, follows, and mentions will appear here.'
+  if (activeType.value === 'follower') return 'New followers will appear here so you can visit their profiles.'
+  if (activeType.value === 'system') return 'Community announcements and system notifications will appear here.'
+  return 'There are no new notifications in this category.'
 })
 const preferenceOffText = computed(() => {
   const pref = preferences.value
   if (!pref) return ''
-  if (!pref.interactionNotification && !pref.systemNotification) return '你已关闭互动和系统提醒；社区事件仍会发生，只是不再打扰你。'
-  if (!pref.interactionNotification) return '你已关闭互动提醒；点赞、评论、关注等事件仍会发生，只是不再提醒。'
-  if (!pref.systemNotification) return '你已关闭系统提醒；社区公告和话题更新不会主动打扰你。'
+  if (!pref.interactionNotification && !pref.systemNotification) return 'Interaction and system notifications are muted.'
+  if (!pref.interactionNotification) return 'Interaction notifications are muted.'
+  if (!pref.systemNotification) return 'System notifications are muted.'
   return ''
 })
 const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
-const markAllHint = computed(() => unread.value.total === 0 ? '当前没有未读通知' : '将所有通知标记为已读')
+const markAllHint = computed(() => unread.value.total === 0 ? 'No unread notifications' : 'Mark all notifications as read')
 const isNotificationUnreadKey = (type: string): type is NotificationUnreadKey => {
   return notificationUnreadKeys.includes(type as NotificationUnreadKey)
 }
@@ -342,7 +342,7 @@ const loadNotifications = async () => {
     hasMore.value = Boolean(res.data?.hasMore)
     loadErrorText.value = ''
   } catch (error) {
-    loadErrorText.value = getErrorMessage(error, '通知接口暂不可用，稍后可以再回来查看社区回应。')
+    loadErrorText.value = getErrorMessage(error, 'Notifications are temporarily unavailable.')
   } finally {
     isLoading.value = false
   }
@@ -414,10 +414,17 @@ const markAsRead = async (id: ApiId, ids: ApiId[] = [id], options: MarkReadOptio
 const markAllAsRead = async () => {
   isMutating.value = true
   try {
-    await notificationApi.markAllAsRead()
-    notifications.value = notifications.value.map(item => ({ ...item, read: true }))
+    const res = await notificationApi.markAllAsRead()
+    const result = res.data
+    if (!result?.capped) {
+      notifications.value = notifications.value.map(item => ({ ...item, read: true }))
+    }
     await loadUnread()
-    toast.success('已全部标为已读')
+    if (result?.capped) {
+      toast.info(`Marked ${result.updatedCount} notifications as read, ${result.remainingUnread} still unread`)
+    } else {
+      toast.success('All notifications marked as read')
+    }
   } catch (error) {
     toast.error(getErrorMessage(error, '全部标记已读失败'))
   } finally {
@@ -451,12 +458,12 @@ const notificationActionLabel = (notif: Notification) => {
 }
 
 const nextStepText = (notif: Notification) => {
-  if (isReportReceiptNotification(notif)) return '查看举报回执'
-  if (curationFeedbackPayload(notif)) return '查看入选内容'
-  if (notif.type === 'follower') return '查看作者主页'
-  if (notif.type === 'comment' || notif.type === 'mention') return '回到讨论'
-  if (notif.type === 'system') return '查看相关内容'
-  return '查看关联内容'
+  if (isReportReceiptNotification(notif)) return 'View report receipt'
+  if (curationFeedbackPayload(notif)) return 'View selected content'
+  if (notif.type === 'follower') return 'View profile'
+  if (notif.type === 'comment' || notif.type === 'mention') return 'Back to discussion'
+  if (notif.type === 'system') return 'View related content'
+  return 'View related content'
 }
 
 const isMutedByPreference = (notif: Notification) => (

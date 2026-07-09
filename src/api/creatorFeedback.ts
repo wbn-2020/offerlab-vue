@@ -1,10 +1,4 @@
 import client, { BizException, type Result } from './client'
-import {
-  demoCreatorFeedbackSummary,
-  demoCreatorGrowthWorkspace,
-  demoCreatorRepresentativePosts,
-  demoCreatorTopicIdeas,
-} from '@/data/demoSeeds'
 import { isPublicPostVisible } from '@/utils/recommendationGovernance'
 import { adaptId } from './adapters'
 import type {
@@ -844,10 +838,12 @@ const localDemoResult = <T>(data: T): Result<T> => ({
   data,
 })
 
+const loadDemoSeeds = () => import('@/data/demoSeeds')
+
 export const isDemoFallbackEnabled = () => {
   const env = import.meta.env
   return Boolean(
-    env.DEV
+    env.VITE_OFFERLAB_ALLOW_LOCAL_DEMO === 'true'
     || env.VITE_OFFERLAB_DEMO_FALLBACK === 'true'
     || env.VITE_OFFERLAB_USE_DEMO === 'true',
   )
@@ -869,7 +865,6 @@ export const creatorFeedbackApi = {
     try {
       const res = await client.get('/api/v1/creator-growth/feedback-summary', {
         params: { days },
-        skipAuthRedirect: true,
       }) as Result<any>
       return {
         ...res,
@@ -877,6 +872,8 @@ export const creatorFeedbackApi = {
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoCreatorFeedbackSummary, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorFeedbackSummary)
       }
       throw error
@@ -885,15 +882,15 @@ export const creatorFeedbackApi = {
 
   getWorkspace: async (): Promise<Result<CreatorGrowthWorkspace>> => {
     try {
-      const res = await client.get('/api/v1/creator-growth/workspace', {
-        skipAuthRedirect: true,
-      }) as Result<any>
+      const res = await client.get('/api/v1/creator-growth/workspace') as Result<any>
       return {
         ...res,
         data: res.data ? adaptCreatorGrowthWorkspace(res.data) : emptyCreatorGrowthWorkspace('empty_response', 'empty'),
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoCreatorGrowthWorkspace, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorGrowthWorkspace)
       }
       throw error
@@ -902,15 +899,15 @@ export const creatorFeedbackApi = {
 
   getTopicIdeas: async (): Promise<Result<CreatorTopicIdea[]>> => {
     try {
-      const res = await client.get('/api/v1/creator-growth/topic-ideas', {
-        skipAuthRedirect: true,
-      }) as Result<any>
+      const res = await client.get('/api/v1/creator-growth/topic-ideas') as Result<any>
       return {
         ...res,
         data: Array.isArray(res.data) ? res.data.map(adaptCreatorTopicIdea) : [],
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoCreatorTopicIdeas, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorTopicIdeas)
       }
       throw error
@@ -919,15 +916,15 @@ export const creatorFeedbackApi = {
 
   getRepresentativePosts: async (): Promise<Result<CreatorRepresentativePost[]>> => {
     try {
-      const res = await client.get('/api/v1/creator-growth/representative-posts', {
-        skipAuthRedirect: true,
-      }) as Result<any>
+      const res = await client.get('/api/v1/creator-growth/representative-posts') as Result<any>
       return {
         ...res,
         data: toVisibleCreatorPostList(res.data, adaptCreatorRepresentativePost),
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoCreatorRepresentativePosts, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorRepresentativePosts)
       }
       throw error
@@ -944,9 +941,7 @@ export const creatorFeedbackApi = {
 
   getCurationFeedbackSummary: async (): Promise<Result<CreatorCurationFeedbackSummary>> => {
     try {
-      const res = await client.get('/api/v1/creator-growth/curation-feedback', {
-        skipAuthRedirect: true,
-      }) as Result<any>
+      const res = await client.get('/api/v1/creator-growth/curation-feedback') as Result<any>
       return {
         ...res,
         data: res.data ? adaptCreatorCurationFeedbackSummary(res.data) : emptyCreatorCurationFeedbackSummary('empty_response', 'empty'),

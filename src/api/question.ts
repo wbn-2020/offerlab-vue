@@ -8,6 +8,7 @@ import {
   demoUserKnowledge,
   demoUserPrepOverview,
   demoWeeklyPrepReport,
+  isLocalDemoSeedAllowed,
 } from '@/data/demoSeeds'
 
 export interface Question {
@@ -605,6 +606,7 @@ const localDemoResult = <T>(data: T, message = 'local_demo_seed'): Result<T> => 
 })
 
 const shouldUseDemoFallback = (error: unknown) => {
+  if (!isLocalDemoSeedAllowed()) return false
   if (error instanceof BizException) {
     if (error.code === 10401 || error.code === 10403) return false
     return error.code === 10404
@@ -633,6 +635,7 @@ const hasActiveQuestionFilters = (params: QuestionQuery = {}) => Boolean(
 )
 
 const canUseQuestionListDemo = (data: PaginatedResponse<any> | null | undefined, params: QuestionQuery) => (
+  isLocalDemoSeedAllowed() &&
   isEmptyPage(data) && !hasActiveQuestionFilters(params)
 )
 

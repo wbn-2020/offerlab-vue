@@ -150,6 +150,7 @@
                     :key="image"
                     :src="image"
                     :alt="`${domainDetailSurface.title} ${index + 1}`"
+                    referrerpolicy="no-referrer"
                     @error="handleDetailImageError(image)"
                   />
                 </div>
@@ -207,7 +208,7 @@
                 <div class="ai-knowledge-actions">
                   <RouterLink :to="{ path: '/questions', query: knowledgeTopicQuery }">查看结构化知识卡</RouterLink>
                   <RouterLink :to="{ path: '/search', query: knowledgeSearchQuery }">合并相似经验</RouterLink>
-                  <RouterLink to="/me/prep">整理复盘要点</RouterLink>
+                  <RouterLink v-if="enableLegacyTrainingRoutes" to="/me/prep">整理复盘要点</RouterLink>
                 </div>
               </section>
 
@@ -460,6 +461,7 @@
               </section>
 
               <section
+                v-if="CONTENT_SUGGESTIONS_ENABLED"
                 class="content-suggestion-panel"
                 data-phase15-content-suggestion
                 data-suggestions-private
@@ -506,7 +508,7 @@
                       <strong>{{ contentSuggestionStatusText(item.status) }}</strong>
                     </div>
                     <p>{{ item.detail }}</p>
-                    <a v-if="item.sourceUrl" :href="item.sourceUrl" target="_blank" rel="noreferrer">查看补充链接</a>
+                    <a v-if="safeContentSuggestionUrl(item.sourceUrl)" :href="safeContentSuggestionUrl(item.sourceUrl)" target="_blank" rel="noreferrer">查看补充链接</a>
                     <p v-if="item.allowPublicAttribution && item.submitterNickname" class="content-suggestion-meta">
                       提交者允许公开昵称：{{ item.submitterNickname }}
                     </p>
@@ -564,9 +566,9 @@
                 <div class="discussion-follow-actions">
                   <button
                     type="button"
-                    class="discussion-follow-button"
-                    :disabled="discussionFollowState.pending"
-                    aria-pressed="false"
+                    :class="['discussion-follow-button', discussionFollowState.followed ? 'discussion-follow-button--active' : '']"
+                    :disabled="discussionFollowActionDisabled"
+                    :aria-pressed="discussionFollowState.followed"
                     @click="toggleDiscussionFollow"
                   >
                     {{ discussionFollowActionLabel }}
@@ -687,6 +689,7 @@
                 :can-mark-helpful-comments="authStore.isLoggedIn"
                 :can-manage-quality-signals="isOwnPost || isContentModerator"
                 :can-moderate-comments="isContentModerator"
+                :loading-reply-root-ids="loadingReplyRootIds"
                 :empty-text="discussionEmptyText"
                 :reply-action-label="discussionReplyActionLabel"
                 :reply-placeholder="discussionReplyPlaceholder"
@@ -703,6 +706,7 @@
                 @fold-comment="handleFoldComment"
                 @unfold-comment="handleUnfoldComment"
                 @reply-comment="handleReplyComment"
+                @load-more-replies="handleLoadMoreReplies"
                 @delete-comment="handleDeleteComment"
                 @report-comment="openCommentReportDialog"
               />
@@ -850,7 +854,7 @@
       </form>
     </div>
 
-    <div v-if="false && isReportDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" @click.self="closeReportDialog">
+    <div v-if="false" class="hidden">
       <form class="report-dialog-panel w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" @submit.prevent="submitReport">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -967,9 +971,11 @@ import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import {
   CONTENT_SUGGESTION_STATUS_LABELS,
   CONTENT_SUGGESTION_TYPE_OPTIONS,
+  CONTENT_SUGGESTIONS_ENABLED,
   buildContentSuggestionDuplicateKey,
   canSubmitContentSuggestion,
   contentSuggestionApi,
+  normalizeHttpUrl,
   type ContentSuggestionRecord,
   type ContentSuggestionStatus,
   type ContentSuggestionType,
@@ -1032,6 +1038,7 @@ const isVersionDialogOpen = ref(false)
 const isLoadingVersions = ref(false)
 const versionLoadAttempted = ref(false)
 const showStageTwoDetailPanels = false
+const enableLegacyTrainingRoutes = import.meta.env.VITE_OFFERLAB_ENABLE_LEGACY_TRAINING === 'true'
 const postId = computed(() => route.params.id as string)
 const detailKnowledge = ref<KnowledgeExploreResponse | null>(null)
 const detailKnowledgeLoading = ref(false)
@@ -1098,6 +1105,7 @@ const commentCursor = ref<string | undefined>()
 const hasMoreComments = ref(false)
 const isLoadingComments = ref(false)
 const isLoadingMoreComments = ref(false)
+const loadingReplyRootIds = ref<Array<string | number>>([])
 const commentsErrorMessage = ref('')
 const materialPack = ref<InterviewMaterialPack | null>(null)
 const isLoadingMaterial = ref(false)
@@ -1167,6 +1175,7 @@ const canFollowAuthor = computed(() => canOpenAuthorProfile.value && !isOwnPost.
 const isAuthorContactRequestOpen = computed(() => {
   const author = post.value?.author
   if (!author || author.profileVisible === false) return false
+  if (author.canStartContactRequest !== undefined) return author.canStartContactRequest === true
   if (author.acceptContactRequest === false) return false
   return String(author.contactRequestPolicy ?? '').toLowerCase() !== 'off'
 })
@@ -1274,12 +1283,21 @@ const discussionFollowDescription = computed(() => (
 ))
 const discussionFollowStatusText = computed(() => {
   if (discussionFollowState.value.error) return discussionFollowState.value.error
-  return '当前版本先展示关注讨论入口，等帖子级关注接口承接后再保存关注状态。'
+  if (!authStore.isLoggedIn) return '登录后可以关注讨论，后续新回复会进入通知。'
+  if (discussionFollowState.value.loading) return '正在读取关注状态...'
+  if (!discussionFollowState.value.loaded) return '关注后，帖子有新回复时会通知你。'
+  return discussionFollowState.value.followed
+    ? '已关注讨论，新回复会进入通知。'
+    : '关注后，帖子有新回复时会通知你。'
 })
 const discussionFollowActionLabel = computed(() => {
   if (discussionFollowState.value.pending) return '处理中'
-  return '关注讨论'
+  if (discussionFollowState.value.loading) return '读取中'
+  return discussionFollowState.value.followed ? '取消关注' : '关注讨论'
 })
+const discussionFollowActionDisabled = computed(() => (
+  discussionFollowState.value.loading || discussionFollowState.value.pending
+))
 const relatedSectionTitle = computed(() => (isQuestionPost.value ? '相关问题求助' : '相关帖子'))
 const relatedEmptyText = computed(() => (isQuestionPost.value ? '暂无相似讨论' : '暂无相关内容'))
 const isLegacyInterview = computed(() => false)
@@ -1359,6 +1377,7 @@ const contentSuggestionSubmitGuard = computed(() => canSubmitContentSuggestion({
 const contentSuggestionSubmitDisabled = computed(() => isSubmittingContentSuggestion.value || !contentSuggestionSubmitGuard.value.allowed)
 const contentSuggestionStatusText = (status: ContentSuggestionStatus) => CONTENT_SUGGESTION_STATUS_LABELS[status] || status
 const contentSuggestionTypeText = (type: ContentSuggestionType) => CONTENT_SUGGESTION_TYPE_OPTIONS.find((item) => item.value === type)?.label || type
+const safeContentSuggestionUrl = (value?: string) => normalizeHttpUrl(value)
 const contentSuggestionStoragePrefix = computed(() => `phase15-content-suggestions:${authStore.user?.uid || 'guest'}:${postId.value}`)
 
 const loadLocalContentSuggestionGuards = () => {
@@ -1561,7 +1580,7 @@ const localPostKnowledgeAssets = computed(() => {
       seriesId || seriesTitle,
       seriesTitle || '所属系列',
       '由当前帖子扩展字段推导的所属系列入口。',
-      seriesId ? `/series/${encodeURIComponent(seriesId)}` : '',
+      seriesId ? `/collections/${encodeURIComponent(seriesId)}` : '',
       'local-only 推导，仅在详情页只读展示，需后端确认后才可成为正式知识资产。',
     ))
   }
@@ -1701,7 +1720,21 @@ const resetDiscussionFollowState = () => {
 
 const loadDiscussionFollowStatus = async () => {
   resetDiscussionFollowState()
-  discussionFollowState.value.loaded = true
+  if (!post.value?.postId) {
+    discussionFollowState.value.loaded = true
+    return
+  }
+  discussionFollowState.value.loading = true
+  try {
+    const res = await interactionApi.getDiscussionFollowStatus(post.value.postId)
+    discussionFollowState.value.followed = Boolean(res.data?.followed)
+    discussionFollowState.value.loaded = true
+  } catch (error: any) {
+    discussionFollowState.value.error = getErrorMessage(error, '讨论关注状态加载失败')
+    discussionFollowState.value.loaded = true
+  } finally {
+    discussionFollowState.value.loading = false
+  }
 }
 
 const handleLike = async () => {
@@ -1790,13 +1823,25 @@ const handleFavoriteMoved = (_postId: Post['postId'], _folderId: unknown, folder
 }
 
 const toggleDiscussionFollow = async () => {
-  if (!post.value?.postId || discussionFollowState.value.pending) return
+  if (!post.value?.postId || discussionFollowActionDisabled.value) return
   if (!requireLogin()) return
 
   discussionFollowState.value.pending = true
   discussionFollowState.value.error = ''
-  toast.warning('当前版本先展示关注讨论入口，等帖子级关注接口承接后再保存关注状态。')
-  discussionFollowState.value.pending = false
+  const nextFollowed = !discussionFollowState.value.followed
+  try {
+    const res = nextFollowed
+      ? await interactionApi.followDiscussion(post.value.postId)
+      : await interactionApi.unfollowDiscussion(post.value.postId)
+    discussionFollowState.value.followed = Boolean(res.data?.followed ?? nextFollowed)
+    discussionFollowState.value.loaded = true
+    toast.success(discussionFollowState.value.followed ? '已关注讨论' : '已取消关注讨论')
+  } catch (error: any) {
+    discussionFollowState.value.error = getErrorMessage(error, nextFollowed ? '关注讨论失败' : '取消关注讨论失败')
+    toast.error(discussionFollowState.value.error)
+  } finally {
+    discussionFollowState.value.pending = false
+  }
 }
 
 const mergeContentSuggestion = (item: ContentSuggestionRecord) => {
@@ -1818,6 +1863,10 @@ const rememberPublicAcceptedSuggestionNote = (note?: string) => {
 }
 
 const loadContentSuggestions = async () => {
+  if (!CONTENT_SUGGESTIONS_ENABLED) {
+    contentSuggestions.value = []
+    return
+  }
   loadLocalContentSuggestionGuards()
   contentSuggestionFeedback.value = ''
   if (!post.value || !authStore.isLoggedIn) {
@@ -1851,10 +1900,15 @@ const submitContentSuggestion = async () => {
   contentSuggestionFeedback.value = ''
   contentSuggestionError.value = ''
   try {
+    const normalizedSourceUrl = normalizeHttpUrl(contentSuggestionForm.value.sourceUrl)
+    if (contentSuggestionForm.value.sourceUrl.trim() && !normalizedSourceUrl) {
+      contentSuggestionError.value = '相关链接只支持 http 或 https。'
+      return
+    }
     const res = await contentSuggestionApi.submit(post.value.postId, {
       type: contentSuggestionForm.value.type,
       detail: contentSuggestionForm.value.detail,
-      sourceUrl: contentSuggestionForm.value.sourceUrl || undefined,
+      sourceUrl: normalizedSourceUrl,
       allowPublicAttribution: contentSuggestionForm.value.allowPublicAttribution,
     })
     if (res.data) mergeContentSuggestion(res.data)
@@ -1953,6 +2007,10 @@ const findComment = (commentId: Comment['commentId']) => {
   }
   return undefined
 }
+
+const findRootComment = (commentId: Comment['commentId']) => (
+  comments.value.find((comment) => String(comment.commentId) === String(commentId))
+)
 
 const allComments = () => comments.value.flatMap((comment) => [comment, ...(comment.replies || [])])
 const asQualityComment = (comment: Comment) => comment as QualityComment
@@ -2329,6 +2387,34 @@ const loadComments = async (reset = true) => {
 
 const loadMoreComments = () => loadComments(false)
 
+const setReplyPageLoading = (rootId: Comment['commentId'], loading: boolean) => {
+  const key = String(rootId)
+  loadingReplyRootIds.value = loading
+    ? Array.from(new Set([...loadingReplyRootIds.value.map(String), key]))
+    : loadingReplyRootIds.value.filter((item) => String(item) !== key)
+}
+
+const handleLoadMoreReplies = async (rootId: Comment['commentId']) => {
+  const root = findRootComment(rootId)
+  if (!root || !root.hasMoreReplies || loadingReplyRootIds.value.map(String).includes(String(rootId))) return
+  setReplyPageLoading(rootId, true)
+  try {
+    const res = await interactionApi.getCommentReplies(postId.value, rootId, root.repliesNextCursor, 20)
+    const page = res.data
+    const existingIds = new Set((root.replies || []).map((item) => String(item.commentId)))
+    const nextReplies = (page?.items || [])
+      .map((item) => adaptQualityComment(item))
+      .filter((item) => !existingIds.has(String(item.commentId)))
+    root.replies = [...(root.replies || []), ...nextReplies]
+    root.repliesNextCursor = page?.nextCursor
+    root.hasMoreReplies = Boolean(page?.hasMore)
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '加载更多回复失败'))
+  } finally {
+    setReplyPageLoading(rootId, false)
+  }
+}
+
 const loadRelatedPosts = async () => {
   const current = post.value
   if (!current?.tags.length) {
@@ -2392,7 +2478,7 @@ const loadAdminPermissions = async () => {
     return
   }
   try {
-    const res = await opsApi.myPermissions({ skipAuthRedirect: true })
+    const res = await opsApi.myPermissions()
     adminPermissions.value = res.code === 0 ? res.data : null
   } catch {
     adminPermissions.value = null
@@ -2557,7 +2643,7 @@ watch(post, () => {
   loadDetailKnowledgeAssets()
   loadInteractionState()
   loadDiscussionFollowStatus()
-  loadContentSuggestions()
+  if (CONTENT_SUGGESTIONS_ENABLED) loadContentSuggestions()
   if (showStageTwoDetailPanels) {
     loadInterviewMaterial()
   } else {
@@ -2576,7 +2662,7 @@ watch(postId, () => {
   resetDiscussionFollowState()
   commentSort.value = 'latest'
   loadComments(true)
-  loadContentSuggestions()
+  if (CONTENT_SUGGESTIONS_ENABLED) loadContentSuggestions()
   versionHistories.value = []
   versionLoadAttempted.value = false
 })
@@ -2589,7 +2675,7 @@ onMounted(() => {
 watch(() => authStore.token, () => {
   loadAdminPermissions()
   loadDiscussionFollowStatus()
-  loadContentSuggestions()
+  if (CONTENT_SUGGESTIONS_ENABLED) loadContentSuggestions()
   if (showStageTwoDetailPanels) loadInterviewMaterial()
 })
 

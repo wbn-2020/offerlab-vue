@@ -7,7 +7,7 @@
         <div>
           <p class="text-xs font-black text-primary-600 dark:text-primary-300">社区反馈</p>
           <h1>我的举报</h1>
-          <span>查看你提交过的帖子和评论举报，以及平台公开给你的处理进度。</span>
+          <span>查看你提交过的帖子、评论和联系请求举报，以及平台公开给你的处理进度。</span>
         </div>
         <RouterLink to="/me" class="secondary-button">返回我的页面</RouterLink>
       </section>
@@ -169,7 +169,7 @@ import { interactionApi, type UserReportListParams } from '@/api/interaction'
 import type { UserReportReceipt, UserReportSourceType } from '@/api/types'
 import AppHeader from '@/components/layout/AppHeader.vue'
 
-type FilterValue = 'all' | 'post' | 'comment' | 'pending' | 'processed' | 'unaccepted'
+type FilterValue = 'all' | 'post' | 'comment' | 'contact' | 'pending' | 'processed' | 'unaccepted'
 
 const route = useRoute()
 const router = useRouter()
@@ -178,6 +178,7 @@ const filters = [
   { value: 'all', label: '全部', icon: Flag },
   { value: 'post', label: '帖子', icon: FileText },
   { value: 'comment', label: '评论', icon: MessageCircle },
+  { value: 'contact', label: '联系请求', icon: Inbox },
   { value: 'pending', label: '处理中', icon: RefreshCw },
   { value: 'processed', label: '已处理', icon: Flag },
   { value: 'unaccepted', label: '未采纳', icon: Inbox },
@@ -204,13 +205,15 @@ const emptyText = computed(() => {
   if (activeFilter.value === 'pending') return '没有正在处理中的举报。新的举报提交后，会先出现在这里。'
   if (activeFilter.value === 'processed') return '没有已处理的举报。平台完成核查后，会展示公开结果摘要。'
   if (activeFilter.value === 'unaccepted') return '没有未采纳的举报记录。'
-  return '你提交的帖子或评论举报会在这里汇总，便于回看处理进度。'
+  if (activeFilter.value === 'contact') return '没有联系请求举报记录。联系请求存在骚扰或违规时，处理回执会在这里汇总。'
+  return '你提交的帖子、评论或联系请求举报会在这里汇总，便于回看处理进度。'
 })
 
 const paramsForFilter = (cursor?: string): UserReportListParams => {
   const params: UserReportListParams = { limit: 20, cursor }
   if (activeFilter.value === 'post') params.sourceType = 'POST_REPORT'
   if (activeFilter.value === 'comment') params.sourceType = 'COMMENT_REPORT'
+  if (activeFilter.value === 'contact') params.sourceType = 'CONTACT_REQUEST_REPORT'
   if (activeFilter.value === 'pending') params.status = 'PROCESSING'
   if (activeFilter.value === 'processed') params.status = 'ACTION_TAKEN'
   if (activeFilter.value === 'unaccepted') params.status = 'NOT_ACCEPTED'
@@ -243,6 +246,35 @@ const reloadReports = () => {
 
 const loadMore = () => loadReports(true)
 
+const routeReportSourceType = (): UserReportSourceType | null => {
+  const value = String(route.params.sourceType || '').toUpperCase()
+  if (value === 'POST_REPORT' || value === 'COMMENT_REPORT' || value === 'CONTACT_REQUEST_REPORT') return value
+  return null
+}
+
+const routeReportId = () => {
+  const value = route.params.reportId
+  return Array.isArray(value) ? value[0] : value
+}
+
+const openRouteReport = async () => {
+  const sourceType = routeReportSourceType()
+  const reportId = routeReportId()
+  if (!sourceType || !reportId) return
+  drawerOpen.value = true
+  selectedReport.value = null
+  detailError.value = ''
+  detailLoading.value = true
+  try {
+    const res = await interactionApi.getMyReportDetail(sourceType, reportId)
+    if (res.data) selectedReport.value = res.data
+  } catch (error) {
+    detailError.value = getErrorMessage(error, '详情暂时不可用，请稍后再试。')
+  } finally {
+    detailLoading.value = false
+  }
+}
+
 const setFilter = async (filter: FilterValue) => {
   if (activeFilter.value === filter) return
   activeFilter.value = filter
@@ -271,11 +303,16 @@ const closeDrawer = () => {
   detailError.value = ''
 }
 
-const sourceTypeLabel = (type: UserReportSourceType) => type === 'COMMENT_REPORT' ? '评论举报' : '帖子举报'
+const sourceTypeLabel = (type: UserReportSourceType) => {
+  if (type === 'COMMENT_REPORT') return '评论举报'
+  if (type === 'CONTACT_REQUEST_REPORT') return '联系请求举报'
+  return '帖子举报'
+}
 
 const reportTitle = (report: UserReportReceipt) => {
   if (report.targetTitle) return report.targetTitle
   if (report.targetSummary) return report.targetSummary
+  if (report.sourceType === 'CONTACT_REQUEST_REPORT') return '联系请求'
   return report.sourceType === 'COMMENT_REPORT' ? '评论内容' : '帖子内容'
 }
 
@@ -324,6 +361,7 @@ const formatReportTime = (value?: string | number) => {
 
 onMounted(() => {
   void loadReports(false)
+  void openRouteReport()
 })
 </script>
 

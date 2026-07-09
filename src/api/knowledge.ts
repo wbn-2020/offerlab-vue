@@ -372,7 +372,10 @@ export const knowledgeApi = {
     }
   },
   explore: async (query: KnowledgeExploreQuery): Promise<Result<KnowledgeExploreResponse>> => {
-    const res = await client.get('/api/v1/knowledge/relations', {
+    const endpoint = query.assetId || query.assetType
+      ? '/api/v1/knowledge/assets'
+      : '/api/v1/knowledge/relations'
+    const res = await client.get(endpoint, {
       params: query,
       skipAuthRedirect: true,
     }) as Result<any>

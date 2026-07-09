@@ -30,6 +30,12 @@ import type { ContributionSummary } from '@/utils/communityMetrics'
 const now = Date.now()
 const day = 24 * 60 * 60 * 1000
 
+export const isLocalDemoSeedAllowed = () => (
+  import.meta.env.VITE_OFFERLAB_ALLOW_LOCAL_DEMO === 'true'
+  || import.meta.env.VITE_OFFERLAB_DEMO_FALLBACK === 'true'
+  || import.meta.env.VITE_OFFERLAB_USE_DEMO === 'true'
+)
+
 const demoAuthor: User = {
   uid: 'demo-author-001',
   nickname: '闻野示例作者',

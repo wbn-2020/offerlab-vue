@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { setupRouterGuards } from './guards'
 
+const enableLegacyTrainingRoutes = import.meta.env.VITE_OFFERLAB_ENABLE_LEGACY_TRAINING === 'true'
+const legacyTrainingRedirect = () => ({ name: 'Questions', query: { legacy: 'training-disabled' } })
+
 const routes = [
   {
     path: '/',
@@ -35,7 +38,9 @@ const routes = [
   {
     path: '/companies/:company/prep',
     name: 'CompanyPrep',
-    redirect: (to: any) => ({ name: 'Search', query: { q: String(to.params.company || ''), mode: 'posts' } }),
+    ...(enableLegacyTrainingRoutes
+      ? { component: () => import('@/views/CompanyPrepView.vue') }
+      : { redirect: legacyTrainingRedirect }),
     meta: { title: '主题学习包' },
   },
   {
@@ -78,13 +83,13 @@ const routes = [
     path: '/growth/profile',
     name: 'GrowthProfile',
     component: () => import('@/views/GrowthProfileView.vue'),
-    meta: { title: '成长档案' },
+    meta: { title: '成长档案', requiresAuth: true },
   },
   {
     path: '/growth/report',
     name: 'GrowthReport',
     component: () => import('@/views/GrowthReportView.vue'),
-    meta: { title: '成长周报月报' },
+    meta: { title: '成长周报月报', requiresAuth: true },
   },
   {
     path: '/knowledge/explore',
@@ -96,7 +101,7 @@ const routes = [
     path: '/certification/apply',
     name: 'CertificationApply',
     component: () => import('@/views/CertificationApplyView.vue'),
-    meta: { title: '认证作者申请' },
+    meta: { title: '认证作者申请', requiresAuth: true },
   },
   {
     path: '/u/:uid',
@@ -126,14 +131,18 @@ const routes = [
   {
     path: '/me/prep',
     name: 'MePrep',
-    component: () => import('@/views/MePrepView.vue'),
-    meta: { title: '个人学习空间', requiresAuth: true },
+    ...(enableLegacyTrainingRoutes
+      ? { component: () => import('@/views/MePrepView.vue') }
+      : { redirect: legacyTrainingRedirect }),
+    meta: { title: '个人学习空间', requiresAuth: true, legacyFeature: 'private-training' },
   },
   {
     path: '/mock-interview',
     name: 'MockInterview',
-    component: () => import('@/views/MockInterviewView.vue'),
-    meta: { title: '个人练习归档', requiresAuth: true },
+    ...(enableLegacyTrainingRoutes
+      ? { component: () => import('@/views/MockInterviewView.vue') }
+      : { redirect: legacyTrainingRedirect }),
+    meta: { title: '个人练习归档', requiresAuth: true, legacyFeature: 'mock-interview' },
   },
   {
     path: '/me/notifications',
@@ -147,6 +156,12 @@ const routes = [
     name: 'MyReports',
     component: () => import('@/views/MyReportsView.vue'),
     meta: { title: '我的举报', requiresAuth: true },
+  },
+  {
+    path: '/me/reports/:sourceType/:reportId',
+    name: 'MyReportDetail',
+    component: () => import('@/views/MyReportsView.vue'),
+    meta: { title: 'Report Detail', requiresAuth: true },
   },
   {
     path: '/me/settings',

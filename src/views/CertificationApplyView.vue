@@ -226,7 +226,7 @@
 
             <div v-if="item.evidenceLinks.length" class="mt-4 flex flex-wrap gap-2">
               <a
-                v-for="link in item.evidenceLinks"
+                v-for="link in safeEvidenceLinks(item.evidenceLinks)"
                 :key="link"
                 :href="link"
                 target="_blank"
@@ -291,15 +291,36 @@ const evidenceLinks = computed(() => (
     .split(/\r?\n|,/)
     .map((item) => item.trim())
     .filter(Boolean)
+    .filter(isSafeEvidenceLink)
     .slice(0, 8)
+))
+
+const hasInvalidEvidenceLinks = computed(() => (
+  form.evidenceLinksText
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .some((item) => !isSafeEvidenceLink(item))
 ))
 
 const canSubmit = computed(() => {
   if (!authStore.isLoggedIn || !eligibility.value?.eligible) return false
   if (!form.evidenceSummary.trim()) return false
+  if (hasInvalidEvidenceLinks.value) return false
   if (eligibility.value.riskAcknowledgementRequired && !form.riskAcknowledged) return false
   return true
 })
+
+const isSafeEvidenceLink = (value: string) => {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const safeEvidenceLinks = (links: string[]) => links.filter(isSafeEvidenceLink)
 
 const formatTime = (value?: number) => {
   if (!value) return '--'
@@ -367,6 +388,10 @@ const refreshStageFourCertification = async () => {
 
 const submitApplication = async () => {
   if (!canSubmit.value) return
+  if (hasInvalidEvidenceLinks.value) {
+    submitError.value = 'Evidence links must start with http:// or https://.'
+    return
+  }
   submitting.value = true
   submitError.value = ''
   try {

@@ -1,4 +1,4 @@
-import client, { Result } from './client'
+import type { Result } from './client'
 import type { ApiId, Post } from './types'
 import { isPublicPostVisible } from '@/utils/recommendationGovernance'
 
@@ -79,6 +79,17 @@ export interface ContentSuggestionSubmitGuardResult {
 export const CONTENT_SUGGESTION_DAILY_LIMIT = 10
 export const CONTENT_SUGGESTIONS_ENABLED = false
 
+export const normalizeHttpUrl = (value: unknown) => {
+  const raw = String(value || '').trim()
+  if (!raw) return undefined
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const disabledResult = <T>(data: T | null, message = 'content_suggestions_disabled'): Result<T> => ({
   code: 0,
   message,
@@ -111,7 +122,7 @@ export const normalizeContentSuggestionSubmitReq = (
 ): Required<Pick<ContentSuggestionSubmitReq, 'type' | 'detail' | 'allowPublicAttribution'>> & Pick<ContentSuggestionSubmitReq, 'sourceUrl'> => ({
   type: req.type,
   detail: String(req.detail || '').trim(),
-  sourceUrl: String(req.sourceUrl || '').trim() || undefined,
+  sourceUrl: normalizeHttpUrl(req.sourceUrl),
   allowPublicAttribution: false || req.allowPublicAttribution === true,
 })
 
@@ -161,7 +172,7 @@ const adaptContentSuggestion = (raw: any): ContentSuggestionRecord => ({
   submitterNickname: raw?.submitterNickname ? String(raw.submitterNickname) : undefined,
   type: String(raw?.type ?? raw?.suggestionType ?? 'SUPPLEMENT') as ContentSuggestionType,
   detail: String(raw?.detail ?? raw?.content ?? ''),
-  sourceUrl: raw?.sourceUrl ? String(raw.sourceUrl) : undefined,
+  sourceUrl: normalizeHttpUrl(raw?.sourceUrl),
   allowPublicAttribution: raw?.allowPublicAttribution === true,
   status: String(raw?.status ?? 'PENDING') as ContentSuggestionStatus,
   authorReply: raw?.authorReply ? String(raw.authorReply) : undefined,
@@ -172,51 +183,46 @@ const adaptContentSuggestion = (raw: any): ContentSuggestionRecord => ({
 
 export const contentSuggestionApi = {
   submit: async (postId: ApiId, req: ContentSuggestionSubmitReq): Promise<Result<ContentSuggestionRecord>> => {
-    if (!CONTENT_SUGGESTIONS_ENABLED) return disabledResult<ContentSuggestionRecord>(null)
-    const res = await client.post(`/api/v1/posts/${postId}/suggestions`, normalizeContentSuggestionSubmitReq(req)) as Result<any>
-    return { ...res, data: res.data ? adaptContentSuggestion(res.data) : null }
+    void postId
+    void req
+    return disabledResult<ContentSuggestionRecord>(null)
   },
 
   listMineForPost: async (postId: ApiId): Promise<Result<ContentSuggestionRecord[]>> => {
-    if (!CONTENT_SUGGESTIONS_ENABLED) return disabledResult<ContentSuggestionRecord[]>([])
-    const res = await client.get(`/api/v1/posts/${postId}/suggestions/me`, { skipAuthRedirect: true }) as Result<any>
-    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptContentSuggestion) : [] }
+    void postId
+    return disabledResult<ContentSuggestionRecord[]>([])
   },
 
   listForAuthorPost: async (postId: ApiId, status?: ContentSuggestionStatus): Promise<Result<ContentSuggestionRecord[]>> => {
-    if (!CONTENT_SUGGESTIONS_ENABLED) return disabledResult<ContentSuggestionRecord[]>([])
-    const res = await client.get('/api/v1/creator/content-suggestions', { params: { postId, status } }) as Result<any>
-    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptContentSuggestion) : [] }
+    void postId
+    void status
+    return disabledResult<ContentSuggestionRecord[]>([])
   },
 
   accept: async (id: ApiId, req: ContentSuggestionActionReq = {}): Promise<Result<ContentSuggestionRecord>> => {
-    if (!CONTENT_SUGGESTIONS_ENABLED) return disabledResult<ContentSuggestionRecord>(null)
-    const res = await client.post(`/api/v1/content-suggestions/${id}/accept`, req) as Result<any>
-    return { ...res, data: res.data ? adaptContentSuggestion(res.data) : null }
+    void id
+    void req
+    return disabledResult<ContentSuggestionRecord>(null)
   },
 
   reply: async (id: ApiId, req: ContentSuggestionActionReq): Promise<Result<ContentSuggestionRecord>> => {
-    if (!CONTENT_SUGGESTIONS_ENABLED) return disabledResult<ContentSuggestionRecord>(null)
-    const res = await client.post(`/api/v1/content-suggestions/${id}/reply`, req) as Result<any>
-    return { ...res, data: res.data ? adaptContentSuggestion(res.data) : null }
+    void id
+    void req
+    return disabledResult<ContentSuggestionRecord>(null)
   },
 
   ignore: async (id: ApiId): Promise<Result<ContentSuggestionRecord>> => {
-    if (!CONTENT_SUGGESTIONS_ENABLED) return disabledResult<ContentSuggestionRecord>(null)
-    const res = await client.post(`/api/v1/content-suggestions/${id}/ignore`) as Result<any>
-    return { ...res, data: res.data ? adaptContentSuggestion(res.data) : null }
+    void id
+    return disabledResult<ContentSuggestionRecord>(null)
   },
 
   close: async (id: ApiId, req: ContentSuggestionActionReq = {}): Promise<Result<ContentSuggestionRecord>> => {
-    if (!CONTENT_SUGGESTIONS_ENABLED) return disabledResult<ContentSuggestionRecord>(null)
-    const res = await client.post(`/api/v1/content-suggestions/${id}/close`, req) as Result<any>
-    return { ...res, data: res.data ? adaptContentSuggestion(res.data) : null }
+    void id
+    void req
+    return disabledResult<ContentSuggestionRecord>(null)
   },
 
   closePostEntry: (postId: ApiId): Promise<Result<{ postId: ApiId; suggestionsOpen: boolean }>> => {
-    if (!CONTENT_SUGGESTIONS_ENABLED) {
-      return Promise.resolve(disabledResult({ postId, suggestionsOpen: false }))
-    }
-    return client.post(`/api/v1/posts/${postId}/suggestions/entry`, { suggestionsOpen: false })
+    return Promise.resolve(disabledResult<{ postId: ApiId; suggestionsOpen: boolean }>({ postId, suggestionsOpen: false }))
   },
 }

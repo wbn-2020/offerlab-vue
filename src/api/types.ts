@@ -17,6 +17,9 @@ export interface User {
   privacyReason?: string
   acceptContactRequest?: boolean
   contactRequestPolicy?: 'all' | 'following' | 'mutual' | 'off' | string
+  canStartContactRequest?: boolean
+  contactRequestReasonCode?: string
+  contactRequestReasonMessage?: string
 }
 
 export type UserBrief = User
@@ -103,6 +106,10 @@ export interface FavoriteFolderUpdateReq {
   visibility?: FavoriteFolderVisibility | 1 | 2
   isPublic?: boolean
   privateFolder?: boolean
+}
+
+export interface FavoriteFolderSortReq {
+  sortOrder: number
 }
 
 export interface FavoriteMoveReq {
@@ -215,6 +222,7 @@ export interface Comment {
   canDelete?: boolean
   replyCount?: number
   hasMoreReplies?: boolean
+  repliesNextCursor?: string
   createdAt: number
   replies?: Comment[]
 }
@@ -272,7 +280,7 @@ export interface CommentReport {
 
 export type UserReportStatus = 'PROCESSING' | 'ACTION_TAKEN' | 'NOT_ACCEPTED' | 'CLOSED'
 
-export type UserReportSourceType = 'POST_REPORT' | 'COMMENT_REPORT'
+export type UserReportSourceType = 'POST_REPORT' | 'COMMENT_REPORT' | 'CONTACT_REQUEST_REPORT'
 
 export interface UserReportReceipt {
   reportId: ApiId
@@ -327,10 +335,30 @@ export interface ContactRequest {
   updatedAt: number
 }
 
+export interface ContactRequestStats {
+  inboxTotal: number
+  inboxPending: number
+  inboxAccepted: number
+  inboxRejected: number
+  inboxIgnored: number
+  inboxReported: number
+  inboxCancelled: number
+  inboxExpired: number
+  outboxTotal: number
+  outboxPending: number
+  outboxAccepted: number
+  outboxRejected: number
+  outboxIgnored: number
+  outboxReported: number
+  outboxCancelled: number
+  outboxExpired: number
+}
+
 export interface ContactRequestSettings {
   acceptContactRequest: boolean
   contactRequestPolicy: 'all' | 'following' | 'mutual' | 'off' | string
   dailyLimit: number
+  contactRequestDailyLimit?: number
 }
 
 export interface ContactRequestCreateReq {

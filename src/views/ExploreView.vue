@@ -125,7 +125,7 @@
             v-for="item in crossDomainRecommendations"
             :key="item.item.post?.postId || safeCrossDomainReason(item)"
             class="feature-card"
-            :to="`/posts/${item.item.post?.postId}`"
+            :to="`/post/${item.item.post?.postId}`"
           >
             <span class="card-kicker">{{ item.sourceDomainName || '公共内容' }} → {{ item.targetDomainName || '延展阅读' }}</span>
             <h2>{{ item.item.post?.title || '公开内容推荐' }}</h2>
@@ -189,7 +189,7 @@
             v-for="post in visibleLatestPosts"
             :key="post.postId"
             class="compact-row"
-            :to="`/posts/${post.postId}`"
+            :to="`/post/${post.postId}`"
           >
             <img v-if="latestPostCoverUrl(post)" :src="latestPostCoverUrl(post)" :alt="post.title" class="latest-post-cover" />
             <Hash v-else class="h-4 w-4" aria-hidden="true" />
@@ -314,7 +314,7 @@ const postToDiscoveryItem = (post: Post): DiscoveryItem => ({
   type: 'post',
   title: post.highlightTitle || post.title,
   summary: postSummaryForDiscovery(post),
-  href: `/posts/${encodeURIComponent(String(post.postId))}`,
+  href: `/post/${encodeURIComponent(String(post.postId))}`,
   source: 'public-content-query',
   sourceId: post.postId,
   domain: post.domain,

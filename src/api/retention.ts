@@ -1,4 +1,4 @@
-import client, { type Result } from './client'
+import { type Result } from './client'
 import { feedApi } from './feed'
 import { notificationApi } from './notification'
 import { postApi } from './post'
@@ -9,7 +9,6 @@ export const RETENTION_BLOCK_DEFAULT_LIMIT = 3
 export const RETENTION_BLOCK_MAX_LIMIT = 5
 export const RETENTION_SAME_SOURCE_DEFAULT_LIMIT = 1
 export const RETENTION_TOPIC_UPDATES_ENABLED = false
-export const RETENTION_SERVER_SUMMARY_ENABLED = false
 
 export const RETENTION_SOURCE_WHITELIST = [
   'favorite',
@@ -238,15 +237,6 @@ export const retentionApi = {
       return { code: 0, message: 'unauthenticated', data: emptySummary('unauthenticated') }
     }
 
-    if (!RETENTION_SERVER_SUMMARY_ENABLED) {
-      return { code: 0, message: 'frontend_fallback_disabled_server_contract', data: await buildFallbackSummary() }
-    }
-
-    try {
-      const res = await client.get('/api/v1/retention/summary', { skipAuthRedirect: true }) as Result<any>
-      return { ...res, data: normalizeServerSummary(res.data) }
-    } catch {
-      return { code: 0, message: 'frontend_fallback', data: await buildFallbackSummary() }
-    }
+    return { code: 0, message: 'frontend_retention_summary', data: await buildFallbackSummary() }
   },
 }

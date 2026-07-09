@@ -549,6 +549,7 @@
               <option value="">全部来源</option>
               <option value="POST_REPORT">帖子举报</option>
               <option value="COMMENT_REPORT">评论举报</option>
+              <option value="CONTACT_REQUEST_REPORT">联系请求举报</option>
               <option value="MODERATION_HIT">敏感词命中</option>
               <option value="QUESTION_PENDING">待审知识卡</option>
               <option value="AI_TASK_FAILED">失败 AI 任务</option>
@@ -1079,14 +1080,11 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
 const backendReviewQueueViewItems = computed<ReviewQueueItem[]>(() => safeBackendReviewQueueItems.value
   .map(toReviewQueueItem)
   .sort((a, b) => riskRank(b.riskLevel) - riskRank(a.riskLevel) || queueTimeValue(b.createdAt) - queueTimeValue(a.createdAt)))
-const reviewQueueItems = computed<ReviewQueueItem[]>(() => {
-  if (reviewQueueSource.value === 'backend' && backendReviewQueueViewItems.value.length > 0) {
-    return backendReviewQueueViewItems.value
-  }
-  return frontendReviewQueueItems.value
-})
+const reviewQueueItems = computed<ReviewQueueItem[]>(() => (
+  reviewQueueSource.value === 'backend' ? backendReviewQueueViewItems.value : frontendReviewQueueItems.value
+))
 const reviewQueueSourceText = computed(() => (
-  reviewQueueSource.value === 'backend' && backendReviewQueueViewItems.value.length > 0
+  reviewQueueSource.value === 'backend'
     ? '后端统一队列'
     : '前端聚合预览'
 ))
@@ -1326,6 +1324,7 @@ const queueSourceLabel = (sourceType: string) => {
   const labels: Record<string, string> = {
     POST_REPORT: '帖子举报',
     COMMENT_REPORT: '评论举报',
+    CONTACT_REQUEST_REPORT: '联系请求举报',
     MODERATION_HIT: '敏感词命中',
     QUESTION_PENDING: '待审知识卡',
     AI_TASK_FAILED: '失败 AI 任务',
@@ -1380,6 +1379,7 @@ const queueActionPath = (item: BackendReviewQueueItem) => {
     if (!postId) return '/admin/governance?tab=review'
     return commentId ? `/post/${postId}#comment-${commentId}` : `/post/${postId}`
   }
+  if (item.sourceType === 'CONTACT_REQUEST_REPORT') return '/admin/governance?tab=review'
   if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '/admin/questions'
   if (item.sourceType === 'AI_TASK_FAILED' || item.sourceType === 'AI_TASK') return '/admin/ops'
   return '/admin/governance'
@@ -1388,6 +1388,7 @@ const queueActionPath = (item: BackendReviewQueueItem) => {
 const queueActionLabel = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'POST_REPORT' || item.sourceType === 'POST') return '查看帖子'
   if (item.sourceType === 'COMMENT_REPORT') return queueExtId(item, 'postId') ? '查看原帖' : '留在治理页'
+  if (item.sourceType === 'CONTACT_REQUEST_REPORT') return '查看联系请求举报'
   if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '进入知识卡审核'
   if (item.sourceType === 'AI_TASK_FAILED' || item.sourceType === 'AI_TASK') return '进入运维中心'
   return '查看来源'
@@ -1395,7 +1396,7 @@ const queueActionLabel = (item: BackendReviewQueueItem) => {
 
 const queueActionTab = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'MODERATION_HIT') return 'hits'
-  if (item.sourceType === 'POST_REPORT' || item.sourceType === 'COMMENT_REPORT') return 'review'
+  if (item.sourceType === 'POST_REPORT' || item.sourceType === 'COMMENT_REPORT' || item.sourceType === 'CONTACT_REQUEST_REPORT') return 'review'
   return undefined
 }
 

@@ -215,10 +215,10 @@ const emptyResult = <T>(data: T | null): Result<T> => ({
 
 const shouldDisableServerDrafts = (error: unknown) => {
   if (error instanceof BizException) {
-    return error.code === 10404 || error.code >= 20000
+    return error.code === 10404
   }
   const status = (error as any)?.response?.status
-  return status === 404 || status === 405 || status >= 500
+  return status === 404 || status === 405
 }
 
 const rememberDraftFailure = (error: unknown) => {

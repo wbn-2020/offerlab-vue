@@ -275,6 +275,38 @@
               </article>
             </div>
           </section>
+          <section class="profile-panel">
+            <div class="border-b border-slate-200 pb-4 dark:border-slate-800">
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">Public favorite folders</h2>
+              <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                Only public folders are shown. Private folders and non-public posts stay hidden.
+              </p>
+            </div>
+            <div v-if="isLoadingFavoriteFolders" class="py-8 text-sm text-slate-500 dark:text-slate-400">
+              Loading public favorite folders...
+            </div>
+            <div v-else-if="favoriteFoldersError" class="py-8 text-sm text-rose-600 dark:text-rose-300">
+              {{ favoriteFoldersError }}
+            </div>
+            <div v-else-if="publicFavoriteFolders.length === 0" class="py-8 text-sm text-slate-500 dark:text-slate-400">
+              This author has not published favorite folders yet.
+            </div>
+            <div v-else class="collection-grid pt-5">
+              <article v-for="folder in publicFavoriteFolders" :key="folder.id" class="collection-card">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3>{{ folder.name }}</h3>
+                    <span>{{ folder.postCount }} posts</span>
+                  </div>
+                  <p>{{ folder.description || 'A public favorite folder curated by this author.' }}</p>
+                </div>
+                <div class="collection-meta">
+                  <span>{{ formatTime(folder.updatedAt) }}</span>
+                  <RouterLink :to="`/favorite-folders/${folder.id}`">Open folder</RouterLink>
+                </div>
+              </article>
+            </div>
+          </section>
         </template>
       </template>
     </div>
@@ -298,12 +330,13 @@ import { getErrorMessage } from '@/api/client'
 import { userApi } from '@/api/user'
 import { postApi } from '@/api/post'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
+import { interactionApi } from '@/api/interaction'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import ContactRequestDialog from '@/components/contact/ContactRequestDialog.vue'
-import type { Post, User, UserIntent } from '@/api/types'
+import type { FavoriteFolder, Post, User, UserIntent } from '@/api/types'
 import { buildContributionSummary, buildTypeDistribution, type ContributionSummary } from '@/utils/communityMetrics'
 import {
   buildFollowReasons,
@@ -324,11 +357,14 @@ const user = ref<User | null>(null)
 const userIntent = ref<UserIntent | null>(null)
 const posts = ref<Post[]>([])
 const publicCollections = ref<ContentSeriesRecord[]>([])
+const publicFavoriteFolders = ref<FavoriteFolder[]>([])
 const backendContribution = ref<ContributionSummary | null>(null)
 const isLoading = ref(false)
 const isLoadingCollections = ref(false)
+const isLoadingFavoriteFolders = ref(false)
 const loadError = ref('')
 const collectionsError = ref('')
+const favoriteFoldersError = ref('')
 const failedCollectionCoverUrls = ref(new Set<string>())
 const isFollowBusy = ref(false)
 const isContactDialogOpen = ref(false)
@@ -369,6 +405,7 @@ const relationshipContext = computed(() => authStore.isLoggedIn
 const isViewingSelf = computed(() => String(authStore.user?.uid ?? '') === String(user.value?.uid ?? ''))
 const isContactRequestOpen = computed(() => {
   if (!user.value || user.value.profileVisible === false) return false
+  if (user.value.canStartContactRequest !== undefined) return user.value.canStartContactRequest === true
   if (user.value.acceptContactRequest === false) return false
   return String(user.value.contactRequestPolicy ?? '').toLowerCase() !== 'off'
 })
@@ -411,6 +448,20 @@ const loadPublicCollections = async (uid: string) => {
   }
 }
 
+const loadPublicFavoriteFolders = async (uid: string) => {
+  isLoadingFavoriteFolders.value = true
+  favoriteFoldersError.value = ''
+  try {
+    const res = await interactionApi.listPublicFavoriteFoldersByUser(uid, 6)
+    publicFavoriteFolders.value = (res.data || []).filter((folder) => folder.visibility === 'public')
+  } catch (error: any) {
+    publicFavoriteFolders.value = []
+    favoriteFoldersError.value = getErrorMessage(error, '公开收藏夹加载失败')
+  } finally {
+    isLoadingFavoriteFolders.value = false
+  }
+}
+
 const loadProfile = async () => {
   const uid = profileUid.value
   if (!uid) return
@@ -419,6 +470,7 @@ const loadProfile = async () => {
   user.value = null
   posts.value = []
   publicCollections.value = []
+  publicFavoriteFolders.value = []
   userIntent.value = null
   backendContribution.value = null
   try {
@@ -438,7 +490,10 @@ const loadProfile = async () => {
     userIntent.value = intent.status === 'fulfilled' ? intent.value.data : null
     posts.value = authoredPosts.status === 'fulfilled' ? filterVisiblePosts(authoredPosts.value.data?.items || []) : []
     backendContribution.value = contributionRes.status === 'fulfilled' ? contributionRes.value.data : null
-    await loadPublicCollections(uid)
+    await Promise.all([
+      loadPublicCollections(uid),
+      loadPublicFavoriteFolders(uid),
+    ])
   } catch (error: any) {
     loadError.value = getErrorMessage(error, '用户资料加载失败')
   } finally {

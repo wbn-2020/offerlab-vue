@@ -1,5 +1,4 @@
 import client, { BizException, type Result } from './client'
-import { demoGrowthProfile, demoGrowthReport } from '@/data/demoSeeds'
 import { adaptId } from './adapters'
 import type {
   GrowthProfile,
@@ -101,6 +100,8 @@ const localDemoResult = <T>(data: T): Result<T> => ({
   data,
 })
 
+const loadDemoSeeds = () => import('@/data/demoSeeds')
+
 const emptyGrowthProfile = (days = 30): GrowthProfile => ({
   days,
   degraded: true,
@@ -127,6 +128,7 @@ const emptyGrowthReport = (period: 'weekly' | 'monthly' | string = 'weekly'): Gr
 
 export const isDemoFallbackEnabled = () => {
   const env = import.meta.env
+  if (env.PROD) return false
   return Boolean(
     env.DEV
     || env.VITE_OFFERLAB_DEMO_FALLBACK === 'true'
@@ -153,7 +155,6 @@ export const growthApi = {
     try {
       const res = await client.get('/api/v1/growth/profile', {
         params: { days },
-        skipAuthRedirect: true,
       }) as Result<any>
       const data = res.data ? adaptGrowthProfile(res.data) : null
       return {
@@ -162,6 +163,8 @@ export const growthApi = {
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoGrowthProfile, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult({ ...demoGrowthProfile, days })
       }
       if (isBackendNotFound(error)) {
@@ -179,7 +182,6 @@ export const growthApi = {
     try {
       const res = await client.get('/api/v1/growth/report', {
         params: { period },
-        skipAuthRedirect: true,
       }) as Result<any>
       const data = res.data ? adaptGrowthReport(res.data) : null
       return {
@@ -188,6 +190,8 @@ export const growthApi = {
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoGrowthReport, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult({ ...demoGrowthReport, period })
       }
       if (isBackendNotFound(error)) {

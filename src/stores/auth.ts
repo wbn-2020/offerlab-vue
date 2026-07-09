@@ -3,6 +3,13 @@ import { ref, computed } from 'vue'
 import type { User } from '@/api/types'
 import { authTokenStore } from '@/utils/authTokenStore'
 
+const isAuthExpiredError = (error: unknown) => {
+  const candidate = error as { code?: unknown; response?: { status?: unknown } } | null | undefined
+  const status = Number(candidate?.response?.status || 0)
+  const code = Number(candidate?.code || 0)
+  return status === 401 || status === 403 || code === 10401 || code === 10403
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   authTokenStore.clearLegacyLocalToken()
@@ -43,8 +50,10 @@ export const useAuthStore = defineStore('auth', () => {
         const me = await authApi.fetchMe()
         user.value = me.data
       })
-      .catch(() => {
-        logout()
+      .catch((error) => {
+        if (isAuthExpiredError(error)) {
+          logout()
+        }
       })
       .finally(() => {
         ready.value = true

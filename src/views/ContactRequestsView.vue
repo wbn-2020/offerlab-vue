@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <AppHeader />
 
@@ -75,7 +75,7 @@
             :key="tab.value"
             type="button"
             :class="['tab-button', activeTab === tab.value ? 'tab-active' : '']"
-            @click="activeTab = tab.value"
+            @click="setActiveTab(tab.value)"
           >
             <component :is="tab.icon" class="h-4 w-4" />
             {{ tab.label }}
@@ -184,12 +184,50 @@
           </template>
         </div>
       </section>
+
+      <div v-if="reportDialog.open" class="modal-backdrop" @click.self="closeReportDialog">
+        <form class="report-dialog" @submit.prevent="submitReportDialog">
+          <div>
+            <p class="text-sm font-semibold text-primary-600 dark:text-primary-300">举报联系请求</p>
+            <h2>选择举报原因</h2>
+            <p>举报会进入治理队列，处理后该请求状态会同步更新。</p>
+          </div>
+          <label class="setting-field">
+            <span>原因</span>
+            <select v-model="reportDialog.reason" class="form-select" :disabled="Boolean(reportDialog.loading)">
+              <option value="CONTACT_REQUEST_ABUSE">骚扰或滥用</option>
+              <option value="SPAM">垃圾信息</option>
+              <option value="FRAUD">疑似欺诈</option>
+              <option value="OTHER">其他</option>
+            </select>
+          </label>
+          <label class="setting-field">
+            <span>补充说明</span>
+            <textarea
+              v-model="reportDialog.detail"
+              class="form-textarea"
+              maxlength="500"
+              rows="4"
+              :disabled="Boolean(reportDialog.loading)"
+              placeholder="补充上下文，便于管理员判断。"
+            />
+          </label>
+          <p v-if="reportDialog.error" class="notice-error">{{ reportDialog.error }}</p>
+          <div class="settings-actions">
+            <button type="button" class="secondary-button" :disabled="Boolean(reportDialog.loading)" @click="closeReportDialog">取消</button>
+            <button type="submit" class="danger-button" :disabled="Boolean(reportDialog.loading)">
+              {{ reportDialog.loading ? '提交中...' : '提交举报' }}
+            </button>
+          </div>
+        </form>
+      </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Inbox, RefreshCw, Send, ShieldCheck } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -274,6 +312,8 @@ const defaultSettings = (): ContactRequestSettings => ({
 })
 
 const activeTab = ref<TabValue>('inbox')
+const route = useRoute()
+const router = useRouter()
 const inbox = createListState()
 const outbox = createListState()
 const operationById = ref<Record<string, RequestAction>>({})
@@ -282,8 +322,31 @@ const settingsLoading = ref(false)
 const settingsSaving = ref(false)
 const settingsError = ref('')
 const settingsForm = reactive(defaultSettings())
+const reportDialog = reactive<{
+  open: boolean
+  request: ContactRequest | null
+  reason: string
+  detail: string
+  loading: boolean
+  error: string
+}>({
+  open: false,
+  request: null,
+  reason: 'CONTACT_REQUEST_ABUSE',
+  detail: '',
+  loading: false,
+  error: '',
+})
 
 const activeList = computed(() => activeTab.value === 'inbox' ? inbox : outbox)
+const normalizeTab = (value: unknown): TabValue => value === 'outbox' ? 'outbox' : 'inbox'
+
+const setActiveTab = (tab: TabValue) => {
+  activeTab.value = tab
+  if (route.query.tab !== tab) {
+    router.replace({ query: { ...route.query, tab } })
+  }
+}
 
 const normalizeStatus = (status: string) => String(status || 'PENDING').toUpperCase()
 const statusLabel = (status: string) => statusLabels[normalizeStatus(status)] || normalizeStatus(status)
@@ -365,6 +428,21 @@ const reloadActiveList = () => {
   }
 }
 
+const openReportDialog = (request: ContactRequest) => {
+  reportDialog.open = true
+  reportDialog.request = request
+  reportDialog.reason = 'CONTACT_REQUEST_ABUSE'
+  reportDialog.detail = request.messagePreview || ''
+  reportDialog.error = ''
+}
+
+const closeReportDialog = () => {
+  if (reportDialog.loading) return
+  reportDialog.open = false
+  reportDialog.request = null
+  reportDialog.error = ''
+}
+
 const applySettings = (settings: ContactRequestSettings | null) => {
   const next = settings || defaultSettings()
   settingsForm.acceptContactRequest = next.acceptContactRequest && String(next.contactRequestPolicy).toLowerCase() !== 'off'
@@ -407,6 +485,8 @@ const saveSettings = async () => {
     const res = await interactionApi.updateContactRequestSettings({
       acceptContactRequest: settingsForm.acceptContactRequest,
       contactRequestPolicy,
+      dailyLimit: settingsForm.dailyLimit,
+      contactRequestDailyLimit: settingsForm.dailyLimit,
     })
     applySettings(res.data)
     toast.success('联系请求设置已保存')
@@ -423,15 +503,11 @@ const updateRequestInState = (state: ListState, updated: ContactRequest) => {
   ))
 }
 
-const fallbackUpdatedRequest = (request: ContactRequest, action: RequestAction): ContactRequest => ({
-  ...request,
-  requestStatus: actionStatusMap[action],
-  updateTime: new Date().toISOString(),
-  updatedAt: Date.now(),
-})
-
 const applyActionResult = (request: ContactRequest, action: RequestAction, updated?: ContactRequest | null) => {
-  const next = updated || fallbackUpdatedRequest(request, action)
+  if (!updated) {
+    throw new Error('Contact request action did not return an updated request')
+  }
+  const next = updated
   updateRequestInState(inbox, next)
   updateRequestInState(outbox, next)
 }
@@ -443,21 +519,22 @@ const actionButtonLabel = (request: ContactRequest, action: RequestAction, label
 
 const handleRequestAction = async (request: ContactRequest, action: RequestAction) => {
   if (isActionDisabled(request)) return
-  if (action === 'report' && !window.confirm('确认举报这条联系请求？')) return
+  if (action === 'report') {
+    openReportDialog(request)
+    return
+  }
 
   operationById.value = { ...operationById.value, [requestKey(request.requestId)]: action }
   try {
-    const apiCall = {
+    const res = await {
       accept: interactionApi.acceptContactRequest,
       reject: interactionApi.rejectContactRequest,
       ignore: interactionApi.ignoreContactRequest,
-      report: interactionApi.reportContactRequest,
-    }[action]
-    const res = await apiCall(request.requestId)
+    }[action](request.requestId)
     applyActionResult(request, action, res.data)
     toast.success(actionSuccessCopy[action])
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '联系请求处理失败'))
+    toast.error(getErrorMessage(error, 'Contact request action failed'))
   } finally {
     const next = { ...operationById.value }
     delete next[requestKey(request.requestId)]
@@ -465,6 +542,32 @@ const handleRequestAction = async (request: ContactRequest, action: RequestActio
   }
 }
 
+const submitReportDialog = async () => {
+  const request = reportDialog.request
+  const reason = reportDialog.reason.trim()
+  if (!request || !reason || isActionDisabled(request)) return
+  reportDialog.loading = true
+  reportDialog.error = ''
+  operationById.value = { ...operationById.value, [requestKey(request.requestId)]: 'report' }
+  try {
+    const res = await interactionApi.reportContactRequest(request.requestId, {
+      reason,
+      detail: reportDialog.detail.trim() || undefined,
+    })
+    applyActionResult(request, 'report', res.data)
+    toast.success(actionSuccessCopy.report)
+    reportDialog.open = false
+    reportDialog.request = null
+    reportDialog.error = ''
+  } catch (error: any) {
+    reportDialog.error = getErrorMessage(error, 'Contact request report failed')
+  } finally {
+    const next = { ...operationById.value }
+    delete next[requestKey(request.requestId)]
+    operationById.value = next
+    reportDialog.loading = false
+  }
+}
 const StateBlock = defineComponent({
   props: {
     title: { type: String, required: true },
@@ -503,9 +606,14 @@ const LoadMoreButton = defineComponent({
 })
 
 onMounted(() => {
+  activeTab.value = normalizeTab(route.query.tab)
   loadInbox()
   loadOutbox()
   loadSettings()
+})
+
+watch(() => route.query.tab, (tab) => {
+  activeTab.value = normalizeTab(tab)
 })
 </script>
 

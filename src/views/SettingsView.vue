@@ -17,7 +17,7 @@
           :key="tab.value"
           type="button"
           :class="['tab-button', activeTab === tab.value ? 'tab-button-active' : '']"
-          @click="activeTab = tab.value"
+          @click="switchTab(tab.value)"
         >
           {{ tab.label }}
         </button>
@@ -273,8 +273,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
@@ -288,6 +288,7 @@ import type { NotificationPreference, UserIntent } from '@/api/types'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const route = useRoute()
 const router = useRouter()
 
 const tabs = [
@@ -299,9 +300,22 @@ const tabs = [
   { value: 'privacy', label: '隐私' },
 ]
 
-const activeTab = ref('account')
+const validTabValues = new Set(tabs.map((tab) => tab.value))
+const normalizeTab = (tab: unknown) => (typeof tab === 'string' && validTabValues.has(tab) ? tab : 'account')
+
+const activeTab = ref(normalizeTab(route.query.tab))
 const user = ref(authStore.user)
 const intentFormData = ref<UserIntent | null>(null)
+
+const switchTab = (tab: string) => {
+  const nextTab = normalizeTab(tab)
+  activeTab.value = nextTab
+  void router.replace({ query: { ...route.query, tab: nextTab } })
+}
+
+watch(() => route.query.tab, (tab) => {
+  activeTab.value = normalizeTab(tab)
+})
 
 const themeOptions: Array<{ value: ThemeMode, label: string, description: string }> = [
   { value: 'dark', label: '深色', description: '适合夜间和后台运维场景' },

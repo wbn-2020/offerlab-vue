@@ -387,6 +387,8 @@
                     <span>{{ activeFavoriteFolderMeta }}</span>
                   </div>
                   <div v-if="activeFavoriteFolder && activeFavoriteFolder.id !== 'all'" class="favorite-folder-actions">
+                    <button v-if="canSortActiveFavoriteFolder" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading || !canMoveActiveFavoriteFolderUp" @click="handleSortFavoriteFolder('up')">上移</button>
+                    <button v-if="canSortActiveFavoriteFolder" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading || !canMoveActiveFavoriteFolderDown" @click="handleSortFavoriteFolder('down')">下移</button>
                     <button v-if="activeFavoriteFolder.canRename" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="handleRenameFavoriteFolder">重命名</button>
                     <button type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="handleToggleFavoriteFolderPublic">
                       {{ activeFavoriteFolder.isPublic ? '设为私密' : '设为公开' }}
@@ -394,14 +396,36 @@
                     <button v-if="activeFavoriteFolder.canDelete" type="button" class="secondary-button danger-button" :disabled="favoriteFolderActionLoading" @click="handleDeleteFavoriteFolder">删除</button>
                   </div>
                 </div>
+                <div v-if="canBatchMoveFavorites" class="favorite-batch-toolbar">
+                  <label>
+                    <input type="checkbox" :checked="allVisibleFavoritesSelected" @change="toggleSelectVisibleFavorites" />
+                    <span>选择当前页</span>
+                  </label>
+                  <span>{{ selectedFavoritePostIds.length }} 条已选</span>
+                  <select v-model="favoriteBatchTargetFolderId" :disabled="favoriteFolderActionLoading">
+                    <option value="">选择移动目标</option>
+                    <option v-for="folder in favoriteMoveTargetFolders" :key="folder.id" :value="folder.id">
+                      {{ folder.name }}
+                    </option>
+                  </select>
+                  <button type="button" class="secondary-button" :disabled="favoriteBatchMoveDisabled" @click="handleBatchMoveFavorites">
+                    批量移动
+                  </button>
+                  <button v-if="selectedFavoritePostIds.length" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="clearSelectedFavoritePosts">
+                    清空选择
+                  </button>
+                </div>
                 <PostList
                   :state="activeFavoritePostState"
                   :empty-title="favoriteEmptyTitle"
                   :empty-description="favoriteEmptyDescription"
+                  :selectable="activeTab === 'favorites'"
+                  :selected-post-ids="selectedFavoritePostIds"
                   @load-more="loadActiveFavoritePosts(true)"
                   @like="handleLike"
                   @favorite="handleFavorite"
                   @follow-change="handlePostAuthorFollowChange"
+                  @toggle-select="toggleFavoritePostSelection"
                 />
               </div>
             </div>
@@ -435,6 +459,18 @@
               empty-title="还没有关注专题"
               empty-description="在话题详情页关注感兴趣的话题，后续可以从这里快速回访。"
               @load-more="loadFollowingTopics(true)"
+            />
+          </section>
+
+          <section v-else-if="activeTab === 'discussion-follows'" class="space-y-4">
+            <PostList
+              :state="discussionFollows"
+              empty-title="还没有关注讨论"
+              empty-description="在帖子详情页关注讨论后，有新回复的内容会汇总到这里。"
+              @load-more="loadDiscussionFollows(true)"
+              @like="handleLike"
+              @favorite="handleFavorite"
+              @follow-change="handlePostAuthorFollowChange"
             />
           </section>
 
@@ -473,6 +509,7 @@ import { usePostInteraction } from '@/composables/usePostInteraction'
 import type {
   ApiId,
   CommunityTopic,
+  ContactRequestStats,
   CreatorCurationFeedback,
   CreatorCurationFeedbackSummary,
   CreatorFeedbackWindow,
@@ -490,10 +527,10 @@ import { buildContributionSummary, buildTypeDistribution, type ContributionSumma
 import { filterPublicContent, safePublicVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 import { pickRepresentativePosts, publicAuthorPosts } from '@/utils/creatorSignals'
 import { filterVisibleCollections, filterVisiblePosts } from '@/utils/recommendationGovernance'
-import { demoProfileContribution } from '@/data/demoSeeds'
+import { demoProfileContribution, isLocalDemoSeedAllowed } from '@/data/demoSeeds'
 import { getContentTypeShortLabel } from '@/utils/contentTypes'
 
-type TabValue = 'posts' | 'favorites' | 'liked' | 'following' | 'topics' | 'followers'
+type TabValue = 'posts' | 'favorites' | 'liked' | 'following' | 'topics' | 'discussion-follows' | 'followers'
 
 interface ListState<T> {
   items: T[]
@@ -543,6 +580,7 @@ interface FavoriteFolderView {
   kind: FavoriteFolderKind
   isPublic: boolean
   isDefault: boolean
+  sortOrder: number
   canRename: boolean
   canDelete: boolean
 }
@@ -557,8 +595,10 @@ type FavoriteFolderApi = {
   listFavoriteFolders?: () => Promise<{ data?: any[] }>
   createFavoriteFolder?: (payload: { name: string; visibility?: 'public' | 'private'; isPublic?: boolean }) => Promise<{ data?: any }>
   updateFavoriteFolder?: (folderId: ApiId, payload: { name?: string; visibility?: 'public' | 'private'; isPublic?: boolean }) => Promise<{ data?: any }>
-  deleteFavoriteFolder?: (folderId: ApiId) => Promise<unknown>
+  sortFavoriteFolder?: (folderId: ApiId, payload: { sortOrder: number }) => Promise<{ data?: any }>
+  deleteFavoriteFolder?: (folderId: ApiId, targetFolderId?: ApiId | null) => Promise<unknown>
   listFavoriteFolderPosts?: (folderId: ApiId, cursor?: string, size?: number) => Promise<{ data?: PaginatedResponse<Post> | null }>
+  batchMoveFavoritesToFolder?: (payload: { postIds: ApiId[]; folderId?: ApiId | null }) => Promise<{ data?: any }>
 }
 
 const createState = <T,>(): ListState<T> => reactive({
@@ -580,6 +620,7 @@ const favoriteFolderPosts = createState<Post>()
 const likedPosts = createState<Post>()
 const following = createState<User>()
 const topics = createState<CommunityTopic>()
+const discussionFollows = createState<Post>()
 const followers = createState<User>()
 const favoriteFolders = reactive<FavoriteFolderState>({
   items: [],
@@ -588,9 +629,12 @@ const favoriteFolders = reactive<FavoriteFolderState>({
 })
 const selectedFavoriteFolderId = ref('all')
 const favoriteFolderActionLoading = ref(false)
+const selectedFavoritePostIds = ref<ApiId[]>([])
+const favoriteBatchTargetFolderId = ref('')
 const backendContribution = ref<ContributionSummary | null>(null)
 const creatorWorkspace = ref<CreatorGrowthWorkspace | null>(null)
 const curationFeedbackSummary = ref<CreatorCurationFeedbackSummary | null>(null)
+const contactRequestStats = ref<ContactRequestStats | null>(null)
 const creatorWorkspaceLoading = ref(false)
 const creatorWorkspaceError = ref('')
 const ownerCollections = ref<ContentSeriesRecord[]>([])
@@ -602,6 +646,7 @@ const tabs = [
   { value: 'liked', label: '我的点赞', icon: Heart },
   { value: 'following', label: '我的关注', icon: Users },
   { value: 'topics', label: '关注话题', icon: Hash },
+  { value: 'discussion-follows', label: '关注讨论', icon: MessageCircle },
   { value: 'followers', label: '我的粉丝', icon: UserRoundCheck },
 ] satisfies Array<{ value: TabValue; label: string; icon: any }>
 const tabValues = new Set<TabValue>(tabs.map((tab) => tab.value))
@@ -619,9 +664,15 @@ const displaySignature = computed(() => sanitizePublicVisibleText(
   '完善简介后，其他人可以更快了解你关注的频道、经验和内容方向。',
 ))
 const userInitial = computed(() => displayNickname.value.charAt(0) || '?')
+const emptyContributionSummary: ContributionSummary = {
+  ...buildContributionSummary([]),
+  source: 'empty_profile',
+  estimated: true,
+}
 const localContribution = computed(() => {
   const summary = buildContributionSummary(posts.items)
-  return summary.score > 0 ? { ...summary, source: 'frontend_estimate', estimated: true } : demoProfileContribution
+  if (summary.score > 0) return { ...summary, source: 'frontend_estimate', estimated: true }
+  return isLocalDemoSeedAllowed() ? demoProfileContribution : emptyContributionSummary
 })
 const contribution = computed(() => backendContribution.value || localContribution.value)
 const contributionSourceText = computed(() => (
@@ -629,6 +680,8 @@ const contributionSourceText = computed(() => (
     ? '由后端按公开内容、精选和互动数据汇总'
     : contribution.value.source === 'local_demo_seed'
       ? '当前为本地作者数据样例'
+      : contribution.value.source === 'empty_profile'
+        ? '暂无公开内容贡献数据'
     : '接口暂不可用，当前为本地估算'
 ))
 const profileDemoNotice = computed(() => contribution.value.source === 'local_demo_seed'
@@ -655,6 +708,7 @@ const normalizeFavoriteFolder = (raw: any): FavoriteFolderView => {
     kind: isUnorganized ? 'unorganized' : isDefault ? 'default' : 'custom',
     isPublic,
     isDefault,
+    sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 0),
     canRename: Boolean(raw?.canRename ?? !isDefault),
     canDelete: Boolean(raw?.canDelete ?? (!isDefault && !isUnorganized)),
   }
@@ -668,6 +722,7 @@ const fallbackFavoriteFolders = computed<FavoriteFolderView[]>(() => [
     kind: 'default',
     isPublic: false,
     isDefault: true,
+    sortOrder: 0,
     canRename: false,
     canDelete: false,
   },
@@ -679,6 +734,7 @@ const fallbackFavoriteFolders = computed<FavoriteFolderView[]>(() => [
     kind: 'unorganized',
     isPublic: false,
     isDefault: false,
+    sortOrder: 10,
     canRename: false,
     canDelete: false,
   },
@@ -697,6 +753,7 @@ const favoriteFolderOptions = computed<FavoriteFolderView[]>(() => {
       kind: 'all',
       isPublic: false,
       isDefault: false,
+      sortOrder: -10,
       canRename: false,
       canDelete: false,
     },
@@ -729,8 +786,8 @@ const favoriteEmptyTitle = computed(() => {
 })
 const favoriteEmptyDescription = computed(() => {
   const folder = activeFavoriteFolder.value
-  if (folder?.kind === 'custom') return '收藏夹内容会在后端接入后按所选收藏夹展示；现在可以先创建和管理收藏夹。'
-  if (folder?.kind === 'unorganized') return '如果后端能区分未整理内容，会在这里集中展示；否则使用全部收藏兜底。'
+  if (folder?.kind === 'custom') return '把相关内容移动到这个收藏夹后，就能在这里集中回看。'
+  if (folder?.kind === 'unorganized') return '未整理内容会在这里集中展示，方便继续归档。'
   return '看到有用内容时点收藏，之后可以在这里集中回看，也可以整理到收藏夹。'
 })
 const activeFavoritePostState = computed(() => (
@@ -739,6 +796,38 @@ const activeFavoritePostState = computed(() => (
   || selectedFavoriteFolderId.value === 'unorganized'
     ? favorites
     : favoriteFolderPosts
+))
+const favoriteMoveTargetFolders = computed(() => favoriteFolderOptions.value.filter((folder) => (
+  folder.id !== 'all'
+  && folder.id !== 'unorganized'
+  && folder.id !== selectedFavoriteFolderId.value
+)))
+const sortableFavoriteFolders = computed(() => favoriteFolderOptions.value.filter((folder) => (
+  folder.kind === 'custom'
+)))
+const activeFavoriteFolderSortIndex = computed(() => sortableFavoriteFolders.value.findIndex((folder) => (
+  folder.id === activeFavoriteFolder.value?.id
+)))
+const canSortActiveFavoriteFolder = computed(() => (
+  Boolean(activeFavoriteFolder.value)
+  && activeFavoriteFolder.value?.kind === 'custom'
+  && Boolean(favoriteFolderApi.sortFavoriteFolder)
+))
+const canMoveActiveFavoriteFolderUp = computed(() => activeFavoriteFolderSortIndex.value > 0)
+const canMoveActiveFavoriteFolderDown = computed(() => (
+  activeFavoriteFolderSortIndex.value >= 0
+  && activeFavoriteFolderSortIndex.value < sortableFavoriteFolders.value.length - 1
+))
+const canBatchMoveFavorites = computed(() => activeTab.value === 'favorites' && favoriteMoveTargetFolders.value.length > 0)
+const allVisibleFavoritesSelected = computed(() => {
+  const visibleIds = activeFavoritePostState.value.items.map((post) => String(post.postId))
+  return visibleIds.length > 0 && visibleIds.every((id) => selectedFavoritePostIds.value.map(String).includes(id))
+})
+const favoriteBatchMoveDisabled = computed(() => (
+  favoriteFolderActionLoading.value
+  || selectedFavoritePostIds.value.length === 0
+  || !favoriteBatchTargetFolderId.value
+  || !favoriteFolderApi.batchMoveFavoritesToFolder
 ))
 const authorPublicPosts = computed(() => publicAuthorPosts(filterVisiblePosts(posts.items)))
 const postFeedbackScore = (post: Post) => (
@@ -1028,6 +1117,22 @@ const mapSearchGap = (gap: CreatorSearchGap): WorkbenchSearchGapItem => ({
 const searchGaps = computed<WorkbenchSearchGapItem[]>(() => (
   (creatorWorkspace.value?.searchGaps || []).slice(0, 3).map(mapSearchGap)
 ))
+
+const contactRequestActionDescription = () => {
+  const stats = contactRequestStats.value
+  if (!stats) return '查看收到的联系请求和发出的请求状态，并维护接收设置。'
+  if (stats.inboxPending > 0) {
+    return `有 ${stats.inboxPending} 条收到的联系请求待处理，已接受 ${stats.inboxAccepted} 条。`
+  }
+  if (stats.outboxPending > 0) {
+    return `暂无待处理收件请求；你发出的请求中有 ${stats.outboxPending} 条等待回应。`
+  }
+  if (stats.inboxAccepted > 0 || stats.outboxAccepted > 0) {
+    return `已建立 ${stats.inboxAccepted + stats.outboxAccepted} 条联系记录，可继续维护接收设置。`
+  }
+  return '暂无待处理联系请求，可维护接收设置并查看历史状态。'
+}
+
 const buildCreatorActions = () => [
   {
     href: '/me?tab=posts',
@@ -1046,7 +1151,7 @@ const buildCreatorActions = () => [
   {
     href: '/me/contact-requests',
     title: '联系请求',
-    description: '查看收到的联系请求和发出的请求状态，并维护接收设置。',
+    description: contactRequestActionDescription(),
   },
   {
     href: '/me/settings',
@@ -1062,6 +1167,15 @@ const loadContribution = async () => {
     backendContribution.value = res.data
   } catch {
     backendContribution.value = null
+  }
+}
+
+const loadContactRequestStats = async () => {
+  try {
+    const res = await interactionApi.getContactRequestStats()
+    contactRequestStats.value = res.data || null
+  } catch {
+    contactRequestStats.value = null
   }
 }
 
@@ -1187,6 +1301,8 @@ const loadActiveFavoritePosts = (append = false) => {
 
 const selectFavoriteFolder = async (folderId: string) => {
   selectedFavoriteFolderId.value = folderId
+  clearSelectedFavoritePosts()
+  favoriteBatchTargetFolderId.value = ''
   favoriteFolderPosts.items = []
   favoriteFolderPosts.cursor = undefined
   favoriteFolderPosts.hasMore = false
@@ -1198,6 +1314,53 @@ const selectFavoriteFolder = async (folderId: string) => {
 
 const refreshFavoriteFolders = async () => {
   await Promise.all([loadFavoriteFolders(), loadFavorites()])
+}
+
+const clearSelectedFavoritePosts = () => {
+  selectedFavoritePostIds.value = []
+}
+
+const toggleFavoritePostSelection = (postId: ApiId, selected: boolean) => {
+  const id = String(postId)
+  const next = new Set(selectedFavoritePostIds.value.map(String))
+  if (selected) {
+    next.add(id)
+  } else {
+    next.delete(id)
+  }
+  selectedFavoritePostIds.value = Array.from(next)
+}
+
+const toggleSelectVisibleFavorites = () => {
+  const visibleIds = activeFavoritePostState.value.items.map((post) => String(post.postId))
+  if (allVisibleFavoritesSelected.value) {
+    const visible = new Set(visibleIds)
+    selectedFavoritePostIds.value = selectedFavoritePostIds.value.filter((id) => !visible.has(String(id)))
+    return
+  }
+  selectedFavoritePostIds.value = Array.from(new Set([...selectedFavoritePostIds.value.map(String), ...visibleIds]))
+}
+
+const handleBatchMoveFavorites = async () => {
+  if (favoriteBatchMoveDisabled.value || !favoriteFolderApi.batchMoveFavoritesToFolder) return
+  favoriteFolderActionLoading.value = true
+  try {
+    await favoriteFolderApi.batchMoveFavoritesToFolder({
+      postIds: selectedFavoritePostIds.value,
+      folderId: favoriteBatchTargetFolderId.value,
+    })
+    clearSelectedFavoritePosts()
+    favoriteBatchTargetFolderId.value = ''
+    await refreshFavoriteFolders()
+    if (!['all', 'default', 'unorganized'].includes(selectedFavoriteFolderId.value)) {
+      await loadFavoriteFolderPosts(selectedFavoriteFolderId.value)
+    }
+    toast.success('已批量移动收藏')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '批量移动收藏失败'))
+  } finally {
+    favoriteFolderActionLoading.value = false
+  }
 }
 
 const handleCreateFavoriteFolder = async () => {
@@ -1238,6 +1401,30 @@ const handleRenameFavoriteFolder = async () => {
   }
 }
 
+const handleSortFavoriteFolder = async (direction: 'up' | 'down') => {
+  const index = activeFavoriteFolderSortIndex.value
+  if (!favoriteFolderApi.sortFavoriteFolder || index < 0) return
+  const nextIndex = direction === 'up' ? index - 1 : index + 1
+  const folders = [...sortableFavoriteFolders.value]
+  if (nextIndex < 0 || nextIndex >= folders.length) return
+  const moved = folders[index]
+  folders[index] = folders[nextIndex]
+  folders[nextIndex] = moved
+  favoriteFolderActionLoading.value = true
+  try {
+    await Promise.all(folders.map((folder, orderIndex) => (
+      favoriteFolderApi.sortFavoriteFolder!(folder.id, { sortOrder: (orderIndex + 1) * 10 })
+    )))
+    await loadFavoriteFolders()
+    selectedFavoriteFolderId.value = moved.id
+    toast.success('收藏夹顺序已更新')
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '收藏夹排序失败'))
+  } finally {
+    favoriteFolderActionLoading.value = false
+  }
+}
+
 const handleToggleFavoriteFolderPublic = async () => {
   const folder = activeFavoriteFolder.value
   if (!folder || folder.id === 'all' || !favoriteFolderApi.updateFavoriteFolder) return
@@ -1261,17 +1448,36 @@ const handleToggleFavoriteFolderPublic = async () => {
 const handleDeleteFavoriteFolder = async () => {
   const folder = activeFavoriteFolder.value
   if (!folder || !folder.canDelete || !favoriteFolderApi.deleteFavoriteFolder) return
-  if (!window.confirm(`确认删除收藏夹「${folder.name}」？默认收藏夹不可删除。`)) return
+  let targetFolderId: ApiId | null = null
+  if (folder.count > 0) {
+    const targetOptions = favoriteMoveTargetFolders.value
+    if (!targetOptions.length) {
+      toast.error('请先创建或保留一个可迁移的目标收藏夹')
+      return
+    }
+    const optionText = targetOptions.map((item) => `${item.id}: ${item.name}`).join('\n')
+    const input = window.prompt(`收藏夹「${folder.name}」还有 ${folder.count} 条内容。请输入迁移目标收藏夹 ID：\n${optionText}`, String(targetOptions[0].id))
+    if (!input) return
+    const target = targetOptions.find((item) => String(item.id) === input.trim())
+    if (!target) {
+      toast.error('迁移目标不属于当前用户或不可用')
+      return
+    }
+    targetFolderId = target.id
+  } else if (!window.confirm(`确认删除收藏夹「${folder.name}」？默认收藏夹不可删除。`)) {
+    return
+  }
   favoriteFolderActionLoading.value = true
   try {
-    await favoriteFolderApi.deleteFavoriteFolder(folder.id)
+    await favoriteFolderApi.deleteFavoriteFolder(folder.id, targetFolderId)
     selectedFavoriteFolderId.value = 'all'
     favoriteFolderPosts.items = []
+    clearSelectedFavoritePosts()
     await refreshFavoriteFolders()
     toast.success('收藏夹已删除')
   } catch (error: any) {
     const message = getErrorMessage(error, '删除收藏夹失败')
-    toast.error(`${message}。如果收藏夹里还有内容，请先移动内容后再删除。`)
+    toast.error(message)
   } finally {
     favoriteFolderActionLoading.value = false
   }
@@ -1304,6 +1510,16 @@ const loadFollowingTopics = (append = false) => loadPage(
   '关注专题加载失败',
 )
 
+const loadDiscussionFollows = (append = false) => loadPage(
+  discussionFollows,
+  append,
+  async (cursor) => {
+    const page = (await interactionApi.listDiscussionFollows(cursor, 10)).data
+    return page ? { ...page, items: filterVisiblePosts(filterPublicContent(page.items)) } : page
+  },
+  '关注讨论列表加载失败',
+)
+
 const loadFollowers = (append = false) => {
   if (!user.value?.uid) return Promise.resolve()
   return loadPage(
@@ -1314,7 +1530,7 @@ const loadFollowers = (append = false) => {
   )
 }
 
-const allPostStates = [posts, favorites, favoriteFolderPosts, likedPosts]
+const allPostStates = [posts, favorites, favoriteFolderPosts, likedPosts, discussionFollows]
 
 const updatePostEverywhere = (postId: ApiId, updater: (post: Post) => void) => {
   allPostStates.forEach((state) => {
@@ -1426,23 +1642,40 @@ const PostList = defineComponent({
     emptyDescription: { type: String, required: true },
     emptyActionText: String,
     emptyActionHref: String,
+    selectable: Boolean,
+    selectedPostIds: { type: Array as () => ApiId[], default: () => [] },
   },
-  emits: ['load-more', 'like', 'favorite', 'follow-change'],
+  emits: ['load-more', 'like', 'favorite', 'follow-change', 'toggle-select'],
   setup(props, { emit }) {
     return () => h('div', { class: 'space-y-4' }, [
       props.state.error ? h('div', { class: 'notice-error' }, props.state.error) : null,
       props.state.loading && props.state.items.length === 0
         ? h('div', { class: 'loading-panel' }, '正在加载...')
         : props.state.items.length
-          ? props.state.items.map((post) => h(PostCard, {
-              key: post.postId,
-              post,
-              likePending: isActionPending('like', post.postId),
-              favoritePending: isActionPending('favorite', post.postId),
-              onLike: (id: ApiId) => emit('like', id),
-              onFavorite: (id: ApiId) => emit('favorite', id),
-              onFollowChange: (authorUid: ApiId, following: boolean) => emit('follow-change', authorUid, following),
-            }))
+          ? props.state.items.map((post) => {
+              const selected = props.selectedPostIds.map(String).includes(String(post.postId))
+              const card = h(PostCard, {
+                post,
+                likePending: isActionPending('like', post.postId),
+                favoritePending: isActionPending('favorite', post.postId),
+                onLike: (id: ApiId) => emit('like', id),
+                onFavorite: (id: ApiId) => emit('favorite', id),
+                onFollowChange: (authorUid: ApiId, following: boolean) => emit('follow-change', authorUid, following),
+              })
+              return props.selectable
+                ? h('div', { key: post.postId, class: 'favorite-selectable-post' }, [
+                    h('label', { class: 'favorite-select-checkbox' }, [
+                      h('input', {
+                        type: 'checkbox',
+                        checked: selected,
+                        onChange: (event: Event) => emit('toggle-select', post.postId, (event.target as HTMLInputElement).checked),
+                      }),
+                      h('span', selected ? '已选择' : '选择'),
+                    ]),
+                    card,
+                  ])
+                : h('div', { key: post.postId }, [card])
+            })
           : h(EmptyPanel, {
               title: props.emptyTitle,
               description: props.emptyDescription,
@@ -1553,6 +1786,7 @@ onMounted(async () => {
   }
   await Promise.all([
     loadContribution(),
+    loadContactRequestStats(),
     loadCreatorWorkspace(),
     loadPosts(),
     loadFavorites(),
@@ -1561,6 +1795,7 @@ onMounted(async () => {
     loadMyCollections(),
     loadFollowing(),
     loadFollowingTopics(),
+    loadDiscussionFollows(),
     loadFollowers(),
   ])
 })
@@ -2230,6 +2465,55 @@ watch(() => route.query.tab, (value) => {
   justify-content: flex-end;
 }
 
+.favorite-batch-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: rgb(248 250 252);
+  padding: 0.75rem;
+  color: rgb(71 85 105);
+  font-size: 0.875rem;
+}
+
+.favorite-batch-toolbar label,
+.favorite-select-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 800;
+}
+
+.favorite-batch-toolbar select {
+  min-height: 2.25rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0 0.75rem;
+  color: rgb(15 23 42);
+}
+
+.favorite-selectable-post {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.favorite-select-checkbox {
+  position: sticky;
+  top: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 0.75rem;
+  color: rgb(51 65 85);
+  font-size: 0.8125rem;
+}
+
 .danger-button {
   border-color: rgb(254 202 202);
   color: rgb(185 28 28);
@@ -2433,6 +2717,19 @@ html.dark .growth-stat {
   background: rgb(15 23 42);
 }
 
+.dark .favorite-batch-toolbar,
+.dark .favorite-select-checkbox {
+  border-color: rgb(30 41 59);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .favorite-batch-toolbar select {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23);
+  color: rgb(226 232 240);
+}
+
 .dark .favorite-folder-panel-head strong,
 .dark .favorite-folder-toolbar strong,
 .dark .favorite-folder-item strong {
@@ -2498,6 +2795,15 @@ html.dark .growth-stat {
 
   .favorite-manager {
     grid-template-columns: 1fr;
+  }
+
+  .favorite-selectable-post {
+    grid-template-columns: 1fr;
+  }
+
+  .favorite-select-checkbox {
+    position: static;
+    width: 100%;
   }
 
   .favorite-folder-actions,

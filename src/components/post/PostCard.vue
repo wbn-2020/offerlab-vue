@@ -123,7 +123,7 @@
         class="domain-card-media mb-3"
         :class="`domain-card-media--${domainCardSurface.tone}`"
       >
-        <img :src="displayCardImageUrl" :alt="domainCardSurface.imageAlt || post.title" @error="handleCardImageError" />
+        <img :src="displayCardImageUrl" :alt="domainCardSurface.imageAlt || post.title" referrerpolicy="no-referrer" @error="handleCardImageError" />
       </div>
 
       <div v-if="domainCardSurface.chips.length" class="mb-3 flex flex-wrap gap-2">

@@ -1,4 +1,4 @@
-import client, { type Result, getErrorMessage } from './client'
+import client, { BizException, type Result, getErrorMessage } from './client'
 import type {
   ApiId,
   ContentAssistQualityMetric,
@@ -588,9 +588,9 @@ export const contentAssistApi = {
 
     try {
       const [writingRes, qualityRes, tagTopicRes] = await Promise.allSettled([
-        client.post('/api/v1/content-assist/writing', buildWritingCmd(req), { skipAuthRedirect: true }) as Promise<Result<any>>,
-        client.post('/api/v1/content-assist/quality-score', buildQualityCmd(req), { skipAuthRedirect: true }) as Promise<Result<any>>,
-        client.post('/api/v1/content-assist/tag-topic-suggestions', buildTagTopicCmd(req), { skipAuthRedirect: true }) as Promise<Result<any>>,
+        client.post('/api/v1/content-assist/writing', buildWritingCmd(req)) as Promise<Result<any>>,
+        client.post('/api/v1/content-assist/quality-score', buildQualityCmd(req)) as Promise<Result<any>>,
+        client.post('/api/v1/content-assist/tag-topic-suggestions', buildTagTopicCmd(req)) as Promise<Result<any>>,
       ])
       const fulfilled = [writingRes, qualityRes, tagTopicRes]
         .filter((item): item is PromiseFulfilledResult<Result<any>> => item.status === 'fulfilled')
@@ -613,6 +613,9 @@ export const contentAssistApi = {
         }),
       }
     } catch (error) {
+      if (isAuthFailure(error)) {
+        throw error
+      }
       try {
         return {
           code: 0,
@@ -628,4 +631,11 @@ export const contentAssistApi = {
       }
     }
   },
+}
+
+const isAuthFailure = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10401
+  }
+  return (error as { response?: { status?: number } })?.response?.status === 401
 }

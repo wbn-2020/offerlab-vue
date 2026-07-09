@@ -173,12 +173,14 @@
               <option value="review">待复习</option>
             </select>
             <RouterLink
+              v-if="enableLegacyTrainingTools"
               :to="mockInterviewLink"
               class="primary-action inline-flex items-center justify-center"
             >
               加入知识复盘
             </RouterLink>
             <RouterLink
+              v-if="enableLegacyTrainingTools"
               :to="prepReturnLink"
               class="secondary-action inline-flex items-center justify-center"
             >
@@ -258,7 +260,7 @@ import { buildQuestionAnswerCardMarkdown } from '@/utils/prepPackExport'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const enableLegacyTrainingTools = false
+const enableLegacyTrainingTools = import.meta.env.VITE_OFFERLAB_ENABLE_LEGACY_TRAINING === 'true'
 const questionId = computed(() => route.params.id as string)
 const selectedProgress = ref('')
 const noteText = ref('')

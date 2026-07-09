@@ -108,7 +108,7 @@ const { login } = useAuth()
 const authStore = useAuthStore()
 
 const isLoading = ref(false)
-const showDemoAccounts = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true'
+const showDemoAccounts = import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true'
 const form = reactive({
   email: '',
   password: '',

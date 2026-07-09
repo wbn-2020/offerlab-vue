@@ -435,9 +435,7 @@ const saveSeriesDraft = async () => {
       activeSeriesId.value = res.data.id
       editingSeriesId.value = res.data.id
       fillSeriesDraft(res.data)
-    }
-
-    toast.success(res.status === 'fallback' ? '合集已保存到本地 fallback' : '合集已保存')
+    }    toast.success('Content series saved')
     await loadSeriesWorkbench()
   } catch (error) {
     toast.error(getErrorMessage(error, '合集保存失败'))

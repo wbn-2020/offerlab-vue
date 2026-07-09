@@ -1,4 +1,4 @@
-import type { ApiId, Comment, CommentReport, CommunityTopic, ContactRequest, ContactRequestSettings, CreatorCurationFeedback, DisplayableCurationFeedbackSource, FavoriteFolder, FavoriteFolderVisibility, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent, UserReportReceipt, UserReportSourceType, UserReportStatus } from './types'
+import type { ApiId, Comment, CommentReport, CommunityTopic, ContactRequest, ContactRequestSettings, ContactRequestStats, CreatorCurationFeedback, DisplayableCurationFeedbackSource, FavoriteFolder, FavoriteFolderVisibility, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent, UserReportReceipt, UserReportSourceType, UserReportStatus } from './types'
 import { normalizeDomain } from '@/utils/domains'
 import { filterDistributionPosts, isPublicCollectionVisible, isPublicPostVisible, neutralizeHighRiskRecommendationReason, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
@@ -262,6 +262,9 @@ export function adaptUser(raw: any): User {
     privacyReason: raw?.privacyReason,
     acceptContactRequest: raw?.acceptContactRequest ?? raw?.contactRequestSettings?.acceptContactRequest ?? raw?.contactRequestOpen ?? raw?.contactRequestsOpen,
     contactRequestPolicy: raw?.contactRequestPolicy ?? raw?.contactRequestSettings?.contactRequestPolicy,
+    canStartContactRequest: raw?.canStartContactRequest,
+    contactRequestReasonCode: raw?.contactRequestReasonCode,
+    contactRequestReasonMessage: raw?.contactRequestReasonMessage,
   }
 }
 
@@ -491,6 +494,7 @@ export function adaptComment(raw: any): Comment {
     canDelete: Boolean(raw?.canDelete ?? false),
     replyCount: Number(raw?.replyCount ?? raw?.replies?.length ?? 0),
     hasMoreReplies: Boolean(raw?.hasMoreReplies ?? false),
+    repliesNextCursor: raw?.repliesNextCursor == null ? undefined : String(raw.repliesNextCursor),
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
     replies: Array.isArray(raw?.replies) ? raw.replies.map(adaptComment) : undefined,
   }
@@ -603,7 +607,11 @@ function normalizeUserReportStatus(value: unknown): UserReportStatus {
 
 function normalizeUserReportSourceType(value: unknown): UserReportSourceType {
   const text = sanitizeVisibleText(value).toUpperCase()
-  return text === 'COMMENT_REPORT' || text === 'COMMENT' ? 'COMMENT_REPORT' : 'POST_REPORT'
+  if (text === 'COMMENT_REPORT' || text === 'COMMENT') return 'COMMENT_REPORT'
+  if (text === 'CONTACT_REQUEST_REPORT' || text === 'CONTACT_REQUEST' || text === 'CONTACT') {
+    return 'CONTACT_REQUEST_REPORT'
+  }
+  return 'POST_REPORT'
 }
 
 export function adaptUserReportReceipt(raw: any): UserReportReceipt {
@@ -710,6 +718,27 @@ export function adaptContactRequestSettings(raw: any): ContactRequestSettings {
   }
 }
 
+export function adaptContactRequestStats(raw: any): ContactRequestStats {
+  return {
+    inboxTotal: Number(raw?.inboxTotal ?? 0),
+    inboxPending: Number(raw?.inboxPending ?? 0),
+    inboxAccepted: Number(raw?.inboxAccepted ?? 0),
+    inboxRejected: Number(raw?.inboxRejected ?? 0),
+    inboxIgnored: Number(raw?.inboxIgnored ?? 0),
+    inboxReported: Number(raw?.inboxReported ?? 0),
+    inboxCancelled: Number(raw?.inboxCancelled ?? 0),
+    inboxExpired: Number(raw?.inboxExpired ?? 0),
+    outboxTotal: Number(raw?.outboxTotal ?? 0),
+    outboxPending: Number(raw?.outboxPending ?? 0),
+    outboxAccepted: Number(raw?.outboxAccepted ?? 0),
+    outboxRejected: Number(raw?.outboxRejected ?? 0),
+    outboxIgnored: Number(raw?.outboxIgnored ?? 0),
+    outboxReported: Number(raw?.outboxReported ?? 0),
+    outboxCancelled: Number(raw?.outboxCancelled ?? 0),
+    outboxExpired: Number(raw?.outboxExpired ?? 0),
+  }
+}
+
 export function adaptNotification(raw: any): Notification {
   const content = typeof raw?.content === 'object' && raw.content ? { ...raw.content } : {}
   const type = raw?.type ?? 'system'
@@ -753,7 +782,7 @@ export function adaptNotification(raw: any): Notification {
     ?? curationFeedback?.href
     ?? safeSameSitePath(content.targetPath)
     ?? safeSameSitePath(content.jumpPath)
-  const reportReceiptPath = reportReceiptAction ? '/me/reports' : undefined
+  const reportReceiptPath = reportReceiptAction ? reportReceiptNotificationPath(content) : undefined
   const contactRequestPath = contactRequestAction ? contactRequestNotificationPath(action) : undefined
   const sender = raw?.sender ? adaptUser(raw.sender) : undefined
   return {
@@ -863,6 +892,13 @@ function contactRequestNotificationPath(action: string): string {
   return action === 'contact_request_received'
     ? '/me/contact-requests?tab=inbox'
     : '/me/contact-requests?tab=outbox'
+}
+
+function reportReceiptNotificationPath(content: Record<string, any>): string {
+  const reportId = content.reportId ?? content.targetId ?? content.id
+  if (reportId === undefined || reportId === null || reportId === '') return '/me/reports'
+  const sourceType = normalizeUserReportSourceType(content.sourceType ?? content.reportType ?? content.type)
+  return `/me/reports/${encodeURIComponent(sourceType)}/${encodeURIComponent(String(adaptId(reportId)))}`
 }
 
 function notificationHeading(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {

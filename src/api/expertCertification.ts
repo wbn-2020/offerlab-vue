@@ -67,7 +67,6 @@ export const expertCertificationApi = {
   getEligibility: async (domain: number): Promise<Result<ExpertCertificationEligibility>> => {
     const res = await client.get('/api/v1/expert-certifications/eligibility', {
       params: { domain },
-      skipAuthRedirect: true,
     }) as Result<any>
     return {
       ...res,
@@ -78,7 +77,6 @@ export const expertCertificationApi = {
   listMine: async (domain?: number): Promise<Result<ExpertCertificationApplication[]>> => {
     const res = await client.get('/api/v1/expert-certifications/applications/me', {
       params: { domain },
-      skipAuthRedirect: true,
     }) as Result<any>
     return {
       ...res,
@@ -87,9 +85,7 @@ export const expertCertificationApi = {
   },
 
   apply: async (payload: ExpertCertificationApplyPayload): Promise<Result<ExpertCertificationApplication>> => {
-    const res = await client.post('/api/v1/expert-certifications/applications', payload, {
-      skipAuthRedirect: true,
-    }) as Result<any>
+    const res = await client.post('/api/v1/expert-certifications/applications', payload) as Result<any>
     return {
       ...res,
       data: res.data ? adaptApplication(res.data) : null,
@@ -99,8 +95,6 @@ export const expertCertificationApi = {
   revoke: async (applicationId: ApiId, note?: string): Promise<Result<ExpertCertificationApplication>> => {
     const res = await client.post(`/api/v1/expert-certifications/applications/${applicationId}/revoke`, {
       note: safeText(note),
-    }, {
-      skipAuthRedirect: true,
     }) as Result<any>
     return {
       ...res,

@@ -302,6 +302,16 @@
                 </div>
               </div>
             </div>
+            <button
+              v-if="comment.hasMoreReplies"
+              type="button"
+              class="comment-action mt-3 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="isReplyPageLoading(comment.commentId)"
+              @click="$emit('load-more-replies', comment.commentId)"
+            >
+              <MessageCircle class="h-3.5 w-3.5" />
+              {{ isReplyPageLoading(comment.commentId) ? '加载中...' : '加载更多回复' }}
+            </button>
           </div>
           </template>
         </div>
@@ -349,6 +359,7 @@ const props = withDefaults(defineProps<{
   canManageQualitySignals?: boolean
   canModerateComments?: boolean
   postAuthorUid?: string | number
+  loadingReplyRootIds?: Array<string | number>
   emptyText?: string
   replyActionLabel?: string
   replyPlaceholder?: string
@@ -380,6 +391,7 @@ const emit = defineEmits<{
   'fold-comment': [commentId: Comment['commentId']]
   'unfold-comment': [commentId: Comment['commentId']]
   'reply-comment': [payload: { parentId: Comment['commentId']; replyToUid: Comment['author']['uid']; content: string }]
+  'load-more-replies': [rootId: Comment['commentId']]
   'delete-comment': [commentId: Comment['commentId']]
   'report-comment': [commentId: Comment['commentId']]
 }>()
@@ -429,7 +441,7 @@ const featuredComments = computed(() => commentsWithReplies.value
   })))
 const primaryQualityBadge = (comment: Comment) => {
   if (isHotComment(comment)) return '热门评论'
-  if (isPinned(comment)) return '精选回复'
+  if (isPinned(comment)) return '作者置顶'
   if (isFeatured(comment)) return '精选回复'
   if (isAuthorReply(comment)) return '作者回应'
   if (helpfulCount(comment) > 0) return '质量参考'
@@ -439,7 +451,7 @@ const qualityBadgesFor = (comment: Comment): QualityBadge[] => {
   const badges: QualityBadge[] = []
   if (isHotComment(comment)) badges.push({ key: 'hot', label: '热门评论', className: 'comment-signal-hot' })
   if (isAuthorReply(comment)) badges.push({ key: 'authorReply', label: '作者回应', className: 'comment-signal-author' })
-  if (isPinned(comment)) badges.push({ key: 'authorPinned', label: '精选回复', className: 'comment-signal-pinned' })
+  if (isPinned(comment)) badges.push({ key: 'authorPinned', label: '作者置顶', className: 'comment-signal-pinned' })
   if (isFeatured(comment)) badges.push({ key: 'featured', label: '精选回复', className: 'comment-signal-featured' })
   if (helpfulCount(comment) > 0) badges.push({ key: 'helpful', label: `质量参考 ${helpfulCount(comment)}`, className: 'comment-signal-helpful' })
   if (isFolded(comment)) badges.push({ key: 'folded', label: '已折叠', className: 'comment-signal-folded' })
@@ -477,6 +489,9 @@ const replyPlaceholderFor = (comment: Comment) => (
 )
 const commentLikeKey = (commentId: Comment['commentId']) => String(commentId)
 const isCommentLikePending = (commentId: Comment['commentId']) => pendingCommentLikes.value.has(commentLikeKey(commentId))
+const isReplyPageLoading = (commentId: Comment['commentId']) => (
+  (props.loadingReplyRootIds || []).map(String).includes(String(commentId))
+)
 const startCommentLike = (commentId: Comment['commentId']) => {
   const key = commentLikeKey(commentId)
   if (pendingCommentLikes.value.has(key)) return false

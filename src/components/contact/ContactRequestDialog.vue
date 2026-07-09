@@ -96,7 +96,8 @@ import { getErrorMessage } from '@/api/client'
 import { interactionApi, type ContactRequestScene, type ContactRequestSourceType } from '@/api/interaction'
 import type { ApiId } from '@/api/types'
 
-const messageMaxLength = 300
+const messageMinLength = 20
+const messageMaxLength = 500
 
 const sceneOptions: Array<{ value: ContactRequestScene; label: string }> = [
   { value: 'ask', label: '请教问题' },
@@ -128,7 +129,12 @@ const submitError = ref('')
 
 const trimmedMessage = computed(() => form.message.trim())
 const messageLength = computed(() => form.message.length)
-const canSubmit = computed(() => Boolean(trimmedMessage.value) && !isSubmitting.value && !isSubmitted.value)
+const canSubmit = computed(() => (
+  trimmedMessage.value.length >= messageMinLength
+  && trimmedMessage.value.length <= messageMaxLength
+  && !isSubmitting.value
+  && !isSubmitted.value
+))
 
 const resetForm = () => {
   form.scene = 'ask'

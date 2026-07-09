@@ -238,6 +238,11 @@ const localOnlyResult = <T>(data: T): ContentSeriesResult<T> => ({
   status: 'fallback',
 })
 
+const throwLocalOnlyWriteError = (error: unknown, message: string): never => {
+  if (shouldRethrowSeriesError(error)) throw error
+  throw new BizException(30901, message)
+}
+
 const shouldRethrowSeriesError = (error: unknown) => {
   if (error instanceof BizException) {
     return error.code === 10401 || error.code === 10403
@@ -245,6 +250,18 @@ const shouldRethrowSeriesError = (error: unknown) => {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status
     return status === 401 || status === 403 || status === 404 || (typeof status === 'number' && status >= 500)
+  }
+  return false
+}
+
+const shouldRethrowAssignmentDeleteError = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10401 || error.code === 10403
+  }
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status
+    if (status === 404) return false
+    return status === 401 || status === 403 || (typeof status === 'number' && status >= 500)
   }
   return false
 }
@@ -348,9 +365,8 @@ export const contentSeriesApi = {
       upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
     } catch (error) {
-      if (shouldRethrowSeriesError(error)) throw error
       upsertLocalRecord(ownerId, localRecord)
-      return localOnlyResult(localRecord)
+      return throwLocalOnlyWriteError(error, 'Content series was saved locally only. Remote save failed; it is not public or synced.')
     }
   },
 
@@ -382,28 +398,43 @@ export const contentSeriesApi = {
       upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
     } catch (error) {
-      if (shouldRethrowSeriesError(error)) throw error
       upsertLocalRecord(ownerId, localRecord)
-      return localOnlyResult(localRecord)
+      return throwLocalOnlyWriteError(error, 'Content series was saved locally only. Remote update failed; public data was not changed.')
     }
   },
 
   syncAssignment: async (payload: ContentSeriesAssignmentPayload, ownerId?: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord | null>> => {
     const localRecord = syncLocalAssignment(ownerId, payload)
-    if (!payload.seriesId || payload.postId == null) {
+    const nextSeriesId = payload.seriesId == null ? '' : String(payload.seriesId)
+    const previousSeriesId = payload.previousSeriesId == null ? '' : String(payload.previousSeriesId)
+    if (payload.postId == null) {
       return localOnlyResult(localRecord)
     }
 
     try {
-      const res = await client.post(`/api/v1/content-series/${payload.seriesId}/posts`, {
+      if (previousSeriesId && previousSeriesId !== nextSeriesId) {
+        try {
+          await client.delete(`/api/v1/content-series/${previousSeriesId}/posts/${payload.postId}`)
+        } catch (error) {
+          if (shouldRethrowAssignmentDeleteError(error)) throw error
+        }
+      }
+      if (!nextSeriesId) {
+        return {
+          code: 0,
+          message: 'assignment_removed',
+          data: localRecord,
+          status: 'remote',
+        }
+      }
+      const res = await client.post(`/api/v1/content-series/${nextSeriesId}/posts`, {
         postId: payload.postId,
       }) as Result<any>
       const data = res.data ? mergeRemoteSeriesRecord(res.data, localRecord || undefined) : localRecord
       if (data) upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
     } catch (error) {
-      if (shouldRethrowSeriesError(error)) throw error
-      return localOnlyResult(localRecord)
+      return throwLocalOnlyWriteError(error, 'Content series assignment was saved locally only. Remote assignment failed; public data was not changed.')
     }
   },
 

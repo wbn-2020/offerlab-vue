@@ -573,6 +573,26 @@ const adaptRemoteTopicItem = (item: RemoteOperationTopicItem, sortFallback: numb
   }
 }
 
+const candidateToTopicItem = (
+  candidate: OperationCandidate,
+  reasonText: string,
+  sortOrder: number,
+): OperationTopicItem => ({
+  id: `candidate:${candidate.sourceType}:${candidate.sourceId}`,
+  sourceType: candidate.sourceType,
+  sourceId: candidate.sourceId,
+  contentId: candidate.sourceId,
+  title: candidate.title,
+  summary: candidate.summary,
+  href: candidate.href,
+  status: 'DRAFT',
+  sortOrder,
+  reasonText,
+  source: 'remote',
+  blocked: candidate.governanceState === 'filtered',
+  blockReasons: candidate.governanceState === 'filtered' ? ['governance_filtered'] : [],
+})
+
 const adaptRemoteTopicSection = (section: RemoteOperationTopicSection, sortFallback: number): OperationTopicSection => {
   const sourceId = section.sourceId || postIdOf(section.post)
   const items = section.items || section.contents || (sourceId ? [{
@@ -600,10 +620,49 @@ const adaptRemoteTopicSection = (section: RemoteOperationTopicSection, sortFallb
   }
 }
 
+const mergeOperationTopicSections = (sections: OperationTopicSection[]): OperationTopicSection[] => {
+  const merged = new Map<string, OperationTopicSection>()
+  sections.forEach((section) => {
+    const title = (section.title || section.key || '').trim()
+    const key = title.toLowerCase() || section.key
+    const existing = merged.get(key)
+    if (!existing) {
+      merged.set(key, { ...section, items: [...(section.items || [])] })
+      return
+    }
+    existing.items = [...existing.items, ...(section.items || [])]
+      .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+    existing.sortOrder = Math.min(Number(existing.sortOrder) || 0, Number(section.sortOrder) || Number(existing.sortOrder) || 0)
+    existing.reasonText = existing.reasonText || section.reasonText
+  })
+  return Array.from(merged.values()).sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+}
+
+const operationTopicSectionPayloads = (topic: OperationTopic) => {
+  const sections = topic.sections || []
+  const emptySection = sections.find((section) => !(section.items || []).length)
+  if (emptySection) {
+    throw new BizException(10001, `Operation topic section "${emptySection.title || emptySection.key}" has no content items`)
+  }
+  return sections.flatMap((section) => {
+    const sectionItems = section.items || []
+    return sectionItems.map((item) => ({
+      title: section.title,
+      sourceType: item.sourceType,
+      sourceId: item.sourceId,
+      status: item.status,
+      sortOrder: item.sortOrder,
+      reasonText: item.reasonText || section.reasonText,
+      reasonConfirmed: Boolean(item.reasonText || section.reasonText),
+      note: item.reasonText || section.reasonText,
+    }))
+  })
+}
+
 const adaptRemoteTopic = (topic: RemoteOperationTopic): OperationTopic => {
   const source = topic.source || 'remote'
   const degraded = Boolean(topic.degraded || source !== 'remote')
-  const sections = (topic.sections || []).map((section, index) => adaptRemoteTopicSection(section, index + 1))
+  const sections = mergeOperationTopicSections((topic.sections || []).map((section, index) => adaptRemoteTopicSection(section, index + 1)))
   const itemCount = sections.reduce((total, section) => total + section.items.length, 0)
   return {
     id: topic.id || topic.slug || 'topic',
@@ -824,20 +883,7 @@ export const operationsApi = {
       operationType: topic.activityType || 'TOPIC',
       startsAt: topic.startTime,
       endsAt: topic.endTime,
-      sections: (topic.sections || []).flatMap((section) => {
-        const sectionItems = section.items || []
-        if (!sectionItems.length) return []
-        return sectionItems.map((item) => ({
-          title: section.title,
-          sourceType: item.sourceType,
-          sourceId: item.sourceId,
-          status: item.status,
-          sortOrder: item.sortOrder,
-          reasonText: item.reasonText || section.reasonText,
-          reasonConfirmed: Boolean(item.reasonText || section.reasonText),
-          note: item.reasonText || section.reasonText,
-        }))
-      }),
+      sections: operationTopicSectionPayloads(topic),
     }) as Result<RemoteOperationTopic>
     return { ...res, data: adaptRemoteTopic(res.data || topic) }
   },
@@ -848,20 +894,26 @@ export const operationsApi = {
     candidate: OperationCandidate,
     reasonText: string,
     sortOrder = 100,
-  ): Promise<Result<OperationTopicItem>> => Promise.resolve({ code: 0, message: 'ok', data: {
-    id: `draft:${topicId}:${sectionKey}:${candidate.sourceType}:${candidate.sourceId}`,
-    sourceType: candidate.sourceType,
-    sourceId: candidate.sourceId,
-    contentId: candidate.sourceId,
-    title: candidate.title,
-    summary: candidate.summary,
-    href: candidate.href,
-    status: 'ACTIVE',
-    sortOrder,
-    reasonText,
-    source: 'remote',
-    fallback: false,
-  } }),
+  ): Promise<Result<OperationTopicItem>> => {
+    const res = await client.post(`/api/v1/operations/admin/topics/${topicId}/candidate-hints`, [{
+      candidateSource: 'SECTION_ADD',
+      source: 'operation_ui',
+      sourceType: candidate.sourceType,
+      sourceId: candidate.sourceId,
+      topicId,
+      topicSlug: candidate.topicSlug,
+      sectionKey,
+      title: candidate.title,
+      href: candidate.href,
+      reasonText,
+      visibilityCheck: candidate.visibilityCheck,
+      returnHref: candidate.href,
+      persistCandidate: true,
+    }]) as Result<unknown>
+    const remoteCandidates = normalizeItems(res.data).map(adaptRemoteCandidate)
+    const selected = remoteCandidates.find((item) => String(item.sourceId) === String(candidate.sourceId)) || remoteCandidates[0] || candidate
+    return { ...res, data: candidateToTopicItem(selected, reasonText, sortOrder) }
+  },
 
   runTopicPublishCheck: async (topicId: ApiId): Promise<Result<OperationTopicPublishCheck>> => {
     const res = await client.post(`/api/v1/operations/admin/topics/${topicId}/publish-check`) as Result<OperationTopicPublishCheck>

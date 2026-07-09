@@ -496,7 +496,7 @@ const refreshAll = async () => {
   loadError.value = ''
   try {
     const [permissionRes, candidateRes, curationRes, slotRes, topicRes, auditRes] = await Promise.allSettled([
-      opsApi.myPermissions({ skipAuthRedirect: true }),
+      opsApi.myPermissions(),
       operationsApi.listOperationCandidates({ limit: 20 }),
       operationsApi.listCurationPool({ limit: 20 }),
       operationsApi.listOperationSlots(),

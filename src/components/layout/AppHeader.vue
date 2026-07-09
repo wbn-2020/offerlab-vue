@@ -333,7 +333,7 @@ const loadPermissions = async () => {
     return
   }
   try {
-    const res = await opsApi.myPermissions({ skipAuthRedirect: true })
+    const res = await opsApi.myPermissions()
     permissions.value = res.code === 0 ? res.data : null
   } catch {
     permissions.value = null

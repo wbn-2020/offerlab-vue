@@ -371,25 +371,24 @@ const loadDashboard = async () => {
   errorText.value = ''
   opsSummaryError.value = ''
   try {
-    const [selectedRes, comparisonRes, analyticsRes] = await Promise.all([
+    const [selectedRes, comparisonRes] = await Promise.all([
       dashboardApi.getTrendDashboard(activeRange.value, activeDomain.value),
       dashboardApi.getTrendDashboard(activeRange.value),
-      opsApi.searchAnalytics({ days: 30, limit: 8 }),
     ])
     dashboard.value = selectedRes.data
     comparisonDashboard.value = comparisonRes.data
-    searchAnalytics.value = analyticsRes.data
   } catch (error: any) {
     errorText.value = getErrorMessage(error, '趋势数据暂不可用')
     dashboard.value = null
     comparisonDashboard.value = null
-    try {
-      const analyticsRes = await opsApi.searchAnalytics({ days: 30, limit: 8 })
-      searchAnalytics.value = analyticsRes.data
-    } catch (analyticsError: any) {
-      opsSummaryError.value = getErrorMessage(analyticsError, '运营摘要暂不可用')
-      searchAnalytics.value = null
-    }
+  }
+
+  try {
+    const analyticsRes = await opsApi.searchAnalytics({ days: 30, limit: 8 })
+    searchAnalytics.value = analyticsRes.data
+  } catch (analyticsError: any) {
+    opsSummaryError.value = getErrorMessage(analyticsError, '运营摘要暂不可用')
+    searchAnalytics.value = null
   } finally {
     isLoading.value = false
   }

@@ -195,6 +195,15 @@ export interface MyAdminPermissions {
   adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY' | 'LOCKED'
   admin: boolean
   ops: boolean
+  opsRole?: boolean
+  opsOrchestration?: {
+    publish?: boolean
+    offline?: boolean
+    rollback?: boolean
+  }
+  opsOrchestrationPublisher?: boolean
+  opsOrchestrationOffline?: boolean
+  opsOrchestrationRollback?: boolean
   contentModerator: boolean
   domainModerator: boolean
   moderatedDomains: number[]
@@ -580,10 +589,10 @@ const normalizeReviewQueueItems = (raw: unknown): ReviewQueueItem[] => normalize
 
 const optionalPanelUnavailable = (error: unknown) => {
   if (error instanceof BizException) {
-    return error.code === 10404
+    return [10401, 10403, 10404].includes(error.code)
   }
   const status = (error as any)?.response?.status
-  return status === 404 || status === 405
+  return status === 401 || status === 403 || status === 404 || status === 405
 }
 
 const emptySearchAnalytics = (): SearchAnalytics => ({
@@ -644,12 +653,12 @@ export const opsApi = {
   listAdmins: (params?: { limit?: number }): Promise<Result<AdminUserRole[]>> =>
     client.get('/api/v1/ops/admins', { params }),
 
-  addAdmin: (data: { uid: ApiId; roleCode?: string; remark?: string; auditRemark?: string }): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
+  addAdmin: (data: { uid: ApiId; roleCode: string; remark?: string; auditRemark?: string }): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
     client.post('/api/v1/ops/admins', { ...data, confirmationPhrase: 'CONFIRM' }),
 
   updateAdminStatus: (
     uid: ApiId,
-    data: { enabled: boolean; roleCode?: string; remark?: string; auditRemark?: string },
+    data: { enabled: boolean; roleCode: string; remark?: string; auditRemark?: string },
   ): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
     client.post(`/api/v1/ops/admins/${uid}/status`, { ...data, confirmationPhrase: 'CONFIRM' }),
 
@@ -690,7 +699,7 @@ export const opsApi = {
 
   searchAnalytics: async (params?: { days?: number; limit?: number; includeTestData?: boolean }): Promise<Result<SearchAnalytics>> => {
     try {
-      return await client.get('/api/v1/ops/search/analytics', { params })
+      return await client.get('/api/v1/ops/search/analytics', { params, skipAuthRedirect: true })
     } catch (error) {
       if (!optionalPanelUnavailable(error)) throw error
       return okResult(emptySearchAnalytics())

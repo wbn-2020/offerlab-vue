@@ -3,13 +3,12 @@ import type { Post, PaginatedResponse } from './types'
 import { adaptPage, adaptPost } from './adapters'
 
 export type FeedFeedbackAction = 'not_interested' | 'less_like_this' | 'hide_author' | 'more_like_this'
-type BackendFeedFeedbackAction = 'not_interested'
+type BackendFeedFeedbackAction = 'not_interested' | 'less_like_this' | 'hide_author' | 'more_like_this'
 
 const feedbackPayload = (action: FeedFeedbackAction, reason: string) => {
-  if (action === 'more_like_this') return null
   const normalizedReason = reason || action
   return {
-    action: 'not_interested' as BackendFeedFeedbackAction,
+    action: action as BackendFeedFeedbackAction,
     reason: action === 'not_interested' ? normalizedReason : `${action}:${normalizedReason}`,
   }
 }
@@ -43,9 +42,6 @@ export const feedApi = {
 
   recordFeedback: (postId: string | number, action: FeedFeedbackAction = 'not_interested', reason = ''): Promise<Result<void>> => {
     const payload = feedbackPayload(action, reason)
-    if (!payload) {
-      return Promise.resolve({ code: 0, message: 'recorded locally', data: null })
-    }
     return client.post('/api/v1/feeds/feedback', { postId, ...payload })
   },
 }
