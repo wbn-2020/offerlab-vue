@@ -33,6 +33,7 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest', domain?
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.data?.nextCursor,
+    maxPages,
   })
 
   const posts = computed(() => {

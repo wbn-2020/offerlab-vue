@@ -1,8 +1,8 @@
 import { type Result } from './client'
 import { feedApi } from './feed'
-import { notificationApi } from './notification'
+import { normalizeNotificationPreference, notificationApi } from './notification'
 import { postApi } from './post'
-import type { Notification, Post } from './types'
+import type { Notification, NotificationPreference, Post } from './types'
 import { filterVisiblePosts, isPublicPostVisible } from '@/utils/recommendationGovernance'
 
 export const RETENTION_BLOCK_DEFAULT_LIMIT = 3
@@ -167,11 +167,15 @@ const normalizeServerSummary = (raw: any): RetentionSummary => ({
 })
 
 const buildFallbackSummary = async (): Promise<RetentionSummary> => {
-  const [favoritesRes, followingRes, notificationsRes] = await Promise.allSettled([
+  const [favoritesRes, followingRes, notificationsRes, preferencesRes] = await Promise.allSettled([
     postApi.getMyUnorganizedFavorites(undefined, RETENTION_BLOCK_MAX_LIMIT),
     feedApi.getFollowing(undefined, RETENTION_BLOCK_MAX_LIMIT * 2),
-    notificationApi.getList('comment', undefined, RETENTION_BLOCK_MAX_LIMIT),
+    notificationApi.getList(undefined, undefined, RETENTION_BLOCK_MAX_LIMIT * 2),
+    notificationApi.getPreferences(),
   ])
+  const preferences: NotificationPreference = normalizeNotificationPreference(
+    preferencesRes.status === 'fulfilled' ? preferencesRes.value.data : null,
+  )
 
   const favoritePosts = favoritesRes.status === 'fulfilled'
     ? filterVisiblePosts(favoritesRes.value.data?.items || [], RETENTION_BLOCK_MAX_LIMIT)
@@ -191,15 +195,28 @@ const buildFallbackSummary = async (): Promise<RetentionSummary> => {
   )
   const discussionItems = sanitizeRetentionItems(
     discussionNotifications
+      .filter((notification) => {
+        if (!preferences.interactionNotification) return false
+        if (notification.type === 'comment') return preferences.commentNotification
+        if (notification.type === 'mention') return preferences.mentionNotification
+        if (notification.type === 'favorite') return preferences.favoriteNotification
+        return false
+      })
       .map(notificationToDiscussionItem)
       .filter((item): item is RetentionSummaryItem => Boolean(item)),
   )
 
+  const sourceFailures = [
+    favoritesRes.status !== 'fulfilled',
+    followingRes.status !== 'fulfilled',
+    notificationsRes.status !== 'fulfilled',
+    preferencesRes.status !== 'fulfilled',
+  ]
   const blocks: RetentionSummaryBlock[] = [
     {
       key: 'continue_reading',
       title: '继续阅读和稍后整理',
-      description: '优先使用稍后读和未整理收藏；后端清单未稳定时使用收藏兜底。',
+      description: '来自当前收藏接口的“未整理”视图；该视图降级时会明确标记，不把全部收藏伪装成未整理收藏。',
       source: 'unorganized_favorite',
       items: continueItems,
       degraded: favoritesRes.status !== 'fulfilled' || Boolean(favoritesRes.value.data?.degraded),
@@ -211,22 +228,30 @@ const buildFallbackSummary = async (): Promise<RetentionSummary> => {
       description: '只汇总评论、提及和收藏相关的站内讨论入口。',
       source: 'discussion_revisit',
       items: discussionItems,
-      degraded: notificationsRes.status !== 'fulfilled',
-      fallbackReason: notificationsRes.status !== 'fulfilled' ? 'notifications_unavailable' : undefined,
+      degraded: notificationsRes.status !== 'fulfilled' || preferencesRes.status !== 'fulfilled',
+      fallbackReason: notificationsRes.status !== 'fulfilled'
+        ? 'notifications_unavailable'
+        : preferencesRes.status !== 'fulfilled'
+          ? 'notification_preferences_unavailable'
+          : undefined,
     },
     {
       key: 'following_author_updates',
       title: '关注作者更新',
       description: '按作者去重展示公开更新，同一作者默认只给一条。',
       source: 'following_author_update',
-      items: followingItems,
-      degraded: followingRes.status !== 'fulfilled',
-      fallbackReason: followingRes.status !== 'fulfilled' ? 'following_feed_unavailable' : undefined,
+      items: preferences.systemNotification ? followingItems : [],
+      degraded: followingRes.status !== 'fulfilled' || preferencesRes.status !== 'fulfilled',
+      fallbackReason: followingRes.status !== 'fulfilled'
+        ? 'following_feed_unavailable'
+        : preferencesRes.status !== 'fulfilled'
+          ? 'notification_preferences_unavailable'
+          : undefined,
     },
   ]
 
   return {
-    ...emptySummary(blocks.some((block) => block.degraded) ? 'degraded' : 'ready'),
+    ...emptySummary(sourceFailures.some(Boolean) || blocks.some((block) => block.degraded) ? 'degraded' : 'ready'),
     blocks,
   }
 }

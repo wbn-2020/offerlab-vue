@@ -79,6 +79,15 @@ export interface ContentSuggestionSubmitGuardResult {
 export const CONTENT_SUGGESTION_DAILY_LIMIT = 10
 export const CONTENT_SUGGESTIONS_ENABLED = false
 
+export class ContentSuggestionsUnavailableError extends Error {
+  readonly code = 'CONTENT_SUGGESTIONS_DISABLED'
+
+  constructor() {
+    super('内容协作建议暂未启用。')
+    this.name = 'ContentSuggestionsUnavailableError'
+  }
+}
+
 export const normalizeHttpUrl = (value: unknown) => {
   const raw = String(value || '').trim()
   if (!raw) return undefined
@@ -90,11 +99,9 @@ export const normalizeHttpUrl = (value: unknown) => {
   }
 }
 
-const disabledResult = <T>(data: T | null, message = 'content_suggestions_disabled'): Result<T> => ({
-  code: 0,
-  message,
-  data,
-})
+const rejectDisabled = async <T>(): Promise<Result<T>> => {
+  throw new ContentSuggestionsUnavailableError()
+}
 
 export const CONTENT_SUGGESTION_TYPE_OPTIONS: Array<{
   value: ContentSuggestionType
@@ -185,44 +192,45 @@ export const contentSuggestionApi = {
   submit: async (postId: ApiId, req: ContentSuggestionSubmitReq): Promise<Result<ContentSuggestionRecord>> => {
     void postId
     void req
-    return disabledResult<ContentSuggestionRecord>(null)
+    return rejectDisabled<ContentSuggestionRecord>()
   },
 
   listMineForPost: async (postId: ApiId): Promise<Result<ContentSuggestionRecord[]>> => {
     void postId
-    return disabledResult<ContentSuggestionRecord[]>([])
+    return rejectDisabled<ContentSuggestionRecord[]>()
   },
 
   listForAuthorPost: async (postId: ApiId, status?: ContentSuggestionStatus): Promise<Result<ContentSuggestionRecord[]>> => {
     void postId
     void status
-    return disabledResult<ContentSuggestionRecord[]>([])
+    return rejectDisabled<ContentSuggestionRecord[]>()
   },
 
   accept: async (id: ApiId, req: ContentSuggestionActionReq = {}): Promise<Result<ContentSuggestionRecord>> => {
     void id
     void req
-    return disabledResult<ContentSuggestionRecord>(null)
+    return rejectDisabled<ContentSuggestionRecord>()
   },
 
   reply: async (id: ApiId, req: ContentSuggestionActionReq): Promise<Result<ContentSuggestionRecord>> => {
     void id
     void req
-    return disabledResult<ContentSuggestionRecord>(null)
+    return rejectDisabled<ContentSuggestionRecord>()
   },
 
   ignore: async (id: ApiId): Promise<Result<ContentSuggestionRecord>> => {
     void id
-    return disabledResult<ContentSuggestionRecord>(null)
+    return rejectDisabled<ContentSuggestionRecord>()
   },
 
   close: async (id: ApiId, req: ContentSuggestionActionReq = {}): Promise<Result<ContentSuggestionRecord>> => {
     void id
     void req
-    return disabledResult<ContentSuggestionRecord>(null)
+    return rejectDisabled<ContentSuggestionRecord>()
   },
 
-  closePostEntry: (postId: ApiId): Promise<Result<{ postId: ApiId; suggestionsOpen: boolean }>> => {
-    return Promise.resolve(disabledResult<{ postId: ApiId; suggestionsOpen: boolean }>({ postId, suggestionsOpen: false }))
+  closePostEntry: async (postId: ApiId): Promise<Result<{ postId: ApiId; suggestionsOpen: boolean }>> => {
+    void postId
+    return rejectDisabled<{ postId: ApiId; suggestionsOpen: boolean }>()
   },
 }

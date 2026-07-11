@@ -22,11 +22,22 @@ export class BizException extends Error {
     public message: string,
     public traceId?: string,
     public data?: unknown,
+    public status?: number,
   ) {
     super(message)
     this.name = 'BizException'
   }
 }
+
+const isResultPayload = (value: unknown): value is Result<unknown> => {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<Result<unknown>>
+  return typeof candidate.code === 'number'
+    && typeof candidate.message === 'string'
+}
+
+const toBizException = (result: Result<unknown>, status?: number) =>
+  new BizException(result.code, result.message, result.traceId, result.data, status)
 
 const errorMessageMap: Record<number, string> = {
   10001: '参数不正确，请检查填写内容后重试',
@@ -132,12 +143,12 @@ client.interceptors.response.use(
   (response): any => {
     const result = response.data as Result
     if (result.code !== 0) {
-      const error = new BizException(result.code, result.message, result.traceId, result.data)
+      const error = toBizException(result, response.status)
       return Promise.reject(error)
     }
     return result as any
   },
-  (error: AxiosError) => {
+  (error: AxiosError<Result<unknown>>) => {
     if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
       authTokenStore.clear()
       try {
@@ -146,6 +157,9 @@ client.interceptors.response.use(
         // Pinia may not be active during very early boot; token cleanup above is still authoritative.
       }
       redirectToLogin()
+    }
+    if (isResultPayload(error.response?.data)) {
+      return Promise.reject(toBizException(error.response.data, error.response?.status))
     }
     return Promise.reject(error)
   },

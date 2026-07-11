@@ -39,7 +39,7 @@
                 disabled-reason="该作者主页当前不可公开分享"
               />
               <button
-                v-if="user.profileVisible !== false"
+                v-if="user.profileVisible !== false && !isViewingSelf"
                 type="button"
                 class="follow-button"
                 :disabled="isFollowBusy"
@@ -323,7 +323,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
@@ -368,6 +368,8 @@ const favoriteFoldersError = ref('')
 const failedCollectionCoverUrls = ref(new Set<string>())
 const isFollowBusy = ref(false)
 const isContactDialogOpen = ref(false)
+let profileLoadGeneration = 0
+let profileLoadController: AbortController | null = null
 
 const profileUid = computed(() => String(route.params.uid || ''))
 const avatarText = computed(() => user.value?.nickname?.charAt(0) || '?')
@@ -434,37 +436,55 @@ const handleCollectionCoverError = (coverUrl?: string) => {
   failedCollectionCoverUrls.value = new Set([...failedCollectionCoverUrls.value, safeCoverUrl])
 }
 
-const loadPublicCollections = async (uid: string) => {
+const isActiveProfileLoad = (generation: number, uid: string, signal: AbortSignal) => (
+  !signal.aborted
+  && generation === profileLoadGeneration
+  && uid === profileUid.value
+)
+
+const loadPublicCollections = async (uid: string, generation: number, signal: AbortSignal) => {
   isLoadingCollections.value = true
   collectionsError.value = ''
   try {
     const res = await contentSeriesApi.listPublicByUser(uid, undefined, 6)
+    if (!isActiveProfileLoad(generation, uid, signal)) return
     publicCollections.value = filterVisibleCollections(res.data || [])
   } catch (error: any) {
+    if (!isActiveProfileLoad(generation, uid, signal)) return
     publicCollections.value = []
     collectionsError.value = getErrorMessage(error, '公开合集加载失败')
   } finally {
-    isLoadingCollections.value = false
+    if (isActiveProfileLoad(generation, uid, signal)) {
+      isLoadingCollections.value = false
+    }
   }
 }
 
-const loadPublicFavoriteFolders = async (uid: string) => {
+const loadPublicFavoriteFolders = async (uid: string, generation: number, signal: AbortSignal) => {
   isLoadingFavoriteFolders.value = true
   favoriteFoldersError.value = ''
   try {
     const res = await interactionApi.listPublicFavoriteFoldersByUser(uid, 6)
+    if (!isActiveProfileLoad(generation, uid, signal)) return
     publicFavoriteFolders.value = (res.data || []).filter((folder) => folder.visibility === 'public')
   } catch (error: any) {
+    if (!isActiveProfileLoad(generation, uid, signal)) return
     publicFavoriteFolders.value = []
     favoriteFoldersError.value = getErrorMessage(error, '公开收藏夹加载失败')
   } finally {
-    isLoadingFavoriteFolders.value = false
+    if (isActiveProfileLoad(generation, uid, signal)) {
+      isLoadingFavoriteFolders.value = false
+    }
   }
 }
 
 const loadProfile = async () => {
   const uid = profileUid.value
   if (!uid) return
+  profileLoadController?.abort()
+  const controller = new AbortController()
+  profileLoadController = controller
+  const generation = ++profileLoadGeneration
   isLoading.value = true
   loadError.value = ''
   user.value = null
@@ -475,11 +495,14 @@ const loadProfile = async () => {
   backendContribution.value = null
   try {
     const profile = await userApi.getProfile(uid)
+    if (!isActiveProfileLoad(generation, uid, controller.signal)) return
     user.value = profile.data
     if (!profile.data || profile.data.profileVisible === false) {
       posts.value = []
       userIntent.value = null
       backendContribution.value = null
+      isLoadingCollections.value = false
+      isLoadingFavoriteFolders.value = false
       return
     }
     const [intent, authoredPosts, contributionRes] = await Promise.allSettled([
@@ -487,17 +510,21 @@ const loadProfile = async () => {
       postApi.list({ authorId: uid }),
       userApi.getContribution(uid),
     ])
+    if (!isActiveProfileLoad(generation, uid, controller.signal)) return
     userIntent.value = intent.status === 'fulfilled' ? intent.value.data : null
     posts.value = authoredPosts.status === 'fulfilled' ? filterVisiblePosts(authoredPosts.value.data?.items || []) : []
     backendContribution.value = contributionRes.status === 'fulfilled' ? contributionRes.value.data : null
     await Promise.all([
-      loadPublicCollections(uid),
-      loadPublicFavoriteFolders(uid),
+      loadPublicCollections(uid, generation, controller.signal),
+      loadPublicFavoriteFolders(uid, generation, controller.signal),
     ])
   } catch (error: any) {
+    if (!isActiveProfileLoad(generation, uid, controller.signal)) return
     loadError.value = getErrorMessage(error, '用户资料加载失败')
   } finally {
-    isLoading.value = false
+    if (isActiveProfileLoad(generation, uid, controller.signal)) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -506,13 +533,15 @@ const toggleFollow = async () => {
   if (!requireLogin()) return
   if (isFollowBusy.value) return
   isFollowBusy.value = true
+  const targetUid = String(user.value.uid)
   const wasFollowing = Boolean(user.value.isFollowing)
   try {
     if (wasFollowing) {
-      await userApi.unfollow(user.value.uid)
+      await userApi.unfollow(targetUid)
     } else {
-      await userApi.follow(user.value.uid)
+      await userApi.follow(targetUid)
     }
+    if (String(user.value?.uid ?? '') !== targetUid || profileUid.value !== targetUid) return
     user.value = {
       ...user.value,
       isFollowing: !wasFollowing,
@@ -541,6 +570,12 @@ watch([user, loadError, profileUid], () => {
     canonical: `/u/${profileUid.value}`,
   })
 }, { immediate: true })
+
+onBeforeUnmount(() => {
+  profileLoadGeneration += 1
+  profileLoadController?.abort()
+  profileLoadController = null
+})
 </script>
 
 <style scoped>

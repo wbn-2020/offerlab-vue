@@ -212,7 +212,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -225,6 +225,7 @@ import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 
 const router = useRouter()
 const realtimeStore = useRealtimeStore()
+const MAX_NOTIFICATION_ITEMS = 100
 
 const activeType = ref('all')
 const notifications = ref<Notification[]>([])
@@ -235,6 +236,7 @@ const nextCursor = ref<string | undefined>()
 const hasMore = ref(false)
 const unread = computed(() => realtimeStore.unreadCount)
 const preferences = ref<NotificationPreference | null>(null)
+let notificationLoadGeneration = 0
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
 const notificationUnreadKeys = ['like', 'comment', 'favorite', 'follower', 'mention', 'system'] as const
@@ -288,7 +290,7 @@ const preferenceOffText = computed(() => {
   return ''
 })
 const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
-const markAllHint = computed(() => unread.value.total === 0 ? 'No unread notifications' : 'Mark all notifications as read')
+const markAllHint = computed(() => unread.value.total === 0 ? '暂无未读通知' : '将全部通知标为已读')
 const isNotificationUnreadKey = (type: string): type is NotificationUnreadKey => {
   return notificationUnreadKeys.includes(type as NotificationUnreadKey)
 }
@@ -333,34 +335,58 @@ const loadUnread = async () => {
 }
 
 const loadNotifications = async () => {
+  const requestGeneration = ++notificationLoadGeneration
+  const requestedType = activeType.value
   isLoading.value = true
   try {
-    const type = activeType.value === 'all' ? undefined : activeType.value
+    const type = requestedType === 'all' ? undefined : requestedType
     const res = await notificationApi.getList(type, undefined, 20)
-    notifications.value = res.data?.items || []
+    if (requestGeneration !== notificationLoadGeneration || requestedType !== activeType.value) return
+    notifications.value = (res.data?.items || []).slice(0, MAX_NOTIFICATION_ITEMS)
     nextCursor.value = res.data?.nextCursor
-    hasMore.value = Boolean(res.data?.hasMore)
+    hasMore.value = Boolean(
+      res.data?.hasMore
+      && res.data?.nextCursor
+      && notifications.value.length < MAX_NOTIFICATION_ITEMS,
+    )
     loadErrorText.value = ''
   } catch (error) {
+    if (requestGeneration !== notificationLoadGeneration || requestedType !== activeType.value) return
     loadErrorText.value = getErrorMessage(error, 'Notifications are temporarily unavailable.')
   } finally {
-    isLoading.value = false
+    if (requestGeneration === notificationLoadGeneration) {
+      isLoading.value = false
+    }
   }
 }
 
 const loadMore = async () => {
   if (!hasMore.value || isLoading.value) return
+  const requestGeneration = ++notificationLoadGeneration
+  const requestedType = activeType.value
   isLoading.value = true
   try {
-    const type = activeType.value === 'all' ? undefined : activeType.value
+    const type = requestedType === 'all' ? undefined : requestedType
     const res = await notificationApi.getList(type, nextCursor.value, 20)
-    notifications.value = [...notifications.value, ...(res.data?.items || [])]
+    if (requestGeneration !== notificationLoadGeneration || requestedType !== activeType.value) return
+    const mergedItems = [...notifications.value, ...(res.data?.items || [])]
+    const uniqueItems = Array.from(new Map(
+      mergedItems.map((item) => [String(item.notificationId), item]),
+    ).values())
+    notifications.value = uniqueItems.slice(0, MAX_NOTIFICATION_ITEMS)
     nextCursor.value = res.data?.nextCursor
-    hasMore.value = Boolean(res.data?.hasMore)
+    hasMore.value = Boolean(
+      res.data?.hasMore
+      && res.data?.nextCursor
+      && uniqueItems.length < MAX_NOTIFICATION_ITEMS,
+    )
   } catch (error) {
+    if (requestGeneration !== notificationLoadGeneration || requestedType !== activeType.value) return
     toast.error(getErrorMessage(error, '加载更多通知失败'))
   } finally {
-    isLoading.value = false
+    if (requestGeneration === notificationLoadGeneration) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -421,9 +447,9 @@ const markAllAsRead = async () => {
     }
     await loadUnread()
     if (result?.capped) {
-      toast.info(`Marked ${result.updatedCount} notifications as read, ${result.remainingUnread} still unread`)
+      toast.info(`已标记 ${result.updatedCount} 条通知，仍有 ${result.remainingUnread} 条未读`)
     } else {
-      toast.success('All notifications marked as read')
+      toast.success('已全部标为已读')
     }
   } catch (error) {
     toast.error(getErrorMessage(error, '全部标记已读失败'))
@@ -458,12 +484,11 @@ const notificationActionLabel = (notif: Notification) => {
 }
 
 const nextStepText = (notif: Notification) => {
-  if (isReportReceiptNotification(notif)) return 'View report receipt'
-  if (curationFeedbackPayload(notif)) return 'View selected content'
-  if (notif.type === 'follower') return 'View profile'
-  if (notif.type === 'comment' || notif.type === 'mention') return 'Back to discussion'
-  if (notif.type === 'system') return 'View related content'
-  return 'View related content'
+  if (isReportReceiptNotification(notif)) return '查看举报回执'
+  if (curationFeedbackPayload(notif)) return '查看入选内容'
+  if (notif.type === 'follower') return '查看作者主页'
+  if (notif.type === 'comment' || notif.type === 'mention') return '回到讨论'
+  return '查看关联内容'
 }
 
 const isMutedByPreference = (notif: Notification) => (
@@ -481,6 +506,10 @@ const loadPreferences = async () => {
 
 onMounted(async () => {
   await Promise.all([loadUnread(), loadNotifications(), loadPreferences()])
+})
+
+onBeforeUnmount(() => {
+  notificationLoadGeneration += 1
 })
 </script>
 

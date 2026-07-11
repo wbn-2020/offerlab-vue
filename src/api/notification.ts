@@ -52,6 +52,11 @@ export interface NotificationReadAllResult {
   remainingUnread: number
 }
 
+export interface NotificationRequestOptions {
+  signal?: AbortSignal
+  skipAuthRedirect?: boolean
+}
+
 const adaptReadAllResult = (raw: any): NotificationReadAllResult => ({
   updatedCount: Number(raw?.updatedCount || 0),
   capped: raw?.capped === true,
@@ -64,13 +69,19 @@ export const notificationApi = {
     return { ...res, data: res.data ? adaptPage(res.data, adaptNotification) : null }
   },
 
-  getUnreadCount: async (): Promise<Result<NotificationUnreadCount>> => {
-    const res = await client.get('/api/v1/notifications/unread-count') as Result<any>
+  getUnreadCount: async (options?: NotificationRequestOptions): Promise<Result<NotificationUnreadCount>> => {
+    const res = await client.get('/api/v1/notifications/unread-count', {
+      signal: options?.signal,
+      skipAuthRedirect: options?.skipAuthRedirect,
+    }) as Result<any>
     return { ...res, data: res.data ? adaptUnreadCount(res.data) : null }
   },
 
-  getRealtimeStatus: async (): Promise<Result<NotificationRealtimeStatus>> => {
-    const res = await client.get('/api/v1/notifications/realtime-status') as Result<any>
+  getRealtimeStatus: async (options?: Pick<NotificationRequestOptions, 'signal'>): Promise<Result<NotificationRealtimeStatus>> => {
+    const res = await client.get('/api/v1/notifications/realtime-status', {
+      signal: options?.signal,
+      skipAuthRedirect: true,
+    }) as Result<any>
     return { ...res, data: res.data ? adaptRealtimeStatus(res.data) : null }
   },
 

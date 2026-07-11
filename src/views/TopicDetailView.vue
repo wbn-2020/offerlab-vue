@@ -196,7 +196,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
@@ -228,6 +228,8 @@ const topicErrorMessage = ref('')
 const postErrorMessage = ref('')
 const activeType = ref<number | undefined>()
 const featuredOnly = ref(false)
+let loadGeneration = 0
+let postRequestGeneration = 0
 
 const topicSlug = computed(() => String(route.params.slug || ''))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
@@ -304,10 +306,15 @@ const updatePost = (postId: ApiId, updater: (post: Post) => void) => {
   if (post) updater(post)
 }
 const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePost)
+const isCurrentLoad = (targetGeneration: number, slug: string) => (
+  targetGeneration === loadGeneration && String(route.params.slug || '') === slug
+)
 
 const loadTopic = async () => {
   const slug = String(route.params.slug || '')
   if (!slug) return
+  const targetGeneration = ++loadGeneration
+  postRequestGeneration += 1
   curatedTopic.value = null
   topic.value = null
   posts.value = []
@@ -318,6 +325,7 @@ const loadTopic = async () => {
   isLoading.value = true
   try {
     const curatedRes = await topicDetailApi.getCuratedTopicDetail(slug)
+    if (!isCurrentLoad(targetGeneration, slug)) return
     if (curatedRes.data && displayableCuratedStatuses.has(curatedRes.data.status)) {
       curatedTopic.value = curatedRes.data
       return
@@ -329,31 +337,41 @@ const loadTopic = async () => {
     }
 
     const res = await postApi.getTopic(slug)
+    if (!isCurrentLoad(targetGeneration, slug)) return
     topic.value = res.data
     if (!topic.value?.virtualTopic) {
-      await loadTopicFollowStatus(slug)
+      await loadTopicFollowStatus(slug, targetGeneration)
     }
-    await loadPosts(false)
+    await loadPosts(false, targetGeneration)
   } catch (error: any) {
-    topicErrorMessage.value = getErrorMessage(error, '话题内容加载失败')
+    if (isCurrentLoad(targetGeneration, slug)) {
+      topicErrorMessage.value = getErrorMessage(error, '话题内容加载失败')
+    }
   } finally {
-    isLoading.value = false
+    if (isCurrentLoad(targetGeneration, slug)) {
+      isLoading.value = false
+    }
   }
 }
 
-const loadTopicFollowStatus = async (slug: string) => {
+const loadTopicFollowStatus = async (slug: string, targetGeneration = loadGeneration) => {
   if (!authStore.isLoggedIn || topic.value?.virtualTopic) return
   try {
     const res = await postApi.getTopicFollowStatus(slug)
+    if (!isCurrentLoad(targetGeneration, slug)) return
     if (res.data) topic.value = { ...topic.value, ...res.data }
   } catch {
     // Follow status is an authenticated enhancement; public topic browsing should not fail.
   }
 }
 
-const loadPosts = async (append = false) => {
+const loadPosts = async (append = false, targetGeneration = loadGeneration) => {
   const slug = String(route.params.slug || '')
   if (!slug || isCuratedTopic.value || !topic.value || topicLoadFailed.value || (append && !hasMore.value) || (isLoading.value && append)) return
+  const targetPostGeneration = append ? postRequestGeneration : ++postRequestGeneration
+  const isCurrentPostLoad = () => (
+    isCurrentLoad(targetGeneration, slug) && targetPostGeneration === postRequestGeneration
+  )
   isLoading.value = true
   postErrorMessage.value = ''
   try {
@@ -361,15 +379,20 @@ const loadPosts = async (append = false) => {
       type: activeType.value,
       featured: featuredOnly.value ? true : undefined,
     })
+    if (!isCurrentPostLoad()) return
     const page = res.data
     const cleanItems = filterVisiblePosts(filterPublicContent(page?.items || []))
     posts.value = append ? [...posts.value, ...cleanItems] : cleanItems
     cursor.value = page?.nextCursor
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
   } catch (error: any) {
-    postErrorMessage.value = getErrorMessage(error, '话题内容加载失败')
+    if (isCurrentPostLoad()) {
+      postErrorMessage.value = getErrorMessage(error, '话题内容加载失败')
+    }
   } finally {
-    isLoading.value = false
+    if (isCurrentPostLoad()) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -442,6 +465,10 @@ watch([curatedTopic, topic, topicErrorMessage, topicSlug], () => {
   })
 }, { immediate: true })
 onMounted(loadTopic)
+onUnmounted(() => {
+  loadGeneration += 1
+  postRequestGeneration += 1
+})
 </script>
 
 <style scoped>

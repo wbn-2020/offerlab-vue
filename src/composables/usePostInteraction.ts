@@ -34,7 +34,11 @@ export function usePostInteraction(updatePost: PostUpdater) {
       item.counter.like = Math.max(0, item.counter.like + (liked ? -1 : 1))
     })
     try {
-      liked ? await interactionApi.unlike(post.postId) : await interactionApi.like(post.postId)
+      if (liked) {
+        await interactionApi.unlike(post.postId)
+      } else {
+        await interactionApi.like(post.postId)
+      }
       return true
     } catch (error: any) {
       updatePost(post.postId, (item) => {
@@ -58,7 +62,11 @@ export function usePostInteraction(updatePost: PostUpdater) {
       item.counter.favorite = Math.max(0, item.counter.favorite + (favorited ? -1 : 1))
     })
     try {
-      favorited ? await interactionApi.unfavorite(post.postId) : await interactionApi.favorite(post.postId)
+      if (favorited) {
+        await interactionApi.unfavorite(post.postId)
+      } else {
+        await interactionApi.favorite(post.postId)
+      }
       return true
     } catch (error: any) {
       updatePost(post.postId, (item) => {

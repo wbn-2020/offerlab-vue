@@ -1862,9 +1862,11 @@ const saveTopic = async () => {
       tagNames: topicTagNames(),
       note: note || topicForm.note,
     }
-    selectedTopic.value
-      ? await postApi.updateTopic(selectedTopic.value.id, payload)
-      : await postApi.createTopic(payload)
+    if (selectedTopic.value) {
+      await postApi.updateTopic(selectedTopic.value.id, payload)
+    } else {
+      await postApi.createTopic(payload)
+    }
     toast.success('话题已保存')
     resetTopic()
     await loadTopics(false)
@@ -2205,9 +2207,11 @@ const saveKeyword = async () => {
   const payloadWithAudit = { ...payload, auditRemark: note }
   isSaving.value = true
   try {
-    selectedKeyword.value
-      ? await opsApi.updateModerationKeyword(selectedKeyword.value.id, payloadWithAudit)
-      : await opsApi.createModerationKeyword(payloadWithAudit)
+    if (selectedKeyword.value) {
+      await opsApi.updateModerationKeyword(selectedKeyword.value.id, payloadWithAudit)
+    } else {
+      await opsApi.createModerationKeyword(payloadWithAudit)
+    }
     toast.success('关键词已保存')
     resetKeyword()
     await refreshAll()

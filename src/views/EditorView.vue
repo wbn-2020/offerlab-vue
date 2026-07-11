@@ -574,6 +574,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const LOCAL_DRAFT_TTL = 7 * 24 * 60 * 60 * 1000
+const LOCAL_DRAFT_NAMESPACE = 'post-draft'
 const CONTENT_MAX_LENGTH = 50000
 const AUTO_SAVE_DEBOUNCE_MS = 1500
 
@@ -1508,6 +1509,14 @@ const localDraftKey = (owner = draftOwner.value) => {
   return postId ? `post_draft:${owner}:edit:${postId}` : `post_draft:${owner}:new`
 }
 
+const localDraftStorageOptions = (owner = draftOwner.value) => ({
+  owner,
+  namespace: LOCAL_DRAFT_NAMESPACE,
+  ttlMs: LOCAL_DRAFT_TTL,
+  maxEntryBytes: 1_000_000,
+})
+let draftStorageWarningShown = false
+
 const currentDraftSignature = computed(() => JSON.stringify({
   postType: form.value.postType,
   title: form.value.title,
@@ -1535,7 +1544,8 @@ const markDraftClean = () => {
 }
 
 const persistLocalDraft = () => {
-  safeStorage.set(localDraftKey(), JSON.stringify({
+  if (draftOwner.value === 'guest') return false
+  const result = safeStorage.setDraft(localDraftKey(), JSON.stringify({
     savedAt: Date.now(),
     owner: draftOwner.value,
     ...form.value,
@@ -1543,8 +1553,17 @@ const persistLocalDraft = () => {
     selectedDomain: selectedDomain.value,
     anonymousCareerPost: anonymousCareerPost.value,
     serverDraftId: serverDraftId.value,
-  }))
+  }), localDraftStorageOptions())
+  if (!result.ok) {
+    if (!draftStorageWarningShown) {
+      draftStorageWarningShown = true
+      toast.warning('本地草稿空间不足或不可用，当前内容尚未完成本地保护。')
+    }
+    return false
+  }
+  draftStorageWarningShown = false
   markDraftClean()
+  return true
 }
 
 const clearAutoSaveTimer = () => {
@@ -1679,7 +1698,7 @@ const loadLatestSourceDraft = async (postId: string) => {
 }
 
 const restoreLocalDraft = (onlyWhenNotEditing = false) => {
-  const draft = safeStorage.get(localDraftKey())
+  const draft = safeStorage.getDraft(localDraftKey(), localDraftStorageOptions())
   if (!draft || (onlyWhenNotEditing && isEditing.value)) return false
   try {
     const draftData = JSON.parse(draft)
@@ -1831,9 +1850,12 @@ const applyTopicIdeaQuery = () => {
   return true
 }
 
-watch(draftOwner, (_nextOwner, prevOwner) => {
-  if (prevOwner) {
-    safeStorage.remove(localDraftKey(prevOwner))
+watch(draftOwner, (nextOwner, prevOwner) => {
+  if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
+    safeStorage.clearSensitive(prevOwner)
+  }
+  if (nextOwner !== 'guest') {
+    draftStorageWarningShown = false
   }
 })
 

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User } from '@/api/types'
 import { authTokenStore } from '@/utils/authTokenStore'
+import { safeStorage } from '@/utils/safeStorage'
 
 const isAuthExpiredError = (error: unknown) => {
   const candidate = error as { code?: unknown; response?: { status?: unknown } } | null | undefined
@@ -30,6 +31,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = () => {
+    const owner = user.value?.uid == null ? undefined : String(user.value.uid)
+    if (owner) safeStorage.clearSensitive(owner)
     user.value = null
     token.value = null
     ready.value = true

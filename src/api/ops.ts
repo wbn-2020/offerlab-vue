@@ -299,6 +299,8 @@ export interface SearchAnalytics {
   noResultKeywords: SearchAnalyticsItem[]
   prepClicks: SearchAnalyticsItem[]
   recommendClicks: SearchAnalyticsItem[]
+  availability?: 'available' | 'degraded'
+  degradedReason?: string
 }
 
 export interface PostSearchDiagnostics {
@@ -595,6 +597,16 @@ const optionalPanelUnavailable = (error: unknown) => {
   return status === 401 || status === 403 || status === 404 || status === 405
 }
 
+const compatibilityEndpointUnavailable = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10404 || error.status === 404 || error.status === 405
+  }
+  const status = typeof error === 'object' && error !== null && 'response' in error
+    ? (error as { response?: { status?: unknown } }).response?.status
+    : undefined
+  return status === 404 || status === 405
+}
+
 const emptySearchAnalytics = (): SearchAnalytics => ({
   hotKeywords: [],
   noResultKeywords: [],
@@ -699,10 +711,26 @@ export const opsApi = {
 
   searchAnalytics: async (params?: { days?: number; limit?: number; includeTestData?: boolean }): Promise<Result<SearchAnalytics>> => {
     try {
-      return await client.get('/api/v1/ops/search/analytics', { params, skipAuthRedirect: true })
+      const res = await client.get('/api/v1/ops/search/analytics', { params, skipAuthRedirect: true }) as Result<SearchAnalytics>
+      return {
+        ...res,
+        data: {
+          ...emptySearchAnalytics(),
+          ...(res.data || {}),
+          availability: 'available',
+        },
+      }
     } catch (error) {
-      if (!optionalPanelUnavailable(error)) throw error
-      return okResult(emptySearchAnalytics())
+      if (!compatibilityEndpointUnavailable(error)) throw error
+      return {
+        code: 0,
+        message: '搜索运营统计接口未部署，已进入兼容降级状态',
+        data: {
+          ...emptySearchAnalytics(),
+          availability: 'degraded',
+          degradedReason: '当前环境未提供搜索运营统计接口（HTTP 404/405），以下不代表真实的零数据。',
+        },
+      }
     }
   },
 

@@ -214,7 +214,11 @@ const fetchQuestions = async (append = false, targetPage = page.value) => {
     return
   }
   const requestId = ++listRequestId
-  append ? (isLoadingMore.value = true) : (isLoading.value = true)
+  if (append) {
+    isLoadingMore.value = true
+  } else {
+    isLoading.value = true
+  }
   if (append) {
     loadMoreError.value = ''
   } else {

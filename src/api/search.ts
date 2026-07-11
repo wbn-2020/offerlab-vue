@@ -26,11 +26,9 @@ export interface SearchParams {
   company?: string
   position?: string
   type?: number
-  yearsOfExp?: number
   sort?: 'relevance' | 'latest' | 'hot'
   cursor?: string
   size?: number
-  includeTestData?: boolean
 }
 
 export interface SearchStatus {
@@ -109,7 +107,15 @@ export interface ZeroResultAction {
 
 export const searchApi = {
   searchPosts: async (params: SearchParams): Promise<Result<PaginatedResponse<Post>>> => {
-    const publicParams = { ...(params || {}) }
+    const publicParams: SearchParams = {
+      q: params.q,
+      company: params.company,
+      position: params.position,
+      type: params.type,
+      sort: params.sort,
+      cursor: params.cursor,
+      size: params.size,
+    }
     const res = await client.get('/api/v1/search/posts', { params: publicParams }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },

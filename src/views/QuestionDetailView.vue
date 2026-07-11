@@ -312,10 +312,19 @@ const prepReturnLink = computed(() => ({
   path: '/me/prep',
   query: question.value?.progressStatus ? { progressStatus: question.value.progressStatus } : undefined,
 }))
+const QUESTION_DRAFT_TTL = 30 * 24 * 60 * 60 * 1000
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const noteDraftKey = computed(() => `offerlab:${storageOwner.value}:question-note-draft:${questionId.value}`)
 const draftScope = computed(() => `${storageOwner.value}:${questionId.value}`)
 const unsavedLeaveMessage = '你有未保存的题目笔记，离开后可从本地草稿恢复。确定要离开吗？'
+let draftStorageWarningShown = false
+
+const noteDraftStorageOptions = (owner = storageOwner.value) => ({
+  owner,
+  namespace: 'question-note-draft',
+  ttlMs: QUESTION_DRAFT_TTL,
+  maxEntryBytes: 250_000,
+})
 
 const markNoteDirty = () => {
   if (!detail.value || !question.value || isSavingNote.value) return
@@ -324,12 +333,19 @@ const markNoteDirty = () => {
     || answerDraft.value !== (question.value.answerDraft || '')
     || starStory.value !== (question.value.starStory || '')
   if (isNoteDirty.value) {
-    safeStorage.set(noteDraftKey.value, JSON.stringify({
+    if (storageOwner.value === 'guest') return
+    const result = safeStorage.set(noteDraftKey.value, JSON.stringify({
       note: noteText.value,
       mistakeReason: mistakeReason.value,
       answerDraft: answerDraft.value,
       starStory: starStory.value,
-    }))
+    }), { ...noteDraftStorageOptions(), sensitive: true })
+    if (!result.ok && !draftStorageWarningShown) {
+      draftStorageWarningShown = true
+      toast.warning('本地笔记草稿空间不足或不可用，请尽快保存到服务端。')
+    } else if (result.ok) {
+      draftStorageWarningShown = false
+    }
   } else {
     safeStorage.remove(noteDraftKey.value)
   }
@@ -338,7 +354,7 @@ const markNoteDirty = () => {
 const loadNoteDraft = () => {
   if (!detail.value || !question.value || draftLoadedFor.value === draftScope.value) return
   draftLoadedFor.value = draftScope.value
-  const raw = safeStorage.get(noteDraftKey.value)
+  const raw = safeStorage.getDraft(noteDraftKey.value, noteDraftStorageOptions())
   if (!raw) return
   try {
     const draft = JSON.parse(raw)
@@ -371,6 +387,15 @@ watch(detail, (value) => {
   if (isSavingNote.value) return
   syncNoteEditor()
 }, { immediate: true })
+
+watch(storageOwner, (nextOwner, prevOwner) => {
+  if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
+    safeStorage.clearSensitive(prevOwner)
+  }
+  draftLoadedFor.value = ''
+  draftStorageWarningShown = false
+  syncNoteEditor()
+})
 
 const ensureLogin = () => {
   if (authStore.isLoggedIn) return true

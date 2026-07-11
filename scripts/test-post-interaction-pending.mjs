@@ -17,8 +17,8 @@ assert.match(composable, /useLoginRedirect/, 'post interaction composable must u
 assert.match(composable, /const \{ requireLogin \} = useLoginRedirect\(\)/, 'post interaction composable must acquire the shared login gate')
 assert.match(composable, /pendingActions\s*=\s*ref\(new Set<string>\(\)\)/, 'post interaction composable must keep per-action pending state')
 assert.match(composable, /if \(!requireLogin\(\)\) return false[\s\S]*if \(!startAction\(key\)\) return false/, 'anonymous users must be gated before optimistic like/favorite updates begin')
-assert.match(composable, /const toggleLike = async \(post: Post\) => \{[\s\S]*if \(!requireLogin\(\)\) return false[\s\S]*liked \? await interactionApi\.unlike\(post\.postId\) : await interactionApi\.like\(post\.postId\)/, 'like flow must login-gate before sending a request')
-assert.match(composable, /const toggleFavorite = async \(post: Post\) => \{[\s\S]*if \(!requireLogin\(\)\) return false[\s\S]*favorited \? await interactionApi\.unfavorite\(post\.postId\) : await interactionApi\.favorite\(post\.postId\)/, 'favorite flow must login-gate before sending a request')
+assert.match(composable, /const toggleLike = async \(post: Post\) => \{[\s\S]*if \(!requireLogin\(\)\) return false[\s\S]*if \(liked\) \{[\s\S]*await interactionApi\.unlike\(post\.postId\)[\s\S]*\} else \{[\s\S]*await interactionApi\.like\(post\.postId\)/, 'like flow must login-gate and send the matching branch request')
+assert.match(composable, /const toggleFavorite = async \(post: Post\) => \{[\s\S]*if \(!requireLogin\(\)\) return false[\s\S]*if \(favorited\) \{[\s\S]*await interactionApi\.unfavorite\(post\.postId\)[\s\S]*\} else \{[\s\S]*await interactionApi\.favorite\(post\.postId\)/, 'favorite flow must login-gate and send the matching branch request')
 assert.match(composable, /isActionPending/, 'post interaction composable must expose pending status to views')
 
 assert.match(postCard, /likePending\?: boolean/, 'PostCard must accept a like pending prop')

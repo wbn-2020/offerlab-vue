@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
 
 const searchView = read('../src/views/SearchView.vue')
+const searchApi = read('../src/api/search.ts')
 const postCard = read('../src/components/post/PostCard.vue')
 const postDetail = read('../src/views/PostDetailView.vue')
 const opsApi = read('../src/api/ops.ts')
@@ -16,12 +17,12 @@ const publishStatusEnd = postApi.indexOf('getInterviewMaterials:', publishStatus
 const publishStatusApi = postApi.slice(publishStatusStart, publishStatusEnd)
 
 assert.match(types, /diagnostics\?: Record<string, unknown>/, 'PaginatedResponse must expose backend diagnostics')
-assert.match(searchView, /includeTestData\s*=\s*ref\(false\)/, 'SearchView must keep a test-data mode flag')
-assert.match(searchView, /includeTestData: includeTestData\.value/, 'SearchView must send includeTestData to backend search')
+assert.doesNotMatch(searchApi, /includeTestData|yearsOfExp/, 'Public search API types must not expose unsupported diagnostic filters')
+assert.doesNotMatch(searchView, /includeTestData|yearsOfExp/, 'SearchView must not preserve or send unsupported public search filters')
 assert.match(searchView, /searchDiagnosticText\s*=\s*computed/, 'SearchView must derive a visible diagnostic summary')
-assert.match(searchView, /emptyReason === 'test_data_filtered_unless_includeTestData'/, 'SearchView must explain test-data filtering in empty states')
+assert.match(searchView, /startsWith\('test_data_filtered'\)/, 'SearchView must explain backend test-data filtering without exposing a public override')
 assert.match(searchView, /:detail-query="postDetailQuery"/, 'Search results must pass whitelisted diagnostics into post detail links')
-assert.match(searchView, /includeTestData\.value \? \(page\?\.items \|\| \[\]\) : filterPublicContent/, 'SearchView test-data mode must not be re-filtered by frontend synthetic filters')
+assert.match(searchView, /filterVisiblePosts\(filterPublicContent\(page\?\.items \|\| \[\]\)\)/, 'SearchView must always apply public visibility filtering')
 
 assert.match(postCard, /detailQuery\?: Record<string, string \| number \| boolean \| undefined>/, 'PostCard must accept a detail query prop')
 assert.match(postCard, /const detailTo = computed/, 'PostCard must build detail routes from the query prop')

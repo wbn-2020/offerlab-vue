@@ -36,7 +36,8 @@ assert.match(certificationApi, /\/api\/v1\/expert-certifications\/applications\/
 assert.match(certificationApi, /\/api\/v1\/expert-certifications\/applications/, 'certification API must call the application create endpoint')
 assert.match(certificationApi, /\/revoke/, 'certification API must expose revoke support')
 
-assert.match(knowledgeApi, /\/api\/v1\/knowledge\/relations/, 'knowledge API must call the relations endpoint')
+assert.match(knowledgeApi, /\/api\/v1\/knowledge\/assets/, 'knowledge API must call the public knowledge assets endpoint')
+assert.doesNotMatch(knowledgeApi, /\/api\/v1\/knowledge\/relations/, 'knowledge API must not fall back to the legacy relations endpoint')
 assert.match(knowledgeApi, /export interface KnowledgeExploreQuery/, 'knowledge API must define the query contract')
 assert.doesNotMatch(knowledgeApi, /\bseriesId\b/, 'knowledge API public contract must not advertise a seriesId seed')
 

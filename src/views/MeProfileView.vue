@@ -596,6 +596,7 @@ type FavoriteFolderApi = {
   createFavoriteFolder?: (payload: { name: string; visibility?: 'public' | 'private'; isPublic?: boolean }) => Promise<{ data?: any }>
   updateFavoriteFolder?: (folderId: ApiId, payload: { name?: string; visibility?: 'public' | 'private'; isPublic?: boolean }) => Promise<{ data?: any }>
   sortFavoriteFolder?: (folderId: ApiId, payload: { sortOrder: number }) => Promise<{ data?: any }>
+  reorderFavoriteFolders?: (folderIds: ApiId[]) => Promise<{ data?: any[] }>
   deleteFavoriteFolder?: (folderId: ApiId, targetFolderId?: ApiId | null) => Promise<unknown>
   listFavoriteFolderPosts?: (folderId: ApiId, cursor?: string, size?: number) => Promise<{ data?: PaginatedResponse<Post> | null }>
   batchMoveFavoritesToFolder?: (payload: { postIds: ApiId[]; folderId?: ApiId | null }) => Promise<{ data?: any }>
@@ -811,7 +812,7 @@ const activeFavoriteFolderSortIndex = computed(() => sortableFavoriteFolders.val
 const canSortActiveFavoriteFolder = computed(() => (
   Boolean(activeFavoriteFolder.value)
   && activeFavoriteFolder.value?.kind === 'custom'
-  && Boolean(favoriteFolderApi.sortFavoriteFolder)
+  && Boolean(favoriteFolderApi.reorderFavoriteFolders)
 ))
 const canMoveActiveFavoriteFolderUp = computed(() => activeFavoriteFolderSortIndex.value > 0)
 const canMoveActiveFavoriteFolderDown = computed(() => (
@@ -1403,7 +1404,7 @@ const handleRenameFavoriteFolder = async () => {
 
 const handleSortFavoriteFolder = async (direction: 'up' | 'down') => {
   const index = activeFavoriteFolderSortIndex.value
-  if (!favoriteFolderApi.sortFavoriteFolder || index < 0) return
+  if (!favoriteFolderApi.reorderFavoriteFolders || index < 0) return
   const nextIndex = direction === 'up' ? index - 1 : index + 1
   const folders = [...sortableFavoriteFolders.value]
   if (nextIndex < 0 || nextIndex >= folders.length) return
@@ -1412,9 +1413,7 @@ const handleSortFavoriteFolder = async (direction: 'up' | 'down') => {
   folders[nextIndex] = moved
   favoriteFolderActionLoading.value = true
   try {
-    await Promise.all(folders.map((folder, orderIndex) => (
-      favoriteFolderApi.sortFavoriteFolder!(folder.id, { sortOrder: (orderIndex + 1) * 10 })
-    )))
+    await favoriteFolderApi.reorderFavoriteFolders(folders.map(folder => folder.id))
     await loadFavoriteFolders()
     selectedFavoriteFolderId.value = moved.id
     toast.success('收藏夹顺序已更新')

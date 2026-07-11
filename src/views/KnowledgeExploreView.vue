@@ -11,7 +11,7 @@
               Community Knowledge Explore
             </h1>
             <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Explore public posts, series, topics, tags, and search entries as community knowledge assets. 轻量查看，不是做重型知识图谱；this page only provides public reading suggestions and never creates personal routes or completion requirements.
+              这里是根据当前可见公开内容即时生成的只读知识投影，不是持久化知识库或人工审核关系。页面只提供阅读建议，不创建个人路线或完成要求。
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -52,18 +52,19 @@
         <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <label class="block">
             <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Asset ID</span>
-            <input v-model.trim="filters.assetId" class="filter-input" placeholder="optional" />
+            <input
+              v-model.trim="filters.assetId"
+              class="filter-input"
+              :disabled="!filters.assetType"
+              :placeholder="filters.assetType ? 'optional' : '先选择 Post 或 Series'"
+            />
           </label>
           <label class="block">
-            <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Asset type</span>
+            <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Asset ID type</span>
             <select v-model="filters.assetType" class="filter-input">
-              <option value="">Any type</option>
+              <option value="">No asset ID</option>
               <option value="post">Post</option>
               <option value="series">Series</option>
-              <option value="collection">Collection</option>
-              <option value="topic">Topic</option>
-              <option value="tag">Tag</option>
-              <option value="search_entry">Search entry</option>
             </select>
           </label>
           <label class="block">
@@ -99,14 +100,14 @@
         <div v-else class="space-y-6">
           <section class="grid gap-4 sm:grid-cols-3">
             <article class="surface-card stat-card p-5">
-              <span class="stat-label">公共知识资产 PublicKnowledgeAsset</span>
+              <span class="stat-label">公开内容投影</span>
               <strong>{{ graph.assets.length }}</strong>
-              <p>Formal assets only use active or archived lifecycle states.</p>
+              <p>按请求即时生成，仅用于公开浏览，不代表已持久化资产。</p>
             </article>
             <article class="surface-card stat-card p-5">
-              <span class="stat-label">知识关系 KnowledgeRelation</span>
+              <span class="stat-label">动态关系投影</span>
               <strong>{{ visibleRelations.length }}</strong>
-              <p>fallback/demo/local-only sources are read-only diagnostics. 只读诊断，不会写入正式资产。</p>
+              <p>关系来自当前公开内容的动态组装，不会写入正式资产。</p>
             </article>
             <article class="surface-card stat-card p-5">
               <span class="stat-label">Seed</span>
@@ -124,7 +125,7 @@
             <div class="mb-4">
               <h2 class="text-lg font-black text-slate-950 dark:text-white">公共知识资产 Public Assets</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Source notes, previewSource, and archived state are shown separately from persisted assetStatus.
+                状态和来源仅描述本次公开投影；当前系统尚未持久化知识资产生命周期。
               </p>
             </div>
             <div class="knowledge-asset-grid">
@@ -190,15 +191,15 @@
             </article>
 
             <article v-if="graph.snapshots.length" class="surface-card p-6">
-              <h2 class="text-lg font-black text-slate-950 dark:text-white">归档快照 Archived Snapshots</h2>
+              <h2 class="text-lg font-black text-slate-950 dark:text-white">动态稳定投影</h2>
               <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                KnowledgeAssetSnapshot is for public archived or stable assets and does not include drafts, internal notes, or preview tokens.
+                这些对象在每次请求时根据当前公开数据生成，不是持久化归档快照；时间字段仅表示本次投影时间。
               </p>
               <div class="mt-4 space-y-3">
                 <div v-for="snapshot in graph.snapshots" :key="snapshot.snapshotId" class="knowledge-gap-row">
                   <strong>{{ snapshot.title }}</strong>
                   <p>{{ snapshot.summary || snapshot.sourceNote }}</p>
-                  <small>archivedAt: {{ snapshot.archivedAt || 'not provided' }}</small>
+                  <small>projectionTime: {{ snapshot.archivedAt || 'not provided' }}</small>
                 </div>
               </div>
             </article>
@@ -392,7 +393,7 @@ const normalizePositiveInt = (value: unknown, fallback = 0) => {
   return Number.isFinite(next) && next > 0 ? Math.round(next) : fallback
 }
 
-const knowledgeAssetTypes: readonly KnowledgeAssetType[] = ['post', 'series', 'collection', 'topic', 'tag', 'search_entry']
+const knowledgeAssetTypes: readonly KnowledgeAssetType[] = ['post', 'series']
 const normalizeAssetType = (value: unknown): KnowledgeAssetType | '' => (
   typeof value === 'string' && knowledgeAssetTypes.includes(value as KnowledgeAssetType)
     ? value as KnowledgeAssetType
@@ -401,8 +402,8 @@ const normalizeAssetType = (value: unknown): KnowledgeAssetType | '' => (
 
 const syncFromRoute = () => {
   filters.domain = normalizePositiveInt(route.query.domain, DOMAIN.TECH)
-  filters.assetId = typeof route.query.assetId === 'string' ? route.query.assetId : ''
   filters.assetType = normalizeAssetType(route.query.assetType)
+  filters.assetId = filters.assetType && typeof route.query.assetId === 'string' ? route.query.assetId : ''
   filters.postId = typeof route.query.postId === 'string' ? route.query.postId : ''
   filters.tagId = typeof route.query.tagId === 'string' ? route.query.tagId : ''
   filters.topicId = typeof route.query.topicId === 'string' ? route.query.topicId : ''
@@ -411,7 +412,7 @@ const syncFromRoute = () => {
 
 const queryFromFilters = () => ({
   ...(filters.domain ? { domain: String(filters.domain) } : {}),
-  ...(filters.assetId ? { assetId: filters.assetId } : {}),
+  ...(filters.assetType && filters.assetId ? { assetId: filters.assetId } : {}),
   ...(filters.assetType ? { assetType: filters.assetType } : {}),
   ...(filters.postId ? { postId: filters.postId } : {}),
   ...(filters.tagId ? { tagId: filters.tagId } : {}),
@@ -425,7 +426,7 @@ const loadGraph = async () => {
   try {
     const res = await knowledgeApi.explore({
       domain: filters.domain || undefined,
-      assetId: filters.assetId || undefined,
+      assetId: filters.assetType && filters.assetId ? filters.assetId : undefined,
       assetType: filters.assetType || undefined,
       postId: filters.postId || undefined,
       tagId: filters.tagId || undefined,

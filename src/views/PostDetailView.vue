@@ -793,7 +793,7 @@
     </main>
 
     <div v-if="isReportDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" @click.self="closeReportDialog">
-      <form class="report-dialog-panel w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" @submit.prevent="submitReport">
+      <form ref="reportDialog" class="report-dialog-panel w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" tabindex="-1" @submit.prevent="submitReport">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 id="report-dialog-title" class="text-lg font-bold text-slate-950 dark:text-slate-50">举报{{ reportTargetLabel }}</h2>
@@ -825,7 +825,7 @@
 
         <label class="mt-5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
           举报类型
-          <select v-model="reportForm.reason" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+          <select ref="reportReasonSelect" v-model="reportForm.reason" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
             <option v-for="reason in REPORT_REASON_OPTIONS" :key="reason.value" :value="reason.value">
               {{ reason.label }}
             </option>
@@ -848,54 +848,6 @@
             {{ isReportSubmitSuccess ? '完成' : '取消' }}
           </button>
           <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60" :disabled="isReporting || isReportSubmitSuccess">
-            {{ isReporting ? '提交中...' : '提交举报' }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div v-if="false" class="hidden">
-      <form class="report-dialog-panel w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" @submit.prevent="submitReport">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">{{ reportTarget.type === 'comment' ? '举报评论' : '举报帖子' }}</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">说明问题后提交给管理员审核。</p>
-          </div>
-          <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" @click="closeReportDialog">
-            关闭
-          </button>
-        </div>
-
-        <label class="mt-5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-          举报类型
-          <select v-model="reportForm.reason" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-            <option value="SPAM">垃圾广告</option>
-            <option value="ABUSE">攻击辱骂</option>
-            <option value="PRIVACY">隐私泄露</option>
-            <option value="FRAUD">诈骗或违法诱导</option>
-            <option value="INVESTMENT_MISLEADING">投资误导</option>
-            <option value="THREAT">人身威胁</option>
-            <option value="MINOR_RISK">未成年人风险</option>
-            <option value="OTHER">其他问题</option>
-          </select>
-        </label>
-
-        <label class="mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-          补充说明
-          <textarea
-            v-model.trim="reportForm.detail"
-            rows="4"
-            maxlength="1000"
-            placeholder="Describe the content that needs review"
-            class="mt-2 w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          />
-        </label>
-
-        <div class="mt-5 flex justify-end gap-3">
-          <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" @click="closeReportDialog">
-            取消
-          </button>
-          <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60" :disabled="isReporting">
             {{ isReporting ? '提交中...' : '提交举报' }}
           </button>
         </div>
@@ -960,7 +912,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { postApi, type InterviewMaterialPack } from '@/api/post'
@@ -981,6 +933,7 @@ import {
   type ContentSuggestionType,
 } from '@/api/contentSuggestions'
 import { useAuthStore } from '@/stores/auth'
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownRenderer from '@/components/post/MarkdownRenderer.vue'
@@ -1020,6 +973,11 @@ const { requireLogin } = useLoginRedirect()
 
 type CommentSort = 'latest' | 'quality'
 type CommentQualityAction = 'helpful' | 'unhelpful' | 'pin' | 'unpin' | 'feature' | 'unfeature' | 'fold' | 'unfold'
+type PostRouteLoadContext = {
+  generation: number
+  postId: string
+  signal: AbortSignal
+}
 type QualityComment = Comment & {
   authorReply?: boolean
   authorPinned?: boolean
@@ -1031,6 +989,10 @@ type QualityComment = Comment & {
   foldReason?: string
   qualityBadges?: string[]
 }
+
+const MAX_COMMENT_ROOTS = 100
+const MAX_REPLIES_PER_ROOT = 60
+const MAX_COMMENT_NODES = 400
 
 const adminPermissions = ref<MyAdminPermissions | null>(null)
 const versionHistories = ref<PostVersionHistory[]>([])
@@ -1058,6 +1020,8 @@ const discussionFollowState = ref({
   error: '',
 })
 const isReportDialogOpen = ref(false)
+const reportDialog = ref<HTMLElement | null>(null)
+const reportReasonSelect = ref<HTMLSelectElement | null>(null)
 const isFollowingAuthor = ref(false)
 const isContactDialogOpen = ref(false)
 const reportForm = ref({ reason: 'OTHER', detail: '' })
@@ -1124,6 +1088,51 @@ const materialForm = ref({
   missingHintsText: '',
   userNote: '',
 })
+let postRouteGeneration = 1
+let postRouteController = new AbortController()
+let commentLoadGeneration = 0
+let commentLoadController: AbortController | null = null
+const replyLoadControllers = new Map<string, AbortController>()
+
+const capturePostRouteContext = (targetPostId = postId.value): PostRouteLoadContext => ({
+  generation: postRouteGeneration,
+  postId: String(targetPostId),
+  signal: postRouteController.signal,
+})
+
+const isActivePostRouteContext = (context: PostRouteLoadContext) => (
+  !context.signal.aborted
+  && context.generation === postRouteGeneration
+  && context.postId === String(postId.value)
+)
+
+const isActiveLoadedPostContext = (context: PostRouteLoadContext) => (
+  isActivePostRouteContext(context)
+  && context.postId === String(post.value?.postId ?? '')
+)
+
+const abortReplyLoads = () => {
+  replyLoadControllers.forEach((controller) => controller.abort())
+  replyLoadControllers.clear()
+  loadingReplyRootIds.value = []
+}
+
+const beginPostRouteGeneration = () => {
+  postRouteController.abort()
+  postRouteController = new AbortController()
+  postRouteGeneration += 1
+  commentLoadGeneration += 1
+  commentLoadController?.abort()
+  commentLoadController = null
+  abortReplyLoads()
+}
+
+const isCanceledRequest = (error: unknown) => {
+  const candidate = error as { name?: string; code?: string } | null
+  return candidate?.name === 'AbortError'
+    || candidate?.name === 'CanceledError'
+    || candidate?.code === 'ERR_CANCELED'
+}
 
 const { data: postData, isLoading, error: postError } = useQuery({
   queryKey: computed(() => ['post', postId.value]),
@@ -1719,21 +1728,27 @@ const resetDiscussionFollowState = () => {
 }
 
 const loadDiscussionFollowStatus = async () => {
+  const current = post.value
+  const context = capturePostRouteContext(String(current?.postId ?? postId.value))
   resetDiscussionFollowState()
-  if (!post.value?.postId) {
+  if (!current?.postId) {
     discussionFollowState.value.loaded = true
     return
   }
   discussionFollowState.value.loading = true
   try {
-    const res = await interactionApi.getDiscussionFollowStatus(post.value.postId)
+    const res = await interactionApi.getDiscussionFollowStatus(current.postId)
+    if (!isActiveLoadedPostContext(context)) return
     discussionFollowState.value.followed = Boolean(res.data?.followed)
     discussionFollowState.value.loaded = true
   } catch (error: any) {
+    if (!isActiveLoadedPostContext(context)) return
     discussionFollowState.value.error = getErrorMessage(error, '讨论关注状态加载失败')
     discussionFollowState.value.loaded = true
   } finally {
-    discussionFollowState.value.loading = false
+    if (isActiveLoadedPostContext(context)) {
+      discussionFollowState.value.loading = false
+    }
   }
 }
 
@@ -1873,18 +1888,24 @@ const loadContentSuggestions = async () => {
     contentSuggestions.value = []
     return
   }
+  const current = post.value
+  const context = capturePostRouteContext(String(current.postId))
   isLoadingContentSuggestions.value = true
   contentSuggestionError.value = ''
   try {
     const res = isOwnPost.value
-      ? await contentSuggestionApi.listForAuthorPost(post.value.postId)
-      : await contentSuggestionApi.listMineForPost(post.value.postId)
+      ? await contentSuggestionApi.listForAuthorPost(current.postId)
+      : await contentSuggestionApi.listMineForPost(current.postId)
+    if (!isActiveLoadedPostContext(context)) return
     contentSuggestions.value = res.data || []
   } catch (error: any) {
+    if (!isActiveLoadedPostContext(context)) return
     contentSuggestions.value = []
     contentSuggestionError.value = getErrorMessage(error, '补充建议接口暂不可用，当前不会伪造提交成功。')
   } finally {
-    isLoadingContentSuggestions.value = false
+    if (isActiveLoadedPostContext(context)) {
+      isLoadingContentSuggestions.value = false
+    }
   }
 }
 
@@ -2032,13 +2053,43 @@ const adaptQualityComment = (raw: any): Comment => {
   return comment
 }
 
-const fetchCommentsPage = async (reset: boolean) => {
-  const res = await client.get(`/api/v1/posts/${postId.value}/comments`, {
+const capCommentForest = (items: Comment[]) => {
+  let remainingNodes = MAX_COMMENT_NODES
+  const capBranch = (comment: Comment): Comment | null => {
+    if (remainingNodes <= 0) return null
+    remainingNodes -= 1
+    const originalReplies = comment.replies || []
+    const replies: Comment[] = []
+    for (const reply of originalReplies.slice(0, MAX_REPLIES_PER_ROOT)) {
+      const cappedReply = capBranch(reply)
+      if (!cappedReply) break
+      replies.push(cappedReply)
+    }
+    return {
+      ...comment,
+      replies,
+      hasMoreReplies: originalReplies.length > replies.length ? false : comment.hasMoreReplies,
+    }
+  }
+
+  return items
+    .slice(0, MAX_COMMENT_ROOTS)
+    .map(capBranch)
+    .filter((item): item is Comment => Boolean(item))
+}
+
+const fetchCommentsPage = async (
+  reset: boolean,
+  context: PostRouteLoadContext,
+  signal: AbortSignal,
+) => {
+  const res = await client.get(`/api/v1/posts/${context.postId}/comments`, {
     params: {
       cursor: reset ? undefined : commentCursor.value,
       size: 20,
       sort: commentSort.value,
     },
+    signal,
   }) as any
   return res.data ? adaptPage(res.data, adaptQualityComment) : null
 }
@@ -2305,6 +2356,13 @@ const openCommentReportDialog = (commentId: Comment['commentId']) => {
   isReportDialogOpen.value = true
 }
 
+useAccessibleDialog(() => isReportDialogOpen.value, {
+  close: closeReportDialog,
+  dialogRef: reportDialog,
+  initialFocus: reportReasonSelect,
+  closeOnEscape: () => !isReporting.value,
+})
+
 const submitReport = async () => {
   isReporting.value = true
   reportFeedback.value = null
@@ -2355,20 +2413,46 @@ const submitReport = async () => {
 }
 
 const loadComments = async (reset = true) => {
+  const context = capturePostRouteContext()
+  if (!context.postId) return
+  if (reset) {
+    commentLoadController?.abort()
+    abortReplyLoads()
+  }
+  const controller = new AbortController()
+  commentLoadController = controller
+  const requestGeneration = ++commentLoadGeneration
+  const sort = commentSort.value
+  const isActiveCommentLoad = () => (
+    !controller.signal.aborted
+    && requestGeneration === commentLoadGeneration
+    && sort === commentSort.value
+    && isActivePostRouteContext(context)
+  )
   if (reset) {
     isLoadingComments.value = true
+    isLoadingMoreComments.value = false
     commentCursor.value = undefined
     commentsErrorMessage.value = ''
   } else {
     isLoadingMoreComments.value = true
   }
   try {
-    const page = await fetchCommentsPage(reset)
-    comments.value = reset ? page?.items || [] : [...comments.value, ...(page?.items || [])]
+    const page = await fetchCommentsPage(reset, context, controller.signal)
+    if (!isActiveCommentLoad()) return
+    const nextItems = page?.items || []
+    const mergedItems = reset ? nextItems : [...comments.value, ...nextItems]
+    comments.value = capCommentForest(mergedItems)
     commentCursor.value = page?.nextCursor
-    hasMoreComments.value = Boolean(page?.hasMore)
+    hasMoreComments.value = Boolean(
+      page?.hasMore
+      && page?.nextCursor
+      && mergedItems.length < MAX_COMMENT_ROOTS
+      && commentThreadItems(comments.value).length < MAX_COMMENT_NODES
+    )
     commentsErrorMessage.value = ''
   } catch (error) {
+    if (!isActiveCommentLoad() || isCanceledRequest(error)) return
     const message = getErrorMessage(error, reset ? '评论加载失败' : '加载更多评论失败')
     if (reset) {
       comments.value = []
@@ -2380,8 +2464,11 @@ const loadComments = async (reset = true) => {
       toast.error(message)
     }
   } finally {
-    isLoadingComments.value = false
-    isLoadingMoreComments.value = false
+    if (isActiveCommentLoad()) {
+      isLoadingComments.value = false
+      isLoadingMoreComments.value = false
+      if (commentLoadController === controller) commentLoadController = null
+    }
   }
 }
 
@@ -2397,42 +2484,72 @@ const setReplyPageLoading = (rootId: Comment['commentId'], loading: boolean) => 
 const handleLoadMoreReplies = async (rootId: Comment['commentId']) => {
   const root = findRootComment(rootId)
   if (!root || !root.hasMoreReplies || loadingReplyRootIds.value.map(String).includes(String(rootId))) return
+  const context = capturePostRouteContext()
+  const rootKey = String(rootId)
+  const controller = new AbortController()
+  replyLoadControllers.get(rootKey)?.abort()
+  replyLoadControllers.set(rootKey, controller)
   setReplyPageLoading(rootId, true)
   try {
-    const res = await interactionApi.getCommentReplies(postId.value, rootId, root.repliesNextCursor, 20)
-    const page = res.data
+    const res = await client.get(`/api/v1/posts/${context.postId}/comments/${rootId}/replies`, {
+      params: { cursor: root.repliesNextCursor, size: 20 },
+      signal: controller.signal,
+    }) as any
+    if (
+      controller.signal.aborted
+      || replyLoadControllers.get(rootKey) !== controller
+      || !isActivePostRouteContext(context)
+      || findRootComment(rootId) !== root
+    ) return
+    const page = res.data ? adaptPage(res.data, adaptQualityComment) : null
     const existingIds = new Set((root.replies || []).map((item) => String(item.commentId)))
     const nextReplies = (page?.items || [])
-      .map((item) => adaptQualityComment(item))
       .filter((item) => !existingIds.has(String(item.commentId)))
-    root.replies = [...(root.replies || []), ...nextReplies]
+    const availableReplySlots = Math.max(0, MAX_REPLIES_PER_ROOT - (root.replies?.length || 0))
+    const availableNodeSlots = Math.max(0, MAX_COMMENT_NODES - commentThreadItems(comments.value).length)
+    const acceptedReplies = nextReplies.slice(0, Math.min(availableReplySlots, availableNodeSlots))
+    const mergedReplies = [...(root.replies || []), ...acceptedReplies]
+    root.replies = mergedReplies.slice(0, MAX_REPLIES_PER_ROOT)
     root.repliesNextCursor = page?.nextCursor
-    root.hasMoreReplies = Boolean(page?.hasMore)
+    root.hasMoreReplies = Boolean(
+      page?.hasMore
+      && page?.nextCursor
+      && mergedReplies.length < MAX_REPLIES_PER_ROOT
+      && commentThreadItems(comments.value).length < MAX_COMMENT_NODES
+    )
   } catch (error: any) {
+    if (controller.signal.aborted || isCanceledRequest(error)) return
     toast.error(getErrorMessage(error, '加载更多回复失败'))
   } finally {
-    setReplyPageLoading(rootId, false)
+    if (replyLoadControllers.get(rootKey) === controller) {
+      replyLoadControllers.delete(rootKey)
+      setReplyPageLoading(rootId, false)
+    }
   }
 }
 
 const loadRelatedPosts = async () => {
   const current = post.value
+  const context = capturePostRouteContext(String(current?.postId ?? postId.value))
   if (!current?.tags.length) {
     relatedPosts.value = []
     return
   }
   try {
     const result = await postApi.list({ tagId: current.tags[0].id, size: 5 })
+    if (!isActiveLoadedPostContext(context)) return
     relatedPosts.value = (result.data?.items || [])
       .filter((item) => String(item.postId) !== String(current.postId))
       .slice(0, 4)
   } catch {
+    if (!isActiveLoadedPostContext(context)) return
     relatedPosts.value = []
   }
 }
 
 const loadDetailKnowledgeAssets = async () => {
   const current = post.value
+  const context = capturePostRouteContext(String(current?.postId ?? postId.value))
   if (!current?.postId || !isPublicPostVisible(current)) {
     detailKnowledge.value = null
     detailKnowledgeError.value = ''
@@ -2448,21 +2565,27 @@ const loadDetailKnowledgeAssets = async () => {
       domain: current.domain,
       limit: 8,
     })
+    if (!isActiveLoadedPostContext(context)) return
     detailKnowledge.value = res.data
   } catch (error: any) {
+    if (!isActiveLoadedPostContext(context)) return
     detailKnowledge.value = null
     detailKnowledgeError.value = getErrorMessage(error, '知识关系服务暂时不可用，以下仅展示 local-only 只读入口。')
   } finally {
-    detailKnowledgeLoading.value = false
+    if (isActiveLoadedPostContext(context)) {
+      detailKnowledgeLoading.value = false
+    }
   }
 }
 
 const loadInteractionState = async () => {
-  if (!post.value || !authStore.isLoggedIn) return
+  const current = post.value
+  if (!current || !authStore.isLoggedIn) return
+  const context = capturePostRouteContext(String(current.postId))
   try {
-    const result = await interactionApi.getPostInteraction(post.value.postId)
-    if (result.data) {
-      post.value.myInteraction = {
+    const result = await interactionApi.getPostInteraction(current.postId)
+    if (result.data && isActiveLoadedPostContext(context)) {
+      current.myInteraction = {
         liked: Boolean(result.data.liked),
         favorited: Boolean(result.data.favorited),
       }
@@ -2549,22 +2672,28 @@ const applyMaterialToForm = (pack?: InterviewMaterialPack | null) => {
 }
 
 const loadInterviewMaterial = async () => {
-  if (!authStore.isLoggedIn || !post.value?.postId) {
+  const current = post.value
+  if (!authStore.isLoggedIn || !current?.postId) {
     materialPack.value = null
     applyMaterialToForm(null)
     materialErrorMessage.value = ''
     return
   }
+  const context = capturePostRouteContext(String(current.postId))
   isLoadingMaterial.value = true
   materialErrorMessage.value = ''
   try {
-    const res = await postApi.getInterviewMaterials(post.value.postId)
+    const res = await postApi.getInterviewMaterials(current.postId)
+    if (!isActiveLoadedPostContext(context)) return
     materialPack.value = res.data || null
     applyMaterialToForm(materialPack.value)
   } catch (error: any) {
+    if (!isActiveLoadedPostContext(context)) return
     materialErrorMessage.value = getErrorMessage(error, '内容素材加载失败')
   } finally {
-    isLoadingMaterial.value = false
+    if (isActiveLoadedPostContext(context)) {
+      isLoadingMaterial.value = false
+    }
   }
 }
 
@@ -2626,6 +2755,7 @@ const handleSaveMaterialToPrep = async () => {
 }
 
 watch(() => postData.value?.data, (value) => {
+  if (value && String(value.postId) !== String(postId.value)) return
   post.value = clonePost(value)
   postSuggestionEntryOpen.value = readPostSuggestionEntryOpen(value)
 }, { immediate: true })
@@ -2659,6 +2789,22 @@ watch([post, () => route.query.report, () => authStore.isLoggedIn], () => {
 }, { immediate: true })
 
 watch(postId, () => {
+  beginPostRouteGeneration()
+  post.value = null
+  relatedPosts.value = []
+  detailKnowledge.value = null
+  detailKnowledgeLoading.value = false
+  detailKnowledgeError.value = ''
+  contentSuggestions.value = []
+  isLoadingContentSuggestions.value = false
+  materialPack.value = null
+  isLoadingMaterial.value = false
+  comments.value = []
+  commentCursor.value = undefined
+  hasMoreComments.value = false
+  commentsErrorMessage.value = ''
+  isLoadingComments.value = false
+  isLoadingMoreComments.value = false
   resetDiscussionFollowState()
   commentSort.value = 'latest'
   loadComments(true)
@@ -2681,6 +2827,15 @@ watch(() => authStore.token, () => {
 
 watch(canViewVersionHistory, (allowed) => {
   if (!allowed) isVersionDialogOpen.value = false
+})
+
+onBeforeUnmount(() => {
+  postRouteGeneration += 1
+  postRouteController.abort()
+  commentLoadGeneration += 1
+  commentLoadController?.abort()
+  commentLoadController = null
+  abortReplyLoads()
 })
 </script>
 

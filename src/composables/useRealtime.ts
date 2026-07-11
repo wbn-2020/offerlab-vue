@@ -15,10 +15,15 @@ export function useRealtime() {
   const ws = ref<WebSocket | null>(null)
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
   let pollTimer: ReturnType<typeof setTimeout> | null = null
-  let pollInFlight = false
+  let pollInFlightGeneration: number | null = null
+  let activePollController: AbortController | null = null
+  let generation = 0
+  let disposed = false
 
   const hasToken = computed(() => Boolean(authStore.token))
   const effectivePollInterval = computed(() => Math.max(MIN_POLL_INTERVAL_MS, realtimeStore.pollIntervalSeconds * 1000 || DEFAULT_POLL_INTERVAL_MS))
+  const isActiveGeneration = (targetGeneration: number) =>
+    !disposed && targetGeneration === generation && hasToken.value
 
   const stopHeartbeat = () => {
     if (heartbeatTimer) {
@@ -34,46 +39,14 @@ export function useRealtime() {
     }
   }
 
-  const schedulePolling = () => {
+  const schedulePolling = (targetGeneration: number) => {
     stopPolling()
-    if (!hasToken.value) return
+    if (!isActiveGeneration(targetGeneration)) return
     pollTimer = setTimeout(() => {
-      void pollRealtimeStatus()
+      pollTimer = null
+      if (!isActiveGeneration(targetGeneration)) return
+      void pollRealtimeStatusForGeneration(targetGeneration)
     }, effectivePollInterval.value)
-  }
-
-  const pollRealtimeStatus = async () => {
-    if (!hasToken.value || pollInFlight) return
-    pollInFlight = true
-    try {
-      const res = await notificationApi.getRealtimeStatus()
-      if (res.code === 0 && res.data) {
-        realtimeStore.setRealtimeStatus(res.data)
-        if (realtimeStore.websocketEnabled) {
-          connectWebSocket()
-        } else {
-          disconnectWebSocket()
-        }
-      }
-    } catch {
-      try {
-        const fallback = await notificationApi.getUnreadCount()
-        if (fallback.code === 0 && fallback.data) {
-          realtimeStore.setRealtimeStatus({
-            unread: fallback.data,
-            serverTime: Date.now(),
-            pollIntervalSeconds: FALLBACK_POLL_INTERVAL_SECONDS,
-            websocketEnabled: false,
-          })
-        }
-      } catch {
-        realtimeStore.setConnected(false)
-      }
-      disconnectWebSocket()
-    } finally {
-      pollInFlight = false
-      schedulePolling()
-    }
   }
 
   const resolveWebSocketUrl = (rawUrl: string | undefined) => {
@@ -91,23 +64,40 @@ export function useRealtime() {
     }
   }
 
-  const connectWebSocket = () => {
+  const disconnectWebSocket = () => {
+    stopHeartbeat()
+    const socket = ws.value
+    ws.value = null
+    if (socket) {
+      socket.close()
+    }
+    realtimeStore.setConnected(false)
+  }
+
+  const connectWebSocket = (targetGeneration: number) => {
     const wsUrl = resolveWebSocketUrl(import.meta.env.VITE_WS_URL)
-    if (!hasToken.value || !realtimeStore.websocketEnabled || !wsUrl || ws.value) return
+    if (!isActiveGeneration(targetGeneration) || !realtimeStore.websocketEnabled || !wsUrl || ws.value) return
 
-    ws.value = new WebSocket(wsUrl)
-    ws.value.binaryType = 'arraybuffer'
+    const socket = new WebSocket(wsUrl)
+    ws.value = socket
+    socket.binaryType = 'arraybuffer'
 
-    ws.value.onopen = () => {
+    socket.onopen = () => {
+      if (!isActiveGeneration(targetGeneration) || ws.value !== socket) {
+        socket.close()
+        return
+      }
       realtimeStore.setConnected(true)
-      ws.value?.send(encodePacket(Command.AUTH_REQ, { token: authStore.token }))
+      socket.send(encodePacket(Command.AUTH_REQ, { token: authStore.token }))
       stopHeartbeat()
       heartbeatTimer = setInterval(() => {
-        ws.value?.send(encodePacket(Command.PING))
+        if (!isActiveGeneration(targetGeneration) || ws.value !== socket) return
+        socket.send(encodePacket(Command.PING))
       }, 30000)
     }
 
-    ws.value.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (!isActiveGeneration(targetGeneration) || ws.value !== socket) return
       if (!(event.data instanceof ArrayBuffer)) return
       const packet = decodePacket(event.data)
       if (packet.cmd === Command.NOTIF_PUSH) {
@@ -117,47 +107,109 @@ export function useRealtime() {
       }
     }
 
-    ws.value.onclose = () => {
-      realtimeStore.setConnected(false)
+    socket.onclose = () => {
+      if (ws.value !== socket) return
       ws.value = null
       stopHeartbeat()
+      realtimeStore.setConnected(false)
     }
 
-    ws.value.onerror = () => {
+    socket.onerror = () => {
+      if (!isActiveGeneration(targetGeneration) || ws.value !== socket) return
       realtimeStore.setConnected(false)
     }
   }
 
-  const disconnectWebSocket = () => {
-    stopHeartbeat()
-    if (ws.value) {
-      ws.value.close()
-      ws.value = null
+  const pollRealtimeStatusForGeneration = async (targetGeneration: number) => {
+    if (!isActiveGeneration(targetGeneration) || pollInFlightGeneration !== null) return
+    const controller = new AbortController()
+    activePollController = controller
+    pollInFlightGeneration = targetGeneration
+    try {
+      const res = await notificationApi.getRealtimeStatus({ signal: controller.signal })
+      if (!isActiveGeneration(targetGeneration) || controller.signal.aborted) return
+      if (res.code === 0 && res.data) {
+        realtimeStore.setRealtimeStatus(res.data)
+        if (realtimeStore.websocketEnabled) {
+          connectWebSocket(targetGeneration)
+        } else {
+          disconnectWebSocket()
+        }
+      }
+    } catch {
+      if (!isActiveGeneration(targetGeneration) || controller.signal.aborted) return
+      try {
+        const fallback = await notificationApi.getUnreadCount({
+          signal: controller.signal,
+          skipAuthRedirect: true,
+        })
+        if (!isActiveGeneration(targetGeneration) || controller.signal.aborted) return
+        if (fallback.code === 0 && fallback.data) {
+          realtimeStore.setRealtimeStatus({
+            unread: fallback.data,
+            serverTime: Date.now(),
+            pollIntervalSeconds: FALLBACK_POLL_INTERVAL_SECONDS,
+            websocketEnabled: false,
+          })
+        }
+      } catch {
+        if (isActiveGeneration(targetGeneration) && !controller.signal.aborted) {
+          realtimeStore.setConnected(false)
+        }
+      }
+      if (isActiveGeneration(targetGeneration) && !controller.signal.aborted) {
+        disconnectWebSocket()
+      }
+    } finally {
+      if (activePollController === controller) {
+        activePollController = null
+      }
+      if (pollInFlightGeneration === targetGeneration) {
+        pollInFlightGeneration = null
+      }
+      if (isActiveGeneration(targetGeneration) && !controller.signal.aborted) {
+        schedulePolling(targetGeneration)
+      }
     }
-    realtimeStore.setConnected(false)
+  }
+
+  const pollRealtimeStatus = () => {
+    return pollRealtimeStatusForGeneration(generation)
   }
 
   const start = () => {
+    if (disposed) return
     if (!hasToken.value) {
       stopPolling()
       disconnectWebSocket()
       realtimeStore.reset()
       return
     }
-    void pollRealtimeStatus()
+    void pollRealtimeStatusForGeneration(generation)
   }
 
   const stop = () => {
+    generation += 1
     stopPolling()
+    activePollController?.abort()
+    activePollController = null
+    pollInFlightGeneration = null
     disconnectWebSocket()
   }
 
-  onMounted(start)
-  onUnmounted(stop)
-
-  watch(() => authStore.token, () => {
+  const restart = () => {
     stop()
     start()
+  }
+
+  onMounted(restart)
+  onUnmounted(() => {
+    disposed = true
+    stop()
+  })
+
+  watch(() => authStore.token, () => {
+    restart()
   })
 
   return {

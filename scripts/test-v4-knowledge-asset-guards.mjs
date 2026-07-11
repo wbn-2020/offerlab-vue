@@ -19,7 +19,6 @@ const readVueIfExists = (path) => {
   }
   return normalize(readFileSync(fullPath, 'utf8'))
 }
-const readRepo = (path) => readFileSync(resolve(repoRoot, path), 'utf8').replace(/^\uFEFF/, '')
 const readRepoIfExists = (path) => {
   const fullPath = resolve(repoRoot, path)
   if (!existsSync(fullPath)) {
@@ -275,10 +274,29 @@ has(service, /(fallback|demo|local)[\s\S]*(asset|relation|path|gap)[\s\S]*(rejec
 has(service, /(draft|review|private|visibility|post_status|topicStatus)[\s\S]*(filter|skip|return false|selectPublic|batchGetPosts)/i, 'backend aggregation must filter draft, reviewing, private, and invisible content before formal assets.')
 
 has(knowledgeApi, /assets:\s*async[\s\S]*\/api\/v1\/knowledge\/assets/, 'frontend must call the phase-5 knowledge assets endpoint.')
+has(
+  knowledgeApi,
+  /explore:\s*async[\s\S]*client\.get\('\/api\/v1\/knowledge\/assets'/,
+  'frontend knowledge exploration must consistently use the assets endpoint.',
+)
+const exploreMethod = knowledgeApi.match(/explore:\s*async[\s\S]*?\n\s*},\n}/)?.[0] || ''
+missing(
+  exploreMethod,
+  /\/api\/v1\/knowledge\/relations/,
+  'frontend knowledge exploration must not fall back to the legacy relations-only endpoint.',
+)
 has(knowledgeView, /(assets|knowledgeAssets|publicAssets)/, 'KnowledgeExploreView must render public knowledge assets.')
 has(knowledgeView, /(paths|knowledgePaths)/, 'KnowledgeExploreView must render public knowledge paths.')
 has(knowledgeView, /(previewSource|sourceNote|来源)/, 'KnowledgeExploreView must display source explanation and preview source.')
 has(knowledgeView, /(归档|archived)/, 'KnowledgeExploreView must display archived state for revisits.')
+has(knowledgeView, /动态稳定投影/, 'KnowledgeExploreView must label snapshot-shaped response data as a dynamic projection.')
+has(knowledgeView, /不是持久化归档快照/, 'KnowledgeExploreView must disclose that request-time projections are not persisted snapshots.')
+missing(knowledgeView, /归档快照 Archived Snapshots/, 'KnowledgeExploreView must not claim that request-time projections are persisted archived snapshots.')
+has(
+  knowledgeView,
+  /const knowledgeAssetTypes:[^=]+=\s*\['post',\s*'series'\]/,
+  'assetId filters must only expose backend-supported post and series types.',
+)
 has(knowledgeView, /(不会写入正式资产|只读|诊断|临时展示)/, 'KnowledgeExploreView must explain fallback/demo/local-only display-only boundaries.')
 missing(knowledgeView, /(保存关系|加入知识路径|下发创作者)/, 'fallback/demo/local-only UI must not expose formal save/path/dispatch actions.')
 has(postDetailView, /knowledge\/explore[\s\S]*(postId|post\.postId|currentPost)/, 'Post detail must expose a knowledge explore entry for public content.')

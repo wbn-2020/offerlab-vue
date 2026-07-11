@@ -57,7 +57,7 @@ export default defineConfig({
     },
   },
   build: {
-    target: 'ES2020',
+    target: 'es2020',
     outDir: 'dist',
     sourcemap: false,
   },

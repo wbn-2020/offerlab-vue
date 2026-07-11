@@ -212,7 +212,11 @@ const loadAliases = async () => {
     aliases.value = res.data || []
     if (selectedAlias.value) {
       const refreshed = aliases.value.find((item) => item.id === selectedAlias.value?.id)
-      refreshed ? selectAlias(refreshed) : resetForm()
+      if (refreshed) {
+        selectAlias(refreshed)
+      } else {
+        resetForm()
+      }
     }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '实体别名加载失败'))

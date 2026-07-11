@@ -37,6 +37,13 @@ assert(opsView.includes('ref="aiTaskDetailCloseButton"'), 'AI task detail dialog
 assert(opsView.includes('@click.self="closeOutboxDetail"'), 'outbox backdrop click must share the close path')
 assert(opsView.includes('closeOnEscape: () => !isReviewSubmitting.value'), 'review dialog must not close by Escape while submitting')
 
+const postDetailView = read('src/views/PostDetailView.vue')
+assert(postDetailView.includes('useAccessibleDialog(() => isReportDialogOpen.value'), 'post report dialog must use accessible dialog behavior')
+assert(postDetailView.includes('ref="reportDialog"'), 'post report dialog must expose its root for focus trapping')
+assert(postDetailView.includes('ref="reportReasonSelect"'), 'post report dialog must focus the reason selector on open')
+assert(postDetailView.includes('closeOnEscape: () => !isReporting.value'), 'post report dialog must not close by Escape while submitting')
+assert(!postDetailView.includes('v-if="false"'), 'post detail must not retain the dead duplicate report dialog')
+
 const governanceView = read('src/views/AdminGovernanceView.vue')
 assert(governanceView.includes('openAuditDetail(item)'), 'audit detail must open through a named handler')
 assert(governanceView.includes('closeAuditDetail'), 'audit detail must close through a named handler')

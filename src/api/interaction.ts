@@ -177,6 +177,11 @@ export const interactionApi = {
     return { ...res, data: res.data ? adaptFavoriteFolder(res.data) : null }
   },
 
+  reorderFavoriteFolders: async (folderIds: ApiId[]): Promise<Result<FavoriteFolder[]>> => {
+    const res = await client.post('/api/v1/users/me/favorite-folders/reorder', { folderIds }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptFavoriteFolder) : [] }
+  },
+
   deleteFavoriteFolder: (folderId: ApiId, targetFolderId?: ApiId | null): Promise<Result<void>> =>
     client.delete(`/api/v1/users/me/favorite-folders/${encodeURIComponent(String(folderId))}`, {
       params: targetFolderId ? { targetFolderId } : undefined,

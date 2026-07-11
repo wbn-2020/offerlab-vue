@@ -75,7 +75,7 @@ export interface ContentListSummary {
   operable: boolean
 }
 
-export interface ContentListAsset extends ContentListSummary {}
+export type ContentListAsset = ContentListSummary
 
 const normalizeContentListVisibility = (value: unknown): ContentListVisibility => {
   const normalized = String(value ?? '').trim().toLowerCase()

@@ -37,6 +37,9 @@ assert.match(contentSuggestions, /buildContentSuggestionDuplicateKey/, 'content 
 assert.match(contentSuggestions, /canSubmitContentSuggestion/, 'content suggestions must expose author-close and governance submit guards.')
 assert.match(contentSuggestions, /suggestionsOpen\s*===\s*false/, 'closed suggestion entry must block new submissions.')
 assert.match(contentSuggestions, /blockedByAuthor|governanceRestricted/, 'blocked or governance-restricted users must be rejected before submit.')
+assert.match(contentSuggestions, /ContentSuggestionsUnavailableError/, 'disabled suggestion calls must reject with an explicit unavailable error.')
+assert.match(contentSuggestions, /throw new ContentSuggestionsUnavailableError\(\)/, 'disabled suggestion calls must fail instead of returning fake success.')
+assert.doesNotMatch(contentSuggestions, /disabledResult|content_suggestions_disabled|code:\s*0[\s\S]{0,80}data:/, 'disabled suggestion APIs must not return successful empty results.')
 assert.doesNotMatch(contentSuggestions, /interactionApi|commentApi|\/comments|comment_count|commentCount\s*\+/, 'content suggestions must not be wired into the public comment flow.')
 
 assert.match(userProfile, /data-phase15-public-identity/, 'author profile must expose the phase 15 public identity surface.')

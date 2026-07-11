@@ -90,9 +90,10 @@ for (const marker of [
 has(searchView, /trackCommunityRecommendationClick\(`relax:\$\{item\.key\}`, item\.source\)/, 'Relax zero-result actions must pass source through the analytics guard.')
 has(searchView, /trackCommunityRecommendationClick\(`keyword:\$\{item\.label\}`, item\.source\)/, 'Keyword zero-result actions must pass source through the analytics guard.')
 
-has(searchApi, /const publicParams = \{ \.\.\.\(params \|\| \{\}\) \}[\s\S]*delete publicParams\.includeTestData[\s\S]*client\.get\('\/api\/v1\/search\/posts', \{ params: publicParams \}\)/, 'Frontend public search must never send includeTestData to the public API.')
+has(searchApi, /const publicParams: SearchParams = \{[\s\S]*q: params\.q,[\s\S]*company: params\.company,[\s\S]*position: params\.position,[\s\S]*type: params\.type,[\s\S]*sort: params\.sort,[\s\S]*cursor: params\.cursor,[\s\S]*size: params\.size,[\s\S]*\}[\s\S]*client\.get\('\/api\/v1\/search\/posts', \{ params: publicParams \}\)/, 'Frontend public search must whitelist backend-supported query parameters.')
+missing(searchApi, /includeTestData|yearsOfExp/, 'Frontend public search contract must not expose unsupported diagnostic parameters.')
 has(searchController, /facade\.searchPosts\(keyword, company, position, type, sort, cursor, size, false\)\.publicView\(\)/, 'Public backend search endpoint must force includeTestData=false and return publicView.')
-has(searchView, /搜索建议仅来自公开内容信号[\s\S]*最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议/, 'Search copy must explain public suggestions and local-only snapshots.')
+has(searchView, /搜索建议来自公开内容和近期公共搜索趋势[\s\S]*最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议/, 'Search copy must explain public suggestions and local-only snapshots.')
 has(searchView, /const RECENT_SEARCH_KEY = 'recent-searches'[\s\S]*const SAVED_SEARCH_KEY = 'saved-searches'/, 'Recent searches and saved searches must use separate storage keys.')
 has(searchView, /const storageKey = \(name: string\) => `offerlab:\$\{storageOwner\.value\}:\$\{name\}`/, 'Recent and saved searches must be scoped by viewer/guest owner.')
 has(searchView, /recentSearches\.value = readSnapshots\(RECENT_SEARCH_KEY\)[\s\S]*savedSearches\.value = readSnapshots\(SAVED_SEARCH_KEY\)/, 'Recent and saved searches must be loaded independently.')

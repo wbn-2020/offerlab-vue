@@ -121,7 +121,7 @@ export interface KnowledgeExploreResponse extends KnowledgeRelationGraph {
   readonly excludedReason?: string
 }
 
-export interface KnowledgeAssetBundle extends KnowledgeExploreResponse {}
+export type KnowledgeAssetBundle = KnowledgeExploreResponse
 
 const assetTypes = ['post', 'series', 'collection', 'topic', 'tag', 'search_entry'] as const
 const assetStatuses = ['active', 'archived'] as const
@@ -335,11 +335,11 @@ const adaptSnapshot = (raw: any): KnowledgeAssetSnapshot => ({
   snapshotId: safeText(raw?.snapshotId ?? raw?.id),
   assetId: safeText(raw?.assetId),
   assetType: toAssetType(raw?.assetType ?? 'topic'),
-  title: safeText(raw?.title, 'Archived knowledge asset'),
+  title: safeText(raw?.title, 'Stable public knowledge projection'),
   summary: safeText(raw?.summary ?? raw?.description),
   sections: Array.isArray(raw?.sections) ? raw.sections.map(adaptPathStep) : [],
   relations: Array.isArray(raw?.relations) ? raw.relations.map(adaptRelation) : [],
-  sourceNote: safeText(raw?.sourceNote, 'From public archived or stable asset snapshot.'),
+  sourceNote: safeText(raw?.sourceNote, 'Built at request time from currently visible public content.'),
   archivedAt: safeText(raw?.archivedAt ?? raw?.archiveTime),
 })
 
@@ -372,10 +372,7 @@ export const knowledgeApi = {
     }
   },
   explore: async (query: KnowledgeExploreQuery): Promise<Result<KnowledgeExploreResponse>> => {
-    const endpoint = query.assetId || query.assetType
-      ? '/api/v1/knowledge/assets'
-      : '/api/v1/knowledge/relations'
-    const res = await client.get(endpoint, {
+    const res = await client.get('/api/v1/knowledge/assets', {
       params: query,
       skipAuthRedirect: true,
     }) as Result<any>

@@ -92,18 +92,6 @@
                   <option v-for="item in searchContentTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
               </label>
-              <label v-if="includeTestData" class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                <input
-                  v-model="includeTestData"
-                  type="checkbox"
-                  class="mt-1 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                  @change="scheduleDebouncedSearch"
-                />
-                <span>
-                  包含测试数据
-                  <span class="block text-slate-400 dark:text-slate-500">用于 CODEX-E2E / smoke 回归记录诊断</span>
-                </span>
-              </label>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-2">
               <button type="button" class="secondary-button" @click="resetFilters">清空</button>
@@ -483,6 +471,7 @@ const RECENT_SEARCH_KEY = 'recent-searches'
 const SAVED_SEARCH_KEY = 'saved-searches'
 const MAX_RECENT_SEARCHES = 8
 const MAX_SAVED_SEARCHES = 8
+const MAX_SEARCH_RESULTS = 100
 const SEARCH_DEBOUNCE_MS = 450
 
 const route = useRoute()
@@ -508,7 +497,6 @@ const recommendedTopics = Array.from(new Set(COMMUNITY_CHANNELS.flatMap((channel
 const recommendedTags = Array.from(new Set(COMMUNITY_CHANNELS.flatMap((channel) => channel.tags || []))).slice(0, 8)
 
 const searchMode = ref<SearchMode>('posts')
-const includeTestData = ref(false)
 const searchResults = ref<Post[]>([])
 const userResults = ref<User[]>([])
 const topicResults = ref<CommunityTopic[]>([])
@@ -582,8 +570,8 @@ const filterVisibleTags = (items: Tag[], keyword: string) => (
 const searchDiagnosticText = computed(() => {
   const diagnostics = searchResultMeta.value?.diagnostics
   if (!diagnostics) return ''
-  if (diagnostics.emptyReason === 'test_data_filtered_unless_includeTestData') {
-    return '当前关键词像自动化回归记录，公开搜索默认会隐藏这类数据；仅 URL 诊断模式会显示。'
+  if (String(diagnostics.emptyReason || '').startsWith('test_data_filtered')) {
+    return '当前关键词像自动化回归记录，这类数据不会出现在公开搜索中。'
   }
   if (diagnostics.emptyReason === 'type_or_filter_no_match') {
     return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、标签或频道。'
@@ -867,7 +855,6 @@ const syncFromRoute = () => {
   }
   filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
   searchMode.value = nextMode
-  includeTestData.value = route.query.includeTestData === '1'
 }
 
 const pushQuery = () => {
@@ -881,7 +868,6 @@ const pushQuery = () => {
       ...(filters.type ? { type: String(filters.type) } : {}),
       ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
       ...(searchMode.value !== 'posts' ? { mode: searchMode.value } : {}),
-      ...(includeTestData.value ? { includeTestData: '1' } : {}),
     },
   }).finally(() => {
     isPushingQuery = false
@@ -1203,14 +1189,16 @@ const runSearch = async (append = false, syncRoute = true) => {
       sort: filters.sort,
       cursor: append ? cursor.value : undefined,
       size: 20,
-      includeTestData: includeTestData.value,
     } as Parameters<typeof searchApi.searchPosts>[0]
     const res = await searchApi.searchPosts(params)
     const page = res.data
     if (requestId !== searchRequestId) return
-    const rawItems = includeTestData.value ? (page?.items || []) : filterPublicContent(page?.items || [])
-    const cleanItems = includeTestData.value ? rawItems : filterVisiblePosts(rawItems)
-    searchResults.value = append ? [...searchResults.value, ...cleanItems] : cleanItems
+    const cleanItems = filterVisiblePosts(filterPublicContent(page?.items || []))
+    const mergedItems = append ? [...searchResults.value, ...cleanItems] : cleanItems
+    const uniqueItems = Array.from(new Map(
+      mergedItems.map((item) => [String(item.postId), item]),
+    ).values())
+    searchResults.value = uniqueItems.slice(0, MAX_SEARCH_RESULTS)
     userResults.value = []
     topicResults.value = []
     tagResults.value = []
@@ -1222,7 +1210,11 @@ const runSearch = async (append = false, syncRoute = true) => {
       diagnostics: page.diagnostics,
     } : null
     cursor.value = page?.nextCursor
-    hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
+    hasMore.value = Boolean(
+      page?.hasMore
+      && page?.nextCursor
+      && uniqueItems.length < MAX_SEARCH_RESULTS,
+    )
     if (!append) rememberRecentSearch()
   } catch (error: any) {
     if (requestId !== searchRequestId) return
@@ -1255,7 +1247,6 @@ const resetFilters = async () => {
   filters.position = ''
   filters.type = undefined
   filters.sort = 'relevance'
-  includeTestData.value = false
   searchMode.value = 'posts'
   suggestions.value = []
   searchResults.value = []

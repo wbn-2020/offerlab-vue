@@ -45,6 +45,11 @@ assert.match(
 )
 assert.match(
   infiniteFeed,
+  /getNextPageParam:[\s\S]*?\n\s*maxPages,/,
+  'useInfiniteFeed must pass maxPages to TanStack Query so cached pages are actually evicted',
+)
+assert.match(
+  infiniteFeed,
   /data\.value\?\.pages\.slice\(-maxPages\)\.flatMap/,
   'useInfiniteFeed must render only the capped recent pages instead of flattening every loaded page',
 )
