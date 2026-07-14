@@ -37,7 +37,10 @@ const topPostAdapter = between(creatorFeedbackApi, 'export const adaptCreatorTop
 const replyOpportunityAdapter = between(creatorFeedbackApi, 'export const adaptCreatorReplyOpportunity', 'export const adaptCreatorRepresentativePost', 'adaptCreatorReplyOpportunity')
 const representativeAdapter = between(creatorFeedbackApi, 'export const adaptCreatorRepresentativePost', 'const adaptCreatorTopicEditorQuery', 'adaptCreatorRepresentativePost')
 const searchGapAdapter = between(creatorFeedbackApi, 'export const adaptCreatorSearchGap', 'export const adaptCreatorIncentiveCopy', 'adaptCreatorSearchGap')
+const trustedContentAdapter = between(creatorFeedbackApi, 'const adaptCreatorTrustedContent', 'const textBlockers', 'adaptCreatorTrustedContent')
 const editorTopicIdeaSurface = between(editor, 'const applyTopicIdeaQuery', 'watch(draftOwner', 'Editor topic idea query surface')
+const creatorWorkspaceState = between(meProfile, 'const creatorWorkspaceStateLabel', 'const creatorWorkspaceNotice', 'creator workspace state label')
+const creatorWorkspaceNotice = between(meProfile, 'const creatorWorkspaceNotice', 'const localTopFeedbackPosts', 'creator workspace notice')
 
 const v4VisibleSurface = [
   meCreatorSurface,
@@ -111,9 +114,67 @@ for (const contractName of [
   'representativePosts',
   'topicIdeas',
   'searchGaps',
+  'trustedContent',
 ]) {
   has(apiTypes, new RegExp(`${contractName}\\??:`), `CreatorGrowthWorkspace must include ${contractName}.`)
 }
+for (const trustedField of [
+  'pendingSuggestions',
+  'freshnessAwaitingConfirmation',
+  'unresolvedQuestions',
+  'usefulFeedback7Days',
+  'usefulFeedback30Days',
+  'effectiveReads7Days',
+  'effectiveReads30Days',
+]) {
+  has(apiTypes, new RegExp(`${trustedField}\\??:`), `CreatorGrowthWorkspace trusted content must include ${trustedField}.`)
+  hasText(meCreatorSurface, trustedField, `MeProfile creator workbench must render trusted-content field: ${trustedField}.`)
+}
+for (const trustedItemField of [
+  'pendingSuggestionItems',
+  'freshnessItems',
+  'pendingQuestionItems',
+]) {
+  has(apiTypes, new RegExp(`${trustedItemField}\\??:`), `CreatorGrowthWorkspace trusted content must include concrete task items: ${trustedItemField}.`)
+  hasText(creatorFeedbackApi, trustedItemField, `creator workspace adapter must preserve concrete task items: ${trustedItemField}.`)
+  hasText(meCreatorSurface, trustedItemField, `MeProfile creator workbench must render concrete task items: ${trustedItemField}.`)
+}
+has(meProfile, /focusTrustedContentTask[\s\S]*scrollIntoView/, 'MeProfile must focus trusted-content task deep links.')
+has(meProfile, /route\.query\.focus/, 'MeProfile must read trusted-content focus query parameters.')
+has(postDetail, /id="trusted-content"/, 'Post detail must expose a stable trusted-content deep-link anchor.')
+has(postDetail, /id="content-suggestions"/, 'Post detail must expose a stable content-suggestions deep-link anchor.')
+has(postDetail, /id="comments"/, 'Post detail must expose a stable comments deep-link anchor.')
+has(apiTypes, /interface CreatorTrustedContentMetrics[\s\S]*degraded\?:\s*boolean[\s\S]*fallbackReason\?:\s*string/,
+  'the shared trusted-content workspace type must expose backend degradation metadata.')
+hasText(meCreatorSurface, '可信内容待办', 'creator workbench must label trusted-content work without score or ranking language.')
+has(creatorFeedbackApi, /type CreatorTrustedContentContract[\s\S]*degraded:\s*boolean[\s\S]*fallbackReason\?:\s*string/,
+  'creator workspace adapter must type trusted-content degradation metadata additively.')
+hasText(creatorFeedbackApi, 'trusted_content_contract_missing', 'missing trusted-content blocks must expose a contract-missing fallback reason.')
+hasText(creatorFeedbackApi, 'trusted_content_contract_invalid', 'invalid trusted-content blocks must expose a contract-invalid fallback reason.')
+has(trustedContentAdapter, /contractMissing[\s\S]*degraded:/, 'trusted-content adapter must mark a missing block as degraded.')
+has(trustedContentAdapter, /invalidMetricFields[\s\S]*degraded:/, 'trusted-content adapter must mark missing or invalid metrics as degraded.')
+has(creatorFeedbackApi, /const trustedContentMetric[\s\S]*Number\.isSafeInteger\(metric\)[\s\S]*metric >= 0/,
+  'trusted-content adapter must accept only non-negative safe integers as healthy metrics.')
+has(trustedContentAdapter, /safeText\(raw\?\.fallbackReason\)[\s\S]*fallbackReason,/,
+  'trusted-content adapter must preserve the block fallback reason.')
+has(creatorFeedbackApi, /const sourceDegraded = source === 'fallback' \|\| source === 'demo'/,
+  'creator workspace source degradation must not turn a healthy empty workspace into a degraded one.')
+has(creatorFeedbackApi, /degraded:\s*truthyFlag\(raw\?\.degraded\)\s*\|\|\s*trustedContent\.degraded\s*\|\|\s*sourceDegraded/,
+  'creator workspace degraded state must OR the trusted-content block state.')
+hasText(meCreatorSurface, 'creatorTrustedContentDegraded', 'MeProfile must use trusted-content block degradation before rendering metrics.')
+hasText(meCreatorSurface, 'creatorTrustedContentPending', 'MeProfile must keep trusted-content metrics unknown while loading.')
+hasText(meCreatorSurface, '暂不可用', 'degraded trusted-content metrics must be labelled temporarily unavailable.')
+hasText(meProfile, "'—'", 'degraded trusted-content numeric values must render as an em dash.')
+has(meProfile, /creatorTrustedContentMetric[\s\S]*creatorTrustedContentPending\.value\s*\|\|\s*creatorTrustedContentDegraded\.value\s*\?\s*'—'\s*:\s*String\(value\)/,
+  'healthy trusted-content values, including real zero, must render their numeric value.')
+check(
+  creatorWorkspaceState.indexOf("return '降级视图'") < creatorWorkspaceState.indexOf("return '暂无公开反馈'"),
+  'creator workspace state must classify degraded before empty.',
+)
+check(
+  creatorWorkspaceNotice.indexOf('creatorWorkspaceDegraded.value') < creatorWorkspaceNotice.indexOf("source === 'empty'"),
+  'creator workspace notice must classify degraded before empty.',
+)
 
 for (const helperName of [
   'filterVisiblePosts(filterPublicContent(page.items))',

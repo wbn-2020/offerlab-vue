@@ -60,6 +60,9 @@
           >
             {{ topic?.followed ? '已关注' : '关注话题' }}
           </button>
+          <RouterLink :to="{ path: '/editor', query: publishToTopicQuery }" class="secondary-button">
+            参与话题
+          </RouterLink>
         </div>
       </section>
 
@@ -181,7 +184,7 @@
           <div class="mt-4 flex flex-wrap justify-center gap-2">
             <RouterLink to="/explore" class="primary-button">去发现内容</RouterLink>
             <RouterLink :to="{ path: '/search', query: { q: fallbackName } }" class="secondary-button">搜索相似内容</RouterLink>
-            <RouterLink to="/editor" class="secondary-button">发布内容</RouterLink>
+            <RouterLink :to="{ path: '/editor', query: publishToTopicQuery }" class="secondary-button">发布内容</RouterLink>
           </div>
         </div>
 
@@ -208,6 +211,7 @@ import { topicDetailApi, type CuratedTopicDetail } from '@/api/topicDetail'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, Post } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
+import { isKnownDomain } from '@/utils/domains'
 import { postTypeSummary } from '@/utils/communityMetrics'
 import { useAuthStore } from '@/stores/auth'
 import { filterPublicContent } from '@/utils/textQuality'
@@ -251,6 +255,23 @@ const typeSummary = computed(() => postTypeSummary(posts.value))
 const topicLoadFailed = computed(() => Boolean(topicErrorMessage.value && !topic.value && !isCuratedTopic.value))
 const topicReady = computed(() => Boolean(isCuratedTopic.value || (topic.value && !topicLoadFailed.value)))
 const canFollowTopic = computed(() => Boolean(!isCuratedTopic.value && topic.value?.id && !topic.value?.virtualTopic))
+const publishToTopicQuery = computed(() => {
+  const routeDomain = Array.isArray(route.query.domain) ? route.query.domain[0] : route.query.domain
+  const topicDomain = (topic.value as (CommunityTopic & { domain?: number }) | null)?.domain
+  const domain = [routeDomain, topicDomain, posts.value[0]?.domain].find((value) => isKnownDomain(value))
+  const topicId = topic.value?.virtualTopic ? undefined : topic.value?.id
+  const topicName = topic.value?.name || currentTopicTitle.value || topicSlug.value
+  return {
+    source: 'manual_publish',
+    action: 'topic',
+    contextType: 'topic',
+    ...(topicId == null ? {} : { topicId: String(topicId) }),
+    topic: topicName,
+    ...(domain == null ? {} : { domain: String(domain) }),
+    postType: String(activeType.value || POST_TYPE.NOTE),
+    returnHref: route.fullPath,
+  }
+})
 const curatedStatusText = computed(() => {
   if (!curatedTopic.value) return ''
   if (curatedTopic.value.status === 'PUBLISHED') return curatedTopic.value.degraded ? '已发布话题集合 · 降级' : '已发布话题集合'
@@ -270,12 +291,12 @@ const curatedLifecycleCopy = computed(() => {
   if (!curatedTopic.value) return ''
   if (curatedTopic.value.status === 'PUBLISHED') {
     return curatedTopic.value.degraded
-      ? '当前只展示后端返回的公开快照；缺失区块已降级，不读取草稿、预览或示例数据。'
-      : '当前展示已发布快照，只包含公开可见内容和公开收录理由。'
+      ? '部分内容暂时无法展示，当前仍可浏览已经公开的条目。'
+      : '这里汇集经过整理的公开内容，收录理由和顺序会随主题维护更新。'
   }
   if (curatedTopic.value.status === 'ARCHIVED') return '话题集合已归档，仍可作为公开资料浏览；内容顺序和理由来自历史快照。'
   if (curatedTopic.value.status === 'OFFLINE') return '话题集合已下线，当前不作为公开话题继续展示。'
-  if (curatedTopic.value.status === 'DEGRADED') return '话题集合快照暂时不可用，页面不会读取草稿、预览链接或 fallback/demo 数据。'
+  if (curatedTopic.value.status === 'DEGRADED') return '主题内容暂时无法完整展示，请稍后重试或浏览相近内容。'
   return ''
 })
 const unavailableTitle = computed(() => {
@@ -332,7 +353,7 @@ const loadTopic = async () => {
     }
     if (!curatedTopicFallbackAllowed(curatedRes.data)) {
       curatedTopic.value = curatedRes.data ?? null
-      topicErrorMessage.value = curatedLifecycleCopy.value || '话题集合暂时不可用，页面只展示已发布或已归档的公开快照。'
+      topicErrorMessage.value = curatedLifecycleCopy.value || '话题集合暂时不可用，请稍后重试或浏览相近内容。'
       return
     }
 

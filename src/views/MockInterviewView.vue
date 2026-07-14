@@ -131,6 +131,7 @@ let pendingServerDraft = false
 let lastServerDraftPayload = ''
 let aiReviewPollTimer: ReturnType<typeof setTimeout> | null = null
 let draftStorageWarningShown = false
+let disposed = false
 
 const draftStorageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const draftStorageOptions = (owner = draftStorageOwner.value) => ({
@@ -314,22 +315,22 @@ const submitInterview = async () => {
 }
 
 const refreshCurrentSession = async () => {
-  if (!currentSession.value) return
+  if (disposed || !currentSession.value) return
   const sessionId = currentSession.value.id
   try {
     const res = await questionApi.mockInterviewDetail(sessionId)
-    if (res.data && currentSession.value?.id === sessionId) {
+    if (!disposed && res.data && currentSession.value?.id === sessionId) {
       currentSession.value = res.data
       hydrateDrafts(res.data)
     }
   } finally {
-    scheduleAiReviewRefresh()
+    if (!disposed && currentSession.value?.id === sessionId) scheduleAiReviewRefresh()
   }
 }
 
 const scheduleAiReviewRefresh = () => {
   stopAiReviewRefresh()
-  if (!hasPendingAiReview.value) return
+  if (disposed || !hasPendingAiReview.value) return
   aiReviewPollTimer = setTimeout(refreshCurrentSession, 3000)
 }
 
@@ -579,6 +580,7 @@ const syncStartFormFromRoute = () => {
 }
 
 onMounted(() => {
+  disposed = false
   syncStartFormFromRoute()
   loadRecent()
   loadStats()
@@ -606,6 +608,8 @@ watch(elapsedSeconds, (value) => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
+  selectRequestId += 1
   saveCurrentDraft()
   saveCurrentDraftToServer()
   stopAiReviewRefresh()

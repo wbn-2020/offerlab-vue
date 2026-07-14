@@ -113,7 +113,7 @@
             <p>{{ editorAssistContextSource || '编辑器上下文' }}</p>
             <strong>{{ editorAssistContextTitle }}</strong>
             <span>{{ editorAssistContextCopy }}</span>
-            <small v-if="editorAssistContextResult.degraded">{{ editorAssistContextResult.fallbackReason }}</small>
+            <small v-if="editorAssistContextResult.degraded">部分辅助信息暂不可用，你仍可继续手动编辑。</small>
           </div>
           <RouterLink v-if="editorAssistReturnHref" :to="editorAssistReturnHref">返回来源</RouterLink>
         </section>
@@ -126,6 +126,45 @@
             <small>仅作为辅助上下文，正文与发布仍需手动确认，也不承诺收录、精选、曝光、收益或排名。</small>
           </div>
           <RouterLink v-if="editorSearchGapReturnHref" :to="editorSearchGapReturnHref">返回来源</RouterLink>
+        </section>
+
+        <section v-if="isEditing" class="public-update-editor mx-4" aria-labelledby="public-update-editor-title">
+          <div class="public-update-editor-head">
+            <div>
+              <p>公开更新记录</p>
+              <strong id="public-update-editor-title">说明这次修改解决了什么</strong>
+              <span>摘要会随新版本公开展示；不会公开旧正文、私密建议或审核信息。</span>
+            </div>
+            <RouterLink v-if="editorAssistReturnHref" :to="editorAssistReturnHref">返回内容详情</RouterLink>
+          </div>
+          <div v-if="respondedSuggestionIds.length" class="public-update-source">
+            本次编辑关联 {{ respondedSuggestionIds.length }} 条读者建议。保存成功后，这些建议才会标记为已合并。
+          </div>
+          <div class="public-update-fields">
+            <label>
+              <span>公开更新摘要</span>
+              <textarea
+                v-model="publicUpdateSummary"
+                data-field="publicUpdateSummary"
+                rows="3"
+                maxlength="240"
+                placeholder="例如：补充适用条件并更新失效链接"
+              />
+              <small>{{ publicUpdateSummary.length }} / 240</small>
+            </label>
+            <label>
+              <span>影响范围</span>
+              <select v-model="updateImpactScope">
+                <option value="CONTENT">正文说明</option>
+                <option value="CONCLUSION">结论或建议</option>
+                <option value="CONDITIONS">适用条件</option>
+                <option value="SOURCES">来源或链接</option>
+                <option value="FULL_CONTENT">整体更新</option>
+              </select>
+              <small>不填写摘要时，本次编辑仍会保留私有版本历史，但不会生成公开更新记录。</small>
+            </label>
+          </div>
+          <p v-if="publicUpdateError" class="field-error">{{ publicUpdateError }}</p>
         </section>
 
         <section class="template-helper mx-4">
@@ -178,16 +217,19 @@
           <label class="text-sm font-medium text-slate-700 dark:text-slate-300">频道</label>
           <select
             v-model="selectedDomain"
+            data-field="domain"
             class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
+            <option :value="undefined">请选择频道</option>
             <option v-for="d in editorDomainOptions" :key="d.domain" :value="d.domain">
               {{ d.icon }} {{ d.domainName }} — {{ d.description }}
             </option>
           </select>
           <p class="domain-source-note">
-            <span>{{ editorDomainSourceSummary }}</span>
-            <span v-if="selectedDomainMeta?.postingNotice"> · {{ selectedDomainMeta.postingNotice }}</span>
+            <span v-if="selectedDomainMeta?.postingNotice">{{ selectedDomainMeta.postingNotice }}</span>
+            <span v-else>选择最贴近内容主题的频道，方便其他人发现和参与讨论。</span>
           </p>
+          <p v-if="fieldErrors.domain" class="field-error">{{ fieldErrors.domain }}</p>
         </div>
 
         <section v-if="selectedDomain === DOMAIN.CAREER" class="anonymous-career-toggle mx-4">
@@ -252,7 +294,7 @@
             :preview="editorPreviewModel"
             eyebrow="公开卡片预览"
             title="发布前预览与公开卡片预览"
-            description="基于当前标题、正文、频道、标签、匿名状态和合集归属做前端实时映射；发布建议面板开启后才会触发建议请求。"
+            description="基于当前标题、正文、频道、标签、匿名状态和合集归属做前端实时映射；开启后会在标题、正文、标签或频道变化时自动刷新建议。"
           />
         </section>
 
@@ -406,7 +448,7 @@
                   {{ item.title }}<small>{{ item.progressText }}</small>
                 </span>
               </div>
-              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">合集列表当前来自本地 fallback，未依赖真实后端。</p>
+              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">合集暂未完成同步，本次编辑内容仍会保留。</p>
             </article>
           </div>
         </section>
@@ -533,7 +575,6 @@ import PostMeta from '@/components/post/PostMeta.vue'
 import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
 import { contentAssistApi, type ContentAssistRequest } from '@/api/contentAssist'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
-import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { postApi, type PostDraft } from '@/api/post'
 import type { ContentAssistQualityMetric, ContentAssistResult, ContentAssistSuggestion } from '@/api/types'
 import {
@@ -558,6 +599,7 @@ import { buildEditorQualityChecklist } from '@/utils/editorQualityChecklist'
 import { safeStorage } from '@/utils/safeStorage'
 import { hasLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 import { useAuthStore } from '@/stores/auth'
+import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import {
   ALL_CONTENT_TYPES,
   COMMUNITY_CONTENT_TYPES,
@@ -568,7 +610,7 @@ import {
   isLegacyInterviewType,
 } from '@/utils/contentTypes'
 import type { PostTypeValue } from '@/utils/contentTypes'
-import { DOMAIN, DOMAIN_OPTIONS, normalizeDomain } from '@/utils/domains'
+import { DOMAIN, DOMAIN_OPTIONS, isKnownDomain, normalizeDomain } from '@/utils/domains'
 
 const router = useRouter()
 const route = useRoute()
@@ -608,6 +650,10 @@ const form = ref<EditorForm>({
   extension: {},
   coverUrl: ''
 })
+const publicUpdateSummary = ref('')
+const updateImpactScope = ref('CONTENT')
+const respondedSuggestionIds = ref<string[]>([])
+const publicUpdateError = ref('')
 
 const formCoverFailedUrl = ref('')
 const formCoverHasFailed = computed(() => Boolean(form.value.coverUrl) && formCoverFailedUrl.value === form.value.coverUrl)
@@ -623,7 +669,16 @@ watch(() => form.value.coverUrl, () => {
 
 const tagInput = ref('')
 const selectedTags = ref<string[]>([])
-const selectedDomain = ref<number>(DOMAIN.LIFESTYLE)
+const selectedDomain = ref<number | undefined>()
+const { domains: editorDomainOptions, loadDomains: loadEditorDomains } = useDomainCatalog()
+const resolveOptionalDomain = (value: unknown, anonymous = false): number | undefined => {
+  if (anonymous) return DOMAIN.CAREER
+  const candidate = typeof value === 'string' || typeof value === 'number' ? value : undefined
+  const domain = isKnownDomain(candidate) ? normalizeDomain(candidate) : undefined
+  return domain && editorDomainOptions.value.some((item) => Number(item.domain) === Number(domain))
+    ? domain
+    : undefined
+}
 const anonymousCareerPost = ref(false)
 const isPublishing = ref(false)
 const isEditing = ref(false)
@@ -637,8 +692,6 @@ const selectedDraftId = ref('')
 const serverDrafts = ref<PostDraft[]>([])
 const lastDraftSignature = ref('')
 const showStageTwoPublishingAssist = false
-const editorDomains = ref<PublicDomainConfig[]>([...localDomainConfigs])
-const domainSource = ref<DomainConfigSource>('fallback')
 const seriesRecords = ref<ContentSeriesRecord[]>([])
 const seriesSource = ref<'remote' | 'fallback'>('fallback')
 const isSeriesLoading = ref(false)
@@ -654,6 +707,7 @@ const stageThreeAssistPreferenceKey = computed(() => `editor_stage3_assist:${dra
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let stageThreeAssistTimer: ReturnType<typeof setTimeout> | null = null
 let stageThreeAssistRequestId = 0
+let seriesRequestId = 0
 
 type QualityCheck = {
   key: string
@@ -908,6 +962,13 @@ const questionQualityChecks = computed<QualityCheck[]>(() => {
 
 const qualityChecks = computed<QualityCheck[]>(() => [
   {
+    key: 'domain',
+    title: '选择频道',
+    description: '选择最贴近内容主题的频道，方便内容被准确发现。',
+    passed: selectedDomain.value != null,
+    required: true,
+  },
+  {
     key: 'title',
     title: '标题清晰',
     description: '至少 8 个字符，方便搜索和列表快速判断主题。',
@@ -956,6 +1017,7 @@ const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) =
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
 const publishDisabledReason = computed(() => {
   if (isLoadingPost.value) return '帖子内容加载完成后才能发布'
+  if (!selectedDomain.value) return '请选择频道后再发布'
   if (blockingQualityIssues.value.length === 0) return ''
   return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
 })
@@ -1055,16 +1117,9 @@ const topicNamesFromExtension = (value: Record<string, any>) => {
   return raw.map((item) => sanitizeVisibleText(item)).filter(Boolean)
 }
 
-const editorDomainOptions = computed(() => editorDomains.value.length ? editorDomains.value : localDomainConfigs)
 const selectedDomainMeta = computed(() => (
   editorDomainOptions.value.find((item) => Number(item.domain) === Number(selectedDomain.value))
-  ?? localDomainConfigs.find((item) => Number(item.domain) === Number(selectedDomain.value))
-  ?? localDomainConfigs[0]
-))
-const editorDomainSourceSummary = computed(() => (
-  domainSource.value === 'remote'
-    ? `频道来源已同步 /api/v1/domains · 当前 ${selectedDomainMeta.value?.domainName || '生活方式'}`
-    : `接口暂未返回，当前使用本地 fallback · 当前 ${selectedDomainMeta.value?.domainName || '生活方式'}`
+  ?? null
 ))
 const selectedTopicNames = computed(() => topicNamesFromExtension(extensionValue.value))
 const selectedSeriesRecord = computed(() => (
@@ -1136,9 +1191,9 @@ const stageThreeAssistHeadline = computed(() => {
   if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和合集工作台联动。'
   if (stageThreeAssistStatus.value === 'disabled') return '发布建议默认关闭，当前仅保留发布检查、草稿保护和合集选择；显式开启后，如后端未配置建议服务会自动回退到规则建议。'
   if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成发布建议。'
-  if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || '建议接口未返回结果，当前使用本地规则降级建议。'
+  if (stageThreeAssistStatus.value === 'degraded') return '部分智能建议暂不可用，当前已保留基础写作检查。'
   if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
-  if (!stageThreeAssist.value) return '发布建议已开启，开启后会在标题、正文、标签或频道变化时自动刷新建议；也可以手动点击“刷新建议”。后端未配置建议服务时会回退到规则建议。'
+  if (!stageThreeAssist.value) return '发布建议已开启，会在标题、正文、标签或频道变化时自动刷新；也可以手动点击“刷新建议”。'
   return '围绕写作助手、质量评分、标签/话题建议和合集归属整理发布前动作。'
 })
 
@@ -1169,7 +1224,7 @@ const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
   title: normalizedTitle.value,
   content: normalizedContent.value,
   postType: form.value.postType,
-  domain: selectedDomain.value,
+  domain: selectedDomain.value ?? undefined,
   tags: normalizedTags.value,
   extension: {
     ...extensionValue.value,
@@ -1183,26 +1238,19 @@ const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
   aiEnabled: assistPanelEnabled.value,
 })
 
-const loadEditorDomains = async () => {
-  try {
-    const res = await domainApi.listPublic()
-    editorDomains.value = res.data || localDomainConfigs
-    domainSource.value = res.source
-  } catch {
-    editorDomains.value = [...localDomainConfigs]
-    domainSource.value = 'fallback'
-  }
-}
-
 const loadSeriesWorkbench = async () => {
-  if (!authStore.isLoggedIn) {
+  const ownerUid = authStore.user?.uid
+  const requestId = ++seriesRequestId
+  if (!authStore.isLoggedIn || ownerUid == null) {
     seriesRecords.value = []
     seriesSource.value = 'fallback'
+    isSeriesLoading.value = false
     return
   }
   isSeriesLoading.value = true
   try {
-    const res = await contentSeriesApi.listMine(authStore.user?.uid)
+    const res = await contentSeriesApi.listMine(ownerUid)
+    if (requestId !== seriesRequestId || String(authStore.user?.uid ?? '') !== String(ownerUid)) return
     seriesRecords.value = res.data || []
     seriesSource.value = res.status
     if (selectedSeriesId.value && !seriesRecords.value.some((item) => String(item.id) === String(selectedSeriesId.value))) {
@@ -1215,7 +1263,7 @@ const loadSeriesWorkbench = async () => {
       })
     }
   } finally {
-    isSeriesLoading.value = false
+    if (requestId === seriesRequestId) isSeriesLoading.value = false
   }
 }
 
@@ -1247,6 +1295,11 @@ const loadStageThreeAssist = async (manual = false) => {
     clearStageThreeAssistState()
     return
   }
+  if (!selectedDomain.value) {
+    clearStageThreeAssistState()
+    if (manual) toast.info('请先选择频道，再生成写作建议')
+    return
+  }
 
   const requestId = ++stageThreeAssistRequestId
   isStageThreeAssistLoading.value = true
@@ -1275,7 +1328,7 @@ const loadStageThreeAssist = async (manual = false) => {
 
 const scheduleStageThreeAssist = () => {
   clearStageThreeAssistTimer()
-  if (!authStore.isLoggedIn || !assistPanelEnabled.value || isForbiddenEdit.value) return
+  if (!authStore.isLoggedIn || !assistPanelEnabled.value || isForbiddenEdit.value || !selectedDomain.value) return
   stageThreeAssistTimer = setTimeout(() => {
     stageThreeAssistTimer = null
     void loadStageThreeAssist(false)
@@ -1340,7 +1393,9 @@ const removeTopicSuggestion = (topic: string) => {
 }
 
 const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: string) => {
-  if (!authStore.isLoggedIn) return
+  const ownerUid = authStore.user?.uid
+  if (!authStore.isLoggedIn || ownerUid == null) return
+  if (!selectedDomain.value) return
   const previousSeriesId = sanitizeVisibleText(extensionValue.value.seriesId)
   if (!selectedSeriesId.value && !previousSeriesId) return
   const res = await contentSeriesApi.syncAssignment({
@@ -1352,16 +1407,24 @@ const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: stri
     summary: sanitizeVisibleText(extensionValue.value.summary) || assistSummaryText.value || knowledgeSummary.value,
     domain: selectedDomain.value,
     status,
-  }, authStore.user?.uid)
+  }, ownerUid)
+  if (String(authStore.user?.uid ?? '') !== String(ownerUid)) return
   seriesSource.value = res.status
   if (res.status === 'fallback') {
     toast.warning('合集归属暂时仅保存在本地，尚未完成远端同步。')
   }
-  const refreshed = await contentSeriesApi.listMine(authStore.user?.uid)
-  seriesRecords.value = refreshed.data || seriesRecords.value
-  seriesSource.value = refreshed.status
-  if (refreshed.status === 'fallback') {
-    toast.warning('合集工作台当前展示的是本地 fallback 结果。')
+  await loadSeriesWorkbench()
+  if (seriesSource.value === 'fallback') {
+    toast.warning('合集暂未完成同步，本次编辑内容仍会保留。')
+  }
+}
+
+const syncPublishedSeriesAssignment = async (postId?: string) => {
+  try {
+    await syncSeriesAssignment('published', postId)
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -1527,6 +1590,9 @@ const currentDraftSignature = computed(() => JSON.stringify({
   selectedDomain: selectedDomain.value,
   anonymousCareerPost: anonymousCareerPost.value,
   serverDraftId: serverDraftId.value,
+  publicUpdateSummary: publicUpdateSummary.value,
+  updateImpactScope: updateImpactScope.value,
+  respondedSuggestionIds: respondedSuggestionIds.value,
 }))
 
 const hasMeaningfulDraft = computed(() => Boolean(
@@ -1553,6 +1619,9 @@ const persistLocalDraft = () => {
     selectedDomain: selectedDomain.value,
     anonymousCareerPost: anonymousCareerPost.value,
     serverDraftId: serverDraftId.value,
+    publicUpdateSummary: publicUpdateSummary.value,
+    updateImpactScope: updateImpactScope.value,
+    respondedSuggestionIds: respondedSuggestionIds.value,
   }), localDraftStorageOptions())
   if (!result.ok) {
     if (!draftStorageWarningShown) {
@@ -1621,7 +1690,7 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
   } catch {
     extension = {}
   }
-  selectedDomain.value = normalizeDomain(draft.domain ?? extension.domain ?? (extension.anonymous ? DOMAIN.CAREER : DOMAIN.LIFESTYLE))
+  selectedDomain.value = resolveOptionalDomain(draft.domain ?? extension.domain, Boolean(draft.anonymous ?? extension.anonymous))
   form.value = {
     postType: getContentTypeOption(draft.postType || DEFAULT_POST_TYPE).value,
     title: draft.title || '',
@@ -1715,23 +1784,32 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
     const savedSelectedDomain = draftForm.selectedDomain ?? draftForm.extension?.domain
     const savedAnonymousCareerPost = Boolean(draftForm.anonymousCareerPost ?? draftForm.extension?.anonymous)
     const savedServerDraftId = draftForm.serverDraftId
+    const savedPublicUpdateSummary = draftForm.publicUpdateSummary
+    const savedUpdateImpactScope = draftForm.updateImpactScope
+    const savedRespondedSuggestionIds = draftForm.respondedSuggestionIds
     delete draftForm.selectedTags
     delete draftForm.selectedDomain
     delete draftForm.anonymousCareerPost
     delete draftForm.serverDraftId
+    delete draftForm.publicUpdateSummary
+    delete draftForm.updateImpactScope
+    delete draftForm.respondedSuggestionIds
     delete draftForm.savedAt
     delete draftForm.owner
     form.value = { ...form.value, ...draftForm }
-    selectedDomain.value = savedSelectedDomain != null
-      ? normalizeDomain(savedSelectedDomain)
-      : savedAnonymousCareerPost
-        ? DOMAIN.CAREER
-        : selectedDomain.value
+    selectedDomain.value = resolveOptionalDomain(savedSelectedDomain, savedAnonymousCareerPost)
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? savedAnonymousCareerPost : false
     selectedTags.value = draftTags || []
     selectedSeriesId.value = sanitizeVisibleText((draftForm.extension || {}).seriesId)
     serverDraftId.value = savedServerDraftId || ''
     selectedDraftId.value = savedServerDraftId || ''
+    publicUpdateSummary.value = sanitizeVisibleText(savedPublicUpdateSummary).slice(0, 240)
+    updateImpactScope.value = sanitizeVisibleText(savedUpdateImpactScope) || 'CONTENT'
+    respondedSuggestionIds.value = Array.isArray(savedRespondedSuggestionIds)
+      ? [...new Set(savedRespondedSuggestionIds
+        .map(String)
+        .filter((id: string) => /^[1-9]\d*$/.test(id)))].slice(0, 20)
+      : []
     markDraftClean()
     return true
   } catch {
@@ -1760,9 +1838,24 @@ const topicIdeaEditorQuery = () => {
   }
 }
 
-const topicIdeaQueryValue = (key: 'source' | 'title' | 'topic' | 'seriesId' | 'postType' | 'postId' | 'ideaId' | 'action' | 'contextSource') => {
+const topicIdeaQueryValue = (key: 'source' | 'title' | 'topic' | 'seriesId' | 'postType' | 'domain' | 'postId' | 'ideaId' | 'action' | 'contextSource') => {
   const editorQuery = topicIdeaEditorQuery()
   return editorQuery[key] ?? route.query[key]
+}
+
+const applyTrustedUpdateContext = () => {
+  if (!isEditing.value) return
+  const rawIds = [
+    ...(Array.isArray(route.query.suggestionId) ? route.query.suggestionId : [route.query.suggestionId]),
+    ...(Array.isArray(route.query.suggestionIds) ? route.query.suggestionIds : [route.query.suggestionIds]),
+  ]
+    .flatMap((value) => String(value || '').split(','))
+    .map((value) => value.trim())
+    .filter((value) => /^[1-9]\d*$/.test(value))
+  respondedSuggestionIds.value = [...new Set([...respondedSuggestionIds.value, ...rawIds])].slice(0, 20)
+  if (!publicUpdateSummary.value) {
+    publicUpdateSummary.value = topicIdeaQueryText(route.query.updateSummary ?? route.query.reasonText, 240)
+  }
 }
 
 const normalizeTopicIdeaPostType = (value: unknown): PostTypeValue | undefined => {
@@ -1815,6 +1908,7 @@ const applyTopicIdeaQuery = () => {
   const topic = context.topic || legacyTopic
   const seriesId = context.seriesId || ''
   const postType = normalizeTopicIdeaPostType(context.postType)
+  const domain = resolveOptionalDomain(topicIdeaQueryValue('domain'))
   const contextPostId = context.postId || legacyPostId
   const ideaId = context.ideaId || legacyIdeaId
   const action = context.action || ''
@@ -1825,6 +1919,7 @@ const applyTopicIdeaQuery = () => {
 
   if (title && !form.value.title.trim()) form.value.title = title
   if (postType) form.value.postType = postType
+  if (domain) selectedDomain.value = domain
   if (template) selectedAssistTemplateCode.value = template.code
   if (seriesId && seriesRecords.value.some((item) => String(item.id) === String(seriesId))) {
     selectedSeriesId.value = seriesId
@@ -1850,9 +1945,17 @@ const applyTopicIdeaQuery = () => {
   return true
 }
 
-watch(draftOwner, (nextOwner, prevOwner) => {
+watch(draftOwner, async (nextOwner, prevOwner) => {
+  seriesRequestId += 1
   if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
     safeStorage.clearSensitive(prevOwner)
+  }
+  if (nextOwner === 'guest') {
+    seriesRecords.value = []
+    seriesSource.value = 'fallback'
+    isSeriesLoading.value = false
+  } else if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
+    await loadSeriesWorkbench()
   }
   if (nextOwner !== 'guest') {
     draftStorageWarningShown = false
@@ -1882,7 +1985,7 @@ const loadPostForEdit = async (postId: string) => {
       extension: post.extension || {},
       coverUrl: post.coverUrl || ''
     }
-    selectedDomain.value = normalizeDomain(post.domain ?? (post.anonymous ? DOMAIN.CAREER : DOMAIN.LIFESTYLE))
+    selectedDomain.value = resolveOptionalDomain(post.domain, Boolean(post.anonymous))
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
     selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)
@@ -1911,6 +2014,7 @@ onMounted(async () => {
     if (!loaded) return
     const restoredServerDraft = await loadLatestSourceDraft(postId)
     if (!restoredServerDraft) restoreLocalDraft()
+    applyTrustedUpdateContext()
     clearStageThreeAssistState()
     return
   }
@@ -1967,6 +2071,13 @@ const saveDraft = async () => {
 
 const publishPost = async () => {
   clearFieldErrors()
+  publicUpdateError.value = ''
+  if (!selectedDomain.value) {
+    fieldErrors.value = { domain: '请选择频道' }
+    requestAnimationFrame(focusFirstFieldError)
+    toast.error('请选择频道后再发布')
+    return
+  }
   if (isContentOverLimit.value) {
     fieldErrors.value = { content: `正文不能超过 ${CONTENT_MAX_LENGTH} 字` }
     requestAnimationFrame(focusFirstFieldError)
@@ -1975,6 +2086,14 @@ const publishPost = async () => {
   }
   if (blockingQualityIssues.value.length > 0) {
     toast.error(`请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`)
+    return
+  }
+  if (isEditing.value && respondedSuggestionIds.value.length > 0 && !publicUpdateSummary.value.trim()) {
+    publicUpdateError.value = '关联读者建议时，请填写公开更新摘要，说明实际修改了什么。'
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('[data-field="publicUpdateSummary"]')?.focus()
+    })
+    toast.error(publicUpdateError.value)
     return
   }
 
@@ -2001,6 +2120,11 @@ const publishPost = async () => {
         seriesTitle: selectedSeriesRecord.value?.title || undefined,
       }),
       draftId: serverDraftId.value || undefined,
+      publicUpdateSummary: isEditing.value ? publicUpdateSummary.value.trim() || undefined : undefined,
+      impactScope: isEditing.value && publicUpdateSummary.value.trim() ? updateImpactScope.value : undefined,
+      respondedSuggestionIds: isEditing.value && respondedSuggestionIds.value.length
+        ? respondedSuggestionIds.value
+        : undefined,
     }
 
     const postId = currentPostId()
@@ -2011,14 +2135,18 @@ const publishPost = async () => {
       }
       const res = await postApi.update(postId, req)
       if (res.code === 0) {
-        await syncSeriesAssignment('published', postId)
+        const seriesSynced = await syncPublishedSeriesAssignment(postId)
         safeStorage.remove(localDraftKey())
         serverDraftId.value = ''
         selectedDraftId.value = ''
         markDraftClean()
         if (!isEditing.value) await loadServerDrafts()
         const reviewRequired = Boolean(res.data?.reviewRequired)
-        toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
+        if (seriesSynced) {
+          toast.success(reviewRequired ? '已提交审核，通过后对外展示' : '保存成功')
+        } else {
+          toast.warning(reviewRequired ? '内容已提交审核，但合集暂未同步' : '内容已保存，但合集暂未同步，可稍后在合集工作台重试')
+        }
         router.push(reviewRequired ? '/me' : { path: `/post/${postId}`, query: { published: '1' } })
       } else {
         toast.error(getResultMessage(res, '保存失败'))
@@ -2028,14 +2156,18 @@ const publishPost = async () => {
     const res = await postApi.create(req)
     if (res.code === 0) {
       const createdPostId = res.data?.postId == null ? undefined : String(res.data.postId)
-      await syncSeriesAssignment('published', createdPostId)
+      const seriesSynced = await syncPublishedSeriesAssignment(createdPostId)
       safeStorage.remove(localDraftKey())
       serverDraftId.value = ''
       selectedDraftId.value = ''
       markDraftClean()
       if (!isEditing.value) await loadServerDrafts()
       const reviewRequired = Boolean(res.data?.reviewRequired)
-      toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
+      if (seriesSynced) {
+        toast.success(reviewRequired ? '已提交审核，通过后对外展示' : '发布成功')
+      } else {
+        toast.warning(reviewRequired ? '内容已提交审核，但合集暂未同步' : '内容已发布，但合集暂未同步，可稍后在合集工作台重试')
+      }
       router.push(reviewRequired || !createdPostId ? '/me' : { path: `/post/${createdPostId}`, query: { published: '1' } })
     } else {
       toast.error(getResultMessage(res, `${isEditing.value ? '保存' : '发布'}失败`))
@@ -2192,6 +2324,7 @@ watch([normalizedTitle, normalizedContent, normalizedTags, selectedDomain], sche
 
 watch(() => authStore.isLoggedIn, async (loggedIn) => {
   if (!loggedIn) {
+    seriesRequestId += 1
     seriesRecords.value = []
     clearStageThreeAssistState()
     return
@@ -2394,6 +2527,88 @@ onBeforeUnmount(() => {
   border: 1px solid rgb(187 247 208);
   background: rgb(240 253 244);
   padding: 1rem;
+}
+
+.public-update-editor {
+  border: 1px solid rgb(167 243 208);
+  border-radius: 0.5rem;
+  background: rgb(240 253 250);
+  padding: 1rem;
+}
+
+.public-update-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.public-update-editor-head p {
+  color: rgb(5 150 105);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.public-update-editor-head strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgb(15 23 42);
+}
+
+.public-update-editor-head span,
+.public-update-fields small {
+  display: block;
+  margin-top: 0.25rem;
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.public-update-editor-head a {
+  flex: 0 0 auto;
+  color: rgb(4 120 87);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.public-update-source {
+  margin-top: 0.75rem;
+  color: rgb(6 95 70);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.public-update-fields {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(12rem, 0.65fr);
+  gap: 0.85rem;
+}
+
+.public-update-fields label {
+  display: grid;
+  gap: 0.4rem;
+  color: rgb(51 65 85);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.public-update-fields textarea,
+.public-update-fields select {
+  width: 100%;
+  border: 1px solid rgb(148 163 184);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.65rem 0.75rem;
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.public-update-fields textarea:focus,
+.public-update-fields select:focus {
+  border-color: rgb(5 150 105);
+  box-shadow: 0 0 0 2px rgb(167 243 208 / 0.6);
 }
 
 .editor-assist-context p,
@@ -3091,21 +3306,42 @@ onBeforeUnmount(() => {
 }
 
 .dark .editor-assist-context,
-.dark .template-helper {
+.dark .template-helper,
+.dark .public-update-editor {
   border-color: rgb(30 64 175);
   background: rgb(15 23 42);
 }
 
 .dark .editor-assist-context strong,
-.dark .template-helper strong {
+.dark .template-helper strong,
+.dark .public-update-editor-head strong {
   color: rgb(248 250 252);
 }
 
 .dark .editor-assist-context span,
 .dark .editor-assist-context small,
 .dark .template-helper small,
-.dark .template-helper span {
+.dark .template-helper span,
+.dark .public-update-editor-head span,
+.dark .public-update-fields small {
   color: rgb(203 213 225);
+}
+
+.dark .public-update-editor-head p,
+.dark .public-update-editor-head a,
+.dark .public-update-source {
+  color: rgb(110 231 183);
+}
+
+.dark .public-update-fields label {
+  color: rgb(226 232 240);
+}
+
+.dark .public-update-fields textarea,
+.dark .public-update-fields select {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23);
+  color: rgb(248 250 252);
 }
 
 .dark .editor-assist-context a,
@@ -3328,10 +3564,19 @@ onBeforeUnmount(() => {
   }
 
   .editor-assist-context,
-  .template-helper {
+  .template-helper,
+  .public-update-editor-head {
     margin-inline: 0;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .public-update-editor {
+    margin-inline: 0;
+  }
+
+  .public-update-fields {
+    grid-template-columns: 1fr;
   }
 
   .editor-assist-context a,

@@ -74,16 +74,25 @@
             <summary class="filter-summary">
               筛选、热门词和搜索记录
             </summary>
-          <section class="side-panel">
+          <section v-if="searchMode === 'posts'" class="side-panel">
             <h2 class="side-title">筛选</h2>
             <div class="space-y-3">
               <label class="field-label">
-                标签 / 关键词
+                频道
+                <select v-model.number="filters.domain" class="field-input" @change="scheduleDebouncedSearch">
+                  <option :value="undefined">全部频道</option>
+                  <option v-for="item in domainOptions" :key="item.domain" :value="item.domain">
+                    {{ item.icon }} {{ item.domainName }}
+                  </option>
+                </select>
+              </label>
+              <label class="field-label">
+                高级筛选：标签 / 实体
                 <input v-model.trim="filters.company" class="field-input" placeholder="例如 AI 工具 / 租房 / 读书" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
-                频道 / 场景
-                <input v-model.trim="filters.position" class="field-input" placeholder="例如 学习成长 / 生活方式" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                高级筛选：场景 / 岗位
+                <input v-model.trim="filters.position" class="field-input" placeholder="例如 转行 / 租房 / 产品经理" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
                 内容类型
@@ -415,11 +424,12 @@ import { postApi } from '@/api/post'
 import { searchApi, type SearchStatus } from '@/api/search'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
+import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, Post, Tag, User } from '@/api/types'
 import { safeStorage } from '@/utils/safeStorage'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeLabel } from '@/utils/contentTypes'
-import { COMMUNITY_CHANNELS, isKnownDomain } from '@/utils/domains'
+import { ALL_COMMUNITY_CHANNELS, getCommunityChannel, isKnownDomain } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
 import { filterSearchSuggestionTerms, filterVisiblePosts, findHighRiskContentWarning } from '@/utils/recommendationGovernance'
@@ -477,6 +487,7 @@ const SEARCH_DEBOUNCE_MS = 450
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { domains: domainOptions, loadDomains } = useDomainCatalog()
 const filters = reactive<{ q: string; domain?: number; company: string; position: string; type?: number; sort: SortValue }>({
   q: '',
   domain: undefined,
@@ -492,9 +503,11 @@ const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: 'hot', label: '热门' },
 ]
 const searchContentTypes = COMMUNITY_CONTENT_TYPES
-const recommendedChannels = COMMUNITY_CHANNELS.slice(0, 4)
-const recommendedTopics = Array.from(new Set(COMMUNITY_CHANNELS.flatMap((channel) => channel.topics || []))).slice(0, 6)
-const recommendedTags = Array.from(new Set(COMMUNITY_CHANNELS.flatMap((channel) => channel.tags || []))).slice(0, 8)
+const recommendedChannels = computed(() => ALL_COMMUNITY_CHANNELS
+  .filter((channel) => channel.domain && domainOptions.value.some((item) => Number(item.domain) === Number(channel.domain)))
+  .slice(0, 5))
+const recommendedTopics = Array.from(new Set(ALL_COMMUNITY_CHANNELS.flatMap((channel) => channel.topics || []))).slice(0, 6)
+const recommendedTags = Array.from(new Set(ALL_COMMUNITY_CHANNELS.flatMap((channel) => channel.tags || []))).slice(0, 8)
 
 const searchMode = ref<SearchMode>('posts')
 const searchResults = ref<Post[]>([])
@@ -544,7 +557,7 @@ const resultSummaryText = computed(() => {
 const hasQuery = computed(() => {
   if (searchMode.value === 'users') return Boolean(filters.q)
   if (searchMode.value === 'topics' || searchMode.value === 'tags') return Boolean(filters.q)
-  return Boolean(filters.q || filters.company || filters.position || filters.type)
+  return Boolean(filters.q || filters.domain || filters.company || filters.position || filters.type)
 })
 const shouldAutoRunSearch = computed(() => (
   hasQuery.value
@@ -622,6 +635,7 @@ const noResultWordActions = computed<KeywordRecommendation[]>(() => {
 })
 const relaxActions = computed(() => {
   const actions: RecommendationAction[] = []
+  if (filters.domain) actions.push({ key: 'domain', label: '不限频道', source: 'local', action: clearDomainFilter })
   if (filters.type) actions.push({ key: 'type', label: '不限内容类型', source: 'local', action: clearTypeFilter })
   if (filters.position) actions.push({ key: 'position', label: '不限场景', source: 'local', action: clearPositionFilter })
   if (filters.company) actions.push({ key: 'company', label: '不限标签', source: 'local', action: clearCompanyFilter })
@@ -630,10 +644,10 @@ const relaxActions = computed(() => {
 })
 const sourceLabel = (source: RecommendationSource) => {
   const labels: Record<RecommendationSource, string> = {
-    remote: 'remote',
-    local: 'local',
-    fallback: 'fallback',
-    demo: 'demo',
+    remote: '实时推荐',
+    local: '当前筛选',
+    fallback: '社区推荐',
+    demo: '示例内容',
   }
   return labels[source]
 }
@@ -841,18 +855,21 @@ const switchToUserSearchFromError = async () => {
 
 const syncFromRoute = () => {
   filters.q = typeof route.query.q === 'string' ? route.query.q : ''
-  const domain = Number(route.query.domain)
   const nextMode = route.query.mode === 'users' || route.query.mode === 'topics' || route.query.mode === 'tags'
     ? route.query.mode
     : 'posts'
-  filters.domain = nextMode === 'posts' && isKnownDomain(domain) ? domain : undefined
+  const channelKey = typeof route.query.channel === 'string' ? route.query.channel : undefined
+  const routeChannel = nextMode === 'posts' ? getCommunityChannel(channelKey) : undefined
+  const domain = Number(route.query.domain ?? routeChannel?.domain)
+  filters.domain = nextMode === 'posts'
+    && isKnownDomain(domain)
+    && domainOptions.value.some((item) => Number(item.domain) === domain)
+    ? domain
+    : undefined
   filters.company = typeof route.query.company === 'string' ? route.query.company : ''
   filters.position = typeof route.query.position === 'string' ? route.query.position : ''
-  const type = Number(route.query.type)
+  const type = Number(route.query.type ?? routeChannel?.postTypes?.[0])
   filters.type = Number.isFinite(type) && type > 0 ? type : undefined
-  if (filters.domain) {
-    filters.domain = undefined
-  }
   filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
   searchMode.value = nextMode
 }
@@ -863,6 +880,7 @@ const pushQuery = () => {
     path: '/search',
     query: {
       ...(filters.q ? { q: filters.q } : {}),
+      ...(searchMode.value === 'posts' && filters.domain ? { domain: String(filters.domain) } : {}),
       ...(filters.company ? { company: filters.company } : {}),
       ...(filters.position ? { position: filters.position } : {}),
       ...(filters.type ? { type: String(filters.type) } : {}),
@@ -878,14 +896,15 @@ const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'domain' | 'company'
   if (snapshot.mode === 'users') return snapshot.q || '作者搜索'
   if (snapshot.mode === 'topics') return snapshot.q || '话题搜索'
   if (snapshot.mode === 'tags') return snapshot.q || '标签搜索'
-  return [snapshot.q, snapshot.company, snapshot.position, snapshot.type ? postTypeText(snapshot.type) : '']
+  const domainLabel = domainOptions.value.find((item) => Number(item.domain) === Number(snapshot.domain))?.domainName
+  return [snapshot.q, domainLabel, snapshot.company, snapshot.position, snapshot.type ? postTypeText(snapshot.type) : '']
     .filter(Boolean)
     .join(' / ') || '全部内容'
 }
 
 const currentSnapshot = (): SearchSnapshot => {
   const mode = searchMode.value
-  const domain = undefined
+  const domain = mode === 'posts' ? filters.domain : undefined
   const company = mode === 'posts' ? filters.company : ''
   const position = mode === 'posts' ? filters.position : ''
   const type = mode === 'posts' ? filters.type : undefined
@@ -1067,7 +1086,7 @@ const clearRecentSearches = () => {
 const applySearchSnapshot = async (snapshot: SearchSnapshot) => {
   searchMode.value = snapshot.mode
   filters.q = snapshot.q || ''
-  filters.domain = undefined
+  filters.domain = snapshot.domain
   filters.company = snapshot.company || ''
   filters.position = snapshot.position || ''
   filters.type = snapshot.type
@@ -1117,6 +1136,11 @@ const clearCompanyFilter = () => {
   runSearch(false)
 }
 
+const clearDomainFilter = () => {
+  filters.domain = undefined
+  runSearch(false)
+}
+
 const clearPositionFilter = () => {
   filters.position = ''
   runSearch(false)
@@ -1160,7 +1184,7 @@ const runSearch = async (append = false, syncRoute = true) => {
       userResults.value = []
       tagResults.value = []
       searchResultMeta.value = null
-      const res = await postApi.listTopics({ limit: 30 })
+      const res = await postApi.listTopics({ keyword: filters.q || undefined, limit: 50 })
       if (requestId !== searchRequestId) return
       topicResults.value = filterVisibleTopics(res.data || [], filters.q).slice(0, 20)
       if (!append) rememberRecentSearch()
@@ -1183,6 +1207,7 @@ const runSearch = async (append = false, syncRoute = true) => {
 
     const params = {
       q: filters.q || undefined,
+      domain: filters.domain,
       company: filters.company || undefined,
       position: filters.position || undefined,
       type: filters.type,
@@ -1274,7 +1299,12 @@ const resetResults = () => {
 
 const setMode = async (mode: SearchMode) => {
   searchMode.value = mode
-  filters.domain = undefined
+  if (mode !== 'posts') {
+    filters.domain = undefined
+    filters.company = ''
+    filters.position = ''
+    filters.type = undefined
+  }
   resetResults()
   await runSearch(false)
 }
@@ -1363,6 +1393,8 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
 
 onMounted(async () => {
   loadSearchSnapshots()
+  syncFromRoute()
+  await loadDomains()
   syncFromRoute()
   await loadSearchStatus()
   await searchApi.hotSearches().then((res) => {

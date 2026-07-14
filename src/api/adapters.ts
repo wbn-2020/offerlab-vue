@@ -1,5 +1,5 @@
-import type { ApiId, Comment, CommentReport, CommunityTopic, ContactRequest, ContactRequestSettings, ContactRequestStats, CreatorCurationFeedback, DisplayableCurationFeedbackSource, FavoriteFolder, FavoriteFolderVisibility, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent, UserReportReceipt, UserReportSourceType, UserReportStatus } from './types'
-import { normalizeDomain } from '@/utils/domains'
+import type { ApiId, Comment, CommentReport, CommunityTopic, ContactRequest, ContactRequestSettings, ContactRequestStats, CreatorCurationFeedback, DisplayableCurationFeedbackSource, FavoriteFolder, FavoriteFolderVisibility, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, PublicPostUpdate, Tag, User, UserIntent, UserReportReceipt, UserReportSourceType, UserReportStatus } from './types'
+import { isKnownDomain, normalizeDomain } from '@/utils/domains'
 import { filterDistributionPosts, isPublicCollectionVisible, isPublicPostVisible, neutralizeHighRiskRecommendationReason, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 
@@ -397,7 +397,8 @@ export function adaptPost(raw: any): Post {
   const rawSummary = source?.summary
   const rawContent = source?.content ?? source?.summary ?? ''
   const extension = parseExtension(source)
-  const domain = normalizeDomain(source?.domain ?? extension?.domain)
+  const rawDomain = source?.domain ?? extension?.domain
+  const domain = isKnownDomain(rawDomain) ? normalizeDomain(rawDomain) : undefined
   const anonymous = Boolean(source?.anonymous ?? extension?.anonymous ?? false)
   const adaptedAuthor = source?.author ? adaptUser(source.author) : emptyAuthor(authorId)
   const author = anonymous
@@ -454,6 +455,7 @@ export function adaptPostVersionHistory(raw: any): PostVersionHistory {
     authorId: raw?.authorId ? adaptId(raw.authorId) : undefined,
     editorUid: raw?.editorUid ? adaptId(raw.editorUid) : undefined,
     baseVersion: Number(raw?.baseVersion ?? 0),
+    resultVersion: raw?.resultVersion == null ? undefined : Number(raw.resultVersion),
     title: safeVisibleText(raw?.title, '内容编码异常，已隐藏标题'),
     content: safeVisibleText(raw?.content, '内容编码异常，已隐藏原文'),
     contentSummary: sanitizeVisibleText(raw?.contentSummary ?? raw?.summary, '内容编码异常，已隐藏摘要'),
@@ -463,6 +465,17 @@ export function adaptPostVersionHistory(raw: any): PostVersionHistory {
     extension: parseExtension(raw),
     tags: Array.isArray(raw?.tags) ? raw.tags.map(adaptTag) : [],
     changeSummary: sanitizeVisibleText(raw?.changeSummary) || undefined,
+    publicUpdateSummary: sanitizeVisibleText(raw?.publicUpdateSummary) || undefined,
+    impactScope: sanitizeVisibleText(raw?.impactScope) || undefined,
+    createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
+  }
+}
+
+export function adaptPublicPostUpdate(raw: any): PublicPostUpdate {
+  return {
+    resultVersion: Number(raw?.resultVersion ?? 0),
+    publicUpdateSummary: safeVisibleText(raw?.publicUpdateSummary, '更新摘要暂不可用'),
+    impactScope: sanitizeVisibleText(raw?.impactScope) || undefined,
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
   }
 }
@@ -868,6 +881,18 @@ const discussionFollowActionContents: Record<string, string> = {
   discussion_follow_author_reply: '作者补充了新的回应。',
 }
 
+const trustedContentActionHeadings: Record<string, string> = {
+  answerAccepted: '你的回答已被采纳',
+  contentSuggestionSubmitted: '收到新的内容建议',
+  contentSuggestionDecided: '内容建议已有处理结果',
+}
+
+const trustedContentActionContents: Record<string, string> = {
+  answerAccepted: '作者采纳了你的回答，点击查看原讨论。',
+  contentSuggestionSubmitted: '有读者提交了补充或纠错建议，点击查看并处理。',
+  contentSuggestionDecided: '作者已处理你的补充或纠错建议，点击查看处理结果。',
+}
+
 const contactRequestActionHeadings: Record<string, string> = {
   contact_request_received: '收到联系请求',
   contact_request_accepted: '联系请求已被接受',
@@ -906,6 +931,8 @@ function notificationHeading(type: string, content: Record<string, any>, senderN
   if (contactRequestHeading) return contactRequestHeading
   const discussionHeading = discussionFollowActionHeadings[String(content.action || '')]
   if (discussionHeading) return discussionHeading
+  const trustedContentHeading = trustedContentActionHeadings[String(content.action || '')]
+  if (trustedContentHeading) return trustedContentHeading
   if (type === 'system' && content.action === 'report_receipt') return '举报处理结果'
   if (type === 'system' && isCurationFeedbackPayload(content)) return '公开内容入选反馈'
   if (type === 'system' && content.action === 'question_extract_succeeded') return '题目已整理完成'
@@ -939,6 +966,8 @@ function notificationContent(type: string, content: Record<string, any>, senderN
   if (contactRequestContent) return contactRequestContent
   const discussionContent = discussionFollowActionContents[String(content.action || '')]
   if (discussionContent) return discussionContent
+  const trustedContent = trustedContentActionContents[String(content.action || '')]
+  if (trustedContent) return trustedContent
   if (type === 'system' && content.action === 'report_receipt') {
     const userStatus = normalizeUserReportStatus(content.userStatus ?? content.reportStatus ?? content.status)
     return safeVisibleText(content.resultText ?? content.userResultText, userReportStatusText[userStatus])

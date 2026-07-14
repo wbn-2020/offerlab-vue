@@ -1,8 +1,8 @@
 import client, { BizException, Result } from './client'
-import type { ApiId, CommunityTopic, ContentTypeOption, PaginatedResponse, Post, PostPublishStatus, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, Tag } from './types'
-import { adaptCommunityTopic, adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptTag, adaptTime } from './adapters'
+import type { ApiId, CommunityTopic, ContentTypeOption, PaginatedResponse, Post, PostPublishStatus, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, PublicPostUpdate, Tag } from './types'
+import { adaptCommunityTopic, adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptPublicPostUpdate, adaptTag, adaptTime } from './adapters'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
-import { normalizeDomain } from '@/utils/domains'
+import { isKnownDomain, normalizeDomain } from '@/utils/domains'
 
 export interface PostCreateReq {
   domain?: number
@@ -29,6 +29,9 @@ export interface PostUpdateReq {
   tagIds?: ApiId[]
   tagNames?: string[]
   draftId?: ApiId
+  publicUpdateSummary?: string
+  impactScope?: string
+  respondedSuggestionIds?: ApiId[]
 }
 
 export interface PostCreateResult {
@@ -81,7 +84,9 @@ function adaptPostDraft(raw: any): PostDraft {
     uid: String(raw?.uid ?? ''),
     sourcePostId: raw?.sourcePostId ? String(raw.sourcePostId) : undefined,
     postType: Number(raw?.postType ?? 1),
-    domain: normalizeDomain(raw?.domain ?? extension?.domain),
+    domain: isKnownDomain(raw?.domain ?? extension?.domain)
+      ? normalizeDomain(raw?.domain ?? extension?.domain)
+      : undefined,
     anonymous: Boolean(raw?.anonymous ?? extension?.anonymous),
     title: sanitizeVisibleText(raw?.title) || undefined,
     content: sanitizeVisibleText(raw?.content) || undefined,
@@ -241,6 +246,12 @@ export const postApi = {
     const res = await client.get(`/api/v1/posts/${postId}/versions`, { params: { limit } }) as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostVersionHistory) : [] }
   },
+
+  listPublicUpdates: async (postId: ApiId, limit = 10): Promise<Result<PublicPostUpdate[]>> => {
+    const res = await client.get(`/api/v1/posts/${postId}/updates`, { params: { limit } }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPublicPostUpdate) : [] }
+  },
+
   update: (postId: ApiId, req: PostUpdateReq): Promise<Result<PostCreateResult>> =>
     client.put(`/api/v1/posts/${postId}`, req),
 
@@ -402,7 +413,7 @@ export const postApi = {
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 
-  listTopics: async (params?: { featured?: boolean; limit?: number }): Promise<Result<CommunityTopic[]>> => {
+  listTopics: async (params?: { featured?: boolean; keyword?: string; limit?: number }): Promise<Result<CommunityTopic[]>> => {
     const res = await client.get('/api/v1/topics', { params }) as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptCommunityTopic) : [] }
   },

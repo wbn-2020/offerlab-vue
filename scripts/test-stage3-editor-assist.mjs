@@ -39,8 +39,8 @@ assert.doesNotMatch(
 )
 assert.match(
   editor,
-  /const scheduleStageThreeAssist = \(\) => \{[\s\S]*if \(!authStore\.isLoggedIn \|\| !assistPanelEnabled\.value \|\| isForbiddenEdit\.value\) return[\s\S]*loadStageThreeAssist\(false\)/,
-  'EditorView may debounce-refresh assist suggestions only after explicit opt-in and valid auth/edit state',
+  /const scheduleStageThreeAssist = \(\) => \{[\s\S]*if \(!authStore\.isLoggedIn \|\| !assistPanelEnabled\.value \|\| isForbiddenEdit\.value \|\| !selectedDomain\.value\) return[\s\S]*loadStageThreeAssist\(false\)/,
+  'EditorView may debounce-refresh assist suggestions only after explicit opt-in, valid auth/edit state, and an explicit channel selection',
 )
 assert.match(editor, /stageThreeAssistRequestId/, 'EditorView must track assist request freshness')
 assert.match(editor, /if \(requestId !== stageThreeAssistRequestId\) return/, 'EditorView must ignore stale assist responses')

@@ -226,7 +226,7 @@ export interface OutboxMessage {
   aggregateType: string
   aggregateId: ApiId
   topic: string
-  payload: string
+  payload?: string
   msgStatus: number
   retryCount: number
   nextRetryTime?: string

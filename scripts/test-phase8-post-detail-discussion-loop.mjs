@@ -5,6 +5,7 @@ const postDetail = readFileSync(new URL('../src/views/PostDetailView.vue', impor
 const commentTree = readFileSync(new URL('../src/components/post/CommentTree.vue', import.meta.url), 'utf8')
 const interactionBar = readFileSync(new URL('../src/components/post/InteractionBar.vue', import.meta.url), 'utf8')
 const topicDetail = readFileSync(new URL('../src/views/TopicDetailView.vue', import.meta.url), 'utf8')
+const trustedContent = readFileSync(new URL('../src/api/trustedContent.ts', import.meta.url), 'utf8')
 
 assert.match(postDetail, /discussion-follow-panel/, 'Post detail must expose a discussion follow/reminder panel')
 assert.match(postDetail, /关注讨论/, 'Post detail must use the explicit discussion-follow language')
@@ -31,5 +32,13 @@ assert.match(interactionBar, /不默认提醒新回复/, 'Interaction bar must n
 
 assert.match(topicDetail, /关注主题/, 'Topic detail must define topic follow as theme follow')
 assert.match(topicDetail, /不会自动关注某个帖子的后续回复/, 'Topic follow copy must not imply discussion follow')
+
+for (const reason of ['SOLVED_PROBLEM', 'SAVED_TIME', 'HELPED_DECISION', 'NEW_PERSPECTIVE', 'WORTH_PRACTICING']) {
+  assert.match(trustedContent, new RegExp(`'${reason}'`), `trusted content API must type useful reason ${reason}`)
+}
+assert.match(postDetail, /为什么有用/, 'post detail must ask readers for a concrete useful reason')
+assert.match(postDetail, /saveUsefulFeedback/, 'post detail must persist useful feedback')
+assert.match(postDetail, /clearUsefulFeedback/, 'post detail must allow useful feedback cancellation')
+assert.match(postDetail, /isOwnPost/, 'post detail must keep self-feedback actions disabled for authors')
 
 console.log('phase8 post detail discussion loop guard passed')

@@ -1,7 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import vm from 'node:vm'
 import assert from 'node:assert/strict'
+import ts from 'typescript'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const sourceRoot = resolve(root, 'src')
@@ -11,6 +13,15 @@ const opsApi = readFileSync(resolve(sourceRoot, 'api/ops.ts'), 'utf8')
 const loginView = readFileSync(resolve(sourceRoot, 'views/LoginView.vue'), 'utf8')
 const registerView = readFileSync(resolve(sourceRoot, 'views/RegisterView.vue'), 'utf8')
 const navigation = readFileSync(resolve(sourceRoot, 'utils/navigation.ts'), 'utf8')
+const compiledNavigation = ts.transpileModule(navigation, {
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2020,
+  },
+})
+const navigationSandbox = { exports: {}, URL }
+vm.runInNewContext(compiledNavigation.outputText, navigationSandbox)
+const { safeRedirect } = navigationSandbox.exports
 
 function collectSourceFiles(dir) {
   const entries = readdirSync(dir, { withFileTypes: true })
@@ -35,6 +46,20 @@ assert.match(opsApi, /import client, \{ apiBaseURL, BizException, Result \} from
 assert.match(opsApi, /baseURL:\s*apiBaseURL/, 'ops raw client must use the normalized base URL')
 assert.match(navigation, /export const safeRedirect/, 'auth recovery must share safe same-site redirect logic')
 assert.match(navigation, /\/\(\?:login\|register\)/, 'safe redirect must reject auth-loop targets')
+assert.equal(
+  safeRedirect('/notifications?tab=unread#notification-42'),
+  '/notifications?tab=unread#notification-42',
+  'safe redirect must preserve notification pathname, search, and hash',
+)
+assert.equal(safeRedirect('//evil.example/steal#notification-42', '/fallback'), '/fallback', 'safe redirect must reject protocol-relative targets')
+assert.equal(safeRedirect('/\\evil.example/steal#notification-42', '/fallback'), '/fallback', 'safe redirect must reject slash-backslash targets')
+assert.equal(safeRedirect('/login?redirect=%2Fnotifications#notification-42', '/fallback'), '/fallback', 'safe redirect must reject login loops')
+assert.equal(safeRedirect('/register#notification-42', '/fallback'), '/fallback', 'safe redirect must reject register loops')
+assert.equal(
+  safeRedirect('/notifications?tab=unread&access_token=secret&sessionId=abc&debug=1#notification-42'),
+  '/notifications?tab=unread#notification-42',
+  'safe redirect must remove sensitive query parameters without dropping the notification hash',
+)
 assert.match(loginView, /redirectQuery\(route\.query\.redirect\)/, 'login register link must preserve safe redirect query')
 assert.match(loginView, /route\.query\.switchAccount === '1'[\s\S]*authStore\.logout\(\)/, 'login must support explicit switch-account recovery')
 assert.match(registerView, /useRoute/, 'register must read redirect query')

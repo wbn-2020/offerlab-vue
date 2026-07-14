@@ -118,12 +118,13 @@ for (const path of ['/login', '/register']) {
   assert.doesNotMatch(block, /adminPermission:/, '/collections/:id must not require admin permissions')
 }
 
-for (const label of ['首页', '发现', '知识库', '发布']) {
+for (const label of ['首页', '发现', '发布']) {
   assert.match(appHeader, new RegExp(`label:\\s*'${label}'`), `primary navigation must expose ${label}`)
 }
-for (const label of ['资源库', '题库', '模拟面试', '成长报告']) {
+for (const label of ['知识库', '资源库', '题库', '模拟面试', '成长报告']) {
   assert.doesNotMatch(appHeader, new RegExp(`label:\\s*'${label}'`), `core navigation must not expose old tool as top-level item: ${label}`)
 }
+assert.match(appHeader, /to="\/knowledge\/explore"[\s\S]*知识探索/, 'knowledge exploration must remain reachable outside primary navigation')
 
 assert.match(appHeader, /showMobileMenu/, 'AppHeader must keep a mobile menu state')
 assert.match(appHeader, /aria-controls="mobile-main-nav"/, 'mobile menu toggle must target the mobile navigation panel')

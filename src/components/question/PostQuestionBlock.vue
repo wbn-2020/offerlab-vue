@@ -92,6 +92,8 @@ const block = ref<PostQuestionBlock | null>(null)
 const isLoading = ref(false)
 const isRetrying = ref(false)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
+let loadGeneration = 0
+let disposed = false
 
 const normalizedStatus = computed(() => String(block.value?.taskStatus || 'none').toLowerCase())
 const isProcessing = computed(() => normalizedStatus.value === 'pending' || normalizedStatus.value === 'running')
@@ -135,24 +137,29 @@ const clearPoll = () => {
 
 const schedulePoll = () => {
   clearPoll()
-  if (!isProcessing.value) return
+  if (disposed || !isProcessing.value) return
   pollTimer = setTimeout(() => {
-    load({ silent: true })
+    pollTimer = null
+    if (!disposed) void load({ silent: true })
   }, 3000)
 }
 
 const load = async (options: { silent?: boolean } = {}) => {
   if (!props.postId) return
+  const generation = ++loadGeneration
+  const postId = props.postId
   if (!options.silent) isLoading.value = true
   try {
-    const res = await questionApi.postBlock(props.postId)
+    const res = await questionApi.postBlock(postId)
+    if (disposed || generation !== loadGeneration || postId !== props.postId) return
     block.value = res.data
     schedulePoll()
   } catch {
+    if (disposed || generation !== loadGeneration) return
     block.value = null
     clearPoll()
   } finally {
-    if (!options.silent) isLoading.value = false
+    if (!options.silent && !disposed && generation === loadGeneration) isLoading.value = false
   }
 }
 
@@ -183,9 +190,19 @@ const difficultyText = (value?: string) => {
   return '中等'
 }
 
-watch(() => props.postId, () => load())
-onMounted(() => load())
-onBeforeUnmount(clearPoll)
+watch(() => props.postId, () => {
+  clearPoll()
+  void load()
+})
+onMounted(() => {
+  disposed = false
+  void load()
+})
+onBeforeUnmount(() => {
+  disposed = true
+  loadGeneration += 1
+  clearPoll()
+})
 </script>
 
 <style scoped>

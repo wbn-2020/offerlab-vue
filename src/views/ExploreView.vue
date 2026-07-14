@@ -3,7 +3,7 @@
     <section class="explore-band explore-band-hero">
       <div class="mb-8 explore-shell hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">OfferLab Discovery Map</p>
+          <p class="eyebrow">发现社区内容</p>
           <h1>频道广场与话题广场</h1>
           <p class="hero-summary">
             从运营精选专题、频道入口和活跃话题进入公开社区内容，发现真实经验、攻略和资源。
@@ -23,7 +23,11 @@
           </div>
           <div class="status-row">
             <span>频道</span>
-            <strong>{{ discoveryMap?.channels.length || 0 }}</strong>
+            <strong>{{ communityChannels.length }}</strong>
+          </div>
+          <div class="status-row">
+            <span>内容形式</span>
+            <strong>{{ contentForms.length }}</strong>
           </div>
           <div class="status-row">
             <span>话题</span>
@@ -89,7 +93,7 @@
       <div class="explore-shell section-layout">
         <header class="section-header">
           <div>
-            <p class="eyebrow">Cross-domain discovery</p>
+            <p class="eyebrow">拓展阅读</p>
             <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">跨领域推荐</h2>
             <p class="section-copy">
               基于公共内容信号与领域差异生成阅读建议，推荐理由会经过安全中和处理。
@@ -144,17 +148,17 @@
       <article class="explore-shell section-layout">
         <header class="section-header">
           <div>
-            <p class="eyebrow">Public discovery</p>
+            <p class="eyebrow">按频道浏览</p>
             <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">频道广场</h2>
             <p class="section-copy">
               选择一个频道后，会在发现页内聚合对应内容类型、代表话题和推荐标签。
             </p>
           </div>
-          <span v-if="activeChannel" class="module-status">当前频道：{{ activeChannel.name }}</span>
+          <span v-if="activeChannel || activeContentForm" class="module-status">当前入口：{{ activeEntryName }}</span>
         </header>
-        <div v-if="COMMUNITY_CHANNELS.length" class="channel-grid">
+        <div v-if="communityChannels.length" class="channel-grid">
           <RouterLink
-            v-for="channel in COMMUNITY_CHANNELS"
+            v-for="channel in communityChannels"
             :key="channel.key"
             class="channel-card"
             :to="{ path: '/explore', query: { channel: channel.key } }"
@@ -164,9 +168,25 @@
             <p>{{ channel.description }}</p>
             <small v-if="channel.topics?.length">代表话题：{{ channel.topics.slice(0, 2).join(' / ') }}</small>
             <small v-if="channel.tags?.length">推荐标签：{{ channel.tags.slice(0, 3).join(' / ') }}</small>
-            <small>计数为近 30 天发布分布：{{ channelContentCount(channel) }}</small>
             <span class="card-link">
               {{ activeChannel?.key === channel.key ? '当前频道' : '进入频道聚合' }}
+              <ArrowRight class="h-4 w-4" aria-hidden="true" />
+            </span>
+          </RouterLink>
+        </div>
+        <div v-if="contentForms.length" class="content-form-grid">
+          <RouterLink
+            v-for="form in contentForms"
+            :key="form.id"
+            class="channel-card"
+            :to="form.href"
+          >
+            <span class="channel-icon">{{ form.icon || 'F' }}</span>
+            <strong>{{ form.title }}</strong>
+            <p>{{ form.summary }}</p>
+            <small v-if="form.reasonText">内容形式：{{ form.reasonText }}</small>
+            <span class="card-link">
+              进入内容形式
               <ArrowRight class="h-4 w-4" aria-hidden="true" />
             </span>
           </RouterLink>
@@ -184,7 +204,7 @@
             <small v-if="direction.riskNote">{{ direction.riskNote }}</small>
           </RouterLink>
         </div>
-        <div v-if="activeChannel" class="compact-list">
+        <div v-if="activeChannel || activeContentForm" class="compact-list">
           <RouterLink
             v-for="post in visibleLatestPosts"
             :key="post.postId"
@@ -194,7 +214,7 @@
             <img v-if="latestPostCoverUrl(post)" :src="latestPostCoverUrl(post)" :alt="post.title" class="latest-post-cover" />
             <Hash v-else class="h-4 w-4" aria-hidden="true" />
             <span>{{ post.title }}</span>
-            <small>{{ activeChannel.name }} · {{ getContentTypeShortLabel(post.postType) }}</small>
+            <small>{{ activeEntryName }} · {{ getContentTypeShortLabel(post.postType) }}</small>
           </RouterLink>
         </div>
         <div v-if="recommendedAuthors.length" class="compact-list">
@@ -265,15 +285,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, ref, watch } from 'vue'
+import { computed, defineComponent, h, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { AlertCircle, ArrowRight, Hash, Inbox, RefreshCw, Search } from 'lucide-vue-next'
-import { dashboardApi, type RankedMetric } from '@/api/dashboard'
-import { localDomainConfigs } from '@/api/domains'
 import { recommendationsApi } from '@/api/recommendations'
 import { useAuthStore } from '@/stores/auth'
+import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import { useDiscoveryMap } from '@/composables/useDiscoveryMap'
-import { COMMUNITY_CHANNELS, DOMAIN_OPTIONS, getCommunityChannel, normalizeDomain, type CommunityChannel, type DomainValue } from '@/utils/domains'
+import { ALL_COMMUNITY_CHANNELS, COMMUNITY_CONTENT_FORMS, isKnownDomain, type CommunityChannel, type CommunityContentForm, type DomainValue } from '@/utils/domains'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeShortLabel, type PostTypeValue } from '@/utils/contentTypes'
 import { filterDiscoverySuppressedItems, filterVisiblePosts, normalizeRecommendationReason, type ViewerDiscoverySuppressions } from '@/utils/recommendationGovernance'
 import { filterPublicContent } from '@/utils/textQuality'
@@ -290,18 +309,31 @@ const route = useRoute()
 const authStore = useAuthStore()
 const keyword = ref('')
 const { data: discoveryMap, loading, error, degraded, hasItems, reload } = useDiscoveryMap()
-const defaultChannelPostTypes = [POST_TYPE.NOTE, POST_TYPE.QUESTION, POST_TYPE.TECH_ARTICLE, POST_TYPE.RESOURCE]
-const domainOptions = ref(localDomainConfigs.length
-  ? localDomainConfigs.map((item) => ({
+const { domains, loadDomains } = useDomainCatalog()
+const defaultChannelPostTypes = COMMUNITY_CONTENT_TYPES.map((item) => item.value)
+const domainOptions = computed(() => domains.value.map((item) => ({
     value: item.domain as DomainValue,
     label: item.domainName,
     icon: item.icon,
     description: item.description,
-  }))
-  : [...DOMAIN_OPTIONS])
+  })))
+const communityChannels = computed<CommunityChannel[]>(() => ALL_COMMUNITY_CHANNELS
+  .map((channel) => {
+    if (!channel.domain) return channel
+    const domain = domains.value.find((item) => Number(item.domain) === Number(channel.domain))
+    return domain
+      ? {
+          ...channel,
+          name: domain.domainName,
+          icon: domain.icon,
+          description: domain.description,
+          riskNote: domain.postingNotice || channel.riskNote,
+        }
+      : null
+  })
+  .filter((channel): channel is CommunityChannel => Boolean(channel)))
 const latestPosts = ref<Post[]>([])
 const channelLatestPosts = ref<Post[]>([])
-const contentTypeDistribution = ref<RankedMetric[]>([])
 const followingBusyIds = ref(new Set<string>())
 const crossDomainRecommendationItems = ref<CrossDomainRecommendation[]>([])
 const crossDomainStatus = ref<'idle' | 'loading' | 'ready' | 'empty' | 'unauthenticated' | 'failed' | 'degraded'>('idle')
@@ -331,29 +363,79 @@ const cleanFeaturedTopics = computed(() => filterDiscoverySuppressedItems(filter
 const isFeaturedPost = (item: any): item is DiscoveryItem => Boolean(item.href && item.title)
 const featuredPosts = computed(() => cleanLatestPosts.value.filter(isFeaturedPost))
 const featuredTopics = computed<DiscoveryItem[]>(() => featuredPosts.value.length ? featuredPosts.value : cleanFeaturedTopics.value.filter(isFeaturedPost))
-const channels = computed(() => visibleDiscoveryItems(discoveryMap.value?.channels))
+const channels = computed(() => visibleDiscoveryItems(discoveryMap.value?.channels)
+  .filter((item) => ALL_COMMUNITY_CHANNELS.some((channel) => item.id === `channel:${channel.key}`)))
+const discoveryContentForms = computed(() => visibleDiscoveryItems(discoveryMap.value?.contentForms))
 const activeTopics = computed(() => cleanTopics.value)
 const searchEntrypoints = computed(() => cleanTags.value)
-const activeDomain = computed<DomainValue | undefined>(() => {
+const domainQueryValue = computed(() => {
   const value = route.query.domain
-  const raw = Array.isArray(value) ? value[0] : value
-  if (!raw) return undefined
-  const numeric = Number(raw)
-  return Number.isFinite(numeric) ? normalizeDomain(numeric) : undefined
+  return Array.isArray(value) ? value[0] : value
 })
-const activeDomainOption = computed(() => domainOptions.value.find((item) => item.value === activeDomain.value))
+const activeDomain = computed<DomainValue | undefined>(() => {
+  const raw = domainQueryValue.value
+  if (raw == null || raw === '') return undefined
+  const numeric = Number(raw)
+  return isKnownDomain(numeric) && domains.value.some((item) => Number(item.domain) === numeric)
+    ? numeric
+    : undefined
+})
+const hasInvalidDomainQuery = computed(() => (
+  domainQueryValue.value !== undefined && activeDomain.value === undefined
+))
 const activeChannelQuery = computed(() => {
   const value = route.query.channel
   if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string')
   return typeof value === 'string' ? value : undefined
 })
-const activeChannel = computed(() => getCommunityChannel(activeChannelQuery.value))
-const activeChannelPostTypes = computed(() => (
-  activeChannel.value?.postTypes?.length ? activeChannel.value.postTypes : defaultChannelPostTypes
+const activeChannel = computed(() => {
+  const value = Array.isArray(activeChannelQuery.value) ? activeChannelQuery.value[0] : activeChannelQuery.value
+  return communityChannels.value.find((channel) => channel.key === value)
+})
+const activeContentFormQuery = computed(() => {
+  const value = route.query.contentForm ?? route.query.channel
+  return Array.isArray(value) ? value[0] : value
+})
+const activeContentForm = computed<CommunityContentForm | undefined>(() => {
+  const value = String(activeContentFormQuery.value || '')
+  const legacy = value === 'resources'
+    ? 'resource'
+    : value === 'qa-discussion'
+      ? 'question'
+      : value === 'review'
+        ? 'retrospective'
+        : value
+  return COMMUNITY_CONTENT_FORMS.find((form) => form.key === legacy)
+})
+const activeEntryName = computed(() => activeChannel.value?.name || activeContentForm.value?.name || '公共内容')
+const contentForms = computed(() => (
+  discoveryContentForms.value.length
+    ? discoveryContentForms.value
+    : COMMUNITY_CONTENT_FORMS.map((form) => ({
+        id: `content-form:${form.key}`,
+        type: 'content-form',
+        title: form.name,
+        summary: form.description,
+        href: `/explore?contentForm=${encodeURIComponent(form.key)}`,
+        source: 'public-content-query' as const,
+        icon: form.icon,
+        tags: form.tags,
+        reasonText: form.postTypes.map((type) => getContentTypeShortLabel(type)).join(' / '),
+      }))
 ))
-const activeChannelPostTypeSet = computed(() => new Set<PostTypeValue>(activeChannelPostTypes.value))
+const activeChannelDomain = computed<DomainValue | undefined>(() => (
+  domainQueryValue.value === undefined ? activeChannel.value?.domain : activeDomain.value
+))
+const activeDomainOption = computed(() => domainOptions.value.find((item) => item.value === activeChannelDomain.value))
+const activeChannelPostTypes = computed(() => (
+  activeContentForm.value?.postTypes?.length
+    ? activeContentForm.value.postTypes
+    : activeChannel.value?.postTypes?.length ? activeChannel.value.postTypes : defaultChannelPostTypes
+))
+const activeEntryPostTypes = computed(() => activeChannelPostTypes.value)
+const activeEntryPostTypeSet = computed(() => new Set<PostTypeValue>(activeEntryPostTypes.value))
 const channelFeaturedDirections = computed(() => {
-  const source = activeChannel.value ? [activeChannel.value] : COMMUNITY_CHANNELS
+  const source = activeChannel.value ? [activeChannel.value] : communityChannels.value
   return source.flatMap((channel) => (channel.topics || []).slice(0, 2).map((topic) => ({
     channelKey: channel.key,
     channelName: channel.name,
@@ -366,6 +448,7 @@ const channelFeaturedDirections = computed(() => {
         q: topic,
         channel: channel.key,
         ...(channel.domain ? { domain: String(channel.domain) } : {}),
+        ...(channel.postTypes?.length ? { types: channel.postTypes.map(String).join(',') } : {}),
       },
     },
   })))
@@ -374,7 +457,7 @@ const visibleLatestPosts = computed(() => filterVisiblePosts(
   filterDiscoverySuppressedItems(filterPublicContent(channelLatestPosts.value), viewerDiscoverySuppressions.value),
   6,
 )
-  .filter((post) => activeChannelPostTypeSet.value.has(Number(post.postType) as PostTypeValue)))
+  .filter((post) => activeEntryPostTypeSet.value.has(Number(post.postType) as PostTypeValue)))
 const rawRecommendedAuthors = computed<RecommendedAuthor[]>(() => {
   const users = new Map<string, User>()
   const postsByAuthor = new Map<string, Post[]>()
@@ -420,18 +503,6 @@ const crossDomainRecommendations = computed(() => filterDiscoverySuppressedItems
   .filter((item) => filterVisiblePosts(item.item.post ? [item.item.post] : []).length > 0))
 
 const moduleOf = (key: string): DiscoveryModuleState | undefined => discoveryMap.value?.modules?.[key]
-
-const contentTypeCount = (type: number) => {
-  const option = COMMUNITY_CONTENT_TYPES.find((item) => item.value === type)
-  return contentTypeDistribution.value.find((item) => item.name === option?.label)?.count
-    ?? channelLatestPosts.value.filter((post) => Number(post.postType) === type).length
-}
-
-const channelContentCount = (channel: CommunityChannel) => {
-  const types = channel.postTypes?.length ? channel.postTypes : defaultChannelPostTypes
-  return types.reduce((sum, type) => sum + contentTypeCount(type), 0)
-}
-
 const latestPostCoverUrl = (post: Post) => String(post.coverUrl || '').trim()
 
 const syncAuthorFollowState = (uid: User['uid'], following: boolean, followerCount: number) => {
@@ -465,26 +536,34 @@ const toggleFollowUser = async (user: User) => {
   }
 }
 
-const loadTrendMetrics = async () => {
-  try {
-    const res = await dashboardApi.getTrendDashboard('30d', activeDomain.value)
-    contentTypeDistribution.value = res.data?.contentTypeDistribution || []
-  } catch {
-    contentTypeDistribution.value = []
-  }
-}
+let latestPostsRequestGeneration = 0
+let crossDomainRequestGeneration = 0
 
 const loadChannelLatestPosts = async () => {
-  if (!activeChannel.value) {
-    latestPosts.value = []
-    channelLatestPosts.value = []
+  const requestGeneration = ++latestPostsRequestGeneration
+  const requestedEntryKey = activeChannel.value?.key || activeContentForm.value?.key
+  const requestedDomain = activeChannelDomain.value
+  const requestedPostTypes = activeEntryPostTypes.value.join(',')
+  const requestedCatalog = domains.value
+  const requestedToken = authStore.token
+  latestPosts.value = []
+  channelLatestPosts.value = []
+  if (!requestedEntryKey || hasInvalidDomainQuery.value) {
     return
   }
-  const settled = await Promise.allSettled(activeChannelPostTypes.value.map((type) => discoveryApi.listPublicChannelPosts({
+  const settled = await Promise.allSettled(activeEntryPostTypes.value.map((type) => discoveryApi.listPublicChannelPosts({
     type,
     size: 6,
-    domain: activeDomain.value,
+    domain: activeChannelDomain.value,
   })))
+  if (
+    requestGeneration !== latestPostsRequestGeneration
+    || requestedEntryKey !== (activeChannel.value?.key || activeContentForm.value?.key)
+    || requestedDomain !== activeChannelDomain.value
+    || requestedPostTypes !== activeEntryPostTypes.value.join(',')
+    || requestedCatalog !== domains.value
+    || requestedToken !== authStore.token
+  ) return
   const postRes = settled.find((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof discoveryApi.listPublicChannelPosts>>> => result.status === 'fulfilled')
   if (postRes) {
     latestPosts.value = filterVisiblePosts(filterPublicContent(postRes.value.data?.items || []))
@@ -497,14 +576,17 @@ const loadChannelLatestPosts = async () => {
 }
 
 const loadCrossDomainRecommendations = async () => {
-  if (!authStore.token) {
-    crossDomainRecommendationItems.value = []
+  const requestGeneration = ++crossDomainRequestGeneration
+  const requestedToken = authStore.token
+  crossDomainRecommendationItems.value = []
+  if (!requestedToken) {
     crossDomainStatus.value = 'unauthenticated'
     return
   }
   crossDomainStatus.value = 'loading'
   try {
     const res = await recommendationsApi.listCrossDomain(undefined, 6)
+    if (requestGeneration !== crossDomainRequestGeneration || requestedToken !== authStore.token) return
     const items = res.data?.items || []
     crossDomainRecommendationItems.value = items
     if (!items.length) {
@@ -515,6 +597,7 @@ const loadCrossDomainRecommendations = async () => {
       crossDomainStatus.value = 'ready'
     }
   } catch (err) {
+    if (requestGeneration !== crossDomainRequestGeneration || requestedToken !== authStore.token) return
     const status = (err as { response?: { status?: number }, code?: number })?.response?.status
     const code = (err as { code?: number })?.code
     crossDomainRecommendationItems.value = []
@@ -527,12 +610,27 @@ const submitSearch = () => {
   router.push({ path: '/search', query: q ? { q, sort: 'hot' } : { sort: 'hot' } })
 }
 
-loadCrossDomainRecommendations()
+onMounted(loadDomains)
 
-watch(() => [route.query.channel, route.query.domain] as const, () => {
-  loadTrendMetrics()
+watch(() => [
+  activeChannel.value?.key,
+  activeContentForm.value?.key,
+  activeChannelDomain.value,
+  activeEntryPostTypes.value.join(','),
+  domains.value,
+  authStore.token,
+] as const, () => {
   loadChannelLatestPosts()
 }, { immediate: true })
+
+watch(() => authStore.token, () => {
+  loadCrossDomainRecommendations()
+}, { immediate: true, flush: 'sync' })
+
+onUnmounted(() => {
+  latestPostsRequestGeneration += 1
+  crossDomainRequestGeneration += 1
+})
 
 const SectionHeader = defineComponent({
   props: {
@@ -542,7 +640,7 @@ const SectionHeader = defineComponent({
   setup(props) {
     return () => h('header', { class: 'section-header' }, [
       h('div', [
-        h('p', { class: 'eyebrow' }, 'Public discovery'),
+        h('p', { class: 'eyebrow' }, '社区发现'),
         h('h2', props.title),
       ]),
       props.module
@@ -793,7 +891,8 @@ const SkeletonCard = defineComponent({
 
 .topic-grid,
 .channel-grid,
-.channel-featured-direction-grid {
+.channel-featured-direction-grid,
+.content-form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
@@ -953,7 +1052,8 @@ const SkeletonCard = defineComponent({
 
   .topic-grid,
   .channel-grid,
-  .channel-featured-direction-grid {
+  .channel-featured-direction-grid,
+  .content-form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -969,7 +1069,8 @@ const SkeletonCard = defineComponent({
 
   .topic-grid,
   .channel-grid,
-  .channel-featured-direction-grid {
+  .channel-featured-direction-grid,
+  .content-form-grid {
     grid-template-columns: 1fr;
   }
 

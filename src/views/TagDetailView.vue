@@ -90,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -116,6 +116,8 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const activeType = ref<number | undefined>()
 const featuredOnly = ref(false)
+let tagLoadGeneration = 0
+let postRequestGeneration = 0
 
 const tagSlug = computed(() => String(route.params.slug || ''))
 const displayCount = computed(() => declaredCount.value || posts.value.length)
@@ -137,8 +139,14 @@ const updatePost = (postId: ApiId, updater: (post: Post) => void) => {
 }
 const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePost)
 
+const isCurrentTagLoad = (targetGeneration: number, slug: string) => (
+  targetGeneration === tagLoadGeneration && tagSlug.value === slug
+)
+
 const loadTag = async () => {
   const slug = String(route.params.slug || '')
+  const targetGeneration = ++tagLoadGeneration
+  postRequestGeneration += 1
   tagName.value = slug || '标签'
   tagId.value = null
   declaredCount.value = 0
@@ -147,8 +155,10 @@ const loadTag = async () => {
   hasMore.value = false
   errorMessage.value = ''
   isLoading.value = true
+  let isPostLoadStarted = false
   try {
     const tagsRes = await postApi.getTags()
+    if (!isCurrentTagLoad(targetGeneration, slug)) return
     const tags = tagsRes.data || []
     const currentTag = tags.find((tag: Tag) => tag.slug === slug || String(tag.id) === slug || tag.name === slug)
     if (!currentTag) return
@@ -156,23 +166,42 @@ const loadTag = async () => {
     tagId.value = currentTag.id
     tagName.value = currentTag.name
     declaredCount.value = currentTag.count || 0
-    await loadPosts(false)
+    isPostLoadStarted = true
+    await loadPosts(false, targetGeneration)
   } catch (error: any) {
-    errorMessage.value = getErrorMessage(error, '标签内容加载失败')
+    if (isCurrentTagLoad(targetGeneration, slug)) {
+      errorMessage.value = getErrorMessage(error, '标签内容加载失败')
+    }
   } finally {
-    isLoading.value = false
+    if (isCurrentTagLoad(targetGeneration, slug) && !isPostLoadStarted) {
+      isLoading.value = false
+    }
   }
 }
 
-const loadPosts = async (append = false) => {
-  if (!tagId.value || (append && !hasMore.value) || (isLoading.value && append)) return
+const loadPosts = async (append = false, targetTagGeneration = tagLoadGeneration) => {
+  const slugSnapshot = tagSlug.value
+  const tagIdSnapshot = tagId.value
+  if (tagIdSnapshot == null || (append && !hasMore.value) || (isLoading.value && append)) return
+  const typeSnapshot = activeType.value
+  const featuredSnapshot = featuredOnly.value
+  const cursorSnapshot = append ? cursor.value : undefined
+  const targetPostGeneration = append ? postRequestGeneration : ++postRequestGeneration
+  const isCurrentPostLoad = () => (
+    isCurrentTagLoad(targetTagGeneration, slugSnapshot)
+    && targetPostGeneration === postRequestGeneration
+    && String(tagId.value ?? '') === String(tagIdSnapshot)
+    && activeType.value === typeSnapshot
+    && featuredOnly.value === featuredSnapshot
+  )
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await postApi.getTagPosts(tagId.value, append ? cursor.value : undefined, 10, {
-      type: activeType.value,
-      featured: featuredOnly.value ? true : undefined,
+    const res = await postApi.getTagPosts(tagIdSnapshot, cursorSnapshot, 10, {
+      type: typeSnapshot,
+      featured: featuredSnapshot ? true : undefined,
     })
+    if (!isCurrentPostLoad()) return
     const page = res.data
     const cleanItems = filterVisiblePosts(filterPublicContent(page?.items || []))
     posts.value = append ? [...posts.value, ...cleanItems] : cleanItems
@@ -180,9 +209,13 @@ const loadPosts = async (append = false) => {
     hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
     declaredCount.value = declaredCount.value || posts.value.length
   } catch (error: any) {
-    errorMessage.value = getErrorMessage(error, '标签内容加载失败')
+    if (isCurrentPostLoad()) {
+      errorMessage.value = getErrorMessage(error, '标签内容加载失败')
+    }
   } finally {
-    isLoading.value = false
+    if (isCurrentPostLoad()) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -220,7 +253,7 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
   })
 }
 
-watch(() => route.params.slug, loadTag)
+watch(() => route.params.slug, loadTag, { immediate: true })
 watch([tagName, tagId, tagSlug, errorMessage], () => {
   applyPageSeo({
     title: tagId.value ? tagName.value : (errorMessage.value ? '标签暂时无法打开' : '标签'),
@@ -228,7 +261,10 @@ watch([tagName, tagId, tagSlug, errorMessage], () => {
     canonical: `/tag/${tagSlug.value}`,
   })
 }, { immediate: true })
-onMounted(loadTag)
+onUnmounted(() => {
+  tagLoadGeneration += 1
+  postRequestGeneration += 1
+})
 </script>
 
 <style scoped>

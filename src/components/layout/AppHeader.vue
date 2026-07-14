@@ -40,9 +40,6 @@
                 <div class="text-xs text-slate-500">{{ d.description }}</div>
               </div>
             </router-link>
-            <div class="domain-menu-footer">
-              {{ headerDomainSourceSummary }}
-            </div>
           </div>
         </div>
       </nav>
@@ -131,6 +128,7 @@
               <RouterLink to="/series/workbench" class="menu-item" @click="showUserMenu = false">内容合集</RouterLink>
               <RouterLink to="/growth/profile" class="menu-item" @click="showUserMenu = false">作者数据</RouterLink>
               <RouterLink to="/growth/report" class="menu-item" @click="showUserMenu = false">历史报告</RouterLink>
+              <RouterLink to="/growth/community" class="menu-item" @click="showUserMenu = false">社区成长</RouterLink>
               <RouterLink to="/knowledge/explore" class="menu-item" @click="showUserMenu = false">知识探索</RouterLink>
               <RouterLink to="/certification/apply" class="menu-item" @click="showUserMenu = false">认证作者申请</RouterLink>
               <div v-if="adminLinks.length" class="menu-divider" />
@@ -247,6 +245,15 @@
             作者数据
           </RouterLink>
           <RouterLink
+            v-if="authStore.isLoggedIn"
+            to="/growth/community"
+            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
+            @click="closeMobileMenu"
+          >
+            <Sparkles class="h-4 w-4" />
+            社区成长
+          </RouterLink>
+          <RouterLink
             to="/knowledge/explore"
             :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
             @click="closeMobileMenu"
@@ -270,12 +277,12 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Bell, ChevronDown, Compass, Flame, Grid3x3, Library, Menu, MessageCircle, Moon, PenLine, Search, Sun, Tags, User, X } from 'lucide-vue-next'
+import { Bell, ChevronDown, Compass, Flame, Grid3x3, HeartHandshake, Library, Menu, Moon, PenLine, Search, Sparkles, Sun, Tags, User, X } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { authApi } from '@/api/auth'
-import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
+import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import { useAuthStore } from '@/stores/auth'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 import { useThemeStore } from '@/stores/theme'
@@ -292,8 +299,7 @@ const showDomainMenu = ref(false)
 const showMobileMenu = ref(false)
 const keyword = ref('')
 const permissions = ref<MyAdminPermissions | null>(null)
-const headerDomainOptions = ref<PublicDomainConfig[]>([...localDomainConfigs])
-const domainSource = ref<DomainConfigSource>('fallback')
+const { domains: headerDomainOptions, loadDomains } = useDomainCatalog()
 const unreadCount = computed(() => realtimeStore.unreadCount.total)
 const userMenuSignature = computed(() => {
   const signature = authStore.user?.signature?.trim()
@@ -301,15 +307,10 @@ const userMenuSignature = computed(() => {
     ? signature
     : '分享经验、收藏攻略、参与讨论'
 })
-const headerDomainSourceSummary = computed(() => (
-  domainSource.value === 'remote'
-    ? `已同步 /api/v1/domains · 当前 ${headerDomainOptions.value.length} 个领域`
-    : `接口未返回时使用本地 fallback · 当前 ${headerDomainOptions.value.length} 个领域`
-))
 const navItems = [
   { to: '/', label: '首页', icon: Flame },
   { to: '/explore', label: '发现', icon: Compass },
-  { to: '/questions', label: '知识库', icon: MessageCircle },
+  { to: '/collaboration', label: '共建', icon: HeartHandshake },
   { to: '/editor', label: '发布', icon: PenLine },
 ]
 const adminLinks = computed(() => {
@@ -318,6 +319,8 @@ const adminLinks = computed(() => {
   const links: Array<{ to: string; label: string }> = []
   if (value.ops || value.questionOperator || value.contentModerator || value.admin) links.push({ to: '/admin/ops', label: '运维中心' })
   if (value.admin) links.push({ to: '/admin/operations', label: '运营编排' })
+  if (value.contentModerator || value.domainModerator || value.admin) links.push({ to: '/admin/collaboration', label: '公共共建治理' })
+  if (value.admin) links.push({ to: '/admin/community-growth', label: '激励与角色治理' })
   if (value.questionOperator || value.admin) {
     links.push({ to: '/admin/questions', label: '结构化内容审核' })
     links.push({ to: '/admin/company-aliases', label: '实体别名维护' })
@@ -337,17 +340,6 @@ const loadPermissions = async () => {
     permissions.value = res.code === 0 ? res.data : null
   } catch {
     permissions.value = null
-  }
-}
-
-const loadHeaderDomains = async () => {
-  try {
-    const res = await domainApi.listPublic()
-    headerDomainOptions.value = res.data?.length ? res.data : [...localDomainConfigs]
-    domainSource.value = res.source
-  } catch {
-    headerDomainOptions.value = [...localDomainConfigs]
-    domainSource.value = 'fallback'
   }
 }
 
@@ -394,7 +386,7 @@ const handleLogout = async () => {
 
 onMounted(() => {
   loadPermissions()
-  loadHeaderDomains()
+  loadDomains()
   document.addEventListener('click', handleDocumentClick)
 })
 
@@ -457,15 +449,6 @@ watch(() => authStore.token, () => {
 .menu-divider {
   margin: 0.35rem 0;
   border-top: 1px solid rgb(226 232 240);
-}
-
-.domain-menu-footer {
-  margin-top: 0.4rem;
-  border-top: 1px solid rgb(226 232 240);
-  padding: 0.75rem 0.75rem 0.15rem;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: rgb(100 116 139);
 }
 
 .mobile-menu-backdrop {
@@ -601,11 +584,6 @@ watch(() => authStore.token, () => {
 
 .dark .menu-divider {
   border-color: rgb(30 41 59);
-}
-
-.dark .domain-menu-footer {
-  border-color: rgb(30 41 59);
-  color: rgb(148 163 184);
 }
 
 </style>

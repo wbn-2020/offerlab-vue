@@ -1,5 +1,5 @@
 import client, { type Result } from './client'
-import { DOMAIN, DOMAIN_OPTIONS, type DomainOption, normalizeDomain } from '@/utils/domains'
+import { DOMAIN, DOMAIN_OPTIONS, isKnownDomain, type DomainOption } from '@/utils/domains'
 
 export type DomainConfigSource = 'remote' | 'fallback'
 
@@ -84,16 +84,17 @@ const buildFallbackDomainConfig = (option: DomainOption, index: number): PublicD
   }
 }
 
-const normalizeList = (items: PublicDomainConfig[]) => {
+const normalizeList = (items: Array<PublicDomainConfig | null | undefined>) => {
   return items
-    .filter((item) => item.enabled)
+    .filter((item): item is PublicDomainConfig => Boolean(item?.enabled))
     .sort((a, b) => (a.sortOrder - b.sortOrder) || (a.domain - b.domain))
 }
 
 const fallbackDomainConfigs = DOMAIN_OPTIONS.map((option, index) => buildFallbackDomainConfig(option, index))
 
-const adaptDomainConfig = (raw: any): PublicDomainConfig => {
-  const domain = normalizeDomain(raw?.domain)
+const adaptDomainConfig = (raw: any): PublicDomainConfig | null => {
+  const domain = Number(raw?.domain)
+  if (!isKnownDomain(domain)) return null
   const option = domainOptionByValue.get(domain) ?? DOMAIN_OPTIONS[0]!
   const fallback = fallbackDomainConfigs.find((item) => item.domain === domain) ?? buildFallbackDomainConfig(option, 0)
   return {

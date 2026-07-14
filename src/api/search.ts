@@ -26,6 +26,7 @@ export interface SearchParams {
   company?: string
   position?: string
   type?: number
+  domain?: number
   sort?: 'relevance' | 'latest' | 'hot'
   cursor?: string
   size?: number
@@ -112,6 +113,7 @@ export const searchApi = {
       company: params.company,
       position: params.position,
       type: params.type,
+      domain: params.domain,
       sort: params.sort,
       cursor: params.cursor,
       size: params.size,

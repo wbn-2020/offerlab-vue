@@ -11,7 +11,7 @@ export const safeRedirect = (value: unknown, fallback = '/') => {
         url.searchParams.delete(key)
       }
     }
-    return `${url.pathname}${url.search}`
+    return `${url.pathname}${url.search}${url.hash}`
   } catch {
     return fallback
   }

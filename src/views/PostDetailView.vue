@@ -429,7 +429,189 @@
               </div>
 
               <section
-                v-if="contentTrustSignals.length || publicAcceptedSuggestionNotes.length"
+                id="trusted-content"
+                class="trusted-content-loop"
+                data-trusted-content-loop
+                :data-trusted-content-state="trustedContentLoadState"
+              >
+                <div class="trusted-content-loop-head">
+                  <div>
+                    <p>可信内容</p>
+                    <h2>{{ isQuestionPost ? '问题进展与读者反馈' : '时效状态与读者反馈' }}</h2>
+                    <span>这些状态来自真实操作和服务端记录，不代表平台为内容结论背书。</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="trusted-content-refresh"
+                    :disabled="isLoadingTrustedContent || trustedContentMutationPending"
+                    @click="loadTrustedContent"
+                  >
+                    {{ isLoadingTrustedContent ? '读取中...' : trustedContentLoadState === 'error' ? '重试读取' : '刷新状态' }}
+                  </button>
+                </div>
+                <p v-if="trustedContentError" class="trusted-content-message trusted-content-message-error" role="alert">
+                  {{ trustedContentError }}
+                </p>
+                <p
+                  v-else-if="!isTrustedContentLoaded"
+                  class="trusted-content-message"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {{ trustedContentAvailabilityDetail }}
+                </p>
+                <p
+                  v-if="isTrustedContentLoaded && trustedContentFeedback"
+                  class="trusted-content-message"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {{ trustedContentFeedback }}
+                </p>
+
+                <div v-if="isQuestionPost" class="trusted-content-row">
+                  <div class="trusted-content-row-copy">
+                    <span>问题状态</span>
+                    <strong>{{ questionStatusText }}</strong>
+                    <p v-if="!isTrustedContentLoaded">{{ trustedContentAvailabilityDetail }}</p>
+                    <p v-else-if="acceptedCommentId">已有一条回答被作者采纳；仍可继续补充新的经验和边界条件。</p>
+                    <p v-else-if="questionStatus === 'NO_RELIABLE_CONCLUSION'">作者已说明当前讨论未形成可靠结论。</p>
+                    <p v-else>根评论作为回答，楼中楼用于追问和补充讨论；作者可在根回答上选择“采用回答”。</p>
+                    <RouterLink
+                      v-if="isTrustedContentLoaded && questionStatus === 'DUPLICATE' && trustedContentState?.duplicatePostId"
+                      :to="`/post/${trustedContentState.duplicatePostId}`"
+                    >
+                      查看重复问题
+                    </RouterLink>
+                  </div>
+                  <div v-if="isOwnPost" class="trusted-content-controls">
+                    <select
+                      v-model="questionStatusDraft"
+                      :disabled="!canMutateTrustedContent"
+                      aria-label="问题状态"
+                    >
+                      <option
+                        v-if="questionStatusDraft && !allowedQuestionStatuses.includes(questionStatusDraft)"
+                        :value="questionStatusDraft"
+                        disabled
+                      >
+                        当前：{{ questionStatusDraftLabel }}
+                      </option>
+                      <option v-for="option in questionStatusOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                    <input
+                      v-if="questionStatusDraft === 'DUPLICATE'"
+                      v-model="duplicatePostIdDraft"
+                      :disabled="!canMutateTrustedContent"
+                      inputmode="numeric"
+                      maxlength="24"
+                      placeholder="重复问题帖子 ID"
+                      aria-label="重复问题帖子 ID"
+                    />
+                    <button type="button" :disabled="!canSaveQuestionState" @click="saveQuestionState">
+                      {{ isSavingQuestionState ? '保存中...' : '保存问题状态' }}
+                    </button>
+                    <button
+                      v-if="acceptedCommentId"
+                      type="button"
+                      class="trusted-content-secondary"
+                      :disabled="!canMutateTrustedContent"
+                      @click="clearAcceptedAnswer"
+                    >
+                      取消采纳回答
+                    </button>
+                  </div>
+                </div>
+
+                <div class="trusted-content-row">
+                  <div class="trusted-content-row-copy">
+                    <span>内容时效</span>
+                    <strong>{{ freshnessStatusText }}</strong>
+                    <p v-if="!isTrustedContentLoaded">{{ trustedContentAvailabilityDetail }}</p>
+                    <p v-else-if="trustedContentState?.lastConfirmedAt">
+                      作者最近确认于 {{ formatTime(trustedContentState.lastConfirmedAt) }}
+                    </p>
+                    <p v-else>尚无单独的时效确认记录；个人经历和观点不会被机械标记为过期。</p>
+                    <RouterLink
+                      v-if="isTrustedContentLoaded && freshnessStatus === 'SUPERSEDED' && trustedContentState?.successorPostId"
+                      :to="`/post/${trustedContentState.successorPostId}`"
+                    >
+                      查看后续内容
+                    </RouterLink>
+                  </div>
+                  <div v-if="isOwnPost" class="trusted-content-controls">
+                    <select
+                      v-model="freshnessStatusDraft"
+                      :disabled="!canMutateTrustedContent"
+                      aria-label="内容时效状态"
+                    >
+                      <option v-for="option in freshnessStatusOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                    <input
+                      v-if="freshnessStatusDraft === 'SUPERSEDED'"
+                      v-model="successorPostIdDraft"
+                      :disabled="!canMutateTrustedContent"
+                      inputmode="numeric"
+                      maxlength="24"
+                      placeholder="后续内容帖子 ID"
+                      aria-label="后续内容帖子 ID"
+                    />
+                    <button type="button" :disabled="!canMutateTrustedContent" @click="saveFreshness">
+                      {{ isSavingFreshness ? '保存中...' : '更新时效状态' }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="trusted-content-row trusted-content-useful">
+                  <div class="trusted-content-row-copy">
+                    <span>为什么有用</span>
+                    <strong>{{ usefulFeedbackSummary }}</strong>
+                    <p v-if="!isTrustedContentLoaded">{{ trustedContentAvailabilityDetail }}</p>
+                    <p v-else>每位读者只保留一个主要原因，可以修改或取消。</p>
+                  </div>
+                  <div class="useful-reason-list" aria-label="为什么有用">
+                    <button
+                      v-for="option in USEFUL_FEEDBACK_REASON_OPTIONS"
+                      :key="option.value"
+                      type="button"
+                      :class="{ 'useful-reason-active': myUsefulReason === option.value }"
+                      :disabled="!canMutateTrustedContent || isOwnPost"
+                      :aria-pressed="myUsefulReason === option.value"
+                      :title="option.description"
+                      @click="saveUsefulFeedback(option.value)"
+                    >
+                      <span>{{ option.label }}</span>
+                      <strong>{{ usefulReasonCount(option.value) ?? '-' }}</strong>
+                    </button>
+                    <button
+                      v-if="myUsefulReason"
+                      type="button"
+                      class="useful-reason-clear"
+                      :disabled="!canMutateTrustedContent"
+                      @click="clearUsefulFeedback"
+                    >
+                      取消我的反馈
+                    </button>
+                    <span v-else-if="isOwnPost" class="useful-reason-note">作者不能给自己的内容添加有用反馈。</span>
+                    <button
+                      v-else-if="!authStore.isLoggedIn"
+                      type="button"
+                      class="useful-reason-login"
+                      :disabled="!isTrustedContentLoaded"
+                      @click="requireLogin()"
+                    >
+                      登录后反馈
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section
+                v-if="contentTrustSignals.length || publicSuggestionRecords.length"
                 class="content-trust-panel"
                 data-phase15-content-trust
                 data-explainable-trust-signals
@@ -445,10 +627,15 @@
                     <strong>{{ signal.value }}</strong>
                     <p>{{ signal.description }}</p>
                   </article>
-                  <article v-for="note in publicAcceptedSuggestionNotes" :key="`accepted-note-${note}`">
-                    <span>读者建议</span>
-                    <strong>作者已补充</strong>
-                    <p>{{ note }}</p>
+                  <article
+                    v-for="item in publicSuggestionRecords"
+                    :key="`public-suggestion-${item.suggestionId}-${item.decision}-${item.decidedAt || 0}`"
+                  >
+                    <span>{{ contentSuggestionTypeText(item.type) }}</span>
+                    <strong>{{ contentSuggestionDecisionText(item.decision) }}</strong>
+                    <p v-if="item.publicNote">{{ item.publicNote }}</p>
+                    <p v-if="item.submitterNickname">建议来自 {{ item.submitterNickname }}</p>
+                    <small v-if="item.decidedAt">处理于 {{ formatTime(item.decidedAt) }}</small>
                   </article>
                 </div>
                 <div
@@ -460,8 +647,26 @@
                 </div>
               </section>
 
+              <section v-if="publicUpdates.length" class="public-update-list" aria-labelledby="public-update-list-title">
+                <div class="public-update-list-head">
+                  <div>
+                    <p>更新记录</p>
+                    <h2 id="public-update-list-title">作者公开说明的内容变化</h2>
+                  </div>
+                  <span>仅展示摘要和影响范围，不公开旧正文。</span>
+                </div>
+                <article v-for="item in publicUpdates" :key="`${item.resultVersion}-${item.createdAt}`">
+                  <div>
+                    <strong>版本 {{ item.resultVersion }}</strong>
+                    <span>{{ formatTime(item.createdAt) }}</span>
+                  </div>
+                  <p>{{ item.publicUpdateSummary }}</p>
+                  <small v-if="item.impactScope">{{ publicUpdateImpactText(item.impactScope) }}</small>
+                </article>
+              </section>
+
               <section
-                v-if="CONTENT_SUGGESTIONS_ENABLED"
+                id="content-suggestions"
                 class="content-suggestion-panel"
                 data-phase15-content-suggestion
                 data-suggestions-private
@@ -494,62 +699,107 @@
                       type="button"
                       class="content-suggestion-secondary"
                       data-author-close-suggestion-entry
-                      :disabled="isHandlingContentSuggestion || postSuggestionEntryOpen === false"
-                      @click="closePostSuggestionEntry"
+                      :disabled="isHandlingContentSuggestion"
+                      @click="togglePostSuggestionEntry"
                     >
-                      {{ postSuggestionEntryOpen === false ? '建议入口已关闭' : '关闭这篇建议入口' }}
+                      {{ postSuggestionEntryOpen === false ? '重新开启建议入口' : '关闭这篇建议入口' }}
                     </button>
                   </div>
                   <div v-if="isLoadingContentSuggestions" class="content-suggestion-empty">正在加载读者建议...</div>
                   <div v-else-if="contentSuggestions.length === 0" class="content-suggestion-empty">暂无待处理建议。</div>
-                  <article v-for="item in contentSuggestions" v-else :key="item.id" class="content-suggestion-item">
+                  <article
+                    v-for="item in contentSuggestions"
+                    v-else
+                    :id="contentSuggestionDomId(item.id)"
+                    :key="item.id"
+                    class="content-suggestion-item"
+                  >
                     <div class="content-suggestion-item-head">
                       <span>{{ contentSuggestionTypeText(item.type) }}</span>
-                      <strong>{{ contentSuggestionStatusText(item.status) }}</strong>
+                      <strong>
+                        {{ item.decision ? contentSuggestionDecisionText(item.decision) : contentSuggestionStatusText(item.status) }}
+                      </strong>
                     </div>
                     <p>{{ item.detail }}</p>
                     <a v-if="safeContentSuggestionUrl(item.sourceUrl)" :href="safeContentSuggestionUrl(item.sourceUrl)" target="_blank" rel="noreferrer">查看补充链接</a>
                     <p v-if="item.allowPublicAttribution && item.submitterNickname" class="content-suggestion-meta">
                       提交者允许公开昵称：{{ item.submitterNickname }}
                     </p>
-                    <textarea v-model="contentSuggestionReplyDrafts[String(item.id)]" rows="2" maxlength="1000" placeholder="给提交者的处理说明，可选" />
-                    <div class="content-suggestion-actions">
-                      <button type="button" :disabled="isHandlingContentSuggestion" @click="handleContentSuggestionAction(item, 'ACCEPTED')">采纳</button>
-                      <button type="button" :disabled="isHandlingContentSuggestion" @click="handleContentSuggestionAction(item, 'REPLIED')">回复</button>
-                      <button type="button" :disabled="isHandlingContentSuggestion" @click="handleContentSuggestionAction(item, 'IGNORED')">忽略</button>
-                      <button type="button" :disabled="isHandlingContentSuggestion" @click="handleContentSuggestionAction(item, 'CLOSED')">关闭</button>
-                    </div>
+                    <p v-if="item.publicNote" class="content-suggestion-public-note">公开处理说明：{{ item.publicNote }}</p>
+                    <template v-if="item.status === 'PENDING'">
+                      <textarea v-model="contentSuggestionReplyDrafts[String(item.id)]" rows="2" maxlength="500" placeholder="公开处理说明或未采纳原因，最多 500 字" />
+                      <div class="content-suggestion-actions">
+                        <button type="button" :disabled="isHandlingContentSuggestion" @click="decideContentSuggestion(item, 'ACCEPTED')">采纳</button>
+                        <button type="button" :disabled="isHandlingContentSuggestion" @click="decideContentSuggestion(item, 'PARTIAL_ACCEPTED')">部分采纳</button>
+                        <button type="button" :disabled="isHandlingContentSuggestion" @click="openSuggestionInEditor(item)">编辑并合并</button>
+                        <button type="button" :disabled="isHandlingContentSuggestion" @click="decideContentSuggestion(item, 'REJECTED')">未采纳</button>
+                      </div>
+                    </template>
                   </article>
                 </div>
 
-                <form v-else-if="authStore.isLoggedIn" class="content-suggestion-form" @submit.prevent="submitContentSuggestion">
-                  <label>
-                    <span>建议类型</span>
-                    <select v-model="contentSuggestionForm.type">
-                      <option v-for="option in CONTENT_SUGGESTION_TYPE_OPTIONS" :key="option.value" :value="option.value">
-                        {{ option.label }} · {{ option.description }}
-                      </option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>具体建议</span>
-                    <textarea v-model="contentSuggestionForm.detail" rows="4" maxlength="2000" placeholder="写下你希望作者补充、核对或澄清的内容" />
-                  </label>
-                  <label>
-                    <span>相关链接（可选）</span>
-                    <input v-model="contentSuggestionForm.sourceUrl" type="url" placeholder="https://..." />
-                  </label>
-                  <label class="content-suggestion-checkbox">
-                    <input v-model="contentSuggestionForm.allowPublicAttribution" type="checkbox" />
-                    <span>如果作者采纳，允许展示我的昵称；默认不公开提交者身份。</span>
-                  </label>
-                  <div class="content-suggestion-form-actions">
-                    <span>{{ contentSuggestionSubmitGuard.reason }}</span>
-                    <button type="submit" :disabled="contentSuggestionSubmitDisabled">
-                      {{ isSubmittingContentSuggestion ? '提交中...' : '提交给作者' }}
-                    </button>
-                  </div>
-                </form>
+                <div v-else-if="authStore.isLoggedIn" class="content-suggestion-reader">
+                  <section class="content-suggestion-history" data-my-content-suggestions aria-labelledby="my-content-suggestions-title">
+                    <div class="content-suggestion-history-head">
+                      <div>
+                        <p class="content-trust-kicker">我的建议</p>
+                        <h3 id="my-content-suggestions-title">提交与处理记录</h3>
+                      </div>
+                      <span>仅你、作者和必要治理角色可见</span>
+                    </div>
+                    <div v-if="isLoadingContentSuggestions" class="content-suggestion-empty">正在读取你的建议...</div>
+                    <div v-else-if="contentSuggestions.length === 0" class="content-suggestion-empty">你还没有给这篇内容提交建议。</div>
+                    <article
+                      v-for="item in contentSuggestions"
+                      v-else
+                      :id="contentSuggestionDomId(item.id)"
+                      :key="item.id"
+                      class="content-suggestion-item"
+                    >
+                      <div class="content-suggestion-item-head">
+                        <span>{{ contentSuggestionTypeText(item.type) }}</span>
+                        <strong>{{ item.decision ? contentSuggestionDecisionText(item.decision) : contentSuggestionStatusText(item.status) }}</strong>
+                      </div>
+                      <p>{{ item.detail }}</p>
+                      <a v-if="safeContentSuggestionUrl(item.sourceUrl)" :href="safeContentSuggestionUrl(item.sourceUrl)" target="_blank" rel="noreferrer">查看补充链接</a>
+                      <p v-if="item.authorReply" class="content-suggestion-public-note">作者回复：{{ item.authorReply }}</p>
+                      <p v-if="item.publicNote" class="content-suggestion-public-note">公开处理说明：{{ item.publicNote }}</p>
+                      <div class="content-suggestion-history-time">
+                        <span v-if="item.createdAt">提交于 {{ formatTime(item.createdAt) }}</span>
+                        <span v-if="item.decidedAt">处理于 {{ formatTime(item.decidedAt) }}</span>
+                      </div>
+                    </article>
+                  </section>
+
+                  <form class="content-suggestion-form" @submit.prevent="submitContentSuggestion">
+                    <label>
+                      <span>建议类型</span>
+                      <select v-model="contentSuggestionForm.type">
+                        <option v-for="option in CONTENT_SUGGESTION_TYPE_OPTIONS" :key="option.value" :value="option.value">
+                          {{ option.label }} · {{ option.description }}
+                        </option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>具体建议</span>
+                      <textarea v-model="contentSuggestionForm.detail" rows="4" maxlength="2000" placeholder="写下你希望作者补充、核对或澄清的内容" />
+                    </label>
+                    <label>
+                      <span>相关链接（可选）</span>
+                      <input v-model="contentSuggestionForm.sourceUrl" type="url" placeholder="https://..." />
+                    </label>
+                    <label class="content-suggestion-checkbox">
+                      <input v-model="contentSuggestionForm.allowPublicAttribution" type="checkbox" />
+                      <span>如果作者采纳，允许展示我的昵称；默认不公开提交者身份。</span>
+                    </label>
+                    <div class="content-suggestion-form-actions">
+                      <span>{{ contentSuggestionSubmitGuard.reason }}</span>
+                      <button type="submit" :disabled="contentSuggestionSubmitDisabled">
+                        {{ isSubmittingContentSuggestion ? '提交中...' : '提交给作者' }}
+                      </button>
+                    </div>
+                  </form>
+                </div>
 
                 <div v-else class="content-suggestion-empty">
                   登录后可以给作者提交补充或纠错建议，建议不会自动公开。
@@ -689,6 +939,9 @@
                 :can-mark-helpful-comments="authStore.isLoggedIn"
                 :can-manage-quality-signals="isOwnPost || isContentModerator"
                 :can-moderate-comments="isContentModerator"
+                :can-accept-answer="canAcceptAnswer"
+                :accepted-comment-id="acceptedCommentId ?? undefined"
+                :accept-answer-pending="!isTrustedContentLoaded || isAcceptingAnswer"
                 :loading-reply-root-ids="loadingReplyRootIds"
                 :empty-text="discussionEmptyText"
                 :reply-action-label="discussionReplyActionLabel"
@@ -705,6 +958,7 @@
                 @unfeature-comment="handleUnfeatureComment"
                 @fold-comment="handleFoldComment"
                 @unfold-comment="handleUnfoldComment"
+                @accept-answer="acceptAnswer"
                 @reply-comment="handleReplyComment"
                 @load-more-replies="handleLoadMoreReplies"
                 @delete-comment="handleDeleteComment"
@@ -912,7 +1166,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { postApi, type InterviewMaterialPack } from '@/api/post'
@@ -921,19 +1175,31 @@ import { adaptComment, adaptPage } from '@/api/adapters'
 import { userApi } from '@/api/user'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import {
+  CONTENT_SUGGESTION_DECISION_LABELS,
   CONTENT_SUGGESTION_STATUS_LABELS,
   CONTENT_SUGGESTION_TYPE_OPTIONS,
-  CONTENT_SUGGESTIONS_ENABLED,
   buildContentSuggestionDuplicateKey,
   canSubmitContentSuggestion,
   contentSuggestionApi,
   normalizeHttpUrl,
+  type ContentSuggestionDecision,
   type ContentSuggestionRecord,
   type ContentSuggestionStatus,
   type ContentSuggestionType,
 } from '@/api/contentSuggestions'
+import {
+  FRESHNESS_STATUS_LABELS,
+  QUESTION_STATUS_LABELS,
+  USEFUL_FEEDBACK_REASON_OPTIONS,
+  trustedContentApi,
+  type FreshnessStatus,
+  type QuestionStatus,
+  type TrustedContentState,
+  type UsefulFeedbackReason,
+} from '@/api/trustedContent'
 import { useAuthStore } from '@/stores/auth'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
+import { useEffectiveRead } from '@/composables/useEffectiveRead'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownRenderer from '@/components/post/MarkdownRenderer.vue'
@@ -947,7 +1213,7 @@ import ContactRequestDialog from '@/components/contact/ContactRequestDialog.vue'
 import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
 import client, { BizException, getErrorMessage } from '@/api/client'
-import type { Comment, Post, PostPublishStatus, PostVersionHistory } from '@/api/types'
+import type { Comment, Post, PostPublishStatus, PostVersionHistory, PublicPostUpdate } from '@/api/types'
 import { isPersistableKnowledgeRelation, knowledgeApi, type KnowledgeExploreResponse, type KnowledgePath, type KnowledgePreviewSource, type KnowledgeRelation, type PublicKnowledgeAsset, type PublicKnowledgeAssetType } from '@/api/knowledge'
 import { POST_TYPE, getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
@@ -956,7 +1222,6 @@ import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 import { buildFollowReasons, isPublicAuthor, safeCreatorBio } from '@/utils/creatorSignals'
 import { findHighRiskContentWarning, isPublicPostVisible } from '@/utils/recommendationGovernance'
 import { buildContentTrustSignals, buildRelationshipContext } from '@/utils/communityIdentity'
-import { safeStorage } from '@/utils/safeStorage'
 import {
   REPORT_REASON_OPTIONS,
   getUnavailableContentCopy,
@@ -978,6 +1243,7 @@ type PostRouteLoadContext = {
   postId: string
   signal: AbortSignal
 }
+type TrustedContentLoadState = 'loading' | 'loaded' | 'error'
 type QualityComment = Comment & {
   authorReply?: boolean
   authorPinned?: boolean
@@ -996,6 +1262,30 @@ const MAX_COMMENT_NODES = 400
 
 const adminPermissions = ref<MyAdminPermissions | null>(null)
 const versionHistories = ref<PostVersionHistory[]>([])
+const publicUpdates = ref<PublicPostUpdate[]>([])
+const trustedContentState = ref<TrustedContentState | null>(null)
+const trustedContentLoadState = ref<TrustedContentLoadState>('loading')
+const isLoadingTrustedContent = computed(() => trustedContentLoadState.value === 'loading')
+const trustedContentError = ref('')
+const trustedContentFeedback = ref('')
+const isSavingUsefulFeedback = ref(false)
+const questionStatusDraft = ref<QuestionStatus | ''>('')
+const duplicatePostIdDraft = ref('')
+const isSavingQuestionState = ref(false)
+const isAcceptingAnswer = ref(false)
+const freshnessStatusDraft = ref<FreshnessStatus | ''>('')
+const successorPostIdDraft = ref('')
+const isSavingFreshness = ref(false)
+const isTrustedContentLoaded = computed(() => trustedContentLoadState.value === 'loaded')
+const trustedContentMutationPending = computed(() => (
+  isSavingUsefulFeedback.value
+  || isSavingQuestionState.value
+  || isAcceptingAnswer.value
+  || isSavingFreshness.value
+))
+const canMutateTrustedContent = computed(() => (
+  isTrustedContentLoaded.value && !trustedContentMutationPending.value
+))
 const isVersionDialogOpen = ref(false)
 const isLoadingVersions = ref(false)
 const versionLoadAttempted = ref(false)
@@ -1032,23 +1322,24 @@ const contentSuggestions = ref<ContentSuggestionRecord[]>([])
 const isLoadingContentSuggestions = ref(false)
 const isSubmittingContentSuggestion = ref(false)
 const isHandlingContentSuggestion = ref(false)
+let contentSuggestionLoadGeneration = 0
 const contentSuggestionError = ref('')
 const contentSuggestionFeedback = ref('')
 const postSuggestionEntryOpen = ref(true)
 const contentSuggestionReplyDrafts = ref<Record<string, string>>({})
-const contentSuggestionLocalKeys = ref(new Set<string>())
-const contentSuggestionDailyCount = ref(0)
-const contentSuggestionForm = ref<{
+type ContentSuggestionForm = {
   type: ContentSuggestionType
   detail: string
   sourceUrl: string
   allowPublicAttribution: boolean
-}>({
-  type: 'SUPPLEMENT',
+}
+const createContentSuggestionForm = (): ContentSuggestionForm => ({
+  type: 'CORRECTION',
   detail: '',
   sourceUrl: '',
   allowPublicAttribution: false,
 })
+const contentSuggestionForm = ref<ContentSuggestionForm>(createContentSuggestionForm())
 const unavailableReportFeedbackMessage = '内容状态已变化，无需重复举报'
 const duplicateReportFeedbackMessage = '重复举报已收到，已有待处理举报，请勿重复提交。'
 const rateLimitedReportFeedbackMessage = '举报太频繁，请稍后再提交。'
@@ -1091,8 +1382,15 @@ const materialForm = ref({
 let postRouteGeneration = 1
 let postRouteController = new AbortController()
 let commentLoadGeneration = 0
+let commentViewGeneration = 0
 let commentLoadController: AbortController | null = null
 const replyLoadControllers = new Map<string, AbortController>()
+const commentContextLoads = new Map<string, Promise<boolean>>()
+const commentContextAttempts = new Set<string>()
+const contextCommentRootIds = new Set<string>()
+const contextCommentTargetIds = new Set<string>()
+const protectedContextRootIds = new Set<string>()
+let lastFocusedRouteHashKey = ''
 
 const capturePostRouteContext = (targetPostId = postId.value): PostRouteLoadContext => ({
   generation: postRouteGeneration,
@@ -1117,6 +1415,15 @@ const abortReplyLoads = () => {
   loadingReplyRootIds.value = []
 }
 
+const resetCommentViewContext = () => {
+  commentViewGeneration += 1
+  commentContextLoads.clear()
+  commentContextAttempts.clear()
+  contextCommentRootIds.clear()
+  contextCommentTargetIds.clear()
+  protectedContextRootIds.clear()
+}
+
 const beginPostRouteGeneration = () => {
   postRouteController.abort()
   postRouteController = new AbortController()
@@ -1125,6 +1432,8 @@ const beginPostRouteGeneration = () => {
   commentLoadController?.abort()
   commentLoadController = null
   abortReplyLoads()
+  resetCommentViewContext()
+  lastFocusedRouteHashKey = ''
 }
 
 const isCanceledRequest = (error: unknown) => {
@@ -1174,6 +1483,18 @@ const failedDetailImages = ref<string[]>([])
 const publishStatus = computed<PostPublishStatus | null>(() => publishStatusData.value?.data || null)
 const authorUid = computed(() => String(post.value?.author.uid ?? ''))
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(post.value?.author.uid ?? ''))
+const effectiveReadEnabled = computed(() => (
+  authStore.isLoggedIn
+  && Boolean(post.value?.postId)
+  && !isOwnPost.value
+  && isPublicPostVisible(post.value as Post)
+))
+const loadedEffectiveReadPostId = computed(() => (
+  post.value?.postId && String(post.value.postId) === String(postId.value)
+    ? post.value.postId
+    : null
+))
+useEffectiveRead(loadedEffectiveReadPostId, { enabled: effectiveReadEnabled })
 const isAnonymousMaskedAuthor = computed(() => Boolean(post.value?.anonymous))
 const canOpenAuthorProfile = computed(() => Boolean(post.value)
   && !isAnonymousMaskedAuthor.value
@@ -1262,6 +1583,104 @@ const publishStatusSummary = computed(() => {
 })
 const contentTypeLabel = computed(() => getContentTypeLabel(post.value?.postType))
 const isQuestionPost = computed(() => Number(post.value?.postType) === POST_TYPE.QUESTION)
+const trustedContentAvailabilityText = computed(() => (
+  trustedContentLoadState.value === 'error'
+    ? '可信内容状态暂不可用'
+    : '可信内容状态未知'
+))
+const trustedContentAvailabilityDetail = computed(() => (
+  trustedContentLoadState.value === 'error'
+    ? '服务端记录暂时无法读取，请重试后再查看或操作。'
+    : '正在读取服务端记录，完成前不会展示或提交可信结论。'
+))
+const questionStatus = computed<QuestionStatus | null>(() => {
+  if (!isTrustedContentLoaded.value) return null
+  return trustedContentState.value?.questionStatus
+    ?? (isQuestionPost.value ? 'OPEN' : 'CLOSED')
+})
+const questionStatusText = computed(() => (
+  questionStatus.value
+    ? QUESTION_STATUS_LABELS[questionStatus.value]
+    : trustedContentAvailabilityText.value
+))
+const acceptedCommentId = computed(() => (
+  isTrustedContentLoaded.value
+    ? trustedContentState.value?.acceptedCommentId ?? null
+    : null
+))
+const freshnessStatus = computed<FreshnessStatus | null>(() => (
+  isTrustedContentLoaded.value
+    ? trustedContentState.value?.freshnessStatus ?? 'CURRENT'
+    : null
+))
+const freshnessStatusText = computed(() => (
+  freshnessStatus.value
+    ? FRESHNESS_STATUS_LABELS[freshnessStatus.value]
+    : trustedContentAvailabilityText.value
+))
+const usefulFeedbackTotal = computed<number | null>(() => (
+  isTrustedContentLoaded.value
+    ? Number(trustedContentState.value?.usefulFeedbackTotal ?? 0)
+    : null
+))
+const usefulFeedbackSummary = computed(() => (
+  usefulFeedbackTotal.value == null
+    ? trustedContentAvailabilityText.value
+    : `${usefulFeedbackTotal.value} 次具体反馈`
+))
+const myUsefulReason = computed(() => (
+  isTrustedContentLoaded.value
+    ? trustedContentState.value?.myUsefulReason ?? null
+    : null
+))
+const usefulReasonCount = (reason: UsefulFeedbackReason) => (
+  isTrustedContentLoaded.value
+    ? Number(trustedContentState.value?.usefulReasonCounts?.[reason] ?? 0)
+    : null
+)
+const allowedQuestionStatuses = computed<QuestionStatus[]>(() => (
+  isTrustedContentLoaded.value
+    ? trustedContentState.value?.allowedQuestionStatuses ?? []
+    : []
+))
+const questionStatusOptionLabels: Record<QuestionStatus, string> = {
+  OPEN: '继续征集回答',
+  ANSWERED: '已有回答，等待判断',
+  ACCEPTED: '已有采纳回答',
+  NO_RELIABLE_CONCLUSION: '未形成可靠结论',
+  CLOSED: '关闭讨论',
+  DUPLICATE: '重复问题',
+}
+const questionStatusOptions = computed<Array<{ value: QuestionStatus; label: string }>>(() => (
+  allowedQuestionStatuses.value.map((status) => ({
+    value: status,
+    label: questionStatusOptionLabels[status],
+  }))
+))
+const questionStatusDraftLabel = computed(() => (
+  questionStatusDraft.value
+    ? questionStatusOptionLabels[questionStatusDraft.value]
+    : ''
+))
+const canSaveQuestionState = computed(() => (
+  canMutateTrustedContent.value
+  && Boolean(questionStatusDraft.value)
+  && allowedQuestionStatuses.value.includes(questionStatusDraft.value as QuestionStatus)
+))
+const canAcceptAnswer = computed(() => (
+  isQuestionPost.value
+  && isOwnPost.value
+  && isTrustedContentLoaded.value
+  && questionStatus.value !== null
+  && ['OPEN', 'ANSWERED', 'ACCEPTED'].includes(questionStatus.value)
+))
+const freshnessStatusOptions: Array<{ value: FreshnessStatus; label: string }> = [
+  { value: 'CURRENT', label: '确认当前有效' },
+  { value: 'POSSIBLY_STALE', label: '可能已经过时' },
+  { value: 'AWAITING_AUTHOR_CONFIRMATION', label: '等待作者确认' },
+  { value: 'UPDATED', label: '内容已更新' },
+  { value: 'SUPERSEDED', label: '已有后续内容' },
+]
 const discussionSectionTitle = computed(() => (
   isQuestionPost.value
     ? `讨论与建议（${post.value?.counter.comment ?? 0}）`
@@ -1346,19 +1765,9 @@ const highRiskSuggestionGuidance = computed(() => {
     ? '高风险频道的事实更正只作为请作者补充来源或上下文，不由平台裁定专业结论。'
     : '高风险频道建议保持中性说明，优先补充来源、上下文和风险边界。'
 })
-const publicAcceptedSuggestionNotes = computed(() => {
-  const source = post.value?.extension?.acceptedSuggestionNotes
-    ?? post.value?.extension?.publicAcceptedSuggestionNotes
-    ?? post.value?.extension?.publicAcceptedSuggestions
-  const items = Array.isArray(source) ? source : []
-  return items
-    .map((item) => {
-      if (typeof item === 'string') return item
-      return String(item?.acceptedPublicNote || item?.publicNote || '').trim()
-    })
-    .filter(Boolean)
-    .slice(0, 3)
-})
+const publicSuggestionRecords = computed(() => (
+  (trustedContentState.value?.publicSuggestionRecords || []).slice(0, 3)
+))
 const contentSuggestionDuplicateKey = computed(() => buildContentSuggestionDuplicateKey({
   postId: post.value?.postId,
   submitterUid: authStore.user?.uid,
@@ -1366,10 +1775,13 @@ const contentSuggestionDuplicateKey = computed(() => buildContentSuggestionDupli
   detail: contentSuggestionForm.value.detail,
 }))
 const hasDuplicatePendingContentSuggestion = computed(() => (
-  contentSuggestionLocalKeys.value.has(contentSuggestionDuplicateKey.value)
-  || contentSuggestions.value.some((item) => item.status === 'PENDING'
-    && item.type === contentSuggestionForm.value.type
-    && String(item.detail || '').replace(/\s+/g, ' ').trim().toLowerCase() === String(contentSuggestionForm.value.detail || '').replace(/\s+/g, ' ').trim().toLowerCase())
+  contentSuggestions.value.some((item) => item.status === 'PENDING'
+    && buildContentSuggestionDuplicateKey({
+      postId: item.postId || post.value?.postId,
+      submitterUid: authStore.user?.uid,
+      type: item.type,
+      detail: item.detail,
+    }) === contentSuggestionDuplicateKey.value)
 ))
 const contentSuggestionSubmitGuard = computed(() => canSubmitContentSuggestion({
   isLoggedIn: authStore.isLoggedIn,
@@ -1379,41 +1791,34 @@ const contentSuggestionSubmitGuard = computed(() => canSubmitContentSuggestion({
   type: contentSuggestionForm.value.type,
   detail: contentSuggestionForm.value.detail,
   duplicatePending: hasDuplicatePendingContentSuggestion.value,
-  dailySubmissionCount: contentSuggestionDailyCount.value,
   blockedByAuthor: Boolean((post.value?.author as any)?.blockedByAuthor),
   governanceRestricted: Boolean((authStore.user as any)?.muted || (authStore.user as any)?.banned),
 }))
 const contentSuggestionSubmitDisabled = computed(() => isSubmittingContentSuggestion.value || !contentSuggestionSubmitGuard.value.allowed)
 const contentSuggestionStatusText = (status: ContentSuggestionStatus) => CONTENT_SUGGESTION_STATUS_LABELS[status] || status
+const contentSuggestionDecisionText = (decision?: ContentSuggestionDecision) => (
+  decision ? CONTENT_SUGGESTION_DECISION_LABELS[decision] || decision : ''
+)
 const contentSuggestionTypeText = (type: ContentSuggestionType) => CONTENT_SUGGESTION_TYPE_OPTIONS.find((item) => item.value === type)?.label || type
 const safeContentSuggestionUrl = (value?: string) => normalizeHttpUrl(value)
-const contentSuggestionStoragePrefix = computed(() => `phase15-content-suggestions:${authStore.user?.uid || 'guest'}:${postId.value}`)
+const contentSuggestionDomId = (suggestionId: ContentSuggestionRecord['id']) => `content-suggestion-${String(suggestionId)}`
 
-const loadLocalContentSuggestionGuards = () => {
-  if (typeof window === 'undefined') return
-  const key = contentSuggestionStoragePrefix.value
-  try {
-    const raw = JSON.parse(safeStorage.get(key) || '{}') as { date?: string; count?: number; keys?: string[] }
-    const today = new Date().toISOString().slice(0, 10)
-    contentSuggestionDailyCount.value = raw.date === today ? Math.max(0, Number(raw.count || 0)) : 0
-    contentSuggestionLocalKeys.value = new Set(raw.date === today && Array.isArray(raw.keys) ? raw.keys.map(String) : [])
-  } catch {
-    contentSuggestionDailyCount.value = 0
-    contentSuggestionLocalKeys.value = new Set()
-  }
+const invalidateContentSuggestionLoads = () => {
+  contentSuggestionLoadGeneration += 1
+  isLoadingContentSuggestions.value = false
 }
 
-const rememberLocalContentSuggestionGuard = () => {
-  if (typeof window === 'undefined') return
-  const today = new Date().toISOString().slice(0, 10)
-  const nextKeys = new Set([...contentSuggestionLocalKeys.value, contentSuggestionDuplicateKey.value].filter(Boolean))
-  contentSuggestionLocalKeys.value = nextKeys
-  contentSuggestionDailyCount.value += 1
-  safeStorage.set(contentSuggestionStoragePrefix.value, JSON.stringify({
-    date: today,
-    count: contentSuggestionDailyCount.value,
-    keys: [...nextKeys],
-  }))
+const resetContentSuggestionState = () => {
+  invalidateContentSuggestionLoads()
+  contentSuggestions.value = []
+  isLoadingContentSuggestions.value = false
+  isSubmittingContentSuggestion.value = false
+  isHandlingContentSuggestion.value = false
+  contentSuggestionError.value = ''
+  contentSuggestionFeedback.value = ''
+  postSuggestionEntryOpen.value = true
+  contentSuggestionReplyDrafts.value = {}
+  contentSuggestionForm.value = createContentSuggestionForm()
 }
 const handleDetailImageError = (image: string) => {
   if (!failedDetailImages.value.includes(image)) {
@@ -1864,142 +2269,218 @@ const mergeContentSuggestion = (item: ContentSuggestionRecord) => {
   contentSuggestions.value = [item, ...rest].sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0))
 }
 
-const rememberPublicAcceptedSuggestionNote = (note?: string) => {
-  const safeNote = String(note || '').trim()
-  if (!post.value || !safeNote) return
-  const currentNotes = publicAcceptedSuggestionNotes.value
-  post.value = {
-    ...post.value,
-    extension: {
-      ...(post.value.extension || {}),
-      acceptedSuggestionNotes: [...new Set([safeNote, ...currentNotes])].slice(0, 3),
-    },
-  }
-}
-
 const loadContentSuggestions = async () => {
-  if (!CONTENT_SUGGESTIONS_ENABLED) {
-    contentSuggestions.value = []
-    return
-  }
-  loadLocalContentSuggestionGuards()
+  const loadGeneration = ++contentSuggestionLoadGeneration
   contentSuggestionFeedback.value = ''
-  if (!post.value || !authStore.isLoggedIn) {
-    contentSuggestions.value = []
+  const current = post.value
+  if (!current || !authStore.isLoggedIn) {
+    if (loadGeneration === contentSuggestionLoadGeneration) {
+      contentSuggestions.value = []
+      isLoadingContentSuggestions.value = false
+    }
     return
   }
-  const current = post.value
   const context = capturePostRouteContext(String(current.postId))
+  const viewerUid = String(authStore.user?.uid ?? '')
+  const authorView = isOwnPost.value
   isLoadingContentSuggestions.value = true
   contentSuggestionError.value = ''
   try {
-    const res = isOwnPost.value
-      ? await contentSuggestionApi.listForAuthorPost(current.postId)
-      : await contentSuggestionApi.listMineForPost(current.postId)
+    const res = authorView
+      ? await contentSuggestionApi.listForAuthorPost(context.postId, undefined, 50, {
+        signal: context.signal,
+      })
+      : await contentSuggestionApi.listMineForPost(context.postId, {
+        signal: context.signal,
+      })
     if (!isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
+    if (loadGeneration !== contentSuggestionLoadGeneration) return
     contentSuggestions.value = res.data || []
   } catch (error: any) {
-    if (!isActiveLoadedPostContext(context)) return
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
+    if (loadGeneration !== contentSuggestionLoadGeneration) return
     contentSuggestions.value = []
     contentSuggestionError.value = getErrorMessage(error, '补充建议接口暂不可用，当前不会伪造提交成功。')
   } finally {
-    if (isActiveLoadedPostContext(context)) {
+    if (
+      isActiveLoadedPostContext(context)
+      && viewerUid === String(authStore.user?.uid ?? '')
+      && loadGeneration === contentSuggestionLoadGeneration
+    ) {
       isLoadingContentSuggestions.value = false
     }
   }
 }
 
 const submitContentSuggestion = async () => {
-  if (!post.value) return
+  const current = post.value
+  if (!current) return
   if (!requireLogin()) return
   const guard = contentSuggestionSubmitGuard.value
   if (!guard.allowed) {
     contentSuggestionFeedback.value = guard.reason
     return
   }
+  const sourceUrl = contentSuggestionForm.value.sourceUrl
+  const normalizedSourceUrl = normalizeHttpUrl(sourceUrl)
+  if (sourceUrl.trim() && !normalizedSourceUrl) {
+    contentSuggestionError.value = '相关链接只支持 http 或 https。'
+    return
+  }
+  invalidateContentSuggestionLoads()
+  const context = capturePostRouteContext(String(current.postId))
+  const viewerUid = String(authStore.user?.uid ?? '')
+  const request = {
+    type: contentSuggestionForm.value.type,
+    detail: contentSuggestionForm.value.detail,
+    sourceUrl: normalizedSourceUrl,
+    allowPublicAttribution: contentSuggestionForm.value.allowPublicAttribution,
+  }
   isSubmittingContentSuggestion.value = true
   contentSuggestionFeedback.value = ''
   contentSuggestionError.value = ''
   try {
-    const normalizedSourceUrl = normalizeHttpUrl(contentSuggestionForm.value.sourceUrl)
-    if (contentSuggestionForm.value.sourceUrl.trim() && !normalizedSourceUrl) {
-      contentSuggestionError.value = '相关链接只支持 http 或 https。'
+    const res = await contentSuggestionApi.submit(context.postId, request, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
+    if (!res.data) {
+      contentSuggestionError.value = '服务端未返回建议记录，请刷新后确认提交状态。'
       return
     }
-    const res = await contentSuggestionApi.submit(post.value.postId, {
-      type: contentSuggestionForm.value.type,
-      detail: contentSuggestionForm.value.detail,
-      sourceUrl: normalizedSourceUrl,
-      allowPublicAttribution: contentSuggestionForm.value.allowPublicAttribution,
-    })
-    if (res.data) mergeContentSuggestion(res.data)
-    rememberLocalContentSuggestionGuard()
-    contentSuggestionForm.value = {
-      type: 'SUPPLEMENT',
-      detail: '',
-      sourceUrl: '',
-      allowPublicAttribution: false,
-    }
+    invalidateContentSuggestionLoads()
+    mergeContentSuggestion(res.data)
+    contentSuggestionForm.value = createContentSuggestionForm()
     contentSuggestionFeedback.value = '已提交给作者处理，不会进入公开讨论。'
     toast.success('补充建议已提交给作者')
   } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
     contentSuggestionError.value = getErrorMessage(error, '补充建议暂未提交成功。')
   } finally {
-    isSubmittingContentSuggestion.value = false
+    if (
+      isActiveLoadedPostContext(context)
+      && viewerUid === String(authStore.user?.uid ?? '')
+    ) {
+      isSubmittingContentSuggestion.value = false
+    }
   }
 }
 
-const handleContentSuggestionAction = async (
+const decideContentSuggestion = async (
   item: ContentSuggestionRecord,
-  action: 'ACCEPTED' | 'REPLIED' | 'IGNORED' | 'CLOSED',
+  decision: Exclude<ContentSuggestionDecision, 'MERGED'>,
 ) => {
-  if (!isOwnPost.value || isHandlingContentSuggestion.value) return
+  const current = post.value
+  if (!current || !isOwnPost.value || isHandlingContentSuggestion.value) return
+  if (item.postId && String(item.postId) !== String(current.postId)) return
+  const note = contentSuggestionReplyDrafts.value[String(item.id)]?.trim()
+  if (decision === 'REJECTED' && !note) {
+    contentSuggestionError.value = '未采纳建议时，请填写简短原因。'
+    return
+  }
+  invalidateContentSuggestionLoads()
+  const context = capturePostRouteContext(String(current.postId))
+  const viewerUid = String(authStore.user?.uid ?? '')
   isHandlingContentSuggestion.value = true
   contentSuggestionError.value = ''
   try {
-    const reply = contentSuggestionReplyDrafts.value[String(item.id)]?.trim()
-    const res = action === 'ACCEPTED'
-      ? await contentSuggestionApi.accept(item.id, { publicNote: '作者已根据读者建议补充。' })
-      : action === 'REPLIED'
-        ? await contentSuggestionApi.reply(item.id, { reply })
-        : action === 'IGNORED'
-          ? await contentSuggestionApi.ignore(item.id)
-          : await contentSuggestionApi.close(item.id, { reply })
-    const nextSuggestion = res.data || { ...item, status: action, authorReply: reply, updatedAt: Date.now() }
-    mergeContentSuggestion(nextSuggestion)
-    if (action === 'ACCEPTED') {
-      rememberPublicAcceptedSuggestionNote(nextSuggestion.acceptedPublicNote || '作者已根据读者建议补充。')
+    const publicNote = note || (decision === 'PARTIAL_ACCEPTED'
+      ? '作者已采纳其中一部分，并保留其他条件继续核对。'
+      : '作者已采纳这条补充建议。')
+    const res = await contentSuggestionApi.decide(item.id, {
+      decision,
+      authorReply: note,
+      publicNote,
+    }, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
+    if (!res.data) {
+      contentSuggestionError.value = '服务端未返回最新建议状态，请刷新后确认处理结果。'
+      return
     }
-    if (action === 'REPLIED' || action === 'CLOSED') {
-      contentSuggestionReplyDrafts.value = { ...contentSuggestionReplyDrafts.value, [String(item.id)]: '' }
-    }
+    invalidateContentSuggestionLoads()
+    mergeContentSuggestion(res.data)
+    contentSuggestionReplyDrafts.value = { ...contentSuggestionReplyDrafts.value, [String(item.id)]: '' }
+    await loadTrustedContent()
+    if (!isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
     toast.success('建议状态已更新')
   } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
     contentSuggestionError.value = getErrorMessage(error, '建议处理暂不可用。')
   } finally {
-    isHandlingContentSuggestion.value = false
+    if (
+      isActiveLoadedPostContext(context)
+      && viewerUid === String(authStore.user?.uid ?? '')
+    ) {
+      isHandlingContentSuggestion.value = false
+    }
   }
 }
 
-const closePostSuggestionEntry = async () => {
-  if (!post.value || !isOwnPost.value || isHandlingContentSuggestion.value) return
+const openSuggestionInEditor = (item: ContentSuggestionRecord) => {
+  if (!post.value?.postId || !isOwnPost.value) return
+  router.push({
+    path: `/editor/${post.value.postId}`,
+    query: {
+      source: 'post_detail',
+      action: 'update',
+      contextType: 'post',
+      postId: String(post.value.postId),
+      suggestionId: String(item.id),
+      updateSummary: contentSuggestionReplyDrafts.value[String(item.id)]?.trim()
+        || `根据读者的${contentSuggestionTypeText(item.type)}建议更新内容`,
+      reasonText: '内容补充 / 纠错建议',
+      returnHref: `/post/${post.value.postId}`,
+    },
+  })
+}
+
+const togglePostSuggestionEntry = async () => {
+  const current = post.value
+  if (!current || !isOwnPost.value || isHandlingContentSuggestion.value) return
+  invalidateContentSuggestionLoads()
+  const context = capturePostRouteContext(String(current.postId))
+  const viewerUid = String(authStore.user?.uid ?? '')
+  const nextOpen = !postSuggestionEntryOpen.value
   isHandlingContentSuggestion.value = true
   contentSuggestionError.value = ''
   try {
-    const res = await contentSuggestionApi.closePostEntry(post.value.postId)
-    postSuggestionEntryOpen.value = res.data?.suggestionsOpen !== true ? false : postSuggestionEntryOpen.value
-    post.value = {
-      ...post.value,
-      extension: {
-        ...(post.value.extension || {}),
-        suggestionsOpen: postSuggestionEntryOpen.value,
-      },
+    const res = await contentSuggestionApi.setPostEntry(context.postId, nextOpen, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
+    if (!res.data) {
+      contentSuggestionError.value = '服务端未返回建议入口状态，请刷新后确认设置。'
+      return
     }
-    toast.success('已关闭这篇内容的建议入口')
+    postSuggestionEntryOpen.value = res.data.suggestionsOpen
+    if (trustedContentState.value) {
+      trustedContentState.value = {
+        ...trustedContentState.value,
+        suggestionsOpen: postSuggestionEntryOpen.value,
+      }
+    }
+    toast.success(postSuggestionEntryOpen.value ? '已重新开启建议入口' : '已关闭这篇内容的建议入口')
   } catch (error: any) {
-    contentSuggestionError.value = getErrorMessage(error, '建议入口暂无法关闭。')
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    if (viewerUid !== String(authStore.user?.uid ?? '')) return
+    contentSuggestionError.value = getErrorMessage(error, '建议入口设置暂未保存。')
   } finally {
-    isHandlingContentSuggestion.value = false
+    if (
+      isActiveLoadedPostContext(context)
+      && viewerUid === String(authStore.user?.uid ?? '')
+    ) {
+      isHandlingContentSuggestion.value = false
+    }
   }
 }
 
@@ -2053,15 +2534,75 @@ const adaptQualityComment = (raw: any): Comment => {
   return comment
 }
 
+const commentIdKey = (comment: Pick<Comment, 'commentId'>) => String(comment.commentId)
+
+const compareCommentOrder = (left: Comment, right: Comment) => {
+  const timeDelta = Number(left.createdAt || 0) - Number(right.createdAt || 0)
+  if (timeDelta !== 0) return timeDelta
+  return commentIdKey(left).localeCompare(commentIdKey(right), undefined, { numeric: true })
+}
+
+const mergeOrderedReplies = (...replyGroups: Array<Comment[] | undefined>) => {
+  const byId = new Map<string, Comment>()
+  for (const reply of replyGroups.flatMap((group) => group || [])) {
+    const key = commentIdKey(reply)
+    const existing = byId.get(key)
+    byId.set(key, existing ? { ...existing, ...reply } : reply)
+  }
+  const ordered = Array.from(byId.values()).sort(compareCommentOrder)
+  if (ordered.length <= MAX_REPLIES_PER_ROOT) return ordered
+
+  const capped = ordered.slice(0, MAX_REPLIES_PER_ROOT)
+  for (const targetId of contextCommentTargetIds) {
+    const target = byId.get(targetId)
+    if (!target || capped.some((reply) => commentIdKey(reply) === targetId)) continue
+    capped[capped.length - 1] = target
+  }
+  return capped.sort(compareCommentOrder)
+}
+
+const mergeCommentRoot = (existing: Comment | undefined, incoming: Comment) => {
+  if (!existing) {
+    return {
+      ...incoming,
+      replies: mergeOrderedReplies(incoming.replies),
+    }
+  }
+  const replies = mergeOrderedReplies(existing.replies, incoming.replies)
+  const replyCount = Math.max(
+    Number(existing.replyCount || 0),
+    Number(incoming.replyCount || 0),
+    replies.length,
+  )
+  return {
+    ...existing,
+    ...incoming,
+    replies,
+    replyCount,
+    hasMoreReplies: Boolean(existing.hasMoreReplies || incoming.hasMoreReplies || replyCount > replies.length),
+    repliesNextCursor: incoming.repliesNextCursor ?? existing.repliesNextCursor,
+  }
+}
+
+const uniqueCommentRoots = (items: Comment[]) => {
+  const order: string[] = []
+  const byId = new Map<string, Comment>()
+  for (const item of items) {
+    const key = commentIdKey(item)
+    if (!byId.has(key)) order.push(key)
+    byId.set(key, mergeCommentRoot(byId.get(key), item))
+  }
+  return order.map((key) => byId.get(key)).filter((item): item is Comment => Boolean(item))
+}
+
 const capCommentForest = (items: Comment[]) => {
-  let remainingNodes = MAX_COMMENT_NODES
-  const capBranch = (comment: Comment): Comment | null => {
-    if (remainingNodes <= 0) return null
-    remainingNodes -= 1
-    const originalReplies = comment.replies || []
+  const capBranch = (comment: Comment, budget: { remaining: number }): Comment | null => {
+    if (budget.remaining <= 0) return null
+    budget.remaining -= 1
+    const originalReplies = mergeOrderedReplies(comment.replies)
     const replies: Comment[] = []
-    for (const reply of originalReplies.slice(0, MAX_REPLIES_PER_ROOT)) {
-      const cappedReply = capBranch(reply)
+    for (const reply of originalReplies) {
+      const cappedReply = capBranch(reply, budget)
       if (!cappedReply) break
       replies.push(cappedReply)
     }
@@ -2072,10 +2613,258 @@ const capCommentForest = (items: Comment[]) => {
     }
   }
 
-  return items
+  const roots = uniqueCommentRoots(items)
+  const isProtectedContextRoot = (comment: Comment) => (
+    contextCommentRootIds.has(commentIdKey(comment))
+    || protectedContextRootIds.has(commentIdKey(comment))
+  )
+  const contextRoots = roots.filter(isProtectedContextRoot)
     .slice(0, MAX_COMMENT_ROOTS)
-    .map(capBranch)
+  const regularRoots = roots.filter((comment) => !isProtectedContextRoot(comment))
+    .slice(0, Math.max(0, MAX_COMMENT_ROOTS - contextRoots.length))
+  const contextBudget = { remaining: MAX_COMMENT_NODES }
+  const cappedContextRoots = contextRoots
+    .map((comment) => capBranch(comment, contextBudget))
     .filter((item): item is Comment => Boolean(item))
+  const regularBudget = { remaining: contextBudget.remaining }
+  const cappedRegularRoots = regularRoots
+    .map((comment) => capBranch(comment, regularBudget))
+    .filter((item): item is Comment => Boolean(item))
+  const cappedById = new Map(
+    [...cappedContextRoots, ...cappedRegularRoots].map((comment) => [commentIdKey(comment), comment]),
+  )
+  return roots
+    .map((comment) => cappedById.get(commentIdKey(comment)))
+    .filter((item): item is Comment => Boolean(item))
+}
+
+const mergeCommentPage = (current: Comment[], incoming: Comment[], reset: boolean) => {
+  const nextPage = uniqueCommentRoots(incoming)
+  if (reset) return capCommentForest(nextPage)
+
+  const currentRoots = uniqueCommentRoots(current)
+  const currentById = new Map(currentRoots.map((comment) => [commentIdKey(comment), comment]))
+  const nextIds = new Set(nextPage.map(commentIdKey))
+  const paginatedRoots = currentRoots.filter(
+    (comment) => !contextCommentRootIds.has(commentIdKey(comment)) && !nextIds.has(commentIdKey(comment)),
+  )
+  const contextRoots = currentRoots.filter(
+    (comment) => contextCommentRootIds.has(commentIdKey(comment)) && !nextIds.has(commentIdKey(comment)),
+  )
+  const hydratedPage = nextPage.map((comment) => mergeCommentRoot(currentById.get(commentIdKey(comment)), comment))
+  for (const comment of nextPage) {
+    contextCommentRootIds.delete(commentIdKey(comment))
+  }
+  return capCommentForest([...paginatedRoots, ...hydratedPage, ...contextRoots])
+}
+
+const decodeRouteHashTarget = (hash: string) => {
+  const rawTarget = hash.startsWith('#') ? hash.slice(1) : hash
+  try {
+    return decodeURIComponent(rawTarget)
+  } catch {
+    return rawTarget
+  }
+}
+
+const scrollToRouteTarget = (targetId: string, focusKey: string) => {
+  if (typeof document === 'undefined') return false
+  const target = document.getElementById(targetId)
+  if (!target) return false
+  target.scrollIntoView({ block: 'center' })
+  lastFocusedRouteHashKey = focusKey
+  return true
+}
+
+const clearTemporaryCommentContext = () => {
+  if (contextCommentRootIds.size > 0) {
+    comments.value = comments.value.filter(
+      (comment) => !contextCommentRootIds.has(commentIdKey(comment)),
+    )
+  }
+  commentContextAttempts.clear()
+  contextCommentRootIds.clear()
+  contextCommentTargetIds.clear()
+  protectedContextRootIds.clear()
+}
+
+const prepareRouteCommentContext = (targetCommentId: string) => {
+  if (
+    contextCommentTargetIds.size === 1
+    && contextCommentTargetIds.has(targetCommentId)
+  ) {
+    return
+  }
+  clearTemporaryCommentContext()
+  contextCommentTargetIds.add(targetCommentId)
+}
+
+const mergeCommentContext = (raw: unknown, targetCommentId: string, context: PostRouteLoadContext) => {
+  const incomingRoot = adaptQualityComment(raw)
+  if (
+    !incomingRoot.commentId
+    || String(incomingRoot.postId) !== context.postId
+  ) {
+    return false
+  }
+  const incomingReplies = incomingRoot.replies || []
+  const containsTarget = String(incomingRoot.commentId) === targetCommentId
+    || incomingReplies.some((reply) => String(reply.commentId) === targetCommentId)
+  if (!containsTarget) return false
+
+  contextCommentTargetIds.add(targetCommentId)
+  const incomingRootId = commentIdKey(incomingRoot)
+  protectedContextRootIds.add(incomingRootId)
+  const rootIndex = comments.value.findIndex(
+    (comment) => commentIdKey(comment) === incomingRootId,
+  )
+  if (rootIndex < 0) {
+    const nextRoots = [...comments.value]
+    const incomingNodeCount = commentThreadItems([incomingRoot]).length
+    let currentNodeCount = commentThreadItems(nextRoots).length
+    while (
+      nextRoots.length > 0
+      && (
+        nextRoots.length >= MAX_COMMENT_ROOTS
+        || currentNodeCount + incomingNodeCount > MAX_COMMENT_NODES
+      )
+    ) {
+      const removed = nextRoots.pop()
+      if (removed) currentNodeCount -= commentThreadItems([removed]).length
+    }
+    contextCommentRootIds.add(incomingRootId)
+    comments.value = capCommentForest([...nextRoots, incomingRoot])
+    return Boolean(findComment(targetCommentId))
+  }
+
+  const existingRoot = comments.value[rootIndex]
+  const mergedRoot = mergeCommentRoot(existingRoot, incomingRoot)
+  comments.value = capCommentForest(
+    comments.value.map((comment, index) => index === rootIndex ? mergedRoot : comment),
+  )
+  return Boolean(findComment(targetCommentId))
+}
+
+const loadRouteCommentContext = (
+  commentId: string,
+  context: PostRouteLoadContext,
+  expectedHash: string,
+): Promise<boolean> => {
+  const viewerUid = String(authStore.user?.uid ?? '')
+  const viewGeneration = commentViewGeneration
+  const requestKey = `${context.generation}:${viewGeneration}:${context.postId}:${viewerUid}:${commentId}`
+  const activeLoad = commentContextLoads.get(requestKey)
+  if (activeLoad) return activeLoad
+  if (commentContextAttempts.has(requestKey)) return Promise.resolve(false)
+  commentContextAttempts.add(requestKey)
+
+  const request = (async () => {
+    try {
+      const res = await client.get(
+        `/api/v1/posts/${context.postId}/comments/${commentId}/context`,
+        { signal: context.signal },
+      ) as any
+      if (
+        !isActiveLoadedPostContext(context)
+        || viewGeneration !== commentViewGeneration
+        || viewerUid !== String(authStore.user?.uid ?? '')
+        || route.hash !== expectedHash
+        || !res.data
+      ) {
+        return false
+      }
+      return mergeCommentContext(res.data, commentId, context)
+    } catch (error) {
+      if (isCanceledRequest(error) || !isActivePostRouteContext(context)) return false
+      return false
+    }
+  })()
+  commentContextLoads.set(requestKey, request)
+  void request.finally(() => {
+    if (commentContextLoads.get(requestKey) === request) {
+      commentContextLoads.delete(requestKey)
+    }
+  })
+  return request
+}
+
+const loadRouteContentSuggestion = async (
+  suggestionId: string,
+  context: PostRouteLoadContext,
+  expectedHash: string,
+): Promise<boolean> => {
+  const viewerUid = String(authStore.user?.uid ?? '')
+  try {
+    const res = await contentSuggestionApi.getById(suggestionId, {
+      signal: context.signal,
+    })
+    if (
+      !isActiveLoadedPostContext(context)
+      || viewerUid !== String(authStore.user?.uid ?? '')
+      || route.hash !== expectedHash
+      || !res.data
+      || String(res.data.id) !== suggestionId
+      || String(res.data.postId) !== context.postId
+    ) {
+      return false
+    }
+    invalidateContentSuggestionLoads()
+    mergeContentSuggestion(res.data)
+    contentSuggestionError.value = ''
+    return true
+  } catch (error) {
+    if (isCanceledRequest(error) || !isActivePostRouteContext(context)) return false
+    return false
+  }
+}
+
+const focusRouteHashTarget = async () => {
+  const hash = route.hash
+  const current = post.value
+  if (!current || String(current.postId) !== String(postId.value)) return
+  if (!hash) {
+    clearTemporaryCommentContext()
+    return
+  }
+
+  const context = capturePostRouteContext(String(current.postId))
+  const targetId = decodeRouteHashTarget(hash)
+  if (!targetId) return
+  const commentMatch = /^comment-(\d+)$/.exec(targetId)
+  const contentSuggestionMatch = /^content-suggestion-(\d+)$/.exec(targetId)
+  if (!commentMatch && (contextCommentRootIds.size > 0 || protectedContextRootIds.size > 0)) {
+    clearTemporaryCommentContext()
+  }
+  const viewerUid = String(authStore.user?.uid ?? '')
+  const focusRevision = commentMatch ? commentViewGeneration : 0
+  const focusKey = `${context.generation}:${focusRevision}:${context.postId}:${viewerUid}:${hash}`
+  if (lastFocusedRouteHashKey === focusKey) return
+
+  await nextTick()
+  if (!isActiveLoadedPostContext(context) || route.hash !== hash) return
+  if (commentMatch && isLoadingComments.value) return
+  if (scrollToRouteTarget(targetId, focusKey)) return
+
+  if (commentMatch) {
+    prepareRouteCommentContext(commentMatch[1])
+    await loadRouteCommentContext(commentMatch[1], context, hash)
+    if (!isActiveLoadedPostContext(context) || route.hash !== hash) return
+    await nextTick()
+    if (scrollToRouteTarget(targetId, focusKey)) return
+    scrollToRouteTarget('comments', focusKey)
+    return
+  }
+
+  if (contentSuggestionMatch) {
+    if (isLoadingContentSuggestions.value) return
+    await nextTick()
+    if (scrollToRouteTarget(targetId, focusKey)) return
+    await loadRouteContentSuggestion(contentSuggestionMatch[1], context, hash)
+    if (!isActiveLoadedPostContext(context) || route.hash !== hash) return
+    await nextTick()
+    if (scrollToRouteTarget(targetId, focusKey)) return
+    scrollToRouteTarget('content-suggestions', focusKey)
+  }
 }
 
 const fetchCommentsPage = async (
@@ -2217,6 +3006,7 @@ const handleFoldComment = async (commentId: Comment['commentId']) => {
   try {
     await client.post(`/api/v1/comments/${commentId}/fold`, { reason: defaultFoldReason })
     updateCommentQualityFlag(commentId, 'folded', true)
+    await loadTrustedContent()
     toast.success('评论已折叠')
   } catch (error: any) {
     toast.error(getErrorMessage(error, '折叠评论失败'))
@@ -2230,6 +3020,7 @@ const handleUnfoldComment = async (commentId: Comment['commentId']) => {
   try {
     await client.delete(`/api/v1/comments/${commentId}/fold`)
     updateCommentQualityFlag(commentId, 'folded', false)
+    await loadTrustedContent()
     toast.success('已取消折叠')
   } catch (error: any) {
     toast.error(getErrorMessage(error, '取消折叠失败'))
@@ -2292,6 +3083,7 @@ const handleSubmitComment = async () => {
       post.value.counter.comment += 1
       toast.success('评论成功')
       await loadComments()
+      await loadTrustedContent()
     }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '评论失败'))
@@ -2326,6 +3118,7 @@ const handleDeleteComment = async (commentId: Comment['commentId']) => {
     post.value.counter.comment = Math.max(0, post.value.counter.comment - removed)
     toast.success('评论已删除')
     await loadComments(true)
+    await loadTrustedContent()
   } catch (error: any) {
     toast.error(getErrorMessage(error, '删除评论失败'))
   }
@@ -2418,14 +3211,17 @@ const loadComments = async (reset = true) => {
   if (reset) {
     commentLoadController?.abort()
     abortReplyLoads()
+    resetCommentViewContext()
   }
   const controller = new AbortController()
   commentLoadController = controller
   const requestGeneration = ++commentLoadGeneration
+  const viewGeneration = commentViewGeneration
   const sort = commentSort.value
   const isActiveCommentLoad = () => (
     !controller.signal.aborted
     && requestGeneration === commentLoadGeneration
+    && viewGeneration === commentViewGeneration
     && sort === commentSort.value
     && isActivePostRouteContext(context)
   )
@@ -2441,13 +3237,15 @@ const loadComments = async (reset = true) => {
     const page = await fetchCommentsPage(reset, context, controller.signal)
     if (!isActiveCommentLoad()) return
     const nextItems = page?.items || []
-    const mergedItems = reset ? nextItems : [...comments.value, ...nextItems]
-    comments.value = capCommentForest(mergedItems)
+    comments.value = mergeCommentPage(comments.value, nextItems, reset)
     commentCursor.value = page?.nextCursor
+    const paginatedRootCount = comments.value.filter(
+      (comment) => !contextCommentRootIds.has(commentIdKey(comment)),
+    ).length
     hasMoreComments.value = Boolean(
       page?.hasMore
       && page?.nextCursor
-      && mergedItems.length < MAX_COMMENT_ROOTS
+      && paginatedRootCount < MAX_COMMENT_ROOTS
       && commentThreadItems(comments.value).length < MAX_COMMENT_NODES
     )
     commentsErrorMessage.value = ''
@@ -2485,6 +3283,7 @@ const handleLoadMoreReplies = async (rootId: Comment['commentId']) => {
   const root = findRootComment(rootId)
   if (!root || !root.hasMoreReplies || loadingReplyRootIds.value.map(String).includes(String(rootId))) return
   const context = capturePostRouteContext()
+  const viewGeneration = commentViewGeneration
   const rootKey = String(rootId)
   const controller = new AbortController()
   replyLoadControllers.get(rootKey)?.abort()
@@ -2499,6 +3298,7 @@ const handleLoadMoreReplies = async (rootId: Comment['commentId']) => {
       controller.signal.aborted
       || replyLoadControllers.get(rootKey) !== controller
       || !isActivePostRouteContext(context)
+      || viewGeneration !== commentViewGeneration
       || findRootComment(rootId) !== root
     ) return
     const page = res.data ? adaptPage(res.data, adaptQualityComment) : null
@@ -2508,8 +3308,8 @@ const handleLoadMoreReplies = async (rootId: Comment['commentId']) => {
     const availableReplySlots = Math.max(0, MAX_REPLIES_PER_ROOT - (root.replies?.length || 0))
     const availableNodeSlots = Math.max(0, MAX_COMMENT_NODES - commentThreadItems(comments.value).length)
     const acceptedReplies = nextReplies.slice(0, Math.min(availableReplySlots, availableNodeSlots))
-    const mergedReplies = [...(root.replies || []), ...acceptedReplies]
-    root.replies = mergedReplies.slice(0, MAX_REPLIES_PER_ROOT)
+    root.replies = mergeOrderedReplies(root.replies, acceptedReplies)
+    const mergedReplies = root.replies
     root.repliesNextCursor = page?.nextCursor
     root.hasMoreReplies = Boolean(
       page?.hasMore
@@ -2592,6 +3392,259 @@ const loadInteractionState = async () => {
     }
   } catch {
     // 互动状态不影响详情正文展示。
+  }
+}
+
+const resetTrustedContentState = () => {
+  trustedContentState.value = null
+  trustedContentLoadState.value = 'loading'
+  trustedContentError.value = ''
+  trustedContentFeedback.value = ''
+  questionStatusDraft.value = ''
+  duplicatePostIdDraft.value = ''
+  freshnessStatusDraft.value = ''
+  successorPostIdDraft.value = ''
+  isSavingUsefulFeedback.value = false
+  isSavingQuestionState.value = false
+  isAcceptingAnswer.value = false
+  isSavingFreshness.value = false
+}
+
+const applyTrustedContentState = (state: TrustedContentState) => {
+  trustedContentState.value = state
+  questionStatusDraft.value = state?.questionStatus ?? (isQuestionPost.value ? 'OPEN' : 'CLOSED')
+  duplicatePostIdDraft.value = state?.duplicatePostId == null ? '' : String(state.duplicatePostId)
+  freshnessStatusDraft.value = state?.freshnessStatus ?? 'CURRENT'
+  successorPostIdDraft.value = state?.successorPostId == null ? '' : String(state.successorPostId)
+  postSuggestionEntryOpen.value = state.suggestionsOpen
+  trustedContentLoadState.value = 'loaded'
+  trustedContentError.value = ''
+}
+
+const loadTrustedContent = async () => {
+  const current = post.value
+  if (!current?.postId || trustedContentMutationPending.value) return
+  const context = capturePostRouteContext(String(current.postId))
+  resetTrustedContentState()
+  try {
+    const res = await trustedContentApi.loadTrustedContent(context.postId, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (!res.data) {
+      trustedContentLoadState.value = 'error'
+      trustedContentError.value = '可信内容状态暂时无法读取。'
+      return
+    }
+    applyTrustedContentState(res.data)
+  } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    trustedContentLoadState.value = 'error'
+    trustedContentError.value = getErrorMessage(error, '可信内容状态暂时无法读取。')
+  }
+}
+
+const saveUsefulFeedback = async (reason: UsefulFeedbackReason) => {
+  const current = post.value
+  if (!current?.postId || isOwnPost.value || !canMutateTrustedContent.value) return
+  if (!requireLogin()) return
+  const context = capturePostRouteContext(String(current.postId))
+  isSavingUsefulFeedback.value = true
+  trustedContentError.value = ''
+  trustedContentFeedback.value = ''
+  try {
+    const res = await trustedContentApi.saveUsefulFeedback(context.postId, { reason }, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (!res.data) {
+      trustedContentError.value = '有用反馈已提交，但服务端未返回最新可信内容状态。'
+      return
+    }
+    applyTrustedContentState(res.data)
+    trustedContentFeedback.value = `已记录：${USEFUL_FEEDBACK_REASON_OPTIONS.find((item) => item.value === reason)?.label || '为什么有用'}。`
+  } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    trustedContentError.value = getErrorMessage(error, '有用反馈暂未保存。')
+  } finally {
+    if (isActiveLoadedPostContext(context)) isSavingUsefulFeedback.value = false
+  }
+}
+
+const clearUsefulFeedback = async () => {
+  const current = post.value
+  if (!current?.postId || !canMutateTrustedContent.value) return
+  const context = capturePostRouteContext(String(current.postId))
+  isSavingUsefulFeedback.value = true
+  trustedContentError.value = ''
+  trustedContentFeedback.value = ''
+  try {
+    const res = await trustedContentApi.clearUsefulFeedback(context.postId, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (!res.data) {
+      trustedContentError.value = '反馈已取消，但服务端未返回最新可信内容状态。'
+      return
+    }
+    applyTrustedContentState(res.data)
+    trustedContentFeedback.value = '已取消你的有用反馈。'
+  } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    trustedContentError.value = getErrorMessage(error, '暂时无法取消有用反馈。')
+  } finally {
+    if (isActiveLoadedPostContext(context)) isSavingUsefulFeedback.value = false
+  }
+}
+
+const saveQuestionState = async () => {
+  const current = post.value
+  if (!current?.postId || !isOwnPost.value || !isQuestionPost.value || !canMutateTrustedContent.value) return
+  const status = questionStatusDraft.value
+  if (!status) return
+  if (!allowedQuestionStatuses.value.includes(status)) {
+    trustedContentError.value = '当前问题状态不能直接切换到该目标，请先刷新状态。'
+    return
+  }
+  const duplicatePostId = duplicatePostIdDraft.value.trim()
+  if (status === 'DUPLICATE' && !/^[1-9]\d*$/.test(duplicatePostId)) {
+    trustedContentError.value = '标记为重复问题时，请填写有效的公开问题帖子 ID。'
+    return
+  }
+  const context = capturePostRouteContext(String(current.postId))
+  isSavingQuestionState.value = true
+  trustedContentError.value = ''
+  trustedContentFeedback.value = ''
+  try {
+    const res = await trustedContentApi.setQuestionState(context.postId, {
+      status,
+      duplicatePostId: status === 'DUPLICATE' ? duplicatePostId : null,
+    }, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (!res.data) {
+      trustedContentError.value = '问题状态已提交，但服务端未返回最新可信内容状态。'
+      return
+    }
+    applyTrustedContentState(res.data)
+    trustedContentFeedback.value = '问题状态已更新。'
+  } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    trustedContentError.value = getErrorMessage(error, '问题状态暂未保存。')
+  } finally {
+    if (isActiveLoadedPostContext(context)) isSavingQuestionState.value = false
+  }
+}
+
+const acceptAnswer = async (commentId: Comment['commentId']) => {
+  const current = post.value
+  if (!current?.postId || !canAcceptAnswer.value || !canMutateTrustedContent.value) return
+  const context = capturePostRouteContext(String(current.postId))
+  isAcceptingAnswer.value = true
+  trustedContentError.value = ''
+  trustedContentFeedback.value = ''
+  try {
+    const res = await trustedContentApi.acceptAnswer(context.postId, { commentId }, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (!res.data) {
+      trustedContentError.value = '采纳请求已提交，但服务端未返回最新可信内容状态。'
+      return
+    }
+    applyTrustedContentState(res.data)
+    trustedContentFeedback.value = '已采纳回答，并通知回答者。'
+  } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    trustedContentError.value = getErrorMessage(error, '暂时无法采纳这条回答。')
+  } finally {
+    if (isActiveLoadedPostContext(context)) isAcceptingAnswer.value = false
+  }
+}
+
+const clearAcceptedAnswer = async () => {
+  const current = post.value
+  if (!current?.postId || !isOwnPost.value || !canMutateTrustedContent.value) return
+  const context = capturePostRouteContext(String(current.postId))
+  isAcceptingAnswer.value = true
+  trustedContentError.value = ''
+  trustedContentFeedback.value = ''
+  try {
+    const res = await trustedContentApi.clearAcceptedAnswer(context.postId, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (!res.data) {
+      trustedContentError.value = '取消采纳请求已提交，但服务端未返回最新可信内容状态。'
+      return
+    }
+    applyTrustedContentState(res.data)
+    trustedContentFeedback.value = '已取消采纳，问题状态会按现有回答重新计算。'
+  } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    trustedContentError.value = getErrorMessage(error, '暂时无法取消采纳。')
+  } finally {
+    if (isActiveLoadedPostContext(context)) isAcceptingAnswer.value = false
+  }
+}
+
+const saveFreshness = async () => {
+  const current = post.value
+  if (!current?.postId || !isOwnPost.value || !canMutateTrustedContent.value) return
+  const status = freshnessStatusDraft.value
+  if (!status) return
+  const successorPostId = successorPostIdDraft.value.trim()
+  if (status === 'SUPERSEDED' && !/^[1-9]\d*$/.test(successorPostId)) {
+    trustedContentError.value = '标记为已有后续内容时，请填写有效的后续帖子 ID。'
+    return
+  }
+  const context = capturePostRouteContext(String(current.postId))
+  isSavingFreshness.value = true
+  trustedContentError.value = ''
+  trustedContentFeedback.value = ''
+  try {
+    const res = await trustedContentApi.updateFreshness(context.postId, {
+      status,
+      successorPostId: status === 'SUPERSEDED' ? successorPostId : null,
+    }, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    if (!res.data) {
+      trustedContentError.value = '时效状态已提交，但服务端未返回最新可信内容状态。'
+      return
+    }
+    applyTrustedContentState(res.data)
+    trustedContentFeedback.value = '内容时效状态已更新。'
+  } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    trustedContentError.value = getErrorMessage(error, '内容时效状态暂未保存。')
+  } finally {
+    if (isActiveLoadedPostContext(context)) isSavingFreshness.value = false
+  }
+}
+
+const publicUpdateImpactText = (scope?: string) => {
+  const labels: Record<string, string> = {
+    CONTENT: '影响范围：正文说明',
+    CONCLUSION: '影响范围：结论或建议',
+    CONDITIONS: '影响范围：适用条件',
+    SOURCES: '影响范围：来源或链接',
+    FULL_CONTENT: '影响范围：整体更新',
+  }
+  return labels[String(scope || '').toUpperCase()] || `影响范围：${scope || '内容更新'}`
+}
+
+const loadPublicUpdates = async () => {
+  const current = post.value
+  if (!current?.postId) return
+  const context = capturePostRouteContext(String(current.postId))
+  try {
+    const res = await postApi.listPublicUpdates(current.postId, 12)
+    if (isActiveLoadedPostContext(context)) publicUpdates.value = res.data || []
+  } catch {
+    if (isActiveLoadedPostContext(context)) publicUpdates.value = []
   }
 }
 
@@ -2773,7 +3826,9 @@ watch(post, () => {
   loadDetailKnowledgeAssets()
   loadInteractionState()
   loadDiscussionFollowStatus()
-  if (CONTENT_SUGGESTIONS_ENABLED) loadContentSuggestions()
+  loadTrustedContent()
+  loadPublicUpdates()
+  loadContentSuggestions()
   if (showStageTwoDetailPanels) {
     loadInterviewMaterial()
   } else {
@@ -2790,13 +3845,14 @@ watch([post, () => route.query.report, () => authStore.isLoggedIn], () => {
 
 watch(postId, () => {
   beginPostRouteGeneration()
+  resetTrustedContentState()
+  resetContentSuggestionState()
   post.value = null
   relatedPosts.value = []
   detailKnowledge.value = null
   detailKnowledgeLoading.value = false
   detailKnowledgeError.value = ''
-  contentSuggestions.value = []
-  isLoadingContentSuggestions.value = false
+  publicUpdates.value = []
   materialPack.value = null
   isLoadingMaterial.value = false
   comments.value = []
@@ -2808,7 +3864,9 @@ watch(postId, () => {
   resetDiscussionFollowState()
   commentSort.value = 'latest'
   loadComments(true)
-  if (CONTENT_SUGGESTIONS_ENABLED) loadContentSuggestions()
+  loadTrustedContent()
+  loadPublicUpdates()
+  loadContentSuggestions()
   versionHistories.value = []
   versionLoadAttempted.value = false
 })
@@ -2821,7 +3879,8 @@ onMounted(() => {
 watch(() => authStore.token, () => {
   loadAdminPermissions()
   loadDiscussionFollowStatus()
-  if (CONTENT_SUGGESTIONS_ENABLED) loadContentSuggestions()
+  loadTrustedContent()
+  loadContentSuggestions()
   if (showStageTwoDetailPanels) loadInterviewMaterial()
 })
 
@@ -2829,13 +3888,34 @@ watch(canViewVersionHistory, (allowed) => {
   if (!allowed) isVersionDialogOpen.value = false
 })
 
+watch(
+  [
+    () => route.hash,
+    () => post.value?.postId,
+    () => isLoadingComments.value,
+    () => isLoadingContentSuggestions.value,
+  ],
+  () => {
+    void focusRouteHashTarget()
+  },
+  { immediate: true },
+)
+
 onBeforeUnmount(() => {
   postRouteGeneration += 1
   postRouteController.abort()
+  invalidateContentSuggestionLoads()
   commentLoadGeneration += 1
   commentLoadController?.abort()
   commentLoadController = null
   abortReplyLoads()
+  commentViewGeneration += 1
+  commentContextLoads.clear()
+  commentContextAttempts.clear()
+  contextCommentRootIds.clear()
+  contextCommentTargetIds.clear()
+  protectedContextRootIds.clear()
+  lastFocusedRouteHashKey = ''
 })
 </script>
 
@@ -3019,13 +4099,226 @@ onBeforeUnmount(() => {
   color: rgb(4 120 87);
 }
 
+.trusted-content-loop,
+.public-update-list {
+  margin-top: 1.5rem;
+  border-top: 1px solid rgb(203 213 225);
+  border-bottom: 1px solid rgb(203 213 225);
+  padding: 1.2rem 0;
+}
+
+.trusted-content-loop-head,
+.public-update-list-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.trusted-content-loop-head p,
+.public-update-list-head p {
+  color: rgb(5 150 105);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.trusted-content-loop-head h2,
+.public-update-list-head h2 {
+  margin-top: 0.2rem;
+  color: rgb(15 23 42);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.trusted-content-loop-head span,
+.public-update-list-head span {
+  display: block;
+  margin-top: 0.25rem;
+  max-width: 42rem;
+  color: rgb(71 85 105);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.trusted-content-refresh,
+.trusted-content-controls button,
+.useful-reason-login {
+  flex: 0 0 auto;
+  border: 1px solid rgb(5 150 105);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.5rem 0.75rem;
+  color: rgb(4 120 87);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.trusted-content-refresh:disabled,
+.trusted-content-controls button:disabled,
+.useful-reason-list button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.trusted-content-message {
+  margin-top: 0.8rem;
+  color: rgb(4 120 87);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.trusted-content-message-error {
+  color: rgb(185 28 28);
+}
+
+.trusted-content-row {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(18rem, 1.1fr);
+  gap: 1.25rem;
+  border-top: 1px solid rgb(226 232 240);
+  padding-top: 1rem;
+}
+
+.trusted-content-row-copy > span {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.trusted-content-row-copy strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+}
+
+.trusted-content-row-copy p {
+  margin-top: 0.35rem;
+  color: rgb(71 85 105);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.trusted-content-row-copy a {
+  display: inline-flex;
+  margin-top: 0.45rem;
+  color: rgb(29 78 216);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.trusted-content-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.trusted-content-controls select,
+.trusted-content-controls input {
+  min-height: 2.35rem;
+  min-width: min(14rem, 100%);
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.45rem 0.65rem;
+  color: rgb(15 23 42);
+  font-size: 0.8rem;
+}
+
+.trusted-content-controls .trusted-content-secondary {
+  border-color: rgb(203 213 225);
+  color: rgb(71 85 105);
+}
+
+.useful-reason-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.useful-reason-list > button {
+  display: inline-flex;
+  min-height: 2.35rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.45rem 0.65rem;
+  color: rgb(51 65 85);
+  font-size: 0.78rem;
+}
+
+.useful-reason-list > button strong {
+  color: rgb(4 120 87);
+}
+
+.useful-reason-list > .useful-reason-active {
+  border-color: rgb(5 150 105);
+  background: rgb(236 253 245);
+  color: rgb(4 120 87);
+  font-weight: 900;
+}
+
+.useful-reason-list > .useful-reason-clear {
+  border-color: transparent;
+  background: transparent;
+  color: rgb(100 116 139);
+}
+
+.useful-reason-note {
+  color: rgb(100 116 139);
+  font-size: 0.78rem;
+}
+
+.public-update-list-head > span {
+  margin-top: 0;
+  text-align: right;
+}
+
+.public-update-list article {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.3fr) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem;
+  border-top: 1px solid rgb(226 232 240);
+  padding-top: 0.9rem;
+}
+
+.public-update-list article strong,
+.public-update-list article span {
+  display: block;
+}
+
+.public-update-list article strong {
+  color: rgb(15 23 42);
+  font-size: 0.85rem;
+}
+
+.public-update-list article span,
+.public-update-list article small {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+}
+
+.public-update-list article p {
+  color: rgb(51 65 85);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
 .content-trust-panel,
 .content-suggestion-panel {
   margin-top: 1.5rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  padding: 1.25rem;
+  border-top: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid rgb(226 232 240);
+  padding: 1.25rem 0;
 }
 
 .content-trust-kicker {
@@ -3058,7 +4351,7 @@ onBeforeUnmount(() => {
 
 .content-trust-grid article,
 .content-suggestion-item {
-  border-radius: 0.625rem;
+  border-radius: 0.5rem;
   border: 1px solid rgb(226 232 240);
   background: white;
   padding: 0.9rem;
@@ -3203,6 +4496,53 @@ onBeforeUnmount(() => {
 .content-suggestion-meta {
   color: rgb(30 64 175) !important;
   font-size: 0.78rem !important;
+}
+
+.content-suggestion-public-note {
+  color: rgb(4 120 87) !important;
+  font-weight: 700;
+}
+
+.content-suggestion-reader,
+.content-suggestion-history {
+  display: grid;
+  gap: 1rem;
+}
+
+.content-suggestion-reader {
+  margin-top: 1rem;
+}
+
+.content-suggestion-history-head,
+.content-suggestion-history-time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.content-suggestion-history-head h3 {
+  margin-top: 0.2rem;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.content-suggestion-history-head > span,
+.content-suggestion-history-time {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+}
+
+#content-suggestions,
+[id^='content-suggestion-'] {
+  scroll-margin-top: 6rem;
+}
+
+[id^='content-suggestion-']:target {
+  outline: 3px solid rgb(14 165 233 / 0.35);
+  outline-offset: 3px;
 }
 
 .discussion-follow-panel {
@@ -3425,6 +4765,71 @@ onBeforeUnmount(() => {
 .dark .favorite-feedback-row a,
 .dark .favorite-organizer-row a {
   color: rgb(187 247 208);
+}
+
+.dark .trusted-content-loop,
+.dark .public-update-list,
+.dark .content-trust-panel,
+.dark .content-suggestion-panel {
+  border-color: rgb(51 65 85);
+}
+
+.dark .trusted-content-loop-head h2,
+.dark .public-update-list-head h2,
+.dark .trusted-content-row-copy strong,
+.dark .public-update-list article strong,
+.dark .content-trust-panel h2,
+.dark .content-suggestion-panel h2,
+.dark .content-trust-grid strong,
+.dark .content-suggestion-item-head strong {
+  color: rgb(248 250 252);
+}
+
+.dark .trusted-content-loop-head span,
+.dark .public-update-list-head span,
+.dark .trusted-content-row-copy p,
+.dark .public-update-list article p,
+.dark .content-trust-panel p,
+.dark .content-suggestion-panel p {
+  color: rgb(203 213 225);
+}
+
+.dark .trusted-content-row,
+.dark .public-update-list article {
+  border-color: rgb(30 41 59);
+}
+
+.dark .trusted-content-refresh,
+.dark .trusted-content-controls button,
+.dark .useful-reason-list > button,
+.dark .content-trust-grid article,
+.dark .content-suggestion-item {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .trusted-content-controls select,
+.dark .trusted-content-controls input,
+.dark .content-suggestion-form textarea,
+.dark .content-suggestion-form input,
+.dark .content-suggestion-form select,
+.dark .content-suggestion-item textarea {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23);
+  color: rgb(248 250 252);
+}
+
+.dark .useful-reason-list > .useful-reason-active {
+  border-color: rgb(16 185 129);
+  background: rgb(6 78 59 / 0.45);
+  color: rgb(167 243 208);
+}
+
+.dark .public-update-list article span,
+.dark .public-update-list article small,
+.dark .useful-reason-note {
+  color: rgb(148 163 184);
 }
 
 .dark .discussion-follow-panel {
@@ -4357,8 +5762,36 @@ onBeforeUnmount(() => {
 
   .discussion-follow-panel,
   .discussion-follow-actions,
-  .author-action-group {
+  .author-action-group,
+  .trusted-content-loop-head,
+  .public-update-list-head {
     width: 100%;
+  }
+
+  .trusted-content-loop-head,
+  .public-update-list-head {
+    flex-direction: column;
+  }
+
+  .trusted-content-row,
+  .public-update-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .trusted-content-controls,
+  .useful-reason-list {
+    justify-content: flex-start;
+  }
+
+  .trusted-content-controls select,
+  .trusted-content-controls input,
+  .trusted-content-controls button,
+  .trusted-content-refresh {
+    width: 100%;
+  }
+
+  .public-update-list-head > span {
+    text-align: left;
   }
 
   .discussion-follow-button,

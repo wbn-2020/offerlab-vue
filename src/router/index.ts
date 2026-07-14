@@ -18,6 +18,12 @@ const routes = [
     meta: { title: '发现' },
   },
   {
+    path: '/collaboration',
+    name: 'CollaborationHub',
+    component: () => import('@/views/CollaborationHubView.vue'),
+    meta: { title: '公共共建' },
+  },
+  {
     path: '/trend',
     name: 'TrendDashboard',
     component: () => import('@/views/TrendDashboardView.vue'),
@@ -90,6 +96,12 @@ const routes = [
     name: 'GrowthReport',
     component: () => import('@/views/GrowthReportView.vue'),
     meta: { title: '成长周报月报', requiresAuth: true },
+  },
+  {
+    path: '/growth/community',
+    name: 'CommunityGrowth',
+    component: () => import('@/views/CommunityGrowthView.vue'),
+    meta: { title: '社区成长', requiresAuth: true },
   },
   {
     path: '/knowledge/explore',
@@ -192,6 +204,22 @@ const routes = [
     name: 'AdminOperations',
     component: () => import('@/views/AdminOperationsView.vue'),
     meta: { title: '运营编排', requiresAuth: true, adminPermission: 'admin' },
+  },
+  {
+    path: '/admin/collaboration',
+    name: 'AdminCollaboration',
+    component: () => import('@/views/AdminCollaborationView.vue'),
+    meta: {
+      title: '公共共建治理',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+    },
+  },
+  {
+    path: '/admin/community-growth',
+    name: 'AdminCommunityGrowth',
+    component: () => import('@/views/AdminCommunityGrowthView.vue'),
+    meta: { title: '激励与角色治理', requiresAuth: true, adminPermission: 'admin' },
   },
   {
     path: '/admin/questions',

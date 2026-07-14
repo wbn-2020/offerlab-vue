@@ -1,4 +1,5 @@
 export type ApiId = string | number
+export type ApiLong = string | number
 
 export interface User {
   uid: ApiId
@@ -143,6 +144,7 @@ export interface PostVersionHistory {
   authorId?: ApiId
   editorUid?: ApiId
   baseVersion?: number
+  resultVersion?: number
   title: string
   content: string
   contentSummary?: string
@@ -152,6 +154,15 @@ export interface PostVersionHistory {
   extension?: Record<string, any>
   tags: Tag[]
   changeSummary?: string
+  publicUpdateSummary?: string
+  impactScope?: string
+  createdAt: number
+}
+
+export interface PublicPostUpdate {
+  resultVersion: number
+  publicUpdateSummary: string
+  impactScope?: string
   createdAt: number
 }
 
@@ -710,6 +721,60 @@ export interface GrowthReportHighlightPost {
   featured: boolean
 }
 
+export interface EffectiveReadSession {
+  sessionToken: string
+  postId?: ApiId
+  minimumActiveSeconds: number
+  minimumScrollPercent?: number
+  heartbeatIntervalSeconds: number
+  heartbeatTimeoutSeconds: number
+  nextHeartbeatSeq: number
+  activeSeconds: number
+  maxScrollPercent: number
+  qualified: boolean
+  completed: boolean
+  expiresAt?: number
+}
+
+export type EffectiveReadActivityState = 'ACTIVE' | 'PAUSED'
+
+export interface EffectiveReadHeartbeatReq {
+  sessionToken: string
+  heartbeatSeq: number
+  activityState: EffectiveReadActivityState
+  scrollPercent: number
+}
+
+export interface EffectiveReadHeartbeatResult {
+  accepted: boolean
+  countingActive: boolean
+  nextHeartbeatSeq: number
+  activeSeconds: number
+  maxScrollPercent: number
+  qualified: boolean
+  completed: boolean
+  expiresAt?: number
+}
+
+export interface EffectiveReadCompleteReq {
+  sessionToken: string
+}
+
+export interface EffectiveReadAbandonReq {
+  sessionToken: string
+}
+
+export interface EffectiveReadAbandonResult {
+  abandoned: boolean
+}
+
+export interface EffectiveReadCompleteResult {
+  recorded?: boolean
+  completed?: boolean
+  activeSeconds?: number
+  maxScrollPercent?: number
+}
+
 export interface CreatorFeedbackWindow {
   days: 7 | 30 | number
   label: string
@@ -928,6 +993,35 @@ export interface CreatorWorkspaceAction {
   disabled?: boolean
 }
 
+export interface CreatorTrustedContentMetrics {
+  degraded?: boolean
+  fallbackReason?: string
+  pendingSuggestions: number
+  freshnessAwaitingConfirmation: number
+  unresolvedQuestions: number
+  usefulFeedback7Days: number
+  usefulFeedback30Days: number
+  effectiveReads7Days: number
+  effectiveReads30Days: number
+  pendingSuggestionItems?: CreatorTrustedContentTaskItem[]
+  freshnessItems?: CreatorTrustedContentTaskItem[]
+  pendingQuestionItems?: CreatorTrustedContentTaskItem[]
+}
+
+export interface CreatorTrustedContentTaskItem {
+  id: ApiId
+  postId: ApiId
+  postTitle: string
+  status?: string
+  statusLabel?: string
+  type?: string
+  href?: string
+  suggestionId?: ApiId
+  createdAt?: number
+  updatedAt?: number
+  submittedAt?: number
+}
+
 export interface CreatorGrowthWorkspace {
   source: CreatorWorkspaceSource
   updatedAt: number
@@ -945,6 +1039,7 @@ export interface CreatorGrowthWorkspace {
   representativePosts: CreatorRepresentativePost[]
   topicIdeas: CreatorTopicIdea[]
   searchGaps: CreatorSearchGap[]
+  trustedContent?: CreatorTrustedContentMetrics
   incentiveCopy: CreatorIncentiveCopy
 }
 

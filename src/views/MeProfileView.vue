@@ -118,6 +118,79 @@
             </div>
           </article>
         </div>
+        <div
+          class="trusted-content-workbench"
+          aria-labelledby="trusted-content-workbench-title"
+          data-trusted-content-items="pendingSuggestionItems freshnessItems pendingQuestionItems"
+        >
+          <div class="trusted-content-workbench-head">
+            <div>
+              <div class="trusted-content-title-row">
+                <strong id="trusted-content-workbench-title">可信内容待办</strong>
+                <span v-if="creatorTrustedContentPending" class="trusted-content-status">加载中</span>
+                <span v-else-if="creatorTrustedContentDegraded" class="trusted-content-status">暂不可用</span>
+              </div>
+              <span>优先处理问题闭环、读者补充和内容时效；这些数据不会换算成积分或公开排名。</span>
+            </div>
+            <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
+          </div>
+          <div class="trusted-content-task-list">
+            <RouterLink id="trusted-content-task-suggestions" :to="{ path: '/me', query: { tab: 'posts', focus: 'suggestions' }, hash: '#creator-workbench' }">
+              <span>待处理补充 / 纠错</span>
+              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.pendingSuggestions) }}</strong>
+            </RouterLink>
+            <RouterLink id="trusted-content-task-freshness" :to="{ path: '/me', query: { tab: 'posts', focus: 'freshness' }, hash: '#creator-workbench' }">
+              <span>待确认时效内容</span>
+              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.freshnessAwaitingConfirmation) }}</strong>
+            </RouterLink>
+            <RouterLink id="trusted-content-task-questions" :to="{ path: '/me', query: { tab: 'posts', focus: 'questions' }, hash: '#creator-workbench' }">
+              <span>尚未闭环的问题</span>
+              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.unresolvedQuestions) }}</strong>
+            </RouterLink>
+          </div>
+          <div v-for="task in trustedContentTaskGroups" :key="task.key" :id="`trusted-content-task-items-${task.key}`" :data-trusted-content-source="task.sourceField" class="trusted-content-task-items">
+            <div class="trusted-content-task-items-head">
+              <span>{{ task.label }}</span>
+              <small>{{ task.items.length }} 条待处理</small>
+            </div>
+            <div v-if="task.items.length" class="trusted-content-item-list">
+              <RouterLink
+                v-for="item in task.items"
+                :key="`${task.key}-${item.id}`"
+                :to="trustedContentTaskHref(item, task.key)"
+                class="trusted-content-item"
+              >
+                <span class="trusted-content-item-title">{{ item.postTitle }}</span>
+                <small>{{ item.statusLabel }}<template v-if="item.timeLabel"> · {{ item.timeLabel }}</template></small>
+              </RouterLink>
+            </div>
+            <p v-else class="trusted-content-task-items-empty">暂无具体待处理内容</p>
+          </div>
+          <div class="trusted-content-window-list">
+            <div>
+              <span>近 7 天</span>
+              <strong>
+                {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback7Days) }}
+                <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
+              </strong>
+              <small>
+                {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads7Days) }}
+                <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
+              </small>
+            </div>
+            <div>
+              <span>近 30 天</span>
+              <strong>
+                {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback30Days) }}
+                <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
+              </strong>
+              <small>
+                {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads30Days) }}
+                <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
+              </small>
+            </div>
+          </div>
+        </div>
         <div class="mt-5 grid gap-3 sm:grid-cols-5">
           <RouterLink to="/me?tab=posts" class="feedback-stat">
             <MessageCircle class="h-4 w-4 text-primary-600" />
@@ -490,7 +563,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
+import { computed, defineComponent, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Bookmark, BookmarkCheck, FileText, Flag, Globe2, Hash, Heart, Lock, Mail, MessageCircle, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -506,6 +579,7 @@ import { interactionApi } from '@/api/interaction'
 import { creatorFeedbackApi } from '@/api/creatorFeedback'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { usePostInteraction } from '@/composables/usePostInteraction'
+import { formatTime } from '@/lib/format'
 import type {
   ApiId,
   CommunityTopic,
@@ -872,6 +946,85 @@ const isWorkspaceDemo = computed(() => (
 ))
 const workspaceFeedbackSummary = computed(() => creatorWorkspace.value?.feedbackSummary ?? null)
 const workspaceSummary = computed(() => creatorWorkspace.value?.summary ?? null)
+const creatorTrustedContentBlock = computed(() => creatorWorkspace.value?.trustedContent)
+const creatorTrustedContentPending = computed(() => (
+  creatorWorkspaceLoading.value
+  || (!creatorWorkspace.value && !creatorWorkspaceError.value)
+))
+const creatorTrustedContentDegraded = computed(() => (
+  Boolean(creatorWorkspaceError.value)
+  || Boolean(creatorWorkspace.value && !creatorTrustedContentBlock.value)
+  || Boolean(creatorTrustedContentBlock.value?.degraded)
+))
+const creatorTrustedContent = computed(() => ({
+  pendingSuggestions: Number(creatorTrustedContentBlock.value?.pendingSuggestions ?? 0),
+  freshnessAwaitingConfirmation: Number(creatorTrustedContentBlock.value?.freshnessAwaitingConfirmation ?? 0),
+  unresolvedQuestions: Number(creatorTrustedContentBlock.value?.unresolvedQuestions ?? 0),
+  usefulFeedback7Days: Number(creatorTrustedContentBlock.value?.usefulFeedback7Days ?? 0),
+  usefulFeedback30Days: Number(creatorTrustedContentBlock.value?.usefulFeedback30Days ?? 0),
+  effectiveReads7Days: Number(creatorTrustedContentBlock.value?.effectiveReads7Days ?? 0),
+  effectiveReads30Days: Number(creatorTrustedContentBlock.value?.effectiveReads30Days ?? 0),
+}))
+type TrustedContentTaskKey = 'suggestions' | 'freshness' | 'questions'
+type TrustedContentTaskItemView = {
+  id: string
+  postId: ApiId
+  postTitle: string
+  statusLabel: string
+  timeLabel?: string
+  href?: string
+}
+const formatTrustedContentTaskTime = (value: unknown) => {
+  if (value == null || value === '') return ''
+  const numeric = Number(value)
+  const timestamp = Number.isFinite(numeric)
+    ? numeric
+    : Date.parse(String(value).replace(' ', 'T'))
+  return Number.isFinite(timestamp) ? formatTime(timestamp) : String(value).slice(0, 19)
+}
+const trustedContentTaskItems = (key: TrustedContentTaskKey): TrustedContentTaskItemView[] => {
+  const block = creatorTrustedContentBlock.value as any
+  const rawItems = key === 'suggestions'
+    ? block?.pendingSuggestionItems
+    : key === 'freshness'
+      ? block?.freshnessItems
+      : block?.pendingQuestionItems
+  if (!Array.isArray(rawItems)) return []
+  return rawItems
+    .map((item: any, index: number) => ({
+      id: String(item?.id ?? item?.suggestionId ?? `${key}-${item?.postId ?? index}`),
+      postId: item?.postId,
+      postTitle: String(item?.postTitle ?? '未命名公开内容'),
+      statusLabel: String(item?.statusLabel ?? item?.status ?? item?.type ?? '待处理'),
+      timeLabel: item?.timeLabel ? String(item.timeLabel) : item?.updatedAt || item?.createdAt || item?.submittedAt
+        ? formatTrustedContentTaskTime(item.updatedAt ?? item.createdAt ?? item.submittedAt)
+        : '',
+      href: typeof item?.href === 'string' ? item.href : undefined,
+    }))
+    .filter((item: TrustedContentTaskItemView) => item.postId != null)
+}
+const trustedContentTaskGroups = computed(() => ([
+  { key: 'suggestions' as const, sourceField: 'pendingSuggestionItems', label: '补充 / 纠错建议', items: trustedContentTaskItems('suggestions') },
+  { key: 'freshness' as const, sourceField: 'freshnessItems', label: '时效确认', items: trustedContentTaskItems('freshness') },
+  { key: 'questions' as const, sourceField: 'pendingQuestionItems', label: '未闭环问题', items: trustedContentTaskItems('questions') },
+]))
+const trustedContentTaskHref = (item: TrustedContentTaskItemView, key: TrustedContentTaskKey): WorkbenchRouteTo => {
+  if (item.href && item.href.startsWith('/') && !item.href.startsWith('//') && !item.href.startsWith('/api/')) {
+    return item.href
+  }
+  const anchor = key === 'suggestions' ? 'content-suggestions' : key === 'questions' ? 'comments' : 'trusted-content'
+  return `/post/${encodeURIComponent(String(item.postId))}#${anchor}`
+}
+const creatorTrustedContentMetric = (value: number) => (
+  creatorTrustedContentPending.value || creatorTrustedContentDegraded.value ? '—' : String(value)
+)
+const creatorWorkspaceDegraded = computed(() => (
+  creatorWorkspace.value?.source === 'fallback'
+  || Boolean(creatorWorkspace.value?.degraded)
+  || creatorTrustedContentDegraded.value
+  || Boolean(curationFeedbackSummary.value?.degraded)
+  || Boolean(creatorWorkspaceError.value)
+))
 const bestFeedbackWindow = computed(() => (
   workspaceFeedbackSummary.value?.windows.find((item) => Number(item.days) === 30)
   ?? workspaceFeedbackSummary.value?.windows[0]
@@ -908,18 +1061,20 @@ const publicImpactOverview = computed(() => [
 const creatorWorkspaceStateLabel = computed(() => {
   if (creatorWorkspaceLoading.value) return '加载中'
   if (isWorkspaceDemo.value) return '示例反馈'
+  if (creatorWorkspaceDegraded.value) return '降级视图'
   if (creatorWorkspace.value?.source === 'empty') return '暂无公开反馈'
-  if (creatorWorkspace.value?.source === 'fallback' || creatorWorkspace.value?.degraded || curationFeedbackSummary.value?.degraded || creatorWorkspaceError.value) return '降级视图'
   if (creatorWorkspace.value) return '真实反馈'
   return contribution.value.source === 'local_demo_seed' ? '示例反馈' : '本地估算'
 })
 const creatorWorkspaceNotice = computed(() => {
   if (isWorkspaceDemo.value) return '当前展示本地样例，只用于说明公开成长工作台结构，不代表你的真实反馈，不承诺曝光效果。'
-  if (creatorWorkspace.value?.source === 'empty') return '发布公开内容后，这里会展示公共影响概览、维护入口和收录反馈。'
-  if (creatorWorkspace.value?.degraded || curationFeedbackSummary.value?.degraded) {
-    const reason = creatorWorkspace.value?.degradationReasons?.join(' / ') || curationFeedbackSummary.value?.fallbackReason
+  if (creatorWorkspaceDegraded.value) {
+    const reason = creatorWorkspace.value?.degradationReasons?.join(' / ')
+      || creatorTrustedContentBlock.value?.fallbackReason
+      || curationFeedbackSummary.value?.fallbackReason
     return `部分公开反馈暂不可用，当前展示可用区块${reason ? `：${reason}` : '。'}`
   }
+  if (creatorWorkspace.value?.source === 'empty') return '发布公开内容后，这里会展示公共影响概览、维护入口和收录反馈。'
   if (creatorWorkspace.value) return workspaceSummary.value?.copy || '数据来自创作者公开反馈聚合；不包含私密、匿名身份、删除或审核中的内容，不承诺曝光效果。'
   return '接口暂不可用时会使用本地公开内容估算，并明确标识为估算或示例。'
 })
@@ -1198,6 +1353,21 @@ const loadCreatorWorkspace = async () => {
   } finally {
     creatorWorkspaceLoading.value = false
   }
+}
+
+const focusTrustedContentTask = () => {
+  const focus = typeof route.query.focus === 'string' ? route.query.focus : ''
+  const targetId = focus === 'suggestions'
+    ? 'trusted-content-task-items-suggestions'
+    : focus === 'freshness'
+      ? 'trusted-content-task-items-freshness'
+      : focus === 'questions'
+        ? 'trusted-content-task-items-questions'
+        : ''
+  if (!targetId) return
+  void nextTick(() => {
+    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
 }
 
 const loadMyCollections = async () => {
@@ -1797,13 +1967,17 @@ onMounted(async () => {
     loadDiscussionFollows(),
     loadFollowers(),
   ])
+  focusTrustedContentTask()
 })
 
 watch(() => route.query.tab, (value) => {
   if (typeof value === 'string' && tabValues.has(value as TabValue)) {
     activeTab.value = value as TabValue
   }
+  focusTrustedContentTask()
 })
+
+watch(() => route.query.focus, focusTrustedContentTask)
 </script>
 
 <style scoped>
@@ -1976,6 +2150,175 @@ watch(() => route.query.tab, (value) => {
   display: grid;
   gap: 0.45rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trusted-content-workbench {
+  margin-top: 1.25rem;
+  border-top: 1px solid rgb(147 197 253);
+  border-bottom: 1px solid rgb(147 197 253);
+  padding: 1rem 0;
+}
+
+.trusted-content-workbench-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.trusted-content-workbench-head strong {
+  display: block;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.trusted-content-workbench-head span {
+  margin: 0.2rem 0 0;
+  max-width: 58rem;
+  font-size: 0.78rem;
+}
+
+.trusted-content-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.trusted-content-workbench-head .trusted-content-status {
+  margin: 0;
+  max-width: none;
+  color: rgb(185 28 28);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.trusted-content-workbench-head a {
+  flex: 0 0 auto;
+  color: rgb(29 78 216);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.trusted-content-task-list,
+.trusted-content-window-list {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.trusted-content-task-list a {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  color: rgb(51 65 85);
+}
+
+.trusted-content-task-list a + a {
+  border-left: 1px solid rgb(191 219 254);
+}
+
+.trusted-content-task-list span,
+.trusted-content-window-list span,
+.trusted-content-window-list small {
+  margin: 0;
+}
+
+.trusted-content-task-list strong {
+  color: rgb(4 120 87);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.trusted-content-task-items {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgb(191 219 254);
+  padding: 0.75rem 0.85rem 0;
+}
+
+.trusted-content-task-items-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.trusted-content-task-items-head span,
+.trusted-content-task-items-head small,
+.trusted-content-task-items-empty {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+}
+
+.trusted-content-task-items-head span {
+  font-weight: 900;
+}
+
+.trusted-content-item-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.trusted-content-item {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-left: 2px solid rgb(14 165 233);
+  padding: 0.45rem 0.65rem;
+  background: rgb(248 250 252);
+}
+
+.trusted-content-item-title {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(30 41 59);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trusted-content-item small {
+  flex: 0 0 auto;
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+}
+
+.trusted-content-task-items-empty {
+  margin-top: 0.55rem;
+}
+
+.trusted-content-window-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid rgb(191 219 254);
+  padding-top: 0.8rem;
+}
+
+.trusted-content-window-list > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0 0.85rem;
+}
+
+.trusted-content-window-list > div + div {
+  border-left: 1px solid rgb(191 219 254);
+}
+
+.trusted-content-window-list strong {
+  color: rgb(15 23 42);
+  font-size: 0.85rem;
+}
+
+.trusted-content-window-list small {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
 }
 
 .creator-workbench-grid {
@@ -2619,6 +2962,60 @@ watch(() => route.query.tab, (value) => {
   color: rgb(248 250 252);
 }
 
+.dark .trusted-content-workbench {
+  border-color: rgb(30 64 175);
+}
+
+.dark .trusted-content-workbench-head strong,
+.dark .trusted-content-window-list strong {
+  color: rgb(248 250 252);
+}
+
+.dark .trusted-content-workbench-head a {
+  color: rgb(147 197 253);
+}
+
+.dark .trusted-content-workbench-head .trusted-content-status {
+  color: rgb(252 165 165);
+}
+
+.dark .trusted-content-task-list a {
+  color: rgb(203 213 225);
+}
+
+.dark .trusted-content-task-list a + a,
+.dark .trusted-content-window-list,
+.dark .trusted-content-window-list > div + div {
+  border-color: rgb(30 64 175);
+}
+
+.dark .trusted-content-task-list strong {
+  color: rgb(110 231 183);
+}
+
+.dark .trusted-content-task-items {
+  border-color: rgb(30 64 175);
+}
+
+.dark .trusted-content-task-items-head span,
+.dark .trusted-content-task-items-head small,
+.dark .trusted-content-task-items-empty,
+.dark .trusted-content-item small {
+  color: rgb(148 163 184);
+}
+
+.dark .trusted-content-item {
+  background: rgb(15 23 42);
+}
+
+.dark .trusted-content-item-title {
+  color: rgb(226 232 240);
+}
+
+.dark .trusted-content-window-list small {
+  color: rgb(148 163 184);
+}
+
 .dark .workspace-source-pill {
   background: rgb(30 41 59);
   color: rgb(191 219 254) !important;
@@ -2760,8 +3157,29 @@ html.dark .growth-stat {
 
 @media (max-width: 640px) {
   .feedback-window-grid,
-  .creator-workbench-grid {
+  .creator-workbench-grid,
+  .trusted-content-task-list,
+  .trusted-content-window-list {
     grid-template-columns: 1fr;
+  }
+
+  .trusted-content-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .trusted-content-workbench-head {
+    flex-direction: column;
+  }
+
+  .trusted-content-task-list a + a,
+  .trusted-content-window-list > div + div {
+    border-left: 0;
+    border-top: 1px solid rgb(191 219 254);
+  }
+
+  .trusted-content-window-list > div {
+    padding: 0.65rem 0.85rem;
   }
 
   .feedback-window-metrics {

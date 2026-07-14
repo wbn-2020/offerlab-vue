@@ -8,7 +8,7 @@ import type {
   ContentAssistSuggestionType,
   ContentAssistTopicCandidateHint,
 } from './types'
-import { DOMAIN, getDomainLabel, normalizeDomain } from '@/utils/domains'
+import { DOMAIN, getDomainLabel, isKnownDomain, normalizeDomain } from '@/utils/domains'
 import { POST_TYPE } from '@/utils/contentTypes'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 
@@ -16,7 +16,7 @@ export interface ContentAssistRequest {
   title: string
   content: string
   postType: number
-  domain: number
+  domain?: number
   tags: string[]
   extension?: Record<string, unknown>
   seriesId?: ApiId
@@ -28,6 +28,7 @@ const LOCAL_RULE_SOURCE_LABEL = '本地规则降级'
 const REMOTE_SOURCE_LABEL = '远端助手'
 const MIXED_SOURCE_LABEL = '远端助手 + 本地规则'
 const PRIVATE_CAREER_BOUNDARY_REASON = 'private_career_training_boundary'
+const optionalDomainOf = (value?: number | null) => isKnownDomain(value) ? normalizeDomain(value) : undefined
 
 const firstReadableLine = (value: string) => {
   const lines = value
@@ -219,8 +220,9 @@ const tagSuggestionsOf = (req: ContentAssistRequest) => {
     [DOMAIN.INVESTMENT]: [['风险复盘', '帮助区分复盘内容与观点表达。'], ['资产配置', '适合围绕策略和配置思路建立检索入口。']],
   }
 
-  ;(domainSeeds[normalizeDomain(req.domain)] || []).forEach(([label, detail], index) => {
-    suggestions.push(suggestion('tag', `tag-domain-${index}`, label, detail, `来自 ${getDomainLabel(req.domain)} 领域默认补全`, 0.68))
+  const domain = optionalDomainOf(req.domain)
+  ;(domain == null ? [] : domainSeeds[domain] || []).forEach(([label, detail], index) => {
+    suggestions.push(suggestion('tag', `tag-domain-${index}`, label, detail, `来自 ${getDomainLabel(domain)} 领域默认补全`, 0.68))
   })
 
   return uniqueSuggestions(suggestions, req.tags).slice(0, 6)
@@ -268,8 +270,9 @@ const topicSuggestionsOf = (req: ContentAssistRequest) => {
     [DOMAIN.LIFESTYLE]: [['城市租房避坑', '适合聚合租房、城市生活和消费经验。'], ['日常健康记录', '适合持续记录生活方式、健康和情绪管理。']],
     [DOMAIN.INVESTMENT]: [['投资风险复盘', '适合强调风险边界和经验复盘，不构成投资建议。']],
   }
-  ;(domainTopicSeeds[normalizeDomain(req.domain)] || []).forEach(([label, detail], index) => {
-    suggestions.push(suggestion('topic', `topic-domain-${index}`, label, detail, `来自 ${getDomainLabel(req.domain)} 频道默认补全`, 0.62))
+  const domain = optionalDomainOf(req.domain)
+  ;(domain == null ? [] : domainTopicSeeds[domain] || []).forEach(([label, detail], index) => {
+    suggestions.push(suggestion('topic', `topic-domain-${index}`, label, detail, `来自 ${getDomainLabel(domain)} 频道默认补全`, 0.62))
   })
   return uniqueSuggestions(suggestions, []).slice(0, 4)
 }
@@ -292,7 +295,8 @@ const questionTopicSuggestionsOf = (req: ContentAssistRequest) => {
 }
 
 const seriesHintsOf = (req: ContentAssistRequest, tagSuggestions: ContentAssistSuggestion[]): ContentAssistSeriesHint[] => {
-  const domainLabel = getDomainLabel(req.domain)
+  const domain = optionalDomainOf(req.domain)
+  const domainLabel = domain == null ? '综合社区' : getDomainLabel(domain)
   const primaryTag = req.tags[0] || tagSuggestions[0]?.label || domainLabel
   if (isQuestionRequest(req)) {
     return [
@@ -333,7 +337,7 @@ const actionItemsOf = (req: ContentAssistRequest, metrics: ContentAssistQualityM
   if (metrics[1]?.score < 70) actions.push('补 1 到 2 段背景、关键步骤和结果数据，方便他人快速理解。')
   if (metrics[2]?.score < 60) actions.push('正文建议至少补齐“背景 / 问题 / 方案 / 结果”中的 3 项。')
   if (metrics[3]?.score < 75) actions.push('再补 1 到 3 个能代表频道、场景或主题的标签。')
-  if (normalizeDomain(req.domain) === DOMAIN.INVESTMENT) {
+  if (optionalDomainOf(req.domain) === DOMAIN.INVESTMENT) {
     actions.push('投资理财领域建议补充风险边界和非建议声明，降低误解风险。')
   }
   return actions.slice(0, 4)
@@ -429,7 +433,7 @@ const buildFallbackAssist = (req: ContentAssistRequest, fallbackReason = ''): Co
 }
 
 const buildWritingCmd = (req: ContentAssistRequest) => ({
-  domain: normalizeDomain(req.domain),
+  domain: optionalDomainOf(req.domain),
   postType: Number(req.postType),
   title: safeText(req.title) || undefined,
   content: safeText(req.content),
@@ -439,7 +443,7 @@ const buildWritingCmd = (req: ContentAssistRequest) => ({
 })
 
 const buildQualityCmd = (req: ContentAssistRequest) => ({
-  domain: normalizeDomain(req.domain),
+  domain: optionalDomainOf(req.domain),
   postType: Number(req.postType),
   title: safeText(req.title) || undefined,
   content: safeText(req.content),
@@ -449,7 +453,7 @@ const buildQualityCmd = (req: ContentAssistRequest) => ({
 })
 
 const buildTagTopicCmd = (req: ContentAssistRequest) => ({
-  domain: normalizeDomain(req.domain),
+  domain: optionalDomainOf(req.domain),
   title: safeText(req.title) || undefined,
   content: safeText(req.content),
   assistContext: req.extension?.assistContext,

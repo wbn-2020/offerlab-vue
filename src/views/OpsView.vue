@@ -3561,7 +3561,8 @@ const formatCostMicros = (value?: number | null) => {
 
 const formatTime = (value?: string) => value ? value.replace('T', ' ').slice(0, 19) : '未加载'
 
-const formatPayload = (payload: string) => {
+const formatPayload = (payload?: string) => {
+  if (!payload) return '原始事件载荷已按权限隐藏'
   try {
     return JSON.stringify(JSON.parse(payload), null, 2)
   } catch {

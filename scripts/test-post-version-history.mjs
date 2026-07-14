@@ -15,6 +15,9 @@ for (const field of [
   'contentSummary',
   'tags',
   'changeSummary',
+  'resultVersion',
+  'publicUpdateSummary',
+  'impactScope',
   'createdAt',
 ]) {
   assert.match(types, new RegExp(field), `PostVersionHistory must expose ${field}`)
@@ -26,6 +29,10 @@ assert.match(adapters, /tags: Array\.isArray\(raw\?\.tags\) \? raw\.tags\.map\(a
 assert.match(postApi, /listVersions/, 'post API must expose listVersions')
 assert.match(postApi, /\/api\/v1\/posts\/\$\{postId\}\/versions/, 'post API must call the stable versions endpoint')
 assert.match(postApi, /res\.data\.map\(adaptPostVersionHistory\)/, 'post API must adapt version history rows')
+assert.match(types, /interface PublicPostUpdate/, 'frontend must type sanitized public update rows')
+assert.match(adapters, /adaptPublicPostUpdate/, 'public update responses must be adapted')
+assert.match(postApi, /listPublicUpdates/, 'post API must expose listPublicUpdates')
+assert.match(postApi, /\/api\/v1\/posts\/\$\{postId\}\/updates/, 'post API must call the stable public updates endpoint')
 
 assert.match(detail, /canViewVersionHistory/, 'post detail must compute version history visibility')
 assert.match(detail, /isOwnPost\.value \|\| isContentModerator\.value/, 'history button must be author or content moderator only')
@@ -37,6 +44,10 @@ assert.match(detail, /v-for="item in versionHistories"/, 'dialog must render his
 assert.match(detail, /changeSummaryText\(item\.changeSummary\)/, 'dialog must explain changed fields')
 assert.match(detail, /versionHistories\.value = \[\]/, 'route changes must clear stale history rows')
 assert.match(detail, /versionLoadAttempted\.value = false/, 'route changes must reset history loaded state')
+assert.match(detail, /publicUpdates/, 'post detail must render sanitized public update summaries')
+assert.match(detail, /更新记录/, 'post detail must label the public update section')
+assert.match(detail, /publicUpdateSummary/, 'post detail must render the author-approved public summary')
+assert.doesNotMatch(detail, /publicUpdates[\s\S]{0,500}contentSummary/, 'public updates must not render private historical content')
 assert.doesNotMatch(detail, /Legacy misplaced version-history block/, 'legacy misplaced dialog block must not remain in the report form')
 assert.doesNotMatch(detail, /Disabled duplicate textarea attributes/, 'duplicate textarea fragments must not remain in the report form')
 

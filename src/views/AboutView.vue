@@ -10,17 +10,17 @@
           <section>
             <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">项目介绍</h2>
             <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-              {{ siteBrand.displayName }}是一个综合内容社区，帮助用户围绕科技数码、学习成长、职场经验、生活方式和资源推荐发布、发现、讨论和搜索真实经验。
+              {{ siteBrand.displayName }}是围绕真实经验、有用见闻、公共讨论和长期内容沉淀的综合内容社区。科技数码、学习成长、职场经验、生活方式和投资理财是并列频道。
             </p>
             <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
               我们希望它成为一个成长型社区。在这里，你可以：
             </p>
             <ul class="list-disc list-inside space-y-2 text-slate-700 dark:text-slate-300">
-              <li>发布技术、职场、阅读、生活与投资理财等多领域实践内容</li>
-              <li>浏览真实经验，快速找到可复用的思路与参考路径</li>
-              <li>围绕专题、领域和作者持续讨论与交流</li>
+              <li>发布科技数码、学习成长、职场经验、生活方式和投资理财等多领域内容</li>
+              <li>跨领域浏览真实经验，找到可复用的思路与参考路径</li>
+              <li>围绕话题、频道、合集和作者持续讨论与交流</li>
               <li>收藏高质量内容，形成自己的长期成长资料库</li>
-              <li>查看趋势看板，了解社区正在关注的话题方向</li>
+              <li>查看趋势看板，了解不同频道正在关注的内容方向</li>
             </ul>
           </section>
 
@@ -30,19 +30,19 @@
               <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <h3 class="font-bold text-slate-900 dark:text-slate-100 mb-2">经验发布</h3>
                 <p class="text-sm text-slate-600 dark:text-slate-400">
-                  支持技术文章、项目复盘、踩坑记录、问答求助和资源分享
+                  支持经验、问题、攻略、资源、观点、复盘和图文笔记
                 </p>
               </div>
               <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <h3 class="font-bold text-slate-900 dark:text-slate-100 mb-2">趋势看板</h3>
                 <p class="text-sm text-slate-600 dark:text-slate-400">
-                  数据化展示热门技术栈、专题标签、活跃作者和内容趋势
+                  按频道展示发布趋势、热门主题、高频标签和活跃作者
                 </p>
               </div>
               <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <h3 class="font-bold text-slate-900 dark:text-slate-100 mb-2">社区互动</h3>
                 <p class="text-sm text-slate-600 dark:text-slate-400">
-                  点赞、收藏、评论、关注，与志同道合的开发者交流
+                  点赞、收藏、评论、关注，与不同领域的作者和读者交流
                 </p>
               </div>
               <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
@@ -82,6 +82,7 @@
             <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
               本网站所有内容均由用户上传，我们不对内容的真实性、准确性、合法性负责。
               用户在使用本网站时应遵守相关法律法规，不得发布违法、违规、侵权的内容。
+              投资理财内容仅用于经验交流和风险认知，不构成投资建议。
             </p>
           </section>
         </div>

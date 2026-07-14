@@ -486,6 +486,9 @@ const notificationActionLabel = (notif: Notification) => {
 const nextStepText = (notif: Notification) => {
   if (isReportReceiptNotification(notif)) return '查看举报回执'
   if (curationFeedbackPayload(notif)) return '查看入选内容'
+  if (notif.action === 'answerAccepted') return '查看采纳回答'
+  if (notif.action === 'contentSuggestionSubmitted') return '查看读者建议'
+  if (notif.action === 'contentSuggestionDecided') return '查看建议处理结果'
   if (notif.type === 'follower') return '查看作者主页'
   if (notif.type === 'comment' || notif.type === 'mention') return '回到讨论'
   return '查看关联内容'

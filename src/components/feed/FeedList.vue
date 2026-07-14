@@ -60,7 +60,7 @@ interface Props {
 
 withDefaults(defineProps<Props>(), {
   emptyTitle: '暂时没有内容',
-  emptyDescription: '去发现页看看有价值的技术经验吧',
+  emptyDescription: '去发现页看看真实经验、有用见闻和正在发生的讨论吧',
 })
 
 defineEmits<{

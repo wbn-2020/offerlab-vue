@@ -103,7 +103,7 @@
         <p class="mx-auto mb-6 max-w-lg text-sm leading-6 text-slate-600 dark:text-slate-400">
           {{ hasActiveFilters
             ? '当前筛选条件没有命中题目，可以清空筛选或换一个技术栈、场景关键词。'
-            : '知识卡来自公开技术内容和结构化任务；本地演示库为空时，可以先发布技术内容，或去发现页浏览社区内容。' }}
+            : '知识卡来自公开内容中的问题与结构化整理；当前为空时，可以先发布经验、问题或资源，也可以去发现页浏览社区内容。' }}
         </p>
         <div class="flex flex-wrap justify-center gap-3">
           <button v-if="hasActiveFilters" type="button" class="primary-action px-5 py-2.5" @click="resetFilters">清空筛选</button>

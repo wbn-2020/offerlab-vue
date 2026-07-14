@@ -120,14 +120,14 @@
           <span>综合</span>
         </router-link>
         <router-link
-          v-for="d in COMMUNITY_CHANNELS"
-          :key="d.key"
-          :to="d.domain ? (d.domain === activeDomain ? '/' : { path: '/', query: { domain: d.domain } }) : { path: '/search', query: { type: String(d.postTypes?.[0] || ''), sort: 'hot' } }"
+          v-for="d in homeDomainOptions"
+          :key="d.domain"
+          :to="d.domain === activeDomain ? '/' : { path: '/', query: { domain: d.domain } }"
           class="domain-chip inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:hover:bg-primary-950"
-          :class="d.domain != null && d.domain === activeDomain ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/50 dark:border-primary-700' : 'bg-white dark:bg-slate-900'"
+          :class="d.domain === activeDomain ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/50 dark:border-primary-700' : 'bg-white dark:bg-slate-900'"
         >
           <span>{{ d.icon }}</span>
-          <span>{{ d.name }}</span>
+          <span>{{ d.domainName }}</span>
         </router-link>
       </section>
 
@@ -135,15 +135,17 @@
         <article class="surface-card p-5">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="text-sm font-black text-slate-950 dark:text-white">领域来源口径</h2>
-              <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">{{ domainSourceSummary }}</p>
+              <h2 class="text-sm font-black text-slate-950 dark:text-white">正在浏览</h2>
+              <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                {{ activeDomainMeta?.domainName || '综合频道' }}
+              </p>
             </div>
             <span class="rounded-full bg-primary-50 px-3 py-1 text-xs font-black text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
               {{ activeDomainMeta?.icon || '🧭' }} {{ activeDomainMeta?.domainName || '综合' }}
             </span>
           </div>
           <p class="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            首页筛选继续沿用稳定的默认五大领域，领域说明和提示优先同步 `/api/v1/domains`，与发现页保持一致的来源口径。
+            {{ activeDomainMeta?.description || '汇集不同频道的真实经验、问题讨论、实用资源和生活见闻。' }}
           </p>
           <p class="mt-2 text-xs leading-6 text-slate-500 dark:text-slate-400">
             {{ activeDomainMeta?.browseNotice || activeDomainMeta?.description || '当前未指定领域时，会展示综合内容和默认社区入口。' }}
@@ -364,20 +366,19 @@
               <div class="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  :class="['channel-chip', !activeContentType ? 'channel-chip-active' : '']"
-                  @click="activeContentType = undefined"
+                  class="channel-chip"
+                  @click="router.push({ path: '/search', query: { mode: 'posts', sort: 'hot' } })"
                 >
                   全部
                 </button>
-                <button
+                <RouterLink
                   v-for="type in contentTypeChannels"
                   :key="type.value"
-                  type="button"
-                  :class="['channel-chip', activeContentType === type.value ? 'channel-chip-active' : '']"
-                  @click="toggleContentType(type.value)"
+                  :to="contentTypeHref(type.value)"
+                  class="channel-chip"
                 >
                   {{ type.shortLabel }}
-                </button>
+                </RouterLink>
               </div>
             </div>
           </div>
@@ -546,7 +547,6 @@ import { toast } from 'vue-sonner'
 import { BookOpen, Compass, FileText, PenLine, Search, Sparkles, Tag, Target, TrendingUp, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
-import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
@@ -561,9 +561,9 @@ import RevisitSummaryPanel from '@/components/retention/RevisitSummaryPanel.vue'
 import OperationSlotCard from '@/components/operations/OperationSlotCard.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import type { CommunityTopic, Post, Tag as PostTag, User } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
-import { COMMUNITY_CHANNELS, DOMAIN_OPTIONS } from '@/utils/domains'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
 import { findHighRiskContentWarning, filterVisiblePosts, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
@@ -576,20 +576,17 @@ const { requireLogin } = useLoginRedirect()
 
 const activeFeed = ref<FeedType>('recommend')
 const heroKeyword = ref('')
-const activeContentType = ref<number | undefined>()
 const onboardingOverview = ref<UserTaskOverview | null>(null)
 const dailyOverview = ref<UserTaskOverview | null>(null)
-const homeDomains = ref<PublicDomainConfig[]>([...localDomainConfigs])
-const domainSource = ref<DomainConfigSource>('fallback')
+const { domains: homeDomainOptions, loadDomains: loadHomeDomains } = useDomainCatalog()
 const homeSeriesPreview = ref<ContentSeriesRecord[]>([])
 const homeSeriesSource = ref<'remote' | 'fallback'>('fallback')
 const hotPreviewPosts = ref<Post[]>([])
 const latestPreviewPosts = ref<Post[]>([])
 const recommendPreviewPosts = ref<Post[]>([])
-const legalDomainValues = new Set<number>(DOMAIN_OPTIONS.map((d) => d.value))
 const activeDomain = computed(() => {
   const q = Number(route.query.domain)
-  return legalDomainValues.has(q) ? q : undefined
+  return homeDomainOptions.value.some((item) => Number(item.domain) === q) ? q : undefined
 })
 interface TodayAction {
   title: string
@@ -644,29 +641,19 @@ const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) 
 const topTags = computed(() => sortedTags.value.slice(0, 10))
 const trendingTags = computed(() => sortedTags.value.slice(0, 6))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
-const homeDomainOptions = computed(() => homeDomains.value.length ? homeDomains.value : localDomainConfigs)
 const activeDomainMeta = computed(() => (
   homeDomainOptions.value.find((item) => Number(item.domain) === Number(activeDomain.value))
-  ?? localDomainConfigs.find((item) => Number(item.domain) === Number(activeDomain.value))
   ?? null
 ))
-const domainSourceSummary = computed(() => {
-  const activeLabel = activeDomainMeta.value?.domainName || (activeDomain.value == null ? '综合' : '默认领域')
-  return domainSource.value === 'remote'
-    ? `首页领域说明已同步 /api/v1/domains，筛选继续保留默认五大领域 · 当前 ${activeLabel}`
-    : `接口暂未返回，首页当前使用本地 fallback 并保留默认五大领域 · 当前 ${activeLabel}`
-})
 const seriesWorkbenchHref = computed(() => authStore.isLoggedIn ? '/series/workbench' : '/login')
 const homeSeriesSummary = computed(() => {
   if (!authStore.isLoggedIn) return '登录后可查看你的合集进度和阶段性整理计划'
   if (!homeSeriesPreview.value.length) {
-    return homeSeriesSource.value === 'fallback'
-      ? '当前还没有合集，本地 fallback 已准备好创建流程'
-      : '还没有合集，先创建一个主题整理空间'
+    return '还没有合集，先创建一个主题整理空间'
   }
   return homeSeriesSource.value === 'remote'
     ? `已同步 ${homeSeriesPreview.value.length} 个合集`
-    : `已从本地 fallback 恢复 ${homeSeriesPreview.value.length} 个合集`
+    : `已恢复 ${homeSeriesPreview.value.length} 个合集`
 })
 const topicItems = computed(() => {
   const remoteTopics = topics.value.slice(0, 6).map((topic) => ({
@@ -686,9 +673,7 @@ const visiblePosts = computed(() => {
   const base = activeFeed.value === 'recommend'
     ? cleanPosts.value.filter((post) => !locallyHiddenPostIds.value.has(String(post.postId)))
     : cleanPosts.value
-  return activeContentType.value
-    ? base.filter((post) => Number(post.postType) === Number(activeContentType.value))
-    : base
+  return base
 })
 const explainHotReason = (post: Post | undefined, fallback: string) => {
   if (!post) return fallback
@@ -836,28 +821,28 @@ const updatePost = (postId: Post['postId'], updater: (post: Post) => void) => {
 }
 const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePost)
 
-const loadHomeDomains = async () => {
-  try {
-    const res = await domainApi.listPublic()
-    homeDomains.value = res.data?.length ? res.data : [...localDomainConfigs]
-    domainSource.value = res.source
-  } catch {
-    homeDomains.value = [...localDomainConfigs]
-    domainSource.value = 'fallback'
-  }
-}
+let homeSeriesRequestGeneration = 0
+const isCurrentHomeSeriesRequest = (requestGeneration: number, ownerUid: string) => (
+  requestGeneration === homeSeriesRequestGeneration
+  && authStore.isLoggedIn
+  && String(authStore.user?.uid ?? '') === ownerUid
+)
 
 const loadHomeSeriesPreview = async () => {
-  if (!authStore.isLoggedIn) {
+  const requestGeneration = ++homeSeriesRequestGeneration
+  const ownerUid = String(authStore.user?.uid ?? '')
+  if (!authStore.isLoggedIn || !ownerUid) {
     homeSeriesPreview.value = []
     homeSeriesSource.value = 'fallback'
     return
   }
   try {
-    const res = await contentSeriesApi.listMine(authStore.user?.uid)
+    const res = await contentSeriesApi.listMine(ownerUid)
+    if (!isCurrentHomeSeriesRequest(requestGeneration, ownerUid)) return
     homeSeriesPreview.value = (res.data || []).slice(0, 3)
     homeSeriesSource.value = res.status
   } catch {
+    if (!isCurrentHomeSeriesRequest(requestGeneration, ownerUid)) return
     homeSeriesPreview.value = []
     homeSeriesSource.value = 'fallback'
   }
@@ -911,13 +896,18 @@ const submitHeroSearch = () => {
   router.push({ path: '/search', query: q ? { q } : {} })
 }
 
-const toggleContentType = (type: number) => {
-  activeContentType.value = activeContentType.value === type ? undefined : type
-}
+const contentTypeHref = (type: number): RouteLocationRaw => ({
+  path: '/search',
+  query: {
+    mode: 'posts',
+    type: String(type),
+    sort: 'hot',
+    ...(activeDomain.value ? { domain: String(activeDomain.value) } : {}),
+  },
+})
 
 const setHomeFeed = (feed: FeedType) => {
   activeFeed.value = feed
-  activeContentType.value = undefined
 }
 
 const switchFeedAfterError = (feed: FeedType) => {
@@ -992,17 +982,39 @@ const toggleFollowUser = async (user: User) => {
   }
 }
 
+let homePreviewRequestId = 0
+const loadHomePreviewPosts = async () => {
+  const requestId = ++homePreviewRequestId
+  const domainSnapshot = activeDomain.value
+  const [latestRes, hotRes, recommendRes] = await Promise.allSettled([
+    feedApi.getLatest(undefined, 6, domainSnapshot),
+    feedApi.getHot(undefined, 6, domainSnapshot),
+    feedApi.getRecommend(undefined, 6, domainSnapshot),
+  ])
+  if (requestId !== homePreviewRequestId || activeDomain.value !== domainSnapshot) return
+  latestPreviewPosts.value = latestRes.status === 'fulfilled'
+    ? filterVisiblePosts(filterPublicContent(latestRes.value.data?.items || []), 3)
+    : []
+  hotPreviewPosts.value = hotRes.status === 'fulfilled'
+    ? filterVisiblePosts(filterPublicContent(hotRes.value.data?.items || []), 3)
+    : []
+  recommendPreviewPosts.value = recommendRes.status === 'fulfilled'
+    ? filterVisiblePosts(filterPublicContent(recommendRes.value.data?.items || []), 3)
+    : []
+  const feedCounts = [latestRes, hotRes, recommendRes]
+    .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
+    .map((res) => filterVisiblePosts(filterPublicContent(res.value.data?.items || [])).length)
+  sampledFeedContentCount.value = Math.max(0, ...feedCounts)
+}
+
 onMounted(async () => {
   if (route.query.feed === 'featured') {
     activeFeed.value = 'featured'
   }
-  const [tagRes, topicRes, userRes, latestRes, hotRes, recommendRes] = await Promise.allSettled([
+  const [tagRes, topicRes, userRes] = await Promise.allSettled([
     postApi.getTags(),
     postApi.listTopics({ featured: true, limit: 6 }),
     userApi.searchUsers('', 6),
-    feedApi.getLatest(undefined, 6, activeDomain.value),
-    feedApi.getHot(undefined, 6, activeDomain.value),
-    feedApi.getRecommend(undefined, 6, activeDomain.value),
   ])
   if (tagRes.status === 'fulfilled') {
     tags.value = filterPublicContent(tagRes.value.data || [])
@@ -1013,29 +1025,19 @@ onMounted(async () => {
   if (userRes.status === 'fulfilled') {
     recommendedUsers.value = filterPublicContent(userRes.value.data || [])
   }
-  if (latestRes.status === 'fulfilled') {
-    latestPreviewPosts.value = filterVisiblePosts(filterPublicContent(latestRes.value.data?.items || []), 3)
-  }
-  if (hotRes.status === 'fulfilled') {
-    hotPreviewPosts.value = filterVisiblePosts(filterPublicContent(hotRes.value.data?.items || []), 3)
-  }
-  if (recommendRes.status === 'fulfilled') {
-    recommendPreviewPosts.value = filterVisiblePosts(filterPublicContent(recommendRes.value.data?.items || []), 3)
-  }
-  const feedCounts = [latestRes, hotRes, recommendRes]
-    .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
-    .map((res) => filterVisiblePosts(filterPublicContent(res.value.data?.items || [])).length)
-  sampledFeedContentCount.value = Math.max(0, ...feedCounts)
   await Promise.all([loadHomeDomains(), loadHomeSeriesPreview()])
   await refreshTaskPanels()
 })
 
-watch(() => authStore.isLoggedIn, async (loggedIn) => {
-  if (!loggedIn) {
+watch(activeDomain, () => {
+  void loadHomePreviewPosts()
+}, { immediate: true })
+
+watch([() => authStore.isLoggedIn, () => authStore.user?.uid], async ([loggedIn, ownerUid]) => {
+  if (!loggedIn || ownerUid == null) {
     onboardingOverview.value = null
     dailyOverview.value = null
-    homeSeriesPreview.value = []
-    homeSeriesSource.value = 'fallback'
+    await loadHomeSeriesPreview()
     return
   }
   await Promise.all([refreshTaskPanels(), loadHomeSeriesPreview()])

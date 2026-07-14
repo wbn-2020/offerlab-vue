@@ -69,7 +69,8 @@ for (const [name, source] of [
 }
 
 assert.match(headerCore, /真实经验与有用内容社区/, 'header brand subtitle must describe a general content community')
-assert.match(header, /label:\s*'首页'[\s\S]*label:\s*'发现'[\s\S]*label:\s*'知识库'[\s\S]*label:\s*'发布'/, 'primary navigation must expose Home, Explore, Knowledge Library, and Publish')
+assert.match(header, /label:\s*'首页'[\s\S]*label:\s*'发现'[\s\S]*label:\s*'发布'/, 'primary navigation must expose Home, Explore, and Publish')
+assert.doesNotMatch(header, /\{\s*to:\s*'\/questions',\s*label:\s*'知识库'/, 'legacy knowledge tools must not remain in primary navigation')
 assert.doesNotMatch(headerCore, /成长档案|成长周报月报|模拟面试|题库/, 'header core must not expose old tools as top-level actions')
 assert.match(headerCore, /搜索经验、攻略、资源、话题或作者/, 'header search placeholder must support general community search')
 

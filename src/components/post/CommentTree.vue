@@ -29,6 +29,7 @@
       <article
         v-for="comment in comments"
         :key="comment.commentId"
+        :id="`comment-${comment.commentId}`"
         :class="commentBranchClasses(comment)"
       >
         <div v-if="isCollapsed(comment)" class="folded-comment-summary">
@@ -95,6 +96,22 @@
                 <BadgeCheck class="h-3.5 w-3.5" :class="qualityComment(comment).myHelpful ? 'fill-current text-emerald-600' : ''" />
                 {{ helpfulActionText(comment) }}
               </button>
+              <button
+                v-if="canAcceptAnswer && !isAcceptedAnswer(comment)"
+                type="button"
+                class="comment-action comment-action-accept disabled:cursor-not-allowed disabled:opacity-50"
+                :aria-label="`采用 ${comment.author.nickname || '这位用户'} 的回答`"
+                :aria-busy="acceptAnswerPending"
+                :disabled="acceptAnswerPending || isFolded(comment)"
+                @click="emit('accept-answer', comment.commentId)"
+              >
+                <BadgeCheck class="h-3.5 w-3.5" />
+                采用回答
+              </button>
+              <span v-else-if="isAcceptedAnswer(comment)" class="comment-action-static comment-action-accepted">
+                <BadgeCheck class="h-3.5 w-3.5" />
+                已采纳回答
+              </span>
               <button
                 v-if="canManageQualitySignals"
                 type="button"
@@ -167,6 +184,7 @@
               <div
                 v-for="reply in comment.replies"
                 :key="reply.commentId"
+                :id="`comment-${reply.commentId}`"
                 class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/70"
               >
                 <div v-if="isCollapsed(reply)" class="folded-comment-summary folded-comment-summary-reply">
@@ -358,6 +376,9 @@ const props = withDefaults(defineProps<{
   canMarkHelpfulComments?: boolean
   canManageQualitySignals?: boolean
   canModerateComments?: boolean
+  canAcceptAnswer?: boolean
+  acceptedCommentId?: Comment['commentId']
+  acceptAnswerPending?: boolean
   postAuthorUid?: string | number
   loadingReplyRootIds?: Array<string | number>
   emptyText?: string
@@ -371,6 +392,8 @@ const props = withDefaults(defineProps<{
   canMarkHelpfulComments: false,
   canManageQualitySignals: false,
   canModerateComments: false,
+  canAcceptAnswer: false,
+  acceptAnswerPending: false,
   emptyText: '还没有评论，来抢沙发吧',
   replyActionLabel: '回复',
   replyPlaceholder: '写下回复...',
@@ -390,6 +413,7 @@ const emit = defineEmits<{
   'unfeature-comment': [commentId: Comment['commentId']]
   'fold-comment': [commentId: Comment['commentId']]
   'unfold-comment': [commentId: Comment['commentId']]
+  'accept-answer': [commentId: Comment['commentId']]
   'reply-comment': [payload: { parentId: Comment['commentId']; replyToUid: Comment['author']['uid']; content: string }]
   'load-more-replies': [rootId: Comment['commentId']]
   'delete-comment': [commentId: Comment['commentId']]
@@ -422,6 +446,11 @@ const isAuthorReply = (comment: Comment) => Boolean(qualityComment(comment).auth
 const isPinned = (comment: Comment) => Boolean(qualityComment(comment).authorPinned)
 const isFeatured = (comment: Comment) => Boolean(qualityComment(comment).featured)
 const isFolded = (comment: Comment) => Boolean(qualityComment(comment).folded)
+const isAcceptedAnswer = (comment: Comment) => (
+  props.acceptedCommentId !== undefined
+  && props.acceptedCommentId !== null
+  && String(props.acceptedCommentId) === String(comment.commentId)
+)
 const isHotComment = (comment: Comment) => Number(qualityComment(comment).hotScore ?? 0) > 0
 const qualityScore = (comment: Comment) => {
   const quality = qualityComment(comment)
@@ -432,7 +461,7 @@ const qualityScore = (comment: Comment) => {
     + helpfulCount(comment) * 20
 }
 const featuredComments = computed(() => commentsWithReplies.value
-  .filter((comment) => !isFolded(comment) && (isHotComment(comment) || isPinned(comment) || isFeatured(comment) || isAuthorReply(comment) || helpfulCount(comment) > 0))
+  .filter((comment) => !isFolded(comment) && (isAcceptedAnswer(comment) || isHotComment(comment) || isPinned(comment) || isFeatured(comment) || isAuthorReply(comment) || helpfulCount(comment) > 0))
   .sort((a, b) => qualityScore(b) - qualityScore(a))
   .slice(0, 3)
   .map((comment) => ({
@@ -440,6 +469,7 @@ const featuredComments = computed(() => commentsWithReplies.value
     badge: primaryQualityBadge(comment),
   })))
 const primaryQualityBadge = (comment: Comment) => {
+  if (isAcceptedAnswer(comment)) return '已采纳回答'
   if (isHotComment(comment)) return '热门评论'
   if (isPinned(comment)) return '作者置顶'
   if (isFeatured(comment)) return '精选回复'
@@ -449,6 +479,7 @@ const primaryQualityBadge = (comment: Comment) => {
 }
 const qualityBadgesFor = (comment: Comment): QualityBadge[] => {
   const badges: QualityBadge[] = []
+  if (isAcceptedAnswer(comment)) badges.push({ key: 'acceptedAnswer', label: '已采纳回答', className: 'comment-signal-accepted' })
   if (isHotComment(comment)) badges.push({ key: 'hot', label: '热门评论', className: 'comment-signal-hot' })
   if (isAuthorReply(comment)) badges.push({ key: 'authorReply', label: '作者回应', className: 'comment-signal-author' })
   if (isPinned(comment)) badges.push({ key: 'authorPinned', label: '作者置顶', className: 'comment-signal-pinned' })
@@ -466,6 +497,7 @@ const foldedReasonText = (comment: Comment) => qualityComment(comment).foldReaso
 const commentBranchClasses = (comment: Comment) => [
   'comment-branch',
   isPinned(comment) ? 'comment-branch-pinned' : '',
+  isAcceptedAnswer(comment) ? 'comment-branch-accepted' : '',
   isFeatured(comment) ? 'comment-branch-featured' : '',
   isAuthorReply(comment) ? 'comment-branch-author' : '',
   isFolded(comment) ? 'comment-branch-folded' : '',
@@ -668,24 +700,39 @@ void props.postId
 }
 
 .comment-branch {
-  border-left: 2px solid rgb(226 232 240);
-  padding-left: 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+[id^='comment-'] {
+  scroll-margin-top: 6rem;
+}
+
+[id^='comment-']:target {
+  outline: 3px solid rgb(14 165 233 / 0.35);
+  outline-offset: 3px;
 }
 
 .comment-branch-author {
-  border-left-color: rgb(59 130 246);
+  border-color: rgb(147 197 253);
 }
 
 .comment-branch-pinned {
-  border-left-color: rgb(14 165 233);
+  border-color: rgb(125 211 252);
 }
 
 .comment-branch-featured {
-  border-left-color: rgb(139 92 246);
+  border-color: rgb(196 181 253);
+}
+
+.comment-branch-accepted {
+  border-color: rgb(110 231 183);
+  background: rgb(240 253 250);
 }
 
 .comment-branch-folded {
-  border-left-color: rgb(148 163 184);
+  border-color: rgb(148 163 184);
 }
 
 .comment-action-static {
@@ -694,6 +741,15 @@ void props.postId
   gap: 0.25rem;
   font-size: 0.75rem;
   color: rgb(100 116 139);
+}
+
+.comment-action-accept {
+  color: rgb(5 150 105);
+}
+
+.comment-action-accepted {
+  font-weight: 800;
+  color: rgb(4 120 87);
 }
 
 .comment-signal-pill {
@@ -728,6 +784,11 @@ void props.postId
 .comment-signal-helpful {
   background: rgb(220 252 231);
   color: rgb(21 128 61);
+}
+
+.comment-signal-accepted {
+  background: rgb(209 250 229);
+  color: rgb(4 120 87);
 }
 
 .comment-signal-folded {
@@ -840,19 +901,24 @@ void props.postId
 }
 
 .dark .comment-branch-author {
-  border-left-color: rgb(96 165 250);
+  border-color: rgb(96 165 250);
 }
 
 .dark .comment-branch-pinned {
-  border-left-color: rgb(56 189 248);
+  border-color: rgb(56 189 248);
 }
 
 .dark .comment-branch-featured {
-  border-left-color: rgb(167 139 250);
+  border-color: rgb(167 139 250);
+}
+
+.dark .comment-branch-accepted {
+  border-color: rgb(16 185 129);
+  background: rgb(6 78 59 / 0.25);
 }
 
 .dark .comment-branch-folded {
-  border-left-color: rgb(100 116 139);
+  border-color: rgb(100 116 139);
 }
 
 .dark .comment-action-static {
@@ -882,6 +948,11 @@ void props.postId
 .dark .comment-signal-helpful {
   background: rgb(20 83 45 / 0.55);
   color: rgb(187 247 208);
+}
+
+.dark .comment-signal-accepted {
+  background: rgb(6 78 59 / 0.65);
+  color: rgb(167 243 208);
 }
 
 .dark .comment-signal-folded {
