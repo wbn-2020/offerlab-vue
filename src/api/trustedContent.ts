@@ -77,6 +77,42 @@ export interface FreshnessUpdateReq {
   successorPostId?: ApiId | null
 }
 
+export type TrustProfileRole = 'PARTICIPANT' | 'PRACTITIONER' | 'OBSERVER' | 'CURATOR'
+
+export interface TrustProfile {
+  postId: ApiId
+  authorUid: ApiId
+  profileAvailable: boolean
+  authorRole?: TrustProfileRole
+  experienceStartAt?: string
+  experienceEndAt?: string
+  applicableAudience?: string
+  applicableContext?: string
+  processSummary?: string
+  outcomeSummary?: string
+  knownLimitations?: string
+  sourceSummary?: string
+  interestDisclosure?: string
+  completenessScore: number
+  lastConfirmedAt?: number
+  profileVersion?: number
+  createdAt?: number
+  updatedAt?: number
+}
+
+export interface TrustProfileUpdateReq {
+  authorRole: TrustProfileRole
+  experienceStartAt?: string
+  experienceEndAt?: string
+  applicableAudience?: string
+  applicableContext?: string
+  processSummary?: string
+  outcomeSummary?: string
+  knownLimitations?: string
+  sourceSummary?: string
+  interestDisclosure?: string
+}
+
 export interface TrustedContentRequestOptions {
   signal?: AbortSignal
 }
@@ -277,7 +313,69 @@ const adaptTrustedContentResult = (res: Result<any>): Result<TrustedContentState
   data: res.data ? adaptTrustedContentState(res.data) : null,
 })
 
+const optionalText = (value: unknown): string | undefined => {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim()
+  return text || undefined
+}
+
+const trustProfileRoles = new Set<TrustProfileRole>([
+  'PARTICIPANT',
+  'PRACTITIONER',
+  'OBSERVER',
+  'CURATOR',
+])
+
+export const adaptTrustProfile = (raw: any): TrustProfile => {
+  const role = String(raw?.authorRole ?? '') as TrustProfileRole
+  return {
+    postId: optionalId(raw?.postId) ?? '',
+    authorUid: optionalId(raw?.authorUid) ?? '',
+    profileAvailable: Boolean(raw?.profileAvailable),
+    authorRole: trustProfileRoles.has(role) ? role : undefined,
+    experienceStartAt: optionalText(raw?.experienceStartAt),
+    experienceEndAt: optionalText(raw?.experienceEndAt),
+    applicableAudience: optionalText(raw?.applicableAudience),
+    applicableContext: optionalText(raw?.applicableContext),
+    processSummary: optionalText(raw?.processSummary),
+    outcomeSummary: optionalText(raw?.outcomeSummary),
+    knownLimitations: optionalText(raw?.knownLimitations),
+    sourceSummary: optionalText(raw?.sourceSummary),
+    interestDisclosure: optionalText(raw?.interestDisclosure),
+    completenessScore: Math.max(0, Math.min(100, finiteCount(raw?.completenessScore))),
+    lastConfirmedAt: optionalTime(raw?.lastConfirmedAt),
+    profileVersion: raw?.profileVersion == null ? undefined : Number(raw.profileVersion),
+    createdAt: optionalTime(raw?.createTime ?? raw?.createdAt),
+    updatedAt: optionalTime(raw?.updateTime ?? raw?.updatedAt),
+  }
+}
+
+const adaptTrustProfileResult = (res: Result<any>): Result<TrustProfile> => ({
+  ...res,
+  data: res.data ? adaptTrustProfile(res.data) : null,
+})
+
 export const trustedContentApi = {
+  loadTrustProfile: async (
+    postId: ApiId,
+    options?: TrustedContentRequestOptions,
+  ): Promise<Result<TrustProfile>> => {
+    const res = await client.get(`/api/v1/posts/${postId}/trust-profile`, {
+      signal: options?.signal,
+    }) as Result<any>
+    return adaptTrustProfileResult(res)
+  },
+
+  saveTrustProfile: async (
+    postId: ApiId,
+    req: TrustProfileUpdateReq,
+    options?: TrustedContentRequestOptions,
+  ): Promise<Result<TrustProfile>> => {
+    const res = await client.put(`/api/v1/posts/${postId}/trust-profile`, req, {
+      signal: options?.signal,
+    }) as Result<any>
+    return adaptTrustProfileResult(res)
+  },
+
   loadTrustedContent: async (
     postId: ApiId,
     options?: TrustedContentRequestOptions,
@@ -360,3 +458,5 @@ export const setQuestionState = trustedContentApi.setQuestionState
 export const acceptAnswer = trustedContentApi.acceptAnswer
 export const clearAcceptedAnswer = trustedContentApi.clearAcceptedAnswer
 export const updateFreshness = trustedContentApi.updateFreshness
+export const loadTrustProfile = trustedContentApi.loadTrustProfile
+export const saveTrustProfile = trustedContentApi.saveTrustProfile

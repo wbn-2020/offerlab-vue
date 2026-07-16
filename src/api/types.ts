@@ -38,6 +38,18 @@ export interface UserIntent {
   contentPreferences?: string[]
 }
 
+export interface PostTrustSignals {
+  profileAvailable: boolean
+  completenessScore: number
+  lastConfirmedAt?: number
+  freshnessStatus?: string
+  hasAcceptedAnswer: boolean
+  acceptedSuggestionCount: number
+  publicCorrectionCount: number
+  sourceComplete: boolean
+  resolved: boolean
+}
+
 export interface Post {
   postId: ApiId
   postType: number
@@ -67,6 +79,8 @@ export interface Post {
   riskLevel?: string | number
   moderationStatus?: string | number
   recommendationReasons?: string[]
+  rankingReasons?: string[]
+  trustSignals?: PostTrustSignals
   myInteraction?: {
     liked: boolean
     favorited: boolean
@@ -998,6 +1012,7 @@ export interface CreatorTrustedContentMetrics {
   fallbackReason?: string
   pendingSuggestions: number
   freshnessAwaitingConfirmation: number
+  profileConfirmationDue: number
   unresolvedQuestions: number
   usefulFeedback7Days: number
   usefulFeedback30Days: number
@@ -1005,6 +1020,7 @@ export interface CreatorTrustedContentMetrics {
   effectiveReads30Days: number
   pendingSuggestionItems?: CreatorTrustedContentTaskItem[]
   freshnessItems?: CreatorTrustedContentTaskItem[]
+  profileConfirmationItems?: CreatorTrustedContentTaskItem[]
   pendingQuestionItems?: CreatorTrustedContentTaskItem[]
 }
 

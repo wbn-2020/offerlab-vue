@@ -141,6 +141,12 @@ const routes = [
     meta: { title: '创作者工作台', requiresAuth: true },
   },
   {
+    path: '/me/maintenance',
+    name: 'ContentMaintenanceTasks',
+    component: () => import('@/views/MaintenanceTasksView.vue'),
+    meta: { title: '我的维护任务', requiresAuth: true },
+  },
+  {
     path: '/me/prep',
     name: 'MePrep',
     ...(enableLegacyTrainingRoutes
@@ -220,6 +226,26 @@ const routes = [
     name: 'AdminCommunityGrowth',
     component: () => import('@/views/AdminCommunityGrowthView.vue'),
     meta: { title: '激励与角色治理', requiresAuth: true, adminPermission: 'admin' },
+  },
+  {
+    path: '/admin/community-health',
+    name: 'AdminChannelHealth',
+    component: () => import('@/views/AdminChannelHealthView.vue'),
+    meta: {
+      title: '频道健康度',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+    },
+  },
+  {
+    path: '/admin/content-maintenance',
+    name: 'AdminContentMaintenance',
+    component: () => import('@/views/AdminMaintenanceTasksView.vue'),
+    meta: {
+      title: '内容维护治理',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+    },
   },
   {
     path: '/admin/questions',

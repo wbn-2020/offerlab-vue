@@ -381,6 +381,21 @@ function stripSearchHighlight(value: unknown) {
   return typeof value === 'string' ? value.replace(/<\/?em>/gi, '') : ''
 }
 
+function adaptPostTrustSignals(raw: any): Post['trustSignals'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  return {
+    profileAvailable: Boolean(raw.profileAvailable),
+    completenessScore: Math.max(0, Math.min(100, Number(raw.completenessScore ?? 0))),
+    lastConfirmedAt: raw.lastConfirmedAt ? adaptTime(raw.lastConfirmedAt) : undefined,
+    freshnessStatus: sanitizeVisibleText(raw.freshnessStatus) || undefined,
+    hasAcceptedAnswer: Boolean(raw.hasAcceptedAnswer),
+    acceptedSuggestionCount: Math.max(0, Number(raw.acceptedSuggestionCount ?? 0)),
+    publicCorrectionCount: Math.max(0, Number(raw.publicCorrectionCount ?? 0)),
+    sourceComplete: Boolean(raw.sourceComplete),
+    resolved: Boolean(raw.resolved),
+  }
+}
+
 export function adaptPost(raw: any): Post {
   const source = raw?.post
     ? {
@@ -432,12 +447,20 @@ export function adaptPost(raw: any): Post {
     restricted: Boolean(source?.restricted ?? source?.isRestricted ?? false),
     riskLevel: source?.riskLevel,
     moderationStatus: source?.moderationStatus,
+    trustSignals: adaptPostTrustSignals(source?.trustSignals ?? raw?.trustSignals),
     recommendationReasons: (Array.isArray(raw?.recommendationReasons)
       ? raw.recommendationReasons
       : Array.isArray(source?.recommendationReasons)
         ? source.recommendationReasons
         : [])
       .map((item: unknown) => neutralizeHighRiskRecommendationReason(normalizeRecommendationReason(sanitizeVisibleText(item)), source))
+      .filter(Boolean),
+    rankingReasons: (Array.isArray(raw?.rankingReasons)
+      ? raw.rankingReasons
+      : Array.isArray(source?.rankingReasons)
+        ? source.rankingReasons
+        : [])
+      .map((item: unknown) => sanitizeVisibleText(item))
       .filter(Boolean),
     myInteraction: {
       liked: Boolean(myInteraction.liked ?? source?.liked ?? false),

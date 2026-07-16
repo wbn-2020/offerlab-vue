@@ -27,7 +27,11 @@ export interface SearchParams {
   position?: string
   type?: number
   domain?: number
-  sort?: 'relevance' | 'latest' | 'hot'
+  sort?: 'relevance' | 'latest' | 'hot' | 'trusted'
+  trustProfile?: boolean
+  freshnessStatus?: string
+  resolved?: boolean
+  sourceComplete?: boolean
   cursor?: string
   size?: number
 }
@@ -115,6 +119,10 @@ export const searchApi = {
       type: params.type,
       domain: params.domain,
       sort: params.sort,
+      trustProfile: params.trustProfile,
+      freshnessStatus: params.freshnessStatus,
+      resolved: params.resolved,
+      sourceComplete: params.sourceComplete,
       cursor: params.cursor,
       size: params.size,
     }

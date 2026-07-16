@@ -51,6 +51,10 @@ const adminRouteAccess = {
   '/admin': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
   '/admin/ops': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
   '/admin/operations': { ops: false, questionOperator: false, contentModerator: false, domainModerator: false, admin: true },
+  '/admin/collaboration': { ops: false, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
+  '/admin/community-growth': { ops: false, questionOperator: false, contentModerator: false, domainModerator: false, admin: true },
+  '/admin/community-health': { ops: false, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
+  '/admin/content-maintenance': { ops: false, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
   '/admin/questions': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
   '/admin/company-aliases': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
   '/admin/governance': { ops: true, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
@@ -126,24 +130,17 @@ for (const label of ['知识库', '资源库', '题库', '模拟面试', '成长
 }
 assert.match(appHeader, /to="\/knowledge\/explore"[\s\S]*知识探索/, 'knowledge exploration must remain reachable outside primary navigation')
 
-assert.match(appHeader, /showMobileMenu/, 'AppHeader must keep a mobile menu state')
-assert.match(appHeader, /aria-controls="mobile-main-nav"/, 'mobile menu toggle must target the mobile navigation panel')
-assert.match(appHeader, /data-mobile-backdrop/, 'mobile menu must render a backdrop to separate it from page content')
-assert.match(appHeader, /mobile-menu-panel/, 'mobile menu must render as a layered panel instead of pushing page content')
-assert.match(appHeader, /\.mobile-nav-link[\s\S]*background:\s*rgb\(248 250 252\)/, 'mobile navigation links must look enabled in light mode')
-assert.match(appHeader, /\.mobile-nav-link[\s\S]*color:\s*rgb\(30 41 59\)/, 'mobile navigation links must keep readable light-mode text')
-assert.match(appHeader, /themeStore\.isDark\(\) \? 'mobile-nav-link-dark'/, 'mobile navigation links must apply readable dark-mode classes directly')
-assert.match(appHeader, /themeStore\.isDark\(\) \? 'mobile-quick-action-dark'/, 'mobile quick actions must apply readable dark-mode classes directly')
-assert.match(appHeader, /\.mobile-nav-link-dark[\s\S]*background:\s*rgb\(15 23 42\)/, 'mobile navigation links must not become transparent in dark mode')
-assert.match(appHeader, /\.mobile-nav-link-dark[\s\S]*color:\s*rgb\(203 213 225\)/, 'mobile navigation links must keep readable dark-mode text')
-assert.match(appHeader, /\.mobile-nav-link-active\.mobile-nav-link-dark[\s\S]*color:\s*rgb\(191 219 254\)/, 'active mobile navigation must keep a distinct dark-mode highlight')
+assert.match(appHeader, /<nav class="community-mobile-dock"/, 'AppHeader must expose a persistent mobile navigation dock')
+assert.match(appHeader, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/, 'mobile dock must keep five balanced navigation targets')
+assert.match(appHeader, /community-mobile-dock__item--active/, 'mobile dock must expose a distinct active state')
+assert.match(appHeader, /min-height:\s*3\.55rem/, 'mobile dock targets must keep an accessible touch target')
+assert.match(appHeader, /\.dark \.community-mobile-dock/, 'mobile dock must retain a dark-mode surface')
 assert.match(settings, /useThemeStore/, 'settings page must expose the shared theme store')
 assert.match(settings, /value: 'theme'/, 'settings page must expose a theme settings tab')
 assert.match(settings, /themeStore\.setMode\(option\.value\)/, 'settings page must let users choose light, dark, or system theme')
-assert.match(appHeader, /to="\/search"/, 'mobile header menu must expose search')
 assert.match(appHeader, /to="\/editor"/, 'mobile header menu must expose publishing')
 assert.match(appHeader, /to="\/me\/notifications"/, 'mobile header menu must expose notifications when logged in')
-assert.match(appHeader, /authStore\.isLoggedIn \? '\/me' : '\/login'/, 'mobile header menu must expose profile/login entry')
+assert.match(appHeader, /authStore\.isLoggedIn \? '\/me' : '\/login'/, 'mobile dock must expose profile/login entry')
 
 for (const view of ['AboutView.vue', 'NotFoundView.vue', 'UserProfileView.vue', 'SettingsView.vue', 'NotificationsView.vue', 'TrendDashboardView.vue', 'EditorView.vue', 'ForbiddenView.vue']) {
   const viewSource = readFileSync(new URL(`../src/views/${view}`, import.meta.url), 'utf8')

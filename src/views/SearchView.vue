@@ -101,6 +101,41 @@
                   <option v-for="item in searchContentTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
               </label>
+              <label class="field-label">
+                经验护照
+                <select v-model="filters.trustProfile" class="field-input" @change="scheduleDebouncedSearch">
+                  <option value="">全部</option>
+                  <option value="true">已补充</option>
+                  <option value="false">未补充</option>
+                </select>
+              </label>
+              <label class="field-label">
+                内容时效
+                <select v-model="filters.freshnessStatus" class="field-input" @change="scheduleDebouncedSearch">
+                  <option value="">全部状态</option>
+                  <option value="CURRENT">当前有效</option>
+                  <option value="POSSIBLY_STALE">可能已过时</option>
+                  <option value="AWAITING_AUTHOR_CONFIRMATION">等待作者确认</option>
+                  <option value="UPDATED">已更新</option>
+                  <option value="SUPERSEDED">已有后续内容</option>
+                </select>
+              </label>
+              <label class="field-label">
+                讨论结果
+                <select v-model="filters.resolved" class="field-input" @change="scheduleDebouncedSearch">
+                  <option value="">全部</option>
+                  <option value="true">已有结果</option>
+                  <option value="false">仍待补充</option>
+                </select>
+              </label>
+              <label class="field-label">
+                来源说明
+                <select v-model="filters.sourceComplete" class="field-input" @change="scheduleDebouncedSearch">
+                  <option value="">全部</option>
+                  <option value="true">来源完整</option>
+                  <option value="false">来源待补充</option>
+                </select>
+              </label>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-2">
               <button type="button" class="secondary-button" @click="resetFilters">清空</button>
@@ -434,7 +469,9 @@ import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyn
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
 import { filterSearchSuggestionTerms, filterVisiblePosts, findHighRiskContentWarning } from '@/utils/recommendationGovernance'
 
-type SortValue = 'relevance' | 'latest' | 'hot'
+type SortValue = 'relevance' | 'latest' | 'hot' | 'trusted'
+type BooleanFilter = '' | 'true' | 'false'
+type FreshnessFilter = '' | 'CURRENT' | 'POSSIBLY_STALE' | 'AWAITING_AUTHOR_CONFIRMATION' | 'UPDATED' | 'SUPERSEDED'
 type SearchMode = 'posts' | 'users' | 'topics' | 'tags'
 type SearchSnapshot = {
   id: string
@@ -446,6 +483,10 @@ type SearchSnapshot = {
   position: string
   type?: number
   sort: SortValue
+  trustProfile: BooleanFilter
+  freshnessStatus: FreshnessFilter
+  resolved: BooleanFilter
+  sourceComplete: BooleanFilter
   updatedAt: number
 }
 
@@ -488,19 +529,35 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { domains: domainOptions, loadDomains } = useDomainCatalog()
-const filters = reactive<{ q: string; domain?: number; company: string; position: string; type?: number; sort: SortValue }>({
+const filters = reactive<{
+  q: string
+  domain?: number
+  company: string
+  position: string
+  type?: number
+  sort: SortValue
+  trustProfile: BooleanFilter
+  freshnessStatus: FreshnessFilter
+  resolved: BooleanFilter
+  sourceComplete: BooleanFilter
+}>({
   q: '',
   domain: undefined,
   company: '',
   position: '',
   type: undefined,
   sort: 'relevance',
+  trustProfile: '',
+  freshnessStatus: '',
+  resolved: '',
+  sourceComplete: '',
 })
 
 const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: 'relevance', label: '相关度' },
   { value: 'latest', label: '最新' },
   { value: 'hot', label: '热门' },
+  { value: 'trusted', label: '可信优先' },
 ]
 const searchContentTypes = COMMUNITY_CONTENT_TYPES
 const recommendedChannels = computed(() => ALL_COMMUNITY_CHANNELS
@@ -557,7 +614,17 @@ const resultSummaryText = computed(() => {
 const hasQuery = computed(() => {
   if (searchMode.value === 'users') return Boolean(filters.q)
   if (searchMode.value === 'topics' || searchMode.value === 'tags') return Boolean(filters.q)
-  return Boolean(filters.q || filters.domain || filters.company || filters.position || filters.type)
+  return Boolean(
+    filters.q
+    || filters.domain
+    || filters.company
+    || filters.position
+    || filters.type
+    || filters.trustProfile
+    || filters.freshnessStatus
+    || filters.resolved
+    || filters.sourceComplete,
+  )
 })
 const shouldAutoRunSearch = computed(() => (
   hasQuery.value
@@ -870,7 +937,22 @@ const syncFromRoute = () => {
   filters.position = typeof route.query.position === 'string' ? route.query.position : ''
   const type = Number(route.query.type ?? routeChannel?.postTypes?.[0])
   filters.type = Number.isFinite(type) && type > 0 ? type : undefined
-  filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
+  filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' || route.query.sort === 'trusted'
+    ? route.query.sort
+    : 'relevance'
+  filters.trustProfile = route.query.trustProfile === 'true' || route.query.trustProfile === 'false'
+    ? route.query.trustProfile
+    : ''
+  const freshness = typeof route.query.freshnessStatus === 'string' ? route.query.freshnessStatus : ''
+  filters.freshnessStatus = ['CURRENT', 'POSSIBLY_STALE', 'AWAITING_AUTHOR_CONFIRMATION', 'UPDATED', 'SUPERSEDED'].includes(freshness)
+    ? freshness as FreshnessFilter
+    : ''
+  filters.resolved = route.query.resolved === 'true' || route.query.resolved === 'false'
+    ? route.query.resolved
+    : ''
+  filters.sourceComplete = route.query.sourceComplete === 'true' || route.query.sourceComplete === 'false'
+    ? route.query.sourceComplete
+    : ''
   searchMode.value = nextMode
 }
 
@@ -885,6 +967,10 @@ const pushQuery = () => {
       ...(filters.position ? { position: filters.position } : {}),
       ...(filters.type ? { type: String(filters.type) } : {}),
       ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
+      ...(searchMode.value === 'posts' && filters.trustProfile ? { trustProfile: filters.trustProfile } : {}),
+      ...(searchMode.value === 'posts' && filters.freshnessStatus ? { freshnessStatus: filters.freshnessStatus } : {}),
+      ...(searchMode.value === 'posts' && filters.resolved ? { resolved: filters.resolved } : {}),
+      ...(searchMode.value === 'posts' && filters.sourceComplete ? { sourceComplete: filters.sourceComplete } : {}),
       ...(searchMode.value !== 'posts' ? { mode: searchMode.value } : {}),
     },
   }).finally(() => {
@@ -909,6 +995,10 @@ const currentSnapshot = (): SearchSnapshot => {
   const position = mode === 'posts' ? filters.position : ''
   const type = mode === 'posts' ? filters.type : undefined
   const sort = mode === 'posts' ? filters.sort : 'relevance'
+  const trustProfile = mode === 'posts' ? filters.trustProfile : ''
+  const freshnessStatus = mode === 'posts' ? filters.freshnessStatus : ''
+  const resolved = mode === 'posts' ? filters.resolved : ''
+  const sourceComplete = mode === 'posts' ? filters.sourceComplete : ''
   const snapshot = {
     mode,
     q: filters.q,
@@ -918,7 +1008,7 @@ const currentSnapshot = (): SearchSnapshot => {
     type,
   }
   return {
-    id: [mode, filters.q, domain ?? 'all', company, position, type ?? 'all', sort].join('|'),
+    id: [mode, filters.q, domain ?? 'all', company, position, type ?? 'all', sort, trustProfile, freshnessStatus, resolved, sourceComplete].join('|'),
     label: snapshotLabel(snapshot),
     mode,
     q: filters.q,
@@ -927,6 +1017,10 @@ const currentSnapshot = (): SearchSnapshot => {
     position,
     type,
     sort,
+    trustProfile,
+    freshnessStatus,
+    resolved,
+    sourceComplete,
     updatedAt: Date.now(),
   }
 }
@@ -935,9 +1029,23 @@ const isSearchSnapshot = (value: unknown): value is SearchSnapshot => {
   if (!value || typeof value !== 'object') return false
   const item = value as Partial<SearchSnapshot>
   const modeOk = item.mode === 'posts' || item.mode === 'users' || item.mode === 'topics' || item.mode === 'tags'
-  const sortOk = item.sort === 'relevance' || item.sort === 'latest' || item.sort === 'hot'
+  const sortOk = item.sort === 'relevance' || item.sort === 'latest' || item.sort === 'hot' || item.sort === 'trusted'
   const domainOk = item.domain == null || isKnownDomain(item.domain)
-  return Boolean(typeof item.id === 'string' && typeof item.label === 'string' && modeOk && sortOk && domainOk)
+  const booleanFilterOk = [item.trustProfile, item.resolved, item.sourceComplete]
+    .every((filter) => filter === undefined || filter === '' || filter === 'true' || filter === 'false')
+  const freshnessFilterOk = item.freshnessStatus === undefined
+    || item.freshnessStatus === ''
+    || ['CURRENT', 'POSSIBLY_STALE', 'AWAITING_AUTHOR_CONFIRMATION', 'UPDATED', 'SUPERSEDED']
+      .includes(item.freshnessStatus)
+  return Boolean(
+    typeof item.id === 'string'
+    && typeof item.label === 'string'
+    && modeOk
+    && sortOk
+    && domainOk
+    && booleanFilterOk
+    && freshnessFilterOk,
+  )
 }
 
 const readSnapshots = (key: string) => {
@@ -1091,6 +1199,10 @@ const applySearchSnapshot = async (snapshot: SearchSnapshot) => {
   filters.position = snapshot.position || ''
   filters.type = snapshot.type
   filters.sort = snapshot.sort
+  filters.trustProfile = snapshot.trustProfile || ''
+  filters.freshnessStatus = snapshot.freshnessStatus || ''
+  filters.resolved = snapshot.resolved || ''
+  filters.sourceComplete = snapshot.sourceComplete || ''
   await runSearch(false)
 }
 
@@ -1212,6 +1324,10 @@ const runSearch = async (append = false, syncRoute = true) => {
       position: filters.position || undefined,
       type: filters.type,
       sort: filters.sort,
+      trustProfile: filters.trustProfile ? filters.trustProfile === 'true' : undefined,
+      freshnessStatus: filters.freshnessStatus || undefined,
+      resolved: filters.resolved ? filters.resolved === 'true' : undefined,
+      sourceComplete: filters.sourceComplete ? filters.sourceComplete === 'true' : undefined,
       cursor: append ? cursor.value : undefined,
       size: 20,
     } as Parameters<typeof searchApi.searchPosts>[0]
@@ -1272,6 +1388,10 @@ const resetFilters = async () => {
   filters.position = ''
   filters.type = undefined
   filters.sort = 'relevance'
+  filters.trustProfile = ''
+  filters.freshnessStatus = ''
+  filters.resolved = ''
+  filters.sourceComplete = ''
   searchMode.value = 'posts'
   suggestions.value = []
   searchResults.value = []
@@ -1304,6 +1424,10 @@ const setMode = async (mode: SearchMode) => {
     filters.company = ''
     filters.position = ''
     filters.type = undefined
+    filters.trustProfile = ''
+    filters.freshnessStatus = ''
+    filters.resolved = ''
+    filters.sourceComplete = ''
   }
   resetResults()
   await runSearch(false)
@@ -1327,6 +1451,10 @@ const searchHotContent = async () => {
   filters.position = ''
   filters.type = undefined
   filters.sort = 'hot'
+  filters.trustProfile = ''
+  filters.freshnessStatus = ''
+  filters.resolved = ''
+  filters.sourceComplete = ''
   await runSearch(false)
 }
 

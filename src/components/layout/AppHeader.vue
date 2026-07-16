@@ -1,284 +1,193 @@
 <template>
-  <header class="sticky top-0 z-40 border-b border-slate-200/75 bg-white/88 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/82">
-    <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-      <RouterLink to="/" class="brand-link group flex flex-shrink-0 items-center gap-2.5 text-slate-950 dark:text-white" :aria-label="`${siteBrand.displayName} 综合社区首页`">
-        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-sm font-black text-white shadow-sm shadow-primary-600/20 transition-transform group-hover:-translate-y-0.5">
-          闻
-        </span>
-        <span class="hidden leading-tight sm:block">
-          <span class="block text-base font-black tracking-normal">{{ siteBrand.displayName }}</span>
-          <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">{{ siteBrand.tagline || '真实经验与有用内容社区' }}</span>
+  <header class="community-header">
+    <div class="community-header__inner">
+      <RouterLink
+        to="/"
+        class="community-header__brand"
+        :aria-label="`${siteBrand.displayName} 综合社区首页`"
+      >
+        <span class="community-header__brand-mark">闻</span>
+        <span class="community-header__brand-copy">
+          <strong>{{ siteBrand.displayName }}</strong>
+          <small>{{ siteBrand.tagline || '真实经验与有用内容社区' }}</small>
         </span>
       </RouterLink>
 
-      <nav class="hidden items-center gap-1 lg:flex" aria-label="主导航">
+      <nav class="community-header__nav" aria-label="主导航">
         <RouterLink
-          v-for="item in navItems"
+          v-for="item in navItems.slice(0, 3)"
           :key="item.to"
           :to="item.to"
-          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white"
-          active-class="bg-primary-100 text-primary-700 dark:bg-slate-800 dark:text-primary-200 dark:ring-1 dark:ring-primary-500/25"
+          class="community-header__nav-link"
+          :class="{ 'community-header__nav-link--active': isNavActive(item.to) }"
+          :aria-current="isNavActive(item.to) ? 'page' : undefined"
         >
-          <component :is="item.icon" class="h-4 w-4" />
           {{ item.label }}
         </RouterLink>
-        <div class="relative domain-menu-container" @click.stop>
-          <button @click="showDomainMenu = !showDomainMenu"
-            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white">
-            <Grid3x3 class="h-4 w-4" />
+
+        <div class="community-header__menu" @click.stop>
+          <button
+            type="button"
+            class="community-header__nav-link community-header__channel-trigger"
+            :aria-expanded="showDomainMenu"
+            @click="showDomainMenu = !showDomainMenu"
+          >
             频道
-            <ChevronDown class="h-3 w-3" />
+            <ChevronDown class="h-3.5 w-3.5" />
           </button>
-          <div v-if="showDomainMenu" class="absolute left-0 z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-            <router-link v-for="d in headerDomainOptions" :key="d.domain"
-              :to="{ path: '/', query: { domain: d.domain } }"
-              class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
-              @click="showDomainMenu = false">
-              <span class="text-lg">{{ d.icon }}</span>
-              <div>
-                <div class="font-semibold">{{ d.domainName }}</div>
-                <div class="text-xs text-slate-500">{{ d.description }}</div>
-              </div>
-            </router-link>
+          <div v-if="showDomainMenu" class="community-header__dropdown community-header__channel-menu">
+            <RouterLink
+              to="/"
+              class="community-header__channel-item"
+              @click="showDomainMenu = false"
+            >
+              <span class="community-header__channel-icon">全</span>
+              <span>
+                <strong>综合</strong>
+                <small>跨频道的真实经验与讨论</small>
+              </span>
+            </RouterLink>
+            <RouterLink
+              v-for="domain in headerDomainOptions"
+              :key="domain.domain"
+              :to="{ path: '/', query: { domain: domain.domain } }"
+              class="community-header__channel-item"
+              @click="showDomainMenu = false"
+            >
+              <span class="community-header__channel-icon">{{ domain.icon }}</span>
+              <span>
+                <strong>{{ domain.domainName }}</strong>
+                <small>{{ domain.description }}</small>
+              </span>
+            </RouterLink>
           </div>
         </div>
       </nav>
 
-      <form class="hidden max-w-sm flex-1 items-center gap-2 md:flex" @submit.prevent="submitSearch">
-        <div class="relative w-full">
-          <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            v-model="keyword"
-            type="search"
-            placeholder="搜索经验、攻略、资源、话题或作者"
-            class="w-full rounded-lg border border-slate-200 bg-slate-50/90 py-2.5 pl-9 pr-3 text-sm text-slate-900 shadow-inner shadow-slate-200/30 transition-colors placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:focus:border-primary-700 dark:focus:bg-slate-900 dark:focus:ring-primary-950"
-          />
-        </div>
+      <form class="community-header__search" role="search" @submit.prevent="submitSearch">
+        <Search class="h-4 w-4" aria-hidden="true" />
+        <input
+          v-model="keyword"
+          type="search"
+          placeholder="搜索经验、攻略、资源、话题或作者"
+          aria-label="搜索经验、攻略、资源、话题或作者"
+        >
       </form>
 
-      <div class="flex items-center gap-2 sm:gap-3">
-        <RouterLink to="/editor" class="primary-action hidden sm:inline-flex">
+      <div class="community-header__actions">
+        <RouterLink to="/editor" class="community-header__publish">
           <PenLine class="h-4 w-4" />
-          发布内容
+          <span>发布</span>
         </RouterLink>
-
         <RouterLink
           v-if="authStore.token"
           to="/me/notifications"
-          class="header-icon-button relative rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          class="community-header__icon-button"
           title="通知"
+          aria-label="通知"
         >
           <Bell class="h-5 w-5" />
-          <span
-            v-if="unreadCount > 0"
-            class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-semibold text-white"
-          >
+          <span v-if="unreadCount > 0" class="community-header__notification-count">
             {{ unreadCount > 99 ? '99+' : unreadCount }}
           </span>
         </RouterLink>
-
         <button
           type="button"
-          @click="toggleTheme"
-          class="header-icon-button rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          class="community-header__icon-button community-header__theme-button"
           data-theme-toggle
           :title="themeStore.isDark() ? '切换亮色模式' : '切换暗色模式'"
+          :aria-label="themeStore.isDark() ? '切换亮色模式' : '切换暗色模式'"
+          @click="toggleTheme"
         >
-          <Sun v-if="themeStore.isDark()" class="h-5 w-5" />
-          <Moon v-else class="h-5 w-5" />
+          <Sun v-if="themeStore.isDark()" class="h-[18px] w-[18px]" />
+          <Moon v-else class="h-[18px] w-[18px]" />
         </button>
 
-        <button
-          type="button"
-          class="header-icon-button rounded-lg p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white lg:hidden"
-          :aria-expanded="showMobileMenu"
-          aria-controls="mobile-main-nav"
-          :aria-label="showMobileMenu ? '关闭主导航' : '打开主导航'"
-          data-mobile-toggle
-          @click.stop="toggleMobileMenu"
-        >
-          <X v-if="showMobileMenu" class="h-5 w-5" />
-          <Menu v-else class="h-5 w-5" />
-        </button>
-
-        <div class="relative" data-user-menu>
+        <div class="community-header__menu" data-user-menu>
           <button
             type="button"
-            @click.stop="showUserMenu = !showUserMenu"
-            class="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-sky-500 font-semibold text-white shadow-sm shadow-primary-600/20 transition-all hover:-translate-y-0.5 hover:shadow-md"
+            class="community-header__avatar"
+            :aria-expanded="showUserMenu"
             aria-label="用户菜单"
+            @click.stop="showUserMenu = !showUserMenu"
           >
-            <span v-if="authStore.isLoggedIn">{{ authStore.user?.nickname?.[0] || 'U' }}</span>
-            <User v-else class="h-5 w-5" />
+            <img
+              v-if="authStore.isLoggedIn && authStore.user?.avatar"
+              :src="authStore.user.avatar"
+              :alt="authStore.user.nickname"
+            >
+            <span v-else-if="authStore.isLoggedIn">{{ authStore.user?.nickname?.[0] || '我' }}</span>
+            <User v-else class="h-[18px] w-[18px]" />
           </button>
-
-          <div
-            v-if="showUserMenu"
-            class="absolute right-0 z-50 mt-3 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-xl shadow-slate-900/10 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/30"
-          >
+          <div v-if="showUserMenu" class="community-header__dropdown community-header__user-menu">
             <template v-if="authStore.isLoggedIn">
-              <div class="px-4 py-3">
-                <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ authStore.user?.nickname || `${siteBrand.shortName}用户` }}</div>
-                <div class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{{ userMenuSignature }}</div>
+              <div class="community-header__user-summary">
+                <strong>{{ authStore.user?.nickname || `${siteBrand.shortName}用户` }}</strong>
+                <small>{{ userMenuSignature }}</small>
               </div>
-              <div class="menu-divider" />
-              <RouterLink to="/me" class="menu-item" @click="showUserMenu = false">个人主页</RouterLink>
-              <RouterLink to="/me/notifications" class="menu-item" @click="showUserMenu = false">通知中心</RouterLink>
-              <RouterLink to="/me/settings" class="menu-item" @click="showUserMenu = false">设置</RouterLink>
-              <RouterLink to="/series/workbench" class="menu-item" @click="showUserMenu = false">内容合集</RouterLink>
-              <RouterLink to="/growth/profile" class="menu-item" @click="showUserMenu = false">作者数据</RouterLink>
-              <RouterLink to="/growth/report" class="menu-item" @click="showUserMenu = false">历史报告</RouterLink>
-              <RouterLink to="/growth/community" class="menu-item" @click="showUserMenu = false">社区成长</RouterLink>
-              <RouterLink to="/knowledge/explore" class="menu-item" @click="showUserMenu = false">知识探索</RouterLink>
-              <RouterLink to="/certification/apply" class="menu-item" @click="showUserMenu = false">认证作者申请</RouterLink>
-              <div v-if="adminLinks.length" class="menu-divider" />
+              <div class="community-header__menu-divider" />
+              <RouterLink to="/me" class="community-header__menu-item" @click="showUserMenu = false">我的主页</RouterLink>
+              <RouterLink to="/me/notifications" class="community-header__menu-item" @click="showUserMenu = false">通知中心</RouterLink>
+              <RouterLink to="/series/workbench" class="community-header__menu-item" @click="showUserMenu = false">内容合集</RouterLink>
+              <RouterLink to="/growth/profile" class="community-header__menu-item" @click="showUserMenu = false">作者数据</RouterLink>
+              <RouterLink to="/growth/report" class="community-header__menu-item" @click="showUserMenu = false">历史报告</RouterLink>
+              <RouterLink to="/growth/community" class="community-header__menu-item" @click="showUserMenu = false">社区成长</RouterLink>
+              <RouterLink to="/knowledge/explore" class="community-header__menu-item" @click="showUserMenu = false">知识探索</RouterLink>
+              <RouterLink to="/certification/apply" class="community-header__menu-item" @click="showUserMenu = false">认证作者申请</RouterLink>
+              <RouterLink to="/me/settings" class="community-header__menu-item" @click="showUserMenu = false">设置</RouterLink>
+              <div v-if="adminLinks.length" class="community-header__menu-divider" />
               <RouterLink
                 v-for="item in adminLinks"
                 :key="item.to"
                 :to="item.to"
-                class="menu-item"
+                class="community-header__menu-item"
                 @click="showUserMenu = false"
               >
                 {{ item.label }}
               </RouterLink>
-              <button type="button" @click="handleLogout" class="menu-item w-full text-left text-danger">
+              <div class="community-header__menu-divider" />
+              <button type="button" class="community-header__menu-item community-header__menu-item--danger" @click="handleLogout">
                 退出登录
               </button>
             </template>
             <template v-else>
-              <RouterLink to="/login" class="menu-item" @click="showUserMenu = false">登录</RouterLink>
-              <RouterLink to="/register" class="menu-item" @click="showUserMenu = false">注册</RouterLink>
+              <RouterLink to="/login" class="community-header__menu-item" @click="showUserMenu = false">登录</RouterLink>
+              <RouterLink to="/register" class="community-header__menu-item" @click="showUserMenu = false">注册</RouterLink>
             </template>
           </div>
         </div>
       </div>
     </div>
 
-    <button
-      v-if="showMobileMenu"
-      type="button"
-      class="mobile-menu-backdrop"
-      aria-label="关闭主导航"
-      data-mobile-backdrop
-      @click="closeMobileMenu"
-    />
-
-    <div
-      v-if="showMobileMenu"
-      id="mobile-main-nav"
-      class="mobile-menu-panel border-t border-slate-200/75 bg-white px-4 py-4 shadow-lg shadow-slate-900/5 dark:border-slate-800/80 dark:bg-slate-950 lg:hidden"
-      data-mobile-menu
-    >
-      <div class="mx-auto max-w-7xl space-y-4">
-        <form class="relative" @submit.prevent="submitSearch">
-          <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            v-model="keyword"
-            type="search"
-            placeholder="搜索经验、攻略、资源、话题或作者"
-            class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-primary-700 dark:focus:ring-primary-950"
-          />
-        </form>
-
-        <nav class="grid gap-2" aria-label="移动主导航">
-          <RouterLink
-            v-for="item in navItems"
-            :key="item.to"
-            :to="item.to"
-            :class="[
-              'mobile-nav-link',
-              themeStore.isDark() ? 'mobile-nav-link-dark' : ''
-            ]"
-            active-class="mobile-nav-link-active"
-            @click="closeMobileMenu"
-          >
-            <component :is="item.icon" class="h-4 w-4" />
-            <span>{{ item.label }}</span>
-          </RouterLink>
-        </nav>
-
-        <div class="grid grid-cols-2 gap-2">
-          <RouterLink
-            to="/search"
-            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
-            @click="closeMobileMenu"
-          >
-            <Search class="h-4 w-4" />
-            搜索
-          </RouterLink>
-          <RouterLink
-            to="/editor"
-            :class="[
-              'mobile-quick-action mobile-quick-action-primary',
-              themeStore.isDark() ? 'mobile-quick-action-primary-dark' : ''
-            ]"
-            @click="closeMobileMenu"
-          >
-            <PenLine class="h-4 w-4" />
-            发布
-          </RouterLink>
-          <RouterLink
-            v-if="authStore.token"
-            to="/me/notifications"
-            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
-            @click="closeMobileMenu"
-          >
-            <Bell class="h-4 w-4" />
-            通知
-          </RouterLink>
-          <RouterLink
-            v-if="authStore.isLoggedIn"
-            to="/series/workbench"
-            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
-            @click="closeMobileMenu"
-          >
-            <Grid3x3 class="h-4 w-4" />
-            内容合集
-          </RouterLink>
-          <RouterLink
-            v-if="authStore.isLoggedIn"
-            to="/growth/profile"
-            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
-            @click="closeMobileMenu"
-          >
-            <Tags class="h-4 w-4" />
-            作者数据
-          </RouterLink>
-          <RouterLink
-            v-if="authStore.isLoggedIn"
-            to="/growth/community"
-            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
-            @click="closeMobileMenu"
-          >
-            <Sparkles class="h-4 w-4" />
-            社区成长
-          </RouterLink>
-          <RouterLink
-            to="/knowledge/explore"
-            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
-            @click="closeMobileMenu"
-          >
-            <Library class="h-4 w-4" />
-            知识关系
-          </RouterLink>
-          <RouterLink
-            :to="authStore.isLoggedIn ? '/me' : '/login'"
-            :class="['mobile-quick-action', themeStore.isDark() ? 'mobile-quick-action-dark' : '']"
-            @click="closeMobileMenu"
-          >
-            <User class="h-4 w-4" />
-            {{ authStore.isLoggedIn ? '个人中心' : '登录' }}
-          </RouterLink>
-        </div>
-      </div>
-    </div>
+    <nav class="community-mobile-dock" aria-label="移动导航">
+      <RouterLink to="/" :class="{ 'community-mobile-dock__item--active': isNavActive('/') }">
+        <Flame class="h-5 w-5" />
+        <span>首页</span>
+      </RouterLink>
+      <RouterLink to="/explore" :class="{ 'community-mobile-dock__item--active': isNavActive('/explore') }">
+        <Compass class="h-5 w-5" />
+        <span>发现</span>
+      </RouterLink>
+      <RouterLink to="/editor" class="community-mobile-dock__publish">
+        <PenLine class="h-5 w-5" />
+        <span>发布</span>
+      </RouterLink>
+      <RouterLink to="/collaboration" :class="{ 'community-mobile-dock__item--active': isNavActive('/collaboration') }">
+        <HeartHandshake class="h-5 w-5" />
+        <span>共建</span>
+      </RouterLink>
+      <RouterLink :to="authStore.isLoggedIn ? '/me' : '/login'" :class="{ 'community-mobile-dock__item--active': isNavActive('/me') }">
+        <User class="h-5 w-5" />
+        <span>我的</span>
+      </RouterLink>
+    </nav>
   </header>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Bell, ChevronDown, Compass, Flame, Grid3x3, HeartHandshake, Library, Menu, Moon, PenLine, Search, Sparkles, Sun, Tags, User, X } from 'lucide-vue-next'
-import { RouterLink, useRouter } from 'vue-router'
+import { Bell, ChevronDown, Compass, Flame, HeartHandshake, Moon, PenLine, Search, Sun, User } from 'lucide-vue-next'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { authApi } from '@/api/auth'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
@@ -293,10 +202,10 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const realtimeStore = useRealtimeStore()
 const router = useRouter()
+const route = useRoute()
 
 const showUserMenu = ref(false)
 const showDomainMenu = ref(false)
-const showMobileMenu = ref(false)
 const keyword = ref('')
 const permissions = ref<MyAdminPermissions | null>(null)
 const { domains: headerDomainOptions, loadDomains } = useDomainCatalog()
@@ -307,12 +216,20 @@ const userMenuSignature = computed(() => {
     ? signature
     : '分享经验、收藏攻略、参与讨论'
 })
+
 const navItems = [
   { to: '/', label: '首页', icon: Flame },
   { to: '/explore', label: '发现', icon: Compass },
   { to: '/collaboration', label: '共建', icon: HeartHandshake },
   { to: '/editor', label: '发布', icon: PenLine },
 ]
+
+const isNavActive = (target: string) => (
+  target === '/'
+    ? route.path === '/'
+    : route.path === target || route.path.startsWith(`${target}/`)
+)
+
 const adminLinks = computed(() => {
   const value = permissions.value
   if (!value) return []
@@ -320,6 +237,8 @@ const adminLinks = computed(() => {
   if (value.ops || value.questionOperator || value.contentModerator || value.admin) links.push({ to: '/admin/ops', label: '运维中心' })
   if (value.admin) links.push({ to: '/admin/operations', label: '运营编排' })
   if (value.contentModerator || value.domainModerator || value.admin) links.push({ to: '/admin/collaboration', label: '公共共建治理' })
+  if (value.contentModerator || value.domainModerator || value.admin) links.push({ to: '/admin/community-health', label: '频道健康度' })
+  if (value.contentModerator || value.domainModerator || value.admin) links.push({ to: '/admin/content-maintenance', label: '内容维护治理' })
   if (value.admin) links.push({ to: '/admin/community-growth', label: '激励与角色治理' })
   if (value.questionOperator || value.admin) {
     links.push({ to: '/admin/questions', label: '结构化内容审核' })
@@ -345,7 +264,6 @@ const loadPermissions = async () => {
 
 const submitSearch = () => {
   const q = keyword.value.trim()
-  closeMobileMenu()
   router.push({ path: '/search', query: q ? { q } : {} })
 }
 
@@ -353,33 +271,24 @@ const toggleTheme = () => {
   themeStore.toggleExplicitMode()
 }
 
-const closeMobileMenu = () => {
-  showMobileMenu.value = false
-}
-
-const toggleMobileMenu = () => {
-  showMobileMenu.value = !showMobileMenu.value
-  if (showMobileMenu.value) showUserMenu.value = false
-}
-
-const handleDocumentClick = (e: MouseEvent) => {
-  const target = e.target as HTMLElement | null
+const handleDocumentClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null
   if (!target?.closest('[data-user-menu]')) showUserMenu.value = false
-  if (!target?.closest('[data-mobile-menu]') && !target?.closest('[data-mobile-toggle]')) showMobileMenu.value = false
-  if (!target?.closest('.domain-menu-container')) showDomainMenu.value = false
+  if (!target?.closest('.community-header__channel-trigger') && !target?.closest('.community-header__channel-menu')) {
+    showDomainMenu.value = false
+  }
 }
 
 const handleLogout = async () => {
   try {
     await authApi.logout()
   } catch {
-    // Local logout still clears private client state if the server session is already gone.
+    // Local logout remains valid if the server session has already expired.
   }
   authStore.logout()
   realtimeStore.setUnreadCount(emptyUnreadCount())
   permissions.value = null
   showUserMenu.value = false
-  showMobileMenu.value = false
   toast.success('已退出登录')
   router.push('/login')
 }
@@ -400,190 +309,498 @@ watch(() => authStore.token, () => {
 </script>
 
 <style scoped>
-.menu-item {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  padding: 0.625rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgb(51 65 85);
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.brand-link,
-.header-icon-button {
-  min-height: 44px;
-}
-
-.series-workbench-link {
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  padding: 0.65rem 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: rgb(51 65 85);
-  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
-}
-
-.series-workbench-link:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
-}
-
-.header-icon-button {
-  min-width: 44px;
-  align-items: center;
-  justify-content: center;
-}
-
-.menu-item:hover {
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
-}
-
-.menu-divider {
-  margin: 0.35rem 0;
-  border-top: 1px solid rgb(226 232 240);
-}
-
-.mobile-menu-backdrop {
-  position: fixed;
-  inset: 64px 0 0;
-  z-index: 30;
-  border: 0;
-  background: rgb(15 23 42 / 0.36);
-  backdrop-filter: blur(2px);
-}
-
-.mobile-menu-panel {
-  position: fixed;
-  inset: 64px 0 auto;
+.community-header {
+  position: sticky;
+  top: 0;
   z-index: 40;
-  max-height: calc(100vh - 64px);
-  overflow-y: auto;
-  box-shadow: 0 18px 45px rgb(15 23 42 / 0.18);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
 }
 
-.mobile-nav-link,
-.mobile-quick-action {
+.community-header__inner {
+  display: grid;
+  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 1.15rem;
+  width: min(1320px, 100%);
+  min-height: 68px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+}
+
+.community-header__brand {
   display: inline-flex;
-  min-height: 44px;
+  min-width: 0;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--text-strong);
+}
+
+.community-header__brand-mark {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--primary-600);
+  color: white;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.community-header__brand-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.community-header__brand-copy strong {
+  font-size: 1.025rem;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
+
+.community-header__brand-copy small {
+  overflow: hidden;
+  max-width: 13.25rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-header__nav,
+.community-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.community-header__nav-link,
+.community-header__icon-button,
+.community-header__avatar,
+.community-header__publish {
+  display: inline-flex;
+  min-height: 2.4rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 650;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.community-header__nav-link {
+  position: relative;
+  padding: 0 0.65rem;
+}
+
+.community-header__nav-link:hover,
+.community-header__icon-button:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
+}
+
+.community-header__nav-link--active {
+  color: var(--primary-600);
+  font-weight: 750;
+}
+
+.community-header__nav-link--active::after {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.15rem;
+  left: 0.65rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--primary-600);
+  content: "";
+}
+
+.community-header__channel-trigger {
+  gap: 0.2rem;
+  cursor: pointer;
+}
+
+.community-header__search {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  min-width: 0;
+  max-width: 33rem;
+  justify-self: center;
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.mobile-nav-link {
-  padding: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  color: rgb(30 41 59);
+.community-header__search:focus-within {
+  border-color: rgb(147 197 253);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgb(219 234 254 / 0.82);
 }
 
-.mobile-nav-link:hover,
-.mobile-nav-link:focus-visible,
-.mobile-nav-link-active {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
-  outline: none;
+.community-header__search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 0.8125rem;
 }
 
-.mobile-nav-link-dark {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+.community-header__search input::placeholder {
+  color: #98a2b3;
 }
 
-.mobile-nav-link-dark:hover,
-.mobile-nav-link-dark:focus-visible,
-.mobile-nav-link-active.mobile-nav-link-dark {
-  border-color: rgb(96 165 250);
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+.community-header__actions {
+  justify-content: flex-end;
 }
 
-.mobile-quick-action {
-  justify-content: center;
-  border: 1px solid rgb(226 232 240);
+.community-header__publish {
+  gap: 0.35rem;
+  padding: 0 0.85rem;
+  background: var(--primary-600);
+  color: white;
+  font-weight: 750;
+}
+
+.community-header__publish:hover {
+  background: var(--primary-700);
+  transform: translateY(-1px);
+}
+
+.community-header__icon-button {
+  position: relative;
+  width: 2.4rem;
+  cursor: pointer;
+}
+
+.community-header__notification-count {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.3rem;
+  min-width: 1rem;
+  padding: 0 0.2rem;
+  border: 1px solid white;
+  border-radius: 999px;
+  background: rgb(239 68 68);
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1rem;
+}
+
+.community-header__menu {
+  position: relative;
+}
+
+.community-header__avatar {
+  width: 2.4rem;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-3);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.community-header__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.community-header__dropdown {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  z-index: 50;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 4px 8px rgb(16 24 40 / 0.08);
+}
+
+.community-header__channel-menu {
+  left: 0;
+  width: 18rem;
+  padding: 0.35rem;
+}
+
+.community-header__channel-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem;
+  border-radius: 6px;
+  color: var(--text-primary);
+}
+
+.community-header__channel-item:hover {
+  background: var(--surface-2);
+}
+
+.community-header__channel-icon {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--primary-50);
+  color: var(--primary-600);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.community-header__channel-item span:last-child {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.community-header__channel-item strong {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.community-header__channel-item small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-header__user-menu {
+  right: 0;
+  width: 14rem;
+  padding: 0.35rem 0;
+}
+
+.community-header__user-summary {
+  display: grid;
+  gap: 0.25rem;
   padding: 0.7rem 0.85rem;
-  color: rgb(51 65 85);
 }
 
-.mobile-quick-action:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+.community-header__user-summary strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.mobile-quick-action-primary {
-  border-color: rgb(37 99 235);
-  background: rgb(37 99 235);
-  color: white;
+.community-header__user-summary small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.mobile-quick-action-primary:hover {
-  border-color: rgb(29 78 216);
-  background: rgb(29 78 216);
-  color: white;
+.community-header__menu-item {
+  display: flex;
+  width: 100%;
+  min-height: 2.35rem;
+  align-items: center;
+  padding: 0.35rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-align: left;
 }
 
-.mobile-quick-action-dark {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(226 232 240);
+.community-header__menu-item:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
 }
 
-.mobile-quick-action-dark:hover,
-.mobile-quick-action-dark:focus-visible {
-  border-color: rgb(71 85 105);
-  background: rgb(15 23 42);
+.community-header__menu-item--danger {
+  color: rgb(220 38 38);
+  cursor: pointer;
+}
+
+.community-header__menu-divider {
+  margin: 0.35rem 0;
+  border-top: 1px solid var(--surface-3);
+}
+
+.community-mobile-dock {
+  display: none;
+}
+
+.dark .community-header {
+  border-color: rgb(39 39 42);
+  background: rgb(15 17 21);
+}
+
+.dark .community-header__brand,
+.dark .community-header__nav-link--active,
+.dark .community-header__search input {
   color: rgb(248 250 252);
 }
 
-.mobile-quick-action-primary-dark {
-  border-color: rgb(37 99 235);
-  background: rgb(37 99 235);
-  color: white;
-}
-
-.mobile-quick-action-primary-dark:hover,
-.mobile-quick-action-primary-dark:focus-visible {
-  border-color: rgb(29 78 216);
-  background: rgb(29 78 216);
-  color: white;
-}
-
-.dark .menu-item {
+.dark .community-header__brand-copy small,
+.dark .community-header__nav-link,
+.dark .community-header__icon-button,
+.dark .community-header__avatar,
+.dark .community-header__search,
+.dark .community-header__channel-item,
+.dark .community-header__menu-item,
+.dark .community-header__user-summary small {
   color: rgb(203 213 225);
 }
 
-.dark .menu-item:hover {
-  background: rgb(30 41 59);
+.dark .community-header__nav-link:hover,
+.dark .community-header__nav-link--active,
+.dark .community-header__icon-button:hover,
+.dark .community-header__channel-item:hover,
+.dark .community-header__menu-item:hover {
+  background: rgb(39 39 42);
+  color: white;
+}
+
+.dark .community-header__search,
+.dark .community-header__avatar,
+.dark .community-header__dropdown {
+  border-color: rgb(63 63 70);
+  background: rgb(24 26 32);
+}
+
+.dark .community-header__search:focus-within {
+  border-color: rgb(59 130 246);
+  background: rgb(24 26 32);
+  box-shadow: 0 0 0 3px rgb(30 58 138 / 0.48);
+}
+
+.dark .community-header__channel-icon {
+  background: rgb(30 58 138 / 0.35);
+  color: rgb(147 197 253);
+}
+
+.dark .community-header__channel-item strong,
+.dark .community-header__user-summary strong {
   color: rgb(248 250 252);
 }
 
-.dark .series-workbench-link {
-  border-color: rgb(51 65 85);
-  color: rgb(203 213 225);
+.dark .community-header__menu-divider {
+  border-color: rgb(63 63 70);
 }
 
-.dark .series-workbench-link:hover {
-  border-color: rgb(71 85 105);
-  background: rgb(15 23 42);
-  color: rgb(248 250 252);
+@media (max-width: 1100px) {
+  .community-header__inner {
+    grid-template-columns: auto minmax(180px, 1fr) auto;
+  }
+
+  .community-header__nav {
+    display: none;
+  }
 }
 
-.dark .menu-divider {
-  border-color: rgb(30 41 59);
-}
+@media (max-width: 720px) {
+  .community-header__inner {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: 58px;
+    gap: 0.6rem;
+    padding: 0.6rem 0.9rem;
+  }
 
+  .community-header__brand-mark {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .community-header__brand-copy {
+    display: none;
+  }
+
+  .community-header__search {
+    justify-self: stretch;
+    max-width: none;
+    height: 2.25rem;
+  }
+
+  .community-header__search input {
+    font-size: 0.75rem;
+  }
+
+  .community-header__publish,
+  .community-header__theme-button {
+    display: none;
+  }
+
+  .community-header__actions {
+    gap: 0.1rem;
+  }
+
+  .community-header__icon-button,
+  .community-header__avatar {
+    width: 2.25rem;
+    min-height: 2.25rem;
+  }
+
+  .community-mobile-dock {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 45;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: 4.35rem;
+    padding: 0.3rem max(0.65rem, env(safe-area-inset-right)) calc(0.3rem + env(safe-area-inset-bottom)) max(0.65rem, env(safe-area-inset-left));
+    border-top: 1px solid var(--border-subtle);
+    background: var(--surface);
+  }
+
+  .community-mobile-dock > a {
+    display: grid;
+    min-width: 0;
+    min-height: 3.55rem;
+    place-items: center;
+    align-content: center;
+    gap: 0.15rem;
+    border-radius: var(--radius-control);
+    color: var(--text-muted);
+    font-size: 0.625rem;
+    font-weight: 700;
+  }
+
+  .community-mobile-dock > a.community-mobile-dock__item--active {
+    color: var(--primary-600);
+    background: var(--primary-50);
+  }
+
+  .community-mobile-dock > .community-mobile-dock__publish {
+    color: var(--primary-600);
+  }
+
+  .dark .community-mobile-dock {
+    border-color: rgb(63 63 70);
+    background: rgb(15 17 21 / 0.99);
+  }
+
+  .dark .community-mobile-dock > a {
+    color: rgb(161 161 170);
+  }
+
+  .dark .community-mobile-dock > a.community-mobile-dock__item--active,
+  .dark .community-mobile-dock > .community-mobile-dock__publish {
+    color: rgb(147 197 253);
+  }
+}
 </style>

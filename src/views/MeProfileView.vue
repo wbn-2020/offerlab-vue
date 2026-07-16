@@ -52,6 +52,10 @@
               <Flag class="h-4 w-4" />
               我的举报
             </RouterLink>
+            <RouterLink to="/me/maintenance" class="secondary-button shrink-0">
+              <ListChecks class="h-4 w-4" />
+              维护任务
+            </RouterLink>
             <RouterLink to="/me/settings" class="secondary-button shrink-0">
               <Settings class="h-4 w-4" />
               编辑资料
@@ -121,7 +125,7 @@
         <div
           class="trusted-content-workbench"
           aria-labelledby="trusted-content-workbench-title"
-          data-trusted-content-items="pendingSuggestionItems freshnessItems pendingQuestionItems"
+          data-trusted-content-items="pendingSuggestionItems freshnessItems profileConfirmationItems pendingQuestionItems"
         >
           <div class="trusted-content-workbench-head">
             <div>
@@ -142,6 +146,10 @@
             <RouterLink id="trusted-content-task-freshness" :to="{ path: '/me', query: { tab: 'posts', focus: 'freshness' }, hash: '#creator-workbench' }">
               <span>待确认时效内容</span>
               <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.freshnessAwaitingConfirmation) }}</strong>
+            </RouterLink>
+            <RouterLink id="trusted-content-task-profile" :to="{ path: '/me', query: { tab: 'posts', focus: 'trust-profile' }, hash: '#creator-workbench' }">
+              <span>待确认经验背景</span>
+              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.profileConfirmationDue) }}</strong>
             </RouterLink>
             <RouterLink id="trusted-content-task-questions" :to="{ path: '/me', query: { tab: 'posts', focus: 'questions' }, hash: '#creator-workbench' }">
               <span>尚未闭环的问题</span>
@@ -565,7 +573,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Bookmark, BookmarkCheck, FileText, Flag, Globe2, Hash, Heart, Lock, Mail, MessageCircle, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
+import { Bookmark, BookmarkCheck, FileText, Flag, Globe2, Hash, Heart, ListChecks, Lock, Mail, MessageCircle, Settings, UserRoundCheck, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -959,13 +967,14 @@ const creatorTrustedContentDegraded = computed(() => (
 const creatorTrustedContent = computed(() => ({
   pendingSuggestions: Number(creatorTrustedContentBlock.value?.pendingSuggestions ?? 0),
   freshnessAwaitingConfirmation: Number(creatorTrustedContentBlock.value?.freshnessAwaitingConfirmation ?? 0),
+  profileConfirmationDue: Number(creatorTrustedContentBlock.value?.profileConfirmationDue ?? 0),
   unresolvedQuestions: Number(creatorTrustedContentBlock.value?.unresolvedQuestions ?? 0),
   usefulFeedback7Days: Number(creatorTrustedContentBlock.value?.usefulFeedback7Days ?? 0),
   usefulFeedback30Days: Number(creatorTrustedContentBlock.value?.usefulFeedback30Days ?? 0),
   effectiveReads7Days: Number(creatorTrustedContentBlock.value?.effectiveReads7Days ?? 0),
   effectiveReads30Days: Number(creatorTrustedContentBlock.value?.effectiveReads30Days ?? 0),
 }))
-type TrustedContentTaskKey = 'suggestions' | 'freshness' | 'questions'
+type TrustedContentTaskKey = 'suggestions' | 'freshness' | 'profile' | 'questions'
 type TrustedContentTaskItemView = {
   id: string
   postId: ApiId
@@ -988,6 +997,8 @@ const trustedContentTaskItems = (key: TrustedContentTaskKey): TrustedContentTask
     ? block?.pendingSuggestionItems
     : key === 'freshness'
       ? block?.freshnessItems
+      : key === 'profile'
+        ? block?.profileConfirmationItems
       : block?.pendingQuestionItems
   if (!Array.isArray(rawItems)) return []
   return rawItems
@@ -1006,13 +1017,18 @@ const trustedContentTaskItems = (key: TrustedContentTaskKey): TrustedContentTask
 const trustedContentTaskGroups = computed(() => ([
   { key: 'suggestions' as const, sourceField: 'pendingSuggestionItems', label: '补充 / 纠错建议', items: trustedContentTaskItems('suggestions') },
   { key: 'freshness' as const, sourceField: 'freshnessItems', label: '时效确认', items: trustedContentTaskItems('freshness') },
+  { key: 'profile' as const, sourceField: 'profileConfirmationItems', label: '经验背景确认', items: trustedContentTaskItems('profile') },
   { key: 'questions' as const, sourceField: 'pendingQuestionItems', label: '未闭环问题', items: trustedContentTaskItems('questions') },
 ]))
 const trustedContentTaskHref = (item: TrustedContentTaskItemView, key: TrustedContentTaskKey): WorkbenchRouteTo => {
   if (item.href && item.href.startsWith('/') && !item.href.startsWith('//') && !item.href.startsWith('/api/')) {
     return item.href
   }
-  const anchor = key === 'suggestions' ? 'content-suggestions' : key === 'questions' ? 'comments' : 'trusted-content'
+  const anchor = key === 'suggestions'
+    ? 'content-suggestions'
+    : key === 'questions'
+      ? 'comments'
+      : 'trusted-content'
   return `/post/${encodeURIComponent(String(item.postId))}#${anchor}`
 }
 const creatorTrustedContentMetric = (value: number) => (

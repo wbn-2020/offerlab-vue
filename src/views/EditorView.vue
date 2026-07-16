@@ -251,6 +251,72 @@
           </div>
         </div>
 
+        <section class="mx-4 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/70 dark:bg-emerald-950/20">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p class="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">可信经验护照</p>
+              <h2 class="mt-1 text-sm font-extrabold text-slate-900 dark:text-slate-100">说明这份经验来自哪里、适用于谁</h2>
+              <p class="mt-1 max-w-3xl text-xs leading-5 text-slate-600 dark:text-slate-300">
+                这是经验背景和边界说明，不是认证、资质或平台背书。不填写不会阻断发布。
+              </p>
+            </div>
+            <label class="inline-flex min-h-10 shrink-0 items-center gap-2 text-sm font-bold text-emerald-800 dark:text-emerald-200">
+              <input v-model="trustProfileEnabled" type="checkbox" />
+              {{ trustProfileEnabled ? '已加入护照' : '为内容补充护照' }}
+            </label>
+          </div>
+
+          <div v-if="trustProfileEnabled" class="mt-4 grid gap-4 md:grid-cols-2">
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              你与这段经验的关系
+              <select v-model="trustProfileDraft.authorRole" class="field-input">
+                <option value="PARTICIPANT">亲历参与者</option>
+                <option value="PRACTITIONER">持续实践者</option>
+                <option value="OBSERVER">观察记录者</option>
+                <option value="CURATOR">资料整理者</option>
+              </select>
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                经历开始
+                <input v-model="trustProfileDraft.experienceStartAt" type="datetime-local" :max="trustProfileMaxDateTime" class="field-input" />
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                经历结束
+                <input v-model="trustProfileDraft.experienceEndAt" type="datetime-local" :max="trustProfileMaxDateTime" class="field-input" />
+              </label>
+            </div>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              适用人群
+              <input v-model.trim="trustProfileDraft.applicableAudience" maxlength="500" class="field-input" placeholder="例如：第一次独立租房、准备转行、长期远程办公的人" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              适用情境
+              <input v-model.trim="trustProfileDraft.applicableContext" maxlength="1000" class="field-input" placeholder="说明地区、时间、预算、工具或其他前提" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              过程概述
+              <textarea v-model.trim="trustProfileDraft.processSummary" rows="3" maxlength="2000" class="field-input" placeholder="你实际做了什么，经历了哪些步骤" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              结果概述
+              <textarea v-model.trim="trustProfileDraft.outcomeSummary" rows="3" maxlength="2000" class="field-input" placeholder="结果如何，哪些变化可以观察或复核" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              已知限制
+              <textarea v-model.trim="trustProfileDraft.knownLimitations" rows="3" maxlength="2000" class="field-input" placeholder="哪些条件变化后可能不再适用" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              来源说明
+              <textarea v-model.trim="trustProfileDraft.sourceSummary" rows="3" maxlength="1000" class="field-input" placeholder="可核对的公开来源、记录方式或资料范围" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200 md:col-span-2">
+              利益关系披露
+              <textarea v-model.trim="trustProfileDraft.interestDisclosure" rows="2" maxlength="1000" class="field-input" placeholder="是否收到样品、赞助、雇佣关系或存在其他可能影响判断的关系" />
+            </label>
+          </div>
+        </section>
+
         <section class="mx-4 grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
           <div class="space-y-4">
             <EditorQualityChecklist
@@ -576,6 +642,11 @@ import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
 import { contentAssistApi, type ContentAssistRequest } from '@/api/contentAssist'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { postApi, type PostDraft } from '@/api/post'
+import {
+  trustedContentApi,
+  type TrustProfile,
+  type TrustProfileUpdateReq,
+} from '@/api/trustedContent'
 import type { ContentAssistQualityMetric, ContentAssistResult, ContentAssistSuggestion } from '@/api/types'
 import {
   EDITOR_ASSIST_TEMPLATE_BOUNDARY,
@@ -654,6 +725,25 @@ const publicUpdateSummary = ref('')
 const updateImpactScope = ref('CONTENT')
 const respondedSuggestionIds = ref<string[]>([])
 const publicUpdateError = ref('')
+const emptyTrustProfileDraft = (): TrustProfileUpdateReq => ({
+  authorRole: 'PARTICIPANT',
+  experienceStartAt: undefined,
+  experienceEndAt: undefined,
+  applicableAudience: '',
+  applicableContext: '',
+  processSummary: '',
+  outcomeSummary: '',
+  knownLimitations: '',
+  sourceSummary: '',
+  interestDisclosure: '',
+})
+const trustProfileEnabled = ref(false)
+const trustProfileDraft = ref<TrustProfileUpdateReq>(emptyTrustProfileDraft())
+const trustProfileMaxDateTime = computed(() => {
+  const now = new Date()
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 16)
+})
 
 const formCoverFailedUrl = ref('')
 const formCoverHasFailed = computed(() => Boolean(form.value.coverUrl) && formCoverFailedUrl.value === form.value.coverUrl)
@@ -1962,6 +2052,69 @@ watch(draftOwner, async (nextOwner, prevOwner) => {
   }
 })
 
+const toDateTimeInputValue = (value?: string) => value ? value.slice(0, 16) : undefined
+
+const applyTrustProfileDraft = (profile: TrustProfile | null) => {
+  if (!profile?.profileAvailable) {
+    trustProfileEnabled.value = false
+    trustProfileDraft.value = emptyTrustProfileDraft()
+    return
+  }
+  trustProfileEnabled.value = true
+  trustProfileDraft.value = {
+    authorRole: profile.authorRole || 'PARTICIPANT',
+    experienceStartAt: toDateTimeInputValue(profile.experienceStartAt),
+    experienceEndAt: toDateTimeInputValue(profile.experienceEndAt),
+    applicableAudience: profile.applicableAudience || '',
+    applicableContext: profile.applicableContext || '',
+    processSummary: profile.processSummary || '',
+    outcomeSummary: profile.outcomeSummary || '',
+    knownLimitations: profile.knownLimitations || '',
+    sourceSummary: profile.sourceSummary || '',
+    interestDisclosure: profile.interestDisclosure || '',
+  }
+}
+
+const loadTrustProfileForEditor = async (postId: string) => {
+  try {
+    const res = await trustedContentApi.loadTrustProfile(postId)
+    applyTrustProfileDraft(res.data)
+  } catch {
+    trustProfileEnabled.value = false
+    trustProfileDraft.value = emptyTrustProfileDraft()
+    toast.warning('经验护照暂时无法读取，仍可继续编辑正文。')
+  }
+}
+
+const saveTrustProfileAfterPost = async (postId: string) => {
+  if (!trustProfileEnabled.value) return
+  const draft = trustProfileDraft.value
+  if (
+    draft.experienceStartAt
+    && draft.experienceEndAt
+    && draft.experienceEndAt < draft.experienceStartAt
+  ) {
+    toast.warning('经验结束时间不能早于开始时间，帖子已保存但护照未更新。')
+    return
+  }
+  try {
+    await trustedContentApi.saveTrustProfile(postId, {
+      ...draft,
+      experienceStartAt: draft.experienceStartAt || undefined,
+      experienceEndAt: draft.experienceEndAt || undefined,
+      applicableAudience: draft.applicableAudience?.trim() || undefined,
+      applicableContext: draft.applicableContext?.trim() || undefined,
+      processSummary: draft.processSummary?.trim() || undefined,
+      outcomeSummary: draft.outcomeSummary?.trim() || undefined,
+      knownLimitations: draft.knownLimitations?.trim() || undefined,
+      sourceSummary: draft.sourceSummary?.trim() || undefined,
+      interestDisclosure: draft.interestDisclosure?.trim() || undefined,
+    })
+  } catch (error) {
+    toast.warning(getErrorMessage(error, '帖子已保存，但经验护照暂未同步。'))
+  }
+}
+
 const loadPostForEdit = async (postId: string) => {
   isLoadingPost.value = true
   try {
@@ -1989,6 +2142,7 @@ const loadPostForEdit = async (postId: string) => {
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
     selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)
+    await loadTrustProfileForEditor(postId)
     markDraftClean()
     return true
   } catch (error) {
@@ -2135,6 +2289,7 @@ const publishPost = async () => {
       }
       const res = await postApi.update(postId, req)
       if (res.code === 0) {
+        await saveTrustProfileAfterPost(postId)
         const seriesSynced = await syncPublishedSeriesAssignment(postId)
         safeStorage.remove(localDraftKey())
         serverDraftId.value = ''
@@ -2156,6 +2311,9 @@ const publishPost = async () => {
     const res = await postApi.create(req)
     if (res.code === 0) {
       const createdPostId = res.data?.postId == null ? undefined : String(res.data.postId)
+      if (createdPostId) {
+        await saveTrustProfileAfterPost(createdPostId)
+      }
       const seriesSynced = await syncPublishedSeriesAssignment(createdPostId)
       safeStorage.remove(localDraftKey())
       serverDraftId.value = ''

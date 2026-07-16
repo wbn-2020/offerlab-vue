@@ -43,6 +43,7 @@ const TRUSTED_CONTENT_CONTRACT_INVALID = 'trusted_content_contract_invalid'
 const TRUSTED_CONTENT_METRIC_FIELDS = [
   'pendingSuggestions',
   'freshnessAwaitingConfirmation',
+  'profileConfirmationDue',
   'unresolvedQuestions',
   'usefulFeedback7Days',
   'usefulFeedback30Days',
@@ -85,6 +86,7 @@ const adaptCreatorTrustedContent = (raw: any): CreatorTrustedContentContract => 
   const metrics: Record<CreatorTrustedContentMetricField, number | undefined> = {
     pendingSuggestions: trustedContentMetric(raw?.pendingSuggestions),
     freshnessAwaitingConfirmation: trustedContentMetric(raw?.freshnessAwaitingConfirmation),
+    profileConfirmationDue: trustedContentMetric(raw?.profileConfirmationDue),
     unresolvedQuestions: trustedContentMetric(raw?.unresolvedQuestions),
     usefulFeedback7Days: trustedContentMetric(raw?.usefulFeedback7Days),
     usefulFeedback30Days: trustedContentMetric(raw?.usefulFeedback30Days),
@@ -105,6 +107,7 @@ const adaptCreatorTrustedContent = (raw: any): CreatorTrustedContentContract => 
     fallbackReason,
     pendingSuggestions: metrics.pendingSuggestions ?? 0,
     freshnessAwaitingConfirmation: metrics.freshnessAwaitingConfirmation ?? 0,
+    profileConfirmationDue: metrics.profileConfirmationDue ?? 0,
     unresolvedQuestions: metrics.unresolvedQuestions ?? 0,
     usefulFeedback7Days: metrics.usefulFeedback7Days ?? 0,
     usefulFeedback30Days: metrics.usefulFeedback30Days ?? 0,
@@ -112,6 +115,7 @@ const adaptCreatorTrustedContent = (raw: any): CreatorTrustedContentContract => 
     effectiveReads30Days: metrics.effectiveReads30Days ?? 0,
     pendingSuggestionItems: trustedContentTaskItems(raw?.pendingSuggestionItems),
     freshnessItems: trustedContentTaskItems(raw?.freshnessItems),
+    profileConfirmationItems: trustedContentTaskItems(raw?.profileConfirmationItems),
     pendingQuestionItems: trustedContentTaskItems(raw?.pendingQuestionItems),
   }
 }

@@ -2,6 +2,10 @@
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <AppHeader />
     <main class="mx-auto max-w-7xl px-4 py-8">
+      <button type="button" class="detail-back" @click="goBack">
+        <ArrowLeft class="h-4 w-4" />
+        返回
+      </button>
       <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div class="lg:col-span-2">
           <LoadingSkeleton v-if="isLoading" />
@@ -468,6 +472,38 @@
                 >
                   {{ trustedContentFeedback }}
                 </p>
+
+                <div class="trusted-content-row trusted-profile-row">
+                  <div class="trusted-content-row-copy">
+                    <span>可信经验护照</span>
+                    <strong>{{ trustProfileTitle }}</strong>
+                    <p>{{ trustProfileDescription }}</p>
+                    <p v-if="trustProfile?.lastConfirmedAt">
+                      作者最近确认于 {{ formatTime(trustProfile.lastConfirmedAt) }}。
+                    </p>
+                    <RouterLink
+                      v-if="isOwnPost && post"
+                      :to="{ path: `/editor/${post.postId}`, query: { source: 'trust_profile', returnHref: `/post/${post.postId}` } }"
+                    >
+                      编辑经验护照
+                    </RouterLink>
+                  </div>
+                  <div v-if="trustProfile?.profileAvailable" class="trust-profile-details">
+                    <span v-if="trustProfileRoleLabel">{{ trustProfileRoleLabel }}</span>
+                    <span v-if="trustProfile.completenessScore > 0">背景完整度 {{ trustProfile.completenessScore }}%</span>
+                    <span v-if="trustProfile.applicableAudience">适用：{{ trustProfile.applicableAudience }}</span>
+                    <span v-if="trustProfile.applicableContext">情境：{{ trustProfile.applicableContext }}</span>
+                    <span v-if="trustProfile.knownLimitations">限制：{{ trustProfile.knownLimitations }}</span>
+                    <span v-if="trustProfile.sourceSummary">来源：{{ trustProfile.sourceSummary }}</span>
+                    <span v-if="trustProfile.interestDisclosure">披露：{{ trustProfile.interestDisclosure }}</span>
+                  </div>
+                  <div v-else-if="trustProfileLoadState === 'loading'" class="trust-profile-state">
+                    正在读取公开经验背景...
+                  </div>
+                  <div v-else class="trust-profile-state">
+                    {{ trustProfileLoadState === 'error' ? '经验护照暂时无法读取。' : '作者尚未补充经验背景。' }}
+                  </div>
+                </div>
 
                 <div v-if="isQuestionPost" class="trusted-content-row">
                   <div class="trusted-content-row-copy">
@@ -1169,6 +1205,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
+import { ArrowLeft } from 'lucide-vue-next'
 import { postApi, type InterviewMaterialPack } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import { adaptComment, adaptPage } from '@/api/adapters'
@@ -1194,6 +1231,7 @@ import {
   trustedContentApi,
   type FreshnessStatus,
   type QuestionStatus,
+  type TrustProfile,
   type TrustedContentState,
   type UsefulFeedbackReason,
 } from '@/api/trustedContent'
@@ -1264,6 +1302,8 @@ const adminPermissions = ref<MyAdminPermissions | null>(null)
 const versionHistories = ref<PostVersionHistory[]>([])
 const publicUpdates = ref<PublicPostUpdate[]>([])
 const trustedContentState = ref<TrustedContentState | null>(null)
+const trustProfile = ref<TrustProfile | null>(null)
+const trustProfileLoadState = ref<'loading' | 'loaded' | 'error'>('loading')
 const trustedContentLoadState = ref<TrustedContentLoadState>('loading')
 const isLoadingTrustedContent = computed(() => trustedContentLoadState.value === 'loading')
 const trustedContentError = ref('')
@@ -1292,6 +1332,14 @@ const versionLoadAttempted = ref(false)
 const showStageTwoDetailPanels = false
 const enableLegacyTrainingRoutes = import.meta.env.VITE_OFFERLAB_ENABLE_LEGACY_TRAINING === 'true'
 const postId = computed(() => route.params.id as string)
+const goBack = () => {
+  const previousRoute = window.history.state?.back
+  if (typeof previousRoute === 'string' && previousRoute.startsWith('/')) {
+    router.back()
+    return
+  }
+  router.push('/')
+}
 const detailKnowledge = ref<KnowledgeExploreResponse | null>(null)
 const detailKnowledgeLoading = ref(false)
 const detailKnowledgeError = ref('')
@@ -1681,6 +1729,28 @@ const freshnessStatusOptions: Array<{ value: FreshnessStatus; label: string }> =
   { value: 'UPDATED', label: '内容已更新' },
   { value: 'SUPERSEDED', label: '已有后续内容' },
 ]
+const trustProfileRoleLabel = computed(() => {
+  const labels: Record<string, string> = {
+    PARTICIPANT: '亲历参与者',
+    PRACTITIONER: '持续实践者',
+    OBSERVER: '观察记录者',
+    CURATOR: '资料整理者',
+  }
+  return labels[trustProfile.value?.authorRole || ''] || ''
+})
+const trustProfileTitle = computed(() => {
+  if (trustProfileLoadState.value === 'loading') return '正在读取经验背景'
+  if (!trustProfile.value?.profileAvailable) return '尚未补充经验背景'
+  return trustProfileRoleLabel.value || '作者已补充经验背景'
+})
+const trustProfileDescription = computed(() => {
+  if (trustProfileLoadState.value === 'loading') return '仅展示作者主动填写的公开经验说明。'
+  if (trustProfileLoadState.value === 'error') return '服务端记录暂时无法读取，这不代表内容缺少经验背景。'
+  if (!trustProfile.value?.profileAvailable) {
+    return '这篇内容仍可正常阅读和讨论；经验护照是可选说明，不代表认证、资质或平台背书。'
+  }
+  return '仅展示作者主动填写的公开背景、适用范围和已知限制，不构成平台认证、专业建议或结果承诺。'
+})
 const discussionSectionTitle = computed(() => (
   isQuestionPost.value
     ? `讨论与建议（${post.value?.counter.comment ?? 0}）`
@@ -3410,6 +3480,33 @@ const resetTrustedContentState = () => {
   isSavingFreshness.value = false
 }
 
+const resetTrustProfileState = () => {
+  trustProfile.value = null
+  trustProfileLoadState.value = 'loading'
+}
+
+const loadTrustProfile = async () => {
+  const current = post.value
+  if (!current?.postId) {
+    resetTrustProfileState()
+    return
+  }
+  const context = capturePostRouteContext(String(current.postId))
+  trustProfileLoadState.value = 'loading'
+  try {
+    const res = await trustedContentApi.loadTrustProfile(context.postId, {
+      signal: context.signal,
+    })
+    if (!isActiveLoadedPostContext(context)) return
+    trustProfile.value = res.data
+    trustProfileLoadState.value = 'loaded'
+  } catch (error: any) {
+    if (isCanceledRequest(error) || !isActiveLoadedPostContext(context)) return
+    trustProfile.value = null
+    trustProfileLoadState.value = 'error'
+  }
+}
+
 const applyTrustedContentState = (state: TrustedContentState) => {
   trustedContentState.value = state
   questionStatusDraft.value = state?.questionStatus ?? (isQuestionPost.value ? 'OPEN' : 'CLOSED')
@@ -3827,6 +3924,7 @@ watch(post, () => {
   loadInteractionState()
   loadDiscussionFollowStatus()
   loadTrustedContent()
+  loadTrustProfile()
   loadPublicUpdates()
   loadContentSuggestions()
   if (showStageTwoDetailPanels) {
@@ -3846,6 +3944,7 @@ watch([post, () => route.query.report, () => authStore.isLoggedIn], () => {
 watch(postId, () => {
   beginPostRouteGeneration()
   resetTrustedContentState()
+  resetTrustProfileState()
   resetContentSuggestionState()
   post.value = null
   relatedPosts.value = []
@@ -3865,6 +3964,7 @@ watch(postId, () => {
   commentSort.value = 'latest'
   loadComments(true)
   loadTrustedContent()
+  loadTrustProfile()
   loadPublicUpdates()
   loadContentSuggestions()
   versionHistories.value = []
@@ -3880,6 +3980,7 @@ watch(() => authStore.token, () => {
   loadAdminPermissions()
   loadDiscussionFollowStatus()
   loadTrustedContent()
+  loadTrustProfile()
   loadContentSuggestions()
   if (showStageTwoDetailPanels) loadInterviewMaterial()
 })
@@ -4230,6 +4331,32 @@ onBeforeUnmount(() => {
 
 .trusted-content-controls .trusted-content-secondary {
   border-color: rgb(203 213 225);
+  color: rgb(71 85 105);
+}
+
+.trust-profile-details {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+}
+
+.trust-profile-details span,
+.trust-profile-state {
+  border: 1px solid rgb(167 243 208);
+  border-radius: 0.5rem;
+  background: rgb(240 253 244);
+  padding: 0.5rem 0.65rem;
+  color: rgb(6 95 70);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.trust-profile-state {
+  align-self: center;
+  border-color: rgb(203 213 225);
+  background: rgb(248 250 252);
   color: rgb(71 85 105);
 }
 
@@ -4818,6 +4945,18 @@ onBeforeUnmount(() => {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
   color: rgb(248 250 252);
+}
+
+.dark .trust-profile-details span {
+  border-color: rgb(6 95 70 / 0.72);
+  background: rgb(6 78 59 / 0.32);
+  color: rgb(167 243 208);
+}
+
+.dark .trust-profile-state {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
 }
 
 .dark .useful-reason-list > .useful-reason-active {
@@ -5740,6 +5879,39 @@ onBeforeUnmount(() => {
 .dark .version-item {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
+}
+
+.detail-back {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0 0.65rem;
+  border: 1px solid rgb(229 231 235);
+  border-radius: 6px;
+  background: white;
+  color: rgb(75 85 99);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.detail-back:hover {
+  border-color: rgb(191 219 254);
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
+.dark .detail-back {
+  border-color: rgb(63 63 70);
+  background: rgb(24 26 32);
+  color: rgb(203 213 225);
+}
+
+.dark .detail-back:hover {
+  border-color: rgb(30 58 138);
+  background: rgb(30 58 138 / 0.35);
+  color: rgb(147 197 253);
 }
 
 @media (max-width: 640px) {
