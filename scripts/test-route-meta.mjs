@@ -52,8 +52,9 @@ const adminRouteAccess = {
   '/admin/ops': { ops: true, questionOperator: true, contentModerator: true, domainModerator: false, admin: true },
   '/admin/operations': { ops: false, questionOperator: false, contentModerator: false, domainModerator: false, admin: true },
   '/admin/collaboration': { ops: false, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
+  '/admin/collaboration/insights': { ops: true, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
   '/admin/community-growth': { ops: false, questionOperator: false, contentModerator: false, domainModerator: false, admin: true },
-  '/admin/community-health': { ops: false, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
+  '/admin/community-health': { ops: true, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
   '/admin/content-maintenance': { ops: false, questionOperator: false, contentModerator: true, domainModerator: true, admin: true },
   '/admin/questions': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
   '/admin/company-aliases': { ops: false, questionOperator: true, contentModerator: false, domainModerator: false, admin: true },
@@ -169,12 +170,17 @@ assert.match(postDetail, /applyPageSeo/, 'post detail must own minimal SEO metad
 assert.match(forbidden, /useAuthStore/, 'ForbiddenView must distinguish unauthenticated users from logged-in users without enough permission')
 assert.match(forbidden, /path: '\/login'[\s\S]*redirect: fromPath/, 'ForbiddenView must offer login with the blocked path preserved')
 assert.match(forbidden, /switchAccount: '1'/, 'ForbiddenView must offer a switch-account recovery path')
-assert.match(forbidden, /permission_check_failed/, 'ForbiddenView must explain temporary permission-check failures')
+assert.match(forbidden, /permissionUnavailable/, 'ForbiddenView must expose a distinct temporary permission-unavailable state')
+assert.match(forbidden, /permission_unavailable/, 'ForbiddenView must explain temporary permission-check failures')
 assert.match(forbidden, /adminRecoveryPath/, 'ForbiddenView must route admins back to a likely accessible admin entry')
 assert.match(forbidden, /safeRedirect\(route\.query\.from, '\/admin'\)/, 'ForbiddenView must sanitize the blocked source path')
 assert.match(forbidden, /当前账号缺少对应角色/, 'ForbiddenView must explain post-login permission failures')
 
 assert.match(guards, /applyPageSeo/, 'router guards must delegate title/meta updates to the SEO helper')
-assert.match(guards, /reason: 'permission_check_failed'/, 'router guard must mark permission API failures distinctly from missing roles')
+assert.match(
+  guards,
+  /isPermissionDeniedError\(error\)\s*\?\s*'permission_denied'\s*:\s*'permission_unavailable'/,
+  'router guard must distinguish explicit permission denial from permission API unavailability',
+)
 
 console.log('route meta guard passed')

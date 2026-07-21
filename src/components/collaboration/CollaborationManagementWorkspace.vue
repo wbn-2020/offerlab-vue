@@ -24,12 +24,73 @@
     </nav>
 
     <section v-if="activeTab === 'needs'" class="manage-layout">
-      <div class="manage-panel">
-        <div class="panel-heading"><div><h2><FileCheck2 class="h-5 w-5" />需求交付</h2><p>负责人可完成、合并或关闭当前可管理需求。</p></div></div>
+      <div class="manage-panel" data-need-acceptance-queue>
+        <div class="panel-heading"><div><h2><FileCheck2 class="h-5 w-5" />待验收产出</h2><p>创建者或版主验收认领者提交的公开产出，确认后才会完成需求并结算贡献。</p></div></div>
+        <div v-if="submittedNeeds.length" class="dense-list">
+          <div v-for="need in submittedNeeds" :key="String(need.id)" class="dense-row review-row">
+            <div>
+              <strong>{{ need.title }}</strong>
+              <p>
+                认领者 UID {{ need.submittedByUid || need.claimedByUid || '未知' }}
+                · {{ submissionTargetLabel(need) }}
+              </p>
+              <p v-if="need.submissionNote">{{ need.submissionNote }}</p>
+              <small v-if="need.submittedAt">提交于 {{ formatDate(need.submittedAt) }}</small>
+              <RouterLink
+                :to="`/collaboration/needs/${need.id}`"
+                class="submission-link"
+              >
+                查看需求详情
+              </RouterLink>
+              <RouterLink
+                v-if="submissionPath(need)"
+                :to="submissionPath(need)!"
+                class="submission-link"
+              >
+                查看待验收产出
+              </RouterLink>
+            </div>
+            <div class="review-actions">
+              <button
+                type="button"
+                class="primary-button compact"
+                :disabled="busy"
+                @click="acceptNeed(need.id)"
+              >
+                <Check class="h-4 w-4" />
+                验收通过
+              </button>
+              <div class="reject-control">
+                <input
+                  v-model.trim="rejectReasons[String(need.id)]"
+                  class="field-control"
+                  maxlength="500"
+                  placeholder="填写退回理由"
+                  aria-label="退回理由"
+                >
+                <button
+                  type="button"
+                  class="danger-button compact"
+                  :disabled="busy || !rejectReasons[String(need.id)]?.trim()"
+                  @click="rejectNeed(need.id)"
+                >
+                  <X class="h-4 w-4" />
+                  退回修改
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <EmptyHint v-else title="暂无待验收产出" description="认领者提交产出后会出现在这里。" />
+        <div class="section-divider" />
+        <div class="subsection-heading">
+          <strong>直接完成需求</strong>
+          <span>保留原有负责人直接履约路径，仅适用于待认领或交付中的需求。</span>
+        </div>
         <form class="form-stack" @submit.prevent="fulfillNeed">
           <label><span>需求</span><select v-model="needForm.needId" class="field-control" required>
             <option value="">选择可管理需求</option>
-            <option v-for="need in manageableNeeds" :key="String(need.id)" :value="String(need.id)">{{ need.title }} · {{ need.status }}</option>
+            <option v-for="need in directlyFulfillableNeeds" :key="String(need.id)" :value="String(need.id)">{{ need.title }} · {{ need.status }}</option>
           </select></label>
           <div class="field-grid">
             <label><span>交付类型</span><select v-model="needForm.resolutionType" class="field-control">
@@ -58,7 +119,7 @@
         <form class="form-stack" @submit.prevent="closeNeed">
           <label><span>待关闭需求</span><select v-model="needCloseForm.needId" class="field-control" required>
             <option value="">选择需求</option>
-            <option v-for="need in manageableNeeds.filter((item) => ['OPEN', 'CLAIMED'].includes(item.status))" :key="String(need.id)" :value="String(need.id)">{{ need.title }}</option>
+            <option v-for="need in closableNeeds" :key="String(need.id)" :value="String(need.id)">{{ need.title }} · {{ need.status }}</option>
           </select></label>
           <label><span>关闭原因</span><textarea v-model.trim="needCloseForm.note" class="field-control" rows="3" maxlength="500" required /></label>
           <button type="submit" class="danger-button" :disabled="!canCloseNeed"><Archive class="h-4 w-4" />关闭需求</button>
@@ -195,6 +256,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import {
   Archive,
   CalendarPlus,
@@ -275,6 +337,13 @@ const seriesSubmissions = ref<CollaborationSubmission[]>([])
 const activitySubmissions = ref<CollaborationSubmission[]>([])
 
 const manageableNeeds = computed(() => needs.value.filter((item) => item.canManage))
+const submittedNeeds = computed(() => manageableNeeds.value.filter((item) => item.status === 'SUBMITTED'))
+const directlyFulfillableNeeds = computed(() => (
+  manageableNeeds.value.filter((item) => ['OPEN', 'CLAIMED'].includes(item.status))
+))
+const closableNeeds = computed(() => (
+  manageableNeeds.value.filter((item) => ['OPEN', 'CLAIMED', 'SUBMITTED'].includes(item.status))
+))
 const manageableSeries = computed(() => seriesItems.value.filter((item) => item.canManage))
 const manageableActivities = computed(() => activities.value.filter((item) => item.canManage))
 const manageableDiscussions = computed(() => discussions.value.filter((item) => item.canManage))
@@ -282,6 +351,7 @@ const manageableDiscussions = computed(() => discussions.value.filter((item) => 
 const needForm = reactive({ needId: '', resolutionType: 'POST' as NeedResolutionType, resolutionId: '', note: '' })
 const needMergeForm = reactive({ needId: '', targetNeedId: '', note: '' })
 const needCloseForm = reactive({ needId: '', note: '' })
+const rejectReasons = reactive<Record<string, string>>({})
 
 const seriesCreate = reactive({
   domain: localDomainConfigs[0]?.domain ?? 1,
@@ -347,6 +417,44 @@ const collectCollaborationPages = async <T,>(
 }
 
 const isPositiveId = (value: string) => /^[1-9]\d*$/.test(value.trim())
+const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+const formatDate = (value?: string | null) => {
+  if (!value) return '时间待定'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : dateFormatter.format(date)
+}
+const submissionTargetLabel = (need: CollaborationNeed) => {
+  if (!need.submissionResolutionType || !need.submissionResolutionId) return '产出信息待刷新'
+  const labels: Record<NeedResolutionType, string> = {
+    POST: '帖子',
+    QUESTION: '问题',
+    SERIES: '合集',
+  }
+  return `${labels[need.submissionResolutionType]} #${need.submissionResolutionId}`
+}
+const submissionPath = (need: CollaborationNeed): RouteLocationRaw | null => {
+  if (!need.submissionResolutionId) return null
+  if (need.submissionResolutionType === 'QUESTION') {
+    return `/questions/${need.submissionResolutionId}`
+  }
+  if (need.submissionResolutionType === 'SERIES') {
+    return {
+      path: '/collaboration',
+      query: { tab: 'series', seriesId: String(need.submissionResolutionId) },
+    }
+  }
+  if (need.submissionResolutionType === 'POST') {
+    return `/post/${need.submissionResolutionId}`
+  }
+  return null
+}
 const canFulfillNeed = computed(() => !busy.value && isPositiveId(needForm.needId) && isPositiveId(needForm.resolutionId))
 const canMergeNeed = computed(() => !busy.value && isPositiveId(needMergeForm.needId) && isPositiveId(needMergeForm.targetNeedId))
 const canCloseNeed = computed(() => !busy.value && isPositiveId(needCloseForm.needId) && needCloseForm.note.length >= 2)
@@ -380,12 +488,26 @@ const runAction = async (key: string, task: () => Promise<void>, success: string
   }
 }
 
-const loadNeeds = () => runLoad('needs', async (isCurrent) => {
-  const items = await collectCollaborationPages((cursor) => collaborationApi.needs.list({
-    cursor, size: COLLECTION_PAGE_SIZE,
-  }), isCurrent)
-  if (isCurrent()) needs.value = items
-}, '可管理需求加载失败')
+const loadNeeds = () => {
+  if (!authStore.isLoggedIn) {
+    needs.value = []
+    return Promise.resolve()
+  }
+  return runLoad('needs', async (isCurrent) => {
+    const items = await collectCollaborationPages((cursor) => collaborationApi.needs.createdMine({
+      cursor, size: COLLECTION_PAGE_SIZE,
+    }), isCurrent)
+    if (isCurrent()) {
+      needs.value = items
+      const submittedIds = new Set(items
+        .filter((item) => item.status === 'SUBMITTED')
+        .map((item) => String(item.id)))
+      for (const needId of Object.keys(rejectReasons)) {
+        if (!submittedIds.has(needId)) delete rejectReasons[needId]
+      }
+    }
+  }, '我发起的需求加载失败')
+}
 const loadSeries = () => runLoad('series', async (isCurrent) => {
   const items = await collectCollaborationPages((cursor) => collaborationApi.series.list({
     cursor, size: COLLECTION_PAGE_SIZE,
@@ -416,16 +538,37 @@ const fulfillNeed = () => runAction('fulfill-need', async () => {
   Object.assign(needForm, { needId: '', resolutionType: 'POST', resolutionId: '', note: '' })
   await loadNeeds()
 }, '需求已完成')
+const acceptNeed = (needId: ApiId) => runAction(`accept-need:${needId}`, async () => {
+  await collaborationApi.needs.accept(needId)
+  delete rejectReasons[String(needId)]
+  await loadNeeds()
+}, '产出已验收，需求已完成')
+const rejectNeed = (needId: ApiId) => {
+  const reason = rejectReasons[String(needId)]?.trim()
+  if (!reason) return Promise.resolve()
+  return runAction(`reject-need:${needId}`, async () => {
+    await collaborationApi.needs.reject(needId, { reason })
+    delete rejectReasons[String(needId)]
+    await loadNeeds()
+  }, '产出已退回认领者修改')
+}
 const mergeNeed = () => runAction('merge-need', async () => {
   await collaborationApi.needs.merge(needMergeForm.needId, { targetNeedId: needMergeForm.targetNeedId, note: needMergeForm.note || undefined })
   Object.assign(needMergeForm, { needId: '', targetNeedId: '', note: '' })
   await loadNeeds()
 }, '需求已合并')
-const closeNeed = () => runAction('close-need', async () => {
-  await collaborationApi.needs.close(needCloseForm.needId, { note: needCloseForm.note })
-  Object.assign(needCloseForm, { needId: '', note: '' })
-  await loadNeeds()
-}, '需求已关闭')
+const closeNeed = () => {
+  const selectedNeed = manageableNeeds.value.find((item) => String(item.id) === needCloseForm.needId)
+  if (selectedNeed?.status === 'SUBMITTED'
+    && !window.confirm('该需求有认领者提交的产出待处理，确认关闭？')) {
+    return Promise.resolve()
+  }
+  return runAction('close-need', async () => {
+    await collaborationApi.needs.close(needCloseForm.needId, { note: needCloseForm.note })
+    Object.assign(needCloseForm, { needId: '', note: '' })
+    await loadNeeds()
+  }, '需求已关闭')
+}
 
 const createSeries = () => runAction('create-series', async () => {
   await collaborationApi.series.create({
@@ -557,17 +700,15 @@ const resetPrivateWorkspace = () => {
   selectedSeriesId.value = ''
   selectedActivityId.value = ''
   selectedDiscussionId.value = ''
+  for (const needId of Object.keys(rejectReasons)) delete rejectReasons[needId]
   pendingAction.value = ''
 }
 
 watch(
-  () => authStore.isLoggedIn,
-  (isLoggedIn) => {
-    if (isLoggedIn) {
-      void refreshAll()
-      return
-    }
+  [() => authStore.isLoggedIn, () => authStore.user?.uid],
+  ([isLoggedIn]) => {
     resetPrivateWorkspace()
+    if (isLoggedIn) void refreshAll()
   },
 )
 
@@ -685,6 +826,27 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+.subsection-heading {
+  margin-bottom: 0.8rem;
+}
+
+.subsection-heading strong,
+.subsection-heading span {
+  display: block;
+}
+
+.subsection-heading strong {
+  color: rgb(30 41 59);
+  font-size: 0.82rem;
+}
+
+.subsection-heading span {
+  margin-top: 0.2rem;
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .form-stack label,
 .field-label {
   display: grid;
@@ -775,6 +937,34 @@ onMounted(() => {
   color: rgb(100 116 139);
   font-size: 0.72rem;
   line-height: 1.45;
+}
+
+.review-row {
+  align-items: stretch;
+}
+
+.review-actions,
+.reject-control {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.review-actions {
+  width: min(100%, 18rem);
+  flex: 0 0 18rem;
+}
+
+.reject-control {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.submission-link {
+  display: inline-flex;
+  margin-top: 0.4rem;
+  color: rgb(8 145 178);
+  font-size: 0.72rem;
+  font-weight: 850;
 }
 
 .compact-list {
@@ -874,35 +1064,46 @@ button:disabled {
   .row-actions {
     justify-content: flex-start;
   }
+
+  .review-actions {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .reject-control {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-:global(.dark) .manage-panel,
-:global(.dark) .manage-tabs button,
-:global(.dark) .field-control,
-:global(.dark) .secondary-button {
+.dark .manage-panel,
+.dark .manage-tabs button,
+.dark .field-control,
+.dark .secondary-button {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .panel-heading h2,
-:global(.dark) .dense-row strong,
-:global(.dark) .empty-hint strong {
+.dark .panel-heading h2,
+.dark .dense-row strong,
+.dark .empty-hint strong,
+.dark .subsection-heading strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .panel-heading p,
-:global(.dark) .form-stack label,
-:global(.dark) .field-label {
+.dark .panel-heading p,
+.dark .form-stack label,
+.dark .field-label,
+.dark .subsection-heading span {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .dense-row,
-:global(.dark) .section-divider {
+.dark .dense-row,
+.dark .section-divider {
   border-color: rgb(51 65 85);
 }
 
-:global(.dark) .empty-hint {
+.dark .empty-hint {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23 / 0.7);
   color: rgb(148 163 184);

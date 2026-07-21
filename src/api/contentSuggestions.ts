@@ -19,6 +19,17 @@ export type ContentSuggestionDecision =
   | 'PARTIAL_ACCEPTED'
   | 'REJECTED'
   | 'MERGED'
+  | 'PLANNED'
+
+export type ContentSuggestionResolution =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'PARTIAL'
+  | 'REJECTED'
+  | 'PLANNED'
+
+export type ContentSuggestionDeliveryStatus = 'UNLINKED' | 'LINKED'
+export type ContentSuggestionTargetScope = 'TITLE' | 'CONTENT' | 'SECTION' | 'REFERENCE' | 'FRESHNESS' | 'OTHER'
 
 export interface ContentSuggestionRecord {
   id: ApiId
@@ -30,6 +41,12 @@ export interface ContentSuggestionRecord {
   type: ContentSuggestionType
   detail: string
   sourceUrl?: string
+  baseVersion?: number
+  targetScope?: ContentSuggestionTargetScope
+  targetLocator?: string
+  expectedChange?: string
+  resolution?: ContentSuggestionResolution
+  deliveryStatus?: ContentSuggestionDeliveryStatus
   allowPublicAttribution: boolean
   status: ContentSuggestionStatus
   decision?: ContentSuggestionDecision
@@ -47,6 +64,9 @@ export interface ContentSuggestionSubmitReq {
   type: ContentSuggestionType
   detail: string
   sourceUrl?: string
+  targetScope?: ContentSuggestionTargetScope
+  targetLocator?: string
+  expectedChange?: string
   allowPublicAttribution?: boolean
 }
 
@@ -112,6 +132,7 @@ export const CONTENT_SUGGESTION_DECISION_LABELS: Record<ContentSuggestionDecisio
   PARTIAL_ACCEPTED: '部分采纳',
   REJECTED: '未采纳',
   MERGED: '已合并到新版本',
+  PLANNED: '计划处理',
 }
 
 export const normalizeHttpUrl = (value: unknown) => {
@@ -128,10 +149,13 @@ export const normalizeHttpUrl = (value: unknown) => {
 export const normalizeContentSuggestionSubmitReq = (
   req: ContentSuggestionSubmitReq,
 ): Required<Pick<ContentSuggestionSubmitReq, 'type' | 'detail' | 'allowPublicAttribution'>>
-& Pick<ContentSuggestionSubmitReq, 'sourceUrl'> => ({
+& Pick<ContentSuggestionSubmitReq, 'sourceUrl' | 'targetScope' | 'targetLocator' | 'expectedChange'> => ({
   type: req.type,
   detail: String(req.detail || '').trim(),
   sourceUrl: normalizeHttpUrl(req.sourceUrl),
+  targetScope: req.targetScope,
+  targetLocator: req.targetLocator?.trim() || undefined,
+  expectedChange: req.expectedChange?.trim() || undefined,
   allowPublicAttribution: false || req.allowPublicAttribution === true,
 })
 
@@ -181,6 +205,12 @@ const adaptContentSuggestion = (raw: any): ContentSuggestionRecord => {
     type: String(raw?.type ?? raw?.suggestionType ?? 'CORRECTION') as ContentSuggestionType,
     detail: String(raw?.detail ?? raw?.content ?? ''),
     sourceUrl: normalizeHttpUrl(raw?.sourceUrl),
+    baseVersion: raw?.baseVersion == null ? undefined : Number(raw.baseVersion),
+    targetScope: raw?.targetScope ? String(raw.targetScope) as ContentSuggestionTargetScope : undefined,
+    targetLocator: raw?.targetLocator ? String(raw.targetLocator) : undefined,
+    expectedChange: raw?.expectedChange ? String(raw.expectedChange) : undefined,
+    resolution: raw?.resolution ? String(raw.resolution) as ContentSuggestionResolution : undefined,
+    deliveryStatus: raw?.deliveryStatus ? String(raw.deliveryStatus) as ContentSuggestionDeliveryStatus : undefined,
     allowPublicAttribution: raw?.allowPublicAttribution === true,
     status: String(raw?.status ?? (raw?.decision ? 'DECIDED' : 'PENDING')) as ContentSuggestionStatus,
     decision: raw?.decision ? String(raw.decision) as ContentSuggestionDecision : undefined,

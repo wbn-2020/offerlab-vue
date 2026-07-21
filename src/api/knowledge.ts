@@ -8,9 +8,21 @@ export type PublicKnowledgeAssetStatus = KnowledgeAssetStatus
 export type KnowledgeVisibilityState = 'visible' | 'archived' | 'excluded' | 'degraded'
 export type KnowledgePreviewSource = 'remote' | 'local' | 'fallback' | 'demo'
 export type KnowledgeAssetSource = 'post' | 'series' | 'collection' | 'topic' | 'tag' | 'search' | 'manual' | 'curation'
-export type KnowledgeRelationType = 'belongs_to' | 'references' | 'continues' | 'related' | 'fills_gap' | 'search_entry'
+export type KnowledgeRelationType =
+  | 'belongs_to'
+  | 'references'
+  | 'continues'
+  | 'related'
+  | 'fills_gap'
+  | 'search_entry'
+  | 'duplicate_of'
+  | 'supersedes'
+  | 'supplements'
+  | 'prerequisite_of'
+  | 'contradicts'
 export type KnowledgeRelationSource = 'manual' | 'topic' | 'series' | 'search' | 'tag' | 'curation'
 export type KnowledgeRelationReviewStatus = 'AUTO_SAFE' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
+export type KnowledgeRelationVisibilityStatus = 'VISIBLE' | 'HIDDEN'
 export type KnowledgeReviewStatus = KnowledgeRelationReviewStatus
 export type KnowledgeRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export type KnowledgePathStatus = 'active' | 'archived'
@@ -59,9 +71,23 @@ export interface KnowledgeRelation {
   readonly reasonText: string
   readonly source: KnowledgeRelationSource
   readonly reviewStatus: KnowledgeRelationReviewStatus
+  readonly visibilityStatus: KnowledgeRelationVisibilityStatus
   readonly riskLevel: KnowledgeRiskLevel
   readonly createdAt: string
 }
+
+export type KnowledgeRelationDisplayState = 'CONFIRMED' | 'SUGGESTED' | 'DEGRADED'
+
+export interface ConfirmedKnowledgeRelationDTO extends KnowledgeRelation {
+  readonly relationState: 'CONFIRMED'
+}
+
+export interface DynamicKnowledgeSuggestionDTO extends KnowledgeRelation {
+  readonly relationState: 'SUGGESTED' | 'DEGRADED'
+  readonly degradedReason?: string
+}
+
+export type KnowledgeRelationProjection = ConfirmedKnowledgeRelationDTO | DynamicKnowledgeSuggestionDTO
 
 export interface KnowledgePathStep {
   readonly assetId: string
@@ -112,6 +138,8 @@ export interface KnowledgeAssetSnapshot {
 export interface KnowledgeExploreResponse extends KnowledgeRelationGraph {
   readonly assets: readonly PublicKnowledgeAsset[]
   readonly relations: readonly KnowledgeRelation[]
+  readonly confirmedRelations: readonly ConfirmedKnowledgeRelationDTO[]
+  readonly dynamicSuggestions: readonly DynamicKnowledgeSuggestionDTO[]
   readonly paths: readonly KnowledgePath[]
   readonly gaps: readonly KnowledgeGap[]
   readonly snapshots: readonly KnowledgeAssetSnapshot[]
@@ -128,7 +156,19 @@ const assetStatuses = ['active', 'archived'] as const
 const visibilityStates = ['visible', 'archived', 'excluded', 'degraded'] as const
 const previewSources = ['remote', 'local', 'fallback', 'demo'] as const
 const assetSources = ['post', 'series', 'collection', 'topic', 'tag', 'search', 'manual', 'curation'] as const
-const relationTypes = ['belongs_to', 'references', 'continues', 'related', 'fills_gap', 'search_entry'] as const
+const relationTypes = [
+  'belongs_to',
+  'references',
+  'continues',
+  'related',
+  'fills_gap',
+  'search_entry',
+  'duplicate_of',
+  'supersedes',
+  'supplements',
+  'prerequisite_of',
+  'contradicts',
+] as const
 const relationSources = ['manual', 'topic', 'series', 'search', 'tag', 'curation'] as const
 const relationReviewStatuses = ['AUTO_SAFE', 'PENDING_REVIEW', 'APPROVED', 'REJECTED'] as const
 const riskLevels = ['LOW', 'MEDIUM', 'HIGH'] as const
@@ -191,6 +231,20 @@ export const isPersistableKnowledgeRelation = (
   if (relation.riskLevel === 'HIGH' && relation.reviewStatus !== 'APPROVED') return false
   return true
 }
+
+export const isConfirmedKnowledgeRelation = (
+  relation: Pick<KnowledgeRelation, 'source' | 'reviewStatus' | 'reasonText'> & Partial<ConfirmedKnowledgeRelationDTO>,
+): relation is ConfirmedKnowledgeRelationDTO => relation.relationState === 'CONFIRMED'
+  && relationSources.includes(relation.source)
+  && relation.reviewStatus === 'APPROVED'
+  && Boolean(relation.reasonText.trim() && relation.sourceAssetId?.trim() && relation.targetAssetId?.trim())
+
+export const isDynamicKnowledgeSuggestion = (
+  relation: Pick<KnowledgeRelation, 'source' | 'reviewStatus' | 'reasonText'>
+    & Partial<Pick<DynamicKnowledgeSuggestionDTO, 'relationState'>>,
+): relation is DynamicKnowledgeSuggestionDTO => (
+  relation.relationState === 'SUGGESTED' || relation.relationState === 'DEGRADED'
+)
 
 export const isPersistableKnowledgePath = (
   path: Pick<KnowledgePath, 'pathStatus' | 'displayState' | 'steps'>,
@@ -271,19 +325,72 @@ const adaptAsset = (raw: any): PublicKnowledgeAsset => {
   }
 }
 
-const adaptRelation = (raw: any): KnowledgeRelation => ({
-  relationId: safeText(
-    raw?.relationId ?? raw?.id,
-    `${safeText(raw?.sourceAssetId ?? raw?.source)}:${safeText(raw?.targetAssetId ?? raw?.target)}:${safeText(raw?.relationType ?? raw?.relation)}`,
-  ),
-  sourceAssetId: safeText(raw?.sourceAssetId ?? raw?.source),
-  targetAssetId: safeText(raw?.targetAssetId ?? raw?.target),
-  relationType: toRelationType(raw?.relationType ?? raw?.relation),
-  reasonText: safeText(raw?.reasonText ?? raw?.sourceNote, 'Source explanation is unavailable; relation is display-only.'),
-  source: toRelationSource(raw?.source),
-  reviewStatus: toReviewStatus(raw?.reviewStatus),
-  riskLevel: toRiskLevel(raw?.riskLevel),
-  createdAt: safeText(raw?.createdAt ?? raw?.createTime),
+const hasKnownRelationSource = (value: unknown): value is KnowledgeRelationSource => (
+  typeof value === 'string' && relationSources.includes(value as KnowledgeRelationSource)
+)
+
+const hasKnownReviewStatus = (value: unknown): value is KnowledgeRelationReviewStatus => (
+  typeof value === 'string' && relationReviewStatuses.includes(value as KnowledgeRelationReviewStatus)
+)
+
+const hasConfirmedRelationEvidence = (
+  relation: KnowledgeRelation,
+  sourceKnown: boolean,
+  reviewKnown: boolean,
+) => sourceKnown
+  && reviewKnown
+  && relation.reviewStatus === 'APPROVED'
+  && relation.visibilityStatus === 'VISIBLE'
+  && Boolean(relation.reasonText.trim() && relation.sourceAssetId.trim() && relation.targetAssetId.trim())
+
+const adaptRelation = (raw: any, allowConfirmed = true): KnowledgeRelationProjection => {
+  const sourceValue = raw?.source
+  const reviewValue = raw?.reviewStatus
+  const sourceKnown = hasKnownRelationSource(sourceValue)
+  const reviewKnown = hasKnownReviewStatus(reviewValue)
+  const relation: KnowledgeRelation = {
+    relationId: safeText(
+      raw?.relationId ?? raw?.id,
+      `${safeText(raw?.sourceAssetId ?? raw?.source)}:${safeText(raw?.targetAssetId ?? raw?.target)}:${safeText(raw?.relationType ?? raw?.relation)}`,
+    ),
+    sourceAssetId: safeText(raw?.sourceAssetId ?? raw?.source),
+    targetAssetId: safeText(raw?.targetAssetId ?? raw?.target),
+    relationType: toRelationType(raw?.relationType ?? raw?.relation),
+    reasonText: safeText(raw?.reasonText ?? raw?.sourceNote, 'Relation explanation is unavailable.'),
+    source: sourceKnown ? sourceValue : 'manual',
+    reviewStatus: reviewKnown ? reviewValue : 'PENDING_REVIEW',
+    visibilityStatus: raw?.visibilityStatus === 'VISIBLE' ? 'VISIBLE' : 'HIDDEN',
+    riskLevel: toRiskLevel(raw?.riskLevel),
+    createdAt: safeText(raw?.createdAt ?? raw?.createTime),
+  }
+  if (allowConfirmed && hasConfirmedRelationEvidence(relation, sourceKnown, reviewKnown)) {
+    return { ...relation, relationState: 'CONFIRMED' }
+  }
+  const degradedReason = !sourceKnown
+    ? 'Relation source is missing or unrecognized.'
+    : !reviewKnown
+      ? 'Relation review state is missing or unrecognized.'
+      : undefined
+  return {
+    ...relation,
+    relationState: degradedReason ? 'DEGRADED' : 'SUGGESTED',
+    degradedReason,
+  }
+}
+
+const adaptGraphEdgeSuggestion = (raw: any): DynamicKnowledgeSuggestionDTO => ({
+  relationId: `graph:${safeText(raw?.source)}:${safeText(raw?.target)}:${safeText(raw?.relation)}`,
+  sourceAssetId: safeText(raw?.source),
+  targetAssetId: safeText(raw?.target),
+  relationType: toRelationType(raw?.relation),
+  reasonText: 'Dynamic graph connection; review and source evidence were not provided.',
+  source: 'manual',
+  reviewStatus: 'PENDING_REVIEW',
+  visibilityStatus: 'HIDDEN',
+  riskLevel: 'MEDIUM',
+  createdAt: '',
+  relationState: 'DEGRADED',
+  degradedReason: 'Graph edges do not carry review or source evidence.',
 })
 
 const adaptPathStep = (raw: any): KnowledgePathStep => {
@@ -346,10 +453,23 @@ const adaptSnapshot = (raw: any): KnowledgeAssetSnapshot => ({
 export const adaptKnowledgeExploreResponse = (raw: any): KnowledgeExploreResponse => {
   const graphRaw = raw?.graph && typeof raw.graph === 'object' ? raw.graph : raw
   const graph = adaptGraph(graphRaw)
+  const relationInputs = Array.isArray(raw?.relations) ? raw.relations.map((item: any) => adaptRelation(item)) : []
+  const confirmedInputs = Array.isArray(raw?.confirmedRelations) ? raw.confirmedRelations.map((item: any) => adaptRelation(item)) : []
+  const suggestionInputs = Array.isArray(raw?.dynamicSuggestions)
+    ? raw.dynamicSuggestions.map((item: any) => adaptRelation(item, false))
+    : []
+  const adaptedRelations = [...relationInputs, ...confirmedInputs, ...suggestionInputs]
+  const confirmedRelations = adaptedRelations.filter(isConfirmedKnowledgeRelation)
+  const dynamicSuggestions = [
+    ...adaptedRelations.filter(isDynamicKnowledgeSuggestion),
+    ...graph.edges.map(adaptGraphEdgeSuggestion),
+  ]
   return {
     ...graph,
     assets: Array.isArray(raw?.assets) ? raw.assets.map(adaptAsset) : [],
-    relations: Array.isArray(raw?.relations) ? raw.relations.map(adaptRelation) : [],
+    relations: adaptedRelations,
+    confirmedRelations,
+    dynamicSuggestions,
     paths: Array.isArray(raw?.paths) ? raw.paths.map(adaptPath) : [],
     gaps: Array.isArray(raw?.gaps) ? raw.gaps.map(adaptGap) : [],
     snapshots: Array.isArray(raw?.snapshots) ? raw.snapshots.map(adaptSnapshot) : [],

@@ -3,7 +3,7 @@
     <AppHeader />
     <main class="mx-auto flex min-h-[calc(100vh-76px)] max-w-5xl items-center px-4 py-10">
       <section class="w-full rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="text-sm font-semibold text-amber-600 dark:text-amber-400">403 Forbidden</p>
+        <p class="text-sm font-semibold text-amber-600 dark:text-amber-400">{{ statusLabel }}</p>
         <h1 class="mt-3 text-3xl font-bold text-slate-950 dark:text-slate-50">{{ pageTitle }}</h1>
         <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
           {{ pageText }}
@@ -21,7 +21,7 @@
         </div>
 
         <div class="mt-7 flex flex-wrap gap-3">
-          <RouterLink :to="fromPath" class="primary-button">返回来源页</RouterLink>
+          <RouterLink :to="fromPath" class="primary-button">{{ permissionUnavailable ? '重试权限检查' : '返回来源页' }}</RouterLink>
           <RouterLink to="/" class="secondary-button">返回首页</RouterLink>
           <RouterLink v-if="!authStore.isLoggedIn" :to="{ path: '/login', query: { redirect: fromPath } }" class="secondary-button">去登录</RouterLink>
           <RouterLink v-else :to="{ path: '/login', query: { redirect: fromPath, switchAccount: '1' } }" class="secondary-button">切换账号</RouterLink>
@@ -44,7 +44,12 @@ const route = useRoute()
 const authStore = useAuthStore()
 const fromPath = computed(() => safeRedirect(route.query.from, '/admin'))
 const roleText = computed(() => String(route.query.role || '对应的管理角色'))
-const permissionCheckFailed = computed(() => route.query.reason === 'permission_check_failed')
+const permissionUnavailable = computed(() => (
+  route.query.reason === 'permission_unavailable'
+  || route.query.reason === 'permission_check_failed'
+))
+const permissionDenied = computed(() => route.query.reason === 'permission_denied')
+const statusLabel = computed(() => permissionUnavailable.value ? '权限状态不可用' : '403 Forbidden')
 const adminRecoveryPath = computed(() => {
   const source = fromPath.value
   if (source.startsWith('/admin/questions')) return '/admin/questions'
@@ -53,12 +58,13 @@ const adminRecoveryPath = computed(() => {
   return '/admin/ops'
 })
 const pageTitle = computed(() => {
-  if (permissionCheckFailed.value) return '权限状态暂时无法确认'
+  if (permissionUnavailable.value) return '权限服务暂时无法确认当前权限'
+  if (permissionDenied.value) return '当前账号没有访问权限'
   return authStore.isLoggedIn ? '当前账号没有访问权限' : '请先登录或切换到有权限的账号'
 })
 const pageText = computed(() => authStore.isLoggedIn
-  ? permissionCheckFailed.value
-    ? '刚才权限检查接口没有返回可信结果。你可以返回来源页重试，或切换账号重新登录。'
+  ? permissionUnavailable.value
+    ? '刚才权限服务没有返回可信结果，这不代表当前账号没有权限。你可以重试权限检查，或切换账号重新登录。'
     : `这个入口需要 ${roleText.value}。如果你刚刚被授予角色，请稍后刷新；如果仍然无法访问，请让系统管理员检查 RBAC 配置。`
   : `这个入口需要 ${roleText.value}。登录后如果仍然看到此页面，说明当前账号缺少对应角色。`)
 </script>

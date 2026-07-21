@@ -14,10 +14,20 @@
             <p>围绕公开内容组织需求、合集投稿、共创活动、频道策展与结构化决策。</p>
           </div>
         </div>
-        <button v-if="isPublicBrowseTab" type="button" class="secondary-action workspace-refresh" @click="refreshCurrentTab">
-          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': currentTabLoading }" aria-hidden="true" />
-          刷新当前视图
-        </button>
+        <div class="workspace-header-actions">
+           <label v-if="showGlobalSort" class="workspace-sort-control">
+            <span>排序</span>
+            <select v-model="hubSort" class="toolbar-select" aria-label="协作资源排序" @change="changeSort">
+              <option value="">默认</option>
+              <option value="latest">最新发布</option>
+              <option value="updated">最近更新</option>
+            </select>
+          </label>
+          <button v-if="isPublicBrowseTab" type="button" class="secondary-action workspace-refresh" @click="refreshCurrentTab">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': currentTabLoading }" aria-hidden="true" />
+            刷新当前视图
+          </button>
+        </div>
       </header>
 
       <nav class="workspace-tabs" role="tablist" aria-label="协作工作台视图">
@@ -31,7 +41,7 @@
           :class="{ 'workspace-tab-active': activeTab === tab.key }"
           :aria-selected="activeTab === tab.key"
           :aria-controls="`collaboration-panel-${tab.key}`"
-          @click="activeTab = tab.key"
+          @click="selectTab(tab.key)"
         >
           <component :is="tab.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{{ tab.label }}</span>
@@ -44,6 +54,8 @@
         class="workspace-layout"
         role="tabpanel"
         aria-labelledby="collaboration-tab-needs"
+        data-community-public-section="needs"
+        :data-public-section-state="collectionDisplayState(needState)"
       >
         <aside class="workspace-panel workspace-form-panel">
           <div class="panel-heading">
@@ -156,18 +168,6 @@
               <p>已加载 {{ needState.items.length }} 条</p>
             </div>
             <div class="toolbar-controls">
-              <select v-model.number="needFilters.domain" class="toolbar-select" aria-label="按领域筛选需求" @change="loadNeeds()">
-                <option value="">全部领域</option>
-                <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
-                  {{ domain.domainName }}
-                </option>
-              </select>
-              <select v-model="needFilters.status" class="toolbar-select" aria-label="按状态筛选需求" @change="loadNeeds()">
-                <option value="">全部状态</option>
-                <option v-for="item in needStatusOptions" :key="item.value" :value="item.value">
-                  {{ item.label }}
-                </option>
-              </select>
               <button
                 type="button"
                 class="icon-action"
@@ -180,6 +180,13 @@
               </button>
             </div>
           </div>
+
+          <NeedDiscoveryFilters
+            :model-value="needFilters"
+            @update:model-value="setNeedDiscoveryFilters"
+            @reset="resetNeedDiscoveryFilters"
+            @submit="submitNeedDiscoveryFilters"
+          />
 
           <div v-if="needState.loading" class="state-stack" aria-label="需求加载中">
             <div v-for="index in 4" :key="index" class="skeleton-row">
@@ -207,7 +214,13 @@
           </div>
 
           <div v-else class="collaboration-list">
-            <article v-for="need in needState.items" :key="need.id" class="collaboration-row">
+            <article
+              v-for="need in needState.items"
+              :id="`collaboration-need-${need.id}`"
+              :key="need.id"
+              class="collaboration-row"
+              :data-linked-need="String(need.id) === linkedNeedId ? 'true' : undefined"
+            >
               <div class="row-heading">
                 <div class="row-title">
                   <div class="badge-line">
@@ -224,6 +237,9 @@
               <p v-if="need.acceptanceCriteria" class="row-detail">
                 <strong>验收：</strong>{{ need.acceptanceCriteria }}
               </p>
+              <p v-if="need.matchReasons?.length" class="row-detail">
+                <strong>匹配依据：</strong>{{ need.matchReasons.map(labelNeedMatchReason).join(' · ') }}
+              </p>
 
               <div class="row-footer">
                 <div class="row-meta">
@@ -236,6 +252,13 @@
                 </div>
 
                 <div class="row-actions">
+                  <RouterLink
+                    :to="collaborationResourcePath('need', need.id) || collaborationHubLocation('needs')"
+                    class="row-action"
+                  >
+                    <ArrowRight class="h-4 w-4" aria-hidden="true" />
+                    查看详情
+                  </RouterLink>
                   <label v-if="canClaimNeed(need) && isHighRiskDomain(need.domain)" class="compact-risk">
                     <input
                       type="checkbox"
@@ -284,11 +307,26 @@
       </section>
 
       <section
+        v-else-if="activeTab === 'my-collaborations'"
+        id="collaboration-panel-my-collaborations"
+        role="tabpanel"
+        aria-labelledby="collaboration-tab-my-collaborations"
+        data-community-participation-section="my-collaborations"
+      >
+        <MyCollaborationsWorkspace
+          ref="myCollaborationsRef"
+          @browse-needs="selectTab('needs')"
+        />
+      </section>
+
+      <section
         v-else-if="activeTab === 'series'"
         id="collaboration-panel-series"
         class="workspace-layout"
         role="tabpanel"
         aria-labelledby="collaboration-tab-series"
+        data-community-public-section="series"
+        :data-public-section-state="collectionDisplayState(seriesState)"
       >
         <aside class="workspace-panel workspace-form-panel">
           <div class="panel-heading">
@@ -364,13 +402,13 @@
               <p>已加载 {{ seriesState.items.length }} 条</p>
             </div>
             <div class="toolbar-controls">
-              <select v-model.number="seriesFilters.domain" class="toolbar-select" aria-label="按领域筛选合集" @change="loadSeries()">
+              <select v-model.number="seriesFilters.domain" class="toolbar-select" aria-label="按领域筛选合集" @change="changeSeriesFilters">
                 <option value="">全部领域</option>
                 <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
                   {{ domain.domainName }}
                 </option>
               </select>
-              <select v-model="seriesFilters.status" class="toolbar-select" aria-label="按状态筛选合集" @change="loadSeries()">
+              <select v-model="seriesFilters.status" class="toolbar-select" aria-label="按状态筛选合集" @change="changeSeriesFilters">
                 <option value="">全部状态</option>
                 <option value="OPEN">开放中</option>
                 <option value="CLOSED">已关闭</option>
@@ -414,7 +452,13 @@
           </div>
 
           <div v-else class="collaboration-list">
-            <article v-for="series in seriesState.items" :key="series.id" class="collaboration-row">
+            <article
+              v-for="series in seriesState.items"
+              :id="`collaboration-series-${series.id}`"
+              :key="series.id"
+              class="collaboration-row"
+              :data-linked-series="String(series.id) === linkedSeriesId ? 'true' : undefined"
+            >
               <div class="row-heading">
                 <div class="row-title">
                   <div class="badge-line">
@@ -437,15 +481,24 @@
                   <span><Users class="h-3.5 w-3.5" aria-hidden="true" />{{ series.memberCount }} 位成员</span>
                   <span><FileText class="h-3.5 w-3.5" aria-hidden="true" />{{ series.postCount }} 篇内容</span>
                 </div>
-                <button
-                  type="button"
-                  class="row-action row-action-primary"
-                  :disabled="series.status !== 'OPEN' || !series.currentUserRole"
-                  @click="focusSeriesSubmission(series)"
-                >
-                  <Send class="h-4 w-4" aria-hidden="true" />
-                  {{ series.currentUserRole ? '选择投稿' : '需先加入' }}
-                </button>
+                <div class="row-actions">
+                  <RouterLink
+                    :to="collaborationResourcePath('series', series.id) || collaborationHubLocation('series')"
+                    class="row-action"
+                  >
+                    <ArrowRight class="h-4 w-4" aria-hidden="true" />
+                    查看详情
+                  </RouterLink>
+                  <button
+                    type="button"
+                    class="row-action row-action-primary"
+                    :disabled="series.status !== 'OPEN' || !series.currentUserRole"
+                    @click="focusSeriesSubmission(series)"
+                  >
+                    <Send class="h-4 w-4" aria-hidden="true" />
+                    {{ series.currentUserRole ? '选择投稿' : '需先加入' }}
+                  </button>
+                </div>
               </div>
             </article>
           </div>
@@ -469,6 +522,8 @@
         class="workspace-layout"
         role="tabpanel"
         aria-labelledby="collaboration-tab-activities"
+        data-community-public-section="activities"
+        :data-public-section-state="collectionDisplayState(activityState)"
       >
         <aside class="workspace-panel workspace-form-panel">
           <div class="panel-heading">
@@ -540,13 +595,13 @@
               <p>已加载 {{ activityState.items.length }} 条</p>
             </div>
             <div class="toolbar-controls">
-              <select v-model.number="activityFilters.domain" class="toolbar-select" aria-label="按领域筛选活动" @change="loadActivities()">
+              <select v-model.number="activityFilters.domain" class="toolbar-select" aria-label="按领域筛选活动" @change="changeActivityFilters">
                 <option value="">全部领域</option>
                 <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
                   {{ domain.domainName }}
                 </option>
               </select>
-              <select v-model="activityFilters.status" class="toolbar-select" aria-label="按状态筛选活动" @change="loadActivities()">
+              <select v-model="activityFilters.status" class="toolbar-select" aria-label="按状态筛选活动" @change="changeActivityFilters">
                 <option value="">全部状态</option>
                 <option v-for="item in activityStatusOptions" :key="item.value" :value="item.value">
                   {{ item.label }}
@@ -591,7 +646,13 @@
           </div>
 
           <div v-else class="collaboration-list">
-            <article v-for="activity in activityState.items" :key="activity.id" class="collaboration-row">
+            <article
+              v-for="activity in activityState.items"
+              :id="`collaboration-activity-${activity.id}`"
+              :key="activity.id"
+              class="collaboration-row"
+              :data-linked-activity="String(activity.id) === linkedActivityId ? 'true' : undefined"
+            >
               <div class="row-heading">
                 <div class="row-title">
                   <div class="badge-line">
@@ -618,15 +679,24 @@
                   <span><FileText class="h-3.5 w-3.5" aria-hidden="true" />{{ activity.submissionCount }} 份投稿</span>
                   <span v-if="activity.endsAt"><CalendarClock class="h-3.5 w-3.5" aria-hidden="true" />截至 {{ formatDate(activity.endsAt) }}</span>
                 </div>
-                <button
-                  type="button"
-                  class="row-action row-action-primary"
-                  :disabled="activity.status !== 'OPEN'"
-                  @click="focusActivitySubmission(activity)"
-                >
-                  <Upload class="h-4 w-4" aria-hidden="true" />
-                  选择投稿
-                </button>
+                <div class="row-actions">
+                  <RouterLink
+                    :to="collaborationResourcePath('activity', activity.id) || collaborationHubLocation('activities')"
+                    class="row-action"
+                  >
+                    <ArrowRight class="h-4 w-4" aria-hidden="true" />
+                    查看详情
+                  </RouterLink>
+                  <button
+                    type="button"
+                    class="row-action row-action-primary"
+                    :disabled="activity.status !== 'OPEN'"
+                    @click="focusActivitySubmission(activity)"
+                  >
+                    <Upload class="h-4 w-4" aria-hidden="true" />
+                    选择投稿
+                  </button>
+                </div>
               </div>
             </article>
           </div>
@@ -650,6 +720,8 @@
         class="workspace-layout"
         role="tabpanel"
         aria-labelledby="collaboration-tab-curation"
+        data-community-participation-section="curation"
+        :data-participation-section-state="collectionDisplayState(curationState)"
       >
         <aside class="workspace-panel workspace-form-panel">
           <div class="panel-heading">
@@ -733,7 +805,7 @@
               <p>已加载 {{ curationState.items.length }} 条</p>
             </div>
             <div class="toolbar-controls">
-              <select v-model="curationFilters.status" class="toolbar-select" aria-label="按状态筛选策展建议" @change="loadCuration()">
+              <select v-model="curationFilters.status" class="toolbar-select" aria-label="按状态筛选策展建议" @change="changeCurationFilters">
                 <option value="">全部状态</option>
                 <option value="PENDING">待审核</option>
                 <option value="APPROVED">已采纳</option>
@@ -837,6 +909,8 @@
         class="workspace-panel workspace-list-panel workspace-wide-panel"
         role="tabpanel"
         aria-labelledby="collaboration-tab-discussions"
+        data-community-public-section="discussions"
+        :data-public-section-state="collectionDisplayState(discussionState)"
       >
         <div class="list-toolbar">
           <div>
@@ -844,13 +918,13 @@
             <p>已加载 {{ discussionState.items.length }} 条</p>
           </div>
           <div class="toolbar-controls">
-            <select v-model.number="discussionFilters.domain" class="toolbar-select" aria-label="按领域筛选讨论" @change="loadDiscussions()">
+            <select v-model.number="discussionFilters.domain" class="toolbar-select" aria-label="按领域筛选讨论" @change="changeDiscussionFilters">
               <option value="">全部领域</option>
               <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
                 {{ domain.domainName }}
               </option>
             </select>
-            <select v-model="discussionFilters.status" class="toolbar-select" aria-label="按状态筛选讨论" @change="loadDiscussions()">
+            <select v-model="discussionFilters.status" class="toolbar-select" aria-label="按状态筛选讨论" @change="changeDiscussionFilters">
               <option value="">全部状态</option>
               <option value="OPEN">投票中</option>
               <option value="SUMMARIZED">已总结</option>
@@ -895,7 +969,13 @@
         </div>
 
         <div v-else class="discussion-list">
-          <article v-for="discussion in discussionState.items" :key="discussion.id" class="discussion-row">
+          <article
+            v-for="discussion in discussionState.items"
+            :id="`collaboration-discussion-${discussion.id}`"
+            :key="discussion.id"
+            class="discussion-row"
+            :data-linked-discussion="String(discussion.id) === linkedDiscussionId ? 'true' : undefined"
+          >
             <div class="row-heading">
               <div class="row-title">
                 <div class="badge-line">
@@ -945,6 +1025,13 @@
               <span v-if="discussion.consensusState">
                 <Scale class="h-3.5 w-3.5" aria-hidden="true" />{{ consensusLabel(discussion.consensusState) }}
               </span>
+              <RouterLink
+                :to="collaborationResourcePath('discussion', discussion.id) || collaborationHubLocation('discussions')"
+                class="text-link"
+              >
+                查看详情
+                <ArrowRight class="h-3.5 w-3.5" aria-hidden="true" />
+              </RouterLink>
             </div>
 
             <div v-if="discussion.summary" class="discussion-summary">
@@ -973,7 +1060,14 @@
         role="tabpanel"
         aria-labelledby="collaboration-tab-office-hours"
       >
-        <OfficeHoursWorkspace />
+        <div
+          :data-linked-office-hour="linkedOfficeHourId || undefined"
+        >
+          <OfficeHoursWorkspace
+            :focus-office-hour-id="linkedOfficeHourId"
+            :focus-reservation-id="linkedOfficeHourReservationId"
+          />
+        </div>
       </section>
 
       <section
@@ -999,10 +1093,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import {
   AlertCircle,
+  ArrowRight,
   Bell,
   BellOff,
   BellPlus,
@@ -1032,6 +1127,8 @@ import {
 import AppHeader from '@/components/layout/AppHeader.vue'
 import CollaborationCasesWorkspace from '@/components/collaboration/CollaborationCasesWorkspace.vue'
 import CollaborationManagementWorkspace from '@/components/collaboration/CollaborationManagementWorkspace.vue'
+import MyCollaborationsWorkspace from '@/components/collaboration/MyCollaborationsWorkspace.vue'
+import NeedDiscoveryFilters from '@/components/collaboration/NeedDiscoveryFilters.vue'
 import OfficeHoursWorkspace from '@/components/collaboration/OfficeHoursWorkspace.vue'
 import { getErrorMessage } from '@/api/client'
 import { localDomainConfigs } from '@/api/domains'
@@ -1041,6 +1138,7 @@ import {
   type CollaborationActivityStatus,
   type CollaborationActivityType,
   type CollaborationNeed,
+  type NeedDiscoveryItem,
   type CollaborationSeries,
   type CurationSuggestion,
   type CurationSuggestionType,
@@ -1054,10 +1152,18 @@ import {
   type SubmissionReviewStatus,
 } from '@/api/collaboration'
 import type { ApiId } from '@/api/types'
+import { useCollaborationHubQuery } from '@/composables/useCollaborationHubQuery'
+import { useCollaborationDiscoveryQuery } from '@/composables/useCollaborationDiscoveryQuery'
 import { useAuthStore } from '@/stores/auth'
+import {
+  collaborationHubLocation,
+  collaborationResourcePath,
+  type CollaborationHubSort,
+} from '@/utils/collaborationRoutes'
+import { labelNeedMatchReason } from '@/utils/collaborationNeedPresentation'
 
-type TabKey =
-  | 'needs'
+type TabKey = 'needs'
+  | 'my-collaborations'
   | 'series'
   | 'activities'
   | 'curation'
@@ -1092,9 +1198,14 @@ interface NeedFormState {
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const {
+  queryState: hubQueryState,
+  replaceQuery: replaceHubQuery,
+} = useCollaborationHubQuery()
 
 const tabs = [
   { key: 'needs', label: '需求', icon: Target },
+  { key: 'my-collaborations', label: '我的共建', icon: Hand },
   { key: 'series', label: '协作合集', icon: Layers3 },
   { key: 'activities', label: '共创活动', icon: CalendarDays },
   { key: 'curation', label: '频道策展', icon: ListPlus },
@@ -1104,7 +1215,18 @@ const tabs = [
   { key: 'cases', label: '举报申诉', icon: ShieldAlert },
 ] as const
 
-const activeTab = ref<TabKey>('needs')
+const activeTab = ref<TabKey>(hubQueryState.tab)
+const hubSort = ref<CollaborationHubSort | ''>(hubQueryState.sort)
+const discoveryQuery = useCollaborationDiscoveryQuery({
+  enabled: computed(() => activeTab.value === 'needs'),
+})
+const needFilters = discoveryQuery.filters
+const linkedNeedId = computed(() => hubQueryState.needId)
+const linkedSeriesId = computed(() => hubQueryState.seriesId)
+const linkedActivityId = computed(() => hubQueryState.activityId)
+const linkedDiscussionId = computed(() => hubQueryState.discussionId)
+const linkedOfficeHourId = computed(() => hubQueryState.officeHourId)
+const linkedOfficeHourReservationId = computed(() => hubQueryState.reservationId)
 const COLLECTION_RETENTION_LIMIT = 300
 
 const createCollectionState = <T,>(): CollectionState<T> => ({
@@ -1119,16 +1241,34 @@ const createCollectionState = <T,>(): CollectionState<T> => ({
   requestId: 0,
 })
 
-const needState = reactive(createCollectionState<CollaborationNeed>())
+const needState = {
+  get items(): NeedDiscoveryItem[] {
+    return discoveryQuery.items.value
+  },
+  get loading() {
+    return discoveryQuery.loading.value
+  },
+  get loadingMore() {
+    return discoveryQuery.loadingMore.value
+  },
+  get error() {
+    return discoveryQuery.initialError.value
+  },
+  get nextCursor() {
+    return discoveryQuery.nextCursor.value
+  },
+  get hasMore() {
+    return discoveryQuery.hasMore.value
+  },
+  get initialized() {
+    return discoveryQuery.initialized.value
+  },
+}
 const seriesState = reactive(createCollectionState<CollaborationSeries>())
 const activityState = reactive(createCollectionState<CollaborationActivity>())
 const curationState = reactive(createCollectionState<CurationSuggestion>())
 const discussionState = reactive(createCollectionState<StructuredDiscussion>())
 
-const needFilters = reactive<{ domain: number | ''; status: NeedStatus | '' }>({
-  domain: '',
-  status: 'OPEN',
-})
 const seriesFilters = reactive<{ domain: number | ''; status: 'OPEN' | 'CLOSED' | '' }>({
   domain: '',
   status: 'OPEN',
@@ -1192,6 +1332,7 @@ const discussionPendingIds = ref(new Set<string>())
 const riskAcknowledgements = reactive<Record<string, boolean>>({})
 const seriesPostInput = ref<HTMLInputElement | null>(null)
 const activityPostInput = ref<HTMLInputElement | null>(null)
+const myCollaborationsRef = ref<{ refresh: () => Promise<void> | void } | null>(null)
 
 const needSourceOptions: Array<{ value: NeedSourceType; label: string }> = [
   { value: 'COMMUNITY', label: '社区观察' },
@@ -1212,6 +1353,7 @@ const needFormatOptions: Array<{ value: NeedContentFormat; label: string }> = [
 const needStatusOptions: Array<{ value: NeedStatus; label: string }> = [
   { value: 'OPEN', label: '待认领' },
   { value: 'CLAIMED', label: '已认领' },
+  { value: 'SUBMITTED', label: '待验收' },
   { value: 'COMPLETED', label: '已完成' },
   { value: 'CLOSED', label: '已关闭' },
   { value: 'MERGED', label: '已合并' },
@@ -1237,11 +1379,18 @@ const currentTabLoading = computed(() => {
   if (activeTab.value === 'series') return seriesState.loading
   if (activeTab.value === 'activities') return activityState.loading
   if (activeTab.value === 'curation') return curationState.loading
-  return discussionState.loading
+  if (activeTab.value === 'discussions') return discussionState.loading
+  return false
 })
+const collectionDisplayState = (state: { items: unknown[]; loading: boolean; error: string }) => {
+  if (state.loading && state.items.length === 0) return 'loading'
+  if (state.error && state.items.length === 0) return 'error'
+  return state.items.length ? 'ready' : 'empty'
+}
 const isPublicBrowseTab = computed(() => (
   ['needs', 'series', 'activities', 'curation', 'discussions'] as TabKey[]
 ).includes(activeTab.value))
+const showGlobalSort = computed(() => isPublicBrowseTab.value && activeTab.value !== 'needs')
 
 const eligibleSeries = computed(() => (
   seriesState.items.filter((series) => series.status === 'OPEN' && Boolean(series.currentUserRole))
@@ -1259,6 +1408,7 @@ const selectedActivity = computed(() => (
 const needStatusLabels: Record<NeedStatus, string> = {
   OPEN: '待认领',
   CLAIMED: '已认领',
+  SUBMITTED: '待验收',
   COMPLETED: '已完成',
   CLOSED: '已关闭',
   MERGED: '已合并',
@@ -1417,50 +1567,141 @@ const ensureLoggedIn = async () => {
   return false
 }
 
+const selectTab = async (tab: TabKey) => {
+  if (tab === 'my-collaborations' && !await ensureLoggedIn()) return
+  const targetFilter: { domain: number | ''; status: string } = tab === 'needs'
+    ? { domain: needFilters.domain, status: needFilters.status }
+    : tab === 'series'
+      ? { domain: seriesFilters.domain, status: seriesFilters.status }
+      : tab === 'activities'
+        ? { domain: activityFilters.domain, status: activityFilters.status }
+        : tab === 'discussions'
+          ? { domain: discussionFilters.domain, status: discussionFilters.status }
+          : tab === 'curation'
+            ? { domain: '', status: curationFilters.status }
+            : { domain: '', status: '' }
+  await replaceHubQuery({
+    tab,
+    domain: targetFilter.domain,
+    status: tab === 'my-collaborations' ? '' : targetFilter.status || 'ALL',
+    sort: tab === 'needs'
+      ? discoveryQuery.filters.sort
+      : (hubSort.value === 'latest' || hubSort.value === 'updated' ? hubSort.value : ''),
+    needId: '',
+    seriesId: '',
+    activityId: '',
+    discussionId: '',
+    officeHourId: '',
+    reservationId: '',
+  })
+}
+
+const changeSort = async () => {
+  if (activeTab.value === 'needs') return
+  await replaceHubQuery({ sort: hubSort.value })
+}
+
+const changeNeedFilters = async () => {
+  discoveryQuery.setFilters({
+    domain: needFilters.domain,
+    status: needFilters.status,
+  })
+}
+
+const setNeedDiscoveryFilters = (
+  next: Parameters<typeof discoveryQuery.setFilters>[0],
+) => {
+  discoveryQuery.setFilters(next)
+}
+
+const resetNeedDiscoveryFilters = () => {
+  discoveryQuery.resetFilters()
+}
+
+const submitNeedDiscoveryFilters = () => {
+  void discoveryQuery.refresh()
+}
+
+const changeSeriesFilters = async () => {
+  await replaceHubQuery({
+    tab: 'series',
+    domain: seriesFilters.domain,
+    status: seriesFilters.status || 'ALL',
+    seriesId: linkedSeriesId.value,
+  })
+}
+
+const changeActivityFilters = async () => {
+  await replaceHubQuery({
+    tab: 'activities',
+    domain: activityFilters.domain,
+    status: activityFilters.status || 'ALL',
+    activityId: linkedActivityId.value,
+  })
+}
+
+const changeDiscussionFilters = async () => {
+  await replaceHubQuery({
+    tab: 'discussions',
+    domain: discussionFilters.domain,
+    status: discussionFilters.status || 'ALL',
+    discussionId: linkedDiscussionId.value,
+  })
+}
+
+const changeCurationFilters = async () => {
+  await replaceHubQuery({
+    tab: 'curation',
+    domain: '',
+    status: curationFilters.status || 'ALL',
+  })
+}
+
 const setRiskAcknowledgement = (key: string, event: Event) => {
   riskAcknowledgements[key] = Boolean((event.target as HTMLInputElement | null)?.checked)
 }
 
-const needRiskKey = (need: CollaborationNeed) => `need:${need.id}`
+const needRiskKey = (need: { id: ApiId }) => `need:${need.id}`
 const discussionRiskKey = (discussion: StructuredDiscussion) => `discussion:${discussion.id}`
 
 const loadNeeds = async (append = false) => {
-  if (append && (!needState.hasMore || needState.loadingMore)) return
-  const request = beginCollectionLoad(needState, append)
-  try {
-    const res = await collaborationApi.needs.list({
-      domain: optionalDomain(needFilters.domain),
-      status: needFilters.status || undefined,
-      cursor: append ? needState.nextCursor || 0 : 0,
-      size: 20,
-    })
-    if (!request.isCurrent()) return
-    applyPage(needState, res.data, append)
-  } catch (error) {
-    if (request.isCurrent()) {
-      needState.error = getErrorMessage(error, '需求列表加载失败')
-      if (append) toast.error(needState.error)
-    }
-  } finally {
-    request.finish()
-    needState.initialized = true
-  }
+  if (append) return discoveryQuery.loadMore()
+  return discoveryQuery.refresh()
 }
 
 const loadSeries = async (append = false) => {
   if (append && (!seriesState.hasMore || seriesState.loadingMore)) return
   const request = beginCollectionLoad(seriesState, append)
   try {
-    const res = await collaborationApi.series.list({
-      domain: optionalDomain(seriesFilters.domain),
-      status: seriesFilters.status || undefined,
-      cursor: append ? seriesState.nextCursor || 0 : 0,
-      size: 20,
-    })
+    const linkedId = append ? '' : linkedSeriesId.value
+    const [res, linkedRes] = await Promise.all([
+      collaborationApi.series.list({
+        domain: optionalDomain(seriesFilters.domain),
+        status: seriesFilters.status || undefined,
+        cursor: append ? seriesState.nextCursor || 0 : 0,
+        size: 20,
+      }),
+      linkedId
+        ? collaborationApi.series.detail(linkedId).catch(() => null)
+        : Promise.resolve(null),
+    ])
     if (!request.isCurrent()) return
     applyPage(seriesState, res.data, append)
+    if (linkedRes?.data) {
+      seriesState.items = [
+        linkedRes.data,
+        ...seriesState.items.filter((item) => String(item.id) !== linkedId),
+      ]
+    }
     if (seriesSubmission.seriesId && !eligibleSeries.value.some((item) => String(item.id) === seriesSubmission.seriesId)) {
       seriesSubmission.seriesId = ''
+    }
+    if (linkedId) {
+      await nextTick()
+      document.getElementById(`collaboration-series-${linkedId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
     }
   } catch (error) {
     if (request.isCurrent()) {
@@ -1553,10 +1794,12 @@ const loadDiscussions = async (append = false) => {
 
 const refreshCurrentTab = () => {
   if (activeTab.value === 'needs') return loadNeeds()
+  if (activeTab.value === 'my-collaborations') return myCollaborationsRef.value?.refresh()
   if (activeTab.value === 'series') return loadSeries()
   if (activeTab.value === 'activities') return loadActivities()
   if (activeTab.value === 'curation') return loadCuration()
-  return loadDiscussions()
+  if (activeTab.value === 'discussions') return loadDiscussions()
+  return undefined
 }
 
 const createNeed = async () => {
@@ -1597,13 +1840,13 @@ const createNeed = async () => {
   }
 }
 
-const canClaimNeed = (need: CollaborationNeed) => (
+const canClaimNeed = (need: CollaborationNeed | NeedDiscoveryItem) => (
   need.status === 'OPEN'
   && !need.claimedByUid
   && (!currentUid() || String(need.creatorUid) !== currentUid())
 )
 
-const toggleNeedFollow = async (need: CollaborationNeed) => {
+const toggleNeedFollow = async (need: CollaborationNeed | NeedDiscoveryItem) => {
   if (!await ensureLoggedIn()) return
   if (needPendingIds.value.has(String(need.id))) return
   setPending(needPendingIds, need.id, true)
@@ -1611,7 +1854,7 @@ const toggleNeedFollow = async (need: CollaborationNeed) => {
     const res = need.followed
       ? await collaborationApi.needs.unfollow(need.id)
       : await collaborationApi.needs.follow(need.id)
-    if (res.data) needState.items = replaceItem(needState.items, res.data)
+    if (res.data) void discoveryQuery.refresh()
     toast.success(need.followed ? '已取消关注需求' : '已关注需求')
   } catch (error) {
     toast.error(getErrorMessage(error, '需求关注操作失败'))
@@ -1620,7 +1863,7 @@ const toggleNeedFollow = async (need: CollaborationNeed) => {
   }
 }
 
-const claimNeed = async (need: CollaborationNeed) => {
+const claimNeed = async (need: CollaborationNeed | NeedDiscoveryItem) => {
   if (!await ensureLoggedIn()) return
   if (needPendingIds.value.has(String(need.id))) return
   const riskAcknowledged = Boolean(riskAcknowledgements[needRiskKey(need)])
@@ -1631,7 +1874,7 @@ const claimNeed = async (need: CollaborationNeed) => {
   setPending(needPendingIds, need.id, true)
   try {
     const res = await collaborationApi.needs.claim(need.id, { riskAcknowledged })
-    if (res.data) needState.items = replaceItem(needState.items, res.data)
+    if (res.data) void discoveryQuery.refresh()
     toast.success('需求已认领')
   } catch (error) {
     toast.error(getErrorMessage(error, '需求认领失败'))
@@ -1784,13 +2027,60 @@ const voteDiscussion = async (discussion: StructuredDiscussion, optionId: ApiId)
   }
 }
 
-watch(activeTab, (tab) => {
-  if (tab === 'needs' && !needState.initialized) void loadNeeds()
-  if (tab === 'series' && !seriesState.initialized) void loadSeries()
-  if (tab === 'activities' && !activityState.initialized) void loadActivities()
-  if (tab === 'curation' && !curationState.initialized) void loadCuration()
-  if (tab === 'discussions' && !discussionState.initialized) void loadDiscussions()
-})
+const applyHubQueryState = () => {
+  activeTab.value = hubQueryState.tab
+  hubSort.value = hubQueryState.sort
+  const domain = hubQueryState.domain
+  const status = hubQueryState.status
+  const statusOr = <T extends string>(
+    values: readonly T[],
+    fallback: T | '',
+  ): T | '' => {
+    if (status === 'ALL') return ''
+    if (values.includes(status as T)) return status as T
+    return status ? fallback : fallback
+  }
+
+  if (hubQueryState.tab === 'needs') {
+    if (needFilters.domain !== domain) needFilters.domain = domain
+    const nextStatus = statusOr(needStatusOptions.map((item) => item.value), '') as NeedStatus | ''
+    if (needFilters.status !== nextStatus) needFilters.status = nextStatus
+  } else if (hubQueryState.tab === 'series') {
+    seriesFilters.domain = domain
+    seriesFilters.status = statusOr(['OPEN', 'CLOSED'] as const, 'OPEN')
+  } else if (hubQueryState.tab === 'activities') {
+    activityFilters.domain = domain
+    activityFilters.status = statusOr(activityStatusOptions.map((item) => item.value), 'OPEN') as CollaborationActivityStatus | ''
+  } else if (hubQueryState.tab === 'curation') {
+    curationFilters.status = statusOr(['PENDING', 'APPROVED', 'REJECTED'] as const, '') as SubmissionReviewStatus | ''
+  } else if (hubQueryState.tab === 'discussions') {
+    discussionFilters.domain = domain
+    discussionFilters.status = statusOr(['OPEN', 'SUMMARIZED', 'CLOSED'] as const, 'OPEN')
+  }
+}
+
+let lastHubQuerySignature = ''
+watch(
+  () => JSON.stringify([
+    hubQueryState.tab,
+    hubQueryState.domain,
+    hubQueryState.status,
+    hubQueryState.sort,
+    hubQueryState.needId,
+    hubQueryState.seriesId,
+    hubQueryState.activityId,
+    hubQueryState.discussionId,
+    hubQueryState.officeHourId,
+    hubQueryState.reservationId,
+  ]),
+  (signature) => {
+    const changed = Boolean(lastHubQuerySignature) && signature !== lastHubQuerySignature
+    applyHubQueryState()
+    lastHubQuerySignature = signature
+    if (changed && activeTab.value !== 'needs') void refreshCurrentTab()
+  },
+  { immediate: true },
+)
 
 watch(
   () => authStore.isLoggedIn,
@@ -1813,7 +2103,7 @@ watch(
 )
 
 onMounted(() => {
-  void loadNeeds()
+  if (activeTab.value !== 'needs') void refreshCurrentTab()
 })
 </script>
 

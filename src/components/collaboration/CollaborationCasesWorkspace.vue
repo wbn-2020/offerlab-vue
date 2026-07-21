@@ -579,31 +579,31 @@ button:disabled {
   }
 }
 
-:global(.dark) .case-panel,
-:global(.dark) .field-control,
-:global(.dark) .secondary-button,
-:global(.dark) .icon-button {
+.dark .case-panel,
+.dark .field-control,
+.dark .secondary-button,
+.dark .icon-button {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .panel-heading h2,
-:global(.dark) .row-title strong,
-:global(.dark) .state-block strong {
+.dark .panel-heading h2,
+.dark .row-title strong,
+.dark .state-block strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .panel-heading p,
-:global(.dark) .case-form label {
+.dark .panel-heading p,
+.dark .case-form label {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .dense-row {
+.dark .dense-row {
   border-color: rgb(51 65 85);
 }
 
-:global(.dark) .state-block {
+.dark .state-block {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23 / 0.65);
   color: rgb(148 163 184);

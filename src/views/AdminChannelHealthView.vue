@@ -46,19 +46,50 @@
         </article>
         <div v-if="items.length === 0" class="state">当前治理范围没有可展示的频道数据。</div>
       </section>
+
+      <section class="projection-workspace">
+        <ProjectionHealthTable
+          :can-inspect="canInspectProjections"
+          :permission-loading="projectionPermissionLoading"
+          :permission-error="projectionPermissionError"
+          :refresh-key="projectionRefreshKey"
+          @select="selectedProjection = $event"
+        />
+        <ReconciliationRunPanel
+          :projection="selectedProjection"
+          :can-operate="canInspectProjections"
+          :permission-loading="projectionPermissionLoading"
+          :permission-error="projectionPermissionError"
+          @reconciled="projectionRefreshKey += 1"
+        />
+      </section>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RefreshCw } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { channelHealthApi, type ChannelHealth } from '@/api/channelHealth'
+import { opsApi, type MyAdminPermissions } from '@/api/ops'
+import type { ProjectionHealth } from '@/api/projectionHealth'
+import ProjectionHealthTable from '@/components/health/ProjectionHealthTable.vue'
+import ReconciliationRunPanel from '@/components/health/ReconciliationRunPanel.vue'
 
 const items = ref<ChannelHealth[]>([])
 const loading = ref(false)
 const errorText = ref('')
+const projectionPermissions = ref<MyAdminPermissions | null>(null)
+const projectionPermissionLoading = ref(false)
+const projectionPermissionError = ref('')
+const selectedProjection = ref<ProjectionHealth | null>(null)
+const projectionRefreshKey = ref(0)
+const canInspectProjections = computed(() => Boolean(
+  projectionPermissions.value?.admin
+  || projectionPermissions.value?.ops
+  || projectionPermissions.value?.localOpen,
+))
 
 const maintenanceLink = (item: ChannelHealth) => ({
   path: '/admin/content-maintenance',
@@ -83,7 +114,23 @@ const load = async () => {
   }
 }
 
-onMounted(load)
+const loadProjectionPermissions = async () => {
+  projectionPermissionLoading.value = true
+  projectionPermissionError.value = ''
+  try {
+    const response = await opsApi.myPermissions({ skipAuthRedirect: true })
+    projectionPermissions.value = response.data
+  } catch (error) {
+    projectionPermissions.value = null
+    projectionPermissionError.value = getErrorMessage(error, '投影诊断权限暂时无法确认')
+  } finally {
+    projectionPermissionLoading.value = false
+  }
+}
+
+onMounted(() => {
+  void Promise.all([load(), loadProjectionPermissions()])
+})
 </script>
 
 <style scoped>
@@ -113,11 +160,12 @@ onMounted(load)
 .create-task-link { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; border: 1px solid rgb(8 145 178); border-radius: .5rem; padding: .45rem .7rem; color: rgb(8 145 178); font-size: .75rem; font-weight: 900; }
 .state { border: 1px dashed rgb(203 213 225); border-radius: .625rem; background: white; padding: 2rem; color: rgb(100 116 139); text-align: center; }
 .state-error { border-style: solid; border-color: rgb(254 202 202); color: rgb(185 28 28); }
+.projection-workspace { display: grid; gap: 1rem; margin-top: 1rem; }
 @media (max-width: 800px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-:global(.dark) .health-page { background: rgb(2 6 23); }
-:global(.dark) .page-header h1, :global(.dark) .title-line h2, :global(.dark) .metric-grid strong { color: rgb(248 250 252); }
-:global(.dark) .page-header span, :global(.dark) .row-title p, :global(.dark) .reason, :global(.dark) .metric-grid span { color: rgb(148 163 184); }
-:global(.dark) .icon-button, :global(.dark) .health-row, :global(.dark) .state { border-color: rgb(51 65 85); background: rgb(15 23 42); color: rgb(203 213 225); }
-:global(.dark) .metric-grid div { border-color: rgb(51 65 85); background: rgb(2 6 23 / .6); }
-:global(.dark) .reason { border-color: rgb(30 41 59); }
+.dark .health-page { background: rgb(2 6 23); }
+.dark .page-header h1, .dark .title-line h2, .dark .metric-grid strong { color: rgb(248 250 252); }
+.dark .page-header span, .dark .row-title p, .dark .reason, .dark .metric-grid span { color: rgb(148 163 184); }
+.dark .icon-button, .dark .health-row, .dark .state { border-color: rgb(51 65 85); background: rgb(15 23 42); color: rgb(203 213 225); }
+.dark .metric-grid div { border-color: rgb(51 65 85); background: rgb(2 6 23 / .6); }
+.dark .reason { border-color: rgb(30 41 59); }
 </style>

@@ -82,9 +82,11 @@ assert(registerView.includes('.auth-inline-link'), 'register login helper link m
 assert(registerView.includes('min-height: 44px'), 'register helper link and submit button must keep a 44px touch target')
 
 const appHeader = read('src/components/layout/AppHeader.vue')
-assert(appHeader.includes('header-icon-button'), 'header icon actions must use a shared touch target class')
-assert(appHeader.includes('h-11 w-11'), 'user menu avatar button must keep a 44px touch target')
+assert(appHeader.includes('community-header__icon-button'), 'header icon actions must use a shared touch target class')
+assert(appHeader.includes('.community-header__avatar'), 'user menu avatar button must use the shared header touch target styles')
 assert(appHeader.includes('min-height: 44px'), 'header navigation actions must keep a 44px touch target')
+assert(/\.community-header__icon-button\s*\{[\s\S]*?width:\s*44px/.test(appHeader), 'header icon actions must keep a 44px width')
+assert(/\.community-header__avatar\s*\{[\s\S]*?width:\s*44px/.test(appHeader), 'user menu avatar button must keep a 44px width')
 
 const questionDetailView = read('src/views/QuestionDetailView.vue')
 assert(questionDetailView.includes('.pill') && questionDetailView.includes('min-height: 44px'), 'question detail pills must keep a 44px mobile touch target')

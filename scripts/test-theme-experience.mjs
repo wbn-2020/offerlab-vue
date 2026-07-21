@@ -58,12 +58,12 @@ const scopedDarkSelectorLeaks = collectVueFiles(new URL('../src/', import.meta.u
 
 assert.deepEqual(scopedDarkSelectorLeaks, [], 'scoped dark selectors must target component descendants instead of compiling into bare .dark rules')
 
-assert.match(home, /class="metric-value"/, 'home metric numbers must use a stable metric-value class')
-assert.match(home, /\.metric-value\s*\{[\s\S]*min-height:\s*2\.125rem[\s\S]*line-height:\s*1\.15/, 'home metric numbers must reserve enough height to avoid clipping')
-assert.match(home, /@media \(max-width:\s*640px\)\s*\{[\s\S]*\.metric-value\s*\{[\s\S]*min-height:\s*1\.5rem/, 'home mobile metric numbers must reserve enough height to avoid clipping')
-assert.match(home, /\.dark \.metric-tile\s*\{[\s\S]*background:\s*rgba\(15,\s*23,\s*42,\s*0\.86\)/, 'home dark metric tiles must have a stronger surface')
-assert.match(home, /\.dark \.metric-value\s*\{[\s\S]*color:\s*#f8fafc/, 'home dark metric values must use a high-contrast foreground')
-assert.ok(contrastRatio([248, 250, 252], [15, 23, 42]) >= 4.5, 'home dark metric value contrast must meet WCAG AA')
+assert.match(home, /class="home-profile-stats"/, 'home profile summary must use a stable stats container')
+assert.match(home, /class="profile-stat"/, 'home profile summary entries must use a stable stat class')
+assert.match(home, /\.home-profile-stats\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)[\s\S]*border-bottom:/, 'home profile stats must keep stable two-column dimensions')
+assert.match(home, /\.home-profile-stats \.profile-stat\s*\{[\s\S]*padding:\s*0\.7rem 0\.35rem[\s\S]*background:\s*transparent/, 'home profile stat entries must reserve stable spacing')
+assert.match(home, /\.dark \.home-profile-stats \.profile-stat span,[\s\S]*color:\s*rgb\(241 245 249\)/, 'home dark profile values must use a high-contrast foreground')
+assert.ok(contrastRatio([241, 245, 249], [24, 26, 32]) >= 4.5, 'home dark profile value contrast must meet WCAG AA')
 
 assert.match(explore, /class="feature-card"/, 'explore featured content must use a stable card class')
 assert.match(explore, /\.feature-card\s*\{[\s\S]*min-height:\s*210px[\s\S]*padding:\s*18px/, 'explore featured cards must reserve stable height')
@@ -91,6 +91,16 @@ const broadDarkFallback = globals.match(/html\.dark :is\(\s*\.surface-card[\s\S]
 assert.ok(broadDarkFallback && !broadDarkFallback.includes('!important'), 'broad dark component fallback must not use !important')
 assert.doesNotMatch(globals, /html\.dark :is\([\s\S]*?\.text-slate-700[\s\S]*?\)\s*\{/, 'global dark fallback must not override Tailwind text atoms')
 assert.doesNotMatch(globals, /html\.dark :is\(\.bg-white\)/, 'global dark fallback must not override Tailwind bg-white atoms')
-assert.doesNotMatch(globals, /!important/, 'global theme fallback must not use !important')
+const importantDeclarations = globals
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => line.includes('!important'))
+
+assert.deepEqual(importantDeclarations, [
+  'scroll-behavior: auto !important;',
+  'transition-duration: 0.01ms !important;',
+  'animation-duration: 0.01ms !important;',
+  'animation-iteration-count: 1 !important;',
+], 'only the reduced-motion accessibility override may use !important')
 
 console.log('theme experience guard passed')

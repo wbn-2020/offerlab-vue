@@ -150,6 +150,9 @@
                 </article>
               </div>
             </div>
+            <RouterLink :to="`/u/${profileUid}/contributions`" class="open-link mt-5 inline-flex">
+              查看公开协作贡献
+            </RouterLink>
           </section>
 
           <section class="profile-panel">
@@ -324,7 +327,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { userApi } from '@/api/user'

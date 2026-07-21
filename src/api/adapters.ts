@@ -790,9 +790,15 @@ export function adaptNotification(raw: any): Notification {
       if (content[key] === undefined && raw?.[key] !== undefined) content[key] = raw[key]
     }
   }
+  if (action === 'collaboration_need_state_changed') {
+    for (const key of ['needId', 'targetNeedId', 'eventType', 'status', 'targetPath', 'jumpPath', 'dedupKey', 'reasonText']) {
+      if (content[key] === undefined && raw?.[key] !== undefined) content[key] = raw[key]
+    }
+  }
   const discussionFollowAction = isDiscussionFollowAction(action)
   const reportReceiptAction = action === 'report_receipt'
   const contactRequestAction = isContactRequestAction(action)
+  const collaborationNeedStateAction = action === 'collaboration_need_state_changed'
   const curationFeedback = adaptNotificationCurationFeedback(content)
   const aggregateCount = Number((raw?.aggregateCount ?? content.aggregateCount) || 0)
   const unreadCount = Number(raw?.unreadCount ?? content.unreadCount ?? ((raw?.read ?? raw?.isRead) ? 0 : 1))
@@ -800,6 +806,8 @@ export function adaptNotification(raw: any): Notification {
     ? content.requestId ?? content.contactRequestId ?? content.id
     : reportReceiptAction
     ? content.reportId ?? content.targetId
+    : collaborationNeedStateAction
+    ? content.needId ?? content.targetId
     : content.postId ?? content.commentId ?? content.userId ?? content.targetId
   const targetType = Number(content.targetType)
   const postId = content.postId ?? (
@@ -820,6 +828,9 @@ export function adaptNotification(raw: any): Notification {
     ?? safeSameSitePath(content.jumpPath)
   const reportReceiptPath = reportReceiptAction ? reportReceiptNotificationPath(content) : undefined
   const contactRequestPath = contactRequestAction ? contactRequestNotificationPath(action) : undefined
+  const collaborationNeedPath = collaborationNeedStateAction
+    ? collaborationNeedStateNotificationPath(content, targetPath)
+    : undefined
   const sender = raw?.sender ? adaptUser(raw.sender) : undefined
   return {
     notificationId: adaptId(raw?.notificationId ?? raw?.id),
@@ -831,7 +842,11 @@ export function adaptNotification(raw: any): Notification {
     curationFeedback,
     sender,
     relatedId: targetId ? adaptId(targetId) : undefined,
-    targetPath: reportReceiptPath ?? contactRequestPath ?? targetPath ?? (userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined),
+    targetPath: reportReceiptPath
+      ?? contactRequestPath
+      ?? collaborationNeedPath
+      ?? targetPath
+      ?? (userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined),
     read: Boolean(raw?.read ?? raw?.isRead ?? false),
     aggregateCount: aggregateCount > 1 ? aggregateCount : undefined,
     unreadCount,
@@ -916,6 +931,30 @@ const trustedContentActionContents: Record<string, string> = {
   contentSuggestionDecided: '作者已处理你的补充或纠错建议，点击查看处理结果。',
 }
 
+const collaborationNeedStateHeadings: Record<string, string> = {
+  CLAIMED: '协作需求已被认领',
+  SUBMITTED: '协作产出等待验收',
+  REJECTED: '协作产出已退回修改',
+  WITHDRAWN: '协作提交已撤回',
+  ACCEPTED: '协作产出已验收',
+  COMPLETED: '协作需求已完成',
+  CLOSED: '协作需求已关闭',
+  MERGED: '协作需求已合并',
+  RELEASED: '协作需求重新开放',
+}
+
+const collaborationNeedStateContents: Record<string, string> = {
+  CLAIMED: '这项需求已有人认领，点击查看当前协作进展。',
+  SUBMITTED: '认领者已提交公开产出，点击查看并跟进验收。',
+  REJECTED: '本次提交已退回修改，点击查看需求详情与处理说明。',
+  WITHDRAWN: '认领者已撤回提交，需求回到交付推进中。',
+  ACCEPTED: '公开产出已通过验收，点击查看需求与交付结果。',
+  COMPLETED: '这项协作需求已经完成，点击查看公开交付。',
+  CLOSED: '这项协作需求已经关闭，点击查看最终状态。',
+  MERGED: '这项需求已合并到其他需求，点击查看后续去向。',
+  RELEASED: '原认领已释放，需求重新开放给社区成员。',
+}
+
 const contactRequestActionHeadings: Record<string, string> = {
   contact_request_received: '收到联系请求',
   contact_request_accepted: '联系请求已被接受',
@@ -949,6 +988,22 @@ function reportReceiptNotificationPath(content: Record<string, any>): string {
   return `/me/reports/${encodeURIComponent(sourceType)}/${encodeURIComponent(String(adaptId(reportId)))}`
 }
 
+function collaborationNeedStateNotificationPath(
+  content: Record<string, any>,
+  preferredPath?: string,
+): string | undefined {
+  const suppliedPath = safeSameSitePath(preferredPath)
+    ?? safeSameSitePath(content.targetPath)
+    ?? safeSameSitePath(content.jumpPath)
+  if (suppliedPath) return suppliedPath
+  const eventType = sanitizeVisibleText(content.eventType).toUpperCase()
+  const needId = eventType === 'MERGED'
+    ? content.targetNeedId ?? content.needId ?? content.targetId
+    : content.needId ?? content.targetId
+  if (needId === undefined || needId === null || needId === '') return undefined
+  return `/collaboration/needs/${encodeURIComponent(String(adaptId(needId)))}`
+}
+
 function notificationHeading(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {
   const contactRequestHeading = contactRequestActionHeadings[String(content.action || '')]
   if (contactRequestHeading) return contactRequestHeading
@@ -956,6 +1011,10 @@ function notificationHeading(type: string, content: Record<string, any>, senderN
   if (discussionHeading) return discussionHeading
   const trustedContentHeading = trustedContentActionHeadings[String(content.action || '')]
   if (trustedContentHeading) return trustedContentHeading
+  if (content.action === 'collaboration_need_state_changed') {
+    const eventType = sanitizeVisibleText(content.eventType).toUpperCase()
+    return collaborationNeedStateHeadings[eventType] || '协作需求状态已更新'
+  }
   if (type === 'system' && content.action === 'report_receipt') return '举报处理结果'
   if (type === 'system' && isCurationFeedbackPayload(content)) return '公开内容入选反馈'
   if (type === 'system' && content.action === 'question_extract_succeeded') return '题目已整理完成'
@@ -991,6 +1050,14 @@ function notificationContent(type: string, content: Record<string, any>, senderN
   if (discussionContent) return discussionContent
   const trustedContent = trustedContentActionContents[String(content.action || '')]
   if (trustedContent) return trustedContent
+  if (content.action === 'collaboration_need_state_changed') {
+    const eventType = sanitizeVisibleText(content.eventType).toUpperCase()
+    const base = collaborationNeedStateContents[eventType] || '协作需求有新的状态变化，点击查看详情。'
+    const reasonText = sanitizeVisibleText(content.reasonText)
+    if (!reasonText) return base
+    const conciseReason = reasonText.length > 120 ? `${reasonText.slice(0, 120)}...` : reasonText
+    return `${base} 说明：${conciseReason}`
+  }
   if (type === 'system' && content.action === 'report_receipt') {
     const userStatus = normalizeUserReportStatus(content.userStatus ?? content.reportStatus ?? content.status)
     return safeVisibleText(content.resultText ?? content.userResultText, userReportStatusText[userStatus])

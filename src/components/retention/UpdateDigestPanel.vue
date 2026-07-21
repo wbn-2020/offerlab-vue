@@ -1,0 +1,689 @@
+<template>
+  <section
+    class="update-digest-panel"
+    data-v8-update-digest
+    :data-update-digest-state="state"
+  >
+    <div class="digest-head">
+      <div class="min-w-0">
+        <p class="digest-eyebrow">我的更新摘要</p>
+        <h2>{{ title || `${sourceLabel}的近期进展` }}</h2>
+        <p>
+          只展示当前账号仍可见的公开更新；读取摘要不会标记通知已读，也不会完成或刷新回访项。
+        </p>
+      </div>
+      <RouterLink
+        :to="authStore.isLoggedIn ? '/notifications' : loginPath"
+        class="digest-link"
+      >
+        {{ authStore.isLoggedIn ? '通知中心' : '登录查看' }}
+      </RouterLink>
+    </div>
+
+    <div v-if="routeState" class="digest-filters" aria-label="更新摘要筛选">
+      <label>
+        <span>来源类型</span>
+        <select :value="effectiveSourceType || ''" @change="setRouteSourceType">
+          <option value="">全部来源</option>
+          <option v-for="option in sourceTypeOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
+      <label>
+        <span>来源 ID</span>
+        <input
+          :value="effectiveSourceId == null ? '' : String(effectiveSourceId)"
+          inputmode="numeric"
+          placeholder="可选"
+          @change="setRouteSourceId"
+        >
+      </label>
+    </div>
+
+    <div v-if="!authStore.isLoggedIn" class="digest-state" data-update-digest-state="empty">
+      <LogIn class="h-4 w-4" />
+      <div>
+        <strong>登录后查看与你有关的公开更新</strong>
+        <p>摘要按账号隔离，不会向匿名访问者展示任何个人关系或通知状态。</p>
+      </div>
+    </div>
+
+    <div v-else-if="loading && items.length === 0" class="digest-state" data-update-digest-state="loading" role="status">
+      <RefreshCcw class="h-4 w-4 animate-spin" />
+      <span>正在读取更新摘要...</span>
+    </div>
+
+    <div v-else-if="errorText && items.length === 0" class="digest-state digest-state-error" data-update-digest-state="error">
+      <AlertCircle class="h-4 w-4" />
+      <div>
+        <strong>更新摘要暂时无法读取</strong>
+        <p>{{ errorText }}</p>
+      </div>
+      <button type="button" class="digest-button" @click="retry">重试</button>
+    </div>
+
+    <template v-else>
+      <div v-if="partialNotice" class="digest-notice" role="status">
+        <AlertCircle class="h-4 w-4 flex-shrink-0" />
+        <span>{{ partialNotice }}</span>
+      </div>
+
+      <div v-if="items.length" class="digest-list">
+        <article v-for="item in items" :key="item.digestKey" class="digest-item">
+          <div class="digest-item-icon">
+            <component :is="sourceIcon(item.sourceType)" class="h-4 w-4" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="digest-item-title">
+              <h3>{{ item.title }}</h3>
+              <span v-if="item.notificationUnread" class="digest-unread">未读来源</span>
+              <span v-if="item.occurrenceCount > 1" class="digest-count">{{ item.occurrenceCount }} 条合并</span>
+            </div>
+            <p>{{ item.summary || eventLabel(item.eventType) }}</p>
+            <div class="digest-meta">
+              <span>{{ sourceTypeLabel(item.sourceType) }}</span>
+              <span v-if="item.occurredAt">{{ formatOptionalTime(item.occurredAt) }}</span>
+              <span v-if="item.revisit">回访状态：{{ revisitStatusLabel(item.revisit.status) }}</span>
+            </div>
+          </div>
+          <RouterLink v-if="item.targetPath" :to="item.targetPath" class="digest-button">
+            查看
+          </RouterLink>
+          <span v-else class="digest-disabled">当前不可跳转</span>
+        </article>
+      </div>
+
+      <div v-else class="digest-state" data-update-digest-state="empty">
+        <BellRing class="h-4 w-4" />
+        <div>
+          <strong>暂时没有新的公开更新</strong>
+          <p>没有符合当前类型、账号可见性和通知偏好的摘要。</p>
+        </div>
+      </div>
+
+      <div v-if="hasMore" class="digest-more">
+        <button type="button" class="digest-button" :disabled="loadingMore" @click="loadMore">
+          {{ loadingMore ? '加载中...' : '加载更多摘要' }}
+        </button>
+        <span v-if="loadMoreError" class="digest-more-error">{{ loadMoreError }}</span>
+      </div>
+    </template>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { AlertCircle, BellRing, BookOpen, Layers3, Lightbulb, LogIn, RefreshCcw } from 'lucide-vue-next'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { getErrorMessage } from '@/api/client'
+import {
+  updateDigestApi,
+  type UpdateDigestItem,
+  type UpdateDigestSourceType,
+} from '@/api/updateDigest'
+import { formatTime } from '@/lib/format'
+import { useAuthStore } from '@/stores/auth'
+
+const props = withDefaults(defineProps<{
+  sourceType?: UpdateDigestSourceType
+  sourceId?: string | number
+  title?: string
+  routeState?: boolean
+}>(), {
+  sourceType: undefined,
+  sourceId: undefined,
+  title: '',
+  routeState: false,
+})
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const items = ref<UpdateDigestItem[]>([])
+const nextCursor = ref<string | undefined>()
+const hasMore = ref(false)
+const diagnostics = ref<Record<string, unknown>>({})
+const loading = ref(false)
+const loadingMore = ref(false)
+const errorText = ref('')
+const loadMoreError = ref('')
+let requestGeneration = 0
+
+const sourceTypeOptions: Array<{ value: UpdateDigestSourceType; label: string }> = [
+  { value: 'POST', label: '公开内容' },
+  { value: 'TOPIC', label: '主题' },
+  { value: 'NEED', label: '共建需求' },
+  { value: 'COLLECTION', label: '合集' },
+  { value: 'SERIES', label: '协作系列' },
+]
+const validSourceTypes = new Set(sourceTypeOptions.map((option) => option.value))
+const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
+const routeSourceType = computed(() => {
+  if (!props.routeState) return undefined
+  const value = String(firstQueryValue(route.query.sourceType) || '').toUpperCase()
+  return validSourceTypes.has(value as UpdateDigestSourceType) ? value as UpdateDigestSourceType : undefined
+})
+const routeSourceId = computed(() => {
+  if (!props.routeState) return undefined
+  const value = String(firstQueryValue(route.query.sourceId) || '').trim()
+  return /^[A-Za-z0-9._:-]{1,80}$/.test(value) ? value : undefined
+})
+const effectiveSourceType = computed(() => props.sourceType ?? routeSourceType.value)
+const effectiveSourceId = computed(() => props.sourceId ?? routeSourceId.value)
+const accountKey = computed(() => `${String(authStore.user?.uid ?? 'anonymous')}:${authStore.token ? 'authenticated' : 'anonymous'}`)
+const requestKey = computed(() => `${accountKey.value}:${effectiveSourceType.value || 'ALL'}:${effectiveSourceId.value ?? 'ALL'}`)
+const loginPath = computed(() => ({
+  path: '/login',
+  query: { redirect: route.fullPath },
+}))
+const sourceLabel = computed(() => {
+  if (effectiveSourceType.value === 'TOPIC') return '关注主题'
+  if (effectiveSourceType.value === 'COLLECTION') return '关注合集'
+  if (effectiveSourceType.value === 'SERIES') return '协作系列'
+  if (effectiveSourceType.value === 'NEED') return '共建需求'
+  if (effectiveSourceType.value === 'POST') return '公开内容'
+  return '关注内容'
+})
+const state = computed(() => {
+  if (!authStore.isLoggedIn) return 'empty'
+  if (loading.value && items.value.length === 0) return 'loading'
+  if (errorText.value && items.value.length === 0) return 'error'
+  return items.value.length ? 'ready' : 'empty'
+})
+const partialNotice = computed(() => {
+  if (loadMoreError.value) return `部分摘要加载失败：${loadMoreError.value}，已保留当前结果。`
+  if (diagnostics.value.notificationSourceUnavailable === true) {
+    return '通知投影暂时不可用，当前没有补造本地更新。'
+  }
+  if (diagnostics.value.preferenceCheckDegraded === true) {
+    return '部分通知偏好暂时无法确认，相关更新已保守隐藏。'
+  }
+  return ''
+})
+
+const reset = () => {
+  requestGeneration += 1
+  items.value = []
+  nextCursor.value = undefined
+  hasMore.value = false
+  diagnostics.value = {}
+  loading.value = false
+  loadingMore.value = false
+  errorText.value = ''
+  loadMoreError.value = ''
+}
+
+const mergeItems = (current: UpdateDigestItem[], incoming: UpdateDigestItem[]) => {
+  const values = new Map(current.map((item) => [item.digestKey, item]))
+  for (const item of incoming) values.set(item.digestKey, item)
+  return [...values.values()]
+}
+
+const load = async (append = false) => {
+  if (!authStore.isLoggedIn || !authStore.user?.uid) {
+    reset()
+    return
+  }
+  if (append) {
+    if (!hasMore.value || !nextCursor.value || loadingMore.value) return
+    loadingMore.value = true
+    loadMoreError.value = ''
+  } else {
+    requestGeneration += 1
+    items.value = []
+    nextCursor.value = undefined
+    hasMore.value = false
+    diagnostics.value = {}
+    errorText.value = ''
+    loadMoreError.value = ''
+    loading.value = true
+  }
+
+  const generation = requestGeneration
+  const account = requestKey.value
+  try {
+    const res = await updateDigestApi.list({
+      sourceType: effectiveSourceType.value,
+      sourceId: effectiveSourceId.value,
+      cursor: append ? nextCursor.value : undefined,
+      size: 10,
+    })
+    if (generation !== requestGeneration || account !== requestKey.value) return
+    const page = res.data
+    const incoming = page?.items || []
+    items.value = append ? mergeItems(items.value, incoming) : incoming
+    nextCursor.value = page?.nextCursor
+    hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
+    diagnostics.value = page?.diagnostics || {}
+  } catch (error) {
+    if (generation !== requestGeneration || account !== requestKey.value) return
+    const message = getErrorMessage(error, '更新摘要加载失败')
+    if (append) loadMoreError.value = message
+    else errorText.value = message
+  } finally {
+    if (generation === requestGeneration && account === requestKey.value) {
+      loading.value = false
+      loadingMore.value = false
+    }
+  }
+}
+
+const loadMore = () => {
+  void load(true)
+}
+
+const retry = () => {
+  void load()
+}
+
+const replaceRouteFilters = (patch: Record<string, string | undefined>) => {
+  void router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      ...patch,
+    },
+  })
+}
+
+const setRouteSourceType = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value.toUpperCase()
+  replaceRouteFilters({
+    sourceType: validSourceTypes.has(value as UpdateDigestSourceType) ? value : undefined,
+    sourceId: undefined,
+  })
+}
+
+const setRouteSourceId = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value.trim()
+  replaceRouteFilters({ sourceId: /^[A-Za-z0-9._:-]{1,80}$/.test(value) ? value : undefined })
+}
+
+const sourceIcon = (sourceType: UpdateDigestSourceType) => {
+  if (sourceType === 'TOPIC') return Lightbulb
+  if (sourceType === 'COLLECTION') return Layers3
+  if (sourceType === 'SERIES') return Layers3
+  if (sourceType === 'NEED') return BellRing
+  return BookOpen
+}
+
+const sourceTypeLabel = (sourceType: UpdateDigestSourceType) => {
+  if (sourceType === 'TOPIC') return '主题'
+  if (sourceType === 'COLLECTION') return '合集'
+  if (sourceType === 'SERIES') return '协作系列'
+  if (sourceType === 'NEED') return '共建需求'
+  return '公开内容'
+}
+
+const revisitStatusLabel = (status: string) => {
+  const normalized = String(status || '').toUpperCase()
+  if (normalized === 'OPEN') return '待回访'
+  if (normalized === 'SNOOZED') return '已延后'
+  if (normalized === 'COMPLETED') return '已完成'
+  if (normalized === 'IGNORED') return '已忽略'
+  return '状态未知'
+}
+
+const eventLabel = (eventType: string) => {
+  const normalized = String(eventType || '').toUpperCase()
+  if (normalized.includes('PUBLISHED')) return '有新的公开内容发布。'
+  if (normalized.includes('MAINTENANCE')) return '公开内容维护已经完成。'
+  if (normalized.includes('FRESHNESS')) return '公开内容的时效状态发生变化。'
+  if (normalized.includes('COMMENT') || normalized.includes('REPLY')) return '公开讨论有新的回应。'
+  return '相关公开内容有新的可见进展。'
+}
+
+const formatOptionalTime = (value: string) => {
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) && timestamp > 0 ? formatTime(timestamp) : value
+}
+
+watch(
+  requestKey,
+  () => {
+    reset()
+    if (authStore.isLoggedIn) void load()
+  },
+  { immediate: true },
+)
+</script>
+
+<style scoped>
+.update-digest-panel {
+  margin-top: 1rem;
+  border: 1px solid rgb(186 230 253);
+  border-radius: 0.75rem;
+  background: rgb(240 249 255);
+  padding: 1rem;
+}
+
+.digest-head,
+.digest-state,
+.digest-notice,
+.digest-item,
+.digest-item-title,
+.digest-meta {
+  display: flex;
+  gap: 0.7rem;
+}
+
+.digest-head {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.digest-eyebrow {
+  color: rgb(2 132 199);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.digest-head h2 {
+  margin-top: 0.15rem;
+  color: rgb(15 23 42);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.digest-head p,
+.digest-state p,
+.digest-item p,
+.digest-meta,
+.digest-more-error {
+  color: rgb(71 85 105);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.digest-head p {
+  margin-top: 0.35rem;
+  max-width: 58rem;
+}
+
+.digest-link,
+.digest-button {
+  display: inline-flex;
+  min-height: 2.15rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.digest-link {
+  background: white;
+  color: rgb(3 105 161);
+}
+
+.digest-button {
+  border: 1px solid rgb(186 230 253);
+  background: white;
+  color: rgb(3 105 161);
+}
+
+.digest-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.digest-state {
+  margin-top: 0.9rem;
+  min-height: 3.5rem;
+  align-items: center;
+  border-radius: 0.6rem;
+  background: white;
+  padding: 0.85rem;
+  color: rgb(71 85 105);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.digest-state strong {
+  color: rgb(15 23 42);
+  font-weight: 900;
+}
+
+.digest-state p {
+  margin-top: 0.2rem;
+  font-weight: 500;
+}
+
+.digest-state-error {
+  border: 1px solid rgb(254 202 202);
+  background: rgb(254 242 242);
+  color: rgb(185 28 28);
+}
+
+.digest-state-error strong {
+  color: rgb(153 27 27);
+}
+
+.digest-state-error .digest-button {
+  margin-left: auto;
+}
+
+.digest-notice {
+  margin-top: 0.9rem;
+  align-items: flex-start;
+  border-radius: 0.6rem;
+  background: rgb(255 251 235);
+  padding: 0.7rem 0.8rem;
+  color: rgb(146 64 14);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.digest-list {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.digest-item {
+  align-items: flex-start;
+  border-radius: 0.6rem;
+  background: white;
+  padding: 0.75rem;
+}
+
+.digest-item-icon {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.45rem;
+  background: rgb(224 242 254);
+  color: rgb(3 105 161);
+}
+
+.digest-item-title {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.digest-item h3 {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(15 23 42);
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.digest-item p {
+  margin-top: 0.25rem;
+}
+
+.digest-unread,
+.digest-count {
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.digest-unread {
+  background: rgb(254 226 226);
+  color: rgb(185 28 28);
+}
+
+.digest-count {
+  background: rgb(224 242 254);
+  color: rgb(3 105 161);
+}
+
+.digest-meta {
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.digest-disabled {
+  flex-shrink: 0;
+  color: rgb(148 163 184);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.digest-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .digest-head {
+    flex-direction: column;
+  }
+
+  .digest-link {
+    width: 100%;
+  }
+
+  .digest-item {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .digest-item > .digest-button,
+  .digest-item > .digest-disabled {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+.dark .update-digest-panel {
+  border-color: rgb(12 74 110);
+  background: rgb(15 23 42);
+}
+
+.dark .digest-head h2,
+.dark .digest-state strong,
+.dark .digest-item h3 {
+  color: rgb(248 250 252);
+}
+
+.dark .digest-head p,
+.dark .digest-state p,
+.dark .digest-item p,
+.dark .digest-meta,
+.dark .digest-more-error {
+  color: rgb(203 213 225);
+}
+
+.dark .digest-link,
+.dark .digest-button,
+.dark .digest-state,
+.dark .digest-item {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23);
+}
+
+.dark .digest-link,
+.dark .digest-button {
+  color: rgb(186 230 253);
+}
+
+.dark .digest-item-icon,
+.dark .digest-count {
+  background: rgb(12 74 110);
+  color: rgb(186 230 253);
+}
+
+.dark .digest-notice {
+  background: rgb(69 26 3);
+  color: rgb(253 186 116);
+}
+
+.dark .digest-state-error {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10);
+  color: rgb(254 202 202);
+}
+
+.dark .digest-state-error strong {
+  color: rgb(254 202 202);
+}
+
+.dark .digest-unread {
+  background: rgb(69 10 10);
+  color: rgb(254 202 202);
+}
+
+.digest-filters {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.digest-filters label,
+.digest-filters span {
+  display: block;
+}
+
+.digest-filters span {
+  margin-bottom: 0.35rem;
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.digest-filters select,
+.digest-filters input {
+  width: 100%;
+  min-height: 2.5rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0 0.7rem;
+  color: rgb(15 23 42);
+  font-size: 0.8rem;
+}
+
+.dark .digest-filters select,
+.dark .digest-filters input {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(226 232 240);
+}
+
+@media (max-width: 640px) {
+  .digest-filters {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

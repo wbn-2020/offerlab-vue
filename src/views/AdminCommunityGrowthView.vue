@@ -490,6 +490,11 @@
       <AdminIncentiveGovernanceWorkspace v-else-if="activeTab === 'governance'" />
 
       <section v-else class="space-y-4">
+        <AdminRoleReviewContext
+          :can-inspect="canWrite"
+          :permission-loading="permissionState.loading"
+          :permission-error="permissionState.error"
+        />
         <div class="tool-grid split-columns">
           <div class="tool-panel">
             <div class="tool-heading filter-heading">
@@ -686,6 +691,7 @@ import {
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AdminIncentiveGovernanceWorkspace from '@/components/incentive/AdminIncentiveGovernanceWorkspace.vue'
+import AdminRoleReviewContext from '@/components/incentive/AdminRoleReviewContext.vue'
 import { getErrorMessage } from '@/api/client'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import {
@@ -1997,107 +2003,107 @@ onMounted(refreshAll)
   }
 }
 
-:global(.dark) .admin-growth-page {
+.dark .admin-growth-page {
   background: rgb(2 6 23);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .tool-panel,
-:global(.dark) .tab-button,
-:global(.dark) .secondary-button,
-:global(.dark) .icon-button,
-:global(.dark) .field-input {
+.dark .tool-panel,
+.dark .tab-button,
+.dark .secondary-button,
+.dark .icon-button,
+.dark .field-input {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .reason-bar {
+.dark .reason-bar {
   border-color: rgb(146 64 14);
   background: rgb(120 53 15 / 0.3);
 }
 
-:global(.dark) .budget-summary {
+.dark .budget-summary {
   border-color: rgb(14 116 144);
   background: rgb(8 47 73 / 0.5);
 }
 
-:global(.dark) .budget-summary > div,
-:global(.dark) .budget-summary p {
+.dark .budget-summary > div,
+.dark .budget-summary p {
   color: rgb(165 243 252);
 }
 
-:global(.dark) .budget-summary strong {
+.dark .budget-summary strong {
   color: rgb(207 250 254);
 }
 
-:global(.dark) .reason-status small {
+.dark .reason-status small {
   color: rgb(253 230 138);
 }
 
-:global(.dark) .tab-active {
+.dark .tab-active {
   border-color: rgb(6 182 212);
   background: rgb(8 47 73);
   color: rgb(165 243 252);
 }
 
-:global(.dark) .tool-heading h2,
-:global(.dark) .row-title strong,
-:global(.dark) .numeric-summary strong {
+.dark .tool-heading h2,
+.dark .row-title strong,
+.dark .numeric-summary strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .tool-heading p,
-:global(.dark) .dense-row p,
-:global(.dark) .field-label,
-:global(.dark) .toggle-row,
-:global(.dark) .boundary-copy {
+.dark .tool-heading p,
+.dark .dense-row p,
+.dark .field-label,
+.dark .toggle-row,
+.dark .boundary-copy {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .dense-row,
-:global(.dark) .boundary-copy {
+.dark .dense-row,
+.dark .boundary-copy {
   border-color: rgb(51 65 85);
 }
 
-:global(.dark) .empty-state {
+.dark .empty-state {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23 / 0.7);
   color: rgb(148 163 184);
 }
 
-:global(.dark) .error-state,
-:global(.dark) .notice-danger {
+.dark .error-state,
+.dark .notice-danger {
   border-color: rgb(127 29 29);
   background: rgb(69 10 10 / 0.4);
   color: rgb(254 202 202);
 }
 
-:global(.dark) .notice-info {
+.dark .notice-info {
   border-color: rgb(14 116 144);
   background: rgb(8 47 73 / 0.5);
   color: rgb(165 243 252);
 }
 
-:global(.dark) .notice-ok {
+.dark .notice-ok {
   border-color: rgb(22 101 52);
   background: rgb(20 83 45 / 0.35);
   color: rgb(187 247 208);
 }
 
-:global(.dark) .danger-button {
+.dark .danger-button {
   border-color: rgb(185 28 28);
   background: rgb(69 10 10 / 0.35);
   color: rgb(254 202 202);
 }
 
-:global(.dark) .success-button {
+.dark .success-button {
   border-color: rgb(22 101 52);
   background: rgb(20 83 45 / 0.35);
   color: rgb(187 247 208);
 }
 
-:global(.dark) .skeleton-row {
+.dark .skeleton-row {
   background: rgb(30 41 59);
 }
 </style>

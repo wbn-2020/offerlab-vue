@@ -34,15 +34,18 @@
           {{ post.author.isFollowing ? '已关注' : '关注' }}
         </button>
 
-        <div v-if="props.showRecommendFeedback" class="relative" data-feedback-menu>
+        <div v-if="props.showFeedControls || props.showRecommendFeedback" class="relative" data-feedback-menu>
           <button
             type="button"
             class="post-feedback-trigger"
             aria-label="推荐反馈"
             title="推荐反馈"
+            :aria-busy="feedFeedbackPending"
+            :disabled="feedFeedbackPending"
             @click.prevent="showFeedbackMenu = !showFeedbackMenu"
           >
-            <MoreHorizontal class="h-4 w-4" />
+            <Loader2 v-if="feedFeedbackPending" class="h-4 w-4 animate-spin" />
+            <MoreHorizontal v-else class="h-4 w-4" />
           </button>
           <div
             v-if="showFeedbackMenu"
@@ -50,13 +53,14 @@
             @click.prevent
           >
             <button
-              v-for="item in feedbackActions"
+              v-for="item in visibleFeedbackActions"
               :key="item.action"
               type="button"
               class="feedback-menu-item"
               @click.stop.prevent="handleNotInterested(item)"
             >
-              <EyeOff class="h-4 w-4" />
+              <RotateCcw v-if="item.action === 'RESTORE'" class="h-4 w-4" />
+              <EyeOff v-else class="h-4 w-4" />
               <span>
                 <strong>{{ item.label }}</strong>
                 <small>{{ item.description }}</small>
@@ -86,6 +90,14 @@
         class="mb-4 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400"
         v-html="displaySummary"
       />
+
+      <div v-if="feedExplanationVisible" class="post-feed-explanation">
+        <div class="post-feed-explanation__heading">
+          <Lightbulb class="h-3.5 w-3.5" />
+          <span>{{ feedSourceLabel || '推荐说明' }}</span>
+        </div>
+        <p>{{ feedReasonText }}</p>
+      </div>
 
       <div v-if="showReasonPanel && displayRecommendationReasons.length" class="post-reason-panel">
         <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
@@ -131,6 +143,9 @@
 
       <div v-if="recommendationFeedbackSubmittedLabel" class="feedback-submitted-note mb-4">
         {{ recommendationFeedbackSubmittedLabel }}
+      </div>
+      <div v-if="feedFeedbackError" class="feedback-error-note mb-4" role="alert">
+        {{ feedFeedbackError }}
       </div>
 
       <div v-if="hotReasonLabel || riskWarning" class="mb-4 space-y-2">
@@ -252,7 +267,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { Eye, EyeOff, Flag, Heart, Lightbulb, MessageCircle, MoreHorizontal, ShieldAlert, ShieldCheck, Star, TrendingUp } from 'lucide-vue-next'
+import { Eye, EyeOff, Flag, Heart, Lightbulb, Loader2, MessageCircle, MoreHorizontal, RotateCcw, ShieldAlert, ShieldCheck, Star, TrendingUp } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
@@ -265,15 +280,19 @@ import { buildDomainCardSurface } from '@/utils/domainPostSurfaces'
 import { getDomainIcon, getDomainLabel } from '@/utils/domains'
 import { findHighRiskContentWarning, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 import { getPostUnavailableState, normalizeRiskNoticeForUsers } from '@/utils/governanceDisplay'
-import type { FeedFeedbackAction } from '@/api/feed'
+import type { FeedControlAction, FeedFeedbackAction, FeedPost, LegacyFeedFeedbackAction } from '@/api/feed'
 import PostSaveOrganizer from '@/components/post/PostSaveOrganizer.vue'
 
 const props = defineProps<{
-  post: Post
+  post: Post | FeedPost
   showRecommendFeedback?: boolean
+  showFeedControls?: boolean
   showReasonPanel?: boolean
   likePending?: boolean
   favoritePending?: boolean
+  feedFeedbackAction?: FeedControlAction | null
+  feedFeedbackPending?: boolean
+  feedFeedbackError?: string
   detailQuery?: Record<string, string | number | boolean | undefined>
 }>()
 
@@ -281,6 +300,7 @@ const emit = defineEmits<{
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
   notInterested: [postId: Post['postId'], action: FeedFeedbackAction, reason: string]
+  feedFeedback: [postId: Post['postId'], action: FeedControlAction]
   'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
 
@@ -296,30 +316,53 @@ const feedbackActions: Array<{
   label: string
   reason: string
   description: string
+  legacy?: boolean
 }> = [
   {
-    action: 'not_interested',
+    action: 'HIDE',
+    label: '暂时隐藏',
+    reason: 'user_hide',
+    description: '只对当前账号隐藏这条内容，可立即撤销。',
+  },
+  {
+    action: 'LESS_LIKE_THIS',
+    label: '减少同类',
+    reason: 'user_less_like_this',
+    description: '降低相似内容的出现频率，之后可以恢复默认。',
+  },
+  {
+    action: 'RESTORE',
+    label: '恢复默认',
+    reason: 'user_restore',
+    description: '撤销当前账号对这条内容的 Feed 控制。',
+  },
+  {
+    action: 'not_interested' satisfies LegacyFeedFeedbackAction,
     label: '不感兴趣',
     reason: 'not_relevant',
     description: '记录这次反馈，并隐藏当前内容。',
+    legacy: true,
   },
   {
-    action: 'less_like_this',
+    action: 'less_like_this' satisfies LegacyFeedFeedbackAction,
     label: '少看此类',
     reason: 'less_like_this',
     description: '记录偏好线索，暂不表示已改变后续推荐。',
+    legacy: true,
   },
   {
-    action: 'hide_author',
+    action: 'hide_author' satisfies LegacyFeedFeedbackAction,
     label: '少看作者',
     reason: 'less_from_author',
     description: '记录作者相关反馈，不等同于举报或拉黑。',
+    legacy: true,
   },
   {
-    action: 'more_like_this',
+    action: 'more_like_this' satisfies LegacyFeedFeedbackAction,
     label: '更多类似',
     reason: 'more_like_this',
     description: '记录这次反馈，不会立即改变当前列表。',
+    legacy: true,
   },
 ]
 
@@ -346,6 +389,20 @@ const normalizedDetailQuery = computed(() => Object.fromEntries(
 const isSearchContext = computed(() => normalizedDetailQuery.value.from === 'search')
 const reasonPanelTitle = computed(() => isSearchContext.value ? '命中说明' : '为什么推荐')
 const showReasonPanel = computed(() => props.showReasonPanel || props.showRecommendFeedback)
+const feedPost = computed(() => props.post as FeedPost)
+const feedSourceLabel = computed(() => feedPost.value.sourceLabel || '')
+const feedReasonText = computed(() => feedPost.value.reasonText || '')
+const feedExplanationVisible = computed(() => Boolean(
+  feedSourceLabel.value || feedReasonText.value,
+))
+const visibleFeedbackActions = computed(() => {
+  const currentAction = props.feedFeedbackAction
+  return feedbackActions.filter((item) => {
+    if (item.legacy) return false
+    if (currentAction && currentAction !== 'RESTORE') return item.action === 'RESTORE'
+    return item.action === 'HIDE' || item.action === 'LESS_LIKE_THIS'
+  })
+})
 const detailTo = computed(() => ({
   path: `/post/${props.post.postId}`,
   query: normalizedDetailQuery.value,
@@ -495,6 +552,10 @@ const handleNotInterested = (item: typeof feedbackActions[number]) => {
   if (!requireLogin()) return
   showFeedbackMenu.value = false
   recommendationFeedbackSubmittedLabel.value = `已记录：${item.label}`
+  if (item.action === 'HIDE' || item.action === 'LESS_LIKE_THIS' || item.action === 'RESTORE') {
+    emit('feedFeedback', props.post.postId, item.action)
+    return
+  }
   emit('notInterested', props.post.postId, item.action, item.reason)
 }
 
@@ -561,6 +622,47 @@ const handleFollow = async () => {
   font-weight: 800;
   line-height: 1.5;
   color: rgb(21 128 61);
+}
+
+.feedback-error-note {
+  border-radius: 0.7rem;
+  border: 1px solid rgb(254 205 211);
+  background: rgb(255 241 242);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.5;
+  color: rgb(190 24 93);
+}
+
+.post-feed-explanation {
+  margin-bottom: 1rem;
+  border-left: 3px solid rgb(14 116 144);
+  background: rgb(240 253 250);
+  padding: 0.65rem 0.75rem;
+  color: rgb(15 118 110);
+}
+
+.post-feed-explanation__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.post-feed-explanation__heading small {
+  color: rgb(71 85 105);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.post-feed-explanation p {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.55;
 }
 
 .card-action {
@@ -746,6 +848,22 @@ const handleFollow = async () => {
   border-color: rgb(21 128 61 / 0.58);
   background: rgb(20 83 45 / 0.22);
   color: rgb(134 239 172);
+}
+
+.dark .feedback-error-note {
+  border-color: rgb(159 18 57 / 0.72);
+  background: rgb(76 5 25 / 0.4);
+  color: rgb(253 164 175);
+}
+
+.dark .post-feed-explanation {
+  border-left-color: rgb(45 212 191);
+  background: rgb(19 78 74 / 0.3);
+  color: rgb(153 246 228);
+}
+
+.dark .post-feed-explanation__heading small {
+  color: rgb(148 163 184);
 }
 
 .dark .card-action:hover {

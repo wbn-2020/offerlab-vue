@@ -142,7 +142,7 @@ assert.match(api, /aiReviewStatus\?:\s*'NOT_REQUESTED' \| 'PENDING' \| 'SUCCEEDE
 assert.match(api, /aiReviewError\?:\s*string/, 'mock answer API type must expose AI review failure reason')
 assert.match(view, /const hasPendingAiReview\s*=\s*computed/, 'MockInterviewView must derive pending AI review state')
 assert.match(view, /answer\.aiReviewStatus === 'PENDING'/, 'MockInterviewView pending state must be based on the durable status')
-assert.match(view, /const scheduleAiReviewRefresh\s*=\s*\(\) => \{[\s\S]*stopAiReviewRefresh\(\)[\s\S]*if \(!hasPendingAiReview\.value\) return[\s\S]*setTimeout\(refreshCurrentSession, 3000\)/, 'MockInterviewView polling must stop when no AI review is pending')
+assert.match(view, /const scheduleAiReviewRefresh\s*=\s*\(\) => \{[\s\S]*stopAiReviewRefresh\(\)[\s\S]*if \(disposed \|\| !hasPendingAiReview\.value\) return[\s\S]*setTimeout\(refreshCurrentSession, 3000\)/, 'MockInterviewView polling must stop after disposal or when no AI review is pending')
 assert.match(view, /const stopAiReviewRefresh\s*=\s*\(\) => \{[\s\S]*clearTimeout\(aiReviewPollTimer\)[\s\S]*aiReviewPollTimer = null/, 'MockInterviewView must clear AI review polling timers')
 assert.match(view, /questionApi\.retryMockInterviewAiReview\(currentSession\.value\.id\)/, 'MockInterviewView must call the existing AI review retry API')
 assert.match(view, /@retry-ai-review="retryAiReview"/, 'MockInterviewView must handle workspace retry events')

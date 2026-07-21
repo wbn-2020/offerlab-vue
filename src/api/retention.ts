@@ -8,11 +8,12 @@ export const RETENTION_SAME_SOURCE_DEFAULT_LIMIT = 1
 export const RETENTION_TOPIC_UPDATES_ENABLED = false
 
 export type RevisitStatus = 'OPEN' | 'SNOOZED' | 'COMPLETED' | 'IGNORED'
-export type RevisitSourceType =
-  | 'DISCUSSION'
-  | 'FAVORITE'
-  | 'FOLLOWING_AUTHOR'
-  | string
+export const RETENTION_SOURCE_WHITELIST = [
+  'DISCUSSION_FOLLOW',
+  'FAVORITE',
+  'FOLLOWING_AUTHOR',
+] as const
+export type RevisitSourceType = typeof RETENTION_SOURCE_WHITELIST[number] | 'UNKNOWN'
 
 export interface RevisitItem {
   id: ApiId
@@ -51,6 +52,7 @@ const revisitStatuses = new Set<RevisitStatus>([
   'COMPLETED',
   'IGNORED',
 ])
+const revisitSources = new Set<string>(RETENTION_SOURCE_WHITELIST)
 
 const safeText = (value: unknown, maxLength: number) => {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim()
@@ -69,9 +71,10 @@ const safeSameSitePath = (value: unknown) => {
 
 export const adaptRevisitItem = (raw: any): RevisitItem => {
   const status = String(raw?.status ?? raw?.revisitStatus ?? 'OPEN').toUpperCase() as RevisitStatus
+  const sourceType = safeText(raw?.sourceType, 32).toUpperCase()
   return {
     id: adaptId(raw?.id),
-    sourceType: safeText(raw?.sourceType, 32) || 'OTHER',
+    sourceType: revisitSources.has(sourceType) ? sourceType as RevisitSourceType : 'UNKNOWN',
     sourceId: safeText(raw?.sourceId, 64),
     reasonType: safeText(raw?.reasonType, 32),
     activityCursor: raw?.activityCursor == null ? undefined : adaptId(raw.activityCursor),

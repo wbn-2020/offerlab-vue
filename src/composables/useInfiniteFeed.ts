@@ -32,12 +32,22 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest', domain?
       return apiMap[currentFeed.value](pageParam, pageSize, currentDomain.value)
     },
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.data?.nextCursor,
+    getNextPageParam: (lastPage) => (
+      lastPage.data?.hasMore && lastPage.data?.nextCursor
+        ? lastPage.data.nextCursor
+        : undefined
+    ),
     maxPages,
   })
 
   const posts = computed(() => {
-    return data.value?.pages.slice(-maxPages).flatMap(page => page.data?.items || []) || []
+    const items = data.value?.pages.slice(-maxPages).flatMap(page => page.data?.items || []) || []
+    return Array.from(new Map(items.map((post) => {
+      const postId = typeof post === 'object' && post !== null && 'postId' in post
+        ? post.postId
+        : post
+      return [String(postId), post]
+    })).values())
   })
 
   return {

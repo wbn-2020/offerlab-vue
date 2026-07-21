@@ -119,14 +119,36 @@
             <span v-else-if="authStore.isLoggedIn">{{ authStore.user?.nickname?.[0] || '我' }}</span>
             <User v-else class="h-[18px] w-[18px]" />
           </button>
-          <div v-if="showUserMenu" class="community-header__dropdown community-header__user-menu">
+          <div
+            v-if="showUserMenu"
+            class="community-header__dropdown community-header__user-menu"
+            :data-permission-state="permissionViewState"
+          >
             <template v-if="authStore.isLoggedIn">
               <div class="community-header__user-summary">
                 <strong>{{ authStore.user?.nickname || `${siteBrand.shortName}用户` }}</strong>
                 <small>{{ userMenuSignature }}</small>
               </div>
+              <div v-if="permissionStatus === 'loading'" class="community-header__permission-state" role="status">
+                <Loader2 class="h-4 w-4 animate-spin" aria-hidden="true" />
+                <span>正在确认管理权限</span>
+              </div>
+              <div
+                v-else-if="permissionStatus === 'unavailable'"
+                class="community-header__permission-state community-header__permission-state--error"
+                role="alert"
+              >
+                <AlertCircle class="h-4 w-4" aria-hidden="true" />
+                <span>{{ permissionError }}</span>
+                <button type="button" @click="loadPermissions">
+                  <RefreshCw class="h-3.5 w-3.5" aria-hidden="true" />
+                  重试
+                </button>
+              </div>
               <div class="community-header__menu-divider" />
               <RouterLink to="/me" class="community-header__menu-item" @click="showUserMenu = false">我的主页</RouterLink>
+              <RouterLink to="/me/collaboration" class="community-header__menu-item" @click="showUserMenu = false">协作行动中心</RouterLink>
+              <RouterLink to="/me/knowledge" class="community-header__menu-item" @click="showUserMenu = false">知识维护</RouterLink>
               <RouterLink to="/me/notifications" class="community-header__menu-item" @click="showUserMenu = false">通知中心</RouterLink>
               <RouterLink to="/series/workbench" class="community-header__menu-item" @click="showUserMenu = false">内容合集</RouterLink>
               <RouterLink to="/growth/profile" class="community-header__menu-item" @click="showUserMenu = false">作者数据</RouterLink>
@@ -186,10 +208,25 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Bell, ChevronDown, Compass, Flame, HeartHandshake, Moon, PenLine, Search, Sun, User } from 'lucide-vue-next'
+import {
+  AlertCircle,
+  Bell,
+  ChevronDown,
+  Compass,
+  Flame,
+  HeartHandshake,
+  Loader2,
+  Moon,
+  PenLine,
+  RefreshCw,
+  Search,
+  Sun,
+  User,
+} from 'lucide-vue-next'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { authApi } from '@/api/auth'
+import { getErrorMessage } from '@/api/client'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import { useAuthStore } from '@/stores/auth'
@@ -208,6 +245,9 @@ const showUserMenu = ref(false)
 const showDomainMenu = ref(false)
 const keyword = ref('')
 const permissions = ref<MyAdminPermissions | null>(null)
+const permissionStatus = ref<'idle' | 'loading' | 'ready' | 'unavailable'>('idle')
+const permissionError = ref('')
+let permissionRequestGeneration = 0
 const { domains: headerDomainOptions, loadDomains } = useDomainCatalog()
 const unreadCount = computed(() => realtimeStore.unreadCount.total)
 const userMenuSignature = computed(() => {
@@ -249,16 +289,43 @@ const adminLinks = computed(() => {
   return links
 })
 
+const permissionViewState = computed(() => {
+  if (permissionStatus.value !== 'ready') return permissionStatus.value
+  return adminLinks.value.length ? 'granted' : 'empty'
+})
+
 const loadPermissions = async () => {
+  const requestGeneration = ++permissionRequestGeneration
+  const accountKey = `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
   if (!authStore.token) {
     permissions.value = null
+    permissionStatus.value = 'idle'
+    permissionError.value = ''
     return
   }
+  const retrying = permissionStatus.value === 'unavailable'
+  permissionStatus.value = 'loading'
+  if (!retrying) permissionError.value = ''
   try {
     const res = await opsApi.myPermissions()
-    permissions.value = res.code === 0 ? res.data : null
-  } catch {
+    if (
+      requestGeneration !== permissionRequestGeneration
+      || accountKey !== `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
+    ) return
+    if (res.code !== 0 || !res.data) {
+      throw new Error('权限服务暂时不可用')
+    }
+    permissions.value = res.data
+    permissionStatus.value = 'ready'
+    permissionError.value = ''
+  } catch (error: unknown) {
+    if (
+      requestGeneration !== permissionRequestGeneration
+      || accountKey !== `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
+    ) return
     permissions.value = null
+    permissionStatus.value = 'unavailable'
+    permissionError.value = getErrorMessage(error, '管理权限暂时无法确认，这不代表当前账号没有权限。')
   }
 }
 
@@ -287,7 +354,10 @@ const handleLogout = async () => {
   }
   authStore.logout()
   realtimeStore.setUnreadCount(emptyUnreadCount())
+  permissionRequestGeneration += 1
   permissions.value = null
+  permissionStatus.value = 'idle'
+  permissionError.value = ''
   showUserMenu.value = false
   toast.success('已退出登录')
   router.push('/login')
@@ -303,7 +373,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick)
 })
 
-watch(() => authStore.token, () => {
+watch([() => authStore.user?.uid, () => authStore.token], () => {
   loadPermissions()
 })
 </script>
@@ -382,7 +452,7 @@ watch(() => authStore.token, () => {
 .community-header__avatar,
 .community-header__publish {
   display: inline-flex;
-  min-height: 2.4rem;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   border: 0;
@@ -482,7 +552,7 @@ watch(() => authStore.token, () => {
 
 .community-header__icon-button {
   position: relative;
-  width: 2.4rem;
+  width: 44px;
   cursor: pointer;
 }
 
@@ -506,7 +576,7 @@ watch(() => authStore.token, () => {
 }
 
 .community-header__avatar {
-  width: 2.4rem;
+  width: 44px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   background: var(--surface-3);
@@ -610,6 +680,45 @@ watch(() => authStore.token, () => {
   white-space: nowrap;
 }
 
+.community-header__permission-state {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0.55rem 0.35rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.community-header__permission-state--error {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  border-color: rgb(254 202 202);
+  background: rgb(254 242 242);
+  color: rgb(185 28 28);
+}
+
+.community-header__permission-state button {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid currentcolor;
+  border-radius: 5px;
+  padding: 0 0.45rem;
+  color: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.community-header__permission-state button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .community-header__menu-item {
   display: flex;
   width: 100%;
@@ -672,6 +781,12 @@ watch(() => authStore.token, () => {
 .dark .community-header__menu-item:hover {
   background: rgb(39 39 42);
   color: white;
+}
+
+.dark .community-header__permission-state--error {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10 / 0.55);
+  color: rgb(254 202 202);
 }
 
 .dark .community-header__search,
@@ -749,8 +864,8 @@ watch(() => authStore.token, () => {
 
   .community-header__icon-button,
   .community-header__avatar {
-    width: 2.25rem;
-    min-height: 2.25rem;
+    width: 44px;
+    min-height: 44px;
   }
 
   .community-mobile-dock {

@@ -557,6 +557,7 @@ export type EditorAssistContextSource =
   | 'series_entry'
   | 'topic_candidate'
   | 'content_type_template'
+  | 'collaboration_need'
   | 'manual_publish'
 
 export type EditorAssistAction =
@@ -566,6 +567,7 @@ export type EditorAssistAction =
   | 'series'
   | 'topic'
   | 'template'
+  | 'fulfill'
 
 export type EditorAssistContextType =
   | 'post'
@@ -574,6 +576,7 @@ export type EditorAssistContextType =
   | 'series'
   | 'topic'
   | 'template'
+  | 'need'
 
 export interface EditorAssistContext {
   source: EditorAssistContextSource
@@ -583,6 +586,7 @@ export interface EditorAssistContext {
   commentId?: string
   ideaId?: string
   seriesId?: string
+  needId?: string
   topicId?: string
   templateCode?: string
   returnHref?: string
@@ -947,6 +951,7 @@ export interface CreatorTopicEditorQuery {
   postType?: string
   topic?: string
   seriesId?: string
+  needId?: string
   postId?: string
   commentId?: string
   ideaId?: string

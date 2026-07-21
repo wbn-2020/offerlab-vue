@@ -6,11 +6,16 @@
         <div>
           <p>Stage 2 治理</p>
           <h1>公共共建治理</h1>
-          <span>审核频道策展结果，处理需求、合集、活动、讨论和经验交流相关举报与申诉。</span>
+          <span>处理需求待验收产出、频道策展结果，以及合集、活动、讨论和经验交流相关举报与申诉。</span>
         </div>
-        <button type="button" class="secondary-button" :disabled="loadingAny" @click="refreshAll">
-          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loadingAny }" />刷新队列
-        </button>
+        <div class="header-actions">
+          <RouterLink to="/admin/collaboration/insights" class="secondary-button">
+            查看协作洞察
+          </RouterLink>
+          <button type="button" class="secondary-button" :disabled="loadingAny" @click="refreshAll">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loadingAny }" />刷新队列
+          </button>
+        </div>
       </header>
 
       <section class="permission-band" :class="{ danger: permissionError }">
@@ -24,24 +29,145 @@
 
       <section class="reason-band">
         <label>
-          <span>本次审核说明</span>
-          <textarea v-model.trim="reviewNote" class="field-control" rows="2" maxlength="1000" placeholder="通过或驳回前填写依据；成功后自动清空。" />
+          <span>{{ activeTab === 'needs' ? '退回修改理由' : '本次审核说明' }}</span>
+          <textarea
+            v-model.trim="reviewNote"
+            class="field-control"
+            rows="2"
+            maxlength="1000"
+            :placeholder="activeTab === 'needs'
+              ? '退回修改时填写具体原因；验收通过无需填写。'
+              : '通过或驳回前填写依据；成功后自动清空。'"
+          />
         </label>
-        <span :class="['status-pill', reviewNote.length >= 2 ? 'status-ok' : 'status-warn']">
-          {{ reviewNote.length >= 2 ? '说明已填写' : '说明未填写' }}
+        <span
+          :class="[
+            'status-pill',
+            activeTab === 'needs' || reviewNote.length >= 2 ? 'status-ok' : 'status-warn',
+          ]"
+        >
+          {{ activeTab === 'needs'
+            ? (reviewNote.length >= 2 ? '退回理由已填写' : '验收通过可直接操作')
+            : (reviewNote.length >= 2 ? '说明已填写' : '说明未填写') }}
         </span>
       </section>
 
       <nav class="tab-bar" aria-label="共建治理队列">
+        <button type="button" :class="{ active: activeTab === 'needs' }" @click="activeTab = 'needs'">
+          <FileCheck2 class="h-4 w-4" />需求验收
+        </button>
         <button type="button" :class="{ active: activeTab === 'curation' }" @click="activeTab = 'curation'">
           <ListChecks class="h-4 w-4" />策展审核
+        </button>
+        <button type="button" :class="{ active: activeTab === 'knowledge-relations' }" @click="activeTab = 'knowledge-relations'">
+          <GitFork class="h-4 w-4" />知识关系
         </button>
         <button v-if="canReviewCases" type="button" :class="{ active: activeTab === 'cases' }" @click="activeTab = 'cases'">
           <ShieldAlert class="h-4 w-4" />举报与申诉
         </button>
       </nav>
 
-      <section v-if="activeTab === 'curation'" class="queue-panel">
+      <section v-if="activeTab === 'needs'" class="queue-panel" data-need-review-queue>
+        <div class="panel-heading">
+          <div>
+            <h2>需求待验收队列</h2>
+            <p>仅展示认领者已提交的需求；验收通过后才会完成需求并结算贡献。</p>
+          </div>
+          <div class="filters">
+            <select
+              v-model.number="needDomain"
+              class="field-control compact-control"
+              aria-label="按领域筛选待验收需求"
+              @change="loadNeedQueue()"
+            >
+              <option v-if="!isDomainOnlyModerator" value="">全部领域</option>
+              <option
+                v-for="domain in curationDomains"
+                :key="domain.domain"
+                :value="domain.domain"
+              >
+                {{ domain.domainName }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <QueueState
+          :loading="needState.loading"
+          :error="needState.error"
+          :empty="needItems.length === 0"
+          @retry="loadNeedQueue()"
+        />
+        <div v-if="!needState.loading && !needState.error" class="dense-list">
+          <article v-for="item in needItems" :key="String(item.id)" class="dense-row">
+            <div class="row-main">
+              <div class="row-title">
+                <span class="status-pill status-warn">待验收</span>
+                <span class="meta-chip">{{ domainLabel(item.domain) }}</span>
+                <strong>{{ item.title }}</strong>
+              </div>
+              <p>{{ item.description }}</p>
+              <small>
+                需求 #{{ item.id }}
+                · 创建者 {{ item.creatorUid }}
+                · 认领者 {{ item.submittedByUid || item.claimedByUid || '未知' }}
+                · {{ submissionTargetLabel(item) }}
+              </small>
+              <small v-if="item.submissionNote">提交说明：{{ item.submissionNote }}</small>
+              <small v-if="item.submittedAt">提交于 {{ formatDate(item.submittedAt) }}</small>
+              <RouterLink
+                :to="`/collaboration/needs/${item.id}`"
+                class="submission-link"
+              >
+                查看需求详情
+              </RouterLink>
+            </div>
+            <div class="row-actions">
+              <span
+                v-if="isSelfSubmittedNeed(item)"
+                class="self-review-hint"
+                role="note"
+              >
+                <ShieldAlert class="h-4 w-4" aria-hidden="true" />
+                不能验收自己的提交
+              </span>
+              <template v-else>
+                <button
+                  type="button"
+                  class="primary-button compact"
+                  :disabled="!canAcceptNeed"
+                  @click="reviewNeed(item, 'ACCEPT')"
+                >
+                  <Check class="h-4 w-4" />验收通过
+                </button>
+                <button
+                  type="button"
+                  class="danger-button compact"
+                  :disabled="!canRejectNeed"
+                  @click="reviewNeed(item, 'REJECT')"
+                >
+                  <X class="h-4 w-4" />退回修改
+                </button>
+              </template>
+            </div>
+          </article>
+        </div>
+        <button
+          v-if="needState.hasMore && !needState.loading"
+          type="button"
+          class="secondary-button queue-more"
+          :disabled="needState.loadingMore"
+          @click="loadNeedQueue(true)"
+        >
+          <Loader2
+            v-if="needState.loadingMore"
+            class="h-4 w-4 animate-spin"
+            aria-hidden="true"
+          />
+          {{ needState.loadingMore ? '加载中' : '加载更多待验收需求' }}
+        </button>
+      </section>
+
+      <section v-else-if="activeTab === 'curation'" class="queue-panel">
         <div class="panel-heading">
           <div><h2>策展审核队列</h2><p>通过后会显示实际收录对象或待执行维护任务，不只停留在审核状态。</p></div>
           <div class="filters">
@@ -71,6 +197,145 @@
             <div v-if="item.reviewStatus === 'PENDING'" class="row-actions">
               <button type="button" class="primary-button compact" :disabled="!canReview" @click="reviewCuration(item.id, 'APPROVED')"><Check class="h-4 w-4" />通过</button>
               <button type="button" class="danger-button compact" :disabled="!canReview" @click="reviewCuration(item.id, 'REJECTED')"><X class="h-4 w-4" />拒绝</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section v-else-if="activeTab === 'knowledge-relations'" class="queue-panel" data-knowledge-relation-review-queue>
+        <div class="panel-heading">
+          <div>
+            <h2>知识关系审核队列</h2>
+            <p>核对文章之间的延续、补充、前置、替代、重复或矛盾关系；通过或拒绝会同步更新关系状态。</p>
+          </div>
+          <div class="filters">
+            <select
+              v-model="knowledgeRelationFilters.status"
+              class="field-control compact-control"
+              aria-label="按状态筛选知识关系"
+              @change="loadKnowledgeRelations"
+            >
+              <option value="pending">待处理</option>
+              <option value="claimed">已认领</option>
+              <option value="approved">已通过</option>
+              <option value="rejected">已拒绝</option>
+              <option value="closed">已关闭</option>
+              <option value="">全部状态</option>
+            </select>
+            <select
+              v-model="knowledgeRelationFilters.riskLevel"
+              class="field-control compact-control"
+              aria-label="按风险筛选知识关系"
+              @change="loadKnowledgeRelations"
+            >
+              <option value="">全部风险</option>
+              <option value="high">高风险</option>
+              <option value="medium">中风险</option>
+              <option value="low">低风险</option>
+            </select>
+          </div>
+        </div>
+        <QueueState
+          :loading="knowledgeRelationState.loading"
+          :error="knowledgeRelationState.error"
+          :empty="knowledgeRelationRows.length === 0"
+          @retry="loadKnowledgeRelations"
+        />
+        <div v-if="!knowledgeRelationState.loading && !knowledgeRelationState.error" class="dense-list">
+          <article v-for="row in knowledgeRelationRows" :key="String(row.item.id)" class="dense-row">
+            <div class="row-main">
+              <div class="row-title">
+                <span :class="['status-pill', knowledgeRelationStatusClass(row.item.queueStatus)]">
+                  {{ knowledgeRelationStatusLabel(row.item.queueStatus) }}
+                </span>
+                <span :class="['status-pill', knowledgeRelationRiskClass(row.item.riskLevel)]">
+                  {{ knowledgeRelationRiskLabel(row.item.riskLevel) }}
+                </span>
+                <span v-if="row.item.domain" class="meta-chip">{{ domainLabel(row.item.domain) }}</span>
+                <strong>{{ knowledgeRelationTypeLabel(row.meta.relationType) }}</strong>
+              </div>
+              <div class="relation-route">
+                <RouterLink
+                  v-if="row.meta.sourcePostId"
+                  :to="`/post/${row.meta.sourcePostId}`"
+                  class="relation-post-link"
+                >
+                  {{ row.meta.sourceTitle || `文章 #${row.meta.sourcePostId}` }}
+                </RouterLink>
+                <span v-else>源文章待确认</span>
+                <ArrowRight class="h-4 w-4 relation-arrow" aria-hidden="true" />
+                <RouterLink
+                  v-if="row.meta.targetPostId"
+                  :to="`/post/${row.meta.targetPostId}`"
+                  class="relation-post-link"
+                >
+                  {{ row.meta.targetTitle || `文章 #${row.meta.targetPostId}` }}
+                </RouterLink>
+                <span v-else>目标文章待确认</span>
+              </div>
+              <p>{{ row.item.summary || '未提供关系依据。' }}</p>
+              <small>
+                队列 #{{ row.item.id }}
+                · 关系提案 #{{ row.item.sourceId || '未知' }}
+                · 提议人 {{ row.item.creatorUid || '未知' }}
+                · {{ formatDate(row.item.createTime) }}
+              </small>
+              <small v-if="row.item.assigneeUid">认领人 {{ row.item.assigneeUid }}</small>
+              <small v-if="row.item.handleNote">处理说明：{{ row.item.handleNote }}</small>
+            </div>
+            <div class="row-actions">
+              <span
+                v-if="isSelfProposedKnowledgeRelation(row.item)"
+                class="self-review-hint"
+                role="note"
+              >
+                <ShieldAlert class="h-4 w-4" aria-hidden="true" />
+                不能审核自己的关系提案
+              </span>
+              <button
+                v-if="canKnowledgeRelationAction(row.item, 'claim')"
+                type="button"
+                class="secondary-button compact"
+                :disabled="Boolean(pendingAction)"
+                @click="handleKnowledgeRelationAction(row.item, 'claim')"
+              >
+                <Hand class="h-4 w-4" />认领
+              </button>
+              <button
+                v-if="canKnowledgeRelationAction(row.item, 'release')"
+                type="button"
+                class="secondary-button compact"
+                :disabled="Boolean(pendingAction)"
+                @click="handleKnowledgeRelationAction(row.item, 'release')"
+              >
+                <Undo2 class="h-4 w-4" />释放
+              </button>
+              <button
+                v-if="canKnowledgeRelationAction(row.item, 'approve')"
+                type="button"
+                class="primary-button compact"
+                :disabled="!canReview"
+                @click="handleKnowledgeRelationAction(row.item, 'approve')"
+              >
+                <Check class="h-4 w-4" />通过
+              </button>
+              <button
+                v-if="canKnowledgeRelationAction(row.item, 'reject')"
+                type="button"
+                class="danger-button compact"
+                :disabled="!canReview"
+                @click="handleKnowledgeRelationAction(row.item, 'reject')"
+              >
+                <X class="h-4 w-4" />拒绝
+              </button>
+              <span
+                v-if="isKnowledgeRelationClaimedByOther(row.item)"
+                class="self-review-hint"
+                role="note"
+              >
+                <ShieldCheck class="h-4 w-4" aria-hidden="true" />
+                已由审核员 {{ row.item.assigneeUid }} 认领
+              </span>
             </div>
           </article>
         </div>
@@ -110,15 +375,21 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import {
   Archive,
+  ArrowRight,
   Check,
+  FileCheck2,
+  GitFork,
+  Hand,
   Inbox,
   ListChecks,
   Loader2,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Undo2,
   X,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -127,6 +398,7 @@ import { getErrorMessage, type Result } from '@/api/client'
 import { localDomainConfigs } from '@/api/domains'
 import {
   collaborationApi,
+  type CollaborationNeed,
   type CurationSuggestion,
   type GovernanceCase,
   type GovernanceDecision,
@@ -134,11 +406,31 @@ import {
   type PageResult,
   type ReviewDecision,
 } from '@/api/collaboration'
-import { opsApi, type MyAdminPermissions } from '@/api/ops'
+import {
+  opsApi,
+  type MyAdminPermissions,
+  type ReviewQueueItem,
+  type ReviewQueueRiskLevel,
+  type ReviewQueueStatus,
+} from '@/api/ops'
 import type { ApiId } from '@/api/types'
+import { useAuthStore } from '@/stores/auth'
 
 type LoadState = { loading: boolean; error: string; requestId: number }
+type NeedQueueState = LoadState & {
+  loadingMore: boolean
+  nextCursor: string
+  hasMore: boolean
+}
 const loadState = (): LoadState => reactive({ loading: false, error: '', requestId: 0 })
+const needQueueState = (): NeedQueueState => reactive({
+  loading: false,
+  loadingMore: false,
+  error: '',
+  requestId: 0,
+  nextCursor: '',
+  hasMore: false,
+})
 const QueueState = defineComponent({
   props: { loading: Boolean, error: { type: String, default: '' }, empty: Boolean },
   emits: ['retry'],
@@ -155,17 +447,37 @@ const QueueState = defineComponent({
   },
 })
 
-const activeTab = ref<'curation' | 'cases'>('curation')
+type KnowledgeRelationAction = 'claim' | 'release' | 'approve' | 'reject'
+type KnowledgeRelationMeta = {
+  sourcePostId?: string
+  sourceTitle?: string
+  targetPostId?: string
+  targetTitle?: string
+  relationType?: string
+}
+
+const activeTab = ref<'needs' | 'curation' | 'knowledge-relations' | 'cases'>('needs')
+const authStore = useAuthStore()
 const permissions = ref<MyAdminPermissions | null>(null)
 const permissionError = ref('')
 const reviewNote = ref('')
 const pendingAction = ref('')
+const needState = needQueueState()
 const curationState = loadState()
+const knowledgeRelationState = loadState()
 const caseState = loadState()
+const needItems = ref<CollaborationNeed[]>([])
 const curationItems = ref<CurationSuggestion[]>([])
+const knowledgeRelationItems = ref<ReviewQueueItem[]>([])
 const caseItems = ref<GovernanceCase[]>([])
+const needDomain = ref<number | ''>('')
 const curationFilters = reactive<{ domain: number | ''; status: string }>({ domain: '', status: 'PENDING' })
+const knowledgeRelationFilters = reactive<{
+  status: ReviewQueueStatus | ''
+  riskLevel: ReviewQueueRiskLevel | ''
+}>({ status: 'pending', riskLevel: '' })
 const caseStatus = ref('PENDING')
+const currentUid = computed(() => String(authStore.user?.uid ?? ''))
 
 const canModerate = computed(() => Boolean(
   permissions.value?.admin || permissions.value?.contentModerator || permissions.value?.domainModerator,
@@ -182,13 +494,28 @@ const curationDomains = computed(() => isDomainOnlyModerator.value
   ? localDomainConfigs.filter((item) => permissions.value?.moderatedDomains.includes(item.domain))
   : localDomainConfigs)
 const canReview = computed(() => canModerate.value && reviewNote.value.length >= 2 && !pendingAction.value)
+const canAcceptNeed = computed(() => canModerate.value && !pendingAction.value)
+const canRejectNeed = computed(() => canAcceptNeed.value && reviewNote.value.length >= 2)
 const permissionLabel = computed(() => {
   if (permissions.value?.admin) return '系统管理员'
   if (permissions.value?.contentModerator) return '内容审核员'
   if (permissions.value?.domainModerator) return `领域审核员（${permissions.value.moderatedDomains.join('、') || '范围由服务端判定'}）`
   return '当前账号没有共建治理权限'
 })
-const loadingAny = computed(() => curationState.loading || caseState.loading || Boolean(pendingAction.value))
+const loadingAny = computed(() => (
+  needState.loading
+  || needState.loadingMore
+  || curationState.loading
+  || knowledgeRelationState.loading
+  || caseState.loading
+  || Boolean(pendingAction.value)
+))
+const isSelfSubmittedNeed = (item: CollaborationNeed) => {
+  const uid = currentUid.value
+  if (!uid) return false
+  return String(item.submittedByUid ?? '') === uid
+    || String(item.claimedByUid ?? '') === uid
+}
 
 const runLoad = async (
   state: LoadState,
@@ -226,8 +553,15 @@ const loadPermissions = async () => {
   try {
     const response = await opsApi.myPermissions()
     permissions.value = response.data
-    if (isDomainOnlyModerator.value && !curationFilters.domain) {
-      curationFilters.domain = permissions.value?.moderatedDomains[0] || ''
+    if (isDomainOnlyModerator.value) {
+      const moderatedDomains = permissions.value?.moderatedDomains || []
+      const firstDomain = moderatedDomains[0] || ''
+      if (!moderatedDomains.includes(Number(curationFilters.domain))) {
+        curationFilters.domain = firstDomain
+      }
+      if (!moderatedDomains.includes(Number(needDomain.value))) {
+        needDomain.value = firstDomain
+      }
     }
   } catch (error) {
     permissionError.value = getErrorMessage(error, '后台权限核验失败')
@@ -250,6 +584,55 @@ const collectQueuePages = async <T,>(
   }
   return items.slice(0, QUEUE_RETENTION_LIMIT)
 }
+const loadNeedQueue = async (append = false) => {
+  if (!canModerate.value || (isDomainOnlyModerator.value && !needDomain.value)) {
+    needState.requestId += 1
+    needItems.value = []
+    needState.loading = false
+    needState.loadingMore = false
+    needState.error = isDomainOnlyModerator.value
+      ? '当前账号没有可用的领域审核范围'
+      : ''
+    needState.nextCursor = ''
+    needState.hasMore = false
+    return
+  }
+  if (append && (!needState.hasMore || needState.loadingMore)) return
+  const requestId = ++needState.requestId
+  if (append) needState.loadingMore = true
+  else needState.loading = true
+  needState.error = ''
+  try {
+    const response = await collaborationApi.needs.reviewQueue({
+      domain: needDomain.value || undefined,
+      cursor: append ? needState.nextCursor || 0 : 0,
+      size: QUEUE_PAGE_SIZE,
+    })
+    if (requestId !== needState.requestId) return
+    const data = response.data
+    const incoming = data?.items || []
+    const merged = append ? [...needItems.value, ...incoming] : incoming
+    needItems.value = Array.from(
+      new Map(merged.map((item) => [String(item.id), item])).values(),
+    )
+    needState.nextCursor = data?.nextCursor ? String(data.nextCursor) : ''
+    needState.hasMore = Boolean(data?.hasMore && needState.nextCursor)
+  } catch (error) {
+    if (requestId === needState.requestId) {
+      needState.error = getErrorMessage(error, '需求待验收队列加载失败')
+      if (!append) {
+        needItems.value = []
+        needState.nextCursor = ''
+        needState.hasMore = false
+      }
+    }
+  } finally {
+    if (requestId === needState.requestId) {
+      needState.loading = false
+      needState.loadingMore = false
+    }
+  }
+}
 const loadCuration = () => runLoad(curationState, async (isCurrent) => {
   const items = await collectQueuePages((cursor) => collaborationApi.curation.reviewQueue({
     domain: curationFilters.domain || undefined,
@@ -259,6 +642,21 @@ const loadCuration = () => runLoad(curationState, async (isCurrent) => {
   }))
   if (isCurrent()) curationItems.value = items
 }, '策展审核队列加载失败')
+const loadKnowledgeRelations = () => runLoad(knowledgeRelationState, async (isCurrent) => {
+  if (!canModerate.value) {
+    knowledgeRelationItems.value = []
+    return
+  }
+  const response = await opsApi.listReviewQueue({
+    sourceType: 'KNOWLEDGE_RELATION',
+    status: knowledgeRelationFilters.status || undefined,
+    riskLevel: knowledgeRelationFilters.riskLevel || undefined,
+    limit: 100,
+  })
+  if (isCurrent()) {
+    knowledgeRelationItems.value = Array.isArray(response.data) ? response.data : []
+  }
+}, '知识关系审核队列加载失败')
 const loadCases = () => runLoad(caseState, async (isCurrent) => {
   if (!canReviewCases.value) {
     caseItems.value = []
@@ -275,11 +673,36 @@ const refreshAll = async () => {
   await loadPermissions()
   if (!canReviewCases.value && activeTab.value === 'cases') activeTab.value = 'curation'
   await Promise.all([
+    canModerate.value ? loadNeedQueue() : Promise.resolve(),
     loadCuration(),
+    canModerate.value ? loadKnowledgeRelations() : Promise.resolve(),
     canReviewCases.value ? loadCases() : Promise.resolve(),
   ])
 }
 
+const reviewNeed = async (item: CollaborationNeed, decision: 'ACCEPT' | 'REJECT') => {
+  if (isSelfSubmittedNeed(item)) {
+    toast.info('不能验收自己的提交')
+    return
+  }
+  if (decision === 'ACCEPT' ? !canAcceptNeed.value : !canRejectNeed.value) return
+  const id = item.id
+  pendingAction.value = `need:${decision}:${id}`
+  try {
+    if (decision === 'ACCEPT') {
+      await collaborationApi.needs.accept(id)
+    } else {
+      await collaborationApi.needs.reject(id, { reason: reviewNote.value })
+    }
+    reviewNote.value = ''
+    toast.success(decision === 'ACCEPT' ? '产出已验收，需求已完成' : '产出已退回认领者修改')
+    await loadNeedQueue()
+  } catch (error) {
+    toast.error(getErrorMessage(error, decision === 'ACCEPT' ? '产出验收失败' : '产出退回失败'))
+  } finally {
+    pendingAction.value = ''
+  }
+}
 const reviewCuration = (id: ApiId, decision: ReviewDecision) => runReview(`curation:${id}`, async () => {
   await collaborationApi.curation.decide(id, { decision, note: reviewNote.value })
   await loadCuration()
@@ -289,7 +712,107 @@ const reviewCase = (id: ApiId, decision: GovernanceDecision) => runReview(`case:
   await loadCases()
 }, decision === 'UPHELD' ? '案件已支持' : decision === 'REJECTED' ? '案件已驳回' : '案件已关闭')
 
+const queueExtText = (value: unknown) => {
+  if (typeof value !== 'string' && typeof value !== 'number') return undefined
+  const text = String(value).trim()
+  return text || undefined
+}
+const queueExtId = (value: unknown) => {
+  const text = queueExtText(value)
+  return text && /^[1-9]\d*$/.test(text) ? text : undefined
+}
+const knowledgeRelationMeta = (item: ReviewQueueItem): KnowledgeRelationMeta => {
+  if (!item.extJson) return {}
+  try {
+    const parsed = JSON.parse(item.extJson)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const value = parsed as Record<string, unknown>
+    return {
+      sourcePostId: queueExtId(value.sourcePostId),
+      sourceTitle: queueExtText(value.sourceTitle),
+      targetPostId: queueExtId(value.targetPostId),
+      targetTitle: queueExtText(value.targetTitle),
+      relationType: queueExtText(value.relationType),
+    }
+  } catch {
+    return {}
+  }
+}
+const knowledgeRelationRows = computed(() => knowledgeRelationItems.value.map((item) => ({
+  item,
+  meta: knowledgeRelationMeta(item),
+})))
+const isKnowledgeRelationAssignee = (item: ReviewQueueItem) => Boolean(
+  currentUid.value && String(item.assigneeUid ?? '') === currentUid.value,
+)
+const isSelfProposedKnowledgeRelation = (item: ReviewQueueItem) => Boolean(
+  ['pending', 'claimed'].includes(item.queueStatus)
+  && currentUid.value
+  && String(item.creatorUid ?? '') === currentUid.value,
+)
+const isKnowledgeRelationClaimedByOther = (item: ReviewQueueItem) => Boolean(
+  item.queueStatus === 'claimed'
+  && item.assigneeUid
+  && !isKnowledgeRelationAssignee(item),
+)
+const canKnowledgeRelationAction = (item: ReviewQueueItem, action: KnowledgeRelationAction) => {
+  if (!canModerate.value) return false
+  if (action === 'release') return item.queueStatus === 'claimed' && isKnowledgeRelationAssignee(item)
+  if (isSelfProposedKnowledgeRelation(item)) return false
+  if (action === 'claim') return item.queueStatus === 'pending' && !item.assigneeUid
+  return ['pending', 'claimed'].includes(item.queueStatus)
+    && (!item.assigneeUid || isKnowledgeRelationAssignee(item))
+}
+const handleKnowledgeRelationAction = async (
+  item: ReviewQueueItem,
+  action: KnowledgeRelationAction,
+) => {
+  if (!canKnowledgeRelationAction(item, action) || pendingAction.value) return
+  if ((action === 'approve' || action === 'reject') && reviewNote.value.length < 2) {
+    toast.info('请先填写至少 2 个字的审核说明')
+    return
+  }
+  pendingAction.value = `knowledge-relation:${action}:${item.id}`
+  const actionLabels: Record<KnowledgeRelationAction, string> = {
+    claim: '认领',
+    release: '释放',
+    approve: '通过',
+    reject: '拒绝',
+  }
+  try {
+    if (action === 'claim') await opsApi.claimReviewQueueItem(item.id)
+    if (action === 'release') await opsApi.releaseReviewQueueItem(item.id, reviewNote.value || undefined)
+    if (action === 'approve') await opsApi.approveReviewQueueItem(item.id, reviewNote.value)
+    if (action === 'reject') await opsApi.rejectReviewQueueItem(item.id, reviewNote.value)
+    if (action !== 'claim') reviewNote.value = ''
+    toast.success(`知识关系已${actionLabels[action]}`)
+    await loadKnowledgeRelations()
+  } catch (error) {
+    toast.error(getErrorMessage(error, `知识关系${actionLabels[action]}失败`))
+  } finally {
+    pendingAction.value = ''
+  }
+}
+
 const domainLabel = (domain: number) => localDomainConfigs.find((item) => item.domain === domain)?.domainName || `领域 ${domain}`
+const submissionTargetLabel = (item: CollaborationNeed) => {
+  if (!item.submissionResolutionType || !item.submissionResolutionId) return '提交对象待确认'
+  const labels = { POST: '帖子', QUESTION: '问题', SERIES: '合集' }
+  return `${labels[item.submissionResolutionType]} #${item.submissionResolutionId}`
+}
+const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+const formatDate = (value?: string | null) => {
+  if (!value) return '时间待确认'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : dateFormatter.format(date)
+}
 const targetLabel = (value: GovernanceTargetType) => ({
   NEED: '内容需求',
   SERIES: '协作合集',
@@ -314,6 +837,38 @@ const statusClass = (value: string) => {
   if (['PENDING'].includes(value)) return 'status-warn'
   return 'status-muted'
 }
+const knowledgeRelationTypeLabel = (value?: string) => ({
+  CONTINUES: '延续',
+  SUPPLEMENTS: '补充',
+  PREREQUISITE_OF: '前置知识',
+  SUPERSEDES: '替代',
+  DUPLICATE_OF: '重复',
+  CONTRADICTS: '矛盾',
+}[value || ''] || value || '知识关系')
+const knowledgeRelationStatusLabel = (value: ReviewQueueStatus) => ({
+  pending: '待处理',
+  claimed: '已认领',
+  approved: '已通过',
+  rejected: '已拒绝',
+  closed: '已关闭',
+}[value] || value)
+const knowledgeRelationStatusClass = (value: ReviewQueueStatus) => {
+  if (value === 'approved') return 'status-ok'
+  if (value === 'rejected') return 'status-danger'
+  if (value === 'pending' || value === 'claimed') return 'status-warn'
+  return 'status-muted'
+}
+const knowledgeRelationRiskLabel = (value: ReviewQueueRiskLevel) => ({
+  critical: '严重风险',
+  high: '高风险',
+  medium: '中风险',
+  low: '低风险',
+}[value])
+const knowledgeRelationRiskClass = (value: ReviewQueueRiskLevel) => {
+  if (value === 'critical' || value === 'high') return 'status-danger'
+  if (value === 'medium') return 'status-warn'
+  return 'status-muted'
+}
 
 onMounted(refreshAll)
 </script>
@@ -329,6 +884,7 @@ onMounted(refreshAll)
 .reason-band,
 .panel-heading,
 .filters,
+.header-actions,
 .row-title,
 .row-actions {
   display: flex;
@@ -341,6 +897,11 @@ onMounted(refreshAll)
   align-items: flex-end;
   justify-content: space-between;
   margin-bottom: 1rem;
+}
+
+.header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .page-header p {
@@ -414,6 +975,7 @@ onMounted(refreshAll)
 
 .tab-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.45rem;
   margin-bottom: 1rem;
 }
@@ -529,6 +1091,42 @@ onMounted(refreshAll)
   line-height: 1.5;
 }
 
+.relation-route {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.relation-post-link {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: rgb(14 116 144);
+  text-decoration: underline;
+  text-decoration-color: rgb(103 232 249);
+  text-underline-offset: 0.18rem;
+}
+
+.relation-arrow {
+  flex: 0 0 auto;
+  color: rgb(148 163 184);
+}
+
+.self-review-hint {
+  display: inline-flex;
+  max-width: 14rem;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgb(146 64 14);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
 .status-pill,
 .meta-chip {
   display: inline-flex;
@@ -597,6 +1195,10 @@ onMounted(refreshAll)
   padding: 0.35rem 0.55rem;
 }
 
+.queue-more {
+  margin-top: 1rem;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
@@ -643,40 +1245,59 @@ button:disabled {
 
   .filters,
   .row-actions {
+    flex-wrap: wrap;
     justify-content: flex-start;
   }
 
   .compact-control {
     width: 100%;
   }
+
+  .relation-route {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .relation-arrow {
+    transform: rotate(90deg);
+  }
 }
 
-:global(.dark) .admin-collaboration-page {
+.dark .admin-collaboration-page {
   background: rgb(2 6 23);
 }
 
-:global(.dark) .queue-panel,
-:global(.dark) .tab-bar button,
-:global(.dark) .field-control,
-:global(.dark) .secondary-button {
+.dark .queue-panel,
+.dark .tab-bar button,
+.dark .field-control,
+.dark .secondary-button {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .page-header h1,
-:global(.dark) .panel-heading h2,
-:global(.dark) .row-title strong,
-:global(.dark) .state-block strong {
+.dark .page-header h1,
+.dark .panel-heading h2,
+.dark .row-title strong,
+.dark .state-block strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .page-header span,
-:global(.dark) .panel-heading p {
+.dark .page-header span,
+.dark .panel-heading p {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .dense-row {
+.dark .dense-row {
   border-color: rgb(51 65 85);
+}
+
+.dark .relation-route {
+  color: rgb(148 163 184);
+}
+
+.dark .relation-post-link {
+  color: rgb(103 232 249);
+  text-decoration-color: rgb(14 116 144);
 }
 </style>

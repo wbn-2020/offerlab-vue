@@ -3,6 +3,21 @@
     <AppHeader />
     <main class="px-4 py-6 sm:px-6">
     <div class="mx-auto max-w-5xl">
+      <nav class="inbox-view-tabs" aria-label="参与收件箱视图">
+        <button
+          v-for="view in inboxViews"
+          :key="view.value"
+          type="button"
+          :class="{ active: activeView === view.value }"
+          :aria-pressed="activeView === view.value"
+          @click="switchInboxView(view.value)"
+        >
+          <component :is="view.icon" class="h-4 w-4" />
+          {{ view.label }}
+        </button>
+      </nav>
+
+      <template v-if="activeView === 'notifications'">
       <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -16,6 +31,10 @@
             </p>
             <p v-if="preferenceOffText" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
               {{ preferenceOffText }}
+            </p>
+            <p v-if="unreadErrorText" class="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+              {{ unreadErrorText }}
+              <button type="button" class="ml-2 underline" @click="loadUnread">重试</button>
             </p>
           </div>
 
@@ -206,23 +225,34 @@
           </button>
         </div>
       </div>
+      </template>
+
+      <UpdateDigestPanel
+        v-else-if="activeView === 'updates'"
+        route-state
+        title="与你有关的更新摘要"
+      />
+      <RevisitSummaryPanel v-else route-state />
     </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, UserPlus } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, History, MessageCircle, Newspaper, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { interactionPreferenceMuted, notificationApi, normalizeNotificationPreference } from '@/api/notification'
 import type { ApiId, CreatorCurationFeedback, Notification, NotificationPreference, NotificationUnreadCount } from '@/api/types'
 import { formatTime } from '@/lib/format'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import RevisitSummaryPanel from '@/components/retention/RevisitSummaryPanel.vue'
+import UpdateDigestPanel from '@/components/retention/UpdateDigestPanel.vue'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 
+const route = useRoute()
 const router = useRouter()
 const realtimeStore = useRealtimeStore()
 const MAX_NOTIFICATION_ITEMS = 100
@@ -232,6 +262,7 @@ const notifications = ref<Notification[]>([])
 const isLoading = ref(false)
 const isMutating = ref(false)
 const loadErrorText = ref('')
+const unreadErrorText = ref('')
 const nextCursor = ref<string | undefined>()
 const hasMore = ref(false)
 const unread = computed(() => realtimeStore.unreadCount)
@@ -239,8 +270,21 @@ const preferences = ref<NotificationPreference | null>(null)
 let notificationLoadGeneration = 0
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
+type InboxView = 'notifications' | 'updates' | 'revisits'
 const notificationUnreadKeys = ['like', 'comment', 'favorite', 'follower', 'mention', 'system'] as const
 type NotificationUnreadKey = typeof notificationUnreadKeys[number]
+const notificationTypes = new Set<NotificationType>(['all', ...notificationUnreadKeys])
+const inboxViewValues = new Set<InboxView>(['notifications', 'updates', 'revisits'])
+const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
+const activeView = computed<InboxView>(() => {
+  const value = String(firstQueryValue(route.query.view) || 'notifications') as InboxView
+  return inboxViewValues.has(value) ? value : 'notifications'
+})
+const inboxViews = [
+  { value: 'notifications' as const, label: '通知', icon: Bell },
+  { value: 'updates' as const, label: '更新摘要', icon: Newspaper },
+  { value: 'revisits' as const, label: '回访', icon: History },
+]
 
 const tabs = computed(() => [
   { value: 'all', label: 'All', count: unread.value.total, icon: Bell },
@@ -330,8 +374,13 @@ const syncUnread = (value: NotificationUnreadCount) => {
 const curationFeedbackPayload = (notif: Notification): CreatorCurationFeedback | undefined => notif.curationFeedback
 
 const loadUnread = async () => {
-  const res = await notificationApi.getUnreadCount()
-  if (res.code === 0 && res.data) syncUnread(res.data)
+  try {
+    const res = await notificationApi.getUnreadCount()
+    if (res.code === 0 && res.data) syncUnread(res.data)
+    unreadErrorText.value = ''
+  } catch (error) {
+    unreadErrorText.value = getErrorMessage(error, '未读数暂时无法同步。')
+  }
 }
 
 const loadNotifications = async () => {
@@ -390,11 +439,29 @@ const loadMore = async () => {
   }
 }
 
-const switchTab = async (type: NotificationType | string) => {
-  activeType.value = type
-  nextCursor.value = undefined
-  hasMore.value = false
-  await loadNotifications()
+const switchInboxView = (view: InboxView) => {
+  void router.replace({
+    path: route.path,
+    query: {
+      view: view === 'notifications' ? undefined : view,
+      type: undefined,
+      sourceType: undefined,
+      sourceId: undefined,
+      status: undefined,
+    },
+  })
+}
+
+const switchTab = (type: NotificationType | string) => {
+  const nextType = notificationTypes.has(type as NotificationType) ? type as NotificationType : 'all'
+  void router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      view: undefined,
+      type: nextType === 'all' ? undefined : nextType,
+    },
+  })
 }
 
 type MarkReadOptions = {
@@ -507,9 +574,26 @@ const loadPreferences = async () => {
   }
 }
 
-onMounted(async () => {
-  await Promise.all([loadUnread(), loadNotifications(), loadPreferences()])
-})
+let notificationViewInitialized = false
+watch(
+  () => [activeView.value, String(firstQueryValue(route.query.type) || '')] as const,
+  ([view, routeType]) => {
+    if (view !== 'notifications') {
+      notificationLoadGeneration += 1
+      return
+    }
+    const normalizedType = routeType.toLowerCase() as NotificationType
+    activeType.value = notificationTypes.has(normalizedType) ? normalizedType : 'all'
+    nextCursor.value = undefined
+    hasMore.value = false
+    void loadNotifications()
+    if (!notificationViewInitialized) {
+      notificationViewInitialized = true
+      void Promise.all([loadUnread(), loadPreferences()])
+    }
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   notificationLoadGeneration += 1
@@ -517,6 +601,46 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.inbox-view-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.inbox-view-tabs button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0 0.85rem;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.inbox-view-tabs button.active {
+  border-color: rgb(14 165 233);
+  background: rgb(240 249 255);
+  color: rgb(3 105 161);
+}
+
+.dark .inbox-view-tabs button {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .inbox-view-tabs button.active {
+  border-color: rgb(14 116 144);
+  background: rgb(8 47 73);
+  color: rgb(186 230 253);
+}
+
 .metric-card {
   min-width: 6.5rem;
   border-radius: 0.75rem;

@@ -374,6 +374,16 @@
                 </div>
               </section>
 
+              <div class="mb-8 grid gap-4">
+                <PostReferencePanel :post-id="String(post.postId)" :high-risk="post.domain === 5" />
+                <ContentEvolutionPanel :post-id="String(post.postId)" />
+                <PostOutcomePanel
+                  :post-id="String(post.postId)"
+                  :is-own-post="isOwnPost"
+                  :requires-risk-acknowledgement="post.domain === 5"
+                />
+              </div>
+
               <PostQuestionBlock v-if="showStageTwoDetailPanels" :post-id="post.postId" />
 
               <div v-if="post.tags.length" class="mb-8 flex flex-wrap gap-2 border-b border-slate-200 pb-8 dark:border-slate-800">
@@ -756,8 +766,7 @@
                         {{ item.decision ? contentSuggestionDecisionText(item.decision) : contentSuggestionStatusText(item.status) }}
                       </strong>
                     </div>
-                    <p>{{ item.detail }}</p>
-                    <a v-if="safeContentSuggestionUrl(item.sourceUrl)" :href="safeContentSuggestionUrl(item.sourceUrl)" target="_blank" rel="noreferrer">查看补充链接</a>
+                    <ContentSuggestionPanel :suggestion="item" />
                     <p v-if="item.allowPublicAttribution && item.submitterNickname" class="content-suggestion-meta">
                       提交者允许公开昵称：{{ item.submitterNickname }}
                     </p>
@@ -767,6 +776,7 @@
                       <div class="content-suggestion-actions">
                         <button type="button" :disabled="isHandlingContentSuggestion" @click="decideContentSuggestion(item, 'ACCEPTED')">采纳</button>
                         <button type="button" :disabled="isHandlingContentSuggestion" @click="decideContentSuggestion(item, 'PARTIAL_ACCEPTED')">部分采纳</button>
+                        <button type="button" :disabled="isHandlingContentSuggestion" @click="decideContentSuggestion(item, 'PLANNED')">计划处理</button>
                         <button type="button" :disabled="isHandlingContentSuggestion" @click="openSuggestionInEditor(item)">编辑并合并</button>
                         <button type="button" :disabled="isHandlingContentSuggestion" @click="decideContentSuggestion(item, 'REJECTED')">未采纳</button>
                       </div>
@@ -796,8 +806,7 @@
                         <span>{{ contentSuggestionTypeText(item.type) }}</span>
                         <strong>{{ item.decision ? contentSuggestionDecisionText(item.decision) : contentSuggestionStatusText(item.status) }}</strong>
                       </div>
-                      <p>{{ item.detail }}</p>
-                      <a v-if="safeContentSuggestionUrl(item.sourceUrl)" :href="safeContentSuggestionUrl(item.sourceUrl)" target="_blank" rel="noreferrer">查看补充链接</a>
+                      <ContentSuggestionPanel :suggestion="item" />
                       <p v-if="item.authorReply" class="content-suggestion-public-note">作者回复：{{ item.authorReply }}</p>
                       <p v-if="item.publicNote" class="content-suggestion-public-note">公开处理说明：{{ item.publicNote }}</p>
                       <div class="content-suggestion-history-time">
@@ -820,6 +829,34 @@
                       <span>具体建议</span>
                       <textarea v-model="contentSuggestionForm.detail" rows="4" maxlength="2000" placeholder="写下你希望作者补充、核对或澄清的内容" />
                     </label>
+                    <div class="content-suggestion-structure-fields">
+                      <label>
+                        <span>建议范围</span>
+                        <select v-model="contentSuggestionForm.targetScope">
+                          <option v-for="option in CONTENT_SUGGESTION_TARGET_SCOPE_OPTIONS" :key="option.value" :value="option.value">
+                            {{ option.label }}
+                          </option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>具体位置（可选）</span>
+                        <input
+                          v-model.trim="contentSuggestionForm.targetLocator"
+                          type="text"
+                          maxlength="300"
+                          :placeholder="contentSuggestionTargetLocatorPlaceholder"
+                        >
+                      </label>
+                      <label class="content-suggestion-expected-field">
+                        <span>预期改动（可选）</span>
+                        <textarea
+                          v-model="contentSuggestionForm.expectedChange"
+                          rows="3"
+                          maxlength="1000"
+                          placeholder="例如：补充适用条件、更新数据口径，或在对应段落增加来源说明"
+                        />
+                      </label>
+                    </div>
                     <label>
                       <span>相关链接（可选）</span>
                       <input v-model="contentSuggestionForm.sourceUrl" type="url" placeholder="https://..." />
@@ -1206,6 +1243,10 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { ArrowLeft } from 'lucide-vue-next'
+import PostReferencePanel from '@/components/post/PostReferencePanel.vue'
+import ContentEvolutionPanel from '@/components/post/ContentEvolutionPanel.vue'
+import PostOutcomePanel from '@/components/post/PostOutcomePanel.vue'
+import ContentSuggestionPanel from '@/components/post/ContentSuggestionPanel.vue'
 import { postApi, type InterviewMaterialPack } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
 import { adaptComment, adaptPage } from '@/api/adapters'
@@ -1222,6 +1263,7 @@ import {
   type ContentSuggestionDecision,
   type ContentSuggestionRecord,
   type ContentSuggestionStatus,
+  type ContentSuggestionTargetScope,
   type ContentSuggestionType,
 } from '@/api/contentSuggestions'
 import {
@@ -1378,12 +1420,18 @@ const contentSuggestionReplyDrafts = ref<Record<string, string>>({})
 type ContentSuggestionForm = {
   type: ContentSuggestionType
   detail: string
+  targetScope: ContentSuggestionTargetScope
+  targetLocator: string
+  expectedChange: string
   sourceUrl: string
   allowPublicAttribution: boolean
 }
 const createContentSuggestionForm = (): ContentSuggestionForm => ({
   type: 'CORRECTION',
   detail: '',
+  targetScope: 'CONTENT',
+  targetLocator: '',
+  expectedChange: '',
   sourceUrl: '',
   allowPublicAttribution: false,
 })
@@ -1829,6 +1877,28 @@ const detailRelationshipContext = computed(() => buildRelationshipContext({
 const contentSuggestionVisibilityNote = computed(() => (
   '建议默认仅提交者、作者和必要治理角色可见，不会进入公开讨论；相关提醒沿用现有互动或系统通知偏好。'
 ))
+const CONTENT_SUGGESTION_TARGET_SCOPE_OPTIONS: Array<{
+  value: ContentSuggestionTargetScope
+  label: string
+}> = [
+  { value: 'TITLE', label: '标题' },
+  { value: 'CONTENT', label: '正文整体' },
+  { value: 'SECTION', label: '指定段落' },
+  { value: 'REFERENCE', label: '引用与来源' },
+  { value: 'FRESHNESS', label: '时效信息' },
+  { value: 'OTHER', label: '其他位置' },
+]
+const contentSuggestionTargetLocatorPlaceholder = computed(() => {
+  const placeholders: Record<ContentSuggestionTargetScope, string> = {
+    TITLE: '例如：标题中的数据或结论',
+    CONTENT: '例如：正文整体或结尾总结',
+    SECTION: '例如：“部署步骤”第 2 段',
+    REFERENCE: '例如：参考链接 2 或引用段落',
+    FRESHNESS: '例如：价格、规则或版本信息',
+    OTHER: '描述建议对应的位置',
+  }
+  return placeholders[contentSuggestionForm.value.targetScope]
+})
 const highRiskSuggestionGuidance = computed(() => {
   if (!effectiveRiskNotice.value) return ''
   return contentSuggestionForm.value.type === 'CORRECTION'
@@ -1870,7 +1940,6 @@ const contentSuggestionDecisionText = (decision?: ContentSuggestionDecision) => 
   decision ? CONTENT_SUGGESTION_DECISION_LABELS[decision] || decision : ''
 )
 const contentSuggestionTypeText = (type: ContentSuggestionType) => CONTENT_SUGGESTION_TYPE_OPTIONS.find((item) => item.value === type)?.label || type
-const safeContentSuggestionUrl = (value?: string) => normalizeHttpUrl(value)
 const contentSuggestionDomId = (suggestionId: ContentSuggestionRecord['id']) => `content-suggestion-${String(suggestionId)}`
 
 const invalidateContentSuggestionLoads = () => {
@@ -2405,6 +2474,9 @@ const submitContentSuggestion = async () => {
   const request = {
     type: contentSuggestionForm.value.type,
     detail: contentSuggestionForm.value.detail,
+    targetScope: contentSuggestionForm.value.targetScope,
+    targetLocator: contentSuggestionForm.value.targetLocator,
+    expectedChange: contentSuggestionForm.value.expectedChange,
     sourceUrl: normalizedSourceUrl,
     allowPublicAttribution: contentSuggestionForm.value.allowPublicAttribution,
   }
@@ -2460,7 +2532,9 @@ const decideContentSuggestion = async (
   try {
     const publicNote = note || (decision === 'PARTIAL_ACCEPTED'
       ? '作者已采纳其中一部分，并保留其他条件继续核对。'
-      : '作者已采纳这条补充建议。')
+      : decision === 'PLANNED'
+        ? '作者已将这条建议列入后续处理计划。'
+        : '作者已采纳这条补充建议。')
     const res = await contentSuggestionApi.decide(item.id, {
       decision,
       authorReply: note,
@@ -4594,6 +4668,16 @@ onBeforeUnmount(() => {
   gap: 0.4rem;
 }
 
+.content-suggestion-structure-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.content-suggestion-expected-field {
+  grid-column: 1 / -1;
+}
+
 .content-suggestion-form textarea,
 .content-suggestion-form input,
 .content-suggestion-form select,
@@ -5978,8 +6062,13 @@ onBeforeUnmount(() => {
   .domain-detail-grid,
   .star-grid,
   .material-list-grid,
-  .knowledge-path-steps {
+  .knowledge-path-steps,
+  .content-suggestion-structure-fields {
     grid-template-columns: 1fr;
+  }
+
+  .content-suggestion-expected-field {
+    grid-column: auto;
   }
 
   .ai-knowledge-actions a,

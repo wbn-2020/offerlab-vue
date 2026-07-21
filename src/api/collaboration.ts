@@ -15,17 +15,84 @@ export interface PageResult<T> {
   diagnostics?: Record<string, unknown> | null
 }
 
+export interface CollaborationRequestOptions {
+  signal?: AbortSignal
+}
+
+export type CollaborationNeedDiscoverySort = 'LATEST' | 'UPDATED' | 'STALLED_FIRST'
+
 export interface CollaborationListQuery {
   domain?: number
   status?: string
+  keyword?: string
+  contentFormat?: NeedContentFormat
+  sourceType?: NeedSourceType
+  sort?: CollaborationNeedDiscoverySort
   cursor?: string | number
   size?: number
 }
 
-export type NeedStatus = 'OPEN' | 'CLAIMED' | 'COMPLETED' | 'CLOSED' | 'MERGED'
-export type NeedSourceType = 'COMMUNITY' | 'POST' | 'TOPIC' | 'ACTIVITY' | 'EXTERNAL'
+export type NeedStatus = 'OPEN' | 'CLAIMED' | 'SUBMITTED' | 'COMPLETED' | 'CLOSED' | 'MERGED'
+export type NeedSourceType = 'COMMUNITY' | 'POST' | 'TOPIC' | 'ACTIVITY' | 'EXTERNAL' | 'SEARCH_GAP'
 export type NeedContentFormat = 'ARTICLE' | 'QUESTION' | 'GUIDE' | 'CHECKLIST' | 'RESOURCE'
 export type NeedResolutionType = 'POST' | 'QUESTION' | 'SERIES'
+
+export type CollaborationActionType =
+  | 'NEED_SUBMIT'
+  | 'NEED_REVISE'
+  | 'NEED_REVIEW'
+  | 'NEED_STALLED'
+  | 'OFFICE_HOUR_REVIEW'
+  | 'CURATION_REVIEW'
+  | 'GOVERNANCE_REVIEW'
+
+export interface CollaborationActionSummary {
+  total: ApiLong
+  counts: Partial<Record<CollaborationActionType, ApiLong>>
+  generatedAt: string
+  degraded?: boolean | null
+  sourceErrors?: Record<string, string> | null
+}
+
+export interface CollaborationActionItem {
+  id: ApiId
+  actionType: CollaborationActionType
+  sourceType: string
+  sourceId: ApiId
+  sourceStatus?: string | null
+  title: string
+  reason: string
+  targetPath?: string | null
+  lastEventId?: ApiId | null
+  updatedAt: string
+  canAct: boolean
+}
+
+export interface CollaborationActionListQuery {
+  actionType?: CollaborationActionType
+  cursor?: string | number
+  size?: number
+}
+
+export interface NeedDeliveryCandidate {
+  id: ApiId
+  resolutionType: NeedResolutionType
+  title: string
+  domain: number
+  postType?: number | string | null
+  publicPath?: string | null
+  eligible: boolean
+  ineligibleReason?: string | null
+  createTime: string
+  updateTime: string
+}
+
+export interface NeedDeliveryCandidateQuery {
+  resolutionType?: NeedResolutionType
+  keyword?: string
+  cursor?: string | number
+  size?: number
+}
 
 export interface CollaborationNeed {
   id: ApiId
@@ -39,14 +106,88 @@ export interface CollaborationNeed {
   acceptanceCriteria?: string | null
   status: NeedStatus
   claimedByUid?: ApiId | null
+  claimedAt?: string | null
+  lastProgressAt?: string | null
+  stalled?: boolean | null
   mergedIntoNeedId?: ApiId | null
   resolutionType?: NeedResolutionType | null
   resolutionId?: ApiId | null
   resolutionPostId?: ApiId | null
   closedReason?: string | null
+  submittedByUid?: ApiId | null
+  submittedAt?: string | null
+  submissionResolutionType?: NeedResolutionType | null
+  submissionResolutionId?: ApiId | null
+  submissionNote?: string | null
+  rejectReason?: string | null
+  currentClaimCycleNo?: number | null
+  currentRevisionNo?: number | null
+  claimCycles?: NeedClaimCycle[]
   followerCount: number
   followed: boolean
   canManage: boolean
+  createTime: string
+  updateTime: string
+}
+
+export interface NeedRevision {
+  id: ApiId
+  needId: ApiId
+  cycleId: ApiId
+  cycleNo: number
+  revisionNo: number
+  submitterUid: ApiId
+  resolutionType: NeedResolutionType
+  resolutionId: ApiId
+  resolutionPostId?: ApiId | null
+  note?: string | null
+  status: string
+  submittedAt?: string | null
+  decidedBy?: ApiId | null
+  decidedAt?: string | null
+  decisionNote?: string | null
+  visibilityScope?: string | null
+  createTime: string
+  updateTime: string
+}
+
+export interface NeedClaimCycle {
+  id: ApiId
+  needId: ApiId
+  cycleNo: number
+  claimantUid: ApiId
+  status: string
+  claimedAt?: string | null
+  lastProgressAt?: string | null
+  endedAt?: string | null
+  endReason?: string | null
+  revisions: NeedRevision[]
+  createTime: string
+  updateTime: string
+}
+
+export interface NeedDiscoveryItem {
+  id: ApiId
+  creatorUid: ApiId
+  domain: number
+  sourceType: NeedSourceType
+  sourceRefId?: ApiId | null
+  contentFormat: NeedContentFormat
+  title: string
+  description: string
+  acceptanceCriteria?: string | null
+  status: NeedStatus
+  claimedByUid?: ApiId | null
+  claimedAt?: string | null
+  lastProgressAt?: string | null
+  stalled?: boolean | null
+  mergedIntoNeedId?: ApiId | null
+  resolutionType?: NeedResolutionType | null
+  resolutionId?: ApiId | null
+  resolutionPostId?: ApiId | null
+  followerCount: number
+  followed: boolean
+  matchReasons: string[]
   createTime: string
   updateTime: string
 }
@@ -77,6 +218,54 @@ export interface NeedCompleteCmd {
   /** Compatibility field accepted by the backend for POST deliveries. */
   resolutionPostId?: ApiId
   note?: string
+}
+
+export interface NeedSubmitCmd {
+  resolutionType: NeedResolutionType
+  resolutionId: ApiId
+  /** Compatibility field accepted by the backend for POST deliveries. */
+  resolutionPostId?: ApiId
+  note?: string
+}
+
+export interface NeedAcceptCmd {
+  note?: string
+}
+
+export interface NeedRejectCmd {
+  reason: string
+}
+
+export interface NeedReleaseCmd {
+  note?: string
+}
+
+export type NeedEventType =
+  | 'CREATED'
+  | 'CLAIMED'
+  | 'SUBMITTED'
+  | 'WITHDRAWN'
+  | 'REJECTED'
+  | 'ACCEPTED'
+  | 'COMPLETED'
+  | 'CLOSED'
+  | 'MERGED'
+  | 'RELEASED'
+
+export type NeedEventVisibilityScope = 'PUBLIC' | 'PARTICIPANTS' | 'MANAGERS'
+
+export interface CollaborationNeedEvent {
+  id: ApiId
+  needId: ApiId
+  eventType: NeedEventType
+  actorUid?: ApiId | null
+  fromStatus?: NeedStatus | null
+  toStatus?: NeedStatus | null
+  targetType?: string | null
+  targetId?: ApiId | null
+  note?: string | null
+  visibilityScope?: NeedEventVisibilityScope | null
+  createTime: string
 }
 
 export interface CloseCmd {
@@ -433,10 +622,52 @@ const resourceId = (id: ApiId) => encodeURIComponent(String(id))
 
 export const collaborationApi = {
   needs: {
-    list: (query: CollaborationListQuery = {}) =>
-      requestResult<PageResult<CollaborationNeed>>(client.get(`${BASE_PATH}/needs`, { params: query })),
+    list: (query: CollaborationListQuery = {}, options?: CollaborationRequestOptions) =>
+      requestResult<PageResult<CollaborationNeed>>(
+        client.get(`${BASE_PATH}/needs`, { params: query, signal: options?.signal }),
+      ),
+    discovery: (query: CollaborationListQuery = {}, options?: CollaborationRequestOptions) =>
+      requestResult<PageResult<NeedDiscoveryItem>>(
+        client.get(`${BASE_PATH}/needs/discovery`, { params: query, signal: options?.signal }),
+      ),
+    mine: (query: CollaborationListQuery = {}) =>
+      requestResult<PageResult<CollaborationNeed>>(
+        client.get(`${BASE_PATH}/needs/mine`, { params: query }),
+      ),
+    createdMine: (query: CollaborationListQuery = {}) =>
+      requestResult<PageResult<CollaborationNeed>>(
+        client.get(`${BASE_PATH}/needs/mine/created`, { params: query }),
+      ),
+    followed: (query: Pick<CollaborationListQuery, 'status' | 'cursor' | 'size'> = {}) =>
+      requestResult<PageResult<CollaborationNeed>>(
+        client.get(`${BASE_PATH}/needs/mine/followed`, { params: query }),
+      ),
+    reviewQueue: (
+      query: Pick<CollaborationListQuery, 'domain' | 'cursor' | 'size'> = {},
+    ) =>
+      requestResult<PageResult<CollaborationNeed>>(
+        client.get(`${BASE_PATH}/needs/review-queue`, { params: query }),
+      ),
     detail: (needId: ApiId) =>
       requestResult<CollaborationNeed>(client.get(`${BASE_PATH}/needs/${resourceId(needId)}`)),
+    deliveryCandidates: (
+      needId: ApiId,
+      query: NeedDeliveryCandidateQuery = {},
+      options?: CollaborationRequestOptions,
+    ) =>
+      requestResult<PageResult<NeedDeliveryCandidate>>(
+        client.get(`${BASE_PATH}/needs/${resourceId(needId)}/delivery-candidates`, {
+          params: query,
+          signal: options?.signal,
+        }),
+      ),
+    events: (
+      needId: ApiId,
+      query: Pick<CollaborationListQuery, 'cursor' | 'size'> = {},
+    ) =>
+      requestResult<PageResult<CollaborationNeedEvent>>(
+        client.get(`${BASE_PATH}/needs/${resourceId(needId)}/events`, { params: query }),
+      ),
     create: (cmd: NeedCreateCmd) =>
       requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs`, cmd)),
     follow: (needId: ApiId) =>
@@ -449,8 +680,32 @@ export const collaborationApi = {
       requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs/${resourceId(needId)}/merge`, cmd)),
     fulfill: (needId: ApiId, cmd: NeedCompleteCmd) =>
       requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs/${resourceId(needId)}/fulfill`, cmd)),
+    submit: (needId: ApiId, cmd: NeedSubmitCmd) =>
+      requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs/${resourceId(needId)}/submit`, cmd)),
+    accept: (needId: ApiId, cmd: NeedAcceptCmd = {}) =>
+      requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs/${resourceId(needId)}/accept`, cmd)),
+    reject: (needId: ApiId, cmd: NeedRejectCmd) =>
+      requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs/${resourceId(needId)}/reject`, cmd)),
+    withdraw: (needId: ApiId) =>
+      requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs/${resourceId(needId)}/withdraw`)),
+    release: (needId: ApiId, cmd: NeedReleaseCmd = {}) =>
+      requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs/${resourceId(needId)}/release`, cmd)),
     close: (needId: ApiId, cmd: CloseCmd) =>
       requestResult<CollaborationNeed>(client.post(`${BASE_PATH}/needs/${resourceId(needId)}/close`, cmd)),
+  },
+
+  actions: {
+    summary: (options?: CollaborationRequestOptions) =>
+      requestResult<CollaborationActionSummary>(
+        client.get(`${BASE_PATH}/actions/summary`, { signal: options?.signal }),
+      ),
+    list: (
+      query: CollaborationActionListQuery = {},
+      options?: CollaborationRequestOptions,
+    ) =>
+      requestResult<PageResult<CollaborationActionItem>>(
+        client.get(`${BASE_PATH}/actions`, { params: query, signal: options?.signal }),
+      ),
   },
 
   series: {

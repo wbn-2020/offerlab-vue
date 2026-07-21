@@ -18,6 +18,7 @@ export const CREATOR_WORKBENCH_EDITOR_ACTIONS: readonly EditorAssistAction[] = [
   'series',
   'topic',
   'template',
+  'fulfill',
 ]
 
 export const EDITOR_ASSIST_CONTEXT_TYPES: readonly EditorAssistContextType[] = [
@@ -27,6 +28,7 @@ export const EDITOR_ASSIST_CONTEXT_TYPES: readonly EditorAssistContextType[] = [
   'series',
   'topic',
   'template',
+  'need',
 ]
 
 export const EDITOR_ASSIST_ENTRY_SOURCES: readonly EditorAssistSource[] = [
@@ -35,6 +37,7 @@ export const EDITOR_ASSIST_ENTRY_SOURCES: readonly EditorAssistSource[] = [
   'series_entry',
   'topic_candidate',
   'content_type_template',
+  'collaboration_need',
   'manual_publish',
 ]
 
@@ -110,6 +113,7 @@ const editorAssistIds = (query: QueryLike) => ({
   commentId: safeText(query.commentId, 64),
   ideaId: safeText(query.ideaId, 64),
   seriesId: safeText(query.seriesId, 64),
+  needId: safeText(query.needId, 64),
   topicId: safeText(query.topicId, 64),
   templateCode: safeText(query.templateCode, 64),
 })
@@ -123,10 +127,12 @@ const inferContextType = (
   if (ids.seriesId && action === 'series') return 'series'
   if (ids.postId && action === 'series') return 'series'
   if (ids.topicId && action === 'topic') return 'topic'
+  if (ids.needId && action === 'fulfill') return 'need'
   if (ids.templateCode && action === 'template') return 'template'
   if (ids.postId) return 'post'
   if (ids.seriesId) return 'series'
   if (ids.topicId) return 'topic'
+  if (ids.needId) return 'need'
   if (ids.templateCode) return 'template'
   return undefined
 }
@@ -136,6 +142,7 @@ const missingRequiredId = (context: EditorAssistContext) => {
   if (context.contextType === 'idea') return !context.ideaId
   if (context.contextType === 'series') return !context.seriesId && !context.postId
   if (context.contextType === 'topic') return !context.topicId && !context.ideaId
+  if (context.contextType === 'need') return !context.needId
   if (context.contextType === 'post') return Boolean(context.action && ['update', 'reply', 'continue'].includes(context.action)) && !context.postId
   return false
 }
@@ -182,6 +189,7 @@ export function parseEditorAssistContext(input: QueryLike = {}): EditorAssistCon
     commentId: ids.commentId || undefined,
     ideaId: ids.ideaId || undefined,
     seriesId: ids.seriesId || undefined,
+    needId: ids.needId || undefined,
     topicId: ids.topicId || undefined,
     templateCode: ids.templateCode || undefined,
     title: safeText(query.title, 96) || undefined,
@@ -245,6 +253,7 @@ const sourceLabels: Record<EditorAssistSource, string> = {
   series_entry: '系列续写入口',
   topic_candidate: '专题候选入口',
   content_type_template: '内容模板入口',
+  collaboration_need: '共建需求',
   manual_publish: '普通发布入口',
 }
 
@@ -255,6 +264,7 @@ const actionLabels: Record<EditorAssistAction, string> = {
   series: '补充系列',
   topic: '基于专题或话题开始写',
   template: '套用内容模板',
+  fulfill: '创建公开交付',
 }
 
 const contextLabels: Record<EditorAssistContextType, string> = {
@@ -264,6 +274,7 @@ const contextLabels: Record<EditorAssistContextType, string> = {
   series: '系列',
   topic: '专题或话题',
   template: '模板',
+  need: '共建需求',
 }
 
 export function buildEditorAssistSourceHint(context: EditorAssistContext | null | undefined): EditorAssistSourceHint | null {

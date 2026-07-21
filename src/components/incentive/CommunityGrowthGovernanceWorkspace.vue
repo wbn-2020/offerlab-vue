@@ -524,30 +524,30 @@ button:disabled {
   }
 }
 
-:global(.dark) .workspace,
-:global(.dark) .field-control,
-:global(.dark) .secondary-button,
-:global(.dark) .icon-button {
+.dark .workspace,
+.dark .field-control,
+.dark .secondary-button,
+.dark .icon-button {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .workspace-header h2,
-:global(.dark) .subsection-heading strong,
-:global(.dark) .row-title strong,
-:global(.dark) .mini-list strong {
+.dark .workspace-header h2,
+.dark .subsection-heading strong,
+.dark .row-title strong,
+.dark .mini-list strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .workspace-header p,
-:global(.dark) .form-stack label {
+.dark .workspace-header p,
+.dark .form-stack label {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .dense-row,
-:global(.dark) .mini-list > div,
-:global(.dark) .section-divider {
+.dark .dense-row,
+.dark .mini-list > div,
+.dark .section-divider {
   border-color: rgb(51 65 85);
 }
 </style>

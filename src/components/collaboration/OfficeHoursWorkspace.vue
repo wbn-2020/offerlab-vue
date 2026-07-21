@@ -249,7 +249,12 @@
           @retry="loadHostReservations"
         />
         <div v-if="selectedHostOffice && !hostState.loading && !hostState.error" class="dense-list">
-          <article v-for="reservation in hostReservations" :key="String(reservation.id)" class="dense-row">
+          <article
+            v-for="reservation in hostReservations"
+            :key="String(reservation.id)"
+            :class="['dense-row', { 'dense-row-focused': String(reservation.id) === String(props.focusReservationId || '') }]"
+            :data-reservation-id="String(reservation.id)"
+          >
             <div class="row-main">
               <div class="row-title">
                 <span :class="['status-pill', statusClass(reservation.status)]">{{ reservationStatusLabel(reservation.status) }}</span>
@@ -368,6 +373,13 @@ const StateBlock = defineComponent({
 })
 
 const authStore = useAuthStore()
+const props = withDefaults(defineProps<{
+  focusOfficeHourId?: string
+  focusReservationId?: string
+}>(), {
+  focusOfficeHourId: '',
+  focusReservationId: '',
+})
 const officeState = state()
 const mineState = state()
 const hostState = state()
@@ -537,6 +549,24 @@ const selectHostOffice = async (office: OfficeHour) => {
   await loadHostReservations()
 }
 
+const focusHostReservation = async () => {
+  const officeHourId = String(props.focusOfficeHourId || '').trim()
+  if (!officeHourId || !authStore.isLoggedIn) return
+
+  let office = officeHours.value.find((item) => String(item.id) === officeHourId) || null
+  if (!office) {
+    try {
+      const response = await collaborationApi.officeHours.detail(officeHourId)
+      office = response.data || null
+    } catch {
+      return
+    }
+  }
+  if (!office?.canManage) return
+  selectedHostOffice.value = office
+  await loadHostReservations()
+}
+
 const loadHostReservations = () => {
   const office = selectedHostOffice.value
   if (!office) return Promise.resolve()
@@ -663,8 +693,18 @@ watch(
 )
 
 onMounted(() => {
-  void Promise.all([loadOfficeHours(), loadMyReservations()])
+  void (async () => {
+    await Promise.all([loadOfficeHours(), loadMyReservations()])
+    await focusHostReservation()
+  })()
 })
+
+watch(
+  () => [props.focusOfficeHourId, props.focusReservationId, authStore.isLoggedIn],
+  () => {
+    if (props.focusOfficeHourId && authStore.isLoggedIn) void focusHostReservation()
+  },
+)
 </script>
 
 <style scoped>
@@ -815,6 +855,13 @@ onMounted(() => {
   gap: 1rem;
   border-top: 1px solid rgb(226 232 240);
   padding-top: 0.85rem;
+}
+
+.dense-row-focused {
+  border-radius: 0.5rem;
+  background: rgb(240 249 255);
+  box-shadow: inset 0 0 0 1px rgb(14 165 233 / 0.35);
+  padding: 0.85rem;
 }
 
 .dense-row:first-child {
@@ -1045,36 +1092,36 @@ button:disabled {
   }
 }
 
-:global(.dark) .boundary-band,
-:global(.dark) .office-panel,
-:global(.dark) .field-control,
-:global(.dark) .secondary-button,
-:global(.dark) .icon-button {
+.dark .boundary-band,
+.dark .office-panel,
+.dark .field-control,
+.dark .secondary-button,
+.dark .icon-button {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .boundary-band strong,
-:global(.dark) .panel-heading h2,
-:global(.dark) .row-title strong,
-:global(.dark) .state-block strong {
+.dark .boundary-band strong,
+.dark .panel-heading h2,
+.dark .row-title strong,
+.dark .state-block strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .boundary-band > div,
-:global(.dark) .panel-heading p,
-:global(.dark) .row-main p,
-:global(.dark) .form-stack label {
+.dark .boundary-band > div,
+.dark .panel-heading p,
+.dark .row-main p,
+.dark .form-stack label {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .dense-row,
-:global(.dark) .feedback-list > div {
+.dark .dense-row,
+.dark .feedback-list > div {
   border-color: rgb(51 65 85);
 }
 
-:global(.dark) .state-block {
+.dark .state-block {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23 / 0.65);
   color: rgb(148 163 184);

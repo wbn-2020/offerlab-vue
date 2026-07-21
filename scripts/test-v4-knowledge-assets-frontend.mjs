@@ -32,11 +32,12 @@ for (const [label, patterns] of [
   ['关系来源解释', ['关系来源解释', 'sourceNote', 'relation source notes']],
   ['知识路径', ['知识路径', 'Knowledge Paths']],
   ['公共缺口', ['公共缺口', 'Knowledge Gaps']],
-  ['归档快照', ['归档快照', 'Archived Snapshots']],
+  ['请求时公开投影', ['请求时公开投影', 'request-time projection']],
   ['只读展示', ['只读', 'read-only']],
 ]) {
   assert(patterns.some((token) => exploreView.includes(token)), `KnowledgeExploreView missing ${label}`)
 }
+assert(!exploreView.includes('归档快照 Archived Snapshots'), 'KnowledgeExploreView must not label request-time projections as archived snapshots')
 
 for (const [label, patterns] of [
   ['相关公共知识资产', ['相关公共知识资产', 'postKnowledgeAssets']],
@@ -48,23 +49,37 @@ for (const [label, patterns] of [
 }
 
 for (const [label, patterns] of [
-  ['归档知识资产', ['归档知识资产', 'archived']],
+  ['归档话题集合', ['已归档话题集合', '归档话题集合']],
   ['归档时间', ['归档时间', 'archivedAt']],
   ['来源解释', ['来源解释', 'sourceNote']],
 ]) {
   assert(patterns.some((token) => topicDetail.includes(token)), `TopicDetailView missing ${label}`)
 }
+assert(topicDetail.includes("curatedTopic.status === 'ARCHIVED'"), 'TopicDetailView must preserve the real archived topic lifecycle')
+assert(!topicDetail.includes('归档知识资产'), 'TopicDetailView must not rename an archived topic as an archived knowledge asset')
+assert(!topicDetail.includes('归档快照'), 'TopicDetailView must not describe the archived topic version as a request-time knowledge snapshot')
 
 for (const [label, patterns] of [
-  ['公开知识资产', ['公开知识资产', 'public asset']],
+  ['请求时关系建议', ['请求时关系建议', 'SUGGESTED']],
+  ['已确认关系', ['已确认关系', 'CONFIRMED']],
+  ['关系投影降级', ['关系投影降级', 'DEGRADED']],
   ['local-only', ['local-only']],
   ['只读展示', ['只读展示', 'read-only']],
 ]) {
   assert(patterns.some((token) => seriesWorkbench.includes(token)), `SeriesWorkbenchView missing ${label}`)
 }
+assert(!seriesWorkbench.includes('公开知识资产'), 'SeriesWorkbenchView must not present a public series as a persisted knowledge asset')
+assert(!seriesWorkbench.includes('PublicKnowledgeAsset'), 'SeriesWorkbenchView must not reuse the formal asset DTO name for request-time projection')
 
-assert(contentSeries.includes('assetStatus'), 'contentSeries.ts missing assetStatus adapter field')
 assert(contentSeries.includes('previewSource'), 'contentSeries.ts missing previewSource adapter field')
+assert(contentSeries.includes('ContentSeriesKnowledgeProjectionState'), 'contentSeries.ts missing explicit knowledge projection state')
+for (const state of ['CONFIRMED', 'SUGGESTED', 'DEGRADED']) {
+  assert(contentSeries.includes(`'${state}'`), `contentSeries.ts missing ${state} projection state`)
+}
+assert(contentSeries.includes("relationReviewStatus === 'APPROVED'"), 'contentSeries.ts must require dedicated approved relation-review evidence')
+assert(contentSeries.includes('knowledgeRelationSources.has'), 'contentSeries.ts must require a known formal relation source')
+assert(contentSeries.includes('hasConfirmedEvidence'), 'contentSeries.ts must fail closed before accepting confirmed relation state')
+assert(!contentSeries.includes('assetStatus'), 'contentSeries.ts must not invent a persisted knowledge asset lifecycle for content series')
 
 for (const [path, source] of [
   ['src/views/KnowledgeExploreView.vue', exploreView],

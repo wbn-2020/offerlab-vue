@@ -18,7 +18,9 @@ assert.match(interactionApi, /Promise<Result<CommentCreateResult>>/, 'comment AP
 
 assert.match(editor, /const reviewRequired = Boolean\(res\.data\?\.reviewRequired\)/, 'editor must read reviewRequired from post response')
 assert.match(editor, /已提交审核，通过后对外展示/, 'editor must tell users when a post enters review')
-assert.match(editor, /router\.push\(reviewRequired \? '\/me'/, 'editor must avoid opening a public detail page for reviewing posts')
+assert.match(editor, /const postPublishDestination/, 'editor must centralize the post publish destination')
+assert.match(editor, /return reviewRequired \|\| !postId/, 'editor must route review-required posts away from public detail')
+assert.match(editor, /router\.push\(postPublishDestination\(postId, reviewRequired\)\)/, 'editor must use the review-aware destination helper')
 
 assert.match(postDetail, /const res = await interactionApi\.comment\(postId\.value, commentText\.value\)/, 'root comments must inspect the create response')
 assert.match(postDetail, /res\.data\?\.reviewRequired[\s\S]*评论已提交审核/, 'root comments must show review feedback')

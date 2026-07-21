@@ -581,26 +581,26 @@ button:disabled {
   }
 }
 
-:global(.dark) .governance-panel,
-:global(.dark) .field-control,
-:global(.dark) .secondary-button,
-:global(.dark) .icon-button {
+.dark .governance-panel,
+.dark .field-control,
+.dark .secondary-button,
+.dark .icon-button {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .panel-heading h2,
-:global(.dark) .row-title strong {
+.dark .panel-heading h2,
+.dark .row-title strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .panel-heading p,
-:global(.dark) .scan-form label {
+.dark .panel-heading p,
+.dark .scan-form label {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .dense-row {
+.dark .dense-row {
   border-color: rgb(51 65 85);
 }
 </style>

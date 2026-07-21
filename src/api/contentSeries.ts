@@ -1,11 +1,14 @@
 import axios from 'axios'
 import client, { BizException, type Result } from './client'
+import type { KnowledgeRelationDisplayState, KnowledgeRelationReviewStatus, KnowledgeRelationSource } from './knowledge'
 import type { ApiId, ContentSeriesItem, ContentSeriesProgress, PaginatedResponse, Post } from './types'
 import { adaptPage, adaptPost } from './adapters'
 import { normalizeDomain } from '@/utils/domains'
 import { safeStorage } from '@/utils/safeStorage'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 import { isPublicCollectionVisible, isPublicPostVisible } from '@/utils/recommendationGovernance'
+
+export type ContentSeriesKnowledgeProjectionState = KnowledgeRelationDisplayState
 
 export interface ContentSeriesRecord {
   id: string
@@ -17,8 +20,9 @@ export interface ContentSeriesRecord {
   visibility: 'public' | 'private'
   goalCount: number
   status: 'active' | 'paused' | 'completed'
-  assetStatus?: 'active' | 'archived'
   previewSource?: 'remote' | 'local' | 'fallback' | 'demo'
+  knowledgeProjectionState: ContentSeriesKnowledgeProjectionState
+  knowledgeProjectionReason?: string
   sourceNote?: string
   targetHref?: string
   deleted?: boolean
@@ -118,6 +122,52 @@ const normalizePreviewSource = (raw: any): NonNullable<ContentSeriesRecord['prev
   if (value === 'local' || String(raw?.id || '').startsWith('series_')) return 'local'
   return 'remote'
 }
+const knowledgeRelationSources = new Set<KnowledgeRelationSource>(['manual', 'topic', 'series', 'search', 'tag', 'curation'])
+const knowledgeRelationReviewStatuses = new Set<KnowledgeRelationReviewStatus>(['AUTO_SAFE', 'PENDING_REVIEW', 'APPROVED', 'REJECTED'])
+const normalizeKnowledgeProjection = (
+  raw: any,
+  previewSource: NonNullable<ContentSeriesRecord['previewSource']>,
+): Pick<ContentSeriesRecord, 'knowledgeProjectionState' | 'knowledgeProjectionReason'> => {
+  if (previewSource !== 'remote') {
+    return {
+      knowledgeProjectionState: 'DEGRADED',
+      knowledgeProjectionReason: `${previewSource} response has no formal relation evidence.`,
+    }
+  }
+
+  const relationState = safeText(raw?.relationState ?? raw?.knowledgeProjectionState).toUpperCase()
+  const relationReviewStatus = safeText(raw?.relationReviewStatus ?? raw?.knowledgeReviewStatus).toUpperCase()
+  const relationSource = safeText(raw?.relationSource ?? raw?.knowledgeRelationSource)
+  const sourceKnown = knowledgeRelationSources.has(relationSource as KnowledgeRelationSource)
+  const reviewKnown = knowledgeRelationReviewStatuses.has(relationReviewStatus as KnowledgeRelationReviewStatus)
+  const hasConfirmedEvidence = relationState === 'CONFIRMED'
+    && sourceKnown
+    && reviewKnown
+    && relationReviewStatus === 'APPROVED'
+    && Boolean(
+      safeText(raw?.relationId)
+      && safeText(raw?.sourceAssetId)
+      && safeText(raw?.targetAssetId)
+      && safeText(raw?.reasonText),
+    )
+
+  if (hasConfirmedEvidence) return { knowledgeProjectionState: 'CONFIRMED' }
+  if (relationState === 'DEGRADED'
+    || (relationState && relationState !== 'CONFIRMED' && relationState !== 'SUGGESTED')
+    || (relationState === 'CONFIRMED' && (!sourceKnown || !reviewKnown))
+    || (relationState === 'SUGGESTED' && ((relationSource && !sourceKnown) || (relationReviewStatus && !reviewKnown)))) {
+    return {
+      knowledgeProjectionState: 'DEGRADED',
+      knowledgeProjectionReason: safeText(raw?.degradedReason) || 'Relation evidence is incomplete.',
+    }
+  }
+  return {
+    knowledgeProjectionState: 'SUGGESTED',
+    knowledgeProjectionReason: relationState === 'CONFIRMED'
+      ? 'Confirmed state was rejected because approved review or relation evidence is incomplete.'
+      : undefined,
+  }
+}
 const visibilityCodeOf = (value?: ContentSeriesDraftPayload['visibility']) => value === 'public' ? 1 : 2
 
 const decorateRecord = (record: Omit<ContentSeriesRecord, 'progress'>, remoteProgress?: any): ContentSeriesRecord => ({
@@ -138,6 +188,7 @@ const normalizeSeriesItem = (raw: any): ContentSeriesItem => ({
 
 const adaptSeriesRecord = (raw: any): ContentSeriesRecord => {
   const items = Array.isArray(raw?.items) ? raw.items.map(normalizeSeriesItem) : []
+  const previewSource = normalizePreviewSource(raw)
   return decorateRecord({
     id: safeText(raw?.id) || createLocalId('series'),
     creatorUid: raw?.creatorUid == null ? undefined : String(raw.creatorUid),
@@ -148,9 +199,9 @@ const adaptSeriesRecord = (raw: any): ContentSeriesRecord => {
     visibility: normalizeVisibility(raw?.visibility),
     goalCount: Math.max(1, Number(raw?.goalCount || raw?.progress?.totalPostCount || items.length || 3)),
     status: raw?.status === 'paused' || raw?.status === 'completed' ? raw.status : 'active',
-    assetStatus: raw?.assetStatus === 'archived' ? 'archived' : 'active',
-    previewSource: normalizePreviewSource(raw),
-    sourceNote: safeText(raw?.sourceNote) || '公开系列来自内容系列接口；local-only/fallback 仅作只读展示。',
+    previewSource,
+    ...normalizeKnowledgeProjection(raw, previewSource),
+    sourceNote: safeText(raw?.sourceNote) || '公开系列可参与请求时关系投影；local-only/fallback 仅作降级展示。',
     targetHref: safeText(raw?.targetHref ?? raw?.href) || undefined,
     deleted: raw?.deleted ?? raw?.isDeleted,
     restricted: raw?.restricted ?? raw?.isRestricted,
@@ -180,9 +231,10 @@ const mergeRemoteSeriesRecord = (raw: any, localRecord?: ContentSeriesRecord): C
       Number(remoteRecord.progress.totalCount || 0),
     ),
     status: localRecord?.status || remoteRecord.status || 'active',
-    assetStatus: remoteRecord.assetStatus || localRecord?.assetStatus || 'active',
-    previewSource: 'remote',
-    sourceNote: remoteRecord.sourceNote || localRecord?.sourceNote || '公开系列来自内容系列接口。',
+    previewSource: remoteRecord.previewSource,
+    knowledgeProjectionState: remoteRecord.knowledgeProjectionState,
+    knowledgeProjectionReason: remoteRecord.knowledgeProjectionReason,
+    sourceNote: remoteRecord.sourceNote || localRecord?.sourceNote || '公开系列可参与请求时关系投影。',
     targetHref: remoteRecord.targetHref || localRecord?.targetHref,
     deleted: remoteRecord.deleted ?? localRecord?.deleted,
     restricted: remoteRecord.restricted ?? localRecord?.restricted,
@@ -350,9 +402,10 @@ export const contentSeriesApi = {
       visibility: payload.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || 3)),
       status: payload.status || 'active',
-      assetStatus: 'active',
       previewSource: 'local',
-      sourceNote: 'local-only 系列仅保存在本地，不能进入公共知识资产。',
+      knowledgeProjectionState: 'DEGRADED',
+      knowledgeProjectionReason: 'Local-only series has no remote relation evidence.',
+      sourceNote: 'local-only 系列仅保存在本地，不参与正式知识关系。',
       targetHref: undefined,
       items: [],
       createdAt: Date.now(),
@@ -383,9 +436,10 @@ export const contentSeriesApi = {
       visibility: payload.visibility || current?.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || current?.goalCount || 3)),
       status: payload.status || current?.status || 'active',
-      assetStatus: current?.assetStatus || 'active',
-      previewSource: current?.previewSource || 'local',
-      sourceNote: current?.sourceNote || 'local-only 系列仅保存在本地，不能进入公共知识资产。',
+      previewSource: 'local',
+      knowledgeProjectionState: 'DEGRADED',
+      knowledgeProjectionReason: 'Local update has no confirmed remote relation evidence.',
+      sourceNote: 'local-only 系列更新仅保存在本地，不参与正式知识关系。',
       targetHref: current?.targetHref,
       items: current?.items || [],
       createdAt: current?.createdAt || Date.now(),

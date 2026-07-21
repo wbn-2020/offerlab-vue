@@ -13,11 +13,9 @@ assert.match(source, /isCurrentLoad\(targetGeneration, slug\)/, 'async topic res
 assert.match(source, /targetPostGeneration === postRequestGeneration/, 'post responses must verify filter freshness')
 assert.match(source, /onUnmounted\(\(\) => \{[\s\S]*?loadGeneration \+= 1/, 'unmount must invalidate pending topic requests')
 
-assert.match(homeSource, /let homeSeriesRequestGeneration = 0/, 'home private series loads must have a generation')
-assert.match(homeSource, /String\(authStore\.user\?\.uid \?\? ''\) === ownerUid/, 'home private series responses must verify the owner uid snapshot')
 assert.match(homeSource, /const domainSnapshot = activeDomain\.value/, 'home side-feed loads must snapshot the active domain')
 assert.match(homeSource, /requestId !== homePreviewRequestId \|\| activeDomain\.value !== domainSnapshot/, 'home side-feed responses must verify request and domain freshness')
-assert.match(homeSource, /watch\(\[\(\) => authStore\.isLoggedIn, \(\) => authStore\.user\?\.uid\]/, 'home private series must refresh on account switches')
+assert.match(homeSource, /watch\(\[\(\) => authStore\.isLoggedIn, \(\) => authStore\.user\?\.uid\]/, 'home account-scoped panels must refresh on account switches')
 
 assert.match(tagSource, /let tagLoadGeneration = 0/, 'tag route loads must have a generation')
 assert.match(tagSource, /let postRequestGeneration = 0/, 'tag post filters must have an independent generation')

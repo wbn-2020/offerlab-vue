@@ -58,6 +58,18 @@
           </div>
         </section>
 
+        <CommunitySpacePanel
+          space-type="collection"
+          :identifier="collectionId"
+          :title="`${collection.title}公共空间`"
+        />
+
+        <UpdateDigestPanel
+          source-type="COLLECTION"
+          :source-id="collectionId"
+          title="我关注的合集更新"
+        />
+
         <section class="mt-6 space-y-4">
           <div class="section-title">
             <div>
@@ -110,6 +122,8 @@ import type { ApiId, Post } from '@/api/types'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import CommunitySpacePanel from '@/components/community/CommunitySpacePanel.vue'
+import UpdateDigestPanel from '@/components/retention/UpdateDigestPanel.vue'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import { filterVisiblePosts, isPublicCollectionVisible } from '@/utils/recommendationGovernance'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'

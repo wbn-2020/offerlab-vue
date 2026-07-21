@@ -36,6 +36,7 @@ export interface ContentMaintenanceTask {
   canSubmit: boolean
   canReview: boolean
   canClose: boolean
+  canReassign: boolean
   claimedAt?: string | null
   submittedAt?: string | null
   reviewedByUid?: ApiId | null
@@ -75,6 +76,11 @@ export interface ContentMaintenanceTaskReviewCmd {
   note: string
 }
 
+export interface ContentMaintenanceTaskReassignCmd {
+  replacementUid: ApiId
+  reason: string
+}
+
 const requestResult = <T>(request: Promise<unknown>) => request as Promise<Result<T>>
 const id = (value: ApiId) => encodeURIComponent(String(value))
 
@@ -91,6 +97,8 @@ export const contentMaintenanceApi = {
     requestResult<ContentMaintenanceTask>(client.post(`${BASE_PATH}/${id(taskId)}/submit`, cmd)),
   review: (taskId: ApiId, cmd: ContentMaintenanceTaskReviewCmd) =>
     requestResult<ContentMaintenanceTask>(client.post(`${BASE_PATH}/${id(taskId)}/review`, cmd)),
+  reassign: (taskId: ApiId, cmd: ContentMaintenanceTaskReassignCmd) =>
+    requestResult<ContentMaintenanceTask>(client.post(`${BASE_PATH}/${id(taskId)}/reassign`, cmd)),
   close: (taskId: ApiId, note: string) =>
     requestResult<ContentMaintenanceTask>(client.post(`${BASE_PATH}/${id(taskId)}/close`, {
       decision: 'CLOSED',

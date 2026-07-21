@@ -317,6 +317,162 @@
           </div>
         </section>
 
+        <section id="references" class="post-reference-editor mx-4" aria-labelledby="post-reference-editor-title">
+          <div class="post-reference-editor-head">
+            <div>
+              <p class="post-reference-kicker">来源维护</p>
+              <h2 id="post-reference-editor-title">来源与证据清单</h2>
+              <span v-if="isEditing">可在这里新增、编辑或删除这篇帖子的公开来源；来源不会改变正文发布流程。</span>
+              <span v-else>新建帖子尚未生成 postId，来源暂不可维护。请先发布内容，再回到编辑页补充来源。</span>
+            </div>
+            <button
+              v-if="isEditing"
+              type="button"
+              class="post-reference-icon-button"
+              title="刷新来源清单"
+              aria-label="刷新来源清单"
+              :disabled="postReferencesLoading || postReferenceSaving"
+              @click="loadPostReferences()"
+            >
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': postReferencesLoading }" />
+            </button>
+          </div>
+
+          <template v-if="isEditing">
+            <p v-if="postReferenceError" class="post-reference-error" role="alert">{{ postReferenceError }}</p>
+
+            <form v-if="postReferenceEditing" class="post-reference-form" @submit.prevent="savePostReference">
+              <div class="post-reference-form-grid">
+                <label>
+                  <span>来源标题</span>
+                  <input
+                    v-model.trim="postReferenceDraft.title"
+                    type="text"
+                    maxlength="255"
+                    placeholder="例如：官方文档或公开报告"
+                    required
+                  >
+                </label>
+                <label>
+                  <span>来源类型</span>
+                  <select v-model="postReferenceDraft.referenceType">
+                    <option v-for="item in postReferenceTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+                  </select>
+                </label>
+                <label class="post-reference-form-wide">
+                  <span>公开链接</span>
+                  <input
+                    v-model.trim="postReferenceDraft.url"
+                    type="url"
+                    maxlength="2048"
+                    placeholder="https://..."
+                    required
+                  >
+                </label>
+                <label>
+                  <span>状态</span>
+                  <select v-model="postReferenceDraft.referenceStatus">
+                    <option value="ACTIVE">可访问</option>
+                    <option value="BROKEN">需要核查</option>
+                  </select>
+                </label>
+                <label class="post-reference-form-wide">
+                  <span>备注 <small>可选</small></span>
+                  <textarea v-model.trim="postReferenceDraft.note" rows="2" maxlength="1000" placeholder="说明这条来源支持了正文中的哪一部分" />
+                </label>
+                <label v-if="postReferenceDraft.referenceStatus === 'BROKEN'" class="post-reference-form-wide">
+                  <span>失效原因 <small>可选</small></span>
+                  <input v-model.trim="postReferenceDraft.brokenReason" maxlength="500" placeholder="例如：链接需要登录或页面已移除">
+                </label>
+              </div>
+              <div class="post-reference-form-actions">
+                <button type="button" class="post-reference-secondary-button" :disabled="postReferenceSaving" @click="cancelPostReferenceEdit">
+                  <X class="h-4 w-4" />
+                  取消
+                </button>
+                <button type="submit" class="post-reference-primary-button" :disabled="postReferenceSaving">
+                  <Loader2 v-if="postReferenceSaving" class="h-4 w-4 animate-spin" />
+                  <Save v-else class="h-4 w-4" />
+                  {{ postReferenceSaving ? '保存中...' : postReferenceEditingId ? '保存修改' : '添加来源' }}
+                </button>
+              </div>
+            </form>
+
+            <div v-else class="post-reference-toolbar">
+              <p v-if="postReferencesLoading" role="status">正在读取来源清单...</p>
+              <p v-else-if="!postReferences.length">还没有来源。补充可核对的公开链接，有助于读者理解内容依据。</p>
+              <p v-else>共 {{ postReferences.length }} 条来源，按服务端保存顺序展示。</p>
+              <button type="button" class="post-reference-primary-button" :disabled="postReferenceSaving" @click="startNewPostReference">
+                <Plus class="h-4 w-4" />
+                添加来源
+              </button>
+            </div>
+
+            <ul v-if="!postReferencesLoading && postReferences.length" class="post-reference-list">
+              <li v-for="item in sortedPostReferences" :key="item.id" class="post-reference-item">
+                <div class="post-reference-item-main">
+                  <div class="post-reference-item-title-row">
+                    <a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                    <ExternalLink class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </div>
+                  <p class="post-reference-meta">
+                    <span>{{ postReferenceTypeLabel(item.referenceType) }}</span>
+                    <span>{{ item.sourceDomain || '来源域名待识别' }}</span>
+                    <span :class="item.referenceStatus === 'BROKEN' ? 'post-reference-status-broken' : 'post-reference-status-active'">
+                      {{ postReferenceStatusLabel(item.referenceStatus) }}
+                    </span>
+                  </p>
+                  <p v-if="item.note" class="post-reference-note">{{ item.note }}</p>
+                  <p v-if="item.brokenReason" class="post-reference-broken-reason">{{ item.brokenReason }}</p>
+                </div>
+                <div class="post-reference-item-actions">
+                  <button
+                    type="button"
+                    class="post-reference-icon-button"
+                    title="上移来源"
+                    :aria-label="`上移来源：${item.title}`"
+                    :disabled="postReferenceSaving || sortedPostReferences[0]?.id === item.id"
+                    @click="movePostReference(item.id, -1)"
+                  >
+                    <ArrowUp class="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    class="post-reference-icon-button"
+                    title="下移来源"
+                    :aria-label="`下移来源：${item.title}`"
+                    :disabled="postReferenceSaving || sortedPostReferences[sortedPostReferences.length - 1]?.id === item.id"
+                    @click="movePostReference(item.id, 1)"
+                  >
+                    <ArrowDown class="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    class="post-reference-icon-button"
+                    title="编辑来源"
+                    :aria-label="`编辑来源：${item.title}`"
+                    :disabled="postReferenceSaving || postReferenceDeletingId === item.id"
+                    @click="startEditPostReference(item)"
+                  >
+                    <Pencil class="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    class="post-reference-icon-button post-reference-delete-button"
+                    title="删除来源"
+                    :aria-label="`删除来源：${item.title}`"
+                    :disabled="postReferenceSaving || postReferenceDeletingId === item.id"
+                    @click="deletePostReference(item)"
+                  >
+                    <Loader2 v-if="postReferenceDeletingId === item.id" class="h-4 w-4 animate-spin" />
+                    <Trash2 v-else class="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </template>
+        </section>
+
         <section class="mx-4 grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
           <div class="space-y-4">
             <EditorQualityChecklist
@@ -643,6 +799,13 @@ import { contentAssistApi, type ContentAssistRequest } from '@/api/contentAssist
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { postApi, type PostDraft } from '@/api/post'
 import {
+  postReferenceApi,
+  type PostReference,
+  type PostReferenceStatus,
+  type PostReferenceType,
+  type PostReferenceWrite,
+} from '@/api/postReferences'
+import {
   trustedContentApi,
   type TrustProfile,
   type TrustProfileUpdateReq,
@@ -657,6 +820,7 @@ import {
   type EditorAssistTemplate,
   type EditorAssistTemplateCode,
 } from '@/data/editorAssistTemplates'
+import { ArrowDown, ArrowUp, ExternalLink, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import {
   describeEditorAssistContext,
@@ -744,6 +908,39 @@ const trustProfileMaxDateTime = computed(() => {
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
   return local.toISOString().slice(0, 16)
 })
+type PostReferenceDraft = {
+  referenceType: PostReferenceType
+  title: string
+  url: string
+  note: string
+  referenceStatus: PostReferenceStatus
+  brokenReason: string
+}
+const postReferenceTypeOptions: Array<{ value: PostReferenceType; label: string }> = [
+  { value: 'SOURCE', label: '资料来源' },
+  { value: 'EXAMPLE', label: '案例示例' },
+  { value: 'DATA', label: '数据依据' },
+  { value: 'FOLLOW_UP', label: '后续阅读' },
+]
+const emptyPostReferenceDraft = (): PostReferenceDraft => ({
+  referenceType: 'SOURCE',
+  title: '',
+  url: '',
+  note: '',
+  referenceStatus: 'ACTIVE',
+  brokenReason: '',
+})
+const postReferences = ref<PostReference[]>([])
+const postReferencesLoading = ref(false)
+const postReferenceError = ref('')
+const postReferenceEditing = ref(false)
+const postReferenceEditingId = ref('')
+const postReferenceSaving = ref(false)
+const postReferenceDeletingId = ref('')
+const postReferenceDraft = ref<PostReferenceDraft>(emptyPostReferenceDraft())
+const sortedPostReferences = computed(() => [...postReferences.value].sort((a, b) => (
+  Number(a.sortOrder) - Number(b.sortOrder)
+)))
 
 const formCoverFailedUrl = ref('')
 const formCoverHasFailed = computed(() => Boolean(form.value.coverUrl) && formCoverFailedUrl.value === form.value.coverUrl)
@@ -2086,6 +2283,169 @@ const loadTrustProfileForEditor = async (postId: string) => {
   }
 }
 
+const postReferenceTypeLabel = (type: PostReferenceType) => (
+  postReferenceTypeOptions.find((item) => item.value === type)?.label || '资料来源'
+)
+
+const postReferenceStatusLabel = (status: PostReferenceStatus) => (
+  status === 'BROKEN' ? '需要核查' : '可访问'
+)
+
+const cancelPostReferenceEdit = () => {
+  postReferenceEditing.value = false
+  postReferenceEditingId.value = ''
+  postReferenceDraft.value = emptyPostReferenceDraft()
+}
+
+const startNewPostReference = () => {
+  postReferenceError.value = ''
+  postReferenceEditingId.value = ''
+  postReferenceDraft.value = emptyPostReferenceDraft()
+  postReferenceEditing.value = true
+}
+
+const startEditPostReference = (item: PostReference) => {
+  postReferenceError.value = ''
+  postReferenceEditingId.value = item.id
+  postReferenceDraft.value = {
+    referenceType: item.referenceType,
+    title: item.title,
+    url: item.url,
+    note: item.note || '',
+    referenceStatus: item.referenceStatus,
+    brokenReason: item.brokenReason || '',
+  }
+  postReferenceEditing.value = true
+}
+
+const loadPostReferences = async (postId = currentPostId()) => {
+  if (!postId) {
+    postReferences.value = []
+    postReferenceError.value = ''
+    return
+  }
+  postReferencesLoading.value = true
+  postReferenceError.value = ''
+  try {
+    const res = await postReferenceApi.list(postId)
+    postReferences.value = res.data || []
+  } catch (error) {
+    postReferenceError.value = getErrorMessage(error, '来源清单暂时无法读取，仍可继续编辑正文。')
+  } finally {
+    postReferencesLoading.value = false
+  }
+}
+
+const validPostReferenceUrl = (value: string) => {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const savePostReference = async () => {
+  const postId = currentPostId()
+  if (!postId) {
+    postReferenceError.value = '帖子尚未生成 postId，请先发布内容后再维护来源。'
+    return
+  }
+  const draft = postReferenceDraft.value
+  const title = draft.title.trim()
+  const url = draft.url.trim()
+  if (!title) {
+    postReferenceError.value = '请填写来源标题。'
+    return
+  }
+  if (!validPostReferenceUrl(url)) {
+    postReferenceError.value = '请输入以 http:// 或 https:// 开头的公开链接。'
+    return
+  }
+
+  const editingItem = postReferenceEditingId.value
+    ? postReferences.value.find((item) => item.id === postReferenceEditingId.value)
+    : undefined
+  if (postReferenceEditingId.value && !editingItem) {
+    postReferenceError.value = '这条来源已发生变化，请刷新清单后重试。'
+    return
+  }
+
+  const body: PostReferenceWrite = {
+    referenceType: draft.referenceType,
+    title,
+    url,
+    note: draft.note.trim() || undefined,
+    referenceStatus: draft.referenceStatus,
+    brokenReason: draft.referenceStatus === 'BROKEN' ? draft.brokenReason.trim() || undefined : undefined,
+    expectedRevision: editingItem?.revision,
+  }
+  postReferenceSaving.value = true
+  postReferenceError.value = ''
+  try {
+    const res = editingItem
+      ? await postReferenceApi.update(postId, editingItem.id, body)
+      : await postReferenceApi.create(postId, body)
+    if (res.data) {
+      postReferences.value = editingItem
+        ? postReferences.value.map((item) => item.id === res.data?.id ? res.data : item)
+        : [...postReferences.value, res.data]
+    } else {
+      await loadPostReferences(postId)
+    }
+    cancelPostReferenceEdit()
+    toast.success(editingItem ? '来源已更新' : '来源已添加')
+  } catch (error) {
+    postReferenceError.value = getErrorMessage(error, editingItem ? '来源更新失败，请重试。' : '来源添加失败，请重试。')
+  } finally {
+    postReferenceSaving.value = false
+  }
+}
+
+const deletePostReference = async (item: PostReference) => {
+  const postId = currentPostId()
+  if (!postId || postReferenceDeletingId.value) return
+  if (!window.confirm(`确认删除来源“${item.title}”？此操作不会删除帖子正文。`)) return
+  postReferenceDeletingId.value = item.id
+  postReferenceError.value = ''
+  try {
+    await postReferenceApi.remove(postId, item.id, item.revision)
+    postReferences.value = postReferences.value.filter((reference) => reference.id !== item.id)
+    if (postReferenceEditingId.value === item.id) cancelPostReferenceEdit()
+    toast.success('来源已删除')
+  } catch (error) {
+    postReferenceError.value = getErrorMessage(error, '来源删除失败，请刷新后重试。')
+  } finally {
+    postReferenceDeletingId.value = ''
+  }
+}
+
+const movePostReference = async (referenceId: string, direction: -1 | 1) => {
+  const postId = currentPostId()
+  if (!postId || postReferenceSaving.value) return
+  const ordered = [...sortedPostReferences.value]
+  const index = ordered.findIndex((item) => item.id === referenceId)
+  const targetIndex = index + direction
+  if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) return
+  const [moved] = ordered.splice(index, 1)
+  if (!moved) return
+  ordered.splice(targetIndex, 0, moved)
+  postReferenceSaving.value = true
+  postReferenceError.value = ''
+  try {
+    const res = await postReferenceApi.reorder(postId, ordered.map((item) => ({
+      referenceId: item.id,
+      expectedRevision: item.revision,
+    })))
+    postReferences.value = res.data || []
+  } catch (error) {
+    postReferenceError.value = getErrorMessage(error, '来源排序失败，请刷新后重试。')
+    await loadPostReferences(postId)
+  } finally {
+    postReferenceSaving.value = false
+  }
+}
+
 const saveTrustProfileAfterPost = async (postId: string) => {
   if (!trustProfileEnabled.value) return
   const draft = trustProfileDraft.value
@@ -2142,7 +2502,10 @@ const loadPostForEdit = async (postId: string) => {
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
     selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)
-    await loadTrustProfileForEditor(postId)
+    await Promise.all([
+      loadTrustProfileForEditor(postId),
+      loadPostReferences(postId),
+    ])
     markDraftClean()
     return true
   } catch (error) {
@@ -2302,7 +2665,7 @@ const publishPost = async () => {
         } else {
           toast.warning(reviewRequired ? '内容已提交审核，但合集暂未同步' : '内容已保存，但合集暂未同步，可稍后在合集工作台重试')
         }
-        router.push(reviewRequired ? '/me' : { path: `/post/${postId}`, query: { published: '1' } })
+        router.push(postPublishDestination(postId, reviewRequired))
       } else {
         toast.error(getResultMessage(res, '保存失败'))
       }
@@ -2326,7 +2689,7 @@ const publishPost = async () => {
       } else {
         toast.warning(reviewRequired ? '内容已提交审核，但合集暂未同步' : '内容已发布，但合集暂未同步，可稍后在合集工作台重试')
       }
-      router.push(reviewRequired || !createdPostId ? '/me' : { path: `/post/${createdPostId}`, query: { published: '1' } })
+      router.push(postPublishDestination(createdPostId, reviewRequired))
     } else {
       toast.error(getResultMessage(res, `${isEditing.value ? '保存' : '发布'}失败`))
     }
@@ -2455,6 +2818,34 @@ const safeReturnPath = () => {
     typeof document !== 'undefined' ? document.referrer : '',
   ]
   return candidates.map(normalizeSameSitePath).find(Boolean) || fallbackReturnPath.value
+}
+
+const collaborationDeliveryReturnPath = (postId: string | undefined, reviewRequired: boolean) => {
+  const context = editorAssistContext.value
+  if (context?.source !== 'collaboration_need' || !context.needId) return ''
+  const base = normalizeSameSitePath(context.returnHref) || `/collaboration/needs/${encodeURIComponent(context.needId)}`
+  const [pathAndQuery, hash = ''] = base.split('#', 2)
+  const [pathname, rawQuery = ''] = pathAndQuery.split('?', 2)
+  const query = new URLSearchParams(rawQuery)
+  if (reviewRequired || !postId) {
+    query.delete('deliveryType')
+    query.delete('deliveryId')
+    query.set('deliveryPendingReview', '1')
+  } else {
+    query.delete('deliveryPendingReview')
+    query.set('deliveryType', 'POST')
+    query.set('deliveryId', postId)
+  }
+  const suffix = query.toString()
+  return `${pathname}${suffix ? `?${suffix}` : ''}${hash ? `#${hash}` : ''}`
+}
+
+const postPublishDestination = (postId: string | undefined, reviewRequired: boolean) => {
+  const collaborationReturn = collaborationDeliveryReturnPath(postId, reviewRequired)
+  if (collaborationReturn) return collaborationReturn
+  return reviewRequired || !postId
+    ? '/me'
+    : { path: `/post/${postId}`, query: { published: '1' } }
 }
 
 const goBack = () => {
@@ -2767,6 +3158,283 @@ onBeforeUnmount(() => {
 .public-update-fields select:focus {
   border-color: rgb(5 150 105);
   box-shadow: 0 0 0 2px rgb(167 243 208 / 0.6);
+}
+
+.post-reference-editor {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 1rem;
+}
+
+.post-reference-editor-head,
+.post-reference-toolbar,
+.post-reference-item,
+.post-reference-item-title-row,
+.post-reference-item-actions,
+.post-reference-form-actions,
+.post-reference-primary-button,
+.post-reference-secondary-button,
+.post-reference-icon-button {
+  display: flex;
+  align-items: center;
+}
+
+.post-reference-editor-head,
+.post-reference-toolbar,
+.post-reference-item {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.post-reference-editor-head {
+  align-items: flex-start;
+}
+
+.post-reference-kicker {
+  color: rgb(37 99 235);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.post-reference-editor-head h2 {
+  margin-top: 0.15rem;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.post-reference-editor-head span,
+.post-reference-toolbar p {
+  margin-top: 0.25rem;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.post-reference-error {
+  border-radius: 0.5rem;
+  background: rgb(255 241 242);
+  padding: 0.65rem 0.75rem;
+  color: rgb(190 18 60);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.post-reference-form {
+  display: grid;
+  gap: 0.85rem;
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.9rem;
+}
+
+.post-reference-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.45fr);
+  gap: 0.75rem;
+}
+
+.post-reference-form-grid label {
+  display: grid;
+  gap: 0.4rem;
+  color: rgb(51 65 85);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.post-reference-form-grid label > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.post-reference-form-grid small {
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.post-reference-form-grid input,
+.post-reference-form-grid select,
+.post-reference-form-grid textarea {
+  width: 100%;
+  border: 1px solid rgb(148 163 184);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.65rem 0.75rem;
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.post-reference-form-grid textarea {
+  resize: vertical;
+}
+
+.post-reference-form-grid input:focus,
+.post-reference-form-grid select:focus,
+.post-reference-form-grid textarea:focus {
+  border-color: rgb(37 99 235);
+  box-shadow: 0 0 0 2px rgb(191 219 254 / 0.7);
+}
+
+.post-reference-form-wide {
+  grid-column: 1 / -1;
+}
+
+.post-reference-form-actions {
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.post-reference-primary-button,
+.post-reference-secondary-button,
+.post-reference-icon-button {
+  min-height: 2.35rem;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.post-reference-primary-button {
+  border: 1px solid rgb(37 99 235);
+  background: rgb(37 99 235);
+  padding: 0.5rem 0.8rem;
+  color: white;
+}
+
+.post-reference-primary-button:hover:not(:disabled) {
+  border-color: rgb(29 78 216);
+  background: rgb(29 78 216);
+}
+
+.post-reference-secondary-button,
+.post-reference-icon-button {
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.post-reference-secondary-button {
+  padding: 0.5rem 0.8rem;
+}
+
+.post-reference-icon-button {
+  width: 2.35rem;
+  flex: 0 0 2.35rem;
+}
+
+.post-reference-secondary-button:hover:not(:disabled),
+.post-reference-icon-button:hover:not(:disabled) {
+  border-color: rgb(147 197 253);
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
+.post-reference-delete-button:hover:not(:disabled) {
+  border-color: rgb(253 164 175);
+  background: rgb(255 241 242);
+  color: rgb(190 18 60);
+}
+
+.post-reference-primary-button:disabled,
+.post-reference-secondary-button:disabled,
+.post-reference-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.post-reference-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.post-reference-item {
+  align-items: flex-start;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.8rem;
+}
+
+.post-reference-item-main {
+  min-width: 0;
+}
+
+.post-reference-item-title-row {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  color: rgb(37 99 235);
+}
+
+.post-reference-item-title-row a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.post-reference-meta {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+}
+
+.post-reference-meta > span:not(:last-child)::after {
+  margin-left: 0.35rem;
+  content: "·";
+  color: rgb(148 163 184);
+}
+
+.post-reference-status-active,
+.post-reference-status-broken {
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-weight: 800;
+}
+
+.post-reference-status-active {
+  background: rgb(220 252 231);
+  color: rgb(22 101 52);
+}
+
+.post-reference-status-broken {
+  background: rgb(254 249 195);
+  color: rgb(133 77 14);
+}
+
+.post-reference-note,
+.post-reference-broken-reason {
+  margin-top: 0.4rem;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.post-reference-note {
+  color: rgb(71 85 105);
+}
+
+.post-reference-broken-reason {
+  color: rgb(180 83 9);
+  font-weight: 700;
+}
+
+.post-reference-item-actions {
+  flex: 0 0 auto;
+  gap: 0.4rem;
 }
 
 .editor-assist-context p,
@@ -3502,6 +4170,86 @@ onBeforeUnmount(() => {
   color: rgb(248 250 252);
 }
 
+.dark .post-reference-editor {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+}
+
+.dark .post-reference-editor-head h2 {
+  color: rgb(248 250 252);
+}
+
+.dark .post-reference-editor-head span,
+.dark .post-reference-toolbar p,
+.dark .post-reference-note {
+  color: rgb(203 213 225);
+}
+
+.dark .post-reference-error {
+  background: rgb(69 10 10 / 0.55);
+  color: rgb(254 202 202);
+}
+
+.dark .post-reference-form,
+.dark .post-reference-item {
+  background: rgb(2 6 23);
+}
+
+.dark .post-reference-item {
+  border-color: rgb(51 65 85);
+}
+
+.dark .post-reference-form-grid label {
+  color: rgb(226 232 240);
+}
+
+.dark .post-reference-form-grid small,
+.dark .post-reference-meta {
+  color: rgb(148 163 184);
+}
+
+.dark .post-reference-form-grid input,
+.dark .post-reference-form-grid select,
+.dark .post-reference-form-grid textarea {
+  border-color: rgb(71 85 105);
+  background: rgb(15 23 42);
+  color: rgb(248 250 252);
+}
+
+.dark .post-reference-secondary-button,
+.dark .post-reference-icon-button {
+  border-color: rgb(71 85 105);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .post-reference-secondary-button:hover:not(:disabled),
+.dark .post-reference-icon-button:hover:not(:disabled) {
+  border-color: rgb(59 130 246);
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .post-reference-delete-button:hover:not(:disabled) {
+  border-color: rgb(190 18 60);
+  background: rgb(76 5 25);
+  color: rgb(254 205 211);
+}
+
+.dark .post-reference-status-active {
+  background: rgb(20 83 45);
+  color: rgb(187 247 208);
+}
+
+.dark .post-reference-status-broken {
+  background: rgb(113 63 18);
+  color: rgb(254 240 138);
+}
+
+.dark .post-reference-broken-reason {
+  color: rgb(253 186 116);
+}
+
 .dark .editor-assist-context a,
 .dark .template-select,
 .dark .template-helper .template-chip {
@@ -3735,6 +4483,47 @@ onBeforeUnmount(() => {
 
   .public-update-fields {
     grid-template-columns: 1fr;
+  }
+
+  .post-reference-editor {
+    margin-inline: 0;
+  }
+
+  .post-reference-editor-head,
+  .post-reference-toolbar,
+  .post-reference-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .post-reference-editor-head > .post-reference-icon-button {
+    align-self: flex-end;
+  }
+
+  .post-reference-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .post-reference-form-wide {
+    grid-column: auto;
+  }
+
+  .post-reference-toolbar .post-reference-primary-button {
+    width: 100%;
+  }
+
+  .post-reference-item-actions {
+    justify-content: flex-end;
+  }
+
+  .post-reference-form-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .post-reference-form-actions button {
+    min-height: 44px;
+    width: 100%;
   }
 
   .editor-assist-context a,

@@ -455,6 +455,7 @@
         </section>
 
         <CommunityGrowthGovernanceWorkspace />
+        <CommunityRoleWorkspace />
 
         <section id="roles" class="workspace-panel scroll-mt-24" :aria-busy="roleState.loading">
           <div class="panel-header">
@@ -601,6 +602,7 @@ import {
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import CommunityGrowthGovernanceWorkspace from '@/components/incentive/CommunityGrowthGovernanceWorkspace.vue'
+import CommunityRoleWorkspace from '@/components/incentive/CommunityRoleWorkspace.vue'
 import { getErrorMessage } from '@/api/client'
 import {
   incentiveApi,
@@ -1892,97 +1894,97 @@ onMounted(refreshAll)
   }
 }
 
-:global(.dark) .community-growth-page {
+.dark .community-growth-page {
   background: rgb(2 6 23);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .workspace-panel,
-:global(.dark) .policy-band,
-:global(.dark) .section-nav a,
-:global(.dark) .secondary-button,
-:global(.dark) .icon-button,
-:global(.dark) .field-input,
-:global(.dark) .quantity-input {
+.dark .workspace-panel,
+.dark .policy-band,
+.dark .section-nav a,
+.dark .secondary-button,
+.dark .icon-button,
+.dark .field-input,
+.dark .quantity-input {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
 }
 
-:global(.dark) .thank-signal-grid > div {
+.dark .thank-signal-grid > div {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23 / 0.6);
 }
 
-:global(.dark) .thank-signal-grid strong {
+.dark .thank-signal-grid strong {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .asset-card,
-:global(.dark) .benefit-card,
-:global(.dark) .form-column,
-:global(.dark) .empty-state {
+.dark .asset-card,
+.dark .benefit-card,
+.dark .form-column,
+.dark .empty-state {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23 / 0.72);
 }
 
-:global(.dark) .panel-header h2,
-:global(.dark) .policy-band strong,
-:global(.dark) .asset-title strong,
-:global(.dark) .asset-values dd,
-:global(.dark) .row-title strong,
-:global(.dark) .block-title,
-:global(.dark) .benefit-card h3,
-:global(.dark) .subsection-heading strong,
-:global(.dark) .form-column h3,
-:global(.dark) .mini-history strong,
-:global(.dark) .eligibility-panel dd {
+.dark .panel-header h2,
+.dark .policy-band strong,
+.dark .asset-title strong,
+.dark .asset-values dd,
+.dark .row-title strong,
+.dark .block-title,
+.dark .benefit-card h3,
+.dark .subsection-heading strong,
+.dark .form-column h3,
+.dark .mini-history strong,
+.dark .eligibility-panel dd {
   color: rgb(248 250 252);
 }
 
-:global(.dark) .policy-band p,
-:global(.dark) .panel-header p,
-:global(.dark) .dense-row p,
-:global(.dark) .benefit-card p,
-:global(.dark) .field-label,
-:global(.dark) .form-hint {
+.dark .policy-band p,
+.dark .panel-header p,
+.dark .dense-row p,
+.dark .benefit-card p,
+.dark .field-label,
+.dark .form-hint {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .dense-row,
-:global(.dark) .asset-values div,
-:global(.dark) .eligibility-panel dl div,
-:global(.dark) .section-divider,
-:global(.dark) .form-history-heading,
-:global(.dark) .mini-history > div {
+.dark .dense-row,
+.dark .asset-values div,
+.dark .eligibility-panel dl div,
+.dark .section-divider,
+.dark .form-history-heading,
+.dark .mini-history > div {
   border-color: rgb(51 65 85);
 }
 
-:global(.dark) .selected-row {
+.dark .selected-row {
   border-color: rgb(99 102 241);
   background: rgb(30 27 75 / 0.5);
 }
 
-:global(.dark) .error-state {
+.dark .error-state {
   border-color: rgb(127 29 29);
   background: rgb(69 10 10 / 0.4);
   color: rgb(254 202 202);
 }
 
-:global(.dark) .eligibility-ok {
+.dark .eligibility-ok {
   border-color: rgb(22 101 52);
   background: rgb(20 83 45 / 0.35);
   color: rgb(187 247 208);
 }
 
-:global(.dark) .eligibility-blocked {
+.dark .eligibility-blocked {
   border-color: rgb(146 64 14);
   background: rgb(120 53 15 / 0.3);
   color: rgb(253 230 138);
 }
 
-:global(.dark) .skeleton-card,
-:global(.dark) .skeleton-row {
+.dark .skeleton-card,
+.dark .skeleton-row {
   background: rgb(30 41 59);
 }
 </style>

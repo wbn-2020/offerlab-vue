@@ -10,8 +10,13 @@ const adapters = readFileSync(new URL('../src/api/adapters.ts', import.meta.url)
 assert.match(homeView, />\s*综合\s*</, 'HomeView must expose a 综合 entry')
 assert.match(
   homeView,
-  /<router-link[\s\S]*?to="\/"[\s\S]*?>[\s\S]*?综合[\s\S]*?<\/router-link>/,
-  'The 综合 entry must route to / without a domain query',
+  /<router-link[\s\S]*?:to="homeDomainLocation\(\)"[\s\S]*?>[\s\S]*?综合[\s\S]*?<\/router-link>/,
+  'The 综合 entry must clear domain through the route-state helper',
+)
+assert.match(
+  homeView,
+  /const homeDomainLocation[\s\S]*feed:\s*activeFeed\.value[\s\S]*\.\.\.\(domain\s*\?\s*\{\s*domain:/,
+  'Domain links must preserve the selected feed while omitting an empty domain query',
 )
 assert.match(
   homeView,

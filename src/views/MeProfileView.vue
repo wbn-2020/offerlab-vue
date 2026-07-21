@@ -56,6 +56,10 @@
               <ListChecks class="h-4 w-4" />
               维护任务
             </RouterLink>
+            <RouterLink to="/me/knowledge" class="secondary-button shrink-0">
+              <ListChecks class="h-4 w-4" />
+              知识维护
+            </RouterLink>
             <RouterLink to="/me/settings" class="secondary-button shrink-0">
               <Settings class="h-4 w-4" />
               编辑资料

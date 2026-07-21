@@ -66,6 +66,20 @@
         </div>
       </section>
 
+      <CommunitySpacePanel
+        v-if="topicReady && !isCuratedTopic"
+        space-type="topic"
+        :identifier="topicSlug"
+        :title="`${currentTopicTitle}公共空间`"
+      />
+
+      <UpdateDigestPanel
+        v-if="topicReady && !isCuratedTopic"
+        source-type="TOPIC"
+        :source-id="topicSlug"
+        title="我关注的主题更新"
+      />
+
       <section v-if="topicReady && !isCuratedTopic" class="filter-panel">
         <div>
           <h2>话题内容</h2>
@@ -99,11 +113,11 @@
             <span>{{ curatedTopic.sourceNote }}</span>
             <span>{{ curatedTopic.sortNote }}</span>
           </div>
-          <section v-if="curatedTopic.status === 'ARCHIVED'" class="topic-knowledge-snapshot" aria-label="归档知识资产">
+          <section v-if="curatedTopic.status === 'ARCHIVED'" class="topic-archive-summary" aria-label="归档话题集合">
             <div>
-              <span class="status-pill status-archived">归档知识资产</span>
+              <span class="status-pill status-archived">已归档话题集合</span>
               <h2>{{ curatedTopic.title }}</h2>
-              <p>{{ curatedTopic.summary || '该话题集合作为公开归档快照继续提供复访入口。' }}</p>
+              <p>{{ curatedTopic.summary || '该话题集合保留归档时的公开版本，继续提供复访入口。' }}</p>
             </div>
             <dl>
               <div>
@@ -112,7 +126,7 @@
               </div>
               <div>
                 <dt>来源解释</dt>
-                <dd>{{ curatedTopic.sourceNote || '来自已发布话题集合快照。' }}</dd>
+                <dd>{{ curatedTopic.sourceNote || '来自已发布话题集合的归档公开版本。' }}</dd>
               </div>
             </dl>
           </section>
@@ -206,6 +220,8 @@ import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import CommunitySpacePanel from '@/components/community/CommunitySpacePanel.vue'
+import UpdateDigestPanel from '@/components/retention/UpdateDigestPanel.vue'
 import { postApi } from '@/api/post'
 import { topicDetailApi, type CuratedTopicDetail } from '@/api/topicDetail'
 import { usePostInteraction } from '@/composables/usePostInteraction'
@@ -294,7 +310,7 @@ const curatedLifecycleCopy = computed(() => {
       ? '部分内容暂时无法展示，当前仍可浏览已经公开的条目。'
       : '这里汇集经过整理的公开内容，收录理由和顺序会随主题维护更新。'
   }
-  if (curatedTopic.value.status === 'ARCHIVED') return '话题集合已归档，仍可作为公开资料浏览；内容顺序和理由来自历史快照。'
+  if (curatedTopic.value.status === 'ARCHIVED') return '话题集合已归档，仍可作为公开资料浏览；内容顺序和理由保留自归档时的公开版本。'
   if (curatedTopic.value.status === 'OFFLINE') return '话题集合已下线，当前不作为公开话题继续展示。'
   if (curatedTopic.value.status === 'DEGRADED') return '主题内容暂时无法完整展示，请稍后重试或浏览相近内容。'
   return ''
@@ -659,7 +675,7 @@ onUnmounted(() => {
   line-height: 1.55;
 }
 
-.topic-knowledge-snapshot {
+.topic-archive-summary {
   display: grid;
   gap: 1rem;
   border: 1px solid rgb(187 247 208);
@@ -668,33 +684,33 @@ onUnmounted(() => {
   padding: 1rem;
 }
 
-.topic-knowledge-snapshot h2 {
+.topic-archive-summary h2 {
   margin-top: 0.5rem;
   font-size: 1rem;
   font-weight: 900;
   color: rgb(20 83 45);
 }
 
-.topic-knowledge-snapshot p,
-.topic-knowledge-snapshot dd {
+.topic-archive-summary p,
+.topic-archive-summary dd {
   color: rgb(22 101 52);
   font-size: 0.8125rem;
   line-height: 1.6;
 }
 
-.topic-knowledge-snapshot dl {
+.topic-archive-summary dl {
   display: grid;
   gap: 0.75rem;
   margin: 0;
 }
 
-.topic-knowledge-snapshot dt {
+.topic-archive-summary dt {
   font-size: 0.72rem;
   font-weight: 900;
   color: rgb(21 128 61);
 }
 
-.topic-knowledge-snapshot dd {
+.topic-archive-summary dd {
   margin: 0.15rem 0 0;
 }
 

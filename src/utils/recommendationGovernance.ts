@@ -141,6 +141,53 @@ export const normalizeRecommendationReason = (reason?: string | null) => {
   return text.length > 28 ? `${text.slice(0, 27)}…` : text
 }
 
+const recommendationReasonCodeText: Record<string, string> = {
+  FOLLOWED_AUTHOR: '来自你关注的作者',
+  RULE_MATCH: '根据公开内容特征推荐',
+  RECENT_PUBLISHED: '按发布时间展示',
+  COMMUNITY_HOT: '近期社区互动较多',
+  CROSS_DOMAIN_MATCH: '来自相邻领域的公开内容',
+}
+
+const recommendationSourceText: Record<string, string> = {
+  FOLLOWING: '来自你关注的作者',
+  RECOMMEND: '根据公开内容特征推荐',
+  LATEST: '按发布时间展示',
+  HOT: '近期社区互动较多',
+  FEATURED: '由频道编辑整理',
+  CROSS_DOMAIN: '来自相邻领域的公开内容',
+}
+
+export const explainRecommendationReason = (
+  reasonText?: string | null,
+  reasonCode?: string | null,
+  sourceType?: string | null,
+) => {
+  const explicit = normalizeRecommendationReason(reasonText)
+  if (explicit) return explicit
+  const code = String(reasonCode || '').trim().toUpperCase()
+  if (recommendationReasonCodeText[code]) return recommendationReasonCodeText[code]
+  const source = String(sourceType || '').trim().toUpperCase()
+  return recommendationSourceText[source] || '基于公开内容信号展示'
+}
+
+export const explainFeedControl = (
+  reasonText?: string | null,
+  reasonCode?: string | null,
+  action?: string | null,
+) => {
+  const explicit = normalizeRecommendationReason(reasonText)
+  if (explicit) return explicit
+  const code = String(reasonCode || '').trim().toUpperCase()
+  if (code === 'FEEDBACK_PERSISTENCE_UNAVAILABLE') return '设置已在当前缓存中生效，持久化服务恢复前可能无法跨环境保留。'
+  if (code === 'FEEDBACK_READ_UNAVAILABLE') return '暂时无法读取已保存的信息流设置，请稍后重试。'
+  const normalizedAction = String(action || '').trim().toUpperCase()
+  if (normalizedAction === 'LESS_LIKE_THIS') return '已减少这个领域的同类内容'
+  if (normalizedAction === 'HIDE') return '已对当前账号隐藏这条内容'
+  if (normalizedAction === 'RESTORE') return '已恢复默认信息流设置'
+  return '当前账号的信息流偏好'
+}
+
 export const neutralizeHighRiskRecommendationReason = (reason?: string | null, item?: any) => {
   const normalized = normalizeRecommendationReason(reason)
   if (!normalized) return ''
