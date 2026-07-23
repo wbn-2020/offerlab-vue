@@ -10,6 +10,8 @@ export type KnowledgeActionType =
   | 'OUTCOME_REVISIT'
   | 'MAINTENANCE_TASK'
 
+export type KnowledgeActionItemType = KnowledgeActionType | 'UNKNOWN'
+
 export interface KnowledgeActionListQuery {
   cursor?: string
   size?: number
@@ -23,7 +25,7 @@ export interface KnowledgeMaintenanceRequestOptions {
 
 export interface KnowledgeActionItem {
   id: string
-  type: KnowledgeActionType
+  type: KnowledgeActionItemType
   title: string
   reason: string
   status: string
@@ -66,11 +68,11 @@ const recordOf = (raw: unknown): Record<string, unknown> => (
 
 const stringValue = (value: unknown) => value == null ? '' : String(value)
 
-const adaptActionType = (value: unknown): KnowledgeActionType => {
+const adaptActionType = (value: unknown): KnowledgeActionItemType => {
   const normalized = stringValue(value).trim().toUpperCase()
   return actionTypeSet.has(normalized)
     ? normalized as KnowledgeActionType
-    : 'MAINTENANCE_TASK'
+    : 'UNKNOWN'
 }
 
 const adaptCanonicalRoute = (value: unknown) => {

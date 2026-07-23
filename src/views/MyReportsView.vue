@@ -161,18 +161,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ExternalLink, FileText, Flag, Inbox, MessageCircle, RefreshCw, X } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { interactionApi, type UserReportListParams } from '@/api/interaction'
 import type { UserReportReceipt, UserReportSourceType } from '@/api/types'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import { useAuthStore } from '@/stores/auth'
 
 type FilterValue = 'all' | 'post' | 'comment' | 'contact' | 'pending' | 'processed' | 'unaccepted'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const filters = [
   { value: 'all', label: '全部', icon: Flag },
@@ -185,11 +187,13 @@ const filters = [
 ] as const
 
 const filterValues = new Set<FilterValue>(filters.map(item => item.value))
-const queryFilter = typeof route.query.filter === 'string' && filterValues.has(route.query.filter as FilterValue)
-  ? route.query.filter as FilterValue
-  : 'all'
+const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
+const readRouteFilter = (): FilterValue => {
+  const value = String(firstQueryValue(route.query.filter) || '').toLowerCase()
+  return filterValues.has(value as FilterValue) ? value as FilterValue : 'all'
+}
 
-const activeFilter = ref<FilterValue>(queryFilter)
+const activeFilter = ref<FilterValue>(readRouteFilter())
 const reports = ref<UserReportReceipt[]>([])
 const selectedReport = ref<UserReportReceipt | null>(null)
 const isLoading = ref(false)
@@ -199,6 +203,20 @@ const loadError = ref('')
 const detailError = ref('')
 const nextCursor = ref<string | undefined>()
 const hasMore = ref(false)
+let reportListRequestId = 0
+let reportDetailRequestId = 0
+let reportAccountGeneration = 0
+
+const currentReportAccountKey = () => (
+  `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
+)
+
+const reportAccountIsCurrent = (accountKey: string, accountGeneration: number) => (
+  authStore.isLoggedIn
+  && Boolean(authStore.user?.uid)
+  && accountGeneration === reportAccountGeneration
+  && accountKey === currentReportAccountKey()
+)
 
 const emptyTitle = computed(() => activeFilter.value === 'all' ? '暂时没有举报记录' : '当前筛选下没有举报记录')
 const emptyText = computed(() => {
@@ -209,38 +227,83 @@ const emptyText = computed(() => {
   return '你提交的帖子、评论或联系请求举报会在这里汇总，便于回看处理进度。'
 })
 
-const paramsForFilter = (cursor?: string): UserReportListParams => {
+const paramsForFilter = (filter: FilterValue, cursor?: string): UserReportListParams => {
   const params: UserReportListParams = { limit: 20, cursor }
-  if (activeFilter.value === 'post') params.sourceType = 'POST_REPORT'
-  if (activeFilter.value === 'comment') params.sourceType = 'COMMENT_REPORT'
-  if (activeFilter.value === 'contact') params.sourceType = 'CONTACT_REQUEST_REPORT'
-  if (activeFilter.value === 'pending') params.status = 'PROCESSING'
-  if (activeFilter.value === 'processed') params.status = 'ACTION_TAKEN'
-  if (activeFilter.value === 'unaccepted') params.status = 'NOT_ACCEPTED'
+  if (filter === 'post') params.sourceType = 'POST_REPORT'
+  if (filter === 'comment') params.sourceType = 'COMMENT_REPORT'
+  if (filter === 'contact') params.sourceType = 'CONTACT_REQUEST_REPORT'
+  if (filter === 'pending') params.status = 'PROCESSING'
+  if (filter === 'processed') params.status = 'ACTION_TAKEN'
+  if (filter === 'unaccepted') params.status = 'NOT_ACCEPTED'
   return params
 }
 
-const loadReports = async (append = false) => {
-  if (isLoading.value) return
-  isLoading.value = true
+const clearReportListState = () => {
+  reports.value = []
+  nextCursor.value = undefined
+  hasMore.value = false
   loadError.value = ''
+}
+
+const invalidateReportList = () => {
+  reportListRequestId += 1
+  isLoading.value = false
+  clearReportListState()
+}
+
+const resetReportAccountState = () => {
+  reportAccountGeneration += 1
+  reportDetailRequestId += 1
+  invalidateReportList()
+  detailLoading.value = false
+  drawerOpen.value = false
+  selectedReport.value = null
+  detailError.value = ''
+}
+
+const loadReports = async (append = false) => {
+  if (!authStore.isLoggedIn || !authStore.user?.uid) return
+  if (append && (!hasMore.value || isLoading.value)) return
+  const requestedFilter = activeFilter.value
+  const accountKey = currentReportAccountKey()
+  const accountGeneration = reportAccountGeneration
+  const requestId = ++reportListRequestId
+  if (!append) clearReportListState()
+  isLoading.value = true
   try {
-    const res = await interactionApi.listMyReports(paramsForFilter(append ? nextCursor.value : undefined))
+    const res = await interactionApi.listMyReports(
+      paramsForFilter(requestedFilter, append ? nextCursor.value : undefined),
+    )
+    if (
+      requestId !== reportListRequestId
+      || requestedFilter !== activeFilter.value
+      || !reportAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     const data = res.data
     reports.value = append ? [...reports.value, ...(data?.items || [])] : (data?.items || [])
     nextCursor.value = data?.nextCursor
     hasMore.value = Boolean(data?.hasMore)
   } catch (error) {
+    if (
+      requestId !== reportListRequestId
+      || requestedFilter !== activeFilter.value
+      || !reportAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     if (!append) reports.value = []
     loadError.value = getErrorMessage(error, '举报记录暂时不可用，请稍后再试。')
   } finally {
-    isLoading.value = false
+    if (
+      requestId === reportListRequestId
+      && requestedFilter === activeFilter.value
+      && reportAccountIsCurrent(accountKey, accountGeneration)
+    ) {
+      isLoading.value = false
+    }
   }
 }
 
 const reloadReports = () => {
-  nextCursor.value = undefined
-  hasMore.value = false
+  invalidateReportList()
   return loadReports(false)
 }
 
@@ -260,44 +323,76 @@ const routeReportId = () => {
 const openRouteReport = async () => {
   const sourceType = routeReportSourceType()
   const reportId = routeReportId()
-  if (!sourceType || !reportId) return
+  if (!sourceType || !reportId || !authStore.isLoggedIn || !authStore.user?.uid) return
+  const accountKey = currentReportAccountKey()
+  const accountGeneration = reportAccountGeneration
+  const requestId = ++reportDetailRequestId
   drawerOpen.value = true
   selectedReport.value = null
   detailError.value = ''
   detailLoading.value = true
   try {
     const res = await interactionApi.getMyReportDetail(sourceType, reportId)
+    if (
+      requestId !== reportDetailRequestId
+      || !reportAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     if (res.data) selectedReport.value = res.data
   } catch (error) {
+    if (
+      requestId !== reportDetailRequestId
+      || !reportAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     detailError.value = getErrorMessage(error, '详情暂时不可用，请稍后再试。')
   } finally {
-    detailLoading.value = false
+    if (
+      requestId === reportDetailRequestId
+      && reportAccountIsCurrent(accountKey, accountGeneration)
+    ) {
+      detailLoading.value = false
+    }
   }
 }
 
 const setFilter = async (filter: FilterValue) => {
-  if (activeFilter.value === filter) return
-  activeFilter.value = filter
+  if (activeFilter.value === filter && readRouteFilter() === filter) return
   await router.replace({ query: { ...route.query, filter: filter === 'all' ? undefined : filter } })
-  await reloadReports()
 }
 
 const openReport = async (report: UserReportReceipt) => {
+  if (!authStore.isLoggedIn || !authStore.user?.uid) return
+  const accountKey = currentReportAccountKey()
+  const accountGeneration = reportAccountGeneration
+  const requestId = ++reportDetailRequestId
   selectedReport.value = report
   drawerOpen.value = true
   detailError.value = ''
   detailLoading.value = true
   try {
     const res = await interactionApi.getMyReportDetail(report.sourceType, report.reportId)
+    if (
+      requestId !== reportDetailRequestId
+      || !reportAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     if (res.data) selectedReport.value = res.data
   } catch (error) {
+    if (
+      requestId !== reportDetailRequestId
+      || !reportAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     detailError.value = getErrorMessage(error, '详情暂时不可用，请稍后再试。')
   } finally {
-    detailLoading.value = false
+    if (
+      requestId === reportDetailRequestId
+      && reportAccountIsCurrent(accountKey, accountGeneration)
+    ) {
+      detailLoading.value = false
+    }
   }
 }
 
 const closeDrawer = () => {
+  reportDetailRequestId += 1
   drawerOpen.value = false
   selectedReport.value = null
   detailError.value = ''
@@ -359,8 +454,29 @@ const formatReportTime = (value?: string | number) => {
   })
 }
 
+watch(
+  () => firstQueryValue(route.query.filter),
+  () => {
+    activeFilter.value = readRouteFilter()
+    invalidateReportList()
+    void loadReports(false)
+  },
+  { immediate: true },
+)
+
+watch(
+  [() => authStore.user?.uid, () => authStore.token],
+  ([uid, token], [previousUid, previousToken]) => {
+    if (uid === previousUid && token === previousToken) return
+    resetReportAccountState()
+    if (uid && token) {
+      void loadReports(false)
+      void openRouteReport()
+    }
+  },
+)
+
 onMounted(() => {
-  void loadReports(false)
   void openRouteReport()
 })
 </script>

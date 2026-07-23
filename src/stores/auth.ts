@@ -13,6 +13,13 @@ export type AuthHydrationState =
 
 const SESSION_EXPIRED_KEY = 'offerlab.auth.session-expired'
 
+interface AuthHydrationOwner {
+  requestId: number
+  token: string
+  sessionVersion: number
+  sessionGeneration: number
+}
+
 const isAuthExpiredError = (error: unknown) => {
   const candidate = error as {
     code?: unknown
@@ -38,6 +45,10 @@ const writeSessionExpiredMarker = () => {
   })
 }
 
+const clearSessionExpiredMarker = () => {
+  safeStorage.sessionRemove(SESSION_EXPIRED_KEY)
+}
+
 const hydrateFailureText = (error: unknown) => {
   const candidate = error as { message?: unknown; response?: { status?: unknown } } | null | undefined
   if (Number(candidate?.response?.status || 0) >= 500) return '账号服务暂时不可用，请重试。'
@@ -57,10 +68,42 @@ export const useAuthStore = defineStore('auth', () => {
   )
   const hydrationError = ref('')
   let hydratePromise: Promise<void> | null = null
+  let hydratePromiseOwner: AuthHydrationOwner | null = null
+  let hydrateRequestId = 0
+  let sessionGeneration = 0
 
   const isLoggedIn = computed(() => !!user.value && !!token.value)
   const sessionExpired = computed(() => hydrationState.value === 'expired')
   const hydrateFailed = computed(() => hydrationState.value === 'failed')
+
+  const getSessionGeneration = () => sessionGeneration
+
+  const ownsSession = (
+    expectedToken: string,
+    expectedVersion: number,
+    expectedGeneration: number,
+  ) => (
+    token.value === expectedToken
+    && authTokenStore.get() === expectedToken
+    && authTokenStore.getVersion() === expectedVersion
+    && sessionGeneration === expectedGeneration
+  )
+
+  const hydrationOwnerIsCurrent = (owner: AuthHydrationOwner) => (
+    owner.requestId === hydrateRequestId
+    && ownsSession(owner.token, owner.sessionVersion, owner.sessionGeneration)
+  )
+
+  const invalidateHydration = () => {
+    hydrateRequestId += 1
+    hydratePromise = null
+    hydratePromiseOwner = null
+  }
+
+  const advanceSessionGeneration = () => {
+    sessionGeneration += 1
+    invalidateHydration()
+  }
 
   const setUser = (newUser: User | null) => {
     user.value = newUser
@@ -72,27 +115,37 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const setToken = (newToken: string) => {
+    advanceSessionGeneration()
+    if (authTokenStore.get() === newToken) {
+      authTokenStore.clear()
+    }
+    authTokenStore.set(newToken)
+    clearSessionExpiredMarker()
     token.value = newToken
     user.value = null
     ready.value = false
+    loading.value = false
     hydrationState.value = 'hydrating'
     hydrationError.value = ''
-    authTokenStore.set(newToken)
   }
 
   const logout = () => {
+    const expiredByResponseInterceptor = Boolean(token.value) && authTokenStore.get() === null
+    advanceSessionGeneration()
     const owner = user.value?.uid == null ? undefined : String(user.value.uid)
     if (owner) safeStorage.clearSensitive(owner)
     user.value = null
     token.value = null
     ready.value = true
     loading.value = false
-    hydrationState.value = 'anonymous'
+    hydrationState.value = expiredByResponseInterceptor ? 'expired' : 'anonymous'
     hydrationError.value = ''
     authTokenStore.clear()
+    if (expiredByResponseInterceptor) writeSessionExpiredMarker()
   }
 
   const expireSession = () => {
+    advanceSessionGeneration()
     const owner = user.value?.uid == null ? undefined : String(user.value.uid)
     if (owner) safeStorage.clearSensitive(owner)
     user.value = null
@@ -107,24 +160,41 @@ export const useAuthStore = defineStore('auth', () => {
 
   const hydrate = async () => {
     if (!token.value) {
+      invalidateHydration()
       ready.value = true
       user.value = null
       if (hydrationState.value !== 'expired') hydrationState.value = 'anonymous'
       return
     }
-    if (hydratePromise) return hydratePromise
+    const sessionToken = token.value
+    const sessionVersion = authTokenStore.getVersion()
+    if (
+      hydratePromise
+      && hydratePromiseOwner
+      && hydrationOwnerIsCurrent(hydratePromiseOwner)
+    ) {
+      return hydratePromise
+    }
+    const owner: AuthHydrationOwner = {
+      requestId: ++hydrateRequestId,
+      token: sessionToken,
+      sessionVersion,
+      sessionGeneration,
+    }
     loading.value = true
     ready.value = false
     hydrationState.value = 'hydrating'
     hydrationError.value = ''
-    hydratePromise = import('@/api/auth')
+    const request = import('@/api/auth')
       .then(async ({ authApi }) => {
         const me = await authApi.fetchMe()
-        user.value = me.data
+        if (!hydrationOwnerIsCurrent(owner)) return
         if (!me.data) throw new Error('账号资料为空，请重新登录。')
+        user.value = me.data
         hydrationState.value = 'authenticated'
       })
       .catch((error) => {
+        if (!hydrationOwnerIsCurrent(owner)) return
         if (isAuthExpiredError(error)) {
           expireSession()
           return
@@ -134,10 +204,17 @@ export const useAuthStore = defineStore('auth', () => {
         hydrationError.value = hydrateFailureText(error)
       })
       .finally(() => {
+        const ownerIsCurrent = hydrationOwnerIsCurrent(owner)
+        if (hydratePromiseOwner === owner) {
+          hydratePromise = null
+          hydratePromiseOwner = null
+        }
+        if (!ownerIsCurrent) return
         ready.value = true
         loading.value = false
-        hydratePromise = null
       })
+    hydratePromiseOwner = owner
+    hydratePromise = request
     return hydratePromise
   }
 
@@ -151,6 +228,8 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     sessionExpired,
     hydrateFailed,
+    getSessionGeneration,
+    ownsSession,
     setUser,
     setToken,
     logout,

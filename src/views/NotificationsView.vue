@@ -3,21 +3,32 @@
     <AppHeader />
     <main class="px-4 py-6 sm:px-6">
     <div class="mx-auto max-w-5xl">
-      <nav class="inbox-view-tabs" aria-label="参与收件箱视图">
+      <nav class="inbox-view-tabs" role="tablist" aria-label="参与收件箱视图">
         <button
-          v-for="view in inboxViews"
+          v-for="(view, index) in inboxViews"
           :key="view.value"
+          :id="inboxViewTabId(view.value)"
           type="button"
+          role="tab"
           :class="{ active: activeView === view.value }"
-          :aria-pressed="activeView === view.value"
+          :aria-controls="inboxViewPanelId(view.value)"
+          :aria-selected="activeView === view.value"
+          :tabindex="activeView === view.value ? 0 : -1"
           @click="switchInboxView(view.value)"
+          @keydown="handleInboxViewKeydown($event, index)"
         >
-          <component :is="view.icon" class="h-4 w-4" />
+          <component :is="view.icon" class="h-4 w-4" aria-hidden="true" />
           {{ view.label }}
         </button>
       </nav>
 
-      <template v-if="activeView === 'notifications'">
+      <section
+        v-if="activeView === 'notifications'"
+        :id="inboxViewPanelId('notifications')"
+        role="tabpanel"
+        :aria-labelledby="inboxViewTabId('notifications')"
+        tabindex="0"
+      >
       <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -56,18 +67,24 @@
 
         <div class="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div class="overflow-x-auto">
-            <div class="flex min-w-max gap-2">
+            <div class="flex min-w-max gap-2" role="tablist" aria-label="通知类型">
               <button
-                v-for="tab in tabs"
+                v-for="(tab, index) in tabs"
                 :key="tab.value"
+                :id="notificationTypeTabId(tab.value)"
                 type="button"
+                role="tab"
+                :aria-controls="notificationTypePanelId"
+                :aria-selected="activeType === tab.value"
+                :tabindex="activeType === tab.value ? 0 : -1"
                 @click="switchTab(tab.value)"
+                @keydown="handleNotificationTypeKeydown($event, index)"
                 :class="[
                   'tab-button',
                   activeType === tab.value ? 'tab-button-active' : 'tab-button-idle'
                 ]"
               >
-                <component :is="tab.icon" class="h-4 w-4" />
+                <component :is="tab.icon" class="h-4 w-4" aria-hidden="true" />
                 <span>{{ tab.label }}</span>
                 <span v-if="tab.count > 0" class="tab-count">{{ tab.count > 99 ? '99+' : tab.count }}</span>
               </button>
@@ -97,6 +114,12 @@
         </div>
       </section>
 
+      <div
+        :id="notificationTypePanelId"
+        role="tabpanel"
+        :aria-labelledby="notificationTypeTabId(activeType)"
+        tabindex="0"
+      >
       <div v-if="isLoading && notifications.length === 0" class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <div v-for="item in 4" :key="item" class="flex gap-4 border-b border-slate-100 py-4 last:border-b-0 dark:border-slate-800">
           <div class="h-11 w-11 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
@@ -225,21 +248,37 @@
           </button>
         </div>
       </div>
-      </template>
+      </div>
+      </section>
 
-      <UpdateDigestPanel
+      <section
         v-else-if="activeView === 'updates'"
-        route-state
-        title="与你有关的更新摘要"
-      />
-      <RevisitSummaryPanel v-else route-state />
+        :id="inboxViewPanelId('updates')"
+        role="tabpanel"
+        :aria-labelledby="inboxViewTabId('updates')"
+        tabindex="0"
+      >
+        <UpdateDigestPanel
+          route-state
+          title="与你有关的更新摘要"
+        />
+      </section>
+      <section
+        v-else
+        :id="inboxViewPanelId('revisits')"
+        role="tabpanel"
+        :aria-labelledby="inboxViewTabId('revisits')"
+        tabindex="0"
+      >
+        <RevisitSummaryPanel route-state />
+      </section>
     </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, History, MessageCircle, Newspaper, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -250,10 +289,12 @@ import { formatTime } from '@/lib/format'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import RevisitSummaryPanel from '@/components/retention/RevisitSummaryPanel.vue'
 import UpdateDigestPanel from '@/components/retention/UpdateDigestPanel.vue'
+import { useAuthStore } from '@/stores/auth'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const realtimeStore = useRealtimeStore()
 const MAX_NOTIFICATION_ITEMS = 100
 
@@ -268,6 +309,10 @@ const hasMore = ref(false)
 const unread = computed(() => realtimeStore.unreadCount)
 const preferences = ref<NotificationPreference | null>(null)
 let notificationLoadGeneration = 0
+let notificationAccountGeneration = 0
+let unreadRequestId = 0
+let preferenceRequestId = 0
+let observedNotificationAccountKey: string | null = null
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
 type InboxView = 'notifications' | 'updates' | 'revisits'
@@ -285,6 +330,19 @@ const inboxViews = [
   { value: 'updates' as const, label: '更新摘要', icon: Newspaper },
   { value: 'revisits' as const, label: '回访', icon: History },
 ]
+const notificationTypePanelId = 'notification-type-panel'
+const inboxViewTabId = (view: InboxView) => `inbox-view-tab-${view}`
+const inboxViewPanelId = (view: InboxView) => `inbox-view-panel-${view}`
+const notificationTypeTabId = (type: string) => `notification-type-tab-${type}`
+const currentNotificationAccountKey = () => (
+  `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
+)
+const notificationAccountIsCurrent = (accountKey: string, generation: number) => (
+  authStore.isLoggedIn
+  && Boolean(authStore.user?.uid)
+  && accountKey === currentNotificationAccountKey()
+  && generation === notificationAccountGeneration
+)
 
 const tabs = computed(() => [
   { value: 'all', label: 'All', count: unread.value.total, icon: Bell },
@@ -373,12 +431,51 @@ const syncUnread = (value: NotificationUnreadCount) => {
 
 const curationFeedbackPayload = (notif: Notification): CreatorCurationFeedback | undefined => notif.curationFeedback
 
+const clearNotificationListState = () => {
+  notifications.value = []
+  nextCursor.value = undefined
+  hasMore.value = false
+  loadErrorText.value = ''
+}
+
+const invalidateNotificationList = () => {
+  notificationLoadGeneration += 1
+  isLoading.value = false
+  clearNotificationListState()
+}
+
+const resetNotificationAccountState = () => {
+  notificationAccountGeneration += 1
+  notificationLoadGeneration += 1
+  unreadRequestId += 1
+  preferenceRequestId += 1
+  isLoading.value = false
+  isMutating.value = false
+  clearNotificationListState()
+  unreadErrorText.value = ''
+  preferences.value = null
+  notificationViewInitialized = false
+  realtimeStore.reset()
+}
+
 const loadUnread = async () => {
+  if (!authStore.isLoggedIn || !authStore.user?.uid) return
+  const accountKey = currentNotificationAccountKey()
+  const generation = notificationAccountGeneration
+  const requestId = ++unreadRequestId
   try {
     const res = await notificationApi.getUnreadCount()
+    if (
+      requestId !== unreadRequestId
+      || !notificationAccountIsCurrent(accountKey, generation)
+    ) return
     if (res.code === 0 && res.data) syncUnread(res.data)
     unreadErrorText.value = ''
   } catch (error) {
+    if (
+      requestId !== unreadRequestId
+      || !notificationAccountIsCurrent(accountKey, generation)
+    ) return
     unreadErrorText.value = getErrorMessage(error, '未读数暂时无法同步。')
   }
 }
@@ -386,11 +483,17 @@ const loadUnread = async () => {
 const loadNotifications = async () => {
   const requestGeneration = ++notificationLoadGeneration
   const requestedType = activeType.value
+  const accountKey = currentNotificationAccountKey()
+  const accountGeneration = notificationAccountGeneration
   isLoading.value = true
   try {
     const type = requestedType === 'all' ? undefined : requestedType
     const res = await notificationApi.getList(type, undefined, 20)
-    if (requestGeneration !== notificationLoadGeneration || requestedType !== activeType.value) return
+    if (
+      requestGeneration !== notificationLoadGeneration
+      || requestedType !== activeType.value
+      || !notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     notifications.value = (res.data?.items || []).slice(0, MAX_NOTIFICATION_ITEMS)
     nextCursor.value = res.data?.nextCursor
     hasMore.value = Boolean(
@@ -400,10 +503,18 @@ const loadNotifications = async () => {
     )
     loadErrorText.value = ''
   } catch (error) {
-    if (requestGeneration !== notificationLoadGeneration || requestedType !== activeType.value) return
+    if (
+      requestGeneration !== notificationLoadGeneration
+      || requestedType !== activeType.value
+      || !notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) return
+    clearNotificationListState()
     loadErrorText.value = getErrorMessage(error, 'Notifications are temporarily unavailable.')
   } finally {
-    if (requestGeneration === notificationLoadGeneration) {
+    if (
+      requestGeneration === notificationLoadGeneration
+      && notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) {
       isLoading.value = false
     }
   }
@@ -413,11 +524,17 @@ const loadMore = async () => {
   if (!hasMore.value || isLoading.value) return
   const requestGeneration = ++notificationLoadGeneration
   const requestedType = activeType.value
+  const accountKey = currentNotificationAccountKey()
+  const accountGeneration = notificationAccountGeneration
   isLoading.value = true
   try {
     const type = requestedType === 'all' ? undefined : requestedType
     const res = await notificationApi.getList(type, nextCursor.value, 20)
-    if (requestGeneration !== notificationLoadGeneration || requestedType !== activeType.value) return
+    if (
+      requestGeneration !== notificationLoadGeneration
+      || requestedType !== activeType.value
+      || !notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     const mergedItems = [...notifications.value, ...(res.data?.items || [])]
     const uniqueItems = Array.from(new Map(
       mergedItems.map((item) => [String(item.notificationId), item]),
@@ -430,16 +547,29 @@ const loadMore = async () => {
       && uniqueItems.length < MAX_NOTIFICATION_ITEMS,
     )
   } catch (error) {
-    if (requestGeneration !== notificationLoadGeneration || requestedType !== activeType.value) return
+    if (
+      requestGeneration !== notificationLoadGeneration
+      || requestedType !== activeType.value
+      || !notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     toast.error(getErrorMessage(error, '加载更多通知失败'))
   } finally {
-    if (requestGeneration === notificationLoadGeneration) {
+    if (
+      requestGeneration === notificationLoadGeneration
+      && notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) {
       isLoading.value = false
     }
   }
 }
 
 const switchInboxView = (view: InboxView) => {
+  if (
+    view !== activeView.value
+    || (view === 'notifications' && activeType.value !== 'all')
+  ) {
+    invalidateNotificationList()
+  }
   void router.replace({
     path: route.path,
     query: {
@@ -454,6 +584,7 @@ const switchInboxView = (view: InboxView) => {
 
 const switchTab = (type: NotificationType | string) => {
   const nextType = notificationTypes.has(type as NotificationType) ? type as NotificationType : 'all'
+  if (nextType !== activeType.value) invalidateNotificationList()
   void router.replace({
     path: route.path,
     query: {
@@ -462,6 +593,38 @@ const switchTab = (type: NotificationType | string) => {
       type: nextType === 'all' ? undefined : nextType,
     },
   })
+}
+
+const rovingTabIndex = (key: string, currentIndex: number, itemCount: number) => {
+  if (key === 'ArrowLeft') return (currentIndex - 1 + itemCount) % itemCount
+  if (key === 'ArrowRight') return (currentIndex + 1) % itemCount
+  if (key === 'Home') return 0
+  if (key === 'End') return itemCount - 1
+  return null
+}
+
+const focusTabById = (id: string) => {
+  void nextTick(() => document.getElementById(id)?.focus())
+}
+
+const handleInboxViewKeydown = (event: KeyboardEvent, currentIndex: number) => {
+  const nextIndex = rovingTabIndex(event.key, currentIndex, inboxViews.length)
+  if (nextIndex === null) return
+  event.preventDefault()
+  const nextView = inboxViews[nextIndex]
+  if (!nextView) return
+  switchInboxView(nextView.value)
+  focusTabById(inboxViewTabId(nextView.value))
+}
+
+const handleNotificationTypeKeydown = (event: KeyboardEvent, currentIndex: number) => {
+  const nextIndex = rovingTabIndex(event.key, currentIndex, tabs.value.length)
+  if (nextIndex === null) return
+  event.preventDefault()
+  const nextTab = tabs.value[nextIndex]
+  if (!nextTab) return
+  switchTab(nextTab.value)
+  focusTabById(notificationTypeTabId(nextTab.value))
 }
 
 type MarkReadOptions = {
@@ -490,24 +653,33 @@ const restoreReadLocally = (original: Notification) => {
 }
 
 const markAsRead = async (id: ApiId, ids: ApiId[] = [id], options: MarkReadOptions = {}) => {
+  const accountKey = currentNotificationAccountKey()
+  const accountGeneration = notificationAccountGeneration
   if (!options.background) isMutating.value = true
   const original = applyReadLocally(id)
   try {
     await notificationApi.markAsRead(ids)
+    if (!notificationAccountIsCurrent(accountKey, accountGeneration)) return
     await loadUnread()
   } catch (error) {
+    if (!notificationAccountIsCurrent(accountKey, accountGeneration)) return
     if (original) restoreReadLocally(original)
     await loadUnread().catch(() => {})
     toast.error(getErrorMessage(error, '标记已读失败'))
   } finally {
-    if (!options.background) isMutating.value = false
+    if (!options.background && notificationAccountIsCurrent(accountKey, accountGeneration)) {
+      isMutating.value = false
+    }
   }
 }
 
 const markAllAsRead = async () => {
+  const accountKey = currentNotificationAccountKey()
+  const accountGeneration = notificationAccountGeneration
   isMutating.value = true
   try {
     const res = await notificationApi.markAllAsRead()
+    if (!notificationAccountIsCurrent(accountKey, accountGeneration)) return
     const result = res.data
     if (!result?.capped) {
       notifications.value = notifications.value.map(item => ({ ...item, read: true }))
@@ -519,9 +691,12 @@ const markAllAsRead = async () => {
       toast.success('已全部标为已读')
     }
   } catch (error) {
+    if (!notificationAccountIsCurrent(accountKey, accountGeneration)) return
     toast.error(getErrorMessage(error, '全部标记已读失败'))
   } finally {
-    isMutating.value = false
+    if (notificationAccountIsCurrent(accountKey, accountGeneration)) {
+      isMutating.value = false
+    }
   }
 }
 
@@ -566,26 +741,48 @@ const isMutedByPreference = (notif: Notification) => (
 )
 
 const loadPreferences = async () => {
+  if (!authStore.isLoggedIn || !authStore.user?.uid) return
+  const accountKey = currentNotificationAccountKey()
+  const generation = notificationAccountGeneration
+  const requestId = ++preferenceRequestId
   try {
     const res = await notificationApi.getPreferences()
+    if (
+      requestId !== preferenceRequestId
+      || !notificationAccountIsCurrent(accountKey, generation)
+    ) return
     preferences.value = normalizeNotificationPreference(res.data)
   } catch {
+    if (
+      requestId !== preferenceRequestId
+      || !notificationAccountIsCurrent(accountKey, generation)
+    ) return
     preferences.value = null
   }
 }
 
 let notificationViewInitialized = false
 watch(
-  () => [activeView.value, String(firstQueryValue(route.query.type) || '')] as const,
+  () => [
+    activeView.value,
+    String(firstQueryValue(route.query.type) || ''),
+    authStore.user?.uid,
+    authStore.token,
+  ] as const,
   ([view, routeType]) => {
+    const accountKey = currentNotificationAccountKey()
+    if (accountKey !== observedNotificationAccountKey) {
+      observedNotificationAccountKey = accountKey
+      resetNotificationAccountState()
+    } else {
+      invalidateNotificationList()
+    }
     if (view !== 'notifications') {
-      notificationLoadGeneration += 1
       return
     }
     const normalizedType = routeType.toLowerCase() as NotificationType
     activeType.value = notificationTypes.has(normalizedType) ? normalizedType : 'all'
-    nextCursor.value = undefined
-    hasMore.value = false
+    if (!authStore.isLoggedIn || !authStore.user?.uid) return
     void loadNotifications()
     if (!notificationViewInitialized) {
       notificationViewInitialized = true
@@ -596,7 +793,10 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  notificationAccountGeneration += 1
   notificationLoadGeneration += 1
+  unreadRequestId += 1
+  preferenceRequestId += 1
 })
 </script>
 
@@ -610,7 +810,7 @@ onBeforeUnmount(() => {
 
 .inbox-view-tabs button {
   display: inline-flex;
-  min-height: 2.5rem;
+  min-height: 44px;
   flex: none;
   align-items: center;
   gap: 0.45rem;
@@ -665,6 +865,7 @@ onBeforeUnmount(() => {
 
 .tab-button {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
   gap: 0.45rem;
   border-radius: 0.6rem;

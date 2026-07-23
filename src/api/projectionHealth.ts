@@ -41,6 +41,14 @@ export interface ProjectionIssuePage {
   nextCursor: string | null
   hasMore: boolean
   total: string | number
+  degraded?: boolean | null
+  fallbackReason?: string | null
+  diagnostics?: ProjectionIssueDiagnostics | null
+}
+
+export interface ProjectionIssueDiagnostics {
+  sourceErrors?: Record<string, string>
+  [key: string]: unknown
 }
 
 export interface ProjectionReconcileCommand {
@@ -75,15 +83,26 @@ export interface ProjectionIssueQuery {
   size?: number
 }
 
+export interface ProjectionIssueRequestOptions {
+  signal?: AbortSignal
+}
+
 const requestResult = <T>(request: Promise<unknown>) => request as Promise<Result<T>>
 const projectionPath = (projectionType: string) => encodeURIComponent(projectionType)
 
 export const projectionHealthApi = {
   summary: () =>
     requestResult<ProjectionHealth[]>(client.get(BASE_PATH)),
-  issues: (projectionType: string, query: ProjectionIssueQuery = {}) =>
+  issues: (
+    projectionType: string,
+    query: ProjectionIssueQuery = {},
+    options: ProjectionIssueRequestOptions = {},
+  ) =>
     requestResult<ProjectionIssuePage>(
-      client.get(`${BASE_PATH}/${projectionPath(projectionType)}/issues`, { params: query }),
+      client.get(`${BASE_PATH}/${projectionPath(projectionType)}/issues`, {
+        params: query,
+        signal: options.signal,
+      }),
     ),
   reconcile: (projectionType: string, command: ProjectionReconcileCommand) =>
     requestResult<ProjectionReconcileResult>(

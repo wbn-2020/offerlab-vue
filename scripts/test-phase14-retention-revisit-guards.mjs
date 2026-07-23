@@ -40,8 +40,10 @@ assert.match(revisitPanel, /if \(source === 'FAVORITE'\)/, 'favorite revisits mu
 assert.match(revisitPanel, /key: 'other', title: '其他站内回访'/, 'unknown revisit sources must use a generic group instead of being mislabeled as favorites.')
 assert.doesNotMatch(revisitPanel, /fixed\s+inset-0|modal|fullscreen|red-dot|force-remind|badge-danger/, 'revisit panel must avoid forced reminder patterns.')
 
-assert.match(meProfile, /RevisitSummaryPanel/, 'my profile page must include the full revisit summary.')
+assert.match(meProfile, /ParticipationHub/, 'my profile page must include the participation overview entry.')
+assert.doesNotMatch(meProfile, /RevisitSummaryPanel/, 'my profile page must not duplicate the participation hub revisit request.')
 assert.match(notificationsView, /社区回访中心/, 'notification center must keep a revisit entry.')
+assert.match(notificationsView, /<RevisitSummaryPanel route-state \/>/, 'notification center must retain the full revisit workspace.')
 assert.match(settingsView, /data-phase14-retention-preference-note/, 'settings must explain retention preference linkage.')
 assert.match(settingsView, /data-existing-notification-preferences/, 'settings must reuse persisted notification preferences.')
 assert.doesNotMatch(settingsView, /v-model="[^"]*retentionNotification|retentionNotification|revisitNotification/, 'settings must not expose an unsupported retention switch.')

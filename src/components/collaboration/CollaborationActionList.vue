@@ -66,6 +66,15 @@
           <ArrowRight class="icon" aria-hidden="true" />
           去处理
         </RouterLink>
+        <RouterLink
+          v-else-if="targetPath(item)"
+          :to="targetPath(item)!"
+          class="secondary-action"
+          data-read-only-context
+        >
+          <Eye class="icon" aria-hidden="true" />
+          查看上下文
+        </RouterLink>
         <span v-else class="read-only-label">等待来源更新</span>
       </article>
     </div>
@@ -94,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Loader2, RefreshCw, X } from 'lucide-vue-next'
+import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Eye, Loader2, RefreshCw, X } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
 import type { CollaborationActionItem, CollaborationActionType } from '@/api/collaboration'
 import {

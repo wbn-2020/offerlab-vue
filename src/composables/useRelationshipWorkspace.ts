@@ -34,6 +34,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
   const preferenceNotice = ref('')
   const focusNotice = ref('')
   const generation = ref(0)
+  let preferenceRequestId = 0
 
   const sourceType = ref<RelationshipSourceType | undefined>(initialQuery?.sourceType)
   const mode = ref<RelationshipMode>(initialQuery?.mode ?? 'ALL')
@@ -41,6 +42,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
 
   const reset = () => {
     generation.value += 1
+    preferenceRequestId += 1
     isLoading.value = false
     isSummaryLoading.value = false
     isPreferenceLoading.value = false
@@ -167,6 +169,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
   const loadMore = () => loadList(true)
 
   const focus = (item: RelationshipItem | null) => {
+    preferenceRequestId += 1
     selected.value = item
     focusedSourceId.value = item ? String(item.sourceId) : ''
     selectedPreference.value = item
@@ -174,12 +177,14 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
       : null
     preferenceError.value = ''
     preferenceNotice.value = ''
+    if (!item) isPreferenceLoading.value = false
   }
 
   const loadPreference = async (item: RelationshipItem) => {
     const uid = accountUid.value
     if (!uid) return
     const currentGeneration = generation.value
+    const requestId = ++preferenceRequestId
     selected.value = item
     isPreferenceLoading.value = true
     preferenceError.value = ''
@@ -188,6 +193,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
       const result = await relationshipsApi.getPreference(item.sourceType, item.sourceId)
       if (
         currentGeneration !== generation.value
+        || requestId !== preferenceRequestId
         || uid !== accountUid.value
         || selected.value?.sourceType !== item.sourceType
         || String(selected.value?.sourceId) !== String(item.sourceId)
@@ -199,6 +205,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
     } catch (error) {
       if (
         currentGeneration !== generation.value
+        || requestId !== preferenceRequestId
         || uid !== accountUid.value
         || selected.value?.sourceType !== item.sourceType
         || String(selected.value?.sourceId) !== String(item.sourceId)
@@ -209,7 +216,14 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
       }
       preferenceError.value = getErrorMessage(error, '偏好暂时不可用，请稍后再试。')
     } finally {
-      if (currentGeneration === generation.value) isPreferenceLoading.value = false
+      if (
+        currentGeneration === generation.value
+        && requestId === preferenceRequestId
+        && selected.value?.sourceType === item.sourceType
+        && String(selected.value?.sourceId) === String(item.sourceId)
+      ) {
+        isPreferenceLoading.value = false
+      }
     }
   }
 
@@ -218,6 +232,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
     const uid = accountUid.value
     if (!uid || !item || isPreferenceSaving.value) return false
     const currentGeneration = generation.value
+    preferenceRequestId += 1
     isPreferenceSaving.value = true
     preferenceError.value = ''
     preferenceNotice.value = ''
@@ -259,6 +274,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
     const uid = accountUid.value
     if (!uid || !item || isPreferenceSaving.value) return false
     const currentGeneration = generation.value
+    preferenceRequestId += 1
     isPreferenceSaving.value = true
     preferenceError.value = ''
     preferenceNotice.value = ''

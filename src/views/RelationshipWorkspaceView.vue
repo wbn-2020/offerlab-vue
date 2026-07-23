@@ -12,7 +12,7 @@
         </div>
         <button
           type="button"
-          class="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
           :disabled="isLoading || isSummaryLoading"
           @click="reload"
         >
@@ -34,14 +34,18 @@
         <div class="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
           <div class="flex flex-wrap gap-2" role="tablist" aria-label="关系状态">
             <button
-              v-for="tab in modeTabs"
+              v-for="(tab, index) in modeTabs"
               :key="tab.value"
+              :id="relationshipModeTabId(tab.value)"
               type="button"
               role="tab"
+              :aria-controls="relationshipModePanelId"
               :aria-selected="mode === tab.value"
+              :tabindex="mode === tab.value ? 0 : -1"
               class="filter-button"
               :class="{ active: mode === tab.value }"
               @click="setMode(tab.value)"
+              @keydown="handleModeTabKeydown($event, index)"
             >
               {{ tab.label }}
             </button>
@@ -54,6 +58,13 @@
             </select>
           </label>
         </div>
+        <div
+          :id="relationshipModePanelId"
+          role="tabpanel"
+          :aria-labelledby="relationshipModeTabId(mode)"
+          tabindex="0"
+          :aria-busy="isLoading"
+        >
         <p v-if="focusNotice" class="partial-error" data-relationship-state="focus-unavailable">
           {{ focusNotice }}
         </p>
@@ -94,7 +105,14 @@
             <div class="relationship-actions">
               <RouterLink v-if="item.sourceVisible" :to="item.targetPath" class="row-link">查看</RouterLink>
               <span v-else class="unavailable-label">来源不可见</span>
-              <button type="button" class="row-button" @click="openPreference(item)">订阅设置</button>
+              <button
+                :id="relationshipPreferenceTriggerId(item)"
+                type="button"
+                class="row-button"
+                @click="openPreference(item)"
+              >
+                订阅设置
+              </button>
             </div>
           </article>
         </div>
@@ -113,16 +131,34 @@
           <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" />
           {{ isLoading ? '正在加载...' : '加载更多' }}
         </button>
+        </div>
       </section>
     </main>
 
     <div v-if="selected" class="modal-backdrop" @click.self="closePreference">
-      <section class="preference-modal" role="dialog" aria-modal="true" aria-labelledby="relationship-preference-title">
+      <section
+        ref="preferenceDialog"
+        class="preference-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="relationship-preference-title"
+        aria-describedby="relationship-preference-description"
+        tabindex="-1"
+      >
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <span class="source-pill">{{ sourceTypeLabel(selected.sourceType) }}</span>
-            <h2 id="relationship-preference-title" tabindex="-1" class="mt-3 text-xl font-bold text-slate-950 dark:text-slate-50">{{ selected.title }}</h2>
-            <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">只调整更新接收方式，不会替代原资源页面上的关注或取消关注动作。</p>
+            <h2
+              id="relationship-preference-title"
+              ref="preferenceDialogTitle"
+              tabindex="-1"
+              class="mt-3 text-xl font-bold text-slate-950 dark:text-slate-50"
+            >
+              {{ selected.title }}
+            </h2>
+            <p id="relationship-preference-description" class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+              只调整更新接收方式，不会替代原资源页面上的关注或取消关注动作。
+            </p>
           </div>
           <button type="button" class="icon-button" aria-label="关闭订阅设置" title="关闭" @click="closePreference">
             <X class="h-5 w-5" />
@@ -166,6 +202,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { AlertCircle, Link2, Loader2, RefreshCw, X } from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import { useRelationshipWorkspace } from '@/composables/useRelationshipWorkspace'
 import {
   type RelationshipDeliveryMode,
@@ -242,6 +279,8 @@ const modeTabs = [
   { value: 'ACTIVE' as const, label: '正在接收' },
   { value: 'MUTED' as const, label: '已静音' },
 ]
+const relationshipModePanelId = 'relationship-mode-panel'
+const relationshipModeTabId = (value: RelationshipMode) => `relationship-mode-tab-${value.toLowerCase()}`
 
 const summaryStats = computed(() => [
   { key: 'total', label: '全部关系', value: summary.value?.total ?? 0 },
@@ -253,6 +292,9 @@ const displayedItems = computed(() => items.value.filter((item) => validSourceTy
 
 const preferenceMode = ref<RelationshipDeliveryMode>('IMMEDIATE')
 const expiresAt = ref('')
+const preferenceDialog = ref<HTMLElement | null>(null)
+const preferenceDialogTitle = ref<HTMLElement | null>(null)
+const lastPreferenceTriggerId = ref('')
 
 const toLocalDateTimeInput = (value?: number) => {
   if (!value) return ''
@@ -290,6 +332,9 @@ const deliveryModeLabel = (value: RelationshipDeliveryMode) => {
 const statusClass = (item: RelationshipItem) => item.deliveryMode === 'MUTED' ? 'muted' : 'active'
 const relationshipKey = (item: RelationshipItem) => `${item.sourceType}:${item.sourceId}`
 const relationshipDomId = (item: RelationshipItem) => `relationship-${item.sourceType.toLowerCase()}-${item.sourceId}`
+const relationshipPreferenceTriggerId = (item: RelationshipItem) => (
+  `relationship-preference-trigger-${item.sourceType.toLowerCase()}-${item.sourceId}`
+)
 const isSameRelationship = (left: RelationshipItem | null, right: RelationshipItem) => Boolean(
   left
   && left.sourceType === right.sourceType
@@ -317,6 +362,24 @@ const setMode = (nextMode: RelationshipMode) => {
   })
 }
 
+const rovingModeTabIndex = (key: string, currentIndex: number) => {
+  if (key === 'ArrowLeft') return (currentIndex - 1 + modeTabs.length) % modeTabs.length
+  if (key === 'ArrowRight') return (currentIndex + 1) % modeTabs.length
+  if (key === 'Home') return 0
+  if (key === 'End') return modeTabs.length - 1
+  return null
+}
+
+const handleModeTabKeydown = (event: KeyboardEvent, currentIndex: number) => {
+  const nextIndex = rovingModeTabIndex(event.key, currentIndex)
+  if (nextIndex === null) return
+  event.preventDefault()
+  const nextMode = modeTabs[nextIndex]?.value
+  if (!nextMode) return
+  setMode(nextMode)
+  void nextTick(() => document.getElementById(relationshipModeTabId(nextMode))?.focus())
+}
+
 const setSourceType = (event: Event) => {
   const value = (event.target as HTMLSelectElement).value.toUpperCase()
   const nextSourceType = validSourceTypes.has(value) ? value as RelationshipSourceType : undefined
@@ -331,6 +394,7 @@ const setSourceType = (event: Event) => {
 }
 
 const openPreference = async (item: RelationshipItem) => {
+  lastPreferenceTriggerId.value = relationshipPreferenceTriggerId(item)
   if (sourceType.value !== item.sourceType) {
     focusedSourceId.value = String(item.sourceId)
     sourceType.value = item.sourceType
@@ -342,14 +406,30 @@ const openPreference = async (item: RelationshipItem) => {
   expiresAt.value = toLocalDateTimeInput(item.expiresAt)
   await syncQuery({ sourceType: item.sourceType, sourceId: String(item.sourceId) })
   await loadPreference(item)
-  await nextTick()
-  document.getElementById('relationship-preference-title')?.focus?.()
 }
 
 const closePreference = () => {
+  const triggerId = lastPreferenceTriggerId.value
+  lastPreferenceTriggerId.value = ''
   focus(null)
   void syncQuery({ sourceId: undefined })
+  if (triggerId) {
+    void nextTick(() => {
+      const trigger = document.getElementById(triggerId)
+      if (trigger) {
+        trigger.focus()
+        return
+      }
+      document.getElementById(relationshipModeTabId(mode.value))?.focus()
+    })
+  }
 }
+
+useAccessibleDialog(() => Boolean(selected.value), {
+  close: closePreference,
+  dialogRef: preferenceDialog,
+  initialFocus: preferenceDialogTitle,
+})
 
 const savePreference = async () => {
   const normalizedExpiry = toUtcIso(expiresAt.value)
@@ -486,10 +566,15 @@ watch([items, focusedSourceId], () => {
 .load-more,
 .primary-action,
 .secondary-action {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   border-radius: 0.375rem;
   font-size: 0.875rem;
   font-weight: 700;
+}
+
+.row-button,
+.row-link {
+  min-height: 2.75rem;
 }
 
 .filter-button {
@@ -653,8 +738,8 @@ watch([items, focusedSourceId], () => {
 
 .icon-button {
   display: inline-grid;
-  min-height: 2.5rem;
-  min-width: 2.5rem;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
   place-items: center;
   border-radius: 0.375rem;
   color: rgb(71 85 105);

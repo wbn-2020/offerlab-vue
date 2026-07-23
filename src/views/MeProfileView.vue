@@ -28,17 +28,17 @@
               <div class="metric-card">
                 <FileText class="h-4 w-4 text-primary-600" />
                 <span>内容</span>
-                <strong>{{ user?.postCount ?? posts.items.length }}</strong>
+                <strong>{{ profileMetricText(user?.postCount, posts) }}</strong>
               </div>
               <div class="metric-card">
                 <Users class="h-4 w-4 text-primary-600" />
                 <span>关注</span>
-                <strong>{{ user?.followingCount ?? following.items.length }}</strong>
+                <strong>{{ profileMetricText(user?.followingCount, following) }}</strong>
               </div>
               <div class="metric-card">
                 <UserRoundCheck class="h-4 w-4 text-primary-600" />
                 <span>粉丝</span>
-                <strong>{{ user?.followerCount ?? followers.items.length }}</strong>
+                <strong>{{ profileMetricText(user?.followerCount, followers) }}</strong>
               </div>
             </div>
           </div>
@@ -67,6 +67,8 @@
           </div>
         </div>
       </section>
+
+      <ParticipationHub class="mt-6" />
 
       <section class="community-growth-panel">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -299,8 +301,6 @@
         </div>
       </section>
 
-      <RevisitSummaryPanel class="mt-6" />
-
       <section class="creator-center-grid mt-6">
         <article class="creator-action-panel">
           <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -353,13 +353,13 @@
             <Bookmark class="h-4 w-4 text-primary-600" />
             <strong>稍后读</strong>
             <span>默认保存入口</span>
-            <small>{{ favorites.items.length }} 条</small>
+            <small>{{ favoriteAssetCountText }}</small>
           </RouterLink>
           <RouterLink to="/me?tab=favorites" class="asset-card">
             <BookmarkCheck class="h-4 w-4 text-primary-600" />
             <strong>未整理收藏</strong>
             <span>先回看，再整理到合集</span>
-            <small>{{ unorganizedFavoriteCount }} 条</small>
+            <small>{{ unorganizedFavoriteCountText }}</small>
           </RouterLink>
           <RouterLink to="/series/workbench" class="asset-card">
             <Lock class="h-4 w-4 text-primary-600" />
@@ -392,26 +392,41 @@
             <span>{{ post.meta }}</span>
           </RouterLink>
         </div>
+        <div v-else-if="representativePostsPending" class="empty-inline">
+          创作者工作台正在读取公开内容摘要，暂不把未读取结果解释为没有代表内容。
+        </div>
         <div v-else class="empty-inline">
           发布第一篇公开内容后，这里会形成你的作者主页代表内容。
         </div>
       </section>
 
       <section class="mt-6">
-        <div class="tab-bar max-w-full overflow-x-auto">
+        <div class="tab-bar max-w-full overflow-x-auto" role="tablist" aria-label="个人内容与关系">
           <button
-            v-for="tab in tabs"
+            v-for="(tab, index) in tabs"
             :key="tab.value"
+            :id="profileTabId(tab.value)"
             type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.value"
+            :aria-controls="profileTabPanelId(tab.value)"
+            :tabindex="activeTab === tab.value ? 0 : -1"
             :class="['tab-button shrink-0 whitespace-nowrap', activeTab === tab.value ? 'tab-active' : '']"
             @click="setActiveTab(tab.value)"
+            @keydown="handleProfileTabKeydown($event, index)"
           >
             <component :is="tab.icon" class="h-4 w-4" />
             {{ tab.label }}
           </button>
         </div>
 
-        <div class="mt-5">
+        <div
+          :id="profileTabPanelId(activeTab)"
+          class="mt-5"
+          role="tabpanel"
+          :aria-labelledby="profileTabId(activeTab)"
+          tabindex="0"
+        >
           <section v-if="activeTab === 'posts'" class="space-y-4">
             <PostList
               :state="posts"
@@ -581,8 +596,8 @@ import { Bookmark, BookmarkCheck, FileText, Flag, Globe2, Hash, Heart, ListCheck
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import ParticipationHub from '@/components/me/ParticipationHub.vue'
 import PostCard from '@/components/post/PostCard.vue'
-import RevisitSummaryPanel from '@/components/retention/RevisitSummaryPanel.vue'
 import UserCard from '@/components/user/UserCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
@@ -615,8 +630,14 @@ import { pickRepresentativePosts, publicAuthorPosts } from '@/utils/creatorSigna
 import { filterVisibleCollections, filterVisiblePosts } from '@/utils/recommendationGovernance'
 import { demoProfileContribution, isLocalDemoSeedAllowed } from '@/data/demoSeeds'
 import { getContentTypeShortLabel } from '@/utils/contentTypes'
+import {
+  ME_PROFILE_TABS,
+  nextRovingTabValue,
+  normalizeMeTab,
+  type MeProfileTab,
+} from '@/utils/participationNavigation'
 
-type TabValue = 'posts' | 'favorites' | 'liked' | 'following' | 'topics' | 'discussion-follows' | 'followers'
+type TabValue = MeProfileTab
 
 interface ListState<T> {
   items: T[]
@@ -624,6 +645,8 @@ interface ListState<T> {
   hasMore: boolean
   loading: boolean
   error: string
+  loaded: boolean
+  requestId: number
 }
 
 type WorkbenchRouteTo = string | {
@@ -675,6 +698,8 @@ interface FavoriteFolderState {
   items: FavoriteFolderView[]
   loading: boolean
   error: string
+  loaded: boolean
+  requestId: number
 }
 
 type FavoriteFolderApi = {
@@ -694,13 +719,15 @@ const createState = <T,>(): ListState<T> => reactive({
   hasMore: false,
   loading: false,
   error: '',
+  loaded: false,
+  requestId: 0,
 })
 
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const user = ref(authStore.user)
-const activeTab = ref<TabValue>('posts')
+const activeTab = ref<TabValue>(normalizeMeTab(route.query.tab))
 const posts = createState<Post>()
 const favorites = createState<Post>()
 const favoriteFolderPosts = createState<Post>()
@@ -713,6 +740,8 @@ const favoriteFolders = reactive<FavoriteFolderState>({
   items: [],
   loading: false,
   error: '',
+  loaded: false,
+  requestId: 0,
 })
 const selectedFavoriteFolderId = ref('all')
 const favoriteFolderActionLoading = ref(false)
@@ -736,7 +765,29 @@ const tabs = [
   { value: 'discussion-follows', label: '关注讨论', icon: MessageCircle },
   { value: 'followers', label: '我的粉丝', icon: UserRoundCheck },
 ] satisfies Array<{ value: TabValue; label: string; icon: any }>
-const tabValues = new Set<TabValue>(tabs.map((tab) => tab.value))
+const tabValues = new Set<TabValue>(ME_PROFILE_TABS)
+
+let profileGeneration = 0
+let profileMounted = false
+const loadedTabs = new Set<TabValue>()
+const pendingTabLoads = new Map<TabValue, Promise<boolean>>()
+let contributionRequestId = 0
+let contactRequestId = 0
+let creatorWorkspaceRequestId = 0
+let collectionsRequestId = 0
+
+const currentProfileAccountKey = () => (
+  `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
+)
+
+const profileRequestIsCurrent = (generation: number, accountKey: string) => (
+  generation === profileGeneration
+  && accountKey === currentProfileAccountKey()
+  && Boolean(authStore.user?.uid)
+)
+
+const profileTabId = (tab: TabValue) => `me-profile-tab-${tab}`
+const profileTabPanelId = (tab: TabValue) => `me-profile-tabpanel-${tab}`
 
 const setActiveTab = (value: TabValue) => {
   activeTab.value = value
@@ -745,18 +796,39 @@ const setActiveTab = (value: TabValue) => {
   }
 }
 
+const handleProfileTabKeydown = (event: KeyboardEvent, currentIndex: number) => {
+  const nextValue = nextRovingTabValue(ME_PROFILE_TABS, tabs[currentIndex]?.value || activeTab.value, event.key)
+  if (!nextValue) return
+  event.preventDefault()
+  setActiveTab(nextValue)
+  void nextTick(() => document.getElementById(profileTabId(nextValue))?.focus())
+}
+
 const displayNickname = computed(() => safePublicVisibleText(user.value?.nickname, '我的主页'))
 const displaySignature = computed(() => sanitizePublicVisibleText(
   user.value?.signature,
   '完善简介后，其他人可以更快了解你关注的频道、经验和内容方向。',
 ))
 const userInitial = computed(() => displayNickname.value.charAt(0) || '?')
+const profileMetricText = <T,>(serverValue: unknown, state: ListState<T>) => {
+  const numeric = Number(serverValue)
+  if (Number.isFinite(numeric) && numeric >= 0) return String(Math.trunc(numeric))
+  if (!state.loaded) return '—'
+  if (state.error) return '暂不可用'
+  return String(state.items.length)
+}
 const emptyContributionSummary: ContributionSummary = {
   ...buildContributionSummary([]),
   source: 'empty_profile',
   estimated: true,
 }
+const unloadedContributionSummary: ContributionSummary = {
+  ...buildContributionSummary([]),
+  source: 'profile_lists_not_loaded',
+  estimated: true,
+}
 const localContribution = computed(() => {
+  if (!posts.loaded) return unloadedContributionSummary
   const summary = buildContributionSummary(posts.items)
   if (summary.score > 0) return { ...summary, source: 'frontend_estimate', estimated: true }
   return isLocalDemoSeedAllowed() ? demoProfileContribution : emptyContributionSummary
@@ -767,9 +839,11 @@ const contributionSourceText = computed(() => (
     ? '由后端按公开内容、精选和互动数据汇总'
     : contribution.value.source === 'local_demo_seed'
       ? '当前为本地作者数据样例'
-      : contribution.value.source === 'empty_profile'
-        ? '暂无公开内容贡献数据'
-    : '接口暂不可用，当前为本地估算'
+    : contribution.value.source === 'empty_profile'
+      ? '暂无公开内容贡献数据'
+      : contribution.value.source === 'profile_lists_not_loaded'
+        ? '公开内容列表按需加载，当前未进行本地估算'
+        : '接口暂不可用，当前为本地估算'
 ))
 const profileDemoNotice = computed(() => contribution.value.source === 'local_demo_seed'
   ? '发布第一篇经验、问题或资源后，这里会展示你的真实作者数据。'
@@ -779,6 +853,17 @@ const typeDistribution = computed(() => buildTypeDistribution(posts.items))
 const publicCollectionCount = computed(() => filterVisibleCollections(myCollections.value).length)
 const privateCollectionCount = computed(() => ownerCollections.value.filter((item) => item.visibility === 'private').length)
 const unorganizedFavoriteCount = computed(() => favorites.items.length)
+const favoriteAssetCountText = computed(() => {
+  if (!favorites.loaded) return favorites.loading ? '加载中...' : '按需加载'
+  if (favorites.error) return '暂不可用'
+  return `${favorites.items.length} 条`
+})
+const unorganizedFavoriteCountText = computed(() => {
+  if (!favorites.loaded && !favoriteFolders.loaded) return '按需加载'
+  if (favorites.error && favoriteFolders.error) return '暂不可用'
+  const serverFolder = favoriteFolders.items.find((item) => item.kind === 'unorganized' || item.id === 'unorganized')
+  return `${serverFolder?.count ?? unorganizedFavoriteCount.value} 条`
+})
 const favoriteFolderApi = interactionApi as unknown as FavoriteFolderApi
 const reservedFavoriteFolderIds = new Set(['all', 'default', 'unorganized'])
 const normalizeFavoriteFolder = (raw: any): FavoriteFolderView => {
@@ -940,6 +1025,16 @@ const postDetailTo = (postId: ApiId, hash = ''): WorkbenchRouteTo => ({
   ...(hash ? { hash } : {}),
 })
 const summarizeWindow = (days: number) => {
+  if (!posts.loaded) {
+    return {
+      label: `近 ${days} 天`,
+      description: '公开内容列表按需加载，当前不做本地估算',
+      posts: '—',
+      comments: '—',
+      favorites: '—',
+      likes: '—',
+    }
+  }
   const windowPosts = postsWithinDays(days)
   return {
     label: `近 ${days} 天`,
@@ -1070,13 +1165,18 @@ const publicImpactStats = computed(() => ({
   representativeCount: workspaceSummary.value?.representativeCount ?? representativePosts.value.length,
   replyOpportunityCount: workspaceSummary.value?.replyOpportunityCount ?? replyOpportunities.value.length,
 }))
+const publicImpactUnavailable = computed(() => (
+  !workspaceSummary.value
+  && !backendContribution.value
+  && !posts.loaded
+))
 const publicImpactOverview = computed(() => [
-  { label: '公开内容', value: publicImpactStats.value.publicPosts },
-  { label: '近期收藏', value: publicImpactStats.value.recentFavorites },
-  { label: '近期评论', value: publicImpactStats.value.recentComments },
-  { label: '收录/精选', value: publicImpactStats.value.curationCount },
-  { label: '代表作', value: publicImpactStats.value.representativeCount },
-  { label: '回复机会', value: publicImpactStats.value.replyOpportunityCount },
+  { label: '公开内容', value: publicImpactUnavailable.value ? '—' : publicImpactStats.value.publicPosts },
+  { label: '近期收藏', value: publicImpactUnavailable.value ? '—' : publicImpactStats.value.recentFavorites },
+  { label: '近期评论', value: publicImpactUnavailable.value ? '—' : publicImpactStats.value.recentComments },
+  { label: '收录/精选', value: publicImpactUnavailable.value ? '—' : publicImpactStats.value.curationCount },
+  { label: '代表作', value: publicImpactUnavailable.value ? '—' : publicImpactStats.value.representativeCount },
+  { label: '回复机会', value: publicImpactUnavailable.value ? '—' : publicImpactStats.value.replyOpportunityCount },
 ])
 const creatorWorkspaceStateLabel = computed(() => {
   if (creatorWorkspaceLoading.value) return '加载中'
@@ -1084,6 +1184,7 @@ const creatorWorkspaceStateLabel = computed(() => {
   if (creatorWorkspaceDegraded.value) return '降级视图'
   if (creatorWorkspace.value?.source === 'empty') return '暂无公开反馈'
   if (creatorWorkspace.value) return '真实反馈'
+  if (contribution.value.source === 'profile_lists_not_loaded') return '待读取'
   return contribution.value.source === 'local_demo_seed' ? '示例反馈' : '本地估算'
 })
 const creatorWorkspaceNotice = computed(() => {
@@ -1096,6 +1197,7 @@ const creatorWorkspaceNotice = computed(() => {
   }
   if (creatorWorkspace.value?.source === 'empty') return '发布公开内容后，这里会展示公共影响概览、维护入口和收录反馈。'
   if (creatorWorkspace.value) return workspaceSummary.value?.copy || '数据来自创作者公开反馈聚合；不包含私密、匿名身份、删除或审核中的内容，不承诺曝光效果。'
+  if (!posts.loaded) return '创作者聚合暂不可用；公开内容列表尚未按需读取，因此当前不展示本地估算。'
   return '接口暂不可用时会使用本地公开内容估算，并明确标识为估算或示例。'
 })
 const localTopFeedbackPosts = computed(() => [...authorPublicPosts.value]
@@ -1204,6 +1306,10 @@ const representativePosts = computed(() => {
     ? workspacePosts.slice(0, 3).map(mapRepresentativePost)
     : pickRepresentativePosts(authorPublicPosts.value, 3).map(mapLocalRepresentativePost)
 })
+const representativePostsPending = computed(() => (
+  creatorWorkspaceLoading.value
+  || (!creatorWorkspace.value && !posts.loaded)
+))
 const firstTopicName = (post?: Post | null) => post?.tags?.[0]?.name || ''
 const mapTopicIdea = (idea: CreatorTopicIdea): WorkbenchTopicIdeaItem => ({
   id: String(idea.id),
@@ -1338,24 +1444,53 @@ const buildCreatorActions = () => [
 const creatorActions = computed(buildCreatorActions)
 
 const loadContribution = async () => {
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  const requestId = ++contributionRequestId
   try {
     const res = await userApi.getMyContribution()
+    if (
+      requestId !== contributionRequestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     backendContribution.value = res.data
+    return true
   } catch {
+    if (
+      requestId !== contributionRequestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     backendContribution.value = null
+    return false
   }
 }
 
 const loadContactRequestStats = async () => {
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  const requestId = ++contactRequestId
   try {
     const res = await interactionApi.getContactRequestStats()
+    if (
+      requestId !== contactRequestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     contactRequestStats.value = res.data || null
+    return true
   } catch {
+    if (
+      requestId !== contactRequestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     contactRequestStats.value = null
+    return false
   }
 }
 
 const loadCreatorWorkspace = async () => {
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  const requestId = ++creatorWorkspaceRequestId
   creatorWorkspaceLoading.value = true
   creatorWorkspaceError.value = ''
   try {
@@ -1363,6 +1498,10 @@ const loadCreatorWorkspace = async () => {
       creatorFeedbackApi.getWorkspace(),
       creatorFeedbackApi.getCurationFeedbackSummary(),
     ])
+    if (
+      requestId !== creatorWorkspaceRequestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     if (workspaceResult.status === 'fulfilled') {
       creatorWorkspace.value = workspaceResult.value.data
     } else {
@@ -1370,8 +1509,14 @@ const loadCreatorWorkspace = async () => {
       creatorWorkspaceError.value = getErrorMessage(workspaceResult.reason, '暂时无法加载完整创作者工作台，已保留本地公开内容估算。')
     }
     curationFeedbackSummary.value = curationResult.status === 'fulfilled' ? curationResult.value.data : null
+    return workspaceResult.status === 'fulfilled' || curationResult.status === 'fulfilled'
   } finally {
-    creatorWorkspaceLoading.value = false
+    if (
+      requestId === creatorWorkspaceRequestId
+      && profileRequestIsCurrent(generation, accountKey)
+    ) {
+      creatorWorkspaceLoading.value = false
+    }
   }
 }
 
@@ -1391,13 +1536,28 @@ const focusTrustedContentTask = () => {
 }
 
 const loadMyCollections = async () => {
+  const uid = user.value?.uid
+  if (!uid) return false
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  const requestId = ++collectionsRequestId
   try {
-    const res = await contentSeriesApi.listMine(user.value?.uid)
+    const res = await contentSeriesApi.listMine(uid)
+    if (
+      requestId !== collectionsRequestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     ownerCollections.value = res.data || []
     myCollections.value = filterVisibleCollections(res.data || [])
+    return true
   } catch {
+    if (
+      requestId !== collectionsRequestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     ownerCollections.value = []
     myCollections.value = []
+    return false
   }
 }
 
@@ -1406,6 +1566,7 @@ const applyPage = <T,>(state: ListState<T>, page: PaginatedResponse<T> | null | 
   state.items = append ? [...state.items, ...items] : items
   state.cursor = page?.nextCursor
   state.hasMore = Boolean(page?.hasMore && page?.nextCursor)
+  state.loaded = true
 }
 
 const loadPage = async <T,>(
@@ -1414,31 +1575,51 @@ const loadPage = async <T,>(
   loader: (cursor?: string) => Promise<PaginatedResponse<T> | null | undefined>,
   fallbackMessage: string,
 ) => {
-  if (state.loading || (append && !state.hasMore)) return
+  if (state.loading || (append && !state.hasMore)) return false
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  const requestId = ++state.requestId
   state.loading = true
   state.error = ''
   try {
     const page = await loader(append ? state.cursor : undefined)
+    if (
+      requestId !== state.requestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     applyPage(state, page, append)
+    return true
   } catch (error: any) {
+    if (
+      requestId !== state.requestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     state.error = getErrorMessage(error, fallbackMessage)
+    state.loaded = true
     if (!append) {
       state.items = []
       state.cursor = undefined
       state.hasMore = false
     }
+    return false
   } finally {
-    state.loading = false
+    if (
+      requestId === state.requestId
+      && profileRequestIsCurrent(generation, accountKey)
+    ) {
+      state.loading = false
+    }
   }
 }
 
 const loadPosts = (append = false) => {
-  if (!user.value?.uid) return Promise.resolve()
+  const uid = user.value?.uid
+  if (!uid) return Promise.resolve(false)
   return loadPage(
     posts,
     append,
     async (cursor) => {
-      const page = (await postApi.list({ authorId: user.value!.uid, cursor, size: 10 })).data
+      const page = (await postApi.list({ authorId: uid, cursor, size: 10 })).data
       return page ? { ...page, items: filterVisiblePosts(filterPublicContent(page.items)) } : page
     },
     '发帖列表加载失败',
@@ -1456,20 +1637,41 @@ const loadFavorites = (append = false) => loadPage(
 )
 
 const loadFavoriteFolders = async () => {
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  const requestId = ++favoriteFolders.requestId
   favoriteFolders.loading = true
   favoriteFolders.error = ''
   try {
     if (!favoriteFolderApi.listFavoriteFolders) {
       favoriteFolders.items = []
-      return
+      favoriteFolders.loaded = true
+      return true
     }
     const res = await favoriteFolderApi.listFavoriteFolders()
+    if (
+      requestId !== favoriteFolders.requestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     favoriteFolders.items = Array.isArray(res.data) ? res.data.map(normalizeFavoriteFolder) : []
+    favoriteFolders.loaded = true
+    return true
   } catch (error: any) {
+    if (
+      requestId !== favoriteFolders.requestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return false
     favoriteFolders.items = []
     favoriteFolders.error = getErrorMessage(error, '收藏夹加载失败，当前显示全部收藏。')
+    favoriteFolders.loaded = true
+    return false
   } finally {
-    favoriteFolders.loading = false
+    if (
+      requestId === favoriteFolders.requestId
+      && profileRequestIsCurrent(generation, accountKey)
+    ) {
+      favoriteFolders.loading = false
+    }
   }
 }
 
@@ -1498,6 +1700,7 @@ const selectFavoriteFolder = async (folderId: string) => {
   favoriteFolderPosts.cursor = undefined
   favoriteFolderPosts.hasMore = false
   favoriteFolderPosts.error = ''
+  favoriteFolderPosts.loaded = false
   if (!['all', 'default', 'unorganized'].includes(folderId)) {
     await loadFavoriteFolderPosts(folderId)
   }
@@ -1532,25 +1735,41 @@ const toggleSelectVisibleFavorites = () => {
   selectedFavoritePostIds.value = Array.from(new Set([...selectedFavoritePostIds.value.map(String), ...visibleIds]))
 }
 
+const favoriteFolderActionContext = () => ({
+  generation: profileGeneration,
+  accountKey: currentProfileAccountKey(),
+})
+
+const favoriteFolderActionIsCurrent = (context: { generation: number; accountKey: string }) => (
+  profileRequestIsCurrent(context.generation, context.accountKey)
+)
+
 const handleBatchMoveFavorites = async () => {
   if (favoriteBatchMoveDisabled.value || !favoriteFolderApi.batchMoveFavoritesToFolder) return
+  const context = favoriteFolderActionContext()
+  const postIds = [...selectedFavoritePostIds.value]
+  const targetFolderId = favoriteBatchTargetFolderId.value
   favoriteFolderActionLoading.value = true
   try {
     await favoriteFolderApi.batchMoveFavoritesToFolder({
-      postIds: selectedFavoritePostIds.value,
-      folderId: favoriteBatchTargetFolderId.value,
+      postIds,
+      folderId: targetFolderId,
     })
+    if (!favoriteFolderActionIsCurrent(context)) return
     clearSelectedFavoritePosts()
     favoriteBatchTargetFolderId.value = ''
     await refreshFavoriteFolders()
+    if (!favoriteFolderActionIsCurrent(context)) return
     if (!['all', 'default', 'unorganized'].includes(selectedFavoriteFolderId.value)) {
       await loadFavoriteFolderPosts(selectedFavoriteFolderId.value)
+      if (!favoriteFolderActionIsCurrent(context)) return
     }
     toast.success('已批量移动收藏')
   } catch (error: any) {
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.error(getErrorMessage(error, '批量移动收藏失败'))
   } finally {
-    favoriteFolderActionLoading.value = false
+    if (favoriteFolderActionIsCurrent(context)) favoriteFolderActionLoading.value = false
   }
 }
 
@@ -1561,17 +1780,22 @@ const handleCreateFavoriteFolder = async () => {
     toast.error('收藏夹接口暂不可用，请稍后再试')
     return
   }
+  const context = favoriteFolderActionContext()
   favoriteFolderActionLoading.value = true
   try {
     const res = await favoriteFolderApi.createFavoriteFolder({ name: name.trim(), visibility: 'private', isPublic: false })
+    if (!favoriteFolderActionIsCurrent(context)) return
     await refreshFavoriteFolders()
+    if (!favoriteFolderActionIsCurrent(context)) return
     const created = normalizeFavoriteFolder(res.data)
     if (created.id) await selectFavoriteFolder(created.id)
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.success('收藏夹已创建')
   } catch (error: any) {
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.error(getErrorMessage(error, '新建收藏夹失败'))
   } finally {
-    favoriteFolderActionLoading.value = false
+    if (favoriteFolderActionIsCurrent(context)) favoriteFolderActionLoading.value = false
   }
 }
 
@@ -1580,15 +1804,19 @@ const handleRenameFavoriteFolder = async () => {
   if (!folder || !folder.canRename || !favoriteFolderApi.updateFavoriteFolder) return
   const name = window.prompt('重命名收藏夹', folder.name)
   if (!name?.trim() || name.trim() === folder.name) return
+  const context = favoriteFolderActionContext()
   favoriteFolderActionLoading.value = true
   try {
     await favoriteFolderApi.updateFavoriteFolder(folder.id, { name: name.trim() })
+    if (!favoriteFolderActionIsCurrent(context)) return
     await loadFavoriteFolders()
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.success('收藏夹已重命名')
   } catch (error: any) {
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.error(getErrorMessage(error, '重命名收藏夹失败'))
   } finally {
-    favoriteFolderActionLoading.value = false
+    if (favoriteFolderActionIsCurrent(context)) favoriteFolderActionLoading.value = false
   }
 }
 
@@ -1599,18 +1827,23 @@ const handleSortFavoriteFolder = async (direction: 'up' | 'down') => {
   const folders = [...sortableFavoriteFolders.value]
   if (nextIndex < 0 || nextIndex >= folders.length) return
   const moved = folders[index]
+  if (!moved) return
   folders[index] = folders[nextIndex]
   folders[nextIndex] = moved
+  const context = favoriteFolderActionContext()
   favoriteFolderActionLoading.value = true
   try {
     await favoriteFolderApi.reorderFavoriteFolders(folders.map(folder => folder.id))
+    if (!favoriteFolderActionIsCurrent(context)) return
     await loadFavoriteFolders()
+    if (!favoriteFolderActionIsCurrent(context)) return
     selectedFavoriteFolderId.value = moved.id
     toast.success('收藏夹顺序已更新')
   } catch (error: any) {
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.error(getErrorMessage(error, '收藏夹排序失败'))
   } finally {
-    favoriteFolderActionLoading.value = false
+    if (favoriteFolderActionIsCurrent(context)) favoriteFolderActionLoading.value = false
   }
 }
 
@@ -1621,16 +1854,20 @@ const handleToggleFavoriteFolderPublic = async () => {
     const confirmed = window.confirm('公开后，任何人都可以查看该收藏夹中的公开可见内容。私密、已删除或审核中的内容不会对外展示。')
     if (!confirmed) return
   }
+  const context = favoriteFolderActionContext()
   favoriteFolderActionLoading.value = true
   try {
     const nextPublic = !folder.isPublic
     await favoriteFolderApi.updateFavoriteFolder(folder.id, { visibility: nextPublic ? 'public' : 'private', isPublic: nextPublic })
+    if (!favoriteFolderActionIsCurrent(context)) return
     await loadFavoriteFolders()
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.success(nextPublic ? '收藏夹已设为公开' : '收藏夹已设为私密')
   } catch (error: any) {
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.error(getErrorMessage(error, '收藏夹可见性更新失败'))
   } finally {
-    favoriteFolderActionLoading.value = false
+    if (favoriteFolderActionIsCurrent(context)) favoriteFolderActionLoading.value = false
   }
 }
 
@@ -1656,19 +1893,23 @@ const handleDeleteFavoriteFolder = async () => {
   } else if (!window.confirm(`确认删除收藏夹「${folder.name}」？默认收藏夹不可删除。`)) {
     return
   }
+  const context = favoriteFolderActionContext()
   favoriteFolderActionLoading.value = true
   try {
     await favoriteFolderApi.deleteFavoriteFolder(folder.id, targetFolderId)
+    if (!favoriteFolderActionIsCurrent(context)) return
     selectedFavoriteFolderId.value = 'all'
     favoriteFolderPosts.items = []
     clearSelectedFavoritePosts()
     await refreshFavoriteFolders()
+    if (!favoriteFolderActionIsCurrent(context)) return
     toast.success('收藏夹已删除')
   } catch (error: any) {
+    if (!favoriteFolderActionIsCurrent(context)) return
     const message = getErrorMessage(error, '删除收藏夹失败')
     toast.error(message)
   } finally {
-    favoriteFolderActionLoading.value = false
+    if (favoriteFolderActionIsCurrent(context)) favoriteFolderActionLoading.value = false
   }
 }
 
@@ -1683,11 +1924,12 @@ const loadLikedPosts = (append = false) => loadPage(
 )
 
 const loadFollowing = (append = false) => {
-  if (!user.value?.uid) return Promise.resolve()
+  const uid = user.value?.uid
+  if (!uid) return Promise.resolve(false)
   return loadPage(
     following,
     append,
-    async (cursor) => (await userApi.getFollowing(user.value!.uid, cursor, 12)).data,
+    async (cursor) => (await userApi.getFollowing(uid, cursor, 12)).data,
     '关注列表加载失败',
   )
 }
@@ -1710,13 +1952,118 @@ const loadDiscussionFollows = (append = false) => loadPage(
 )
 
 const loadFollowers = (append = false) => {
-  if (!user.value?.uid) return Promise.resolve()
+  const uid = user.value?.uid
+  if (!uid) return Promise.resolve(false)
   return loadPage(
     followers,
     append,
-    async (cursor) => (await userApi.getFollowers(user.value!.uid, cursor, 12)).data,
+    async (cursor) => (await userApi.getFollowers(uid, cursor, 12)).data,
     '粉丝列表加载失败',
   )
+}
+
+const allProfileListStates = [
+  posts,
+  favorites,
+  favoriteFolderPosts,
+  likedPosts,
+  following,
+  topics,
+  discussionFollows,
+  followers,
+]
+
+const resetListState = (state: ListState<any>) => {
+  state.requestId += 1
+  state.items = []
+  state.cursor = undefined
+  state.hasMore = false
+  state.loading = false
+  state.error = ''
+  state.loaded = false
+}
+
+const resetProfileAccountState = () => {
+  profileGeneration += 1
+  contributionRequestId += 1
+  contactRequestId += 1
+  creatorWorkspaceRequestId += 1
+  collectionsRequestId += 1
+  allProfileListStates.forEach(resetListState)
+  favoriteFolders.requestId += 1
+  favoriteFolders.items = []
+  favoriteFolders.loading = false
+  favoriteFolders.error = ''
+  favoriteFolders.loaded = false
+  selectedFavoriteFolderId.value = 'all'
+  selectedFavoritePostIds.value = []
+  favoriteBatchTargetFolderId.value = ''
+  favoriteFolderActionLoading.value = false
+  backendContribution.value = null
+  creatorWorkspace.value = null
+  curationFeedbackSummary.value = null
+  contactRequestStats.value = null
+  creatorWorkspaceLoading.value = false
+  creatorWorkspaceError.value = ''
+  ownerCollections.value = []
+  myCollections.value = []
+  loadedTabs.clear()
+  pendingTabLoads.clear()
+  user.value = authStore.user
+}
+
+const loadInitialTab = (tab: TabValue): Promise<boolean> => {
+  if (!user.value?.uid) return Promise.resolve(false)
+  if (loadedTabs.has(tab)) return Promise.resolve(true)
+
+  const pending = pendingTabLoads.get(tab)
+  if (pending) return pending
+
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  const task = (async () => {
+    let succeeded = false
+    if (tab === 'posts') succeeded = await loadPosts()
+    else if (tab === 'favorites') {
+      const [foldersLoaded, favoritesLoaded] = await Promise.all([
+        loadFavoriteFolders(),
+        loadFavorites(),
+      ])
+      succeeded = foldersLoaded && favoritesLoaded
+    } else if (tab === 'liked') succeeded = await loadLikedPosts()
+    else if (tab === 'following') succeeded = await loadFollowing()
+    else if (tab === 'topics') succeeded = await loadFollowingTopics()
+    else if (tab === 'discussion-follows') succeeded = await loadDiscussionFollows()
+    else if (tab === 'followers') succeeded = await loadFollowers()
+
+    if (succeeded && profileRequestIsCurrent(generation, accountKey)) {
+      loadedTabs.add(tab)
+    }
+    return succeeded
+  })()
+
+  pendingTabLoads.set(tab, task)
+  void task.finally(() => {
+    if (pendingTabLoads.get(tab) === task) pendingTabLoads.delete(tab)
+  })
+  return task
+}
+
+const initializeProfile = async () => {
+  user.value = authStore.user
+  if (!user.value?.uid) return
+  const tab = normalizeMeTab(route.query.tab)
+  activeTab.value = tab
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  await Promise.all([
+    loadContribution(),
+    loadContactRequestStats(),
+    loadCreatorWorkspace(),
+    loadMyCollections(),
+    loadInitialTab(tab),
+  ])
+  if (profileRequestIsCurrent(generation, accountKey)) focusTrustedContentTask()
 }
 
 const allPostStates = [posts, favorites, favoriteFolderPosts, likedPosts, discussionFollows]
@@ -1865,12 +2212,14 @@ const PostList = defineComponent({
                   ])
                 : h('div', { key: post.postId }, [card])
             })
-          : h(EmptyPanel, {
-              title: props.emptyTitle,
-              description: props.emptyDescription,
-              actionText: props.emptyActionText,
-              actionHref: props.emptyActionHref,
-            }),
+          : props.state.loaded
+            ? h(EmptyPanel, {
+                title: props.emptyTitle,
+                description: props.emptyDescription,
+                actionText: props.emptyActionText,
+                actionHref: props.emptyActionHref,
+              })
+            : null,
       props.state.hasMore
         ? h('div', { class: 'text-center' }, [
             h('button', {
@@ -1905,7 +2254,9 @@ const UserList = defineComponent({
                 onFollowChange: (uid: ApiId, following: boolean, followerCount: number) => emit('follow-change', uid, following, followerCount),
               }),
             ))
-          : h(EmptyPanel, { title: props.emptyTitle, description: props.emptyDescription }),
+          : props.state.loaded
+            ? h(EmptyPanel, { title: props.emptyTitle, description: props.emptyDescription })
+            : null,
       props.state.hasMore
         ? h('div', { class: 'text-center' }, [
             h('button', {
@@ -1952,7 +2303,9 @@ const TopicList = defineComponent({
                 ]),
               ]),
             ))
-          : h(EmptyPanel, { title: props.emptyTitle, description: props.emptyDescription }),
+          : props.state.loaded
+            ? h(EmptyPanel, { title: props.emptyTitle, description: props.emptyDescription })
+            : null,
       props.state.hasMore
         ? h('div', { class: 'text-center' }, [
             h('button', {
@@ -1967,37 +2320,35 @@ const TopicList = defineComponent({
   },
 })
 
-onMounted(async () => {
-  if (!user.value?.uid) return
-  const queryTab = typeof route.query.tab === 'string' ? route.query.tab : ''
-  if (tabValues.has(queryTab as TabValue)) {
-    activeTab.value = queryTab as TabValue
-  }
-  await Promise.all([
-    loadContribution(),
-    loadContactRequestStats(),
-    loadCreatorWorkspace(),
-    loadPosts(),
-    loadFavorites(),
-    loadFavoriteFolders(),
-    loadLikedPosts(),
-    loadMyCollections(),
-    loadFollowing(),
-    loadFollowingTopics(),
-    loadDiscussionFollows(),
-    loadFollowers(),
-  ])
-  focusTrustedContentTask()
+onMounted(() => {
+  profileMounted = true
+  void initializeProfile()
 })
 
 watch(() => route.query.tab, (value) => {
-  if (typeof value === 'string' && tabValues.has(value as TabValue)) {
-    activeTab.value = value as TabValue
+  const normalized = normalizeMeTab(value)
+  activeTab.value = normalized
+  void loadInitialTab(normalized)
+  if (typeof value === 'string' && !tabValues.has(value as TabValue)) {
+    void router.replace({
+      path: route.path,
+      query: { ...route.query, tab: undefined },
+    })
   }
   focusTrustedContentTask()
 })
 
 watch(() => route.query.focus, focusTrustedContentTask)
+
+watch(
+  [() => authStore.user?.uid, () => authStore.token],
+  ([uid, token], [previousUid, previousToken]) => {
+    if (!profileMounted) return
+    if (uid === previousUid && token === previousToken) return
+    resetProfileAccountState()
+    if (uid) void initializeProfile()
+  },
+)
 </script>
 
 <style scoped>

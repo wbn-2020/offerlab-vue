@@ -147,6 +147,7 @@
               </div>
               <div class="community-header__menu-divider" />
               <RouterLink to="/me" class="community-header__menu-item" @click="showUserMenu = false">我的主页</RouterLink>
+              <RouterLink to="/me/relationships" class="community-header__menu-item" @click="showUserMenu = false">关系与订阅中心</RouterLink>
               <RouterLink to="/me/collaboration" class="community-header__menu-item" @click="showUserMenu = false">协作行动中心</RouterLink>
               <RouterLink to="/me/knowledge" class="community-header__menu-item" @click="showUserMenu = false">知识维护</RouterLink>
               <RouterLink to="/me/notifications" class="community-header__menu-item" @click="showUserMenu = false">通知中心</RouterLink>

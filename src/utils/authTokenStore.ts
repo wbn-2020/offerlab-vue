@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'offerlab.auth.token'
 
 let memoryToken: string | null = readSessionToken()
+let sessionVersion = 0
 
 function readSessionToken() {
   try {
@@ -15,7 +16,14 @@ export const authTokenStore = {
     return memoryToken
   },
 
+  getVersion() {
+    return sessionVersion
+  },
+
   set(token: string) {
+    if (memoryToken !== token) {
+      sessionVersion += 1
+    }
     memoryToken = token
     try {
       window.sessionStorage.setItem(STORAGE_KEY, token)
@@ -25,6 +33,9 @@ export const authTokenStore = {
   },
 
   clear() {
+    if (memoryToken !== null) {
+      sessionVersion += 1
+    }
     memoryToken = null
     try {
       window.sessionStorage.removeItem(STORAGE_KEY)

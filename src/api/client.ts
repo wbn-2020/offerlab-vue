@@ -6,6 +6,7 @@ import { safeRedirect } from '@/utils/navigation'
 declare module 'axios' {
   export interface AxiosRequestConfig {
     skipAuthRedirect?: boolean
+    authSessionVersion?: number
   }
 }
 
@@ -124,9 +125,18 @@ const redirectToLogin = () => {
   window.location.assign(target)
 }
 
+const currentAuthSessionVersion = () => authTokenStore.getVersion?.() ?? 0
+
+const requestBelongsToCurrentAuthSession = (requestVersion: unknown) =>
+  typeof requestVersion === 'number'
+  && Number.isSafeInteger(requestVersion)
+  && requestVersion >= 0
+  && requestVersion === currentAuthSessionVersion()
+
 // 请求拦截器
 client.interceptors.request.use((config) => {
   const token = authTokenStore.get()
+  config.authSessionVersion = currentAuthSessionVersion()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -149,7 +159,11 @@ client.interceptors.response.use(
     return result as any
   },
   (error: AxiosError<Result<unknown>>) => {
-    if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
+    if (
+      error.response?.status === 401
+      && !error.config?.skipAuthRedirect
+      && requestBelongsToCurrentAuthSession(error.config?.authSessionVersion)
+    ) {
       authTokenStore.clear()
       try {
         useAuthStore().logout()

@@ -20,7 +20,10 @@
         </select>
       </div>
 
-      <div v-if="errorText" class="state state-error">{{ errorText }}</div>
+      <div v-if="errorText && items.length === 0" class="state state-error">
+        <p>{{ errorText }}</p>
+        <button type="button" class="secondary-button" :disabled="loading" @click="load()">重试</button>
+      </div>
       <div v-else-if="loading" class="state">正在读取维护任务</div>
       <div v-else-if="items.length === 0" class="state">当前没有分配给你的维护任务。</div>
       <section v-else class="task-list">
@@ -73,7 +76,11 @@
           </form>
         </article>
       </section>
-      <div v-if="hasMore && !loading" class="load-more-row">
+      <div v-if="loadMoreErrorText && items.length > 0" class="state state-error load-more-error">
+        <p>{{ loadMoreErrorText }}</p>
+        <button type="button" class="secondary-button" :disabled="loadingMore" @click="load(true)">重试加载更多</button>
+      </div>
+      <div v-else-if="hasMore && !loading" class="load-more-row">
         <button type="button" class="secondary-button" :disabled="loadingMore" @click="load(true)">
           {{ loadingMore ? '正在加载' : '加载更多' }}
         </button>
@@ -83,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -91,6 +98,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import CollaborationDeliverySelector from '@/components/collaboration/CollaborationDeliverySelector.vue'
 import type { NeedDeliveryCandidate } from '@/api/collaboration'
 import { getErrorMessage } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
 import {
   contentMaintenanceApi,
   type ContentMaintenanceTask,
@@ -100,6 +108,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const statuses: MaintenanceStatus[] = ['OPEN', 'CLAIMED', 'SUBMITTED', 'COMPLETED', 'CLOSED']
 const statusSet = new Set(statuses)
 const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
@@ -112,10 +121,80 @@ const items = ref<ContentMaintenanceTask[]>([])
 const loading = ref(false)
 const loadingMore = ref(false)
 const errorText = ref('')
+const loadMoreErrorText = ref('')
 const busy = ref(false)
 const nextCursor = ref<string | null>(null)
 const hasMore = ref(false)
 const drafts = reactive<Record<string, { deliveryType: MaintenanceDeliveryType; deliveryRefId: string; note: string }>>({})
+let maintenanceLoadRequestId = 0
+let maintenanceAccountGeneration = 0
+let maintenanceLoadController: AbortController | null = null
+
+interface MaintenanceLoadSnapshot {
+  requestId: number
+  requestedStatus: MaintenanceStatus | ''
+  cursor: string | null
+  append: boolean
+  accountKey: string
+  accountGeneration: number
+  controller: AbortController
+}
+
+const currentMaintenanceAccountKey = () => (
+  `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
+)
+
+const maintenanceRequestIsCurrent = (
+  requestId: number,
+  requestedStatus: MaintenanceStatus | '',
+  accountKey: string,
+  accountGeneration: number,
+) => (
+  requestId === maintenanceLoadRequestId
+  && requestedStatus === status.value
+  && accountGeneration === maintenanceAccountGeneration
+  && accountKey === currentMaintenanceAccountKey()
+  && authStore.isLoggedIn
+)
+
+const maintenanceRequestSnapshotIsCurrent = (snapshot: MaintenanceLoadSnapshot) => (
+  maintenanceRequestIsCurrent(
+    snapshot.requestId,
+    snapshot.requestedStatus,
+    snapshot.accountKey,
+    snapshot.accountGeneration,
+  )
+  && snapshot.cursor === (snapshot.append ? nextCursor.value : null)
+  && maintenanceLoadController === snapshot.controller
+  && !snapshot.controller.signal.aborted
+)
+
+const abortMaintenanceLoad = () => {
+  maintenanceLoadController?.abort()
+  maintenanceLoadController = null
+}
+
+const clearMaintenanceState = () => {
+  maintenanceLoadRequestId += 1
+  abortMaintenanceLoad()
+  loading.value = false
+  loadingMore.value = false
+  busy.value = false
+  items.value = []
+  nextCursor.value = null
+  hasMore.value = false
+  errorText.value = ''
+  loadMoreErrorText.value = ''
+  for (const key of Object.keys(drafts)) delete drafts[key]
+}
+
+const isCanceledRequest = (error: unknown, signal: AbortSignal) => {
+  if (signal.aborted) return true
+  const candidate = error as { name?: unknown; code?: unknown } | null | undefined
+  return candidate?.name === 'AbortError'
+    || candidate?.name === 'CanceledError'
+    || candidate?.code === 'ERR_CANCELED'
+}
 
 const suggestedDelivery = (task: ContentMaintenanceTask) => {
   if (task.sourcePostId) {
@@ -186,37 +265,96 @@ const applyDeliveryCandidate = (task: ContentMaintenanceTask, candidate: NeedDel
   })
 }
 const load = async (append = false) => {
+  if (!authStore.isLoggedIn || !authStore.user?.uid) return
   if (append && (!hasMore.value || loadingMore.value)) return
-  if (append) loadingMore.value = true
-  else loading.value = true
-  errorText.value = ''
+  const requestedStatus = status.value
+  const cursor = append ? nextCursor.value : null
+  if (append && !cursor) return
+  const accountKey = currentMaintenanceAccountKey()
+  const accountGeneration = maintenanceAccountGeneration
+  abortMaintenanceLoad()
+  const controller = new AbortController()
+  const requestId = ++maintenanceLoadRequestId
+  const snapshot: MaintenanceLoadSnapshot = {
+    requestId,
+    requestedStatus,
+    cursor,
+    append,
+    accountKey,
+    accountGeneration,
+    controller,
+  }
+  const identityIsCurrent = () => maintenanceRequestIsCurrent(requestId, requestedStatus, accountKey, accountGeneration)
+  maintenanceLoadController = controller
+  if (append) {
+    loadingMore.value = true
+    loadMoreErrorText.value = ''
+  } else {
+    loading.value = true
+    loadingMore.value = false
+    items.value = []
+    nextCursor.value = null
+    hasMore.value = false
+    errorText.value = ''
+    loadMoreErrorText.value = ''
+  }
   try {
     const res = await contentMaintenanceApi.mine({
-      status: status.value || undefined,
-      cursor: append ? nextCursor.value || 0 : 0,
+      status: requestedStatus || undefined,
+      cursor: cursor || 0,
       size: 50,
+    }, {
+      signal: controller.signal,
     })
+    if (!identityIsCurrent() || !maintenanceRequestSnapshotIsCurrent(snapshot)) return
     const incoming = res.data?.items || []
     items.value = append ? [...items.value, ...incoming] : incoming
     nextCursor.value = res.data?.nextCursor || null
     hasMore.value = Boolean(res.data?.hasMore && nextCursor.value)
   } catch (error) {
-    errorText.value = getErrorMessage(error, '维护任务暂时无法读取')
+    if (
+      isCanceledRequest(error, controller.signal)
+      || !identityIsCurrent()
+      || !maintenanceRequestSnapshotIsCurrent(snapshot)
+    ) return
+    const message = getErrorMessage(error, append ? '加载更多维护任务失败' : '维护任务暂时无法读取')
+    if (append) loadMoreErrorText.value = message
+    else errorText.value = message
   } finally {
-    if (append) loadingMore.value = false
-    else loading.value = false
+    if (maintenanceLoadController === controller && requestId === maintenanceLoadRequestId) {
+      if (append) loadingMore.value = false
+      else loading.value = false
+      maintenanceLoadController = null
+    }
   }
 }
 const claim = async (task: ContentMaintenanceTask) => {
+  const accountKey = currentMaintenanceAccountKey()
+  const accountGeneration = maintenanceAccountGeneration
   busy.value = true
   try {
     await contentMaintenanceApi.claim(task.id)
+    if (
+      accountGeneration !== maintenanceAccountGeneration
+      || accountKey !== currentMaintenanceAccountKey()
+      || !authStore.isLoggedIn
+    ) return
     toast.success('任务已领取')
     await load()
   } catch (error) {
+    if (
+      accountGeneration !== maintenanceAccountGeneration
+      || accountKey !== currentMaintenanceAccountKey()
+      || !authStore.isLoggedIn
+    ) return
     toast.error(getErrorMessage(error, '领取任务失败'))
   } finally {
-    busy.value = false
+    if (
+      accountGeneration === maintenanceAccountGeneration
+      && accountKey === currentMaintenanceAccountKey()
+    ) {
+      busy.value = false
+    }
   }
 }
 const changeStatus = () => {
@@ -227,7 +365,6 @@ const changeStatus = () => {
       status: status.value || undefined,
     },
   })
-  void load()
 }
 const canSubmit = (task: ContentMaintenanceTask) => {
   const value = draft(task)
@@ -235,6 +372,8 @@ const canSubmit = (task: ContentMaintenanceTask) => {
 }
 const submit = async (task: ContentMaintenanceTask) => {
   if (!canSubmit(task)) return
+  const accountKey = currentMaintenanceAccountKey()
+  const accountGeneration = maintenanceAccountGeneration
   busy.value = true
   try {
     const value = draft(task)
@@ -244,12 +383,27 @@ const submit = async (task: ContentMaintenanceTask) => {
       deliveryPostId: value.deliveryType === 'SERIES' ? undefined : value.deliveryRefId,
       note: value.note,
     })
+    if (
+      accountGeneration !== maintenanceAccountGeneration
+      || accountKey !== currentMaintenanceAccountKey()
+      || !authStore.isLoggedIn
+    ) return
     toast.success('交付已提交，等待治理审核')
     await load()
   } catch (error) {
+    if (
+      accountGeneration !== maintenanceAccountGeneration
+      || accountKey !== currentMaintenanceAccountKey()
+      || !authStore.isLoggedIn
+    ) return
     toast.error(getErrorMessage(error, '提交交付失败'))
   } finally {
-    busy.value = false
+    if (
+      accountGeneration === maintenanceAccountGeneration
+      && accountKey === currentMaintenanceAccountKey()
+    ) {
+      busy.value = false
+    }
   }
 }
 const statusLabel = (value: MaintenanceStatus) => ({
@@ -268,14 +422,28 @@ watch(
   () => firstQueryValue(route.query.status),
   () => {
     const nextStatus = readRouteStatus()
-    if (nextStatus === status.value) return
     status.value = nextStatus
     void load()
   },
 )
 
+watch(
+  [() => authStore.user?.uid, () => authStore.token],
+  ([uid, token], [previousUid, previousToken]) => {
+    if (uid === previousUid && token === previousToken) return
+    maintenanceAccountGeneration += 1
+    clearMaintenanceState()
+    if (uid && token) void load()
+  },
+)
+
 onMounted(() => {
   void load()
+})
+
+onBeforeUnmount(() => {
+  maintenanceLoadRequestId += 1
+  abortMaintenanceLoad()
 })
 </script>
 
@@ -290,7 +458,7 @@ onMounted(() => {
 .task-head h2 { margin:.55rem 0 0;color:rgb(15 23 42);font-size:1rem;font-weight:900; }.open-link { color:rgb(8 145 178);font-size:.76rem;font-weight:800;white-space:nowrap; }.detail,.note,.meta { margin:.7rem 0 0;color:rgb(71 85 105);font-size:.8rem;line-height:1.6; }.meta { color:rgb(100 116 139);font-size:.72rem; }.note { border-left:2px solid rgb(125 211 252);padding-left:.65rem; }
 .action-row { margin-top:.9rem;justify-content:flex-start; }.submit-form { display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.65rem;margin-top:1rem;border-top:1px solid rgb(241 245 249);padding-top:1rem; }.maintenance-delivery-selector { grid-column:1 / -1;border:0;border-radius:0;background:transparent; }.manual-delivery-fallback { grid-column:1 / -1;color:rgb(100 116 139);font-size:.75rem;font-weight:800; }.manual-delivery-fallback summary { cursor:pointer; }.manual-delivery-fields { display:grid;grid-template-columns:10rem minmax(0,1fr);gap:.65rem;margin-top:.65rem; }.note-input { grid-column:1 / -1;resize:vertical; }.primary-button { display:inline-flex;min-height:38px;align-items:center;justify-content:center;border:1px solid rgb(8 145 178);border-radius:.5rem;background:rgb(8 145 178);padding:.5rem .75rem;color:white;font-size:.78rem;font-weight:900; }.primary-button:disabled,.icon-button:disabled { cursor:not-allowed;opacity:.5; }
 .load-more-row { display:flex;justify-content:center;margin-top:1rem; }.secondary-button { display:inline-flex;min-height:38px;align-items:center;justify-content:center;border:1px solid rgb(203 213 225);border-radius:.5rem;background:white;padding:.5rem .85rem;color:rgb(51 65 85);font-size:.78rem;font-weight:900; }.secondary-button:disabled { cursor:not-allowed;opacity:.5; }
-.state { border:1px dashed rgb(203 213 225);border-radius:.625rem;background:white;padding:2rem;color:rgb(100 116 139);text-align:center; }.state-error { border-style:solid;border-color:rgb(254 202 202);color:rgb(185 28 28); }
+.state { border:1px dashed rgb(203 213 225);border-radius:.625rem;background:white;padding:2rem;color:rgb(100 116 139);text-align:center; }.state p { margin:0; }.state .secondary-button { margin-top:.75rem; }.state-error { border-style:solid;border-color:rgb(254 202 202);color:rgb(185 28 28); }.load-more-error { margin-top:1rem;padding:1rem; }
 @media (max-width:720px) { .page-header,.task-head { flex-direction:column; }.submit-form,.manual-delivery-fields { grid-template-columns:1fr; }.note-input { grid-column:auto; } }
 .dark .maintenance-page { background:rgb(2 6 23); }.dark .task-row,.dark .field-control,.dark .icon-button,.dark .secondary-button,.dark .state { border-color:rgb(51 65 85);background:rgb(15 23 42);color:rgb(203 213 225); }.dark .page-header h1,.dark .task-head h2 { color:rgb(248 250 252); }.dark .page-header span,.dark .detail,.dark .meta { color:rgb(148 163 184); }.dark .submit-form { border-color:rgb(51 65 85); }
 </style>

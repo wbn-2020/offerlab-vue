@@ -87,7 +87,7 @@
         <div class="issue-heading">
           <div>
             <h3>{{ selected.displayName }}问题明细</h3>
-            <p>服务端返回的有界差异列表；未支持的投影只能在所属领域入口处理。</p>
+            <p>服务端返回的有界诊断样本；未支持的投影只能在所属领域入口处理。</p>
           </div>
           <span class="meta-chip">{{ selected.projectionType }}</span>
         </div>
@@ -95,10 +95,10 @@
         <div v-if="!selected.available" class="state compact-state">
           <CircleOff class="h-5 w-5" />依赖表不可用，暂时无法读取问题明细。
         </div>
-        <div v-else-if="issueError" class="state compact-state state-error" role="alert">
+        <div v-else-if="issueInitialError && issues.length === 0" class="state compact-state state-error" role="alert">
           <AlertTriangle class="h-5 w-5" />
-          <span>{{ issueError }}</span>
-          <button type="button" class="secondary-button compact" @click="loadIssues()">重试</button>
+          <span>{{ issueInitialError }}</span>
+          <button type="button" class="secondary-button compact" @click="loadIssues(false)">重试</button>
         </div>
         <div v-else-if="issueLoading && issues.length === 0" class="state compact-state">
           <Loader2 class="h-5 w-5 animate-spin" />正在读取问题明细
@@ -107,7 +107,11 @@
           <CheckCircle2 class="h-5 w-5" />当前批次未发现问题。
         </div>
         <div v-else class="issue-list">
-          <article v-for="issue in issues" :key="String(issue.issueId)" class="issue-row">
+          <article
+            v-for="issue in issues"
+            :key="`${issue.projectionType}:${issue.issueType}:${String(issue.issueId)}`"
+            class="issue-row"
+          >
             <div>
               <div class="badge-line">
                 <span :class="['status-pill', severityClass(issue.severity)]">{{ issue.severity }}</span>
@@ -115,11 +119,32 @@
               </div>
               <strong>{{ issue.summary }}</strong>
               <small>{{ issue.subjectType }} {{ issue.subjectId }} · {{ formatTime(issue.detectedAt) }}</small>
+              <RouterLink v-if="postContextPath(issue)" :to="postContextPath(issue)" class="issue-context-link">
+                查看文章上下文
+              </RouterLink>
+              <span v-else class="issue-read-only">只读诊断</span>
             </div>
             <span class="issue-id">#{{ issue.issueId }}</span>
           </article>
         </div>
-        <div v-if="issueHasMore" class="load-more-row">
+        <div v-if="issueSourceWarning" class="state compact-state issue-source-warning" role="status">
+          <AlertTriangle class="h-5 w-5" />
+          <span>{{ issueSourceWarning }}</span>
+        </div>
+        <div v-if="issueAppendError" class="state compact-state state-error issue-append-error" role="alert">
+          <AlertTriangle class="h-5 w-5" />
+          <span>{{ issueAppendError }}</span>
+          <button
+            v-if="issuePaginationStalled"
+            type="button"
+            class="secondary-button compact"
+            @click="loadIssues(false)"
+          >
+            刷新问题列表
+          </button>
+          <button v-else type="button" class="secondary-button compact" @click="loadIssues(true)">重试追加</button>
+        </div>
+        <div v-if="issueHasMore && !issueAppendError" class="load-more-row">
           <button type="button" class="secondary-button" :disabled="issueLoadingMore" @click="loadIssues(true)">
             <Loader2 v-if="issueLoadingMore" class="h-4 w-4 animate-spin" />
             <ChevronDown v-else class="h-4 w-4" />
@@ -132,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
   Activity,
   AlertTriangle,
@@ -174,39 +199,106 @@ const loading = ref(false)
 const issueLoading = ref(false)
 const issueLoadingMore = ref(false)
 const errorText = ref('')
-const issueError = ref('')
+const issueInitialError = ref('')
+const issueAppendError = ref('')
+const issueSourceWarning = ref('')
+const issuePaginationStalled = ref(false)
 let summaryRequest = 0
 let issueRequest = 0
+let issueController: AbortController | null = null
+const consumedIssueCursors = new Set<string>()
 
 const selected = computed(() => items.value.find((item) => item.projectionType === selectedType.value) || null)
 
-const selectProjection = (item: ProjectionHealth) => {
-  selectedType.value = item.projectionType
-  emit('select', item)
+interface IssueRequestSnapshot {
+  projectionType: string
+  requestId: number
+  cursor: string | null
+  append: boolean
+  controller: AbortController
+}
+
+const issueRequestOwnsState = (snapshot: IssueRequestSnapshot) => (
+  snapshot.requestId === issueRequest
+  && snapshot.projectionType === selectedType.value
+  && snapshot.controller === issueController
+)
+
+const issueRequestIsCurrent = (snapshot: IssueRequestSnapshot) => (
+  issueRequestOwnsState(snapshot)
+  && !snapshot.controller.signal.aborted
+  && snapshot.cursor === (snapshot.append ? nextCursor.value : null)
+)
+
+const isCanceledRequest = (error: unknown, signal: AbortSignal) => {
+  const candidate = error as { name?: string; code?: string } | null
+  return signal.aborted
+    || candidate?.name === 'AbortError'
+    || candidate?.name === 'CanceledError'
+    || candidate?.code === 'ERR_CANCELED'
+}
+
+const cancelIssueRequest = () => {
+  issueRequest += 1
+  issueController?.abort()
+  issueController = null
+  issueLoading.value = false
+  issueLoadingMore.value = false
+}
+
+const resetIssueState = () => {
+  cancelIssueRequest()
   issues.value = []
   nextCursor.value = null
   issueHasMore.value = false
-  issueError.value = ''
-  if (item.available) void loadIssues()
+  issueInitialError.value = ''
+  issueAppendError.value = ''
+  issueSourceWarning.value = ''
+  issuePaginationStalled.value = false
+  consumedIssueCursors.clear()
+}
+
+const issueIdentity = (issue: ProjectionIssue) => (
+  `${issue.projectionType}:${issue.issueType}:${String(issue.issueId)}`
+)
+
+const mergeIssuePage = (incoming: ProjectionIssue[], append: boolean) => {
+  const merged = append ? [...issues.value] : []
+  const seen = new Set(merged.map(issueIdentity))
+  let addedCount = 0
+  for (const issue of incoming) {
+    const identity = issueIdentity(issue)
+    if (seen.has(identity)) continue
+    seen.add(identity)
+    merged.push(issue)
+    addedCount += 1
+  }
+  return { items: merged, addedCount }
+}
+
+const selectProjection = (item: ProjectionHealth) => {
+  resetIssueState()
+  selectedType.value = item.projectionType
+  emit('select', item)
+  if (item.available) void loadIssues(false)
 }
 
 const loadSummary = async () => {
   if (!props.canInspect) return
   const requestId = ++summaryRequest
+  resetIssueState()
   loading.value = true
   errorText.value = ''
   try {
     const response = await projectionHealthApi.summary()
     if (requestId !== summaryRequest) return
+    resetIssueState()
     items.value = Array.isArray(response.data) ? response.data : []
     const next = items.value.find((item) => item.projectionType === selectedType.value) || items.value[0] || null
     if (next) {
       selectedType.value = next.projectionType
       emit('select', next)
-      issues.value = []
-      nextCursor.value = null
-      issueHasMore.value = false
-      if (next.available) await loadIssues()
+      if (next.available) await loadIssues(false)
     } else {
       selectedType.value = ''
       emit('select', null)
@@ -221,30 +313,124 @@ const loadSummary = async () => {
 const loadIssues = async (append = false) => {
   const projection = selected.value
   if (!projection || !projection.available || !props.canInspect) return
-  if (append && (!issueHasMore.value || issueLoadingMore.value)) return
+  if (append && (!issueHasMore.value || !nextCursor.value || issueLoadingMore.value)) return
+
+  const projectionType = projection.projectionType
+  const cursorSnapshot = append ? nextCursor.value : null
+  const requestCursorKey = cursorSnapshot || '0'
+  if (append && consumedIssueCursors.has(requestCursorKey)) {
+    issueHasMore.value = false
+    nextCursor.value = null
+    issuePaginationStalled.value = true
+    issueAppendError.value = '分页游标已被消费，已停止继续加载。请刷新问题列表后重试。'
+    return
+  }
+  issueController?.abort()
+  const controller = new AbortController()
   const requestId = ++issueRequest
-  if (append) issueLoadingMore.value = true
-  else issueLoading.value = true
-  issueError.value = ''
+  const snapshot: IssueRequestSnapshot = {
+    projectionType,
+    requestId,
+    cursor: cursorSnapshot,
+    append,
+    controller,
+  }
+  issueController = controller
+
+  if (append) {
+    issueLoadingMore.value = true
+    issueAppendError.value = ''
+    issuePaginationStalled.value = false
+  } else {
+    issueLoading.value = true
+    issueLoadingMore.value = false
+    issueInitialError.value = ''
+    issueAppendError.value = ''
+    issueSourceWarning.value = ''
+    issuePaginationStalled.value = false
+    issues.value = []
+    nextCursor.value = null
+    issueHasMore.value = false
+    consumedIssueCursors.clear()
+  }
+
   try {
-    const response = await projectionHealthApi.issues(projection.projectionType, {
-      cursor: append ? nextCursor.value || 0 : 0,
+    const response = await projectionHealthApi.issues(projectionType, {
+      cursor: append ? cursorSnapshot || 0 : 0,
       size: 20,
+    }, {
+      signal: controller.signal,
     })
-    if (requestId !== issueRequest || selectedType.value !== projection.projectionType) return
+    if (!issueRequestIsCurrent(snapshot)) return
     const page = response.data
     const incoming = Array.isArray(page?.items) ? page.items : []
-    issues.value = append ? [...issues.value, ...incoming] : incoming
-    nextCursor.value = page?.nextCursor || null
-    issueHasMore.value = Boolean(page?.hasMore && nextCursor.value)
+    const merged = mergeIssuePage(incoming, append)
+    const responseCursor = page?.nextCursor ? String(page.nextCursor) : null
+    const pageHasMore = Boolean(page?.hasMore)
+    consumedIssueCursors.add(requestCursorKey)
+    const cursorRepeated = Boolean(
+      responseCursor && consumedIssueCursors.has(responseCursor),
+    )
+    const paginationStalled = pageHasMore && (
+      !responseCursor
+      || cursorRepeated
+      || (append && merged.addedCount === 0)
+    )
+    issues.value = merged.items
+    issueSourceWarning.value = formatSourceWarning(page)
+    if (paginationStalled) {
+      nextCursor.value = null
+      issueHasMore.value = false
+      issuePaginationStalled.value = true
+      const stallMessage = '分页游标未推进或没有新增问题，已停止继续加载。请刷新问题列表后重试。'
+      if (!append && merged.items.length === 0) issueInitialError.value = stallMessage
+      else issueAppendError.value = stallMessage
+    } else {
+      issuePaginationStalled.value = false
+      nextCursor.value = responseCursor
+      issueHasMore.value = Boolean(pageHasMore && responseCursor)
+    }
   } catch (error) {
-    if (requestId === issueRequest) issueError.value = getErrorMessage(error, '投影问题明细暂时无法读取')
+    if (!issueRequestIsCurrent(snapshot) || isCanceledRequest(error, controller.signal)) return
+    const message = getErrorMessage(error, '投影问题明细暂时无法读取')
+    issuePaginationStalled.value = false
+    if (append) {
+      issueAppendError.value = message
+    } else {
+      issues.value = []
+      nextCursor.value = null
+      issueHasMore.value = false
+      issueInitialError.value = message
+    }
   } finally {
-    if (requestId === issueRequest) {
+    if (issueRequestOwnsState(snapshot)) {
       if (append) issueLoadingMore.value = false
       else issueLoading.value = false
     }
+    if (issueController === controller) issueController = null
   }
+}
+
+const postContextPath = (issue: ProjectionIssue) => (
+  issue.subjectType === 'POST' && /^[1-9]\d*$/.test(issue.subjectId)
+    ? `/post/${issue.subjectId}#trusted-content`
+    : ''
+)
+
+const formatSourceWarning = (page: {
+  degraded?: boolean | null
+  diagnostics?: { sourceErrors?: Record<string, string> } | null
+} | null | undefined) => {
+  if (!page?.degraded) return ''
+  const sourceErrors = page.diagnostics?.sourceErrors
+  const details = sourceErrors
+    ? Object.entries(sourceErrors)
+        .map(([source, reason]) => `${source}: ${reason}`)
+        .join('；')
+    : ''
+  return details
+    ? `部分问题来源暂时不可用（${details}），本次只展示已读取的有限样本；请刷新后重新检查。`
+    : '部分问题来源暂时不可用，本次只展示已读取的有限样本；请刷新后重新检查。'
 }
 
 const healthLabel = (value: string) => ({
@@ -287,15 +473,19 @@ watch(
     if (canInspect) void loadSummary()
     else {
       summaryRequest += 1
-      issueRequest += 1
+      resetIssueState()
       items.value = []
-      issues.value = []
       selectedType.value = ''
       emit('select', null)
     }
   },
   { immediate: true },
 )
+
+onBeforeUnmount(() => {
+  summaryRequest += 1
+  cancelIssueRequest()
+})
 </script>
 
 <style scoped>
@@ -334,12 +524,16 @@ td small { margin-top: .22rem; color: rgb(100 116 139); font-size: .65rem; line-
 .issue-row strong, .issue-row small { display: block; overflow-wrap: anywhere; }
 .issue-row strong { margin-top: .4rem; color: rgb(30 41 59); font-size: .75rem; }
 .issue-row small { margin-top: .2rem; color: rgb(100 116 139); font-size: .66rem; }
+.issue-context-link, .issue-read-only { display: inline-flex; margin-top: .45rem; font-size: .68rem; font-weight: 800; }
+.issue-context-link { color: rgb(8 145 178); text-decoration: underline; text-underline-offset: 2px; }
+.issue-read-only { color: rgb(100 116 139); }
 .issue-id { flex: none; color: rgb(100 116 139); font-size: .66rem; font-weight: 800; }
+.issue-append-error { min-height: 3.5rem; }
 .load-more-row { display: flex; justify-content: center; margin-top: .8rem; }
 button:disabled { cursor: not-allowed; opacity: .5; }
 .dark .projection-panel, .dark .icon-button, .dark .secondary-button { border-color: rgb(51 65 85); background: rgb(15 23 42); color: rgb(203 213 225); }
 .dark .panel-heading h2, .dark td strong, .dark .issue-heading h3, .dark .issue-row strong { color: rgb(248 250 252); }
-.dark .panel-heading span, .dark th, .dark td small, .dark .state, .dark .issue-heading p, .dark .issue-row small, .dark .issue-id { color: rgb(148 163 184); }
+.dark .panel-heading span, .dark th, .dark td small, .dark .state, .dark .issue-heading p, .dark .issue-row small, .dark .issue-id, .dark .issue-read-only { color: rgb(148 163 184); }
 .dark th, .dark .issue-panel { border-color: rgb(51 65 85); }
 .dark td, .dark .issue-row { border-color: rgb(30 41 59); }
 .dark tr.selected-row td { background: rgb(8 47 73 / .35); }

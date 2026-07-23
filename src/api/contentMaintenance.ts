@@ -54,6 +54,11 @@ export interface MaintenanceListQuery {
   size?: number
 }
 
+export interface ContentMaintenanceRequestOptions {
+  signal?: AbortSignal
+  skipAuthRedirect?: boolean
+}
+
 export interface ContentMaintenanceTaskCreateCmd {
   domain: number
   sourceType: MaintenanceSourceType
@@ -87,10 +92,24 @@ const id = (value: ApiId) => encodeURIComponent(String(value))
 export const contentMaintenanceApi = {
   create: (cmd: ContentMaintenanceTaskCreateCmd) =>
     requestResult<ContentMaintenanceTask>(client.post(BASE_PATH, cmd)),
-  mine: (query: Omit<MaintenanceListQuery, 'domain'> = {}) =>
-    requestResult<PageResult<ContentMaintenanceTask>>(client.get(`${BASE_PATH}/mine`, { params: query })),
-  queue: (query: MaintenanceListQuery = {}) =>
-    requestResult<PageResult<ContentMaintenanceTask>>(client.get(`${BASE_PATH}/queue`, { params: query })),
+  mine: (
+    query: Omit<MaintenanceListQuery, 'domain'> = {},
+    options: ContentMaintenanceRequestOptions = {},
+  ) =>
+    requestResult<PageResult<ContentMaintenanceTask>>(client.get(`${BASE_PATH}/mine`, {
+      params: query,
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    })),
+  queue: (
+    query: MaintenanceListQuery = {},
+    options: ContentMaintenanceRequestOptions = {},
+  ) =>
+    requestResult<PageResult<ContentMaintenanceTask>>(client.get(`${BASE_PATH}/queue`, {
+      params: query,
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    })),
   claim: (taskId: ApiId) =>
     requestResult<ContentMaintenanceTask>(client.post(`${BASE_PATH}/${id(taskId)}/claim`)),
   submit: (taskId: ApiId, cmd: ContentMaintenanceTaskSubmitCmd) =>

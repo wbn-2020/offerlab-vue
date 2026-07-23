@@ -29,7 +29,7 @@ const growthProfile = read('src/views/GrowthProfileView.vue')
 const postDetail = read('src/views/PostDetailView.vue')
 const editor = read('src/views/EditorView.vue')
 
-const meCreatorSurface = between(meProfile, 'id="creator-workbench"', '<RevisitSummaryPanel', 'MeProfile creator workbench surface')
+const meCreatorSurface = between(meProfile, 'id="creator-workbench"', '<section class="creator-center-grid mt-6">', 'MeProfile creator workbench surface')
 const growthCurationSurface = between(growthProfile, '最近入选反馈', '<section class="grid gap-4', 'GrowthProfile curation feedback surface')
 const postDetailCreatorSurface = between(postDetail, '<div v-if="isOwnPost" class="creator-feedback-box">', '<section class="rounded-xl', 'PostDetail creator feedback surface')
 const demoCreatorSurface = between(demoSeeds, 'export const demoCreatorFeedbackSummary', 'export const demoProfileContribution', 'creator demo seed surface')

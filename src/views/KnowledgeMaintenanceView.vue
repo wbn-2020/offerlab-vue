@@ -268,10 +268,13 @@
               <RouterLink
                 v-if="item.canonicalRoute"
                 :to="item.canonicalRoute"
-                class="canonical-action"
+                :class="[
+                  'canonical-action',
+                  { 'canonical-action-context': item.type === 'UNKNOWN' },
+                ]"
                 data-canonical-action
               >
-                前往处理
+                {{ item.type === 'UNKNOWN' ? '查看上下文' : '前往处理' }}
                 <ArrowUpRight class="h-4 w-4" aria-hidden="true" />
               </RouterLink>
               <span v-else class="canonical-action-unavailable">暂不可跳转</span>
@@ -318,6 +321,7 @@ import {
   ClipboardCheck,
   Clock3,
   FileClock,
+  FileQuestion,
   FilterX,
   GitPullRequest,
   History,
@@ -336,6 +340,7 @@ import { getErrorMessage } from '@/api/client'
 import {
   knowledgeMaintenanceApi,
   type KnowledgeActionItem,
+  type KnowledgeActionItemType,
   type KnowledgeActionSummary,
   type KnowledgeActionType,
 } from '@/api/knowledgeMaintenance'
@@ -713,8 +718,12 @@ const refreshWorkspace = () => {
 }
 
 const countFor = (type: KnowledgeActionType) => String(summary.value?.counts[type] ?? '0')
-const typeLabel = (type: KnowledgeActionType) => actionTypeMap.get(type)?.label || type
-const typeIcon = (type: KnowledgeActionType) => actionTypeMap.get(type)?.icon || FileClock
+const typeLabel = (type: KnowledgeActionItemType) => (
+  type === 'UNKNOWN' ? '未知行动' : actionTypeMap.get(type)?.label || type
+)
+const typeIcon = (type: KnowledgeActionItemType) => (
+  type === 'UNKNOWN' ? FileQuestion : actionTypeMap.get(type)?.icon || FileClock
+)
 const statusLabel = (status: string) => {
   const normalized = String(status || '').toUpperCase()
   return statusLabelMap.get(normalized) || normalized.replace(/_/g, ' ') || '状态未知'
