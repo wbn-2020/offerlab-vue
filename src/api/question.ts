@@ -45,6 +45,7 @@ export interface Question {
   reviewCount: number
   reviewIntervalDays: number
   sourcePostCount?: number
+  updateTime?: string
   createdAt: number
   updatedAt: number
 }
@@ -332,6 +333,7 @@ export function adaptQuestion(raw: any): Question {
     reviewCount: Number(raw?.reviewCount ?? 0),
     reviewIntervalDays: Number(raw?.reviewIntervalDays ?? 1),
     sourcePostCount: Number(raw?.sourcePostCount ?? raw?.appearCount ?? 0),
+    updateTime: typeof raw?.updateTime === 'string' ? raw.updateTime : undefined,
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
     updatedAt: adaptTime(raw?.updatedAt ?? raw?.updateTime),
   }

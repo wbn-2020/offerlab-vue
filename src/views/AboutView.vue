@@ -63,7 +63,7 @@
               后端：Spring Boot + MySQL + Redis + Elasticsearch
             </p>
             <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-              实时通信：WebSocket + Netty
+              消息通知：定时轮询，近实时更新
             </p>
           </section>
 

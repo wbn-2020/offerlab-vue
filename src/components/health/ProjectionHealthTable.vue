@@ -119,10 +119,21 @@
               </div>
               <strong>{{ issue.summary }}</strong>
               <small>{{ issue.subjectType }} {{ issue.subjectId }} · {{ formatTime(issue.detectedAt) }}</small>
-              <RouterLink v-if="postContextPath(issue)" :to="postContextPath(issue)" class="issue-context-link">
-                查看文章上下文
-              </RouterLink>
-              <span v-else class="issue-read-only">只读诊断</span>
+              <div class="issue-actions">
+                <RouterLink v-if="postContextPath(issue)" :to="postContextPath(issue)" class="issue-context-link">
+                  查看文章上下文
+                </RouterLink>
+                <span v-else class="issue-read-only">只读诊断</span>
+                <button
+                  v-if="canCreateMaintenanceFromIssue(issue)"
+                  type="button"
+                  class="secondary-button issue-maintenance-button"
+                  :aria-label="`将诊断问题 ${issue.issueType} #${String(issue.issueId)} 转为维护任务`"
+                  @click="openMaintenanceTask(issue)"
+                >
+                  <Wrench class="h-4 w-4" />转维护任务
+                </button>
+              </div>
             </div>
             <span class="issue-id">#{{ issue.issueId }}</span>
           </article>
@@ -169,22 +180,33 @@ import {
   Loader2,
   RefreshCw,
   ShieldAlert,
+  Wrench,
 } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
 import { getErrorMessage } from '@/api/client'
 import {
   projectionHealthApi,
   type ProjectionHealth,
   type ProjectionIssue,
 } from '@/api/projectionHealth'
+import {
+  buildMaintenanceTaskFromIssueTarget,
+  canCreateMaintenanceFromProjectionIssue,
+} from '@/utils/maintenanceNavigation'
 
 const props = withDefaults(defineProps<{
   canInspect: boolean
   permissionLoading: boolean
   permissionError: string
   refreshKey?: number
+  canCreateMaintenanceGlobally?: boolean
+  moderatedDomains?: number[]
 }>(), {
   refreshKey: 0,
+  canCreateMaintenanceGlobally: false,
+  moderatedDomains: () => [],
 })
+const router = useRouter()
 
 const emit = defineEmits<{
   select: [projection: ProjectionHealth | null]
@@ -417,6 +439,18 @@ const postContextPath = (issue: ProjectionIssue) => (
     : ''
 )
 
+const canCreateMaintenanceFromIssue = (issue: ProjectionIssue) => (
+  canCreateMaintenanceFromProjectionIssue(issue, {
+    canCreateGlobally: props.canCreateMaintenanceGlobally,
+    moderatedDomains: props.moderatedDomains,
+  })
+)
+
+const openMaintenanceTask = (issue: ProjectionIssue) => {
+  if (!canCreateMaintenanceFromIssue(issue)) return
+  void router.push(buildMaintenanceTaskFromIssueTarget(issue))
+}
+
 const formatSourceWarning = (page: {
   degraded?: boolean | null
   diagnostics?: { sourceErrors?: Record<string, string> } | null
@@ -524,9 +558,11 @@ td small { margin-top: .22rem; color: rgb(100 116 139); font-size: .65rem; line-
 .issue-row strong, .issue-row small { display: block; overflow-wrap: anywhere; }
 .issue-row strong { margin-top: .4rem; color: rgb(30 41 59); font-size: .75rem; }
 .issue-row small { margin-top: .2rem; color: rgb(100 116 139); font-size: .66rem; }
-.issue-context-link, .issue-read-only { display: inline-flex; margin-top: .45rem; font-size: .68rem; font-weight: 800; }
+.issue-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+.issue-context-link, .issue-read-only, .issue-maintenance-button { display: inline-flex; align-items: center; gap: .25rem; margin-top: .45rem; font-size: .68rem; font-weight: 800; }
 .issue-context-link { color: rgb(8 145 178); text-decoration: underline; text-underline-offset: 2px; }
 .issue-read-only { color: rgb(100 116 139); }
+.issue-maintenance-button { color: rgb(22 101 52); }
 .issue-id { flex: none; color: rgb(100 116 139); font-size: .66rem; font-weight: 800; }
 .issue-append-error { min-height: 3.5rem; }
 .load-more-row { display: flex; justify-content: center; margin-top: .8rem; }
@@ -534,6 +570,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .dark .projection-panel, .dark .icon-button, .dark .secondary-button { border-color: rgb(51 65 85); background: rgb(15 23 42); color: rgb(203 213 225); }
 .dark .panel-heading h2, .dark td strong, .dark .issue-heading h3, .dark .issue-row strong { color: rgb(248 250 252); }
 .dark .panel-heading span, .dark th, .dark td small, .dark .state, .dark .issue-heading p, .dark .issue-row small, .dark .issue-id, .dark .issue-read-only { color: rgb(148 163 184); }
+.dark .issue-maintenance-button { color: rgb(134 239 172); }
 .dark th, .dark .issue-panel { border-color: rgb(51 65 85); }
 .dark td, .dark .issue-row { border-color: rgb(30 41 59); }
 .dark tr.selected-row td { background: rgb(8 47 73 / .35); }

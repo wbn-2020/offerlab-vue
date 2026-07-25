@@ -12,7 +12,10 @@
           {{ description }}
         </p>
       </div>
-      <span class="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900/70 dark:text-slate-300 dark:ring-slate-700">
+      <span
+        v-if="preview.domain.known"
+        class="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900/70 dark:text-slate-300 dark:ring-slate-700"
+      >
         {{ preview.domain.icon }} {{ preview.domain.label }}
       </span>
     </div>

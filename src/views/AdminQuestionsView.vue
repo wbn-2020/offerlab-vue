@@ -586,9 +586,18 @@ const batchReview = async (status: number) => {
     confirmText: status === 2 ? '确认批量隐藏' : '确认批量通过',
   })
   if (note === null) return
+  const expectedUpdateTimes = Object.fromEntries(
+    questions.value
+      .filter((item) => ids.includes(item.id))
+      .map((item) => [String(item.id), item.updateTime || '']),
+  )
+  if (Object.values(expectedUpdateTimes).some((value) => !value)) {
+    toast.error('题目内容版本缺失，请刷新后重试')
+    return
+  }
   isBatching.value = true
   try {
-    const res = await opsApi.batchReviewQuestions(ids, status, note)
+    const res = await opsApi.batchReviewQuestions(ids, status, expectedUpdateTimes, note)
     toast.success(`已处理 ${res.data?.reviewed || ids.length} 道题`)
     if (selectedQuestion.value && ids.includes(selectedQuestion.value.id)) {
       selectedQuestion.value = null

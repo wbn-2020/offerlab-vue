@@ -135,9 +135,9 @@
               <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div class="flex items-center gap-3">
-                    <span class="domain-icon">{{ getDomainIcon(domain.domain) }}</span>
+                    <span v-if="isKnownDomain(domain.domain)" class="domain-icon">{{ getDomainIcon(domain.domain) }}</span>
                     <div>
-                      <h2 class="text-lg font-black text-slate-950 dark:text-white">{{ domain.domainName }}</h2>
+                      <h2 class="text-lg font-black text-slate-950 dark:text-white">{{ profileDomainLabel(domain) }}</h2>
                       <p class="text-xs text-slate-500 dark:text-slate-400">
                         综合得分 {{ totalScore(domain) }} / 400
                       </p>
@@ -186,7 +186,7 @@
                       </div>
                       <div class="mt-1 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
                         <span>{{ post.heat }} 热度</span>
-                        <span>{{ getDomainLabel(post.domain ?? domain.domain) }}</span>
+                        <span>{{ representativePostDomainLabel(post.domain, domain.domain) }}</span>
                         <span v-if="post.featured">精选</span>
                       </div>
                     </div>
@@ -220,7 +220,7 @@ import { growthApi } from '@/api/growth'
 import { useAuthStore } from '@/stores/auth'
 import type { CreatorCurationFeedback, CreatorCurationFeedbackSummary, GrowthProfile, GrowthProfileDomain } from '@/api/types'
 import { formatTime } from '@/lib/format'
-import { getDomainIcon, getDomainLabel } from '@/utils/domains'
+import { getDomainIcon, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -241,8 +241,18 @@ const curationFeedbackSummary = ref<CreatorCurationFeedbackSummary | null>(null)
 
 const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 const primaryDomain = computed(() => profile.value?.domains?.[0] ?? null)
-const strongestDomain = computed(() => profile.value?.strongestDomain || primaryDomain.value?.domainName || '--')
+const strongestDomain = computed(() => profile.value?.strongestDomain
+  || (primaryDomain.value ? profileDomainLabel(primaryDomain.value) : '--'))
 const emergingDomain = computed(() => profile.value?.emergingDomain || '继续观察')
+const profileDomainLabel = (domain: GrowthProfileDomain) => (
+  isKnownDomain(domain.domain)
+    ? domain.domainName || getDomainLabelSafe(domain.domain)
+    : getDomainLabelSafe(domain.domain)
+)
+const representativePostDomainLabel = (
+  postDomain?: number | null,
+  fallbackDomain?: number | null,
+) => getDomainLabelSafe(postDomain == null ? fallbackDomain : postDomain)
 const profileDemoNotice = computed(() => profile.value?.degradationReasons?.includes('local_demo_seed')
   ? '这些内容是本地样例，用来说明成长档案会如何组织公开内容，不代表你的真实成长画像。'
   : ''

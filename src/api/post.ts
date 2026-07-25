@@ -241,6 +241,11 @@ export const postApi = {
     return { ...res, data: res.data ? adaptPost(res.data) : null }
   },
 
+  getReviewPreview: async (postId: ApiId): Promise<Result<Post>> => {
+    const res = await client.get(`/api/v1/posts/admin/review-preview/${postId}`) as Result<any>
+    return { ...res, data: res.data ? adaptPost(res.data) : null }
+  },
+
 
   listVersions: async (postId: ApiId, limit = 10): Promise<Result<PostVersionHistory[]>> => {
     const res = await client.get(`/api/v1/posts/${postId}/versions`, { params: { limit } }) as Result<any>

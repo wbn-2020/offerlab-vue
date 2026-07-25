@@ -61,7 +61,7 @@
             <article class="mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
               <div class="mb-4 flex flex-wrap items-center gap-3">
                 <span class="content-type-pill">{{ contentTypeLabel }}</span>
-                <span v-if="post.domain" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
+                <span v-if="isKnownDomain(post.domain)" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
                   {{ getDomainIcon(post.domain) }} {{ getDomainLabel(post.domain) }}
                 </span>
                 <span v-if="post.extension?.difficulty" class="meta-pill">{{ post.extension.difficulty }}</span>
@@ -120,12 +120,12 @@
               </div>
 
               <section
-                v-if="domainDetailSurface"
+                v-if="isKnownDomain(post.domain) && domainDetailSurface"
                 :class="['domain-detail-panel', `domain-detail-${domainDetailSurface.tone}`]"
               >
                 <div class="domain-detail-head">
                   <div>
-                    <p>{{ getDomainLabel(post.domain) }}</p>
+                    <p>{{ getDomainLabelSafe(post.domain) }}</p>
                     <h2>{{ domainDetailSurface.title }}</h2>
                   </div>
                 </div>
@@ -1296,7 +1296,7 @@ import client, { BizException, getErrorMessage } from '@/api/client'
 import type { Comment, Post, PostPublishStatus, PostVersionHistory, PublicPostUpdate } from '@/api/types'
 import { isPersistableKnowledgeRelation, knowledgeApi, type KnowledgeExploreResponse, type KnowledgePath, type KnowledgePreviewSource, type KnowledgeRelation, type PublicKnowledgeAsset, type PublicKnowledgeAssetType } from '@/api/knowledge'
 import { POST_TYPE, getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
-import { getDomainIcon, getDomainLabel } from '@/utils/domains'
+import { getDomainIcon, getDomainLabel, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
 import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 import { buildFollowReasons, isPublicAuthor, safeCreatorBio } from '@/utils/creatorSignals'
@@ -1858,8 +1858,9 @@ const visibleDetailImages = computed(() => {
 const effectiveRiskNotice = computed(() => {
   if (domainDetailSurface.value?.riskNotice) return normalizeRiskNoticeForUsers(domainDetailSurface.value.riskNotice)
   if (!post.value) return ''
+  const domainLabel = isKnownDomain(post.value.domain) ? getDomainLabel(post.value.domain) : ''
   return normalizeRiskNoticeForUsers(findHighRiskContentWarning([
-    getDomainLabel(post.value.domain),
+    domainLabel,
     post.value.title,
     post.value.summary,
     post.value.content,

@@ -920,11 +920,11 @@ export const opsApi = {
   previewNotificationRetryTasks: (ids: ApiId[]): Promise<Result<BatchActionPreview>> =>
     client.post('/api/v1/ops/notification-retry-tasks/replay-batch/preview', { ids }),
 
-  reviewQuestion: (id: ApiId, status: number, remark?: string): Promise<Result<{ questionId: ApiId; status: number }>> =>
-    client.post(`/api/v1/admin/questions/${id}/review`, withRemark({}, remark), { params: { status } }),
+  reviewQuestion: (id: ApiId, status: number, expectedUpdateTime: string, remark?: string): Promise<Result<{ questionId: ApiId; status: number }>> =>
+    client.post(`/api/v1/admin/questions/${id}/review`, withRemark({ expectedUpdateTime }, remark), { params: { status } }),
 
-  batchReviewQuestions: (ids: ApiId[], status: number, remark?: string): Promise<Result<{ requested: number; reviewed: number; status: number }>> =>
-    client.post('/api/v1/admin/questions/batch-review', withRiskConfirm({ ids, status }, remark)),
+  batchReviewQuestions: (ids: ApiId[], status: number, expectedUpdateTimes: Record<string, string>, remark?: string): Promise<Result<{ requested: number; reviewed: number; status: number }>> =>
+    client.post('/api/v1/admin/questions/batch-review', withRiskConfirm({ ids, status, expectedUpdateTimes }, remark)),
 
   listQuestions: (params?: { status?: number; limit?: number }): Promise<Result<Question[]>> =>
     client.get('/api/v1/admin/questions', { params }),

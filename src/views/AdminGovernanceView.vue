@@ -551,6 +551,7 @@
               <option value="COMMENT_REPORT">评论举报</option>
               <option value="CONTACT_REQUEST_REPORT">联系请求举报</option>
               <option value="MODERATION_HIT">敏感词命中</option>
+              <option value="POST_PENDING_REVIEW">帖子待审</option>
               <option value="QUESTION_PENDING">待审知识卡</option>
               <option value="AI_TASK_FAILED">失败 AI 任务</option>
             </select>
@@ -621,7 +622,16 @@
                 </p>
               </div>
               <div class="flex flex-wrap gap-2">
-                <RouterLink :to="item.actionPath" class="secondary-button">{{ item.actionLabel }}</RouterLink>
+                <button
+                  v-if="item.sourceType === 'POST_PENDING_REVIEW'"
+                  type="button"
+                  class="secondary-button"
+                  :disabled="previewLoadingId === item.id"
+                  @click="openPendingPostPreview(item)"
+                >
+                  {{ previewLoadingId === item.id ? '加载中' : item.actionLabel }}
+                </button>
+                <RouterLink v-else :to="item.actionPath" class="secondary-button">{{ item.actionLabel }}</RouterLink>
                 <button v-if="item.actionTab" type="button" class="secondary-button" @click="goToQueueItem(item)">在治理中心定位</button>
                 <button v-if="canQueueAction(item, 'claim')" type="button" class="secondary-button" :disabled="isSaving" @click="handleReviewQueueAction(item, 'claim')">认领</button>
                 <button v-if="canQueueAction(item, 'release')" type="button" class="secondary-button" :disabled="isSaving" @click="handleReviewQueueAction(item, 'release')">释放</button>
@@ -722,6 +732,22 @@
       @cancel="cancelRiskConfirm"
     />
 
+    <div v-if="selectedPendingReviewPost" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="closePendingPostPreview">
+      <article class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="pending-post-preview-title" tabindex="-1">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-slate-400">待审帖子全文</p>
+            <h2 id="pending-post-preview-title" class="mt-1 text-lg font-bold text-slate-950 dark:text-slate-50">{{ selectedPendingReviewPost.title || `帖子 ${selectedPendingReviewPost.postId}` }}</h2>
+            <p class="mt-1 text-sm text-slate-500">{{ domainLabel(selectedPendingReviewPost.domain) }} · 作者 {{ selectedPendingReviewPost.author.uid }}</p>
+          </div>
+          <button ref="pendingPostPreviewCloseButton" type="button" class="secondary-button" @click="closePendingPostPreview">关闭</button>
+        </div>
+        <div class="max-h-[70vh] overflow-auto p-5">
+          <div class="whitespace-pre-wrap break-words text-sm leading-7 text-slate-700 dark:text-slate-200">{{ selectedPendingReviewPost.content || '暂无正文' }}</div>
+        </div>
+      </article>
+    </div>
+
     <div v-if="selectedAudit" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="closeAuditDetail">
       <article class="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="audit-detail-title" tabindex="-1">
         <div class="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
@@ -771,7 +797,8 @@ import type { AiExtractTask } from '@/api/ops'
 import type { CommentReport, CommunityTopic, Post, PostReport, Tag, UserReportStatus } from '@/api/types'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
-import { DOMAIN_OPTIONS, getDomainLabel } from '@/utils/domains'
+import { useAuthStore } from '@/stores/auth'
+import { DOMAIN_OPTIONS, getDomainLabel, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
 
 const tabs = [
   { label: '迁移检查', value: 'migration', scope: 'ops' },
@@ -789,8 +816,9 @@ const tabs = [
 tabs.splice(tabs.findIndex((tab) => tab.value === 'topics'), 0, { label: '领域版主', value: 'moderators', scope: 'domainModeration' })
 
 const route = useRoute()
+const authStore = useAuthStore()
 
-type ReviewQueueSourceType = 'POST_REPORT' | 'COMMENT_REPORT' | 'MODERATION_HIT' | 'QUESTION_PENDING' | 'AI_TASK_FAILED' | string
+type ReviewQueueSourceType = 'POST_REPORT' | 'COMMENT_REPORT' | 'MODERATION_HIT' | 'POST_PENDING_REVIEW' | 'QUESTION_PENDING' | 'AI_TASK_FAILED' | string
 type ReviewQueueRisk = ReviewQueueRiskLevel
 
 interface ReviewQueueItem {
@@ -813,6 +841,7 @@ interface ReviewQueueItem {
   backendItem?: BackendReviewQueueItem
   queueStatus?: ReviewQueueStatus
   assigneeUid?: string
+  creatorUid?: string
   handledAt?: string | number
 }
 
@@ -845,8 +874,12 @@ const reviewQueueSource = ref<'backend' | 'frontend-fallback'>('frontend-fallbac
 const reviewQueueLoadWarnings = ref<string[]>([])
 const auditLogs = ref<AdminAuditLog[]>([])
 const selectedAudit = ref<AdminAuditLog | null>(null)
+const selectedPendingReviewPost = ref<Post | null>(null)
+const previewLoadingId = ref('')
+const previewedPendingPostIds = ref<Set<string>>(new Set())
 const selectedKeyword = ref<ModerationKeyword | null>(null)
 const auditCloseButton = ref<HTMLButtonElement | null>(null)
+const pendingPostPreviewCloseButton = ref<HTMLButtonElement | null>(null)
 const keywordForm = reactive({ keyword: '', scope: 'ALL', matchType: 'CONTAINS', action: 'BLOCK', enabled: 1, remark: '' })
 const hitFilters = reactive({ scope: '', action: '', keyword: '', uid: '' })
 const auditFilters = reactive({ action: '', resourceType: '', operatorUid: '', startDate: '', endDate: '' })
@@ -1167,8 +1200,8 @@ const setSelectedGovernanceDomain = async (domain: number | '') => {
   await refreshAll()
 }
 
-const domainLabel = (domain?: number | null) => getDomainLabel(domain)
-const queueDomainText = (domain?: number) => (domain ? getDomainLabel(domain) : '未标注频道')
+const domainLabel = (domain?: number | null) => getDomainLabelSafe(domain)
+const queueDomainText = (domain?: number) => getDomainLabelSafe(domain)
 
 const isQueueCreatedInRange = (value?: string | number) => {
   if (!value) return !(queueFilters.startDate || queueFilters.endDate)
@@ -1227,7 +1260,6 @@ const loadGlobalModerationData = (loaders: Array<Promise<void>>) => {
     return
   }
   reviewQueueLoadWarnings.value = []
-  loaders.push(loadBackendReviewQueue(false))
   loaders.push(opsApi.listModerationKeywords({ limit: 80 }).then((res) => { keywords.value = res.data || [] }))
   loaders.push(opsApi.listModerationHits({ limit: 80 }).then((res) => { hits.value = res.data || [] }))
   loaders.push(opsApi.listModerationUsers(80).then((res) => { users.value = res.data || [] }))
@@ -1253,6 +1285,7 @@ const loadDomainModerationData = (loaders: Array<Promise<void>>) => {
     clearDomainModerationState()
     return
   }
+  loaders.push(loadBackendReviewQueue(false))
   loaders.push(postApi.listAdminReports({ status: 0, limit: 50, domain: selectedDomainParam.value }).then((res) => { postReports.value = res.data || [] }))
   loaders.push(interactionApi.listAdminCommentReports({ status: 0, limit: 50, domain: selectedDomainParam.value }).then((res) => { commentReports.value = res.data || [] }))
   loaders.push(loadFeaturedPosts(false))
@@ -1301,11 +1334,6 @@ const loadReviewQueue = async () => {
     await refreshAll()
     return
   }
-  if (!canGlobalModerate.value) {
-    reviewQueueSource.value = 'frontend-fallback'
-    backendReviewQueueItems.value = []
-    return
-  }
   isLoading.value = true
   try {
     await loadBackendReviewQueue(true)
@@ -1326,6 +1354,7 @@ const queueSourceLabel = (sourceType: string) => {
     COMMENT_REPORT: '评论举报',
     CONTACT_REQUEST_REPORT: '联系请求举报',
     MODERATION_HIT: '敏感词命中',
+    POST_PENDING_REVIEW: '帖子待审',
     QUESTION_PENDING: '待审知识卡',
     AI_TASK_FAILED: '失败 AI 任务',
   }
@@ -1335,6 +1364,7 @@ const queueSourceLabel = (sourceType: string) => {
 const queueTargetText = (targetType: string) => {
   const labels: Record<string, string> = {
     POST: '帖子',
+    POST_PENDING_REVIEW: '帖子',
     COMMENT: '评论',
     CONTENT: '内容',
     QUESTION: '知识卡',
@@ -1371,8 +1401,16 @@ const queueExtId = (item: BackendReviewQueueItem, key: string) => {
   return /^[1-9]\d*$/.test(id) ? id : ''
 }
 
+const queueDomain = (item: BackendReviewQueueItem) => {
+  const directDomain = Number(item.domain)
+  if (isKnownDomain(directDomain)) return directDomain
+  const extDomain = Number(queueExtJson(item).domain)
+  return isKnownDomain(extDomain) ? extDomain : undefined
+}
+
 const queueActionPath = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'POST_REPORT' || item.sourceType === 'POST') return `/post/${item.sourceId || item.id}`
+  if (item.sourceType === 'POST_PENDING_REVIEW') return '/admin/governance?tab=queue'
   if (item.sourceType === 'COMMENT_REPORT') {
     const postId = queueExtId(item, 'postId')
     const commentId = queueExtId(item, 'commentId')
@@ -1387,6 +1425,7 @@ const queueActionPath = (item: BackendReviewQueueItem) => {
 
 const queueActionLabel = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'POST_REPORT' || item.sourceType === 'POST') return '查看帖子'
+  if (item.sourceType === 'POST_PENDING_REVIEW') return '查看待审全文'
   if (item.sourceType === 'COMMENT_REPORT') return queueExtId(item, 'postId') ? '查看原帖' : '留在治理页'
   if (item.sourceType === 'CONTACT_REQUEST_REPORT') return '查看联系请求举报'
   if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '进入知识卡审核'
@@ -1414,7 +1453,7 @@ const toReviewQueueItem = (item: BackendReviewQueueItem): ReviewQueueItem => ({
   title: item.title || `${queueSourceLabel(item.sourceType)} ${item.sourceId || item.id}`,
   summary: item.summary || item.handleNote || '',
   riskLevel: normalizeQueueRisk(item.riskLevel),
-  domain: item.domain,
+  domain: queueDomain(item),
   status: queueStatusText(item.queueStatus),
   createdAt: item.createTime || item.updateTime,
   actionPath: queueActionPath(item),
@@ -1423,11 +1462,12 @@ const toReviewQueueItem = (item: BackendReviewQueueItem): ReviewQueueItem => ({
   backendItem: item,
   queueStatus: item.queueStatus,
   assigneeUid: item.assigneeUid === undefined || item.assigneeUid === null ? undefined : String(item.assigneeUid),
+  creatorUid: item.creatorUid === undefined || item.creatorUid === null ? undefined : String(item.creatorUid),
   handledAt: item.handledTime,
 })
 
 const loadBackendReviewQueue = async (showToast = true) => {
-  if (!canGlobalModerate.value) {
+  if (!canModerate.value) {
     backendReviewQueueItems.value = []
     reviewQueueSource.value = 'frontend-fallback'
     return
@@ -1455,15 +1495,53 @@ const loadBackendReviewQueue = async (showToast = true) => {
 
 type ReviewQueueAction = 'claim' | 'release' | 'approve' | 'reject' | 'close'
 
+const pendingPostPreviewKey = (item: ReviewQueueItem) => {
+  const version = item.backendItem ? queueExtJson(item.backendItem).version : undefined
+  return `${item.targetId}:${String(version ?? 'legacy')}`
+}
+
 const canQueueAction = (item: ReviewQueueItem, action: ReviewQueueAction) => {
-  if (!canGlobalModerate.value) return false
+  if (!canModerate.value) return false
   if (!item.backendItem || reviewQueueSource.value !== 'backend') return false
+  const currentUid = String(authStore.user?.uid ?? '')
+  if (!currentUid) return false
+  if (item.creatorUid && item.creatorUid === currentUid) return false
+  if (item.assigneeUid && item.assigneeUid !== currentUid) return false
   if ((item.sourceType === 'POST_REPORT' || item.sourceType === 'COMMENT_REPORT') && (action === 'approve' || action === 'reject' || action === 'close')) {
     return false
   }
-  if (action === 'claim') return item.queueStatus === 'pending' || item.queueStatus === 'claimed'
-  if (action === 'release') return item.queueStatus === 'claimed'
+  if ((item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'AI_TASK_FAILED')
+      && (action === 'approve' || action === 'reject' || action === 'close')) {
+    return false
+  }
+  if (item.sourceType === 'POST_PENDING_REVIEW'
+      && (action === 'approve' || action === 'reject')
+      && !previewedPendingPostIds.value.has(pendingPostPreviewKey(item))) {
+    return false
+  }
+  if (action === 'claim') return item.queueStatus === 'pending' && !item.assigneeUid
+  if (action === 'release') return item.queueStatus === 'claimed' && item.assigneeUid === currentUid
   return item.queueStatus === 'pending' || item.queueStatus === 'claimed'
+}
+
+const openPendingPostPreview = async (item: ReviewQueueItem) => {
+  const postId = item.backendItem?.sourceId
+  if (!postId || previewLoadingId.value) return
+  previewLoadingId.value = item.id
+  try {
+    const res = await postApi.getReviewPreview(postId)
+    if (!res.data) throw new Error('待审帖子不存在')
+    selectedPendingReviewPost.value = res.data
+    previewedPendingPostIds.value = new Set([...previewedPendingPostIds.value, pendingPostPreviewKey(item)])
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '待审帖子全文加载失败'))
+  } finally {
+    previewLoadingId.value = ''
+  }
+}
+
+const closePendingPostPreview = () => {
+  selectedPendingReviewPost.value = null
 }
 
 const queueActionText = (action: ReviewQueueAction) => {
@@ -1478,7 +1556,7 @@ const queueActionText = (action: ReviewQueueAction) => {
 }
 
 const handleReviewQueueAction = async (item: ReviewQueueItem, action: ReviewQueueAction) => {
-  if (!canGlobalModerate.value) return
+  if (!canModerate.value) return
   if (!item.backendItem) return
   const actionText = queueActionText(action)
   const note = await requireRiskConfirm({
@@ -1604,6 +1682,11 @@ const closeAuditDetail = () => {
 useAccessibleDialog(() => Boolean(selectedAudit.value), {
   close: closeAuditDetail,
   initialFocus: auditCloseButton,
+})
+
+useAccessibleDialog(() => Boolean(selectedPendingReviewPost.value), {
+  close: closePendingPostPreview,
+  initialFocus: pendingPostPreviewCloseButton,
 })
 
 const loadHits = async () => {

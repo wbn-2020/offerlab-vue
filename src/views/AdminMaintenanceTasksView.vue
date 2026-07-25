@@ -10,13 +10,34 @@
         <aside class="create-panel">
           <h2>创建维护任务</h2>
           <form class="form-stack" @submit.prevent="create">
-            <select v-model.number="form.domain" class="field-control"><option v-for="domain in domains" :key="domain.value" :value="domain.value">{{ domain.label }}</option></select>
-            <select v-model="form.sourceType" class="field-control"><option v-for="source in sources" :key="source" :value="source">{{ sourceLabel(source) }}</option></select>
-            <input v-model.trim="form.assigneeUid" class="field-control" inputmode="numeric" placeholder="负责人 UID">
-            <input v-model.trim="form.sourcePostId" class="field-control" inputmode="numeric" placeholder="关联原帖子 ID（可选）">
-            <input v-model.trim="form.sourceRefId" class="field-control" inputmode="numeric" placeholder="来源记录 ID（可选）">
-            <input v-model.trim="form.title" class="field-control" maxlength="160" placeholder="任务标题">
-            <textarea v-model.trim="form.detail" class="field-control" rows="5" maxlength="2000" placeholder="说明维护目标、公开边界与验收依据。" />
+            <div class="field-group">
+              <label class="field-label" for="maintenance-domain">领域</label>
+              <select id="maintenance-domain" v-model="form.domain" class="field-control" required><option value="" disabled>请选择领域</option><option v-for="domain in domains" :key="domain.value" :value="domain.value">{{ domain.label }}</option></select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="maintenance-source-type">问题来源</label>
+              <select id="maintenance-source-type" v-model="form.sourceType" class="field-control" required><option v-for="source in sources" :key="source" :value="source">{{ sourceLabel(source) }}</option></select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="maintenance-assignee">负责人 UID</label>
+              <input id="maintenance-assignee" v-model.trim="form.assigneeUid" class="field-control" inputmode="numeric" maxlength="19" pattern="[1-9][0-9]*" required placeholder="负责人 UID">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="maintenance-source-post">关联原帖子 ID（可选）</label>
+              <input id="maintenance-source-post" v-model.trim="form.sourcePostId" class="field-control" inputmode="numeric" maxlength="19" pattern="[1-9][0-9]*" placeholder="关联原帖子 ID">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="maintenance-source-ref">来源记录 ID（可选）</label>
+              <input id="maintenance-source-ref" v-model.trim="form.sourceRefId" class="field-control" inputmode="numeric" maxlength="19" pattern="[1-9][0-9]*" placeholder="来源记录 ID">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="maintenance-title">任务标题</label>
+              <input id="maintenance-title" v-model="form.title" class="field-control" maxlength="160" required placeholder="任务标题">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="maintenance-detail">任务说明</label>
+              <textarea id="maintenance-detail" v-model="form.detail" class="field-control" rows="5" maxlength="2000" required placeholder="说明维护目标、公开边界与验收依据。"></textarea>
+            </div>
             <button type="submit" class="primary-button" :disabled="busy || !canCreate">创建并分派</button>
           </form>
         </aside>
@@ -67,21 +88,27 @@ import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { getErrorMessage } from '@/api/client'
-import { contentMaintenanceApi, type ContentMaintenanceTask, type MaintenanceSourceType, type MaintenanceStatus } from '@/api/contentMaintenance'
+import { contentMaintenanceApi, type ContentMaintenanceTask, type MaintenanceStatus } from '@/api/contentMaintenance'
 import { useAuthStore } from '@/stores/auth'
+import {
+  buildMaintenanceCreateCommand,
+  MAINTENANCE_SOURCE_TYPES,
+  normalizeMaintenanceTaskPrefill,
+  normalizePositiveLongId,
+  type MaintenanceTaskFormDraft,
+} from '@/utils/maintenanceNavigation'
 
 const domains = [{ value: 1, label: '科技数码' }, { value: 2, label: '职场经验' }, { value: 3, label: '阅读成长' }, { value: 4, label: '生活方式' }, { value: 5, label: '投资理财' }]
-const sources: MaintenanceSourceType[] = ['CHANNEL_HEALTH', 'SEARCH_GAP', 'SUGGESTION', 'FRESHNESS', 'PROFILE_CONFIRMATION', 'QUESTION', 'MANUAL']
+const sources = MAINTENANCE_SOURCE_TYPES
 const statuses: MaintenanceStatus[] = ['OPEN', 'CLAIMED', 'SUBMITTED', 'COMPLETED', 'CLOSED']
 const route = useRoute()
 const authStore = useAuthStore()
-const form = reactive({ domain: 1, sourceType: 'MANUAL' as MaintenanceSourceType, assigneeUid: '', sourcePostId: '', sourceRefId: '', title: '', detail: '' })
-const routeDomain = Number(route.query.domain)
-const routeSourceType = String(route.query.sourceType || '')
-if (Number.isInteger(routeDomain) && routeDomain >= 1 && routeDomain <= 5) form.domain = routeDomain
-if (sources.includes(routeSourceType as MaintenanceSourceType)) form.sourceType = routeSourceType as MaintenanceSourceType
-if (typeof route.query.title === 'string') form.title = route.query.title.slice(0, 160)
-if (typeof route.query.detail === 'string') form.detail = route.query.detail.slice(0, 2000)
+const positive = (value: string) => Boolean(normalizePositiveLongId(value))
+const prefill = normalizeMaintenanceTaskPrefill(route.query as Record<string, unknown>)
+const form = reactive<MaintenanceTaskFormDraft>({
+  ...prefill,
+  assigneeUid: '',
+})
 const filterDomain = ref<number | ''>('')
 const filterStatus = ref<MaintenanceStatus | ''>('')
 const items = ref<ContentMaintenanceTask[]>([])
@@ -132,7 +159,7 @@ const clearRecord = (record: Record<string, unknown>) => {
 
 const resetCreateForm = () => {
   Object.assign(form, {
-    domain: 1,
+    domain: '',
     sourceType: 'MANUAL',
     assigneeUid: '',
     sourcePostId: '',
@@ -199,8 +226,8 @@ const isCanceledRequest = (error: unknown, signal: AbortSignal) => {
     || candidate?.code === 'ERR_CANCELED'
 }
 
-const positive = (value: string) => /^[1-9]\d*$/.test(value)
-const canCreate = computed(() => positive(form.assigneeUid) && form.title.length >= 2 && form.detail.length >= 5)
+const createCommand = computed(() => buildMaintenanceCreateCommand(form))
+const canCreate = computed(() => createCommand.value != null)
 const note = (task: ContentMaintenanceTask) => notes[String(task.id)] || ''
 const reassignDraft = (task: ContentMaintenanceTask) => {
   const key = String(task.id)
@@ -273,11 +300,12 @@ const load = async (append = false) => {
   }
 }
 const create = async () => {
-  if (!canCreate.value) return
+  const command = createCommand.value
+  if (!command) return
   const snapshot = beginMaintenanceWrite()
   if (!snapshot) return
   try {
-    await contentMaintenanceApi.create({ domain: form.domain, sourceType: form.sourceType, assigneeUid: form.assigneeUid, sourcePostId: positive(form.sourcePostId) ? form.sourcePostId : undefined, sourceRefId: positive(form.sourceRefId) ? form.sourceRefId : undefined, title: form.title, detail: form.detail })
+    await contentMaintenanceApi.create(command)
     if (!maintenanceWriteIsCurrent(snapshot)) return
     resetCreateForm()
     toast.success('维护任务已创建')
@@ -346,6 +374,13 @@ const statusClass = (value: MaintenanceStatus) => value === 'COMPLETED' ? 'statu
 const formatTime = (value: string) => value?.replace('T', ' ').slice(0, 16) || '--'
 
 watch(
+  () => form.domain,
+  (domain, previousDomain) => {
+    if (domain !== previousDomain) form.sourcePostId = ''
+  },
+)
+
+watch(
   [() => authStore.user?.uid, () => authStore.token],
   ([uid, token], [previousUid, previousToken]) => {
     if (uid === previousUid && token === previousToken) return
@@ -365,5 +400,5 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.admin-maintenance-page{background:rgb(248 250 252)}.page-header,.queue-head,.task-head,.review-bar,.reassign-bar{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.page-header{margin-bottom:1.25rem}.page-header p{margin:0;color:rgb(8 145 178);font-size:.75rem;font-weight:900}.page-header h1{margin:.2rem 0;color:rgb(15 23 42);font-size:1.5rem;font-weight:900}.page-header span{color:rgb(100 116 139);font-size:.85rem;line-height:1.55}.icon-button{display:inline-flex;width:2.5rem;height:2.5rem;align-items:center;justify-content:center;border:1px solid rgb(203 213 225);border-radius:.5rem;background:white}.layout{display:grid;grid-template-columns:minmax(17rem,22rem) minmax(0,1fr);gap:1rem;align-items:start}.create-panel,.queue-panel{border:1px solid rgb(226 232 240);border-radius:.625rem;background:white;padding:1rem}.create-panel{position:sticky;top:5rem}.create-panel h2,.queue-head h2,.task-head h3{margin:0;color:rgb(15 23 42);font-size:1rem;font-weight:900}.queue-head p{margin:.3rem 0 0;color:rgb(100 116 139);font-size:.76rem;line-height:1.5}.form-stack{display:grid;gap:.65rem;margin-top:1rem}.field-control{width:100%;min-width:0;border:1px solid rgb(203 213 225);border-radius:.5rem;background:white;padding:.58rem .65rem;color:rgb(15 23 42);font-size:.78rem}.filters{display:flex;flex-wrap:wrap;gap:.5rem}.compact{width:auto;min-width:8rem}.task-list{display:grid;gap:.75rem;margin-top:1rem}.task-row{border-top:1px solid rgb(226 232 240);padding-top:.85rem}.task-row:first-child{border-top:0;padding-top:0}.badge-line{display:flex;flex-wrap:wrap;gap:.4rem}.status,.source{display:inline-flex;border-radius:999px;padding:.2rem .5rem;font-size:.66rem;font-weight:900}.status-active{background:rgb(224 231 255);color:rgb(67 56 202)}.status-warn{background:rgb(254 243 199);color:rgb(146 64 14)}.status-ok{background:rgb(220 252 231);color:rgb(21 128 61)}.status-muted,.source{background:rgb(241 245 249);color:rgb(71 85 105)}.task-head h3{margin-top:.5rem}.task-row p,.task-row small{display:block;margin:.55rem 0 0;color:rgb(71 85 105);font-size:.78rem;line-height:1.55}.task-row small{color:rgb(100 116 139);font-size:.7rem}.open-link{color:rgb(8 145 178);font-size:.72rem;font-weight:800;white-space:nowrap}.note{border-left:2px solid rgb(125 211 252);padding-left:.6rem}.review-bar,.reassign-bar{align-items:center;margin-top:.75rem}.review-bar .field-control,.reassign-bar .field-control:not(.compact){flex:1}.load-more-row{display:flex;justify-content:center;margin-top:1rem}.primary-button,.secondary-button,.danger-button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;border-radius:.5rem;padding:.45rem .7rem;font-size:.76rem;font-weight:900}.primary-button{border:1px solid rgb(8 145 178);background:rgb(8 145 178);color:white}.secondary-button{border:1px solid rgb(203 213 225);background:white;color:rgb(51 65 85)}.danger-button{border:1px solid rgb(220 38 38);background:rgb(254 242 242);color:rgb(185 28 28)}button:disabled{cursor:not-allowed;opacity:.5}.state{border:1px dashed rgb(203 213 225);border-radius:.625rem;background:white;padding:2rem;color:rgb(100 116 139);text-align:center}.state p{margin:0}.state .secondary-button{margin-top:.75rem}.state-error{border-style:solid;border-color:rgb(254 202 202);color:rgb(185 28 28)}.load-more-error{margin-top:1rem;padding:1rem}@media(max-width:900px){.layout{grid-template-columns:1fr}.create-panel{position:static}}@media(max-width:650px){.page-header,.queue-head,.task-head,.review-bar,.reassign-bar{flex-direction:column}.compact{width:100%}}.dark .admin-maintenance-page{background:rgb(2 6 23)}.dark .create-panel,.dark .queue-panel,.dark .field-control,.dark .secondary-button,.dark .icon-button,.dark .state{border-color:rgb(51 65 85);background:rgb(15 23 42);color:rgb(203 213 225)}.dark .page-header h1,.dark .create-panel h2,.dark .queue-head h2,.dark .task-head h3{color:rgb(248 250 252)}.dark .page-header span,.dark .queue-head p,.dark .task-row p,.dark .task-row small{color:rgb(148 163 184)}.dark .task-row{border-color:rgb(51 65 85)}
+.admin-maintenance-page{background:rgb(248 250 252)}.page-header,.queue-head,.task-head,.review-bar,.reassign-bar{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.page-header{margin-bottom:1.25rem}.page-header p{margin:0;color:rgb(8 145 178);font-size:.75rem;font-weight:900}.page-header h1{margin:.2rem 0;color:rgb(15 23 42);font-size:1.5rem;font-weight:900}.page-header span{color:rgb(100 116 139);font-size:.85rem;line-height:1.55}.icon-button{display:inline-flex;width:2.5rem;height:2.5rem;align-items:center;justify-content:center;border:1px solid rgb(203 213 225);border-radius:.5rem;background:white}.layout{display:grid;grid-template-columns:minmax(17rem,22rem) minmax(0,1fr);gap:1rem;align-items:start}.create-panel,.queue-panel{border:1px solid rgb(226 232 240);border-radius:.625rem;background:white;padding:1rem}.create-panel{position:sticky;top:5rem}.create-panel h2,.queue-head h2,.task-head h3{margin:0;color:rgb(15 23 42);font-size:1rem;font-weight:900}.queue-head p{margin:.3rem 0 0;color:rgb(100 116 139);font-size:.76rem;line-height:1.5}.form-stack{display:grid;gap:.65rem;margin-top:1rem}.field-group{display:grid;gap:.3rem}.field-label{color:rgb(51 65 85);font-size:.72rem;font-weight:800}.field-control{width:100%;min-width:0;border:1px solid rgb(203 213 225);border-radius:.5rem;background:white;padding:.58rem .65rem;color:rgb(15 23 42);font-size:.78rem}.filters{display:flex;flex-wrap:wrap;gap:.5rem}.compact{width:auto;min-width:8rem}.task-list{display:grid;gap:.75rem;margin-top:1rem}.task-row{border-top:1px solid rgb(226 232 240);padding-top:.85rem}.task-row:first-child{border-top:0;padding-top:0}.badge-line{display:flex;flex-wrap:wrap;gap:.4rem}.status,.source{display:inline-flex;border-radius:999px;padding:.2rem .5rem;font-size:.66rem;font-weight:900}.status-active{background:rgb(224 231 255);color:rgb(67 56 202)}.status-warn{background:rgb(254 243 199);color:rgb(146 64 14)}.status-ok{background:rgb(220 252 231);color:rgb(21 128 61)}.status-muted,.source{background:rgb(241 245 249);color:rgb(71 85 105)}.task-head h3{margin-top:.5rem}.task-row p,.task-row small{display:block;margin:.55rem 0 0;color:rgb(71 85 105);font-size:.78rem;line-height:1.55}.task-row small{color:rgb(100 116 139);font-size:.7rem}.open-link{color:rgb(8 145 178);font-size:.72rem;font-weight:800;white-space:nowrap}.note{border-left:2px solid rgb(125 211 252);padding-left:.6rem}.review-bar,.reassign-bar{align-items:center;margin-top:.75rem}.review-bar .field-control,.reassign-bar .field-control:not(.compact){flex:1}.load-more-row{display:flex;justify-content:center;margin-top:1rem}.primary-button,.secondary-button,.danger-button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;border-radius:.5rem;padding:.45rem .7rem;font-size:.76rem;font-weight:900}.primary-button{border:1px solid rgb(14 116 144);background:rgb(14 116 144);color:white}.secondary-button{border:1px solid rgb(203 213 225);background:white;color:rgb(51 65 85)}.danger-button{border:1px solid rgb(220 38 38);background:rgb(254 242 242);color:rgb(185 28 28)}button:disabled{cursor:not-allowed;opacity:.5}.state{border:1px dashed rgb(203 213 225);border-radius:.625rem;background:white;padding:2rem;color:rgb(100 116 139);text-align:center}.state p{margin:0}.state .secondary-button{margin-top:.75rem}.state-error{border-style:solid;border-color:rgb(254 202 202);color:rgb(185 28 28)}.load-more-error{margin-top:1rem;padding:1rem}@media(max-width:900px){.layout{grid-template-columns:1fr}.create-panel{position:static}}@media(max-width:650px){.page-header,.queue-head,.task-head,.review-bar,.reassign-bar{flex-direction:column}.compact{width:100%}}.dark .admin-maintenance-page{background:rgb(2 6 23)}.dark .create-panel,.dark .queue-panel,.dark .field-control,.dark .secondary-button,.dark .icon-button,.dark .state{border-color:rgb(51 65 85);background:rgb(15 23 42);color:rgb(203 213 225)}.dark .page-header h1,.dark .create-panel h2,.dark .queue-head h2,.dark .task-head h3{color:rgb(248 250 252)}.dark .page-header span,.dark .queue-head p,.dark .task-row p,.dark .task-row small,.dark .field-label{color:rgb(148 163 184)}.dark .task-row{border-color:rgb(51 65 85)}
 </style>

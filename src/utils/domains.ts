@@ -71,6 +71,7 @@ const domainByValue = new Map<DomainValue, DomainOption>()
 DOMAIN_OPTIONS.forEach((d) => domainByValue.set(d.value, d))
 
 export const DEFAULT_DOMAIN = DOMAIN.TECH
+export const UNKNOWN_DOMAIN_LABEL = '未标注频道'
 
 export const COMMUNITY_CHANNELS: CommunityChannel[] = [
   {
@@ -203,3 +204,15 @@ export const getDomainOption = (domain?: number | null): DomainOption => {
 
 export const getDomainLabel = (domain?: number | null): string => getDomainOption(domain).label
 export const getDomainIcon = (domain?: number | null): string => getDomainOption(domain).icon
+
+export const getDomainOptionSafe = (domain?: number | string | null): DomainOption | undefined => {
+  return isKnownDomain(domain) ? domainByValue.get(Number(domain) as DomainValue) : undefined
+}
+
+export const getDomainLabelSafe = (domain?: number | string | null): string => {
+  return getDomainOptionSafe(domain)?.label ?? UNKNOWN_DOMAIN_LABEL
+}
+
+export const getDomainIconSafe = (domain?: number | string | null): string => {
+  return getDomainOptionSafe(domain)?.icon ?? ''
+}

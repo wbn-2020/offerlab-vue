@@ -119,7 +119,7 @@ assert.match(functionBody(questionsView, 'saveQuestion'), /const saveQuestion = 
 assert.match(functionBody(questionsView, 'saveQuestion'), /const payload = \{ \.\.\.form, remark \}/, 'question save helper must always send the risk note to the backend')
 assert.doesNotMatch(functionBody(questionsView, 'saveQuestion'), /remarkOrEvent|Event|remark \? \{ \.\.\.form, remark \} : \{ \.\.\.form \}/, 'question save helper must not keep optional event-compatible paths that bypass risk notes')
 assertRiskBeforeCall(questionsView, 'quickReview', /saveQuestion\(note\)/, 'single question review or hide')
-assertRiskBeforeCall(questionsView, 'batchReview', /opsApi\.batchReviewQuestions\(ids, status, note\)/, 'batch question review or hide')
+assertRiskBeforeCall(questionsView, 'batchReview', /opsApi\.batchReviewQuestions\(ids, status, expectedUpdateTimes, note\)/, 'batch question review or hide')
 assert.match(functionBody(questionsView, 'batchReview'), /level: 'critical'/, 'batch question review must send a backend-compatible critical confirmation phrase')
 assertRiskBeforeCall(questionsView, 'hideSelectedDuplicates', /opsApi\.hideQuestionDuplicates\(selectedQuestion\.value\.id, ids, note\)/, 'duplicate question hide')
 

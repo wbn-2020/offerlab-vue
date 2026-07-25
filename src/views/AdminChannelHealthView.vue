@@ -53,6 +53,8 @@
           :permission-loading="projectionPermissionLoading"
           :permission-error="projectionPermissionError"
           :refresh-key="projectionRefreshKey"
+          :can-create-maintenance-globally="canCreateMaintenanceGlobally"
+          :moderated-domains="moderatedMaintenanceDomains"
           @select="selectedProjection = $event"
         />
         <ReconciliationRunPanel
@@ -90,6 +92,16 @@ const canInspectProjections = computed(() => Boolean(
   || projectionPermissions.value?.ops
   || projectionPermissions.value?.localOpen,
 ))
+const canCreateMaintenanceGlobally = computed(() => Boolean(
+  projectionPermissions.value?.admin
+  || projectionPermissions.value?.contentModerator
+  || projectionPermissions.value?.localOpen,
+))
+const moderatedMaintenanceDomains = computed(() => {
+  if (!projectionPermissions.value?.domainModerator) return []
+  return (projectionPermissions.value.moderatedDomains || [])
+    .filter((domain) => Number.isInteger(domain) && domain >= 1 && domain <= 5)
+})
 
 const maintenanceLink = (item: ChannelHealth) => ({
   path: '/admin/content-maintenance',

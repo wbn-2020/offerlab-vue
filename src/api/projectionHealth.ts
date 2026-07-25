@@ -34,6 +34,8 @@ export interface ProjectionIssue {
   subjectId: string
   summary: string
   detectedAt: string
+  relatedPostId?: ApiId | null
+  domain?: number | null
 }
 
 export interface ProjectionIssuePage {

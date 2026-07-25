@@ -155,7 +155,11 @@ assert.match(
   /const clearMaintenanceQueueState = [\s\S]*?maintenanceQueueRequestId \+= 1\s*maintenanceWriteRequestId \+= 1/,
   'account resets must invalidate both queue reads and pending writes',
 )
-assert.match(queueViewSource, /contentMaintenanceApi\.create\(\{/)
+assert.match(
+  queueViewSource,
+  /contentMaintenanceApi\.create\((?:\{|command\))/,
+  'governance create must send either an inline command or a validated command object',
+)
 assert.match(queueViewSource, /contentMaintenanceApi\.review\(task\.id, \{ decision, note: note\(task\) \}\)/)
 assert.match(queueViewSource, /contentMaintenanceApi\.reassign\(task\.id, \{/)
 assert.match(queueViewSource, /contentMaintenanceApi\.close\(task\.id, note\(task\)\)/)
@@ -177,6 +181,7 @@ const assertOrdered = (source, label, snippets) => {
 }
 
 const createBlock = functionBlock(queueViewSource, 'create', 'review')
+assert.match(createBlock, /const command = createCommand\.value/)
 assertOrdered(createBlock, 'create write', [
   'const snapshot = beginMaintenanceWrite()',
   'if (!snapshot) return',

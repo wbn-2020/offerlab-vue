@@ -16,7 +16,7 @@
           <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <span>{{ formatTime(post.createdAt) }}</span>
             <span class="content-type-pill">{{ contentTypeLabel }}</span>
-            <span v-if="post.domain" class="domain-badge inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
+            <span v-if="isKnownDomain(post.domain)" class="domain-badge inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
               {{ getDomainIcon(post.domain) }} {{ getDomainLabel(post.domain) }}
             </span>
           </div>
@@ -277,7 +277,7 @@ import { getErrorMessage } from '@/api/client'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { getContentTypeShortLabel } from '@/utils/contentTypes'
 import { buildDomainCardSurface } from '@/utils/domainPostSurfaces'
-import { getDomainIcon, getDomainLabel } from '@/utils/domains'
+import { getDomainIcon, getDomainLabel, isKnownDomain } from '@/utils/domains'
 import { findHighRiskContentWarning, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 import { getPostUnavailableState, normalizeRiskNoticeForUsers } from '@/utils/governanceDisplay'
 import type { FeedControlAction, FeedFeedbackAction, FeedPost, LegacyFeedFeedbackAction } from '@/api/feed'
