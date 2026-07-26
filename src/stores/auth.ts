@@ -3,6 +3,9 @@ import { ref, computed } from 'vue'
 import type { User } from '@/api/types'
 import { authTokenStore } from '@/utils/authTokenStore'
 import { safeStorage } from '@/utils/safeStorage'
+import { claimPendingInteraction, clearPendingInteraction } from '@/utils/pendingInteraction'
+import { clearWelcomeOnboarding } from '@/utils/welcomeOnboarding'
+import { resetSessionQueryState } from '@/lib/queryClient'
 
 export type AuthHydrationState =
   | 'anonymous'
@@ -70,13 +73,14 @@ export const useAuthStore = defineStore('auth', () => {
   let hydratePromise: Promise<void> | null = null
   let hydratePromiseOwner: AuthHydrationOwner | null = null
   let hydrateRequestId = 0
-  let sessionGeneration = 0
+  const sessionGeneration = ref(0)
 
   const isLoggedIn = computed(() => !!user.value && !!token.value)
   const sessionExpired = computed(() => hydrationState.value === 'expired')
   const hydrateFailed = computed(() => hydrationState.value === 'failed')
 
-  const getSessionGeneration = () => sessionGeneration
+  const getSessionGeneration = () => sessionGeneration.value
+  const sessionQueryScope = computed(() => sessionGeneration.value)
 
   const ownsSession = (
     expectedToken: string,
@@ -86,7 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value === expectedToken
     && authTokenStore.get() === expectedToken
     && authTokenStore.getVersion() === expectedVersion
-    && sessionGeneration === expectedGeneration
+    && sessionGeneration.value === expectedGeneration
   )
 
   const hydrationOwnerIsCurrent = (owner: AuthHydrationOwner) => (
@@ -101,13 +105,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const advanceSessionGeneration = () => {
-    sessionGeneration += 1
+    sessionGeneration.value += 1
     invalidateHydration()
   }
 
   const setUser = (newUser: User | null) => {
     user.value = newUser
     if (newUser && token.value) {
+      claimPendingInteraction(newUser.uid)
       hydrationState.value = 'authenticated'
       hydrationError.value = ''
       ready.value = true
@@ -116,6 +121,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const setToken = (newToken: string) => {
     advanceSessionGeneration()
+    resetSessionQueryState()
     if (authTokenStore.get() === newToken) {
       authTokenStore.clear()
     }
@@ -132,6 +138,9 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = () => {
     const expiredByResponseInterceptor = Boolean(token.value) && authTokenStore.get() === null
     advanceSessionGeneration()
+    resetSessionQueryState()
+    clearPendingInteraction()
+    clearWelcomeOnboarding()
     const owner = user.value?.uid == null ? undefined : String(user.value.uid)
     if (owner) safeStorage.clearSensitive(owner)
     user.value = null
@@ -146,6 +155,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   const expireSession = () => {
     advanceSessionGeneration()
+    resetSessionQueryState()
+    clearPendingInteraction()
+    clearWelcomeOnboarding()
     const owner = user.value?.uid == null ? undefined : String(user.value.uid)
     if (owner) safeStorage.clearSensitive(owner)
     user.value = null
@@ -179,7 +191,7 @@ export const useAuthStore = defineStore('auth', () => {
       requestId: ++hydrateRequestId,
       token: sessionToken,
       sessionVersion,
-      sessionGeneration,
+      sessionGeneration: sessionGeneration.value,
     }
     loading.value = true
     ready.value = false
@@ -187,9 +199,11 @@ export const useAuthStore = defineStore('auth', () => {
     hydrationError.value = ''
     const request = import('@/api/auth')
       .then(async ({ authApi }) => {
-        const me = await authApi.fetchMe()
+        // 守卫会 await 本次 hydrate，用更短超时避免后端慢/挂时首跳冻结。
+        const me = await authApi.fetchMe(8000)
         if (!hydrationOwnerIsCurrent(owner)) return
         if (!me.data) throw new Error('账号资料为空，请重新登录。')
+        claimPendingInteraction(me.data.uid)
         user.value = me.data
         hydrationState.value = 'authenticated'
       })
@@ -229,6 +243,7 @@ export const useAuthStore = defineStore('auth', () => {
     sessionExpired,
     hydrateFailed,
     getSessionGeneration,
+    sessionQueryScope,
     ownsSession,
     setUser,
     setToken,

@@ -180,6 +180,47 @@
             </div>
           </section>
 
+          <section
+            v-for="section in taskSections"
+            :key="`mobile-${section.taskType}`"
+            class="home-task-panel home-task-panel--mobile lg:hidden"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="task-section-label">
+                  {{ section.taskType === 'DAILY' ? '今日行动' : '新用户引导' }}
+                </p>
+                <h3 class="font-black text-slate-950 dark:text-white">{{ section.title }}</h3>
+                <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
+              </div>
+              <span class="task-progress-pill">{{ taskProgressLabel(section) }}</span>
+            </div>
+            <div class="mt-4 space-y-3">
+              <div
+                v-for="item in section.items"
+                :key="`mobile-${section.taskType}:${item.taskCode}`"
+                class="task-item"
+                :class="{ 'task-item-complete': item.completed }"
+              >
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="task-check">{{ item.completed ? '✓' : '·' }}</span>
+                    <h4 class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</h4>
+                  </div>
+                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ item.description }}</p>
+                </div>
+                <button
+                  type="button"
+                  class="task-action-button"
+                  :disabled="isTaskBusy(section.taskType, item.taskCode)"
+                  @click="handleTaskAction(section, item)"
+                >
+                  {{ item.completed ? '已完成' : (item.actionText || '去完成') }}
+                </button>
+              </div>
+            </div>
+          </section>
+
           <OperationSlotCard class="home-operation-slot" slot-code="HOME_FEATURED" />
 
           <div class="home-feed-controls">
@@ -284,7 +325,7 @@
 
           <div class="home-feed-list">
             <LoadingSkeleton v-if="isLoading" variant="feed" />
-            <div v-else-if="isError" class="surface-card feed-error-card p-6">
+            <div v-else-if="isError && !visiblePosts.length" class="surface-card feed-error-card p-6">
               <div>
                 <h3 class="text-lg font-black text-slate-950 dark:text-slate-100">信息流加载失败</h3>
                 <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{{ feedErrorText }}</p>
@@ -339,7 +380,12 @@
             </button>
           </div>
 
-          <div v-if="hasNextPage && !isFetching" class="mt-6 text-center">
+          <div v-if="isError && visiblePosts.length && !isFetching" class="feed-loadmore-error mt-6">
+            <span>{{ feedErrorText }}</span>
+            <button type="button" class="secondary-action px-5" @click="() => fetchNextPage()">重试加载更多</button>
+          </div>
+
+          <div v-else-if="hasNextPage && !isFetching" class="mt-6 text-center">
             <button type="button" class="secondary-action px-6" @click="() => fetchNextPage()">
               加载更多
             </button>
@@ -703,6 +749,58 @@ const updatePost = (postId: Post['postId'], updater: (post: Post) => void) => {
 }
 const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePost)
 
+// 客户端兜底引导：仅在后端引导接口不可用时使用。全部是导航型任务，不会误报“已完成”。
+const fallbackOnboardingOverview = (): UserTaskOverview => ({
+  taskType: 'ONBOARDING',
+  title: '欢迎加入社区',
+  subtitle: '先完成这几步，快速熟悉闻野。',
+  active: true,
+  completedCount: 0,
+  totalCount: 3,
+  items: [
+    {
+      taskCode: 'fallback-explore',
+      title: '逛逛社区内容',
+      description: '从发现页看看不同频道正在讨论的真实经验。',
+      actionText: '去发现',
+      actionRoute: '/explore',
+      manualCompletable: false,
+      completed: false,
+    },
+    {
+      taskCode: 'fallback-profile',
+      title: '完善个人资料',
+      description: '填写昵称和简介，让更多成员了解你的关注方向。',
+      actionText: '去完善',
+      actionRoute: '/me/settings',
+      manualCompletable: false,
+      completed: false,
+    },
+    {
+      taskCode: 'fallback-publish',
+      title: '发布第一篇内容',
+      description: '把最近一次经历、问题或清单写成一篇内容。',
+      actionText: '去发布',
+      actionRoute: '/editor',
+      manualCompletable: false,
+      completed: false,
+    },
+  ],
+})
+
+// 面板里是否还有未完成任务：全部完成后交互就不必再打任务接口。
+// 这里不能只看手动任务——点赞/收藏正是用来自动完成非手动任务的，所以只按完成态判断。
+const hasIncompleteTasks = computed(() => taskSections.value.some(
+  (section) => section.items.some((item) => !item.completed),
+))
+
+// 交互（点赞/收藏/关注）触发的刷新：只有当仍有未完成任务、且已登录时才刷新，避免每次互动都打接口。
+const refreshTaskPanelsIfNeeded = async () => {
+  if (!authStore.isLoggedIn) return
+  if (!hasIncompleteTasks.value) return
+  await refreshTaskPanels()
+}
+
 const refreshTaskPanels = async () => {
   if (!authStore.isLoggedIn) {
     onboardingOverview.value = null
@@ -715,6 +813,9 @@ const refreshTaskPanels = async () => {
   ])
   if (onboardingRes.status === 'fulfilled') {
     onboardingOverview.value = onboardingRes.value.data
+  } else if (!onboardingOverview.value) {
+    // 后端引导接口不可用时给一份客户端兜底，保证新用户至少看到可操作的上手路径。
+    onboardingOverview.value = fallbackOnboardingOverview()
   }
   if (dailyRes.status === 'fulfilled') {
     dailyOverview.value = dailyRes.value.data
@@ -894,14 +995,14 @@ const handleLike = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
   await toggleLike(post)
-  await refreshTaskPanels()
+  await refreshTaskPanelsIfNeeded()
 }
 
 const handleFavorite = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
   await toggleFavorite(post)
-  await refreshTaskPanels()
+  await refreshTaskPanelsIfNeeded()
 }
 
 const handlePostAuthorFollowChange = (authorUid: User['uid'], following: boolean) => {
@@ -1040,7 +1141,7 @@ const toggleFollowUser = async (user: User) => {
     user.isFollowing = !wasFollowing
     user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
     await queryClient.invalidateQueries({ queryKey: ['feed', 'following'] })
-    await refreshTaskPanels()
+    await refreshTaskPanelsIfNeeded()
   } catch (error: unknown) {
     toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
@@ -1532,6 +1633,27 @@ watch(
 
 .feed-error-actions > * {
   min-height: 2.5rem;
+}
+
+.feed-loadmore-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(253 230 138);
+  background: rgb(255 251 235);
+  padding: 0.85rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgb(146 64 14);
+}
+
+.dark .feed-loadmore-error {
+  border-color: rgb(120 53 15);
+  background: rgb(69 26 3 / 0.4);
+  color: rgb(253 230 138);
 }
 
 .feed-undo-banner {
@@ -2828,6 +2950,10 @@ watch(
   .home-feed-column {
     width: min(720px, 100%);
     margin: 0 auto;
+  }
+
+  .home-task-panel--mobile {
+    margin-top: 1rem;
   }
 }
 

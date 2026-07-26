@@ -146,19 +146,24 @@
                 </button>
               </div>
               <div class="community-header__menu-divider" />
+              <p class="community-header__menu-group-label">个人空间</p>
               <RouterLink to="/me" class="community-header__menu-item" @click="showUserMenu = false">我的主页</RouterLink>
               <RouterLink to="/me/relationships" class="community-header__menu-item" @click="showUserMenu = false">关系与订阅中心</RouterLink>
               <RouterLink to="/me/collaboration" class="community-header__menu-item" @click="showUserMenu = false">协作行动中心</RouterLink>
-              <RouterLink to="/me/knowledge" class="community-header__menu-item" @click="showUserMenu = false">知识维护</RouterLink>
               <RouterLink to="/me/notifications" class="community-header__menu-item" @click="showUserMenu = false">通知中心</RouterLink>
               <RouterLink to="/series/workbench" class="community-header__menu-item" @click="showUserMenu = false">内容合集</RouterLink>
+              <div class="community-header__menu-divider" />
+              <p class="community-header__menu-group-label">创作与成长</p>
               <RouterLink to="/growth/profile" class="community-header__menu-item" @click="showUserMenu = false">作者数据</RouterLink>
               <RouterLink to="/growth/report" class="community-header__menu-item" @click="showUserMenu = false">历史报告</RouterLink>
               <RouterLink to="/growth/community" class="community-header__menu-item" @click="showUserMenu = false">社区成长</RouterLink>
+              <RouterLink to="/me/knowledge" class="community-header__menu-item" @click="showUserMenu = false">知识维护</RouterLink>
               <RouterLink to="/knowledge/explore" class="community-header__menu-item" @click="showUserMenu = false">知识探索</RouterLink>
               <RouterLink to="/certification/apply" class="community-header__menu-item" @click="showUserMenu = false">认证作者申请</RouterLink>
+              <div class="community-header__menu-divider" />
               <RouterLink to="/me/settings" class="community-header__menu-item" @click="showUserMenu = false">设置</RouterLink>
               <div v-if="adminLinks.length" class="community-header__menu-divider" />
+              <p v-if="adminLinks.length" class="community-header__menu-group-label">管理后台</p>
               <RouterLink
                 v-for="item in adminLinks"
                 :key="item.to"
@@ -747,6 +752,19 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .community-header__menu-divider {
   margin: 0.35rem 0;
   border-top: 1px solid var(--surface-3);
+}
+
+.community-header__menu-group-label {
+  padding: 0.25rem 0.85rem 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-3, rgb(148 163 184));
+  text-transform: none;
+}
+
+.dark .community-header__menu-group-label {
+  color: rgb(100 116 139);
 }
 
 .community-mobile-dock {

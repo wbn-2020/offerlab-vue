@@ -400,6 +400,12 @@ const routes = [
     meta: { title: '注册' },
   },
   {
+    path: '/welcome',
+    name: 'Welcome',
+    component: () => import('@/views/WelcomeView.vue'),
+    meta: { title: '欢迎加入', requiresAuth: true },
+  },
+  {
     path: '/about',
     name: 'About',
     component: () => import('@/views/AboutView.vue'),

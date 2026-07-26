@@ -82,7 +82,7 @@
             </p>
           </div>
           <div class="score-card">
-            <strong>7 / 30</strong>
+            <strong>{{ recentFeedbackWindowSummary }}</strong>
             <span>近期反馈窗口</span>
           </div>
         </div>
@@ -1170,6 +1170,17 @@ const publicImpactUnavailable = computed(() => (
   && !backendContribution.value
   && !posts.loaded
 ))
+// 近期反馈窗口：展示真实的 7 天 / 30 天有用反馈数，替代原先写死的“7 / 30”静态占位。
+const recentFeedbackWindowSummary = computed(() => {
+  if (
+    publicImpactUnavailable.value
+    || creatorTrustedContentPending.value
+    || creatorTrustedContentDegraded.value
+  ) return '—'
+  const d7 = Number(creatorTrustedContent.value.usefulFeedback7Days || 0)
+  const d30 = Number(creatorTrustedContent.value.usefulFeedback30Days || 0)
+  return `${d7} / ${d30}`
+})
 const publicImpactOverview = computed(() => [
   { label: '公开内容', value: publicImpactUnavailable.value ? '—' : publicImpactStats.value.publicPosts },
   { label: '近期收藏', value: publicImpactUnavailable.value ? '—' : publicImpactStats.value.recentFavorites },

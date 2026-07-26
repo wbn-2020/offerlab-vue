@@ -946,7 +946,10 @@ export const opsApi = {
   questionSummary: (): Promise<Result<{ pending: number; approved: number; hidden: number; total: number }>> =>
     client.get('/api/v1/admin/questions/summary'),
 
-  updateQuestion: (id: ApiId, data: Partial<Question> & { status?: number } & RiskRemark): Promise<Result<Question>> =>
+  updateQuestion: (
+    id: ApiId,
+    data: Omit<Partial<Question>, 'status' | 'updateTime'> & { expectedUpdateTime: string } & RiskRemark,
+  ): Promise<Result<Question>> =>
     client.post(`/api/v1/admin/questions/${id}`, data),
 
   getQuestionDuplicateGroup: (id: ApiId): Promise<Result<QuestionDuplicateGroup>> =>

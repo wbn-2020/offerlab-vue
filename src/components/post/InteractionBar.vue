@@ -63,7 +63,6 @@ import { Eye, Heart, MessageCircle, Share2, Star } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatNumber } from '@/lib/format'
 import { toast } from 'vue-sonner'
-import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { isPublicPostVisible } from '@/utils/recommendationGovernance'
 import { sharePublicLink } from '@/utils/share'
 
@@ -83,17 +82,14 @@ const emit = defineEmits<{
   favorite: [postId: Post['postId']]
 }>()
 
-const { requireLogin } = useLoginRedirect()
 const shareDisabledReasonText = computed(() => props.shareDisabledReason || '这篇内容当前不可公开分享')
 const shareUnavailable = computed(() => props.shareDisabled || !isPublicPostVisible(props.post))
 
 const handleLike = () => {
-  if (!requireLogin()) return
   emit('like', props.post.postId)
 }
 
 const handleFavorite = () => {
-  if (!requireLogin()) return
   emit('favorite', props.post.postId)
 }
 

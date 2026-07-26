@@ -24,10 +24,13 @@
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <!-- Nickname Field -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">昵称</label>
+            <label for="register-nickname" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">昵称</label>
             <input
+              id="register-nickname"
               v-model="form.nickname"
               type="text"
+              name="nickname"
+              autocomplete="nickname"
               placeholder="2-32 个字符"
               class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
               :disabled="isLoading"
@@ -37,10 +40,13 @@
 
           <!-- Email Field -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">邮箱</label>
+            <label for="register-email" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">邮箱</label>
             <input
+              id="register-email"
               v-model="form.email"
               type="email"
+              name="email"
+              autocomplete="email"
               placeholder="your@email.com"
               class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
               :disabled="isLoading"
@@ -50,15 +56,45 @@
 
           <!-- Password Field -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">密码</label>
+            <label for="register-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">密码</label>
             <input
+              id="register-password"
               v-model="form.password"
               type="password"
+              name="new-password"
+              autocomplete="new-password"
               placeholder="至少 6 位"
               class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
               :disabled="isLoading"
             />
+            <div v-if="form.password" class="mt-2">
+              <div class="flex gap-1" aria-hidden="true">
+                <span
+                  v-for="level in 3"
+                  :key="level"
+                  class="h-1.5 flex-1 rounded-full transition-colors"
+                  :class="level <= passwordStrength.score ? passwordStrength.barClass : 'bg-slate-200 dark:bg-slate-700'"
+                />
+              </div>
+              <p class="mt-1 text-xs" :class="passwordStrength.textClass">密码强度：{{ passwordStrength.label }}</p>
+            </div>
             <p v-if="errors.password" class="text-xs text-danger mt-1">{{ errors.password }}</p>
+          </div>
+
+          <!-- Confirm Password Field -->
+          <div>
+            <label for="register-confirm-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">确认密码</label>
+            <input
+              id="register-confirm-password"
+              v-model="form.confirmPassword"
+              type="password"
+              name="confirm-password"
+              autocomplete="new-password"
+              placeholder="再次输入密码"
+              class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+              :disabled="isLoading"
+            />
+            <p v-if="errors.confirmPassword" class="text-xs text-danger mt-1">{{ errors.confirmPassword }}</p>
           </div>
 
           <!-- Submit Button -->
@@ -72,14 +108,7 @@
         </form>
 
         <!-- Divider -->
-        <div class="relative my-6">
-          <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-slate-200 dark:border-slate-800" />
-          </div>
-          <div class="relative flex justify-center text-xs">
-            <span class="px-2 bg-white dark:bg-slate-900 text-slate-500">或</span>
-          </div>
-        </div>
+        <div class="my-6 border-t border-slate-200 dark:border-slate-800" />
 
         <!-- Login Link -->
         <p class="text-center text-sm text-slate-600 dark:text-slate-400">
@@ -94,12 +123,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { computed, ref, reactive } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
+import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { redirectQuery, safeRedirect } from '@/utils/navigation'
+import { beginWelcomeOnboarding } from '@/utils/welcomeOnboarding'
 import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
 import { siteBrand } from '@/utils/brand'
 import { z } from 'zod'
@@ -107,18 +138,35 @@ import { z } from 'zod'
 const router = useRouter()
 const route = useRoute()
 const { register } = useAuth()
+const authStore = useAuthStore()
 
 const isLoading = ref(false)
 const form = reactive({
   nickname: '',
   email: '',
   password: '',
+  confirmPassword: '',
 })
 
 const errors = reactive({
   nickname: '',
   email: '',
   password: '',
+  confirmPassword: '',
+})
+
+// 密码强度提示：长度 + 是否含字母/数字/符号的粗略估计，只做引导不做硬性拦截（后端只要求 6 位）。
+const passwordStrength = computed(() => {
+  const value = form.password
+  if (!value) return { score: 0, label: '', barClass: '', textClass: '' }
+  let raw = 0
+  if (value.length >= 6) raw += 1
+  if (value.length >= 10) raw += 1
+  if (/[a-zA-Z]/.test(value) && /\d/.test(value)) raw += 1
+  if (/[^a-zA-Z0-9]/.test(value)) raw += 1
+  if (raw <= 1) return { score: 1, label: '较弱', barClass: 'bg-rose-500', textClass: 'text-rose-600 dark:text-rose-400' }
+  if (raw === 2) return { score: 2, label: '一般', barClass: 'bg-amber-500', textClass: 'text-amber-600 dark:text-amber-400' }
+  return { score: 3, label: '较强', barClass: 'bg-emerald-500', textClass: 'text-emerald-600 dark:text-emerald-400' }
 })
 
 // Validation schema
@@ -126,12 +174,17 @@ const registerSchema = z.object({
   nickname: z.string().min(2, '昵称至少 2 个字符').max(32, '昵称最多 32 个字符'),
   email: z.string().email('请输入有效的邮箱地址'),
   password: z.string().min(6, '密码至少 6 位'),
+  confirmPassword: z.string().min(1, '请再次输入密码'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: '两次输入的密码不一致',
+  path: ['confirmPassword'],
 })
 
 const validateForm = () => {
   errors.nickname = ''
   errors.email = ''
   errors.password = ''
+  errors.confirmPassword = ''
 
   try {
     registerSchema.parse(form)
@@ -143,6 +196,7 @@ const validateForm = () => {
         if (field === 'nickname') errors.nickname = err.message
         if (field === 'email') errors.email = err.message
         if (field === 'password') errors.password = err.message
+        if (field === 'confirmPassword') errors.confirmPassword = err.message
       })
     }
     return false
@@ -155,8 +209,14 @@ const handleSubmit = async () => {
   isLoading.value = true
   try {
     await register(form.email, form.password, form.nickname)
+    if (!authStore.user?.uid) {
+      throw new Error('注册后的账号信息尚未就绪，请重新登录。')
+    }
+    beginWelcomeOnboarding(authStore.user.uid)
     toast.success('注册成功')
-    await router.replace(safeRedirect(route.query.redirect))
+    // 注册成功后先进轻量兴趣引导；把原始 redirect 透传，引导完成或跳过后再回到目标页。
+    const redirect = safeRedirect(route.query.redirect)
+    await router.replace({ path: '/welcome', query: redirect && redirect !== '/' ? { redirect } : {} })
   } catch (error: any) {
     const message = getErrorMessage(error, '注册失败，请稍后重试')
     toast.error(message)

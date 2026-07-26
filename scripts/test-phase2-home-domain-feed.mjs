@@ -34,10 +34,12 @@ assert.match(
   /apiMap\[currentFeed\.value\]\(pageParam,\s*pageSize,\s*currentDomain\.value\)/,
   'useInfiniteFeed must pass currentDomain.value into the selected feed API call, including featured',
 )
-assert.match(
-  infiniteFeed,
-  /const\s+maxPages\s*=\s*6/,
-  'useInfiniteFeed must cap retained pages to avoid unbounded feed memory growth',
+const maxPagesMatch = infiniteFeed.match(/const\s+maxPages\s*=\s*(\d+)/)
+assert.ok(maxPagesMatch, 'useInfiniteFeed must define a maxPages cap to avoid unbounded feed memory growth')
+const maxPagesValue = Number(maxPagesMatch[1])
+assert.ok(
+  maxPagesValue > 0 && maxPagesValue <= 50,
+  'useInfiniteFeed maxPages must stay a bounded positive cap (retain enough pages for scroll-back without unbounded growth)',
 )
 assert.match(
   infiniteFeed,

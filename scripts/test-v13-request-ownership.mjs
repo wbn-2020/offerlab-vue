@@ -26,6 +26,9 @@ const authTokenSource = read('src/utils/authTokenStore.ts')
 const clientSource = read('src/api/client.ts')
 const authStoreSource = read('src/stores/auth.ts')
 const useAuthSource = read('src/composables/useAuth.ts')
+const infiniteFeedSource = read('src/composables/useInfiniteFeed.ts')
+const postDetailSource = read('src/views/PostDetailView.vue')
+const questionDetailSource = read('src/views/QuestionDetailView.vue')
 
 assert.match(authTokenSource, /let sessionVersion = 0/)
 assert.match(authTokenSource, /getVersion\(\) \{\s*return sessionVersion\s*\}/)
@@ -58,7 +61,13 @@ assert.match(
 )
 assert.match(authStoreSource, /interface AuthHydrationOwner \{[\s\S]*requestId: number[\s\S]*token: string[\s\S]*sessionVersion: number[\s\S]*sessionGeneration: number/)
 assert.match(authStoreSource, /const ownsSession = \([\s\S]*expectedToken: string[\s\S]*expectedVersion: number[\s\S]*expectedGeneration: number/)
-assert.match(authStoreSource, /const getSessionGeneration = \(\) => sessionGeneration/)
+assert.match(authStoreSource, /const sessionGeneration = ref\(0\)/)
+assert.match(authStoreSource, /const getSessionGeneration = \(\) => sessionGeneration\.value/)
+assert.match(
+  authStoreSource,
+  /const sessionQueryScope = computed\(\(\) => sessionGeneration\.value\)/,
+  'session-bound queries must have a reactive logical-session scope',
+)
 assert.match(
   authStoreSource,
   /authTokenStore\.set\(newToken\)\s*clearSessionExpiredMarker\(\)\s*token\.value = newToken/,
@@ -76,7 +85,7 @@ assert.match(
 )
 assert.match(
   authStoreSource,
-  /const me = await authApi\.fetchMe\(\)\s*if \(!hydrationOwnerIsCurrent\(owner\)\) return/,
+  /const me = await authApi\.fetchMe\([^)]*\)\s*if \(!hydrationOwnerIsCurrent\(owner\)\) return/,
   'stale hydrate success must not replace the current user',
 )
 assert.match(
@@ -113,6 +122,26 @@ assert.match(
   useAuthSource,
   /const owner = beginAuthOperation\(\)\s*const token = authTokenStore\.get\(\)[\s\S]*await authApi\.logout\(\)[\s\S]*requireCurrentAuthOperation\(owner\)[\s\S]*authStore\.logout\(\)/,
   'logout responses must be owned before clearing the local session',
+)
+assert.match(
+  infiniteFeedSource,
+  /queryKey: computed\(\(\) => \['feed', currentFeed\.value, currentDomain\.value, authStore\.sessionQueryScope\]\)/,
+  'feed queries must not retain another account session as an active observer result',
+)
+assert.match(
+  postDetailSource,
+  /queryKey: computed\(\(\) => \['post', postId\.value, authStore\.sessionQueryScope\]\)/,
+  'post detail queries must be isolated by logical session',
+)
+assert.match(
+  postDetailSource,
+  /queryKey: computed\(\(\) => \['post-publish-status', postId\.value, authStore\.sessionQueryScope\]\)/,
+  'post publication state must be isolated by logical session',
+)
+assert.match(
+  questionDetailSource,
+  /queryKey: computed\(\(\) => \['question', questionId\.value, authStore\.sessionQueryScope\]\)/,
+  'personalized question detail must be isolated by logical session',
 )
 
 const sessionStorageValues = new Map()
@@ -195,7 +224,7 @@ const clientSandbox = {
     if (name === '@/stores/auth') {
       return {
         useAuthStore: () => ({
-          logout: () => {
+          expireSession: () => {
             logoutCount += 1
             authTokenStore.clear()
           },
@@ -203,6 +232,14 @@ const clientSandbox = {
       }
     }
     if (name === '@/utils/navigation') return { safeRedirect: value => value }
+    // 会话过期通知桥：沙箱里没有 SPA 路由处理器，返回 false 让 client 走 window.location 硬跳转兜底，
+    // 以便下面对 redirects 的断言仍然成立。
+    if (name === '@/utils/sessionExpiry') {
+      return {
+        notifySessionExpired: async () => false,
+        registerSessionExpiredHandler: () => {},
+      }
+    }
     throw new Error(`Unexpected client dependency: ${name}`)
   },
   window: {
@@ -284,7 +321,6 @@ const waitFor = async (predicate, message) => {
 const createAuthStoreRuntime = (initialToken) => {
   let runtimeToken = initialToken
   let runtimeVersion = 0
-  let runtimeGeneration = 0
   let clearCount = 0
   let expiredMarkerCount = 0
   const sessionMarkers = new Map()
@@ -338,6 +374,18 @@ const createAuthStoreRuntime = (initialToken) => {
       }
       if (name === '@/api/auth') return { authApi: runtimeAuthApi }
       if (name === '@/utils/authTokenStore') return { authTokenStore: runtimeTokenStore }
+      if (name === '@/utils/pendingInteraction') {
+        return {
+          claimPendingInteraction: () => {},
+          clearPendingInteraction: () => {},
+        }
+      }
+      if (name === '@/utils/welcomeOnboarding') {
+        return { clearWelcomeOnboarding: () => {} }
+      }
+      if (name === '@/lib/queryClient') {
+        return { resetSessionQueryState: () => {} }
+      }
       if (name === '@/utils/safeStorage') {
         return {
           safeStorage: {

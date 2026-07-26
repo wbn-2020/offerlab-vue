@@ -25,13 +25,13 @@ assert.equal(typeof mod.parseEditorSearchGapContext, 'function', 'parser must ex
 assert.equal(typeof mod.buildEditorAssistSourceHint, 'function', 'parser must export buildEditorAssistSourceHint')
 assert.deepEqual(
   mod.CREATOR_WORKBENCH_EDITOR_ACTIONS,
-  ['update', 'reply', 'continue', 'series', 'topic', 'template'],
-  'creator_workbench actions must stay inside the V4 P0 contract',
+  ['update', 'reply', 'continue', 'series', 'topic', 'template', 'fulfill'],
+  'creator_workbench actions must include the later collaboration fulfillment contract',
 )
 assert.deepEqual(
   mod.EDITOR_ASSIST_CONTEXT_TYPES,
-  ['post', 'reply', 'idea', 'series', 'topic', 'template'],
-  'editor assist context types must stay inside the V4 P0 contract',
+  ['post', 'reply', 'idea', 'series', 'topic', 'template', 'need'],
+  'editor assist context types must include the later collaboration need contract',
 )
 
 const parse = (query) => mod.parseEditorAssistContext(query)

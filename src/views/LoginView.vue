@@ -42,7 +42,7 @@
               name="account"
               autocomplete="username"
               aria-label="账号或邮箱"
-              placeholder="admin / user1 / your@email.com"
+              placeholder="输入账号或邮箱"
               class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
               :disabled="isLoading"
             />
@@ -77,14 +77,7 @@
         </form>
 
         <!-- Divider -->
-        <div class="relative my-6">
-          <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-slate-200 dark:border-slate-800" />
-          </div>
-          <div class="relative flex justify-center text-xs">
-            <span class="px-2 bg-white dark:bg-slate-900 text-slate-500">或</span>
-          </div>
-        </div>
+        <div class="my-6 border-t border-slate-200 dark:border-slate-800" />
 
         <!-- Register Link -->
         <p class="text-center text-sm text-slate-600 dark:text-slate-400">

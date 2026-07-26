@@ -1,12 +1,15 @@
 import { computed, unref, type MaybeRef } from 'vue'
 import { useInfiniteQuery } from '@tanstack/vue-query'
 import { feedApi } from '@/api/feed'
+import { useAuthStore } from '@/stores/auth'
 
 export type FeedType = 'following' | 'recommend' | 'latest' | 'hot' | 'featured'
 
 export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest', domain?: MaybeRef<number | undefined>) {
+  const authStore = useAuthStore()
   const pageSize = 20
-  const maxPages = 6
+  // 保留足够多的分页，避免滚动一段距离后再往回翻时前面的内容被丢弃（旧值 6 页 ≈ 120 条就会掉）。
+  const maxPages = 25
   const currentFeed = computed(() => unref(feedType))
   const currentDomain = computed(() => unref(domain))
 
@@ -20,7 +23,7 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest', domain?
     isLoading,
     refetch,
   } = useInfiniteQuery({
-    queryKey: computed(() => ['feed', currentFeed.value, currentDomain.value]),
+    queryKey: computed(() => ['feed', currentFeed.value, currentDomain.value, authStore.sessionQueryScope]),
     queryFn: ({ pageParam }) => {
       const apiMap = {
         following: feedApi.getFollowing,

@@ -22,6 +22,10 @@ assert.doesNotMatch(searchView, /includeTestData|yearsOfExp/, 'SearchView must n
 assert.match(searchView, /searchDiagnosticText\s*=\s*computed/, 'SearchView must derive a visible diagnostic summary')
 assert.match(searchView, /startsWith\('test_data_filtered'\)/, 'SearchView must explain backend test-data filtering without exposing a public override')
 assert.match(searchView, /:detail-query="postDetailQuery"/, 'Search results must pass whitelisted diagnostics into post detail links')
+assert.match(searchView, /postDetailSearchSources = new Set\(\['elasticsearch', 'mysql', 'client_fallback'\]\)/, 'Search detail links must allow only known public source labels')
+assert.match(searchView, /'mysql_fallback_continuation'/, 'Search detail links must preserve the stable MySQL continuation reason')
+assert.match(searchView, /query\.source = meta\.source[\s\S]*query\.degraded = 'true'[\s\S]*query\.fallbackReason = meta\.fallbackReason/, 'Search detail links and PostDetail must share source, degraded, and fallbackReason query keys')
+assert.doesNotMatch(searchView, /query\.search(?:Source|Degraded|FallbackReason|ScanLimit)|query\.scanLimit/, 'Search detail links must not use stale query names or expose scan limits')
 assert.match(searchView, /filterVisiblePosts\(filterPublicContent\(page\?\.items \|\| \[\]\)\)/, 'SearchView must always apply public visibility filtering')
 
 assert.match(postCard, /detailQuery\?: Record<string, string \| number \| boolean \| undefined>/, 'PostCard must accept a detail query prop')
@@ -29,6 +33,8 @@ assert.match(postCard, /const detailTo = computed/, 'PostCard must build detail 
 
 assert.match(postDetail, /searchEntryNotice\s*=\s*computed/, 'PostDetailView must render a search-entry diagnostic strip')
 assert.match(postDetail, /safeSearchFallbackReason/, 'PostDetailView must whitelist fallback reason display')
+assert.match(postDetail, /mysql_fallback_continuation: '继续沿用数据库排序，避免切换排序序列'/, 'PostDetailView must explain stable MySQL continuation without exposing raw diagnostics')
+assert.match(postDetail, /readQuery\('source'\)[\s\S]*readQuery\('degraded'\) === 'true'[\s\S]*readQuery\('fallbackReason'\)/, 'PostDetailView must read the same whitelisted search diagnostic query contract')
 assert.match(postDetail, /publishStatusItems\s*=\s*computed/, 'PostDetailView must render publish pipeline status items')
 assert.doesNotMatch(postDetail, /retryTask\?\.lastError/, 'PostDetailView public publish status must not render internal retry errors')
 assert.match(postDetail, /已落库/, 'PostDetailView publish status must explain database landing')

@@ -238,7 +238,10 @@ async function launchChromium(playwright, fs) {
       }
     }
     const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`Playwright Chromium executable is missing and no local Chrome/Edge fallback was found. Set OFFERLAB_PLAYWRIGHT_EXECUTABLE_PATH to a browser executable before running visual snapshots. ${message}`)
+    throw new Error(
+      `Playwright Chromium executable is missing and no local Chrome/Edge fallback was found. Set OFFERLAB_PLAYWRIGHT_EXECUTABLE_PATH to a browser executable before running visual snapshots. ${message}`,
+      { cause: error },
+    )
   }
 }
 

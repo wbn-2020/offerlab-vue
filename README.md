@@ -18,13 +18,12 @@
 ## 技术栈
 
 - Vue 3 + Composition API + `<script setup>`
-- Vite 5
+- Vite 8
 - TypeScript 5
 - Vue Router 4
 - Pinia
 - Axios
 - TailwindCSS 3
-- shadcn-vue
 - Lucide Vue Next
 - ECharts / vue-echarts
 - md-editor-v3 / markdown-it / highlight.js
@@ -33,8 +32,8 @@
 
 ## 环境要求
 
-- Node.js 18+
-- npm 9+
+- Node.js `^20.19.0` 或 `>=22.13.0`
+- npm 10+
 - OfferLab 后端服务：`http://localhost:8080`
 
 ## 安装与启动

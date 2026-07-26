@@ -132,7 +132,7 @@ has(topicReadOnlyGuard, /!topics\.value\.available[\s\S]*topics\.value\.degraded
 has(topicMutationGuard, /isTopicReadOnly\(topic\)/, 'All topic mutations must be blocked by the topic read-only guard.')
 has(lifecycleActionFlow, /confirmationPhrase:\s*action === 'preview' \? undefined : 'CONFIRM'/, 'Non-preview lifecycle actions must require risk confirmation.')
 has(lifecycleActionFlow, /action === 'archive'[\s\S]*ARCHIVED -> restore|action === 'archive'[\s\S]*restore/, 'Archive confirmation copy must state restore is not implemented in P0.')
-has(operationsApi, /const permissionAction = action === 'archive' \? 'offline' : action/, 'Archive must reuse offline-level mutation permission until a dedicated permission exists.')
+has(operationsApi, /action === 'archive' && !canMutateOpsOrchestration\(permissions, 'offline'\)/, 'Archive must reuse offline-level mutation permission until a dedicated permission exists.')
 has(operationsApi, /client\.post\(`\/api\/v1\/operations\/admin\/\$\{resourceKind\}s\/\$\{id\}\/\$\{action\}`/, 'Lifecycle action client must call the backend action endpoint, including archive.')
 
 const publicVisibleSurface = [

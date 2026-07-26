@@ -3,7 +3,7 @@ export const safeRedirect = (value: unknown, fallback = '/') => {
   if (typeof target !== 'string') return fallback
   const path = target.trim()
   if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/\\') || /\s/.test(path)) return fallback
-  if (/^\/(?:login|register)(?:[/?#]|$)/.test(path)) return fallback
+  if (/^\/(?:login|register|welcome)(?:[/?#]|$)/.test(path)) return fallback
   try {
     const url = new URL(path, 'https://wenye.local')
     for (const key of Array.from(url.searchParams.keys())) {

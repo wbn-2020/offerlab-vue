@@ -92,7 +92,7 @@ has(searchView, /trackCommunityRecommendationClick\(`keyword:\$\{item\.label\}`,
 
 has(searchApi, /const publicParams: SearchParams = \{[\s\S]*q: params\.q,[\s\S]*company: params\.company,[\s\S]*position: params\.position,[\s\S]*type: params\.type,[\s\S]*domain: params\.domain,[\s\S]*sort: params\.sort,[\s\S]*cursor: params\.cursor,[\s\S]*size: params\.size,[\s\S]*\}[\s\S]*client\.get\('\/api\/v1\/search\/posts', \{ params: publicParams \}\)/, 'Frontend public search must whitelist backend-supported query parameters, including domain.')
 missing(searchApi, /includeTestData|yearsOfExp/, 'Frontend public search contract must not expose unsupported diagnostic parameters.')
-has(searchController, /facade\.searchPosts\(keyword, company, position, type, domain, sort, cursor, size, false\)\.publicView\(\)/, 'Public backend search endpoint must pass domain, force includeTestData=false, and return publicView.')
+has(searchController, /facade\.searchPosts\(keyword, company, position, type, domain, sort, cursor, size, false,[\s\S]*trustFilter\)\.publicView\(\)/, 'Public backend search endpoint must pass domain and trust filters, force includeTestData=false, and return publicView.')
 has(searchView, /搜索建议来自公开内容和近期公共搜索趋势[\s\S]*最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议/, 'Search copy must explain public suggestions and local-only snapshots.')
 has(searchView, /const RECENT_SEARCH_KEY = 'recent-searches'[\s\S]*const SAVED_SEARCH_KEY = 'saved-searches'/, 'Recent searches and saved searches must use separate storage keys.')
 has(searchView, /const storageKey = \(name: string\) => `offerlab:\$\{storageOwner\.value\}:\$\{name\}`/, 'Recent and saved searches must be scoped by viewer/guest owner.')

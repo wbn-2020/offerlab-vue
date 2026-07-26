@@ -665,11 +665,25 @@ const searchDiagnosticText = computed(() => {
   }
   return ''
 })
+const postDetailSearchSources = new Set(['elasticsearch', 'mysql', 'client_fallback'])
+const postDetailFallbackReasons = new Set([
+  'elasticsearch_empty',
+  'elasticsearch_visibility_filtered',
+  'elasticsearch_unavailable',
+  'mysql_fallback_continuation',
+  'hot_sort_mysql',
+  'search_api_error',
+])
 const postDetailQuery = computed<Record<string, string>>(() => {
-  if (!searchResultMeta.value) return {} as Record<string, string>
-  return {
-    from: 'search',
+  const meta = searchResultMeta.value
+  if (!meta) return {} as Record<string, string>
+  const query: Record<string, string> = { from: 'search' }
+  if (meta.source && postDetailSearchSources.has(meta.source)) query.source = meta.source
+  if (meta.degraded) query.degraded = 'true'
+  if (meta.fallbackReason && postDetailFallbackReasons.has(meta.fallbackReason)) {
+    query.fallbackReason = meta.fallbackReason
   }
+  return query
 })
 const searchSignalNote = computed(() => {
   const sources = new Set<RecommendationSource>()
@@ -851,6 +865,7 @@ const fallbackReasonText = (reason?: string) => {
     elasticsearch_empty: '索引没有召回可见结果，已补充数据库中的公开内容',
     elasticsearch_visibility_filtered: '索引结果经过可见性过滤后不足，已补充数据库中的公开内容',
     elasticsearch_unavailable: '搜索服务当前不可用，已使用数据库兜底',
+    mysql_fallback_continuation: '本页继续沿用首屏确定的数据库排序',
     hot_sort_mysql: '热门排序使用数据库热度计算',
     search_api_error: '搜索请求失败，已保留本页兜底入口',
   }

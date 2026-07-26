@@ -200,7 +200,7 @@ const company = computed(() => route.params.company as string)
 const isAddingTarget = ref(false)
 
 const { data, isLoading, refetch } = useQuery({
-  queryKey: computed(() => ['company-prep', company.value]),
+  queryKey: computed(() => ['company-prep', authStore.user?.uid ?? 'anonymous', company.value]),
   queryFn: () => questionApi.companyPrep(company.value),
   enabled: computed(() => Boolean(company.value)),
 })

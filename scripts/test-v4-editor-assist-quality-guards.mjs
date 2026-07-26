@@ -60,19 +60,21 @@ try {
   const domainShim = `
 const DOMAIN = { TECH: 1, CAREER: 2, READING: 3, LIFESTYLE: 4, INVESTMENT: 5 }
 const domainLabels = new Map([[1, '科技数码'], [2, '职场经验'], [3, '学习成长'], [4, '生活方式'], [5, '投资理财']])
+const isKnownDomain = (domain) => domainLabels.has(Number(domain))
 const normalizeDomain = (domain) => domainLabels.has(Number(domain)) ? Number(domain) : DOMAIN.TECH
 const getDomainLabel = (domain) => domainLabels.get(normalizeDomain(domain)) || '科技数码'
 `
 
   const contentAssistHarness = assistApi
     .replace(
-      /import client, \{ type Result, getErrorMessage \} from '\.\/client'\r?\n/,
+      /import client, \{ BizException, type Result, getErrorMessage \} from '\.\/client'\r?\n/,
       `
+class BizException extends Error {}
 const client = { post: async () => { throw new Error('backend unavailable') } }
 const getErrorMessage = (error, fallback = '操作失败') => error && error.message ? error.message : fallback
 `,
     )
-    .replace(/import \{ DOMAIN, getDomainLabel, normalizeDomain \} from '@\/utils\/domains'\r?\n/, domainShim)
+    .replace(/import \{ DOMAIN, getDomainLabel, isKnownDomain, normalizeDomain \} from '@\/utils\/domains'\r?\n/, domainShim)
     .replace(/import \{ POST_TYPE \} from '@\/utils\/contentTypes'\r?\n/, 'const POST_TYPE = { QUESTION: 13 }\n')
     .replace(/import \{ sanitizeVisibleText \} from '@\/utils\/textQuality'\r?\n/, 'const sanitizeVisibleText = (value, fallback = \'\') => String(value ?? \'\').replace(/\\s+/g, \' \').trim() || fallback\n')
 

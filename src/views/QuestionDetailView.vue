@@ -274,7 +274,7 @@ const isNoteDirty = ref(false)
 const draftLoadedFor = ref('')
 
 const { data, isLoading, isError, error, refetch } = useQuery({
-  queryKey: computed(() => ['question', questionId.value]),
+  queryKey: computed(() => ['question', questionId.value, authStore.sessionQueryScope]),
   queryFn: () => questionApi.detail(questionId.value),
   enabled: computed(() => Boolean(questionId.value)),
   retry: false,

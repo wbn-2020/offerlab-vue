@@ -43,7 +43,7 @@ assert.match(notifications, /toast\.success\('已全部标为已读'\)/, 'Notifi
 assert.doesNotMatch(notifications, /console\.error/, 'NotificationsView must not hide failures in console only')
 
 assert.match(login, /router\.replace\(safeRedirect\(route\.query\.redirect\)\)/, 'LoginView must replace the login page after successful login')
-assert.match(navigation, /\^\\\/\(\?:login\|register\)/, 'shared navigation guard must not redirect authenticated users back to auth pages')
+assert.match(navigation, /\^\\\/\(\?:login\|register\|welcome\)/, 'shared navigation guard must not redirect authenticated users back to auth or onboarding pages')
 assert.match(login, /authStore\.isLoggedIn/, 'LoginView must redirect already authenticated visitors away from login')
 
 assert.match(adapters, /notificationHeading\(type, content, sender\?\.nickname(?:, aggregateCount)?\)/, 'notification adapter must derive titles from system content')

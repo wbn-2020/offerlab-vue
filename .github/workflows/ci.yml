@@ -19,16 +19,29 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: offerlab-vue
 
     steps:
-      - name: Check out source
+      - name: Check out frontend source
         uses: actions/checkout@v4
+        with:
+          path: offerlab-vue
+
+      - name: Check out backend contract source
+        uses: actions/checkout@v4
+        with:
+          repository: wbn-2020/offerlab-java
+          ref: ${{ vars.OFFERLAB_BACKEND_REF || (github.ref_name == 'main' || github.ref_name == 'dev-v2') && github.ref_name || github.base_ref || 'dev-v2' }}
+          path: offerlab-java
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
+          cache-dependency-path: offerlab-vue/package-lock.json
 
       - name: Install locked dependencies
         run: npm ci
@@ -52,5 +65,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: offerlab-frontend-dist
-          path: dist
+          path: offerlab-vue/dist
           if-no-files-found: error

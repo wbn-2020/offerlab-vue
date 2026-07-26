@@ -2,6 +2,7 @@ import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { opsApi } from '@/api/ops'
 import { applyPageSeo } from '@/utils/seo'
+import { canAccessWelcomeOnboarding } from '@/utils/welcomeOnboarding'
 import {
   adminPermissionRequirementText,
   createAdminPermissionCache,
@@ -39,6 +40,13 @@ export function setupRouterGuards(router: Router) {
     }
     if (requiresAuth && !authStore.isLoggedIn) {
       next({ name: 'Login', query: { redirect: to.fullPath } })
+      return
+    }
+    if (
+      to.name === 'Welcome'
+      && !canAccessWelcomeOnboarding(authStore.user?.uid)
+    ) {
+      next({ path: '/' })
       return
     }
 

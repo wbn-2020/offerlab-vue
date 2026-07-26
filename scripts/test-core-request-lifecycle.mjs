@@ -6,6 +6,7 @@ import { createRequire } from 'node:module'
 
 const requireFromProject = createRequire(import.meta.url)
 const rootUrl = new URL('../', import.meta.url)
+const readSource = relativePath => readFileSync(new URL(relativePath, rootUrl), 'utf8')
 
 const compileCommonJs = (relativePath, replacements = []) => {
   let source = readFileSync(new URL(relativePath, rootUrl), 'utf8')
@@ -37,6 +38,23 @@ const deferred = () => {
   return { promise, resolve, reject }
 }
 
+const clientSource = readSource('src/api/client.ts')
+const mainSource = readSource('src/main.ts')
+const sessionExpirySource = readSource('src/utils/sessionExpiry.ts')
+const queryClientSource = readSource('src/lib/queryClient.ts')
+const authStoreSource = readSource('src/stores/auth.ts')
+
+assert.match(clientSource, /let sessionExpiryRedirect: Promise<void> \| null = null/, 'concurrent foreground 401s must share one redirect operation')
+assert.match(clientSource, /if \(sessionExpiryRedirect\) return sessionExpiryRedirect/, 'session expiry navigation must be deduplicated while in flight')
+assert.match(clientSource, /await notifySessionExpired\(\{ redirect:/, '401 recovery must offer SPA navigation before hard redirect fallback')
+assert.match(sessionExpirySource, /let handler: SessionExpiredHandler \| null = null/, 'session expiry bridge must keep an explicit registered handler')
+assert.match(sessionExpirySource, /await handler\(context\)[\s\S]*return true[\s\S]*catch[\s\S]*return false/, 'session expiry bridge must fail back to the hard-navigation caller')
+assert.match(mainSource, /registerSessionExpiredHandler\(async \(\{ redirect \}\) => \{[\s\S]*router\.push\([\s\S]*reason: 'session_expired'/, 'app bootstrap must register SPA session-expiry navigation with a stable reason')
+assert.match(queryClientSource, /queryClient\.cancelQueries\(\)[\s\S]*queryClient\.clear\(\)/, 'session changes must cancel and clear private query state')
+assert.match(authStoreSource, /const setToken = \(newToken: string\) => \{[\s\S]*resetSessionQueryState\(\)/, 'new sessions must clear query state before installing the token')
+assert.match(authStoreSource, /const logout = \(\) => \{[\s\S]*resetSessionQueryState\(\)/, 'logout must clear private query state')
+assert.match(authStoreSource, /const expireSession = \(\) => \{[\s\S]*resetSessionQueryState\(\)/, 'expired sessions must clear private query state')
+
 const wrappedErrorAdapter = (status, data) => async (config) => {
   const error = new Error(`HTTP ${status}`)
   error.config = config
@@ -53,7 +71,7 @@ const wrappedErrorAdapter = (status, data) => async (config) => {
 
 const clientRedirects = []
 let tokenClearCount = 0
-let logoutCount = 0
+let expireSessionCount = 0
 const clientSandbox = {
   AbortController,
   URL,
@@ -72,10 +90,24 @@ const clientSandbox = {
       }
     }
     if (name === '@/stores/auth') {
-      return { useAuthStore: () => ({ logout: () => { logoutCount += 1 } }) }
+      return {
+        useAuthStore: () => ({
+          expireSession: () => {
+            expireSessionCount += 1
+            tokenClearCount += 1
+          },
+        }),
+      }
     }
     if (name === '@/utils/navigation') {
       return { safeRedirect: value => value }
+    }
+    if (name === '@/utils/sessionExpiry') {
+      // 无 SPA 处理器时返回 false，回退到 window.location.assign 硬跳转（本守卫断言的即是该兜底路径）。
+      return {
+        notifySessionExpired: async () => false,
+        registerSessionExpiredHandler: () => {},
+      }
     }
     throw new Error(`Unexpected client dependency: ${name}`)
   },
@@ -144,7 +176,7 @@ await assert.rejects(
   error => error instanceof BizException && error.status === 401 && error.traceId === 'trace-background',
 )
 assert.equal(tokenClearCount, 0, 'silent background 401 must not clear global auth')
-assert.equal(logoutCount, 0, 'silent background 401 must not log out the active store')
+assert.equal(expireSessionCount, 0, 'silent background 401 must not expire the active store')
 assert.equal(clientRedirects.length, 0, 'silent background 401 must not redirect')
 
 await assert.rejects(
@@ -159,7 +191,7 @@ await assert.rejects(
   error => error instanceof BizException && error.status === 401,
 )
 assert.equal(tokenClearCount, 1, 'foreground 401 must clear token storage')
-assert.equal(logoutCount, 1, 'foreground 401 must log out the auth store')
+assert.equal(expireSessionCount, 1, 'foreground 401 must expire the auth store')
 assert.equal(clientRedirects.length, 1, 'foreground 401 must redirect to login once')
 
 const notificationCalls = []
@@ -207,11 +239,12 @@ assert.equal(notificationCalls[0].config.signal, notificationAbort.signal)
 assert.equal(notificationCalls[1].config.skipAuthRedirect, true)
 assert.equal(notificationCalls[2].config.skipAuthRedirect, undefined)
 
-const authStore = { token: 'token-a' }
+const authStore = { token: 'token-a', sessionQueryScope: 0 }
 const realtimeStatusCalls = []
 const unreadCalls = []
 const statusUpdates = []
 const connectionUpdates = []
+let realtimeResetCount = 0
 const scheduledTimeouts = new Map()
 const scheduledIntervals = new Map()
 const mountedCallbacks = []
@@ -223,7 +256,9 @@ const realtimeStore = {
   connected: false,
   lastSyncedAt: 0,
   pollIntervalSeconds: 20,
-  reset: () => {},
+  reset: () => {
+    realtimeResetCount += 1
+  },
   setConnected: value => connectionUpdates.push(value),
   setRealtimeStatus: value => {
     statusUpdates.push(value)
@@ -239,7 +274,7 @@ const realtimeStore = {
 const realtimeNotificationApi = {
   getRealtimeStatus: (options) => {
     realtimeStatusCalls.push(options)
-    return [firstStatus, secondStatus, thirdStatus][realtimeStatusCalls.length - 1].promise
+    return [firstStatus, secondStatus, thirdStatus, fourthStatus][realtimeStatusCalls.length - 1].promise
   },
   getUnreadCount: (options) => {
     unreadCalls.push(options)
@@ -249,6 +284,7 @@ const realtimeNotificationApi = {
 const firstStatus = deferred()
 const secondStatus = deferred()
 const thirdStatus = deferred()
+const fourthStatus = deferred()
 
 class FakeWebSocket {
   static instances = []
@@ -323,13 +359,22 @@ realtimeSandbox.exports.useRealtime()
 mountedCallbacks[0]()
 assert.equal(realtimeStatusCalls.length, 1)
 assert.equal(realtimeStatusCalls[0].signal.aborted, false)
+assert.equal(realtimeResetCount, 1, 'mount must clear any stale notification state before the first poll')
 
 authStore.token = 'token-b'
+authStore.sessionQueryScope = 1
 watchedCallbacks[0]()
 assert.equal(realtimeStatusCalls[0].signal.aborted, true, 'token switch must abort the old request')
 assert.equal(realtimeStatusCalls.length, 2, 'token switch must start a fresh generation')
+assert.equal(realtimeResetCount, 2, 'token switch must clear the previous account unread state immediately')
 
-secondStatus.resolve({
+authStore.sessionQueryScope = 2
+watchedCallbacks[0]()
+assert.equal(realtimeStatusCalls[1].signal.aborted, true, 'same-token logical session replacement must abort the old request')
+assert.equal(realtimeStatusCalls.length, 3, 'same-token logical session replacement must start a fresh generation')
+assert.equal(realtimeResetCount, 3, 'same-token logical session replacement must clear realtime state')
+
+thirdStatus.resolve({
   code: 0,
   data: {
     pollIntervalSeconds: 30,
@@ -360,12 +405,12 @@ assert.equal(scheduledTimeouts.size, 1, 'stale request completion must not add a
 const [nextPollTimerId, nextPollCallback] = scheduledTimeouts.entries().next().value
 scheduledTimeouts.delete(nextPollTimerId)
 nextPollCallback()
-assert.equal(realtimeStatusCalls.length, 3, 'scheduled polling must start the next cancellable request')
+assert.equal(realtimeStatusCalls.length, 4, 'scheduled polling must start the next cancellable request')
 
 unmountedCallbacks[0]()
-assert.equal(realtimeStatusCalls[2].signal.aborted, true, 'unmount must abort the current generation')
+assert.equal(realtimeStatusCalls[3].signal.aborted, true, 'unmount must abort the current generation')
 assert.equal(scheduledTimeouts.size, 0, 'unmount must clear scheduled polling')
-thirdStatus.reject(new Error('request aborted'))
+fourthStatus.reject(new Error('request aborted'))
 await flushAsync()
 assert.equal(unreadCalls.length, 0, 'an aborted realtime request must not start fallback polling')
 assert.equal(scheduledTimeouts.size, 0, 'an aborted request must not re-arm polling after unmount')
@@ -378,6 +423,7 @@ const infiniteData = {
     })),
   },
 }
+const infiniteAuthStore = { sessionQueryScope: 0 }
 const infiniteSandbox = {
   exports: {},
   module: { exports: {} },
@@ -421,6 +467,11 @@ const infiniteSandbox = {
         },
       }
     }
+    if (name === '@/stores/auth') {
+      return {
+        useAuthStore: () => infiniteAuthStore,
+      }
+    }
     throw new Error(`Unexpected infinite-feed dependency: ${name}`)
   },
 }
@@ -429,11 +480,22 @@ vm.runInNewContext(compileCommonJs('src/composables/useInfiniteFeed.ts'), infini
 
 const infiniteFeed = infiniteSandbox.exports.useInfiniteFeed('latest', 7)
 assert.equal(infiniteQueryCalls.length, 1)
-assert.equal(infiniteQueryCalls[0].maxPages, 6, 'TanStack Query must evict pages beyond the cache cap')
+assert.equal(infiniteQueryCalls[0].maxPages, 25, 'TanStack Query must retain the approved bounded scroll-back window')
+assert.deepEqual(
+  Array.from(infiniteQueryCalls[0].queryKey.value),
+  ['feed', 'latest', 7, 0],
+  'feed query identity must include the current logical session',
+)
+infiniteAuthStore.sessionQueryScope = 1
+assert.deepEqual(
+  Array.from(infiniteQueryCalls[0].queryKey.value),
+  ['feed', 'latest', 7, 1],
+  'a replacement session must move the active observer to a distinct feed query',
+)
 assert.deepEqual(
   Array.from(infiniteFeed.posts.value),
-  ['post-2', 'post-3', 'post-4', 'post-5', 'post-6', 'post-7'],
-  'rendered posts must retain only the newest capped pages',
+  ['post-0', 'post-1', 'post-2', 'post-3', 'post-4', 'post-5', 'post-6', 'post-7'],
+  'rendered posts must retain all pages while the bounded cap has not been reached',
 )
 
 console.log('core request and lifecycle behavior tests passed')

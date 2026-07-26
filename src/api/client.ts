@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance } from 'axios'
 import { authTokenStore } from '@/utils/authTokenStore'
 import { useAuthStore } from '@/stores/auth'
 import { safeRedirect } from '@/utils/navigation'
+import { notifySessionExpired } from '@/utils/sessionExpiry'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -69,10 +70,21 @@ const errorMessageMap: Record<number, string> = {
   30602: '当前未收藏',
 }
 
+/**
+ * Trace ID 只用于排查，不进入面向用户的提示文案。
+ * 需要展示给支持人员时使用 getErrorTraceId 单独获取。
+ */
+export function getErrorTraceId(error: unknown): string | undefined {
+  if (error instanceof BizException) return error.traceId
+  if (axios.isAxiosError(error) && isResultPayload(error.response?.data)) {
+    return error.response.data.traceId
+  }
+  return undefined
+}
+
 export function getErrorMessage(error: unknown, fallback = '操作失败') {
   if (error instanceof BizException) {
-    const message = errorMessageMap[error.code] || error.message || fallback
-    return error.traceId ? `${message}（Trace: ${error.traceId}）` : message
+    return errorMessageMap[error.code] || error.message || fallback
   }
   if (axios.isAxiosError(error)) {
     if (error.response?.status === 400) return errorMessageMap[10001]
@@ -92,8 +104,7 @@ export function getErrorMessage(error: unknown, fallback = '操作失败') {
 }
 
 export function getResultMessage(result: Pick<Result, 'message' | 'traceId'> | null | undefined, fallback = '操作失败') {
-  const message = result?.message || fallback
-  return result?.traceId ? `${message}（Trace: ${result.traceId}）` : message
+  return result?.message || fallback
 }
 
 const rawApiBaseURL = (import.meta.env.VITE_API_BASE_URL || '').trim()
@@ -118,11 +129,31 @@ const client: AxiosInstance = axios.create({
   withCredentials: true,
 })
 
-const redirectToLogin = () => {
+let sessionExpiryRedirect: Promise<void> | null = null
+
+const redirectToLogin = async () => {
   if (window.location.pathname === '/login') return
-  const redirect = safeRedirect(`${window.location.pathname}${window.location.search}${window.location.hash}`)
-  const target = redirect && redirect !== '/' ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
-  window.location.assign(target)
+  if (sessionExpiryRedirect) return sessionExpiryRedirect
+  sessionExpiryRedirect = (async () => {
+    const redirect = safeRedirect(`${window.location.pathname}${window.location.search}${window.location.hash}`)
+    // 优先交给已注册的 SPA 处理器（软导航 + 会话过期提示），避免整页硬刷新丢掉
+    // 评论框 / 联系请求等尚未提交的内存态。没有处理器或导航失败时再兜底硬跳。
+    if (await notifySessionExpired({ redirect: redirect && redirect !== '/' ? redirect : '' })) return
+    const target = redirect && redirect !== '/' ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
+    window.location.assign(target)
+  })().finally(() => {
+    sessionExpiryRedirect = null
+  })
+  return sessionExpiryRedirect
+}
+
+// crypto.randomUUID 仅在安全上下文（HTTPS / localhost）可用。局域网 IP、旧 WebView、
+// 部分 App 内置浏览器下为 undefined，若直接调用会导致每个请求在离开浏览器前抛错。
+const safeTraceId = (): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
 }
 
 const currentAuthSessionVersion = () => authTokenStore.getVersion?.() ?? 0
@@ -142,8 +173,7 @@ client.interceptors.request.use((config) => {
   }
 
   // 生成或使用现有的 traceId
-  const traceId = crypto.randomUUID()
-  config.headers['X-Trace-Id'] = traceId
+  config.headers['X-Trace-Id'] = safeTraceId()
 
   return config
 })
@@ -158,19 +188,19 @@ client.interceptors.response.use(
     }
     return result as any
   },
-  (error: AxiosError<Result<unknown>>) => {
+  async (error: AxiosError<Result<unknown>>) => {
     if (
       error.response?.status === 401
       && !error.config?.skipAuthRedirect
       && requestBelongsToCurrentAuthSession(error.config?.authSessionVersion)
     ) {
-      authTokenStore.clear()
       try {
-        useAuthStore().logout()
+        useAuthStore().expireSession()
       } catch {
-        // Pinia may not be active during very early boot; token cleanup above is still authoritative.
+        // Pinia may not be active during very early boot; token cleanup is still authoritative.
+        authTokenStore.clear()
       }
-      redirectToLogin()
+      await redirectToLogin()
     }
     if (isResultPayload(error.response?.data)) {
       return Promise.reject(toBizException(error.response.data, error.response?.status))

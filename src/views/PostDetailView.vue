@@ -973,10 +973,12 @@
                 <textarea
                   v-model="commentText"
                   rows="3"
+                  maxlength="2000"
                   :placeholder="discussionPlaceholder"
                   class="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-primary-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
-                <div class="mt-3 flex justify-end gap-2">
+                <div class="mt-3 flex items-center justify-end gap-2">
+                  <span class="mr-auto text-xs text-slate-400 dark:text-slate-500">{{ commentText.length }}/2000</span>
                   <button type="button" class="rounded-lg px-4 py-2 text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" @click="commentText = ''">
                     取消
                   </button>
@@ -1049,6 +1051,24 @@
               </div>
             </section>
           </template>
+
+          <div v-else-if="isTransientPostError" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
+            <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">{{ postErrorTitle }}</h3>
+            <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">{{ postErrorDescription }}</p>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                class="primary-action"
+                :disabled="isFetchingPost"
+                @click="refetchPost()"
+              >
+                {{ isFetchingPost ? '重试中...' : '重试' }}
+              </button>
+              <RouterLink to="/" class="rounded-lg border border-slate-300 px-5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+                返回首页
+              </RouterLink>
+            </div>
+          </div>
 
           <EmptyState v-else :title="postUnavailableTitle" :description="postUnavailableDescription" actionText="返回首页" actionHref="/" />
         </div>
@@ -1281,6 +1301,12 @@ import { useAuthStore } from '@/stores/auth'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import { useEffectiveRead } from '@/composables/useEffectiveRead'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
+import {
+  consumePendingInteraction,
+  findPendingInteraction,
+  rememberPendingInteraction,
+  type PendingInteraction,
+} from '@/utils/pendingInteraction'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import MarkdownRenderer from '@/components/post/MarkdownRenderer.vue'
 import InteractionBar from '@/components/post/InteractionBar.vue'
@@ -1293,7 +1319,7 @@ import ContactRequestDialog from '@/components/contact/ContactRequestDialog.vue'
 import { formatTime } from '@/lib/format'
 import { toast } from 'vue-sonner'
 import client, { BizException, getErrorMessage } from '@/api/client'
-import type { Comment, Post, PostPublishStatus, PostVersionHistory, PublicPostUpdate } from '@/api/types'
+import type { ApiId, Comment, Post, PostPublishStatus, PostVersionHistory, PublicPostUpdate } from '@/api/types'
 import { isPersistableKnowledgeRelation, knowledgeApi, type KnowledgeExploreResponse, type KnowledgePath, type KnowledgePreviewSource, type KnowledgeRelation, type PublicKnowledgeAsset, type PublicKnowledgeAssetType } from '@/api/knowledge'
 import { POST_TYPE, getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
 import { getDomainIcon, getDomainLabel, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
@@ -1322,6 +1348,14 @@ type PostRouteLoadContext = {
   generation: number
   postId: string
   signal: AbortSignal
+}
+type InteractionSessionOwner = {
+  uid: string
+  sessionGeneration: number
+}
+type InteractionRequestOwner = InteractionSessionOwner & {
+  postId: string
+  requestId: number
 }
 type TrustedContentLoadState = 'loading' | 'loaded' | 'error'
 type QualityComment = Comment & {
@@ -1389,8 +1423,34 @@ const commentText = ref('')
 const isSubmittingComment = ref(false)
 const isReporting = ref(false)
 const isDeletingPost = ref(false)
-const isTogglingLike = ref(false)
-const isTogglingFavorite = ref(false)
+let interactionRequestId = 0
+let interactionStateRequestId = 0
+const likeActionOwner = ref<InteractionRequestOwner | null>(null)
+const favoriteActionOwner = ref<InteractionRequestOwner | null>(null)
+const interactionSessionOwnerIsCurrent = (owner: InteractionSessionOwner) => (
+  authStore.isLoggedIn
+  && owner.uid === String(authStore.user?.uid ?? '')
+  && owner.sessionGeneration === authStore.getSessionGeneration()
+)
+const interactionRequestOwnerIsCurrent = (owner: InteractionRequestOwner) =>
+  interactionSessionOwnerIsCurrent(owner)
+const invalidateInteractionStateLoads = () => {
+  interactionStateRequestId += 1
+}
+const isTogglingLike = computed(() =>
+  Boolean(
+    likeActionOwner.value
+    && interactionRequestOwnerIsCurrent(likeActionOwner.value)
+    && likeActionOwner.value.postId === String(post.value?.postId ?? ''),
+  ),
+)
+const isTogglingFavorite = computed(() =>
+  Boolean(
+    favoriteActionOwner.value
+    && interactionRequestOwnerIsCurrent(favoriteActionOwner.value)
+    && favoriteActionOwner.value.postId === String(post.value?.postId ?? ''),
+  ),
+)
 const interactionFeedback = ref('')
 const discussionFollowState = ref({
   followed: false,
@@ -1539,15 +1599,15 @@ const isCanceledRequest = (error: unknown) => {
     || candidate?.code === 'ERR_CANCELED'
 }
 
-const { data: postData, isLoading, error: postError } = useQuery({
-  queryKey: computed(() => ['post', postId.value]),
+const { data: postData, isLoading, error: postError, refetch: refetchPost, isFetching: isFetchingPost } = useQuery({
+  queryKey: computed(() => ['post', postId.value, authStore.sessionQueryScope]),
   queryFn: () => postApi.getDetail(postId.value),
   enabled: computed(() => Boolean(postId.value)),
   retry: false,
 })
 
 const { data: publishStatusData } = useQuery({
-  queryKey: computed(() => ['post-publish-status', postId.value]),
+  queryKey: computed(() => ['post-publish-status', postId.value, authStore.sessionQueryScope]),
   queryFn: () => postApi.getPublishStatus(postId.value),
   enabled: computed(() => Boolean(postId.value)),
   retry: false,
@@ -1615,6 +1675,7 @@ const safeSearchFallbackReason = (reason: string) => {
     elasticsearch_empty: '索引首屏无可见结果，已补充数据库结果',
     elasticsearch_visibility_filtered: '索引结果经可见性过滤后不足，已补充数据库结果',
     elasticsearch_unavailable: 'Elasticsearch 不可用',
+    mysql_fallback_continuation: '继续沿用数据库排序，避免切换排序序列',
     hot_sort_mysql: '热门排序使用数据库热度',
     search_api_error: '搜索请求失败',
   }
@@ -1622,11 +1683,13 @@ const safeSearchFallbackReason = (reason: string) => {
 }
 const searchEntryNotice = computed(() => {
   if (route.query.from !== 'search') return ''
-  return '来自搜索结果'
-  const source: string = ''
-  const degraded = false
-  const fallbackReason: string = ''
-  const scanLimit: string = ''
+  const readQuery = (key: string): string => {
+    const value = route.query[key]
+    return typeof value === 'string' ? value : Array.isArray(value) ? String(value[0] ?? '') : ''
+  }
+  const source = readQuery('source')
+  const degraded = readQuery('degraded') === 'true'
+  const fallbackReason = readQuery('fallbackReason')
   const sourceText = source === 'elasticsearch'
     ? '来自实时搜索索引'
     : source === 'mysql'
@@ -1638,7 +1701,6 @@ const searchEntryNotice = computed(() => {
   if (degraded) parts.push('本次搜索处于降级链路')
   const reasonText = safeSearchFallbackReason(fallbackReason)
   if (reasonText) parts.push(`原因：${reasonText}`)
-  if (scanLimit) parts.push(`扫描上限 ${scanLimit} 条`)
   return parts.join('，')
 })
 const publishStatusItems = computed(() => {
@@ -2228,6 +2290,25 @@ const governanceUnavailableState = computed(() => {
     description: postUnavailableDescription.value,
   }
 })
+// 区分瞬时错误（网络中断 / 超时 / 5xx）和真正不可用（403 / 404 / 已删除）。
+// 瞬时错误给重试入口，避免把一次网络抖动直接说成“内容已删除”。
+const isTransientPostError = computed(() => {
+  if (!postError.value) return false
+  const error = postError.value as any
+  if (error instanceof BizException) {
+    return typeof error.status === 'number' && error.status >= 500 && error.status < 600
+  }
+  const status = error?.response?.status
+  if (typeof status === 'number') {
+    return status >= 500 && status < 600
+  }
+  // 没有 HTTP 响应（断网、超时、请求被取消）一律按瞬时错误处理。
+  return true
+})
+const postErrorTitle = computed(() => isTransientPostError.value ? '内容暂时加载失败' : postUnavailableTitle.value)
+const postErrorDescription = computed(() => isTransientPostError.value
+  ? '网络或服务暂时不稳定，内容未能加载。请重试，如果多次失败再稍后回来查看。'
+  : postUnavailableDescription.value)
 const reportTargetLabel = computed(() => (reportTarget.value.type === 'comment' ? '评论' : '帖子'))
 const detailSeoDescription = computed(() => {
   if (post.value) {
@@ -2297,55 +2378,157 @@ const loadDiscussionFollowStatus = async () => {
   }
 }
 
-const handleLike = async () => {
-  if (!post.value || isTogglingLike.value) return
-  isTogglingLike.value = true
-  const liked = Boolean(post.value.myInteraction?.liked)
+type InteractionActionOptions = {
+  pendingInteraction?: PendingInteraction
+  suppressSuccessToast?: boolean
+}
+
+const actionOptions = (value?: ApiId | InteractionActionOptions): InteractionActionOptions =>
+  value && typeof value === 'object' ? value : {}
+
+const handleLike = async (input?: ApiId | InteractionActionOptions) => {
+  const options = actionOptions(input)
+  const target = post.value
+  if (!target) return false
+  const targetPostId = String(target.postId)
+  const liked = Boolean(target.myInteraction?.liked)
+  if (!authStore.isLoggedIn) {
+    if (!liked) rememberPendingInteraction(target.postId, 'like')
+    requireLogin()
+    return false
+  }
+  if (
+    likeActionOwner.value?.postId === targetPostId
+    && interactionRequestOwnerIsCurrent(likeActionOwner.value)
+  ) return false
+  const owner: InteractionRequestOwner = {
+    postId: targetPostId,
+    requestId: ++interactionRequestId,
+    uid: String(authStore.user?.uid ?? ''),
+    sessionGeneration: authStore.getSessionGeneration(),
+  }
+  const context = capturePostRouteContext(targetPostId)
+  likeActionOwner.value = owner
+  invalidateInteractionStateLoads()
+  const prevFeedback = interactionFeedback.value
+  let shouldRefreshInteractionState = false
+  // 乐观更新：先切换本地状态，请求失败再回滚，避免点击后长时间无反馈。
+  target.myInteraction = { ...(target.myInteraction ?? { favorited: false }), liked: !liked }
+  target.counter.like = Math.max(0, target.counter.like + (liked ? -1 : 1))
+  const ownPost = String(target.author.uid) === String(authStore.user?.uid ?? '')
+  const message = liked
+    ? '已取消点赞'
+    : ownPost
+      ? '已点赞自己的帖子，计数已更新'
+      : '已点赞'
+  if (isActiveLoadedPostContext(context)) interactionFeedback.value = message
   try {
     if (liked) {
-      await interactionApi.unlike(post.value.postId)
+      await interactionApi.unlike(target.postId)
     } else {
-      await interactionApi.like(post.value.postId)
+      await interactionApi.like(target.postId)
     }
-    post.value.myInteraction = { ...(post.value.myInteraction ?? { favorited: false }), liked: !liked }
-    post.value.counter.like = Math.max(0, post.value.counter.like + (liked ? -1 : 1))
-    const message = liked
-      ? '已取消点赞'
-      : isOwnPost.value
-        ? '已点赞自己的帖子，计数已更新'
-        : '已点赞'
-    interactionFeedback.value = message
-    toast.success(message)
+    if (!interactionRequestOwnerIsCurrent(owner)) return false
+    if (options.pendingInteraction) consumePendingInteraction(options.pendingInteraction)
+    if (isActiveLoadedPostContext(context) && !options.suppressSuccessToast) {
+      toast.success(message)
+    }
+    shouldRefreshInteractionState = true
+    return true
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '点赞操作失败'))
+    if (interactionRequestOwnerIsCurrent(owner)) {
+      target.myInteraction = { ...(target.myInteraction ?? { favorited: false }), liked }
+      target.counter.like = Math.max(0, target.counter.like + (liked ? 1 : -1))
+      if (isActiveLoadedPostContext(context)) {
+        interactionFeedback.value = prevFeedback
+        toast.error(getErrorMessage(error, '点赞操作失败'))
+      }
+    }
+    return false
   } finally {
-    isTogglingLike.value = false
+    if (likeActionOwner.value?.requestId === owner.requestId) {
+      likeActionOwner.value = null
+    }
+    if (
+      shouldRefreshInteractionState
+      && interactionRequestOwnerIsCurrent(owner)
+      && isActiveLoadedPostContext(context)
+    ) {
+      void loadInteractionState()
+    }
   }
 }
 
-const handleFavorite = async () => {
-  if (!post.value || isTogglingFavorite.value) return
-  isTogglingFavorite.value = true
-  const favorited = Boolean(post.value.myInteraction?.favorited)
+const handleFavorite = async (input?: ApiId | InteractionActionOptions) => {
+  const options = actionOptions(input)
+  const target = post.value
+  if (!target) return false
+  const targetPostId = String(target.postId)
+  const favorited = Boolean(target.myInteraction?.favorited)
+  if (!authStore.isLoggedIn) {
+    if (!favorited) rememberPendingInteraction(target.postId, 'favorite')
+    requireLogin()
+    return false
+  }
+  if (
+    favoriteActionOwner.value?.postId === targetPostId
+    && interactionRequestOwnerIsCurrent(favoriteActionOwner.value)
+  ) return false
+  const owner: InteractionRequestOwner = {
+    postId: targetPostId,
+    requestId: ++interactionRequestId,
+    uid: String(authStore.user?.uid ?? ''),
+    sessionGeneration: authStore.getSessionGeneration(),
+  }
+  const context = capturePostRouteContext(targetPostId)
+  favoriteActionOwner.value = owner
+  invalidateInteractionStateLoads()
+  const prevFeedback = interactionFeedback.value
+  let shouldRefreshInteractionState = false
+  // 乐观更新：先切换本地状态，请求失败再回滚。
+  target.myInteraction = { ...(target.myInteraction ?? { liked: false }), favorited: !favorited }
+  target.counter.favorite = Math.max(0, target.counter.favorite + (favorited ? -1 : 1))
+  const ownPost = String(target.author.uid) === String(authStore.user?.uid ?? '')
+  const message = favorited
+    ? '已取消收藏'
+    : ownPost
+      ? '已收藏自己的帖子，已加入回看'
+      : '已收藏'
+  if (isActiveLoadedPostContext(context)) interactionFeedback.value = message
   try {
     if (favorited) {
-      await interactionApi.unfavorite(post.value.postId)
+      await interactionApi.unfavorite(target.postId)
     } else {
-      await interactionApi.favorite(post.value.postId)
+      await interactionApi.favorite(target.postId)
     }
-    post.value.myInteraction = { ...(post.value.myInteraction ?? { liked: false }), favorited: !favorited }
-    post.value.counter.favorite = Math.max(0, post.value.counter.favorite + (favorited ? -1 : 1))
-    const message = favorited
-      ? '已取消收藏'
-      : isOwnPost.value
-        ? '已收藏自己的帖子，已加入回看'
-        : '已收藏'
-    interactionFeedback.value = message
-    toast.success(message)
+    if (!interactionRequestOwnerIsCurrent(owner)) return false
+    if (options.pendingInteraction) consumePendingInteraction(options.pendingInteraction)
+    if (isActiveLoadedPostContext(context) && !options.suppressSuccessToast) {
+      toast.success(message)
+    }
+    shouldRefreshInteractionState = true
+    return true
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '收藏操作失败'))
+    if (interactionRequestOwnerIsCurrent(owner)) {
+      target.myInteraction = { ...(target.myInteraction ?? { liked: false }), favorited }
+      target.counter.favorite = Math.max(0, target.counter.favorite + (favorited ? 1 : -1))
+      if (isActiveLoadedPostContext(context)) {
+        interactionFeedback.value = prevFeedback
+        toast.error(getErrorMessage(error, '收藏操作失败'))
+      }
+    }
+    return false
   } finally {
-    isTogglingFavorite.value = false
+    if (favoriteActionOwner.value?.requestId === owner.requestId) {
+      favoriteActionOwner.value = null
+    }
+    if (
+      shouldRefreshInteractionState
+      && interactionRequestOwnerIsCurrent(owner)
+      && isActiveLoadedPostContext(context)
+    ) {
+      void loadInteractionState()
+    }
   }
 }
 
@@ -3215,6 +3398,16 @@ const handleUnlikeComment = async (commentId: Comment['commentId']) => {
   }
 }
 
+// 评论创建接口只返回 { commentId, reviewRequired }，拿不到完整评论对象，
+// 因此提交后仍需整表重载。重载会把列表替换成第一页，导致页面跳回顶部。
+// 这里在重载前后保留并恢复滚动位置，避免用户丢失当前阅读位置。
+const preserveCommentScroll = async (task: () => Promise<void>) => {
+  const prevScrollY = window.scrollY
+  await task()
+  await nextTick()
+  window.scrollTo({ top: prevScrollY })
+}
+
 const handleSubmitComment = async () => {
   if (!post.value || !commentText.value.trim()) return
   if (!requireLogin()) return
@@ -3227,8 +3420,10 @@ const handleSubmitComment = async () => {
     } else {
       post.value.counter.comment += 1
       toast.success('评论成功')
-      await loadComments()
-      await loadTrustedContent()
+      await preserveCommentScroll(async () => {
+        await loadComments()
+        await loadTrustedContent()
+      })
     }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '评论失败'))
@@ -3247,7 +3442,7 @@ const handleReplyComment = async (payload: { parentId: Comment['commentId']; rep
     } else {
       post.value.counter.comment += 1
       toast.success('回复成功')
-      await loadComments(true)
+      await preserveCommentScroll(() => loadComments(true))
     }
   } catch (error: any) {
     toast.error(getErrorMessage(error, '回复失败'))
@@ -3527,17 +3722,61 @@ const loadInteractionState = async () => {
   const current = post.value
   if (!current || !authStore.isLoggedIn) return
   const context = capturePostRouteContext(String(current.postId))
+  const requestId = ++interactionStateRequestId
+  const owner: InteractionSessionOwner = {
+    uid: String(authStore.user?.uid ?? ''),
+    sessionGeneration: authStore.getSessionGeneration(),
+  }
   try {
     const result = await interactionApi.getPostInteraction(current.postId)
-    if (result.data && isActiveLoadedPostContext(context)) {
-      current.myInteraction = {
-        liked: Boolean(result.data.liked),
-        favorited: Boolean(result.data.favorited),
+    if (
+      result.data
+      && requestId === interactionStateRequestId
+      && isActiveLoadedPostContext(context)
+      && interactionSessionOwnerIsCurrent(owner)
+    ) {
+      const nextInteraction = {
+        ...(current.myInteraction ?? { liked: false, favorited: false }),
       }
+      if (!isTogglingLike.value) nextInteraction.liked = Boolean(result.data.liked)
+      if (!isTogglingFavorite.value) nextInteraction.favorited = Boolean(result.data.favorited)
+      current.myInteraction = nextInteraction
+      // 拿到真实互动状态后，再消费登录前记录的点赞/收藏意图（P6）。
+      void replayPendingInteraction(context, owner)
     }
   } catch {
     // 互动状态不影响详情正文展示。
   }
+}
+
+// 最小安全补点：仅当存在本帖未过期的意图、且当前确实尚未点赞/收藏时，补做一次并明确提示用户。
+const replayPendingInteraction = async (
+  context: PostRouteLoadContext,
+  owner: InteractionSessionOwner,
+) => {
+  const current = post.value
+  if (!current || !interactionSessionOwnerIsCurrent(owner)) return
+  const pending = findPendingInteraction(current.postId, owner.uid)
+  if (!pending) return
+  if (pending.kind === 'like') {
+    if (isTogglingLike.value) return
+    if (current.myInteraction?.liked) {
+      consumePendingInteraction(pending)
+      return
+    }
+    const succeeded = await handleLike({ pendingInteraction: pending, suppressSuccessToast: true })
+    if (!succeeded) return
+  } else if (pending.kind === 'favorite') {
+    if (isTogglingFavorite.value) return
+    if (current.myInteraction?.favorited) {
+      consumePendingInteraction(pending)
+      return
+    }
+    const succeeded = await handleFavorite({ pendingInteraction: pending, suppressSuccessToast: true })
+    if (!succeeded) return
+  }
+  if (!isActiveLoadedPostContext(context) || !interactionSessionOwnerIsCurrent(owner)) return
+  toast.success(pending.kind === 'like' ? '已补上你登录前的点赞' : '已补上你登录前的收藏')
 }
 
 const resetTrustedContentState = () => {

@@ -141,7 +141,7 @@
         </div>
       </div>
 
-      <div v-if="recommendationFeedbackSubmittedLabel" class="feedback-submitted-note mb-4">
+      <div v-if="recommendationFeedbackSubmittedLabel && !feedFeedbackPending && !feedFeedbackError" class="feedback-submitted-note mb-4">
         {{ recommendationFeedbackSubmittedLabel }}
       </div>
       <div v-if="feedFeedbackError" class="feedback-error-note mb-4" role="alert">
@@ -265,7 +265,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { Eye, EyeOff, Flag, Heart, Lightbulb, Loader2, MessageCircle, MoreHorizontal, RotateCcw, ShieldAlert, ShieldCheck, Star, TrendingUp } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
@@ -311,6 +311,10 @@ const isFollowing = ref(false)
 const failedImageUrl = ref('')
 const showFeedbackMenu = ref(false)
 const recommendationFeedbackSubmittedLabel = ref('')
+// 反馈请求失败时清掉“已记录”乐观提示，避免与错误信息并存或错误消失后再冒出来。
+watch(() => props.feedFeedbackError, (message) => {
+  if (message) recommendationFeedbackSubmittedLabel.value = ''
+})
 const feedbackActions: Array<{
   action: FeedFeedbackAction
   label: string
@@ -580,6 +584,21 @@ const handleFollow = async () => {
     isFollowing.value = false
   }
 }
+
+// 点击卡片外部时关闭“减少推荐”菜单，与顶栏下拉菜单保持一致的交互。
+const handleDocumentClick = (event: MouseEvent) => {
+  if (!showFeedbackMenu.value) return
+  const target = event.target as HTMLElement | null
+  if (!target?.closest('.feedback-menu-wrapper')) showFeedbackMenu.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick)
+})
 </script>
 
 <style scoped>
