@@ -18,8 +18,6 @@ const between = (source, start, end, name) => {
 }
 
 const packageJson = JSON.parse(read('package.json'))
-const v4Plan = read('../文档/V4/OfferLab-V4-社区拓展总体方案-2026-07-06.md')
-const v4StagePlan = read('../文档/V4/第一阶段-创作者公共成长工作台详细方案-2026-07-06.md')
 const apiTypes = read('src/api/types.ts')
 const creatorFeedbackApi = read('src/api/creatorFeedback.ts')
 const creatorSignals = read('src/utils/creatorSignals.ts')
@@ -62,16 +60,6 @@ check(
   packageJson.scripts['test:v4-creator-workbench-guards'] === 'node scripts/test-v4-creator-workbench-guards.mjs',
   'package.json must expose test:v4-creator-workbench-guards.',
 )
-
-for (const requiredDocText of [
-  '创作者公共成长工作台',
-  '私人求职训练',
-  '官方背书',
-  '匿名',
-  'demo/fallback',
-]) {
-  hasText(v4Plan + v4StagePlan, requiredDocText, `V4 docs must preserve boundary text: ${requiredDocText}.`)
-}
 
 for (const requiredCopy of [
   '创作者工作台',

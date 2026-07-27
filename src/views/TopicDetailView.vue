@@ -11,12 +11,19 @@
               社区话题
             </p>
             <span v-if="curatedTopic" :class="['status-pill', curatedStatusClass]">{{ curatedStatusText }}</span>
+            <span v-if="isCrossDomainCuratedTopic" class="status-pill cross-domain-chip">跨频道专题</span>
             <span v-if="topic?.featured" class="status-pill status-featured">精选话题</span>
             <span v-if="topic?.virtualTopic" class="status-pill status-muted">自动聚合</span>
             <span v-if="topic?.topicType" class="status-pill status-muted">{{ topicTypeText }}</span>
           </div>
           <h1 class="mt-2 text-2xl font-black text-slate-950 dark:text-slate-50">{{ currentTopicTitle }}</h1>
           <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ currentTopicSummary }}</p>
+          <p v-if="isCrossDomainCuratedTopic" class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            本集合跨频道收录，每篇内容保留其原频道。
+          </p>
+          <p v-if="crossDomainCompositionText" class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            频道构成：{{ crossDomainCompositionText }}
+          </p>
           <p v-if="curatedLifecycleCopy" class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
             {{ curatedLifecycleCopy }}
           </p>
@@ -150,6 +157,10 @@
               >
                 <div>
                   <span class="curated-item-source">{{ item.sourceType }} · {{ item.sortOrder }}</span>
+                  <span
+                    v-if="isKnownDomain(item.post?.domain)"
+                    class="curated-item-domain"
+                  >{{ getDomainIcon(item.post!.domain) }} {{ getDomainLabel(item.post!.domain) }}</span>
                   <h3>{{ item.title }}</h3>
                   <p v-if="item.summary">{{ item.summary }}</p>
                   <small v-if="item.reasonText">收录理由：{{ item.reasonText }}</small>
@@ -227,7 +238,8 @@ import { topicDetailApi, type CuratedTopicDetail } from '@/api/topicDetail'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, Post } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
-import { isKnownDomain } from '@/utils/domains'
+import { isKnownDomain, getDomainIcon, getDomainLabel, getDomainLabelSafe } from '@/utils/domains'
+import { summarizeCurationDomains } from '@/utils/curationDomainComposition'
 import { postTypeSummary } from '@/utils/communityMetrics'
 import { useAuthStore } from '@/stores/auth'
 import { filterPublicContent } from '@/utils/textQuality'
@@ -271,10 +283,31 @@ const typeSummary = computed(() => postTypeSummary(posts.value))
 const topicLoadFailed = computed(() => Boolean(topicErrorMessage.value && !topic.value && !isCuratedTopic.value))
 const topicReady = computed(() => Boolean(isCuratedTopic.value || (topic.value && !topicLoadFailed.value)))
 const canFollowTopic = computed(() => Boolean(!isCuratedTopic.value && topic.value?.id && !topic.value?.virtualTopic))
+// 跨频道语义只读后端派生的 topicScope，不由 domain 是否为空自行推断。
+const isCrossDomainCuratedTopic = computed(() => (
+  isCuratedTopic.value && curatedTopic.value?.topicScope === 'CROSS_DOMAIN'
+))
+const crossDomainComposition = computed(() => {
+  if (!isCrossDomainCuratedTopic.value || !curatedTopic.value) return null
+  return summarizeCurationDomains(curatedTopic.value.sections.flatMap((section) => section.items))
+})
+const crossDomainCompositionText = computed(() => {
+  const composition = crossDomainComposition.value
+  if (!composition || composition.total === 0) return ''
+  const parts = composition.byDomain.map((entry) => `${getDomainLabelSafe(entry.domain)} ${entry.count}`)
+  if (composition.unknownCount > 0) parts.push(`未分类 ${composition.unknownCount}`)
+  return parts.join(' · ')
+})
 const publishToTopicQuery = computed(() => {
   const routeDomain = Array.isArray(route.query.domain) ? route.query.domain[0] : route.query.domain
-  const topicDomain = (topic.value as (CommunityTopic & { domain?: number }) | null)?.domain
-  const domain = [routeDomain, topicDomain, posts.value[0]?.domain].find((value) => isKnownDomain(value))
+  const communityTopicDomain = (topic.value as (CommunityTopic & { domain?: number | null }) | null)?.domain
+  // 运营专题只使用后端明确范围：跨频道不预填，单频道只用专题自己的 domain。
+  // 普通社区话题保留既有 route → topic → 首帖频道兜底。
+  const domain = isCuratedTopic.value
+    ? curatedTopic.value?.topicScope === 'DOMAIN'
+      ? [curatedTopic.value.domain].find((value) => isKnownDomain(value))
+      : undefined
+    : [routeDomain, communityTopicDomain, posts.value[0]?.domain].find((value) => isKnownDomain(value))
   const topicId = topic.value?.virtualTopic ? undefined : topic.value?.id
   const topicName = topic.value?.name || currentTopicTitle.value || topicSlug.value
   return {
@@ -602,6 +635,18 @@ onUnmounted(() => {
   color: rgb(71 85 105);
 }
 
+/* 跨频道专题的中性身份 chip：刻意不用任何单频道配色，避免集合冒充频道归属。 */
+.cross-domain-chip {
+  border: 1px dashed rgb(148 163 184);
+  background: transparent;
+  color: rgb(71 85 105);
+}
+
+.dark .cross-domain-chip {
+  border-color: rgb(71 85 105);
+  color: rgb(148 163 184);
+}
+
 .filter-panel,
 .curated-section {
   border: 1px solid rgb(226 232 240);
@@ -761,6 +806,25 @@ onUnmounted(() => {
   color: rgb(100 116 139);
   font-size: 0.8125rem;
   line-height: 1.5;
+}
+
+/* 策展条目的原频道徽章：与 PostCard 同口径（isKnownDomain 门控，未知域不显示）。 */
+.curated-item-domain {
+  margin-left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: 999px;
+  background: rgb(241 245 249);
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(51 65 85);
+}
+
+.dark .curated-item-domain {
+  background: rgb(30 41 59);
+  color: rgb(203 213 225);
 }
 
 .primary-button,

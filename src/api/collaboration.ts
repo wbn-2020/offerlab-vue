@@ -1,4 +1,4 @@
-import client, { type Result } from './client'
+import client, { type Result, withRemoteResultProvenance } from './client'
 import type { ApiId, ApiLong } from './types'
 
 const BASE_PATH = '/api/v1/collaboration'
@@ -618,6 +618,9 @@ export interface GovernanceReviewCmd {
 }
 
 const requestResult = <T>(request: Promise<unknown>) => request as Promise<Result<T>>
+const remoteRequestResult = async <T>(request: Promise<unknown>): Promise<Result<T>> => (
+  withRemoteResultProvenance(await requestResult<T>(request))
+)
 const resourceId = (id: ApiId) => encodeURIComponent(String(id))
 
 export const collaborationApi = {
@@ -631,11 +634,11 @@ export const collaborationApi = {
         client.get(`${BASE_PATH}/needs/discovery`, { params: query, signal: options?.signal }),
       ),
     mine: (query: CollaborationListQuery = {}) =>
-      requestResult<PageResult<CollaborationNeed>>(
+      remoteRequestResult<PageResult<CollaborationNeed>>(
         client.get(`${BASE_PATH}/needs/mine`, { params: query }),
       ),
     createdMine: (query: CollaborationListQuery = {}) =>
-      requestResult<PageResult<CollaborationNeed>>(
+      remoteRequestResult<PageResult<CollaborationNeed>>(
         client.get(`${BASE_PATH}/needs/mine/created`, { params: query }),
       ),
     followed: (query: Pick<CollaborationListQuery, 'status' | 'cursor' | 'size'> = {}) =>

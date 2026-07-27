@@ -1,4 +1,4 @@
-import client, { type Result } from './client'
+import client, { type Result, withRemoteResultProvenance } from './client'
 import type { ApiId, ApiLong } from './types'
 
 export type { ApiLong } from './types'
@@ -612,19 +612,22 @@ const meBase = '/api/v1/incentives/me'
 const benefitBase = '/api/v1/benefits'
 const adminBase = '/api/v1/incentives/admin'
 const pathId = (value: ApiId) => encodeURIComponent(String(value))
+const remoteResult = async <T>(request: Promise<unknown>): Promise<Result<T>> => (
+  withRemoteResultProvenance(await request as Result<T>)
+)
 
 export const incentiveApi = {
   getMySummary: (): Promise<Result<IncentiveAccount[]>> =>
-    client.get(`${meBase}/summary`),
+    remoteResult(client.get(`${meBase}/summary`)),
 
   getMyLedger: (params: PageQuery = {}): Promise<Result<PageResult<LedgerEntry>>> =>
-    client.get(`${meBase}/ledger`, { params }),
+    remoteResult(client.get(`${meBase}/ledger`, { params })),
 
   getMyOrders: (params: PageQuery = {}): Promise<Result<PageResult<BenefitOrder>>> =>
     client.get(`${meBase}/orders`, { params }),
 
   getMyEntitlements: (params: PageQuery = {}): Promise<Result<PageResult<BenefitEntitlement>>> =>
-    client.get(`${meBase}/entitlements`, { params }),
+    remoteResult(client.get(`${meBase}/entitlements`, { params })),
 
   consumeEntitlement: (
     entitlementId: ApiId,
@@ -639,13 +642,13 @@ export const incentiveApi = {
     client.post(`${meBase}/appeals`, command),
 
   getMyThanks: (params: PageQuery = {}): Promise<Result<ThankWorkspace>> =>
-    client.get(`${meBase}/thanks`, { params }),
+    remoteResult(client.get(`${meBase}/thanks`, { params })),
 
   sendThank: (command: ThankCommand): Promise<Result<ThankTicket>> =>
     client.post(`${meBase}/thanks`, command),
 
   getMyBounties: (params: PageQuery = {}): Promise<Result<BountyWorkspace>> =>
-    client.get(`${meBase}/bounties`, { params }),
+    remoteResult(client.get(`${meBase}/bounties`, { params })),
 
   submitBounty: (
     bountyId: ApiId,
@@ -663,7 +666,7 @@ export const incentiveApi = {
     client.post(`${meBase}/bounties/submissions/${pathId(submissionId)}/appeals`, command),
 
   getMyRoles: (params: PageQuery = {}): Promise<Result<RoleWorkspace>> =>
-    client.get(`${meBase}/roles`, { params }),
+    remoteResult(client.get(`${meBase}/roles`, { params })),
 
   getRoleEligibility: (
     roleCode: string,

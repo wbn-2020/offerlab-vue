@@ -542,7 +542,11 @@ export interface OperationTopicSectionContract {
 
 export interface OperationTopicPublishCheckContract {
   topicId: ApiId
+  draftRevision: number
   canPublish: boolean
+  source: string
+  degraded: boolean
+  checkedAt?: string
   items: Array<{
     code: string
     label: string

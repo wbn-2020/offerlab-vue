@@ -11,11 +11,74 @@ declare module 'axios' {
   }
 }
 
+export type ResultProvenanceSource = 'remote' | 'demo' | 'fallback' | 'unavailable'
+
 export interface Result<T = any> {
   code: number
   message: string
   data: T | null
   traceId?: string
+  source?: ResultProvenanceSource
+  degraded?: boolean
+  fallbackReason?: string
+}
+
+type ResultPayloadProvenance = {
+  source?: unknown
+  degraded?: unknown
+  fallbackReason?: unknown
+  degradationReasons?: unknown
+}
+
+const resultPayloadProvenance = (data: unknown): ResultPayloadProvenance | null => (
+  data != null && typeof data === 'object' && !Array.isArray(data)
+    ? data as ResultPayloadProvenance
+    : null
+)
+
+export const withRemoteResultProvenance = <T>(result: Result<T>): Result<T> => {
+  const metadata = resultPayloadProvenance(result.data)
+  const rawSources = [result.source, metadata?.source].filter((value) => value != null)
+  const sourceTexts = rawSources
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim().toLowerCase())
+  const malformedSource = rawSources.some((value) => (
+    typeof value !== 'string' || !value.trim()
+  ))
+  const rawDegradedMarkers = [result.degraded, metadata?.degraded]
+    .filter((value) => value != null)
+  const malformedDegraded = rawDegradedMarkers.some((value) => typeof value !== 'boolean')
+  const rawFallbackReasons = [result.fallbackReason, metadata?.fallbackReason]
+    .filter((value) => value != null)
+  const malformedFallbackReason = rawFallbackReasons.some((value) => typeof value !== 'string')
+  const fallbackReason = rawFallbackReasons
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .find(Boolean)
+    || (malformedFallbackReason ? 'malformed_payload_fallback_reason' : '')
+  const hasDegradationReasons = metadata?.degradationReasons != null
+    && (!Array.isArray(metadata.degradationReasons) || metadata.degradationReasons.length > 0)
+  const explicitlyNonRemote = sourceTexts.some((value) => value !== 'remote')
+  const degraded = rawDegradedMarkers.some((value) => value === true)
+    || malformedSource
+    || malformedDegraded
+    || explicitlyNonRemote
+    || Boolean(fallbackReason)
+    || hasDegradationReasons
+  const source: ResultProvenanceSource = sourceTexts.some((value) => value.includes('demo'))
+    ? 'demo'
+    : sourceTexts.some((value) => value.includes('unavailable'))
+      ? 'unavailable'
+      : explicitlyNonRemote
+        ? 'fallback'
+        : 'remote'
+
+  return {
+    ...result,
+    source,
+    degraded,
+    ...(fallbackReason ? { fallbackReason } : {}),
+  }
 }
 
 export class BizException extends Error {
@@ -56,6 +119,7 @@ const errorMessageMap: Record<number, string> = {
   20500: '依赖服务暂时不可用，请稍后重试',
   30001: '请勿重复操作',
   30002: '当前状态不允许执行该操作，请刷新后重试',
+  30003: '该内容已被其他管理员修改，请刷新后重试',
   30101: '用户不存在或已注销',
   30102: '该账号已存在，请直接登录',
   30103: '账号或密码不正确',

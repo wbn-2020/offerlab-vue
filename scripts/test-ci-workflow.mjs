@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs'
 
 const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8')
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const creatorWorkbenchGuard = readFileSync(
+  new URL('./test-v4-creator-workbench-guards.mjs', import.meta.url),
+  'utf8',
+)
 
 assert.doesNotMatch(workflow, /\t/, 'frontend CI workflow must use YAML spaces rather than tabs')
 assert.match(
@@ -20,6 +24,11 @@ assert.match(
   packageJson.scripts?.['pretest:guards'] || '',
   /npm run test:ci-workflow/,
   'the full source guard suite must execute the frontend CI workflow guard',
+)
+assert.doesNotMatch(
+  creatorWorkbenchGuard,
+  /\.\.\/文档\//,
+  'source guards must not depend on documentation outside the frontend repository',
 )
 
 console.log('frontend CI workflow guard passed')

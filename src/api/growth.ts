@@ -1,4 +1,4 @@
-import client, { BizException, type Result } from './client'
+import client, { BizException, type Result, withRemoteResultProvenance } from './client'
 import { adaptId } from './adapters'
 import type {
   ApiId,
@@ -32,6 +32,30 @@ const toNumber = (value: unknown, fallback = 0) => {
 const toList = <T,>(value: unknown, mapper: (item: any) => T): T[] => (
   Array.isArray(value) ? value.map(mapper) : []
 )
+
+const isNonNegativeSafeIntegerLike = (value: unknown) => {
+  if (typeof value !== 'number' && typeof value !== 'string') return false
+  if (typeof value === 'string' && !value.trim()) return false
+  const count = Number(value)
+  return Number.isSafeInteger(count) && count >= 0
+}
+
+export const isGrowthProfilePathPayloadShape = (raw: unknown): boolean => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false
+  const value = raw as Record<string, unknown>
+  const normalizedDays = Number(value.days)
+  if (!Number.isSafeInteger(normalizedDays) || normalizedDays <= 0) return false
+  if (typeof value.degraded !== 'boolean') return false
+  if (!Array.isArray(value.degradationReasons)
+    || !value.degradationReasons.every((reason) => typeof reason === 'string')) return false
+  if (!Array.isArray(value.domains)) return false
+  return value.domains.every((domain) => (
+    domain != null
+    && typeof domain === 'object'
+    && !Array.isArray(domain)
+    && isNonNegativeSafeIntegerLike((domain as Record<string, unknown>).postCount)
+  ))
+}
 
 const adaptDimension = (raw: any): GrowthProfileDimension => ({
   key: safeText(raw?.key),
@@ -106,6 +130,9 @@ const localDemoResult = <T>(data: T): Result<T> => ({
   code: 0,
   message: 'local_demo_seed',
   data,
+  source: 'demo',
+  degraded: true,
+  fallbackReason: 'local_demo_seed',
 })
 
 const loadDemoSeeds = () => import('@/data/demoSeeds')
@@ -250,10 +277,17 @@ export const growthApi = {
         params: { days },
       }) as Result<any>
       const data = res.data ? adaptGrowthProfile(res.data) : null
-      return {
+      const adapted = withRemoteResultProvenance({
         ...res,
         data,
-      }
+      })
+      return res.data && !isGrowthProfilePathPayloadShape(res.data)
+        ? {
+            ...adapted,
+            degraded: true,
+            fallbackReason: 'malformed_growth_profile',
+          }
+        : adapted
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
         const { demoGrowthProfile, isLocalDemoSeedAllowed } = await loadDemoSeeds()
@@ -265,6 +299,9 @@ export const growthApi = {
           code: 0,
           message: 'growth_profile_backend_not_connected',
           data: emptyGrowthProfile(days),
+          source: 'unavailable',
+          degraded: true,
+          fallbackReason: 'backend_not_connected',
         }
       }
       throw error
@@ -277,10 +314,10 @@ export const growthApi = {
         params: { period },
       }) as Result<any>
       const data = res.data ? adaptGrowthReport(res.data) : null
-      return {
+      return withRemoteResultProvenance({
         ...res,
         data,
-      }
+      })
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
         const { demoGrowthReport, isLocalDemoSeedAllowed } = await loadDemoSeeds()
@@ -292,6 +329,9 @@ export const growthApi = {
           code: 0,
           message: 'growth_report_backend_not_connected',
           data: emptyGrowthReport(period),
+          source: 'unavailable',
+          degraded: true,
+          fallbackReason: 'backend_not_connected',
         }
       }
       throw error

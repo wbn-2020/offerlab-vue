@@ -375,6 +375,7 @@
               </section>
 
               <div class="mb-8 grid gap-4">
+                <ReadingThreadPanel v-if="post.domain === DOMAIN.READING" :post-id="String(post.postId)" />
                 <PostReferencePanel :post-id="String(post.postId)" :high-risk="post.domain === 5" />
                 <ContentEvolutionPanel :post-id="String(post.postId)" />
                 <PostOutcomePanel
@@ -1264,6 +1265,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { ArrowLeft } from 'lucide-vue-next'
 import PostReferencePanel from '@/components/post/PostReferencePanel.vue'
+import ReadingThreadPanel from '@/components/post/ReadingThreadPanel.vue'
 import ContentEvolutionPanel from '@/components/post/ContentEvolutionPanel.vue'
 import PostOutcomePanel from '@/components/post/PostOutcomePanel.vue'
 import ContentSuggestionPanel from '@/components/post/ContentSuggestionPanel.vue'
@@ -1322,7 +1324,7 @@ import client, { BizException, getErrorMessage } from '@/api/client'
 import type { ApiId, Comment, Post, PostPublishStatus, PostVersionHistory, PublicPostUpdate } from '@/api/types'
 import { isPersistableKnowledgeRelation, knowledgeApi, type KnowledgeExploreResponse, type KnowledgePath, type KnowledgePreviewSource, type KnowledgeRelation, type PublicKnowledgeAsset, type PublicKnowledgeAssetType } from '@/api/knowledge'
 import { POST_TYPE, getContentTypeLabel, isLegacyInterviewType } from '@/utils/contentTypes'
-import { getDomainIcon, getDomainLabel, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
+import { DOMAIN, getDomainIcon, getDomainLabel, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
 import { buildDomainDetailSurface } from '@/utils/domainPostSurfaces'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 import { buildFollowReasons, isPublicAuthor, safeCreatorBio } from '@/utils/creatorSignals'

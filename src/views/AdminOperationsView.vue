@@ -10,7 +10,7 @@
             组织公开可见内容、精选池、运营位和专题/活动草稿。后端能力不可用时只展示不可用或降级视图，不提供本地假发布。
           </p>
         </div>
-        <button type="button" class="secondary-button" :disabled="isLoading" @click="refreshAll">
+        <button type="button" class="secondary-button" :disabled="isLoading || isActing" @click="refreshAll">
           <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
           刷新
         </button>
@@ -276,21 +276,64 @@
           <div v-if="selectedTopicDraft" class="editor-stack">
             <label class="field-label">
               标题
-              <input v-model="selectedTopicDraft.title" class="text-field" :disabled="selectedTopicReadOnly" />
+              <input v-model="selectedTopicDraft.title" class="text-field" :disabled="selectedTopicReadOnly || isActing" />
             </label>
             <label class="field-label">
               摘要
-              <textarea v-model="selectedTopicDraft.summary" class="text-field" rows="3" :disabled="selectedTopicReadOnly" />
+              <textarea v-model="selectedTopicDraft.summary" class="text-field" rows="3" :disabled="selectedTopicReadOnly || isActing" />
             </label>
+            <fieldset class="field-label scope-fieldset">
+              <legend>专题范围（必选）</legend>
+              <label class="scope-option">
+                <input
+                  v-model="selectedTopicDraft.topicScope"
+                  type="radio"
+                  name="topic-scope"
+                  value="DOMAIN"
+                  :disabled="selectedTopicReadOnly || isActing"
+                />
+                单频道（选择频道）
+              </label>
+              <select
+                v-if="selectedTopicDraft.topicScope === 'DOMAIN'"
+                v-model.number="selectedTopicDraft.domain"
+                class="text-field"
+                :disabled="selectedTopicReadOnly || isActing"
+              >
+                <option :value="undefined" disabled>选择频道</option>
+                <option v-for="option in DOMAIN_OPTIONS" :key="option.value" :value="option.value">
+                  {{ option.icon }} {{ option.label }}
+                </option>
+              </select>
+              <label class="scope-option">
+                <input
+                  v-model="selectedTopicDraft.topicScope"
+                  type="radio"
+                  name="topic-scope"
+                  value="CROSS_DOMAIN"
+                  :disabled="selectedTopicReadOnly || isActing"
+                />
+                跨频道（全站）
+              </label>
+              <p v-if="selectedTopicDraft.topicScope === 'CROSS_DOMAIN'" class="scope-note">
+                跨频道 = 面向全站的策展集合；收录不改变内容的频道归属。
+              </p>
+              <p v-if="!selectedTopicDraft.topicScope" class="scope-note scope-note-warn">
+                保存前需明确专题范围：单频道或跨频道。
+              </p>
+            </fieldset>
             <div class="editor-actions">
-              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly" @click="addLocalTopicSection">新增章节</button>
-              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly" @click="saveSelectedTopicDraft">保存草稿</button>
-              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly" @click="runSelectedTopicPublishCheck">发布前检查</button>
+              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly || !selectedTopicScopeValid || selectedTopicCandidateScopeDirty || selectedTopicHasEmptySection" @click="addLocalTopicSection">新增章节</button>
+              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly || !selectedTopicScopeValid || !selectedTopicDirty || selectedTopicHasEmptySection" @click="saveSelectedTopicDraft">保存草稿</button>
+              <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly || !canRunSelectedTopicPublishCheck" @click="runSelectedTopicPublishCheck">发布前检查</button>
             </div>
-            <section v-if="topicPublishCheck" :class="['publish-check', topicPublishCheck.canPublish ? 'publish-check-ok' : 'publish-check-warn']">
-              <strong>{{ topicPublishCheck.canPublish ? '检查通过，可进入发布确认' : '检查未通过，发布前需要处理' }}</strong>
+            <div v-if="selectedTopicDirty" class="inline-warning">草稿有未保存修改；发布前检查和发布需先保存。</div>
+            <div v-if="selectedTopicCandidateScopeDirty" class="inline-warning">专题范围变化需先保存，之后才能新增章节或添加候选。</div>
+            <div v-if="selectedTopicHasEmptySection" class="inline-warning">空章节不能单独保存；请先收录一条候选，或删除空章节。</div>
+            <section v-if="currentTopicPublishCheck" :class="['publish-check', currentTopicPublishCheck.canPublish ? 'publish-check-ok' : 'publish-check-warn']">
+              <strong>{{ currentTopicPublishCheck.canPublish ? '检查通过，可进入发布确认' : '检查未通过，发布前需要处理' }}</strong>
               <ul>
-                <li v-for="item in topicPublishCheck.items" :key="item.code">
+                <li v-for="item in currentTopicPublishCheck.items" :key="item.code">
                   <span :class="['status-pill', item.passed ? 'status-ok' : 'status-warn']">{{ item.passed ? '通过' : '阻断' }}</span>
                   {{ item.label }}：{{ item.detail }}
                 </li>
@@ -299,7 +342,7 @@
             <div v-if="selectedTopicReadOnly" class="inline-warning">当前专题为只读态：fallback/demo/降级数据只能查看，不能保存、发布或触发真实反馈。</div>
             <label v-if="sortedTopicSections.length" class="field-label">
               候选加入章节
-              <select v-model="selectedSectionKey" class="text-field" :disabled="selectedTopicReadOnly">
+              <select v-model="selectedSectionKey" class="text-field" :disabled="selectedTopicReadOnly || isActing">
                 <option v-for="section in sortedTopicSections" :key="section.key" :value="section.key">{{ section.title }}</option>
               </select>
             </label>
@@ -314,22 +357,41 @@
                   <div class="action-row">
                     <button type="button" class="icon-button" :disabled="isActing || selectedTopicReadOnly" title="章节上移" @click="moveTopicSection(section, -10)">↑</button>
                     <button type="button" class="icon-button" :disabled="isActing || selectedTopicReadOnly" title="章节下移" @click="moveTopicSection(section, 10)">↓</button>
+                    <button
+                      v-if="isEmptyTopicSection(section)"
+                      type="button"
+                      class="icon-button"
+                      :disabled="isActing || selectedTopicReadOnly"
+                      title="删除空章节"
+                      @click="removeEmptyTopicSection(section)"
+                    >
+                      <Trash2 :size="15" />
+                    </button>
                   </div>
                 </div>
                 <ul v-if="section.items.length" class="topic-item-list">
                   <li v-for="item in sortedSectionItems(section)" :key="String(item.id)">
                     <div>
                       <strong>{{ item.title }}</strong>
-                      <span>{{ item.sourceType }} {{ item.sourceId }} · #{{ item.sortOrder }} · {{ item.reasonText || '缺少公开理由' }}</span>
+                      <span>{{ item.sourceType }} {{ item.sourceId }} · {{ topicItemDomainLabel(item) }} · #{{ item.sortOrder }} · {{ item.reasonText || '缺少公开理由' }}</span>
                     </div>
                     <div class="action-row">
                       <button type="button" class="icon-button" :disabled="isActing || selectedTopicReadOnly" title="内容上移" @click="moveTopicItem(section, item, -10)">↑</button>
                       <button type="button" class="icon-button" :disabled="isActing || selectedTopicReadOnly" title="内容下移" @click="moveTopicItem(section, item, 10)">↓</button>
                       <button type="button" class="secondary-button" :disabled="isActing || selectedTopicReadOnly" @click="updateTopicItemReason(section, item)">改 reasonText</button>
+                      <button
+                        type="button"
+                        class="icon-button"
+                        :disabled="isActing || selectedTopicReadOnly"
+                        title="从草稿移除内容"
+                        @click="removeTopicItem(section, item)"
+                      >
+                        <Trash2 :size="15" />
+                      </button>
                     </div>
                   </li>
                 </ul>
-                <div v-else class="empty-panel">空章节可以保存草稿，但发布前会被检查或过滤。</div>
+                <div v-else class="empty-panel">空章节尚未落库；先收录候选，或删除该章节。</div>
               </section>
             </div>
             <div v-else class="empty-panel">还没有章节。P0 不做复杂 CMS，可先新增章节并从候选池收录公开内容。</div>
@@ -375,9 +437,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Archive, Eye, RefreshCw, RotateCcw, ShieldCheck, UploadCloud } from 'lucide-vue-next'
+import { Archive, Eye, RefreshCw, RotateCcw, ShieldCheck, Trash2, UploadCloud } from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
@@ -400,6 +462,7 @@ import {
   type OperationTopicPublishCheck,
   type OperationTopicSection,
 } from '@/api/operations'
+import { DOMAIN_OPTIONS, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
 import { canAccessOpsOrchestrationAdmin, canMutateOpsOrchestration, type OpsOrchestrationAction, type OpsOrchestrationPermissions } from '@/utils/opsOrchestrationGuard'
 
 const emptyCapability = <T,>(): OperationCapability<T> => ({
@@ -439,8 +502,14 @@ const slots = ref<OperationCapability<OperationSlot>>(emptyCapability())
 const topics = ref<OperationCapability<OperationTopic>>(emptyCapability())
 const auditLogs = ref<OperationCapability<OperationAuditLog>>(emptyCapability())
 const selectedTopicDraft = ref<OperationTopic | null>(null)
+const selectedTopicSavedDraft = ref<OperationTopic | null>(null)
 const selectedSectionKey = ref('')
 const topicPublishCheck = ref<OperationTopicPublishCheck | null>(null)
+const selectedTopicSavedFingerprint = ref('')
+const selectedTopicSavedCandidateScopeFingerprint = ref('')
+const topicPublishCheckFingerprint = ref('')
+let refreshRequestId = 0
+let topicDetailRequestId = 0
 const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
 
 const opsPermissions = computed(() => permissions.value as OpsOrchestrationPermissions | null)
@@ -449,6 +518,70 @@ const homeFeaturedSlot = computed(() => slots.value.items.find((slot) => slot.sl
 const isSupportedOperationSlot = (slotCode: string) => PUBLIC_OPERATION_SLOT_CODES.includes(slotCode as typeof PUBLIC_OPERATION_SLOT_CODES[number])
 const sortedTopicSections = computed(() => (
   [...(selectedTopicDraft.value?.sections || [])].sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+))
+const selectedTopicDraftFingerprint = computed(() => topicDraftFingerprint(selectedTopicDraft.value))
+const selectedTopicCandidateScopeFingerprint = computed(() => topicCandidateScopeFingerprint(selectedTopicDraft.value))
+const hasValidDraftRevision = (value: unknown): value is number => (
+  Number.isSafeInteger(value) && Number(value) >= 0
+)
+const selectedTopicDirty = computed(() => Boolean(
+  selectedTopicDraft.value
+  && selectedTopicDraftFingerprint.value !== selectedTopicSavedFingerprint.value,
+))
+const selectedTopicCandidateScopeDirty = computed(() => Boolean(
+  selectedTopicDraft.value
+  && selectedTopicCandidateScopeFingerprint.value !== selectedTopicSavedCandidateScopeFingerprint.value,
+))
+const selectedTopicHasEmptySection = computed(() => (
+  (selectedTopicDraft.value?.sections || []).some((section) => !(section.items || []).length)
+))
+const selectedTopicCandidateTargetValid = computed(() => {
+  const emptySections = (selectedTopicDraft.value?.sections || [])
+    .filter((section) => !(section.items || []).length)
+  return emptySections.length === 0
+    || emptySections.length === 1 && emptySections[0]?.key === selectedSectionKey.value
+})
+const selectedTopicCandidateDraftValid = computed(() => {
+  const current = selectedTopicDraft.value
+  const saved = selectedTopicSavedDraft.value
+  if (!current || !saved) return false
+  if (!selectedTopicDirty.value) return true
+  const emptySections = (current.sections || []).filter((section) => !(section.items || []).length)
+  const newSection = emptySections.length === 1 ? emptySections[0] : null
+  if (!newSection
+    || newSection.key !== selectedSectionKey.value
+    || (saved.sections || []).some((section) => section.key === newSection.key)) return false
+  const withoutNewSection = cloneTopic(current)
+  withoutNewSection.sections = (withoutNewSection.sections || [])
+    .filter((section) => section.key !== newSection.key)
+  return topicDraftFingerprint(withoutNewSection) === selectedTopicSavedFingerprint.value
+})
+const selectedTopicScopeValid = computed(() => (
+  selectedTopicDraft.value?.topicScope === 'CROSS_DOMAIN'
+  || selectedTopicDraft.value?.topicScope === 'DOMAIN' && isKnownDomain(selectedTopicDraft.value.domain)
+))
+const currentTopicPublishCheck = computed(() => (
+  topicPublishCheck.value
+  && !selectedTopicDirty.value
+  && selectedTopicDraftFingerprint.value === selectedTopicSavedFingerprint.value
+  && topicPublishCheckFingerprint.value === selectedTopicSavedFingerprint.value
+  && String(topicPublishCheck.value.topicId) === String(selectedTopicDraft.value?.id)
+  && topicPublishCheck.value.draftRevision === selectedTopicDraft.value?.draftRevision
+    ? topicPublishCheck.value
+    : null
+))
+const selectedTopicPublishReady = computed(() => Boolean(
+  selectedTopicScopeValid.value
+  && currentTopicPublishCheck.value?.canPublish
+  && hasValidDraftRevision(currentTopicPublishCheck.value.draftRevision)
+  && currentTopicPublishCheck.value.source === 'remote'
+  && !currentTopicPublishCheck.value.degraded,
+))
+const canRunSelectedTopicPublishCheck = computed(() => Boolean(
+  selectedTopicDraft.value
+  && selectedTopicScopeValid.value
+  && hasValidDraftRevision(selectedTopicDraft.value.draftRevision)
+  && !selectedTopicDirty.value,
 ))
 const selectedTopicReadOnly = computed(() => selectedTopicDraft.value ? isTopicReadOnly(selectedTopicDraft.value) : true)
 const capabilityCards = computed(() => [
@@ -492,6 +625,7 @@ function statusClass(status?: OperationStatus) {
 }
 
 const refreshAll = async () => {
+  const requestId = ++refreshRequestId
   isLoading.value = true
   loadError.value = ''
   try {
@@ -503,16 +637,53 @@ const refreshAll = async () => {
       operationsApi.listOperationTopics(),
       operationsApi.listOperationAudit({ limit: 20 }),
     ])
-    if (permissionRes.status === 'fulfilled') permissions.value = permissionRes.value.data
-    if (candidateRes.status === 'fulfilled') candidates.value = candidateRes.value.data || emptyCapability()
-    if (curationRes.status === 'fulfilled') curationPool.value = curationRes.value.data || emptyCapability()
-    if (slotRes.status === 'fulfilled') slots.value = slotRes.value.data || emptyCapability()
-    if (topicRes.status === 'fulfilled') topics.value = topicRes.value.data || emptyCapability()
-    if (auditRes.status === 'fulfilled') auditLogs.value = auditRes.value.data || emptyCapability()
-    const rejected = [candidateRes, curationRes, slotRes, topicRes, auditRes].find((item) => item.status === 'rejected')
+    if (requestId !== refreshRequestId) return
+
+    permissions.value = permissionRes.status === 'fulfilled' ? permissionRes.value.data : null
+    candidates.value = candidateRes.status === 'fulfilled'
+      ? candidateRes.value.data || emptyCapability<OperationCandidate>()
+      : emptyCapability<OperationCandidate>()
+    curationPool.value = curationRes.status === 'fulfilled'
+      ? curationRes.value.data || emptyCapability<CurationPoolItem>()
+      : emptyCapability<CurationPoolItem>()
+    slots.value = slotRes.status === 'fulfilled'
+      ? slotRes.value.data || emptyCapability<OperationSlot>()
+      : emptyCapability<OperationSlot>()
+    topics.value = topicRes.status === 'fulfilled'
+      ? topicRes.value.data || emptyCapability<OperationTopic>()
+      : emptyCapability<OperationTopic>()
+    auditLogs.value = auditRes.status === 'fulfilled'
+      ? auditRes.value.data || emptyCapability<OperationAuditLog>()
+      : emptyCapability<OperationAuditLog>()
+
+    if (topicRes.status === 'fulfilled' && selectedTopicDraft.value) {
+      const selectedId = String(selectedTopicDraft.value.id)
+      const latest = topics.value.items.find((topic) => String(topic.id) === selectedId)
+      if (!latest) {
+        topicDetailRequestId += 1
+        selectedTopicDraft.value = null
+        selectedTopicSavedDraft.value = null
+        selectedSectionKey.value = ''
+        selectedTopicSavedFingerprint.value = ''
+        selectedTopicSavedCandidateScopeFingerprint.value = ''
+        clearTopicPublishCheck()
+      } else if (latest.draftRevision !== selectedTopicDraft.value.draftRevision) {
+        const discardedDirtyDraft = selectedTopicDirty.value
+        topicDetailRequestId += 1
+        usePersistedTopicDraft(latest)
+        if (discardedDirtyDraft) {
+          loadError.value = '服务端草稿已更新，本地未保存修改已失效，请重新编辑'
+        }
+      }
+    }
+
+    const rejected = [permissionRes, candidateRes, curationRes, slotRes, topicRes, auditRes]
+      .find((item) => item.status === 'rejected')
     if (rejected?.status === 'rejected') loadError.value = rejected.reason instanceof Error ? rejected.reason.message : '运营编排能力读取失败'
   } finally {
-    isLoading.value = false
+    if (requestId === refreshRequestId) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -524,14 +695,76 @@ const permissionActionFor = (action: OperationAction): OpsOrchestrationAction =>
   return 'publish'
 }
 
-const cloneTopic = (topic: OperationTopic): OperationTopic => JSON.parse(JSON.stringify({
-  ...topic,
-  sections: topic.sections || [],
-}))
+function cloneTopic(topic: OperationTopic): OperationTopic {
+  return JSON.parse(JSON.stringify({
+    ...topic,
+    sections: topic.sections || [],
+  }))
+}
+
+function topicDraftFingerprint(topic: OperationTopic | null): string {
+  if (!topic) return ''
+  return JSON.stringify({
+    id: String(topic.id),
+    title: topic.title,
+    summary: topic.summary ?? null,
+    status: topic.status,
+    activityType: topic.activityType || 'TOPIC',
+    startTime: topic.startTime ?? null,
+    endTime: topic.endTime ?? null,
+    topicScope: topic.topicScope ?? null,
+    domain: topic.topicScope === 'CROSS_DOMAIN' ? null : topic.domain ?? null,
+    sections: (topic.sections || []).map((section) => ({
+      key: section.key,
+      title: section.title,
+      status: section.status,
+      sortOrder: Number(section.sortOrder) || 0,
+      items: (section.items || []).map((item) => ({
+        sourceType: item.sourceType,
+        sourceId: String(item.sourceId),
+        status: item.status,
+        sortOrder: Number(item.sortOrder) || 0,
+        reasonText: item.reasonText || null,
+      })),
+    })),
+  })
+}
+
+function topicCandidateScopeFingerprint(topic: OperationTopic | null): string {
+  if (!topic) return ''
+  return JSON.stringify({
+    id: String(topic.id),
+    topicScope: topic.topicScope ?? null,
+    domain: topic.topicScope === 'CROSS_DOMAIN' ? null : topic.domain ?? null,
+  })
+}
+
+const clearTopicPublishCheck = () => {
+  topicPublishCheck.value = null
+  topicPublishCheckFingerprint.value = ''
+}
+
+const usePersistedTopicDraft = (topic: OperationTopic) => {
+  const draft = cloneTopic(topic)
+  selectedTopicDraft.value = draft
+  selectedTopicSavedDraft.value = cloneTopic(draft)
+  selectedSectionKey.value = draft.sections?.[0]?.key || ''
+  selectedTopicSavedFingerprint.value = topicDraftFingerprint(draft)
+  selectedTopicSavedCandidateScopeFingerprint.value = topicCandidateScopeFingerprint(draft)
+  clearTopicPublishCheck()
+}
+
+watch(selectedTopicDraftFingerprint, (fingerprint) => {
+  if (topicPublishCheck.value && topicPublishCheckFingerprint.value !== fingerprint) {
+    clearTopicPublishCheck()
+  }
+})
 
 const isTopicReadOnly = (topic: OperationTopic) => (
   !topics.value.available
   || topics.value.degraded
+  || !hasValidDraftRevision(topic.draftRevision)
+  || topic.status === 'ARCHIVED'
   || Boolean(topic.fallback || topic.degraded || topic.example)
   || (topic.source !== undefined && topic.source !== 'remote')
 )
@@ -539,6 +772,11 @@ const isTopicReadOnly = (topic: OperationTopic) => (
 const canMutateTopic = (action: OperationAction, topic: OperationTopic | null = selectedTopicDraft.value) => {
   if (!topic || isActing.value || isTopicReadOnly(topic)) return false
   if (action === 'preview') return canEnter.value
+  if (action === 'publish') {
+    return canMutate(permissionActionFor(action))
+      && selectedTopicDraft.value?.id === topic.id
+      && selectedTopicPublishReady.value
+  }
   return canMutate(permissionActionFor(action))
 }
 
@@ -551,27 +789,55 @@ const nextTopicSortOrder = (items: Array<{ sortOrder?: number }>) => {
   return maxOrder + 10
 }
 
+const normalizeTopicDraftOrder = (
+  topic: OperationTopic,
+  sectionOrder: OperationTopicSection[] = [...(topic.sections || [])]
+    .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder)),
+  itemOrderOverrides: Map<string, OperationTopicItem[]> = new Map(),
+) => {
+  let nextOrder = 10
+  sectionOrder.forEach((section) => {
+    section.sortOrder = nextOrder
+    const items = itemOrderOverrides.get(section.key)
+      || [...(section.items || [])].sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+    if (!items.length) {
+      nextOrder += 10
+      return
+    }
+    items.forEach((item) => {
+      item.sortOrder = nextOrder
+      nextOrder += 10
+    })
+  })
+}
+
 const selectTopicForEdit = async (topic: OperationTopic) => {
-  selectedTopicDraft.value = cloneTopic(topic)
-  selectedSectionKey.value = selectedTopicDraft.value.sections?.[0]?.key || ''
-  topicPublishCheck.value = topic.publishCheck || null
+  const requestId = ++topicDetailRequestId
+  const targetId = String(topic.id)
+  usePersistedTopicDraft(topic)
   if (isTopicReadOnly(topic)) return
   isActing.value = true
   try {
     const res = await operationsApi.getOperationTopic(topic.id)
+    if (requestId !== topicDetailRequestId
+      || String(selectedTopicDraft.value?.id) !== targetId) return
     const detail = res.data || topic
-    selectedTopicDraft.value = cloneTopic(detail)
-    selectedSectionKey.value = selectedTopicDraft.value.sections?.[0]?.key || ''
-    topicPublishCheck.value = detail.publishCheck || null
+    usePersistedTopicDraft(detail)
   } catch (error) {
+    if (requestId !== topicDetailRequestId
+      || String(selectedTopicDraft.value?.id) !== targetId) return
     loadError.value = error instanceof Error ? error.message : '读取专题详情失败'
   } finally {
-    isActing.value = false
+    if (requestId === topicDetailRequestId) {
+      isActing.value = false
+    }
   }
 }
 
 const addLocalTopicSection = () => {
-  if (!selectedTopicDraft.value || selectedTopicReadOnly.value) return
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value
+    || !selectedTopicScopeValid.value || selectedTopicCandidateScopeDirty.value
+    || selectedTopicHasEmptySection.value) return
   const title = window.prompt('新增章节标题', '专题章节')
   if (title === null) return
   const sections = selectedTopicDraft.value.sections || []
@@ -588,19 +854,63 @@ const addLocalTopicSection = () => {
     },
   ]
   selectedSectionKey.value = key
-  topicPublishCheck.value = null
+  clearTopicPublishCheck()
+}
+
+const isEmptyTopicSection = (section: OperationTopicSection) => (
+  !(section.items || []).length
+)
+
+const removeEmptyTopicSection = (section: OperationTopicSection) => {
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || !isEmptyTopicSection(section)) return
+  selectedTopicDraft.value.sections = (selectedTopicDraft.value.sections || [])
+    .filter((candidate) => candidate.key !== section.key)
+  selectedSectionKey.value = selectedTopicDraft.value.sections?.[0]?.key || ''
+  normalizeTopicDraftOrder(selectedTopicDraft.value)
+  clearTopicPublishCheck()
 }
 
 const moveTopicSection = (section: OperationTopicSection, delta: number) => {
-  if (selectedTopicReadOnly.value) return
-  section.sortOrder = Math.max(1, Number(section.sortOrder || 0) + delta)
-  topicPublishCheck.value = null
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || delta === 0) return
+  const sections = [...sortedTopicSections.value]
+  const currentIndex = sections.findIndex((candidate) => candidate.key === section.key)
+  const targetIndex = currentIndex + (delta < 0 ? -1 : 1)
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= sections.length) return
+  const [moved] = sections.splice(currentIndex, 1)
+  if (!moved) return
+  sections.splice(targetIndex, 0, moved)
+  normalizeTopicDraftOrder(selectedTopicDraft.value, sections)
+  clearTopicPublishCheck()
 }
 
 const moveTopicItem = (section: OperationTopicSection, item: OperationTopicItem, delta: number) => {
-  if (selectedTopicReadOnly.value) return
-  item.sortOrder = Math.max(1, Number(item.sortOrder || 0) + delta)
-  topicPublishCheck.value = null
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || delta === 0) return
+  const items = sortedSectionItems(section)
+  const currentIndex = items.findIndex((candidate) => String(candidate.id) === String(item.id))
+  const targetIndex = currentIndex + (delta < 0 ? -1 : 1)
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= items.length) return
+  const [moved] = items.splice(currentIndex, 1)
+  if (!moved) return
+  items.splice(targetIndex, 0, moved)
+  normalizeTopicDraftOrder(
+    selectedTopicDraft.value,
+    [...sortedTopicSections.value],
+    new Map([[section.key, items]]),
+  )
+  clearTopicPublishCheck()
+}
+
+const topicItemDomainLabel = (item: OperationTopicItem) => (
+  isKnownDomain(item.domain) ? getDomainLabelSafe(item.domain) : '频道未分类'
+)
+
+const removeTopicItem = (section: OperationTopicSection, item: OperationTopicItem) => {
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value) return
+  section.items = (section.items || [])
+    .filter((candidate) => String(candidate.id) !== String(item.id))
+  if (!section.items.length) selectedSectionKey.value = section.key
+  normalizeTopicDraftOrder(selectedTopicDraft.value)
+  clearTopicPublishCheck()
 }
 
 const updateTopicItemReason = (section: OperationTopicSection, item: OperationTopicItem) => {
@@ -609,15 +919,20 @@ const updateTopicItemReason = (section: OperationTopicSection, item: OperationTo
   if (reasonText === null) return
   item.reasonText = reasonText.trim()
   section.status = section.status || 'ACTIVE'
-  topicPublishCheck.value = null
+  clearTopicPublishCheck()
 }
 
 const saveSelectedTopicDraft = async () => {
-  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || isActing.value) return
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || isActing.value
+    || !selectedTopicScopeValid.value || !selectedTopicDirty.value
+    || selectedTopicHasEmptySection.value) return
   isActing.value = true
   try {
-    const res = await operationsApi.saveOperationTopicDraft(selectedTopicDraft.value)
-    selectedTopicDraft.value = cloneTopic(res.data || selectedTopicDraft.value)
+    const draft = cloneTopic(selectedTopicDraft.value)
+    normalizeTopicDraftOrder(draft)
+    const res = await operationsApi.saveOperationTopicDraft(draft)
+    if (!res.data) throw new Error('专题保存响应缺少服务端草稿')
+    usePersistedTopicDraft(res.data)
     await refreshAll()
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '保存专题草稿失败'
@@ -627,12 +942,27 @@ const saveSelectedTopicDraft = async () => {
 }
 
 const runSelectedTopicPublishCheck = async () => {
-  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || isActing.value) return
+  if (!selectedTopicDraft.value || selectedTopicReadOnly.value || isActing.value
+    || !canRunSelectedTopicPublishCheck.value) return
+  const requestedFingerprint = selectedTopicDraftFingerprint.value
+  clearTopicPublishCheck()
+  loadError.value = ''
   isActing.value = true
   try {
     const res = await operationsApi.runTopicPublishCheck(selectedTopicDraft.value.id)
-    topicPublishCheck.value = res.data
+    const checked = res.data
+    if (requestedFingerprint !== selectedTopicDraftFingerprint.value
+      || requestedFingerprint !== selectedTopicSavedFingerprint.value
+      || !checked
+      || checked.draftRevision !== selectedTopicDraft.value.draftRevision) {
+      clearTopicPublishCheck()
+      loadError.value = '服务端草稿在检查期间发生变化，请刷新后重新检查'
+      return
+    }
+    topicPublishCheck.value = checked
+    topicPublishCheckFingerprint.value = requestedFingerprint
   } catch (error) {
+    clearTopicPublishCheck()
     loadError.value = error instanceof Error ? error.message : '发布前检查失败'
   } finally {
     isActing.value = false
@@ -658,6 +988,10 @@ const canAddCandidateToHomeFeatured = (item: OperationCandidate) => (
 const canAddCandidateToSelectedTopic = (item: OperationCandidate) => (
   Boolean(selectedTopicDraft.value)
   && Boolean(selectedSectionKey.value)
+  && selectedTopicScopeValid.value
+  && !selectedTopicCandidateScopeDirty.value
+  && selectedTopicCandidateTargetValid.value
+  && selectedTopicCandidateDraftValid.value
   && candidates.value.available
   && !candidates.value.degraded
   && !selectedTopicReadOnly.value
@@ -700,17 +1034,28 @@ const addCandidateToSelectedTopic = async (item: OperationCandidate) => {
   const topic = selectedTopicDraft.value
   const section = topic?.sections?.find((candidateSection) => candidateSection.key === selectedSectionKey.value)
   if (!topic || !section || !canAddCandidateToSelectedTopic(item) || isActing.value) return
+  const requestedFingerprint = selectedTopicDraftFingerprint.value
+  const nextTopic = cloneTopic(topic)
+  const nextSection = nextTopic.sections?.find((candidateSection) => candidateSection.key === section.key)
+  if (!nextSection) return
   const reasonText = window.prompt('确认公开 reasonText。该理由会进入发布快照，可被前台展示。', item.reasonText || item.reason || '')
   if (reasonText === null) return
   isActing.value = true
   try {
     const res = await operationsApi.addTopicCandidateToSection(topic.id, section.key, item, reasonText.trim(), nextTopicSortOrder(section.items))
-    if (res.data) {
-      section.items.push(res.data)
-      topicPublishCheck.value = null
-      await operationsApi.saveOperationTopicDraft(topic)
+    if (requestedFingerprint !== selectedTopicDraftFingerprint.value
+      || selectedTopicCandidateScopeFingerprint.value !== selectedTopicSavedCandidateScopeFingerprint.value) {
+      loadError.value = '草稿在候选校验期间发生变化，请保存后重试'
+      return
     }
-    await selectTopicForEdit(topic)
+    if (res.data) {
+      nextSection.items.push(res.data)
+      normalizeTopicDraftOrder(nextTopic)
+      const saved = await operationsApi.saveOperationTopicDraft(nextTopic)
+      if (!saved.data) throw new Error('专题保存响应缺少服务端草稿')
+      usePersistedTopicDraft(saved.data)
+    }
+    await refreshAll()
     activeTab.value = 'topics'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '加入专题章节失败'
@@ -805,7 +1150,12 @@ const publishHomeFeaturedSlot = (slot: OperationSlot) => runHomeFeaturedSlotLife
 const offlineHomeFeaturedSlot = (slot: OperationSlot) => runHomeFeaturedSlotLifecycle(slot, 'offline')
 const rollbackHomeFeaturedSlot = (slot: OperationSlot) => runHomeFeaturedSlotLifecycle(slot, 'rollback')
 
-const runLifecycleAction = async (resourceKind: OperationResourceKind, resourceId: string | number, action: OperationAction) => {
+const runLifecycleAction = async (
+  resourceKind: OperationResourceKind,
+  resourceId: string | number,
+  action: OperationAction,
+  expectedDraftRevision?: number,
+) => {
   if (isActing.value) return
   if (action === 'archive' && !canMutateOpsOrchestration(opsPermissions.value, 'offline')) {
     loadError.value = '当前账号缺少运营编排变更权限'
@@ -833,7 +1183,14 @@ const runLifecycleAction = async (resourceKind: OperationResourceKind, resourceI
   if (note === null) return
   isActing.value = true
   try {
-    await operationsApi.runLifecycleAction(resourceKind, resourceId, action, note, opsPermissions.value)
+    await operationsApi.runLifecycleAction(
+      resourceKind,
+      resourceId,
+      action,
+      note,
+      opsPermissions.value,
+      expectedDraftRevision,
+    )
     await refreshAll()
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '生命周期操作失败'
@@ -843,13 +1200,24 @@ const runLifecycleAction = async (resourceKind: OperationResourceKind, resourceI
 }
 
 const runTopicLifecycleAction = async (topic: OperationTopic, action: OperationAction) => {
-  if (!canMutateTopic(action, topic)) return
-  if (action === 'publish' && selectedTopicDraft.value?.id === topic.id && topicPublishCheck.value && !topicPublishCheck.value.canPublish) {
-    loadError.value = '发布前检查未通过，请先处理阻断项'
+  if (action === 'publish' && (
+    selectedTopicDraft.value?.id !== topic.id
+    || !currentTopicPublishCheck.value
+    || !selectedTopicPublishReady.value
+  )) {
+    loadError.value = '请先打开该专题、保存当前草稿并完成通过的发布前检查'
     return
   }
-  await runLifecycleAction('topic', topic.id, action)
-  if (selectedTopicDraft.value?.id === topic.id) await selectTopicForEdit(topic)
+  if (!canMutateTopic(action, topic)) return
+  const currentDraft = selectedTopicDraft.value?.id === topic.id ? selectedTopicDraft.value : topic
+  const expectedDraftRevision = action === 'publish'
+    ? currentTopicPublishCheck.value?.draftRevision
+    : currentDraft.draftRevision
+  if (!hasValidDraftRevision(expectedDraftRevision)) {
+    loadError.value = '专题草稿缺少服务端修订号，请刷新后重试'
+    return
+  }
+  await runLifecycleAction('topic', topic.id, action, expectedDraftRevision)
 }
 
 onMounted(refreshAll)
@@ -1114,6 +1482,47 @@ onMounted(refreshAll)
   color: rgb(51 65 85);
   font-size: 0.85rem;
   font-weight: 900;
+}
+
+.scope-fieldset {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem 0.75rem;
+}
+
+.scope-fieldset legend {
+  padding: 0 0.35rem;
+  font-size: 0.8rem;
+}
+
+.scope-option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+}
+
+.scope-note {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: rgb(100 116 139);
+}
+
+.scope-note-warn {
+  color: rgb(180 83 9);
+}
+
+.dark .scope-fieldset {
+  border-color: rgb(51 65 85);
+}
+
+.dark .scope-note {
+  color: rgb(148 163 184);
+}
+
+.dark .scope-note-warn {
+  color: rgb(251 191 36);
 }
 
 .text-field {
