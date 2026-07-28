@@ -12,6 +12,8 @@
 | Working branch | `feature/v21-release-readiness` |
 | V21 starting HEAD | `6b92237c4c1c500ab0fbf53c76634dfbb80ba536` |
 | V21 implementation commit | `01cd693e7276afed135d1196c64d6c40d3ed4285` |
+| Initial V21 evidence commit | `8771a28c1fdde7402c5956c381eef96d8ed50213` |
+| QA Guard hardening commit | `7efa9c95b988ae11aae4525ef3a23d1ff74f6578` |
 | Local `dev-v2` | `6b92237c4c1c500ab0fbf53c76634dfbb80ba536` |
 | Baseline commit | `fix: align cross-repository CI validation` |
 | Baseline worktree | Clean before V21 edits |
@@ -40,28 +42,33 @@ Intended changes:
 - Keep empty references free of fabricated zero-count summaries.
 - Use the earliest author confirmation among current ACTIVE references.
 - Make the V17 guard fail when the boundary returns to a conditional branch or `PostReferencePanel` is removed from `PostDetailView`.
+- Reject compound `OR` conditions that do not guarantee non-empty references, duplicate/looped mounts, and statically unreachable mounts.
 - Preserve three-state summaries, Chinese status labels, accessible non-color distinctions, overclaim bans, investment-risk copy, and no-probing assertions.
 
 Out of scope:
 
 - Backend, API, store, router, editor, database migration, or dependency changes
 - URL probing or additional network requests
-- Dev server, watch processes, commit, or push
+- Dev server, watch processes, merge, deployment, or runtime-environment changes
 
 ## Static Verification Queue
 
 | Command | Status | Result |
 |---|---|---|
-| `npm run test:v17-reference-health` | `PASSED` | Exit 0; final run `2026-07-28T17:00:48+08:00` to `2026-07-28T17:00:52+08:00` |
-| `npm run typecheck` | `PASSED` | Exit 0; first bounded run passed and `npm run verify` repeated type checking successfully |
+| `npm run test:v17-reference-health` | `PASSED` | Exit 0 after QA hardening; dedicated rerun and full Guard-chain rerun both passed on 2026-07-28 |
+| `npm run lint` | `PASSED_WITH_WARNINGS` | Exit 0; 0 errors and 3,965 pre-existing repository warnings |
+| `npm run typecheck` | `PASSED` | Exit 0; repeated successfully through the final `npm run verify` |
 | `git diff --check` | `PASSED_WITH_WARNING` | Exit 0 on 2026-07-28; only LF-to-CRLF working-copy warnings, no whitespace errors |
-| `npm run test:guards` | `PASSED` | Executed through `npm run verify`; all pre-guards and full guard chain passed |
-| `npm run build` | `PASSED` | Vite 8.1.4 transformed 1,962 modules and produced 222 files; completed `2026-07-28T17:55:31+08:00` |
-| `npm run verify` | `PASSED` | Exit 0; full guards, type check, and production build completed in about 7 minutes 11 seconds |
+| `npm run test:guards` | `PASSED` | Final execution through `npm run verify`; all pre-guards and full guard chain passed |
+| `npm run build` | `PASSED` | Final Vite 8.1.4 build completed in 20.39 seconds |
+| `npm run verify` | `PASSED` | Exit 0; final post-QA run completed by `2026-07-28T19:11:04+08:00` in about 10 minutes 9 seconds |
 
-The implementation tree at `01cd693e7276afed135d1196c64d6c40d3ed4285`
-is locally `STATIC_VERIFIED`. GitHub pull-request CI remains outstanding until
-the V21 branch is pushed and opened against `dev-v2`.
+The behavior commit `01cd693e7276afed135d1196c64d6c40d3ed4285` plus Guard
+hardening commit `7efa9c95b988ae11aae4525ef3a23d1ff74f6578` is locally
+`STATIC_VERIFIED`. The first Guard rerun after hardening exposed an assertion-message
+bug in the test itself; it was corrected before `7efa9c9`, and the dedicated rerun,
+lint, and final full verify all passed. GitHub pull-request CI remains outstanding
+until the V21 branch is pushed and opened against `dev-v2`.
 
 ## Dynamic Verification
 
@@ -84,6 +91,7 @@ Current decision: `PASS_WITH_BLOCKERS`.
 
 Reasons:
 
-- Local full guards, type checking, and build passed.
-- V21 branch commit, push, pull-request CI, and final clean-worktree evidence are still outstanding.
+- Independent read-only QA found no P0; its P1 evidence findings were corrected and its P2 compound-condition/unreachable-mount Guard finding was fixed in `7efa9c9`.
+- Local lint, full guards, type checking, and production build passed.
+- V21 implementation and evidence commits exist locally; push, pull-request CI, and final remote evidence are still outstanding.
 - Required browser, accessibility, API, role, and rollback scenarios remain `BLOCKED`.
