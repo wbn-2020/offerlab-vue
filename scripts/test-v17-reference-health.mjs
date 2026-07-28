@@ -85,14 +85,135 @@ const previousElementSibling = (element, parent) => {
   const index = siblings.indexOf(element)
   return index > 0 ? siblings[index - 1] : undefined
 }
-const expressionGuaranteesNonEmptyItems = (expression) => {
-  const compact = expression.replace(/\s+/g, '')
-  return (
-    compact === 'items.length'
-    || compact.includes('items.length>0')
-    || compact.includes('items.length!==0')
-    || compact.includes('items.length!=0')
+const unwrapExpression = (node) => {
+  let current = node
+  while (
+    typescript.isParenthesizedExpression(current)
+    || typescript.isAsExpression(current)
+    || typescript.isNonNullExpression(current)
+  ) {
+    current = current.expression
+  }
+  return current
+}
+const parseDirectiveExpression = (expression) => {
+  if (!expression) return undefined
+  const sourceFile = typescript.createSourceFile(
+    'v17-guard-expression.ts',
+    `const __v17Guard = (${expression})`,
+    typescript.ScriptTarget.Latest,
+    true,
+    typescript.ScriptKind.TS,
   )
+  assert(
+    sourceFile.parseDiagnostics.length === 0,
+    `V17 guard could not parse template expression "${expression}"`,
+  )
+  const statement = sourceFile.statements[0]
+  const declaration = statement?.declarationList?.declarations?.[0]
+  return declaration?.initializer
+}
+const isItemsLength = (node) => {
+  const expression = unwrapExpression(node)
+  return (
+    typescript.isPropertyAccessExpression(expression)
+    && typescript.isIdentifier(expression.expression)
+    && expression.expression.text === 'items'
+    && expression.name.text === 'length'
+  )
+}
+const numericValue = (node) => {
+  const expression = unwrapExpression(node)
+  if (typescript.isNumericLiteral(expression)) return Number(expression.text)
+  if (
+    typescript.isPrefixUnaryExpression(expression)
+    && expression.operator === typescript.SyntaxKind.MinusToken
+    && typescript.isNumericLiteral(expression.operand)
+  ) {
+    return -Number(expression.operand.text)
+  }
+  return undefined
+}
+const reverseComparisonOperator = (operator) => new Map([
+  [typescript.SyntaxKind.GreaterThanToken, typescript.SyntaxKind.LessThanToken],
+  [typescript.SyntaxKind.GreaterThanEqualsToken, typescript.SyntaxKind.LessThanEqualsToken],
+  [typescript.SyntaxKind.LessThanToken, typescript.SyntaxKind.GreaterThanToken],
+  [typescript.SyntaxKind.LessThanEqualsToken, typescript.SyntaxKind.GreaterThanEqualsToken],
+]).get(operator) || operator
+const invertComparisonOperator = (operator) => new Map([
+  [typescript.SyntaxKind.EqualsEqualsToken, typescript.SyntaxKind.ExclamationEqualsToken],
+  [typescript.SyntaxKind.EqualsEqualsEqualsToken, typescript.SyntaxKind.ExclamationEqualsEqualsToken],
+  [typescript.SyntaxKind.ExclamationEqualsToken, typescript.SyntaxKind.EqualsEqualsToken],
+  [typescript.SyntaxKind.ExclamationEqualsEqualsToken, typescript.SyntaxKind.EqualsEqualsEqualsToken],
+  [typescript.SyntaxKind.GreaterThanToken, typescript.SyntaxKind.LessThanEqualsToken],
+  [typescript.SyntaxKind.GreaterThanEqualsToken, typescript.SyntaxKind.LessThanToken],
+  [typescript.SyntaxKind.LessThanToken, typescript.SyntaxKind.GreaterThanEqualsToken],
+  [typescript.SyntaxKind.LessThanEqualsToken, typescript.SyntaxKind.GreaterThanToken],
+]).get(operator)
+const comparisonGuaranteesNonEmptyItems = (node, whenTrue) => {
+  let left = unwrapExpression(node.left)
+  let right = unwrapExpression(node.right)
+  let operator = node.operatorToken.kind
+  if (isItemsLength(right) && numericValue(left) !== undefined) {
+    ;[left, right] = [right, left]
+    operator = reverseComparisonOperator(operator)
+  }
+  const comparedValue = numericValue(right)
+  if (!isItemsLength(left) || comparedValue === undefined) return false
+  if (!whenTrue) {
+    operator = invertComparisonOperator(operator)
+    if (!operator) return false
+  }
+  if (
+    operator === typescript.SyntaxKind.EqualsEqualsToken
+    || operator === typescript.SyntaxKind.EqualsEqualsEqualsToken
+  ) {
+    return comparedValue > 0
+  }
+  if (
+    operator === typescript.SyntaxKind.ExclamationEqualsToken
+    || operator === typescript.SyntaxKind.ExclamationEqualsEqualsToken
+  ) {
+    return comparedValue === 0
+  }
+  if (operator === typescript.SyntaxKind.GreaterThanToken) return comparedValue >= 0
+  if (operator === typescript.SyntaxKind.GreaterThanEqualsToken) return comparedValue >= 1
+  return false
+}
+const expressionStateGuaranteesNonEmptyItems = (node, whenTrue) => {
+  const expression = unwrapExpression(node)
+  if (isItemsLength(expression)) return whenTrue
+  if (
+    typescript.isPrefixUnaryExpression(expression)
+    && expression.operator === typescript.SyntaxKind.ExclamationToken
+  ) {
+    return expressionStateGuaranteesNonEmptyItems(expression.operand, !whenTrue)
+  }
+  if (!typescript.isBinaryExpression(expression)) return false
+  const operator = expression.operatorToken.kind
+  if (operator === typescript.SyntaxKind.AmpersandAmpersandToken) {
+    return whenTrue
+      ? expressionStateGuaranteesNonEmptyItems(expression.left, true)
+        || expressionStateGuaranteesNonEmptyItems(expression.right, true)
+      : expressionStateGuaranteesNonEmptyItems(expression.left, false)
+        && expressionStateGuaranteesNonEmptyItems(expression.right, false)
+  }
+  if (operator === typescript.SyntaxKind.BarBarToken) {
+    return whenTrue
+      ? expressionStateGuaranteesNonEmptyItems(expression.left, true)
+        && expressionStateGuaranteesNonEmptyItems(expression.right, true)
+      : expressionStateGuaranteesNonEmptyItems(expression.left, false)
+        || expressionStateGuaranteesNonEmptyItems(expression.right, false)
+  }
+  return comparisonGuaranteesNonEmptyItems(expression, whenTrue)
+}
+const expressionGuaranteesNonEmptyItems = (expression) => {
+  const parsed = parseDirectiveExpression(expression)
+  return Boolean(parsed && expressionStateGuaranteesNonEmptyItems(parsed, true))
+}
+const expressionFalseGuaranteesNonEmptyItems = (expression) => {
+  const parsed = parseDirectiveExpression(expression)
+  return Boolean(parsed && expressionStateGuaranteesNonEmptyItems(parsed, false))
 }
 const isNonEmptyStateBranch = (element, parent) => {
   const ifExpression = directiveExpression(element, 'if')
@@ -108,7 +229,7 @@ const isNonEmptyStateBranch = (element, parent) => {
   const previousExpression = previous
     ? directiveExpression(previous, 'else-if') || directiveExpression(previous, 'if')
     : ''
-  return previousExpression.replace(/\s+/g, '') === '!items.length'
+  return expressionFalseGuaranteesNonEmptyItems(previousExpression)
 }
 const assertHonestBoundaryIsUnconditional = (templateAst, relativePath) => {
   const matches = collectElements(templateAst).filter(
@@ -154,9 +275,29 @@ const assertPostDetailMountsReferencePanel = (templateAst, source, relativePath)
     ({ node }) => node.tag === 'PostReferencePanel',
   )
   assert(
-    mounts.length > 0,
-    `${relativePath} must mount <PostReferencePanel>; removing it hides the V17 honesty boundary from post detail`,
+    mounts.length === 1,
+    `${relativePath} must mount exactly one <PostReferencePanel>; found ${mounts.length}`,
   )
+  const { node, ancestors } = mounts[0]
+  const owners = [...ancestors, node]
+  const loopOwner = owners.find((element) => directive(element, 'for'))
+  if (loopOwner) {
+    throw new Error(
+      `${relativePath} must not mount <PostReferencePanel> inside v-for; found ${describeElement(loopOwner, relativePath)}`,
+    )
+  }
+  const unreachableOwner = owners.find((element) => {
+    const condition = conditionalDirective(element)
+    if (!condition || !['if', 'show'].includes(condition.name)) return false
+    return ['false', '0', 'null', 'undefined'].includes(
+      normalizeWhitespace(condition.exp?.content || ''),
+    )
+  })
+  if (unreachableOwner) {
+    throw new Error(
+      `${relativePath} must not make <PostReferencePanel> statically unreachable; found ${describeElement(unreachableOwner, relativePath)}`,
+    )
+  }
 }
 const assertGuardRejects = (operation, expectedMessage, label) => {
   let failure
@@ -234,8 +375,64 @@ assertGuardRejects(
     detachedPanelFixture,
     'guard-fixture/detached-panel.vue',
   ),
-  'must mount <PostReferencePanel>',
+  'must mount exactly one <PostReferencePanel>',
   'PostDetailView detached-panel regression',
+)
+for (const [expression, label] of [
+  ['items.length > 0 || error', 'error fallback OR condition'],
+  ['loading || items.length !== 0', 'loading OR condition'],
+]) {
+  const compositeCountFixture = `
+<template>
+  <section>
+    <p v-if="${expression}">作者维护的 {{ health.total }} 条来源。</p>
+  </section>
+</template>
+`
+  assertGuardRejects(
+    () => assertReferenceCountsRequireItems(
+      parseVueTemplate(compositeCountFixture, `guard-fixture/${label}.vue`),
+      `guard-fixture/${label}.vue`,
+    ),
+    'must stay inside the non-empty branch',
+    `${label} count regression`,
+  )
+}
+const unreachablePanelFixture = `
+<template><PostReferencePanel v-if="false" /></template>
+<script setup>
+import PostReferencePanel from '@/components/post/PostReferencePanel.vue'
+</script>
+`
+assertGuardRejects(
+  () => assertPostDetailMountsReferencePanel(
+    parseVueTemplate(unreachablePanelFixture, 'guard-fixture/unreachable-panel.vue'),
+    unreachablePanelFixture,
+    'guard-fixture/unreachable-panel.vue',
+  ),
+  'must not make <PostReferencePanel> statically unreachable',
+  'PostDetailView unreachable-panel regression',
+)
+const loopedPanelFixture = `
+<template>
+  <PostReferencePanel
+    v-for="item in items"
+    :key="item.id"
+    :post-id="String(item.id)"
+  />
+</template>
+<script setup>
+import PostReferencePanel from '@/components/post/PostReferencePanel.vue'
+</script>
+`
+assertGuardRejects(
+  () => assertPostDetailMountsReferencePanel(
+    parseVueTemplate(loopedPanelFixture, 'guard-fixture/looped-panel.vue'),
+    loopedPanelFixture,
+    'guard-fixture/looped-panel.vue',
+  ),
+  'must not mount <PostReferencePanel> inside v-for',
+  'PostDetailView looped-panel regression',
 )
 for (const overclaim of ['已验证', '已核实', '平台验证', '可信来源', '链接有效']) {
   excludes(panel, overclaim, 'reference panel (no platform-verification overclaim)')
