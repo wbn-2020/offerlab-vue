@@ -72,7 +72,9 @@ hardening commit `5e383e3d10ccdfee9357e0884d5c0fbcde19b40f` is locally
 bug in the test itself; it was corrected before `5e383e3`, and the dedicated rerun,
 lint, and final full verify all passed. Local and remote refs were synchronized to
 the same GitHub canonical commits after checking parent, tree, author, and email.
-Draft PR #16 final-head CI remains required.
+Draft PR #16 checks are the authoritative final-head CI record; the latest observed
+run, head SHA, cross-repository checkout SHA, and artifact IDs are kept in the
+shared V21 ledger to avoid creating a self-referential CI evidence loop in this file.
 
 ## Dynamic Verification
 
@@ -97,5 +99,5 @@ Reasons:
 
 - Independent read-only QA found no P0; its P1 evidence findings were corrected and its P2 compound-condition/unreachable-mount Guard finding was fixed in `5e383e3`.
 - Local lint, full guards, type checking, and production build passed.
-- V21 implementation and evidence commits are synchronized locally and remotely; draft PR #16 final-head CI is still outstanding.
+- V21 implementation and evidence commits are synchronized locally and remotely; current-head PR #16 checks must remain green for final signoff.
 - Required browser, accessibility, API, role, and rollback scenarios remain `BLOCKED`.
