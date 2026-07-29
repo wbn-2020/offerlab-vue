@@ -43,10 +43,12 @@
             <section class="home-profile-panel">
               <template v-if="authStore.isLoggedIn && authStore.user">
                 <div class="flex items-start gap-3">
-                  <div class="home-profile-avatar">
-                    <img v-if="authStore.user.avatar" :src="authStore.user.avatar" :alt="authStore.user.nickname" class="h-full w-full object-cover">
-                    <span v-else>{{ authStore.user.nickname.charAt(0) || '?' }}</span>
-                  </div>
+                  <UserAvatar
+                    class="home-profile-avatar"
+                    :src="authStore.user.avatar"
+                    :name="authStore.user.nickname"
+                    alt=""
+                  />
                   <div class="min-w-0">
                     <h3 class="truncate font-black text-slate-950 dark:text-white">{{ authStore.user.nickname }}</h3>
                     <p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
@@ -468,10 +470,12 @@
                   class="home-author-row"
                 >
                   <RouterLink :to="`/u/${user.uid}`" class="flex min-w-0 flex-1 items-center gap-3">
-                    <div class="home-author-avatar">
-                      <img v-if="user.avatar" :src="user.avatar" :alt="user.nickname" class="h-full w-full object-cover">
-                      <span v-else>{{ user.nickname.charAt(0) || '?' }}</span>
-                    </div>
+                    <UserAvatar
+                      class="home-author-avatar"
+                      :src="user.avatar"
+                      :name="user.nickname"
+                      alt=""
+                    />
                     <div class="min-w-0">
                       <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ user.nickname }}</div>
                       <div class="truncate text-xs text-slate-500 dark:text-slate-400">{{ userDisplaySignature(user) }}</div>
@@ -513,6 +517,7 @@ import { usePostInteraction } from '@/composables/usePostInteraction'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import OperationSlotCard from '@/components/operations/OperationSlotCard.vue'

@@ -284,10 +284,12 @@
 
           <template v-else-if="searchMode === 'users' && userResults.length">
             <RouterLink v-for="item in userResults" :key="item.uid" :to="`/u/${item.uid}`" class="user-row">
-              <div class="avatar">
-                <img v-if="item.avatar" :src="item.avatar" :alt="item.nickname" class="h-full w-full object-cover" />
-                <span v-else>{{ item.nickname.charAt(0) || '?' }}</span>
-              </div>
+              <UserAvatar
+                class="avatar"
+                :src="item.avatar"
+                :name="item.nickname"
+                alt=""
+              />
               <div class="min-w-0 flex-1">
                 <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.nickname }}</h3>
                 <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ userSignatureText(item) }}</p>
@@ -455,6 +457,7 @@ import { toast } from 'vue-sonner'
 import client, { getErrorMessage, type Result } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import { postApi } from '@/api/post'
 import { searchApi, type SearchStatus } from '@/api/search'
 import { userApi } from '@/api/user'

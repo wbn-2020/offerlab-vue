@@ -4,10 +4,12 @@
   >
     <div class="post-card__author-row">
       <div class="flex min-w-0 items-center gap-3">
-        <div class="post-author-avatar">
-          <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover">
-          <span v-else>{{ authorInitial }}</span>
-        </div>
+        <UserAvatar
+          class="post-author-avatar"
+          :src="post.author.avatar"
+          :name="post.author.nickname"
+          alt=""
+        />
         <div class="min-w-0">
           <div class="flex min-w-0 items-center gap-2">
             <span class="truncate font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</span>
@@ -282,6 +284,7 @@ import { findHighRiskContentWarning, normalizeRecommendationReason } from '@/uti
 import { getPostUnavailableState, normalizeRiskNoticeForUsers } from '@/utils/governanceDisplay'
 import type { FeedControlAction, FeedFeedbackAction, FeedPost, LegacyFeedFeedbackAction } from '@/api/feed'
 import PostSaveOrganizer from '@/components/post/PostSaveOrganizer.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 
 const props = defineProps<{
   post: Post | FeedPost
@@ -370,7 +373,6 @@ const feedbackActions: Array<{
   },
 ]
 
-const authorInitial = computed(() => props.post.author.nickname?.charAt(0) || '?')
 const authorUid = computed(() => String(props.post.author.uid ?? ''))
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(props.post.author.uid))
 const isAnonymousMaskedAuthor = computed(() => Boolean(props.post.anonymous)

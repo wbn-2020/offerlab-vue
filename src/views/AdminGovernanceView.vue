@@ -147,13 +147,15 @@
           <h2 class="panel-title">用户限制</h2>
           <div class="space-y-3">
             <div v-for="item in users" :key="item.uid" class="row-card">
-              <div class="user-limit-row">
-                <div class="user-limit-main">
-                  <div class="user-brief">
-                    <img v-if="item.avatarUrl" :src="item.avatarUrl" alt="" class="user-avatar" />
-                    <div v-else class="user-avatar user-avatar-fallback">
-                      <CircleUserRound class="h-5 w-5" />
-                    </div>
+                <div class="user-limit-row">
+                  <div class="user-limit-main">
+                    <div class="user-brief">
+                    <UserAvatar
+                      class="user-avatar"
+                      :src="item.avatarUrl"
+                      :name="item.nickname"
+                      alt=""
+                    />
                     <div class="min-w-0">
                       <strong class="block truncate text-slate-950 dark:text-slate-50">{{ item.nickname || `用户 ${item.uid}` }}</strong>
                       <span class="font-mono text-xs font-semibold text-slate-400">用户编号 {{ item.uid }}</span>
@@ -784,10 +786,11 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { AlertTriangle, CircleUserRound, RefreshCw, ShieldOff, Unlock } from 'lucide-vue-next'
+import { AlertTriangle, RefreshCw, ShieldOff, Unlock } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import { getErrorMessage } from '@/api/client'
 import { opsApi, type AdminAuditLog, type MigrationStatus, type ModerationKeyword, type ModerationKeywordHit, type MyAdminPermissions, type ReviewQueueItem as BackendReviewQueueItem, type ReviewQueueRiskLevel, type ReviewQueueStatus, type UserModerationState } from '@/api/ops'
 import { postApi, type DomainModerator } from '@/api/post'
@@ -2648,14 +2651,6 @@ onMounted(refreshAll)
   object-fit: cover;
 }
 
-.user-avatar-fallback {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(239 246 255);
-  color: rgb(37 99 235);
-}
-
 .violation-card {
   margin-top: 0.75rem;
   border-radius: 0.5rem;
@@ -3031,11 +3026,6 @@ onMounted(refreshAll)
 
 .dark .user-avatar {
   border-color: rgb(30 41 59);
-}
-
-.dark .user-avatar-fallback {
-  background: rgb(30 41 59);
-  color: rgb(147 197 253);
 }
 
 .dark .detail-card {

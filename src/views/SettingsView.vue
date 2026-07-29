@@ -92,11 +92,12 @@
           <div>
             <label class="field-label">头像 URL</label>
             <input v-model.trim="profileForm.avatarUrl" type="url" placeholder="https://..." class="form-input" />
-            <img
-              v-if="profileForm.avatarUrl"
+            <UserAvatar
+              v-if="profileForm.avatarUrl || profileForm.nickname"
               :src="profileForm.avatarUrl"
-              :alt="profileForm.nickname"
-              class="mt-3 h-24 w-24 rounded-lg object-cover"
+              :name="profileForm.nickname"
+              :alt="profileForm.nickname ? `${profileForm.nickname}的头像预览` : '头像预览'"
+              class="mt-3 h-24 w-24 rounded-lg text-2xl font-bold"
             />
           </div>
           <div>
@@ -284,6 +285,7 @@ import { notificationApi } from '@/api/notification'
 import { userApi, type PrivacySetting } from '@/api/user'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import IntentForm from '@/components/user/IntentForm.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import type { NotificationPreference, UserIntent } from '@/api/types'
 
 const authStore = useAuthStore()
