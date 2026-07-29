@@ -2,7 +2,7 @@
 
 > Version: V22
 > Theme: Local runtime reliability and demo trustworthiness
-> Status: STATIC_VERIFIED / QA_PASSED / PR_CI_PENDING
+> Status: STATIC_VERIFIED / QA_PASSED / PR_CI_PASSED
 > Branch: `feature/v22-local-runtime-reliability`
 > Base: `dev-v2@6b92237c4c1c500ab0fbf53c76634dfbb80ba536`
 
@@ -38,7 +38,7 @@
 | API scope | PASS | No API adapter or response contract change |
 | `git diff --check` | PASS | Latest working tree |
 | Independent cross-stack QA | PASS | Final review: 0 blocker / 0 high |
-| Pull request CI | PENDING | |
+| Pull request CI | PASS | Draft PR #17 frontend `verify` completed successfully |
 
 ## Dynamic Boundary
 
