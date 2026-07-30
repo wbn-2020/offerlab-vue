@@ -3,7 +3,7 @@ import client, { BizException, type Result } from './client'
 import type { KnowledgeRelationDisplayState, KnowledgeRelationReviewStatus, KnowledgeRelationSource } from './knowledge'
 import type { ApiId, ContentSeriesItem, ContentSeriesProgress, PaginatedResponse, Post } from './types'
 import { adaptPage, adaptPost } from './adapters'
-import { normalizeDomain } from '@/utils/domains'
+import { normalizeDomain, requireKnownDomain } from '@/utils/domains'
 import { safeStorage } from '@/utils/safeStorage'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 import { isPublicCollectionVisible, isPublicPostVisible } from '@/utils/recommendationGovernance'
@@ -264,7 +264,7 @@ const toRemoteSeriesPayload = (payload: ContentSeriesDraftPayload) => ({
   title: safeText(payload.title),
   description: safeText(payload.summary) || undefined,
   coverUrl: safeText(payload.coverUrl) || undefined,
-  domain: normalizeDomain(payload.domain),
+  domain: requireKnownDomain(payload.domain),
   visibility: visibilityCodeOf(payload.visibility),
 })
 
@@ -392,13 +392,14 @@ export const contentSeriesApi = {
   },
 
   create: async (payload: ContentSeriesDraftPayload, ownerId?: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord>> => {
+    const domain = requireKnownDomain(payload.domain)
     const localRecord = decorateRecord({
       id: createLocalId('series'),
       creatorUid: ownerId == null ? undefined : String(ownerId),
       title: safeText(payload.title) || '未命名合集',
       summary: safeText(payload.summary) || undefined,
       coverUrl: safeText(payload.coverUrl) || undefined,
-      domain: normalizeDomain(payload.domain),
+      domain,
       visibility: payload.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || 3)),
       status: payload.status || 'active',
@@ -426,13 +427,14 @@ export const contentSeriesApi = {
   update: async (seriesId: ApiId, payload: ContentSeriesDraftPayload, ownerId?: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord>> => {
     const records = readLocalSeries(ownerId)
     const current = records.find((item) => item.id === String(seriesId))
+    const domain = requireKnownDomain(payload.domain ?? current?.domain)
     const localRecord = decorateRecord({
       id: String(seriesId),
       creatorUid: current?.creatorUid || (ownerId == null ? undefined : String(ownerId)),
       title: safeText(payload.title) || current?.title || '未命名合集',
       summary: safeText(payload.summary) || current?.summary || undefined,
       coverUrl: safeText(payload.coverUrl) || current?.coverUrl || undefined,
-      domain: normalizeDomain(payload.domain ?? current?.domain),
+      domain,
       visibility: payload.visibility || current?.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || current?.goalCount || 3)),
       status: payload.status || current?.status || 'active',

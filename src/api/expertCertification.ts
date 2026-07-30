@@ -6,6 +6,7 @@ import type {
   ExpertCertificationApplyPayload,
   ExpertCertificationCheckItem,
   ExpertCertificationEligibility,
+  ExpertCertificationReviewPayload,
 } from './types'
 
 const safeText = (value: unknown, fallback = '') => {
@@ -57,6 +58,10 @@ const adaptApplication = (raw: any): ExpertCertificationApplication => ({
   riskAcknowledged: Boolean(raw?.riskAcknowledged),
   riskWarning: safeText(raw?.riskWarning),
   autoCertified: Boolean(raw?.autoCertified),
+  reviewerUid: raw?.reviewerUid == null ? undefined : adaptId(raw.reviewerUid),
+  reviewNote: safeText(raw?.reviewNote) || undefined,
+  revokedBy: raw?.revokedBy == null ? undefined : adaptId(raw.revokedBy),
+  revokeNote: safeText(raw?.revokeNote) || undefined,
   createTime: adaptTime(raw?.createTime ?? raw?.createdAt),
   updateTime: adaptTime(raw?.updateTime ?? raw?.updatedAt),
   reviewTime: raw?.reviewTime ? adaptTime(raw.reviewTime) : undefined,
@@ -95,6 +100,34 @@ export const expertCertificationApi = {
   revoke: async (applicationId: ApiId, note?: string): Promise<Result<ExpertCertificationApplication>> => {
     const res = await client.post(`/api/v1/expert-certifications/applications/${applicationId}/revoke`, {
       note: safeText(note),
+    }) as Result<any>
+    return {
+      ...res,
+      data: res.data ? adaptApplication(res.data) : null,
+    }
+  },
+
+  listReviewQueue: async (
+    domain: number,
+    status?: number,
+    limit = 20,
+  ): Promise<Result<ExpertCertificationApplication[]>> => {
+    const res = await client.get('/api/v1/expert-certifications/admin/applications', {
+      params: { domain, status, limit },
+    }) as Result<any>
+    return {
+      ...res,
+      data: Array.isArray(res.data) ? res.data.map(adaptApplication) : [],
+    }
+  },
+
+  review: async (
+    applicationId: ApiId,
+    payload: ExpertCertificationReviewPayload,
+  ): Promise<Result<ExpertCertificationApplication>> => {
+    const res = await client.post(`/api/v1/expert-certifications/admin/applications/${applicationId}/review`, {
+      approved: Boolean(payload.approved),
+      note: safeText(payload.note),
     }) as Result<any>
     return {
       ...res,

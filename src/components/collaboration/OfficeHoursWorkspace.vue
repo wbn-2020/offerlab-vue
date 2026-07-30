@@ -20,6 +20,7 @@
             <label>
               <span>领域</span>
               <select v-model.number="createForm.domain" class="field-control">
+                <option :value="0" disabled>请选择频道</option>
                 <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
                   {{ domain.domainName }}
                 </option>
@@ -333,6 +334,7 @@ import {
 import { toast } from 'vue-sonner'
 import { getErrorMessage, type Result } from '@/api/client'
 import { localDomainConfigs } from '@/api/domains'
+import { isKnownDomain } from '@/utils/domains'
 import {
   collaborationApi,
   type OfficeHour,
@@ -395,7 +397,7 @@ const pendingAction = ref('')
 
 const filters = reactive<{ domain: number | ''; status: OfficeHourStatus | '' }>({ domain: '', status: 'OPEN' })
 const createForm = reactive({
-  domain: localDomainConfigs[0]?.domain ?? 1,
+  domain: 0,
   title: '',
   description: '',
   topicGuidance: '',
@@ -430,6 +432,7 @@ const collectCollaborationPages = async <T,>(
 
 const busy = computed(() => pendingAction.value !== '')
 const canCreate = computed(() => !busy.value
+  && isKnownDomain(createForm.domain)
   && createForm.title.length >= 2
   && createForm.description.length >= 10
   && createForm.capacity >= 1
@@ -496,6 +499,9 @@ const loadMyReservations = () => {
 }
 
 const createOfficeHour = () => runAction('create', async () => {
+  if (!isKnownDomain(createForm.domain)) {
+    throw new Error('请选择频道')
+  }
   await collaborationApi.officeHours.create({
     domain: createForm.domain,
     title: createForm.title,
@@ -507,7 +513,7 @@ const createOfficeHour = () => runAction('create', async () => {
     riskAcknowledged: createForm.riskAcknowledged,
   })
   Object.assign(createForm, {
-    domain: localDomainConfigs[0]?.domain ?? 1,
+    domain: 0,
     title: '',
     description: '',
     topicGuidance: '',

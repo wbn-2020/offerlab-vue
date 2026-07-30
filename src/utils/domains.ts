@@ -198,6 +198,17 @@ export const normalizeDomain = (domain?: number | string | null): DomainValue =>
     : DEFAULT_DOMAIN
 }
 
+/**
+ * Use this at command boundaries. Display code may intentionally fall back to
+ * the default domain, but writes must never silently change an unknown domain.
+ */
+export const requireKnownDomain = (domain?: number | string | null): DomainValue => {
+  if (!isKnownDomain(domain)) {
+    throw new Error('请选择频道')
+  }
+  return Number(domain) as DomainValue
+}
+
 export const getDomainOption = (domain?: number | null): DomainOption => {
   return domainByValue.get(Number(domain) as DomainValue) ?? domainByValue.get(DEFAULT_DOMAIN)!
 }

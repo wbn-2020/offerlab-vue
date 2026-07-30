@@ -74,6 +74,7 @@
               <label class="block">
                 <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">领域</span>
                 <select v-model="seriesDraft.domain" class="series-input">
+                  <option :value="0" disabled>请选择频道</option>
                   <option
                     v-for="domain in localDomainConfigs"
                     :key="domain.domain"
@@ -262,6 +263,7 @@ import { getErrorMessage } from '@/api/client'
 import { contentSeriesApi, type ContentSeriesDraftPayload, type ContentSeriesRecord } from '@/api/contentSeries'
 import { localDomainConfigs } from '@/api/domains'
 import { useAuthStore } from '@/stores/auth'
+import { isKnownDomain } from '@/utils/domains'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 
 const authStore = useAuthStore()
@@ -269,7 +271,7 @@ const authStore = useAuthStore()
 const createDefaultSeriesDraft = (): ContentSeriesDraftPayload => ({
   title: '',
   summary: '',
-  domain: localDomainConfigs[0]?.domain ?? 1,
+  domain: 0,
   visibility: 'private',
   goalCount: 3,
   status: 'active',
@@ -383,7 +385,7 @@ const resetSeriesDraft = () => {
 const normalizeSeriesDraft = (): ContentSeriesDraftPayload => ({
   title: sanitizeVisibleText(seriesDraft.title) || '',
   summary: sanitizeVisibleText(seriesDraft.summary) || '',
-  domain: Number(seriesDraft.domain || localDomainConfigs[0]?.domain || 1),
+  domain: Number(seriesDraft.domain),
   visibility: seriesDraft.visibility || 'private',
   goalCount: Math.min(20, Math.max(1, Number(seriesDraft.goalCount || 1))),
   status: seriesDraft.status || 'active',
@@ -426,6 +428,10 @@ const saveSeriesDraft = async () => {
   const payload = normalizeSeriesDraft()
   if (!payload.title) {
     toast.error('请先填写合集标题')
+    return
+  }
+  if (!isKnownDomain(payload.domain)) {
+    toast.error('请选择频道')
     return
   }
 

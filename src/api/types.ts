@@ -1100,6 +1100,10 @@ export interface ExpertCertificationApplication {
   riskAcknowledged: boolean
   riskWarning?: string
   autoCertified: boolean
+  reviewerUid?: ApiId
+  reviewNote?: string
+  revokedBy?: ApiId
+  revokeNote?: string
   createTime: number
   updateTime: number
   reviewTime?: number
@@ -1111,6 +1115,11 @@ export interface ExpertCertificationApplyPayload {
   evidenceSummary: string
   evidenceLinks: string[]
   riskAcknowledged?: boolean
+}
+
+export interface ExpertCertificationReviewPayload {
+  approved: boolean
+  note?: string
 }
 
 export interface KnowledgeRelationGraph {

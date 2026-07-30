@@ -77,6 +77,7 @@
               <label class="field-group">
                 <span>领域</span>
                 <select v-model.number="needForm.domain" class="workspace-input">
+                  <option :value="0" disabled>请选择频道</option>
                   <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
                     {{ domain.domainName }}
                   </option>
@@ -1155,6 +1156,7 @@ import type { ApiId } from '@/api/types'
 import { useCollaborationHubQuery } from '@/composables/useCollaborationHubQuery'
 import { useCollaborationDiscoveryQuery } from '@/composables/useCollaborationDiscoveryQuery'
 import { useAuthStore } from '@/stores/auth'
+import { isKnownDomain } from '@/utils/domains'
 import {
   collaborationHubLocation,
   collaborationResourcePath,
@@ -1286,7 +1288,7 @@ const discussionFilters = reactive<{ domain: number | ''; status: 'OPEN' | 'SUMM
 })
 
 const createNeedForm = (): NeedFormState => ({
-  domain: localDomainConfigs[0]?.domain ?? 1,
+  domain: 0,
   sourceType: 'COMMUNITY',
   sourceRefId: '',
   contentFormat: 'ARTICLE',
@@ -1804,6 +1806,10 @@ const refreshCurrentTab = () => {
 
 const createNeed = async () => {
   if (!await ensureLoggedIn()) return
+  if (!isKnownDomain(needForm.domain)) {
+    toast.warning('请选择频道')
+    return
+  }
   if (!needForm.title.trim() || !needForm.description.trim()) {
     toast.warning('请填写需求标题与说明')
     return
