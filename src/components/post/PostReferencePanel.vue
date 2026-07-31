@@ -5,6 +5,7 @@
       <button type="button" class="secondary-action" :disabled="loading" @click="load">刷新</button>
     </div>
     <p v-if="highRisk" class="mt-3 text-sm text-amber-700" role="note">来源只说明公开依据，不构成投资建议、专业结论或平台认证。</p>
+    <p class="mt-3 text-xs text-slate-500" role="note">来源状态由作者自行维护，平台不代为验证链接是否可访问。</p>
     <p v-if="error" class="mt-3 text-sm text-red-600" role="alert">{{ error }}</p>
     <p v-else-if="loading" class="mt-3 text-sm" role="status">正在读取来源...</p>
     <p v-else-if="!items.length" class="mt-3 text-sm text-slate-500">作者尚未添加来源。</p>
@@ -20,8 +21,7 @@
         <p v-else class="text-slate-600 dark:text-slate-300">
           作者维护的 {{ health.total }} 条来源，暂无失效标记。
         </p>
-        <p v-if="oldestConfirmedText" class="mt-1 text-xs text-slate-500">其中最早确认于 {{ oldestConfirmedText }}。</p>
-        <p class="mt-1 text-xs text-slate-500">来源状态由作者自行维护，平台不代为验证链接是否可访问。</p>
+        <p v-if="oldestConfirmedText" class="mt-1 text-xs text-slate-500">当前有效来源中，作者最早确认于 {{ oldestConfirmedText }}。</p>
       </div>
       <ul class="mt-4 space-y-3">
         <li v-for="item in items" :key="item.id" class="border-l-2 pl-3" :class="item.referenceStatus === 'BROKEN' ? 'border-amber-300 dark:border-amber-700' : 'border-slate-200 dark:border-slate-700'">
