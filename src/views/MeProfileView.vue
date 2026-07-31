@@ -5,10 +5,13 @@
     <main class="mx-auto max-w-6xl px-4 py-8">
       <section class="profile-panel">
         <div class="flex flex-col gap-6 md:flex-row md:items-start">
-          <div class="avatar">
-            <img v-if="user?.avatar" :src="user.avatar" :alt="user.nickname" class="h-full w-full object-cover" />
-            <span v-else>{{ userInitial }}</span>
-          </div>
+          <UserAvatar
+            class="avatar"
+            :src="user?.avatar"
+            :name="user?.nickname"
+            alt=""
+            :fallback="userInitial"
+          />
 
           <div class="min-w-0 flex-1">
             <p class="mb-2 text-xs font-black text-primary-600 dark:text-primary-300">我的作者主页</p>
@@ -598,6 +601,7 @@ import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import ParticipationHub from '@/components/me/ParticipationHub.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import UserCard from '@/components/user/UserCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'

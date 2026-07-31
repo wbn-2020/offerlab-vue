@@ -147,13 +147,15 @@
           <h2 class="panel-title">用户限制</h2>
           <div class="space-y-3">
             <div v-for="item in users" :key="item.uid" class="row-card">
-              <div class="user-limit-row">
-                <div class="user-limit-main">
-                  <div class="user-brief">
-                    <img v-if="item.avatarUrl" :src="item.avatarUrl" alt="" class="user-avatar" />
-                    <div v-else class="user-avatar user-avatar-fallback">
-                      <CircleUserRound class="h-5 w-5" />
-                    </div>
+                <div class="user-limit-row">
+                  <div class="user-limit-main">
+                    <div class="user-brief">
+                    <UserAvatar
+                      class="user-avatar"
+                      :src="item.avatarUrl"
+                      :name="item.nickname"
+                      alt=""
+                    />
                     <div class="min-w-0">
                       <strong class="block truncate text-slate-950 dark:text-slate-50">{{ item.nickname || `用户 ${item.uid}` }}</strong>
                       <span class="font-mono text-xs font-semibold text-slate-400">用户编号 {{ item.uid }}</span>
@@ -533,6 +535,52 @@
         </aside>
       </section>
 
+      <section v-else-if="activeTab === 'expert-certifications'" class="panel">
+        <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 class="panel-title !mb-1">专家认证审核</h2>
+            <p class="text-sm text-slate-500">仅处理当前频道的申请；通过或拒绝都会写入认证状态与治理审计。</p>
+          </div>
+          <button type="button" class="secondary-button" :disabled="isLoading || !selectedDomainParam" @click="loadExpertCertificationApplications()">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
+            刷新申请
+          </button>
+        </div>
+
+        <div v-if="expertCertificationLoadNotice" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {{ expertCertificationLoadNotice }}
+        </div>
+
+        <div v-if="expertCertificationApplications.length" class="space-y-3">
+          <article v-for="application in expertCertificationApplications" :key="String(application.id)" class="row-card">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <strong class="text-slate-950 dark:text-slate-50">申请 #{{ application.id }}</strong>
+                  <span class="meta-chip">申请人 {{ application.applicantUid || '--' }}</span>
+                  <span class="meta-chip">{{ application.domainName || domainLabel(application.domain) }}</span>
+                  <span class="meta-chip">{{ application.statusLabel || '待审核' }}</span>
+                </div>
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{{ application.evidenceSummary || '未提供审核说明' }}</p>
+                <div v-if="application.evidenceLinks.length" class="mt-2 flex flex-wrap gap-2 text-xs">
+                  <a v-for="link in application.evidenceLinks" :key="link" :href="link" class="text-sky-700 underline dark:text-sky-300" target="_blank" rel="noopener noreferrer">{{ link }}</a>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                  <span>资格：{{ application.eligibilityPassed ? '已通过' : '需人工判断' }}</span>
+                  <span>提交：{{ formatCertificationTime(application.createTime) }}</span>
+                  <span v-if="application.riskAcknowledged">已确认风险边界</span>
+                </div>
+              </div>
+              <div class="flex shrink-0 flex-wrap gap-2">
+                <button type="button" class="primary-button" :disabled="isSaving || application.status !== 10" @click="reviewExpertCertification(application, true)">通过</button>
+                <button type="button" class="secondary-button danger-button" :disabled="isSaving || application.status !== 10" @click="reviewExpertCertification(application, false)">拒绝</button>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div v-else-if="!expertCertificationLoadNotice" class="empty-panel">当前频道没有待审核的认证申请</div>
+      </section>
+
       <section v-else-if="activeTab === 'queue'" class="panel">
         <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -784,17 +832,19 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { AlertTriangle, CircleUserRound, RefreshCw, ShieldOff, Unlock } from 'lucide-vue-next'
+import { AlertTriangle, RefreshCw, ShieldOff, Unlock } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import { getErrorMessage } from '@/api/client'
 import { opsApi, type AdminAuditLog, type MigrationStatus, type ModerationKeyword, type ModerationKeywordHit, type MyAdminPermissions, type ReviewQueueItem as BackendReviewQueueItem, type ReviewQueueRiskLevel, type ReviewQueueStatus, type UserModerationState } from '@/api/ops'
 import { postApi, type DomainModerator } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
+import { expertCertificationApi } from '@/api/expertCertification'
 import type { Question } from '@/api/question'
 import type { AiExtractTask } from '@/api/ops'
-import type { CommentReport, CommunityTopic, Post, PostReport, Tag, UserReportStatus } from '@/api/types'
+import type { CommentReport, CommunityTopic, ExpertCertificationApplication, Post, PostReport, Tag, UserReportStatus } from '@/api/types'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
 import { useAuthStore } from '@/stores/auth'
@@ -808,6 +858,7 @@ const tabs = [
   { label: '精选管理', value: 'featured', scope: 'domainModeration' },
   { label: '专题管理', value: 'topics', scope: 'globalModeration' },
   { label: '标签治理', value: 'tags', scope: 'globalModeration' },
+  { label: '专家认证', value: 'expert-certifications', scope: 'domainModeration' },
   { label: '审核队列', value: 'queue', scope: 'domainModeration' },
   { label: '审核总览', value: 'review', scope: 'domainModeration' },
   { label: '审计日志', value: 'audit', scope: 'ops' },
@@ -873,6 +924,8 @@ const safeBackendReviewQueueItems = computed<BackendReviewQueueItem[]>(() => Arr
 const reviewQueueSource = ref<'backend' | 'frontend-fallback'>('frontend-fallback')
 const reviewQueueLoadWarnings = ref<string[]>([])
 const auditLogs = ref<AdminAuditLog[]>([])
+const expertCertificationApplications = ref<ExpertCertificationApplication[]>([])
+const expertCertificationLoadNotice = ref('')
 const selectedAudit = ref<AdminAuditLog | null>(null)
 const selectedPendingReviewPost = ref<Post | null>(null)
 const previewLoadingId = ref('')
@@ -1247,6 +1300,8 @@ const clearDomainModerationState = () => {
   domainModerators.value = []
   postReports.value = []
   commentReports.value = []
+  expertCertificationApplications.value = []
+  expertCertificationLoadNotice.value = ''
 }
 
 const clearModerationState = () => {
@@ -1290,6 +1345,7 @@ const loadDomainModerationData = (loaders: Array<Promise<void>>) => {
   loaders.push(interactionApi.listAdminCommentReports({ status: 0, limit: 50, domain: selectedDomainParam.value }).then((res) => { commentReports.value = res.data || [] }))
   loaders.push(loadFeaturedPosts(false))
   loaders.push(loadDomainModerators(false))
+  loaders.push(loadExpertCertificationApplications(false))
 }
 
 const refreshAll = async () => {
@@ -1750,6 +1806,62 @@ const loadDomainModerators = async (showToast = true) => {
   } catch (error: any) {
     domainModerators.value = []
     if (showToast) toast.error(getErrorMessage(error, '领域版主加载失败'))
+  }
+}
+
+const loadExpertCertificationApplications = async (showToast = true) => {
+  if (!canModerate.value) return
+  const domain = selectedDomainParam.value
+  if (!isKnownDomain(domain)) {
+    expertCertificationApplications.value = []
+    expertCertificationLoadNotice.value = '请选择一个频道后查看专家认证申请。'
+    return
+  }
+  expertCertificationLoadNotice.value = ''
+  try {
+    const res = await expertCertificationApi.listReviewQueue(domain, 10, 50)
+    expertCertificationApplications.value = res.data || []
+  } catch (error: any) {
+    expertCertificationApplications.value = []
+    expertCertificationLoadNotice.value = '专家认证申请暂不可用，请稍后重试。'
+    if (showToast) toast.error(getErrorMessage(error, '专家认证申请加载失败'))
+  }
+}
+
+const formatCertificationTime = (value?: number) => {
+  if (!value) return '--'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '--' : date.toLocaleString('zh-CN', { hour12: false })
+}
+
+const reviewExpertCertification = async (application: ExpertCertificationApplication, approved: boolean) => {
+  if (!canModerate.value || application.status !== 10) return
+  const action = approved ? '通过' : '拒绝'
+  const note = await requireRiskConfirm({
+    title: `${action}专家认证申请`,
+    level: approved ? 'high' : 'medium',
+    reversible: !approved,
+    impactCount: 1,
+    objects: riskObjects([`expert-cert:${application.id}`, `uid:${application.applicantUid}`, `domain:${application.domain}`]),
+    context: riskContext(
+      `申请人：${application.applicantUid || '--'}`,
+      `频道：${application.domainName || domainLabel(application.domain)}`,
+      application.evidenceSummary ? `说明：${application.evidenceSummary}` : undefined,
+    ),
+    confirmText: `确认${action}`,
+    requireNote: !approved,
+    notePlaceholder: approved ? '可填写审核备注' : '请填写拒绝原因，会写入治理审计',
+  })
+  if (note === null) return
+  isSaving.value = true
+  try {
+    await expertCertificationApi.review(application.id, { approved, note })
+    toast.success(`认证申请已${action}`)
+    await loadExpertCertificationApplications(false)
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, `认证申请${action}失败`))
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -2648,14 +2760,6 @@ onMounted(refreshAll)
   object-fit: cover;
 }
 
-.user-avatar-fallback {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(239 246 255);
-  color: rgb(37 99 235);
-}
-
 .violation-card {
   margin-top: 0.75rem;
   border-radius: 0.5rem;
@@ -3031,11 +3135,6 @@ onMounted(refreshAll)
 
 .dark .user-avatar {
   border-color: rgb(30 41 59);
-}
-
-.dark .user-avatar-fallback {
-  background: rgb(30 41 59);
-  color: rgb(147 197 253);
 }
 
 .dark .detail-card {

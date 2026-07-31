@@ -17,9 +17,13 @@
           <div class="h-28 bg-gradient-to-r from-primary-600 via-sky-600 to-emerald-500" />
           <div class="-mt-10 flex flex-col gap-5 px-6 pb-6 sm:flex-row sm:items-start sm:justify-between">
             <div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
-              <div class="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-white bg-slate-950 text-2xl font-bold text-white dark:border-slate-900">
-                {{ avatarText }}
-              </div>
+              <UserAvatar
+                class="h-24 w-24 shrink-0 rounded-full border-4 border-white text-2xl font-bold dark:border-slate-900"
+                :src="user.profileVisible === false ? '' : user.avatar"
+                :name="user.profileVisible === false ? '受限主页' : user.nickname"
+                alt=""
+                :fallback="avatarText"
+              />
               <div class="min-w-0 pt-1">
                 <h1 class="text-2xl font-bold text-slate-950 dark:text-slate-50">
                   {{ user.profileVisible === false ? '受限主页' : user.nickname }}
@@ -339,6 +343,7 @@ import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import ContactRequestDialog from '@/components/contact/ContactRequestDialog.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import type { FavoriteFolder, Post, User, UserIntent } from '@/api/types'
 import { buildContributionSummary, buildTypeDistribution, type ContributionSummary } from '@/utils/communityMetrics'
 import {

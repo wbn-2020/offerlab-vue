@@ -11,6 +11,7 @@ const read = (path) => readFileSync(join(repoRoot, path), 'utf8')
 const scanRoots = [
   'src/views',
   'src/components',
+  'src/data',
   'src/router',
   'src/api',
   'src/composables',
@@ -38,6 +39,7 @@ const ignoredDirs = new Set(['node_modules', 'dist', 'target', '.git'])
 const suspiciousDecodedBytes = /[\uFFFD\u00C3\u00C2\u00A4\u00A5\u00A7\u00D0\u00D1]/
 const latin1MojibakeSequence = /(?:\u00C2[\u0080-\u00BF]|\u00C3[\u0080-\u00BF]|[\u00E0-\u00EF][\u0080-\u00BF]{2}|[\u00F0-\u00F4][\u0080-\u00BF]{3})/
 const questionPlaceholder = /(['"`>][^\n<]{0,80}\?{3,}[^\n<]{0,80}['"`<])/
+const KNOWN_FRONTEND_DEMO_SEED_MOJIBAKE = /\u93C1\u677F\u74E7\u9422\u71B8\u693F\u6434\u65C0\u20AC\u30E5\u5BD8\u5A13\u546D\u5D1F/
 const mojibakeFragments = [
   '\u6D93',
   '\u9359',
@@ -82,6 +84,7 @@ const isSuspiciousLine = (line) => {
   if (latin1MojibakeSequence.test(line)) return true
   if (suspiciousDecodedBytes.test(line)) return true
   if (questionPlaceholder.test(line)) return true
+  if (KNOWN_FRONTEND_DEMO_SEED_MOJIBAKE.test(line)) return true
   return mojibakeFragments.some((fragment) => line.includes(fragment))
 }
 
@@ -99,6 +102,14 @@ const detectorSelfChecks = [
   {
     label: 'replacement question placeholders',
     line: "const text = '??? ??? ???'",
+    expected: true,
+  },
+  {
+    label: 'known frontend demo seed mojibake',
+    line: `const title = '${String.fromCharCode(
+      0x93C1, 0x677F, 0x74E7, 0x9422, 0x71B8, 0x693F, 0x6434,
+      0x65C0, 0x20AC, 0x30E5, 0x5BD8, 0x5A13, 0x546D, 0x5D1F,
+    )}'`,
     expected: true,
   },
   {

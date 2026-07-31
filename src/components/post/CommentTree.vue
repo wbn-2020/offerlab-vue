@@ -42,10 +42,12 @@
         </div>
         <div class="flex gap-3">
           <template v-if="!isCollapsed(comment)">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-xs font-bold text-white">
-            <img v-if="comment.author.avatar" :src="comment.author.avatar" :alt="comment.author.nickname" class="h-full w-full object-cover" />
-            <span v-else>{{ initial(comment.author.nickname) }}</span>
-          </div>
+          <UserAvatar
+            class="h-9 w-9 shrink-0 rounded-full text-xs font-bold"
+            :src="comment.author.avatar"
+            :name="comment.author.nickname"
+            alt=""
+          />
 
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
@@ -197,10 +199,12 @@
                 </div>
                 <div class="flex items-start gap-3">
                   <template v-if="!isCollapsed(reply)">
-                  <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700 text-xs font-bold text-white dark:bg-slate-600">
-                    <img v-if="reply.author.avatar" :src="reply.author.avatar" :alt="reply.author.nickname" class="h-full w-full object-cover" />
-                    <span v-else>{{ initial(reply.author.nickname) }}</span>
-                  </div>
+                  <UserAvatar
+                    class="h-7 w-7 shrink-0 rounded-full text-xs font-bold"
+                    :src="reply.author.avatar"
+                    :name="reply.author.nickname"
+                    alt=""
+                  />
                   <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
                       <RouterLink :to="`/u/${reply.author.uid}`" class="text-xs font-semibold text-slate-900 hover:text-primary-600 dark:text-slate-100">
@@ -346,6 +350,7 @@
 import { computed, defineComponent, h, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { BadgeCheck, Eye, EyeOff, Flag, MessageCircle, Pin, Star, ThumbsUp, Trash2 } from 'lucide-vue-next'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import type { Comment } from '@/api/types'
 import { formatTime } from '@/lib/format'
 
@@ -425,7 +430,6 @@ const pendingCommentLikes = ref(new Set<string>())
 const pendingQualityActions = ref(new Set<string>())
 const expandedFoldedComments = ref(new Set<string>())
 
-const initial = (name?: string) => name?.charAt(0) || '?'
 const qualityComment = (comment: Comment) => comment as QualityComment
 const branchReplyCount = (comment: Comment) => Math.max(Number(comment.replyCount ?? 0), comment.replies?.length ?? 0)
 const canMatchAuthorUid = (comment: Comment) => {

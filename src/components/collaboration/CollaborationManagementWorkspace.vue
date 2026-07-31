@@ -132,6 +132,7 @@
         <div class="panel-heading"><div><h2><Layers3 class="h-5 w-5" />创建协作合集</h2><p>有效共建角色可在授权领域发起；所有成员与审核动作保留记录。</p></div></div>
         <form class="form-stack" @submit.prevent="createSeries">
           <label><span>领域</span><select v-model.number="seriesCreate.domain" class="field-control">
+            <option :value="0" disabled>请选择频道</option>
             <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">{{ domain.domainName }}</option>
           </select></label>
           <label><span>标题</span><input v-model.trim="seriesCreate.title" class="field-control" maxlength="120" required></label>
@@ -182,7 +183,7 @@
         <div class="panel-heading"><div><h2><CalendarPlus class="h-5 w-5" />创建共创活动</h2><p>角色只解锁低风险组织能力，投稿仍需逐条审核。</p></div></div>
         <form class="form-stack" @submit.prevent="createActivity">
           <div class="field-grid">
-            <label><span>领域</span><select v-model.number="activityCreate.domain" class="field-control"><option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">{{ domain.domainName }}</option></select></label>
+            <label><span>领域</span><select v-model.number="activityCreate.domain" class="field-control"><option :value="0" disabled>请选择频道</option><option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">{{ domain.domainName }}</option></select></label>
             <label><span>类型</span><select v-model="activityCreate.activityType" class="field-control">
               <option value="OPEN_CALL">公开征集</option><option value="SPRINT">共创冲刺</option><option value="CHALLENGE">主题挑战</option><option value="RESEARCH">共同研究</option><option value="CURATION">策展活动</option>
             </select></label>
@@ -279,6 +280,7 @@ import {
 import { toast } from 'vue-sonner'
 import { getErrorMessage, type Result } from '@/api/client'
 import { localDomainConfigs } from '@/api/domains'
+import { isKnownDomain } from '@/utils/domains'
 import {
   collaborationApi,
   type CollaborationActivity,
@@ -354,7 +356,7 @@ const needCloseForm = reactive({ needId: '', note: '' })
 const rejectReasons = reactive<Record<string, string>>({})
 
 const seriesCreate = reactive({
-  domain: localDomainConfigs[0]?.domain ?? 1,
+  domain: 0,
   title: '',
   description: '',
   submissionInstructions: '',
@@ -365,7 +367,7 @@ const selectedSeries = computed(() => manageableSeries.value.find((item) => Stri
 const seriesMemberForm = reactive({ uid: '', role: 'CONTRIBUTOR' as Exclude<SeriesMemberRole, 'OWNER'> })
 
 const activityCreate = reactive({
-  domain: localDomainConfigs[0]?.domain ?? 1,
+  domain: 0,
   activityType: 'OPEN_CALL' as CollaborationActivityType,
   title: '',
   description: '',
@@ -458,8 +460,8 @@ const submissionPath = (need: CollaborationNeed): RouteLocationRaw | null => {
 const canFulfillNeed = computed(() => !busy.value && isPositiveId(needForm.needId) && isPositiveId(needForm.resolutionId))
 const canMergeNeed = computed(() => !busy.value && isPositiveId(needMergeForm.needId) && isPositiveId(needMergeForm.targetNeedId))
 const canCloseNeed = computed(() => !busy.value && isPositiveId(needCloseForm.needId) && needCloseForm.note.length >= 2)
-const canCreateSeries = computed(() => !busy.value && seriesCreate.title.length >= 2 && seriesCreate.description.length >= 10 && (seriesCreate.domain !== 5 || seriesCreate.riskAcknowledged))
-const canCreateActivity = computed(() => !busy.value && activityCreate.title.length >= 2 && activityCreate.description.length >= 10 && (!activityCreate.endsAt || !activityCreate.startsAt || new Date(activityCreate.endsAt) > new Date(activityCreate.startsAt)) && (activityCreate.domain !== 5 || activityCreate.riskAcknowledged))
+const canCreateSeries = computed(() => !busy.value && isKnownDomain(seriesCreate.domain) && seriesCreate.title.length >= 2 && seriesCreate.description.length >= 10 && (seriesCreate.domain !== 5 || seriesCreate.riskAcknowledged))
+const canCreateActivity = computed(() => !busy.value && isKnownDomain(activityCreate.domain) && activityCreate.title.length >= 2 && activityCreate.description.length >= 10 && (!activityCreate.endsAt || !activityCreate.startsAt || new Date(activityCreate.endsAt) > new Date(activityCreate.startsAt)) && (activityCreate.domain !== 5 || activityCreate.riskAcknowledged))
 const discussionOptions = computed(() => discussionCreate.optionsText.split(/\r?\n/).map((item) => item.trim()).filter(Boolean))
 const canCreateDiscussion = computed(() => !busy.value && isPositiveId(discussionCreate.sourcePostId) && discussionCreate.title.length >= 2 && discussionCreate.prompt.length >= 10 && discussionOptions.value.length >= 2 && discussionOptions.value.length <= 10)
 
@@ -571,6 +573,9 @@ const closeNeed = () => {
 }
 
 const createSeries = () => runAction('create-series', async () => {
+  if (!isKnownDomain(seriesCreate.domain)) {
+    throw new Error('请选择频道')
+  }
   await collaborationApi.series.create({
     domain: seriesCreate.domain,
     title: seriesCreate.title,
@@ -623,6 +628,9 @@ const closeSeries = () => runAction('close-series', async () => {
 }, '合集已关闭')
 
 const createActivity = () => runAction('create-activity', async () => {
+  if (!isKnownDomain(activityCreate.domain)) {
+    throw new Error('请选择频道')
+  }
   await collaborationApi.activities.create({
     domain: activityCreate.domain,
     activityType: activityCreate.activityType,

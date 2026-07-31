@@ -14,20 +14,24 @@
             <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <div class="flex items-center justify-between gap-4">
                 <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex min-w-0 items-center gap-3">
-                  <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 font-bold text-white">
-                    <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
-                    <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
-                  </div>
+                  <UserAvatar
+                    class="h-12 w-12 shrink-0 rounded-full font-bold"
+                    :src="post.author.avatar"
+                    :name="post.author.nickname"
+                    alt=""
+                  />
                   <div class="min-w-0">
                     <h3 class="truncate font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(post.createdAt) }}</p>
                   </div>
                 </RouterLink>
                 <div v-else class="flex min-w-0 items-center gap-3">
-                  <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-600 font-bold text-white">
-                    <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
-                    <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
-                  </div>
+                  <UserAvatar
+                    class="h-12 w-12 shrink-0 rounded-full font-bold"
+                    :src="post.author.avatar"
+                    :name="post.author.nickname"
+                    alt=""
+                  />
                   <div class="min-w-0">
                     <h3 class="truncate font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">{{ formatTime(post.createdAt) }}</p>
@@ -1079,18 +1083,22 @@
             <section v-if="post" class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">作者名片</h3>
               <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex flex-col items-center text-center">
-                <div class="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-2xl font-bold text-white">
-                  <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
-                  <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
-                </div>
+                <UserAvatar
+                  class="mb-3 h-16 w-16 rounded-full text-2xl font-bold"
+                  :src="post.author.avatar"
+                  :name="post.author.nickname"
+                  alt=""
+                />
                 <h4 class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h4>
                 <p class="mt-1 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">{{ authorBioText }}</p>
               </RouterLink>
               <div v-else class="flex flex-col items-center text-center">
-                <div class="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-600 text-2xl font-bold text-white">
-                  <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
-                  <span v-else>{{ post.author.nickname.charAt(0) || '?' }}</span>
-                </div>
+                <UserAvatar
+                  class="mb-3 h-16 w-16 rounded-full text-2xl font-bold"
+                  :src="post.author.avatar"
+                  :name="post.author.nickname"
+                  alt=""
+                />
                 <h4 class="font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</h4>
                 <p class="mt-1 line-clamp-3 text-xs text-slate-500 dark:text-slate-400">{{ post.anonymous ? '这篇内容以匿名方式发布，不展示作者主页入口。' : authorBioText }}</p>
               </div>
@@ -1315,6 +1323,7 @@ import InteractionBar from '@/components/post/InteractionBar.vue'
 import PostSaveOrganizer from '@/components/post/PostSaveOrganizer.vue'
 import CommentTree from '@/components/post/CommentTree.vue'
 import PostQuestionBlock from '@/components/question/PostQuestionBlock.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ContactRequestDialog from '@/components/contact/ContactRequestDialog.vue'

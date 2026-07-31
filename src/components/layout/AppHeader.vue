@@ -111,12 +111,14 @@
             aria-label="用户菜单"
             @click.stop="showUserMenu = !showUserMenu"
           >
-            <img
-              v-if="authStore.isLoggedIn && authStore.user?.avatar"
-              :src="authStore.user.avatar"
-              :alt="authStore.user.nickname"
-            >
-            <span v-else-if="authStore.isLoggedIn">{{ authStore.user?.nickname?.[0] || '我' }}</span>
+            <UserAvatar
+              v-if="authStore.isLoggedIn"
+              class="community-header__avatar-image"
+              :src="authStore.user?.avatar"
+              :name="authStore.user?.nickname"
+              alt=""
+              fallback="我"
+            />
             <User v-else class="h-[18px] w-[18px]" />
           </button>
           <div
@@ -234,6 +236,7 @@ import { toast } from 'vue-sonner'
 import { authApi } from '@/api/auth'
 import { getErrorMessage } from '@/api/client'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import { useAuthStore } from '@/stores/auth'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
@@ -582,6 +585,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .community-header__avatar {
+  position: relative;
   width: 44px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
@@ -590,10 +594,14 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   cursor: pointer;
 }
 
-.community-header__avatar img {
+.community-header__avatar-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  border-radius: inherit;
+  --user-avatar-fallback-background: transparent;
+  --user-avatar-fallback-color: currentColor;
 }
 
 .community-header__dropdown {
