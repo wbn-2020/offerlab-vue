@@ -26,6 +26,7 @@ export const useDiscoveryMap = () => {
     return Boolean(map && [
       map.featuredTopics,
       map.channels,
+      map.contentForms,
       map.activeTopics,
       map.searchEntrypoints,
     ].some((items) => items.length > 0))

@@ -46,19 +46,42 @@ const adaptRealtimeStatus = (raw: any): NotificationRealtimeStatus => ({
   websocketEnabled: raw?.websocketEnabled === true,
 })
 
+export interface NotificationReadAllResult {
+  updatedCount: number
+  capped: boolean
+  remainingUnread: number
+}
+
+export interface NotificationRequestOptions {
+  signal?: AbortSignal
+  skipAuthRedirect?: boolean
+}
+
+const adaptReadAllResult = (raw: any): NotificationReadAllResult => ({
+  updatedCount: Number(raw?.updatedCount || 0),
+  capped: raw?.capped === true,
+  remainingUnread: Number(raw?.remainingUnread || 0),
+})
+
 export const notificationApi = {
   getList: async (type?: string, cursor?: string, size = 20): Promise<Result<PaginatedResponse<Notification>>> => {
     const res = await client.get('/api/v1/notifications', { params: { type, cursor, size } }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptNotification) : null }
   },
 
-  getUnreadCount: async (): Promise<Result<NotificationUnreadCount>> => {
-    const res = await client.get('/api/v1/notifications/unread-count') as Result<any>
+  getUnreadCount: async (options?: NotificationRequestOptions): Promise<Result<NotificationUnreadCount>> => {
+    const res = await client.get('/api/v1/notifications/unread-count', {
+      signal: options?.signal,
+      skipAuthRedirect: options?.skipAuthRedirect,
+    }) as Result<any>
     return { ...res, data: res.data ? adaptUnreadCount(res.data) : null }
   },
 
-  getRealtimeStatus: async (): Promise<Result<NotificationRealtimeStatus>> => {
-    const res = await client.get('/api/v1/notifications/realtime-status', { skipAuthRedirect: true }) as Result<any>
+  getRealtimeStatus: async (options?: Pick<NotificationRequestOptions, 'signal'>): Promise<Result<NotificationRealtimeStatus>> => {
+    const res = await client.get('/api/v1/notifications/realtime-status', {
+      signal: options?.signal,
+      skipAuthRedirect: true,
+    }) as Result<any>
     return { ...res, data: res.data ? adaptRealtimeStatus(res.data) : null }
   },
 
@@ -71,6 +94,8 @@ export const notificationApi = {
   markAsRead: (ids: Array<string | number>): Promise<Result<void>> =>
     client.post('/api/v1/notifications/read', { ids }),
 
-  markAllAsRead: (): Promise<Result<void>> =>
-    client.post('/api/v1/notifications/read-all'),
+  markAllAsRead: async (): Promise<Result<NotificationReadAllResult>> => {
+    const res = await client.post('/api/v1/notifications/read-all') as Result<any>
+    return { ...res, data: res.data ? adaptReadAllResult(res.data) : null }
+  },
 }

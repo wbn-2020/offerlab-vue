@@ -173,6 +173,20 @@
               <option value="review">待复习</option>
             </select>
             <RouterLink
+              v-if="enableLegacyTrainingTools"
+              :to="mockInterviewLink"
+              class="primary-action inline-flex items-center justify-center"
+            >
+              加入知识复盘
+            </RouterLink>
+            <RouterLink
+              v-if="enableLegacyTrainingTools"
+              :to="prepReturnLink"
+              class="secondary-action inline-flex items-center justify-center"
+            >
+              回学习空间
+            </RouterLink>
+            <RouterLink
               to="/questions"
               class="secondary-action inline-flex items-center justify-center"
             >
@@ -246,7 +260,7 @@ import { buildQuestionAnswerCardMarkdown } from '@/utils/prepPackExport'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const enableLegacyTrainingTools = false
+const enableLegacyTrainingTools = import.meta.env.VITE_OFFERLAB_ENABLE_LEGACY_TRAINING === 'true'
 const questionId = computed(() => route.params.id as string)
 const selectedProgress = ref('')
 const noteText = ref('')
@@ -260,7 +274,7 @@ const isNoteDirty = ref(false)
 const draftLoadedFor = ref('')
 
 const { data, isLoading, isError, error, refetch } = useQuery({
-  queryKey: computed(() => ['question', questionId.value]),
+  queryKey: computed(() => ['question', questionId.value, authStore.sessionQueryScope]),
   queryFn: () => questionApi.detail(questionId.value),
   enabled: computed(() => Boolean(questionId.value)),
   retry: false,
@@ -278,10 +292,39 @@ const isQuestionLoading = computed(() => isLoading.value && !isError.value)
 const sourcePostCount = computed(() => question.value ? Math.max(1, question.value.sourcePostCount || question.value.appearCount || 1) : 1)
 const isCanonicalRoot = computed(() => !question.value?.canonicalId || String(question.value.canonicalId) === String(question.value.id))
 const hasReviewSchedule = computed(() => Boolean(question.value?.nextReviewAt || question.value?.lastReviewedAt || (question.value?.reviewCount ?? 0) > 0))
+const primaryFocusTag = computed(() => (
+  question.value?.tags?.[0]?.name
+  || question.value?.examPoint
+  || question.value?.position
+  || question.value?.company
+  || ''
+))
+const mockInterviewLink = computed(() => ({
+  path: '/mock-interview',
+  query: {
+    company: question.value?.company,
+    position: question.value?.position,
+    focusTag: primaryFocusTag.value,
+    questionCount: 5,
+  },
+}))
+const prepReturnLink = computed(() => ({
+  path: '/me/prep',
+  query: question.value?.progressStatus ? { progressStatus: question.value.progressStatus } : undefined,
+}))
+const QUESTION_DRAFT_TTL = 30 * 24 * 60 * 60 * 1000
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const noteDraftKey = computed(() => `offerlab:${storageOwner.value}:question-note-draft:${questionId.value}`)
 const draftScope = computed(() => `${storageOwner.value}:${questionId.value}`)
 const unsavedLeaveMessage = '你有未保存的题目笔记，离开后可从本地草稿恢复。确定要离开吗？'
+let draftStorageWarningShown = false
+
+const noteDraftStorageOptions = (owner = storageOwner.value) => ({
+  owner,
+  namespace: 'question-note-draft',
+  ttlMs: QUESTION_DRAFT_TTL,
+  maxEntryBytes: 250_000,
+})
 
 const markNoteDirty = () => {
   if (!detail.value || !question.value || isSavingNote.value) return
@@ -290,12 +333,19 @@ const markNoteDirty = () => {
     || answerDraft.value !== (question.value.answerDraft || '')
     || starStory.value !== (question.value.starStory || '')
   if (isNoteDirty.value) {
-    safeStorage.set(noteDraftKey.value, JSON.stringify({
+    if (storageOwner.value === 'guest') return
+    const result = safeStorage.set(noteDraftKey.value, JSON.stringify({
       note: noteText.value,
       mistakeReason: mistakeReason.value,
       answerDraft: answerDraft.value,
       starStory: starStory.value,
-    }))
+    }), { ...noteDraftStorageOptions(), sensitive: true })
+    if (!result.ok && !draftStorageWarningShown) {
+      draftStorageWarningShown = true
+      toast.warning('本地笔记草稿空间不足或不可用，请尽快保存到服务端。')
+    } else if (result.ok) {
+      draftStorageWarningShown = false
+    }
   } else {
     safeStorage.remove(noteDraftKey.value)
   }
@@ -304,7 +354,7 @@ const markNoteDirty = () => {
 const loadNoteDraft = () => {
   if (!detail.value || !question.value || draftLoadedFor.value === draftScope.value) return
   draftLoadedFor.value = draftScope.value
-  const raw = safeStorage.get(noteDraftKey.value)
+  const raw = safeStorage.getDraft(noteDraftKey.value, noteDraftStorageOptions())
   if (!raw) return
   try {
     const draft = JSON.parse(raw)
@@ -337,6 +387,15 @@ watch(detail, (value) => {
   if (isSavingNote.value) return
   syncNoteEditor()
 }, { immediate: true })
+
+watch(storageOwner, (nextOwner, prevOwner) => {
+  if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
+    safeStorage.clearSensitive(prevOwner)
+  }
+  draftLoadedFor.value = ''
+  draftStorageWarningShown = false
+  syncNoteEditor()
+})
 
 const ensureLogin = () => {
   if (authStore.isLoggedIn) return true

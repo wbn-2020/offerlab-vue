@@ -7,7 +7,7 @@
   >
     <div class="mb-4 flex items-start justify-between gap-3">
       <div class="flex flex-wrap items-center gap-2">
-        <span class="preview-pill preview-pill-domain">
+        <span v-if="preview.domain.known" class="preview-pill preview-pill-domain">
           {{ preview.domain.icon }} {{ preview.domain.label }}
         </span>
         <span class="preview-pill preview-pill-type">

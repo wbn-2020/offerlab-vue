@@ -461,7 +461,7 @@
               </RouterLink>
             </PrepPanel>
 
-            <PrepPanel v-show="activePrepPane === 'questions'" title="为你推荐" :empty="recommendedQuestionPreview.length === 0" empty-title="暂无推荐知识卡" empty-description="发布更多技术内容或完成知识卡整理后会生成推荐。">
+            <PrepPanel v-show="activePrepPane === 'questions'" title="为你推荐" :empty="recommendedQuestionPreview.length === 0" empty-title="暂无推荐知识卡" empty-description="发布更多公开内容或完成知识卡整理后会生成推荐。">
               <QuestionCard v-for="question in recommendedQuestionPreview" :key="question.id" :question="question" />
             </PrepPanel>
           </section>

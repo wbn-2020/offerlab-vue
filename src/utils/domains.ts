@@ -30,6 +30,16 @@ export interface CommunityChannel {
   riskNote?: string
 }
 
+export interface CommunityContentForm {
+  key: string
+  name: string
+  icon: string
+  description: string
+  postTypes: PostTypeValue[]
+  tags?: string[]
+  topics?: string[]
+}
+
 export const HIGH_RISK_DOMAIN_NOTES = {
   investment: '投资理财内容仅供经验交流，不构成投资建议，请自行判断风险。',
   medical: '医疗健康内容仅供经验交流，不构成医疗建议；如涉及诊断、用药或治疗，请咨询合格专业人员。',
@@ -61,6 +71,7 @@ const domainByValue = new Map<DomainValue, DomainOption>()
 DOMAIN_OPTIONS.forEach((d) => domainByValue.set(d.value, d))
 
 export const DEFAULT_DOMAIN = DOMAIN.TECH
+export const UNKNOWN_DOMAIN_LABEL = '未标注频道'
 
 export const COMMUNITY_CHANNELS: CommunityChannel[] = [
   {
@@ -99,24 +110,6 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     tags: ['租房', '城市生活', '消费经验', '旅行', '健康', '日常'],
     topics: ['城市租房避坑', '生活消费复盘', '日常健康记录'],
   },
-  {
-    key: 'resources',
-    name: '资源推荐',
-    icon: '🧰',
-    description: '网站、工具、书单、课程、模板和资料合集。',
-    postTypes: [POST_TYPE.RESOURCE],
-    tags: ['工具推荐', '网站推荐', '书单', '课程', '模板', '资料'],
-    topics: ['资源合集', '工具箱推荐', '书单与课程'],
-  },
-  {
-    key: 'qa-discussion',
-    name: '问答讨论',
-    icon: '💬',
-    description: '求建议、求推荐、提问、观点讨论和经验征集。',
-    postTypes: [POST_TYPE.QUESTION, POST_TYPE.NOTE],
-    tags: ['求建议', '求推荐', '观点讨论', '经验征集'],
-    topics: ['社区问答精选', '观点讨论', '经验征集'],
-  },
 ]
 
 export const SECONDARY_COMMUNITY_CHANNELS: CommunityChannel[] = [
@@ -131,6 +124,57 @@ export const SECONDARY_COMMUNITY_CHANNELS: CommunityChannel[] = [
     riskNote: getDomainRiskNote('investment'),
   },
 ]
+
+export const COMMUNITY_CONTENT_FORMS: CommunityContentForm[] = [
+  {
+    key: 'resource',
+    name: '资源推荐',
+    icon: '🧰',
+    description: '工具、网站、书单、课程、模板和资料合集。',
+    postTypes: [POST_TYPE.RESOURCE],
+    tags: ['工具推荐', '网站推荐', '书单', '课程', '模板', '资料'],
+    topics: ['资源合集', '工具箱推荐', '书单与课程'],
+  },
+  {
+    key: 'question',
+    name: '问题求助',
+    icon: '💬',
+    description: '提出具体问题，补充背景、已尝试方法和期待获得的建议。',
+    postTypes: [POST_TYPE.QUESTION],
+    tags: ['求建议', '求推荐', '问题求助'],
+    topics: ['社区问答精选', '问题闭环', '经验征集'],
+  },
+  {
+    key: 'discussion',
+    name: '观点讨论',
+    icon: '🗣️',
+    description: '表达观点、分享观察，并邀请社区成员一起讨论。',
+    postTypes: [POST_TYPE.SYSTEM_DESIGN],
+    tags: ['观点讨论', '公共议题', '经验交流'],
+    topics: ['观点讨论', '经验征集'],
+  },
+  {
+    key: 'retrospective',
+    name: '复盘记录',
+    icon: '🔁',
+    description: '记录一次经历、项目、活动或决策的背景、过程、结果和下一步。',
+    postTypes: [POST_TYPE.PROJECT_REVIEW],
+    tags: ['复盘', '过程记录', '经验总结'],
+    topics: ['经历复盘', '项目复盘'],
+  },
+  {
+    key: 'checklist',
+    name: '攻略清单',
+    icon: '✅',
+    description: '整理步骤、方法、清单、避坑指南和可照着执行的经验。',
+    postTypes: [POST_TYPE.TECH_ARTICLE],
+    tags: ['攻略', '清单', '避坑指南'],
+    topics: ['实用清单', '避坑经验'],
+  },
+]
+
+// Historical labels remain searchable and routable, but are content-form aliases rather than channels.
+export const LEGACY_CONTENT_FORM_LABELS = ['资源推荐', '问答讨论'] as const
 
 export const ALL_COMMUNITY_CHANNELS: CommunityChannel[] = [
   ...COMMUNITY_CHANNELS,
@@ -154,9 +198,32 @@ export const normalizeDomain = (domain?: number | string | null): DomainValue =>
     : DEFAULT_DOMAIN
 }
 
+/**
+ * Use this at command boundaries. Display code may intentionally fall back to
+ * the default domain, but writes must never silently change an unknown domain.
+ */
+export const requireKnownDomain = (domain?: number | string | null): DomainValue => {
+  if (!isKnownDomain(domain)) {
+    throw new Error('请选择频道')
+  }
+  return Number(domain) as DomainValue
+}
+
 export const getDomainOption = (domain?: number | null): DomainOption => {
   return domainByValue.get(Number(domain) as DomainValue) ?? domainByValue.get(DEFAULT_DOMAIN)!
 }
 
 export const getDomainLabel = (domain?: number | null): string => getDomainOption(domain).label
 export const getDomainIcon = (domain?: number | null): string => getDomainOption(domain).icon
+
+export const getDomainOptionSafe = (domain?: number | string | null): DomainOption | undefined => {
+  return isKnownDomain(domain) ? domainByValue.get(Number(domain) as DomainValue) : undefined
+}
+
+export const getDomainLabelSafe = (domain?: number | string | null): string => {
+  return getDomainOptionSafe(domain)?.label ?? UNKNOWN_DOMAIN_LABEL
+}
+
+export const getDomainIconSafe = (domain?: number | string | null): string => {
+  return getDomainOptionSafe(domain)?.icon ?? ''
+}

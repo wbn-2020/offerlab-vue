@@ -10,6 +10,7 @@ const search = read('../src/views/SearchView.vue')
 const explore = read('../src/views/ExploreView.vue')
 const adminGovernance = read('../src/views/AdminGovernanceView.vue')
 const contentAssist = read('../src/api/contentAssist.ts')
+const trustedContent = read('../src/api/trustedContent.ts')
 const packageJson = read('../package.json')
 
 const scriptRegion = (source, marker, length = 3200) => {
@@ -43,13 +44,26 @@ assert.match(postDetail, /isQuestionPost/, 'post detail must detect QUESTION pos
 assert.match(postDetail, /discussionSectionTitle/, 'post detail must use a question-aware discussion title')
 assert.match(postDetail, /写下你的建议、经验或可尝试的方案/, 'QUESTION detail composer must invite advice and experience')
 assert.match(postDetail, /相关问题求助|相似讨论/, 'QUESTION detail must expose related community discussion language')
-assert.doesNotMatch(postDetail, /最佳回答|已采纳|邀请回答|回答排序/, 'stage 3 must not add full answer-model UI')
+assert.match(postDetail, /questionStatus/, 'QUESTION detail must expose persisted question lifecycle state')
+assert.match(postDetail, /已采纳回答/, 'QUESTION detail must identify the accepted answer')
+assert.match(postDetail, /采用回答/, 'QUESTION authors must be able to accept a root response')
+assert.match(postDetail, /未形成可靠结论/, 'QUESTION authors must be able to close without pretending a reliable answer exists')
+assert.match(postDetail, /重复问题/, 'QUESTION detail must support linking a duplicate public question')
+for (const status of ['OPEN', 'ANSWERED', 'ACCEPTED', 'NO_RELIABLE_CONCLUSION', 'CLOSED', 'DUPLICATE']) {
+  assert.match(trustedContent, new RegExp(`'${status}'`), `trusted content API must type question status ${status}`)
+}
+assert.match(trustedContent, /setQuestionState/, 'trusted content API must persist question state changes')
+assert.match(trustedContent, /acceptAnswer/, 'trusted content API must persist answer adoption')
+assert.match(trustedContent, /clearAcceptedAnswer/, 'trusted content API must clear answer adoption')
 
 assert.match(commentTree, /emptyText/, 'comment tree must allow question-specific empty state copy')
 assert.match(commentTree, /replyPlaceholder/, 'comment tree must allow question-specific reply placeholder copy')
 assert.match(commentTree, /replySubmitLabel/, 'comment tree must allow question-specific reply submit copy')
 assert.match(postDetail, /还没有建议，来分享一个可尝试的思路吧/, 'question comment empty state must invite first advice')
-assert.doesNotMatch(commentTree, /最佳回答|采纳回答/, 'comment tree must remain lightweight comments/replies')
+assert.match(commentTree, /acceptedCommentId/, 'comment tree must receive the persisted accepted answer')
+assert.match(commentTree, /accept-answer/, 'comment tree must emit answer-adoption commands without mutating locally')
+assert.match(commentTree, /:id="`comment-\$\{comment\.commentId\}`"/, 'root answers must expose stable notification anchors.')
+assert.match(commentTree, /:id="`comment-\$\{reply\.commentId\}`"/, 'answer follow-ups must expose stable notification anchors.')
 
 assert.doesNotMatch(search, /<RouterLink[^>]+path:\s*'\/questions'[\s\S]{0,180}>问答讨论<\/RouterLink>/, 'community Q&A entry must not route to /questions')
 assert.match(search, /社区问题求助/, 'search must expose community QUESTION entry language')

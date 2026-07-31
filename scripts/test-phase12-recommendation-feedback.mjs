@@ -31,9 +31,10 @@ has(feedApi, /less_like_this/, 'Feed feedback API must expose less_like_this as 
 has(feedApi, /hide_author/, 'Feed feedback API must expose hide_author as an explicit lightweight action.')
 has(feedApi, /more_like_this/, 'Feed feedback API must expose more_like_this as an explicit lightweight action.')
 has(feedApi, /feedbackPayload/, 'Feed feedback API must map UI feedback actions through a backend-safe payload.')
-has(feedApi, /action:\s*'not_interested'/, 'Unsupported UI negative feedback must reuse the current backend-supported not_interested action.')
-has(feedApi, /action === 'more_like_this'[\s\S]*return null/, 'more_like_this must remain a lightweight local record and must not hide the item via backend feedback.')
-has(feedApi, /Promise\.resolve\(\{ code: 0, message: 'recorded locally', data: null \}\)/, 'Local-only feedback must resolve without pretending a backend recommendation change occurred.')
+has(feedApi, /action:\s*action as BackendFeedFeedbackAction/, 'Feed feedback must preserve the backend-supported action contract.')
+has(feedApi, /reason:\s*action === 'not_interested' \? normalizedReason : `\$\{action\}:\$\{normalizedReason\}`/, 'Non-default feedback must preserve its action in the backend reason trace.')
+has(feedApi, /client\.post\('\/api\/v1\/feeds\/feedback'/, 'All supported feedback actions must be recorded by the backend.')
+missing(feedApi, /recorded locally/, 'Feed feedback must not pretend a backend-supported action is local-only.')
 
 has(postCard, /feedbackActions/, 'PostCard must define explicit recommendation feedback actions.')
 for (const label of ['不感兴趣', '少看此类', '少看作者', '更多类似']) {

@@ -386,7 +386,7 @@
         <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">搜索运营统计</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">近 30 天热门搜索、无结果词和社区推荐点击。</p>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">近 30 天热门搜索、无结果词和搜索页推荐动作点击。</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <label class="test-data-toggle" title="默认隐藏 E2E、SMOKE、CODEX 等测试数据">
@@ -433,12 +433,12 @@
 
           <div class="analytics-column">
             <div class="analytics-column-head">
-              <span>社区推荐点击</span>
-              <strong>{{ communityRecommendClicks.length }}</strong>
+              <span>搜索页推荐动作点击</span>
+              <strong>{{ searchRecommendationActionClicks.length }}</strong>
             </div>
-            <div v-if="!communityRecommendClicks.length" class="analytics-empty">暂无点击记录</div>
+            <div v-if="!searchRecommendationActionClicks.length" class="analytics-empty">暂无搜索页推荐动作点击记录</div>
             <div v-else class="analytics-list">
-              <div v-for="item in communityRecommendClicks" :key="`recommend-${item.target || item.company || item.keyword}`" class="analytics-row">
+              <div v-for="item in searchRecommendationActionClicks" :key="`recommend-${item.target || item.company || item.keyword}`" class="analytics-row">
                 <span class="analytics-title">{{ textOrUnavailable(item.target || item.company || item.keyword, '暂无推荐项') }}</span>
                 <span class="status-pill status-ok">{{ item.count }}</span>
               </div>
@@ -1615,10 +1615,7 @@ const cleanSearchAnalytics = (value?: SearchAnalytics | null): SearchAnalytics =
   prepClicks: (value?.prepClicks || []).filter(isVisibleAnalyticsItem),
   recommendClicks: (value?.recommendClicks || []).filter(isVisibleAnalyticsItem),
 })
-const communityRecommendClicks = computed(() => {
-  const recommendClicks = searchAnalytics.value?.recommendClicks || []
-  return recommendClicks.length ? recommendClicks : (searchAnalytics.value?.prepClicks || [])
-})
+const searchRecommendationActionClicks = computed(() => searchAnalytics.value?.recommendClicks || [])
 const outboxStatusFilter = ref<number | undefined>(undefined)
 const reportStatusFilter = ref<number | undefined>(0)
 const commentReportStatusFilter = ref<number | undefined>(0)
@@ -1721,6 +1718,8 @@ const isReviewSubmitting = ref(false)
 const { riskConfirmState, confirmRisk, resolveRiskConfirm, cancelRiskConfirm } = useRiskConfirm()
 let pollTimer: number | undefined
 let questionIndexPollTimer: number | undefined
+let pollGeneration = 0
+let questionIndexPollGeneration = 0
 
 const outboxFilters = [
   { label: '全部', value: undefined },
@@ -2827,49 +2826,71 @@ const setCommentReportStatus = async (statusValue?: number) => {
 }
 
 const stopPolling = () => {
+  pollGeneration += 1
   if (pollTimer) {
-    window.clearInterval(pollTimer)
+    window.clearTimeout(pollTimer)
     pollTimer = undefined
   }
 }
 
 const stopQuestionIndexPolling = () => {
+  questionIndexPollGeneration += 1
   if (questionIndexPollTimer) {
-    window.clearInterval(questionIndexPollTimer)
+    window.clearTimeout(questionIndexPollTimer)
     questionIndexPollTimer = undefined
   }
 }
 
 const pollTask = (taskId: string) => {
   stopPolling()
-  pollTimer = window.setInterval(async () => {
-    try {
-      const res = await searchApi.getRebuildTask(taskId)
-      task.value = res.data
-      if (!res.data || res.data.status === 'SUCCEEDED' || res.data.status === 'FAILED') {
-        stopPolling()
-        await refreshAll()
+  const generation = pollGeneration
+  const scheduleNext = () => {
+    if (generation !== pollGeneration) return
+    pollTimer = window.setTimeout(async () => {
+      pollTimer = undefined
+      try {
+        const res = await searchApi.getRebuildTask(taskId)
+        if (generation !== pollGeneration) return
+        task.value = res.data
+        if (!res.data || res.data.status === 'SUCCEEDED' || res.data.status === 'FAILED') {
+          stopPolling()
+          await refreshAll()
+          return
+        }
+      } catch {
+        if (generation === pollGeneration) stopPolling()
+        return
       }
-    } catch {
-      stopPolling()
-    }
-  }, 1500)
+      scheduleNext()
+    }, 1500)
+  }
+  scheduleNext()
 }
 
 const pollQuestionIndexTask = (taskId: string) => {
   stopQuestionIndexPolling()
-  questionIndexPollTimer = window.setInterval(async () => {
-    try {
-      const res = await opsApi.getQuestionIndexTask(taskId)
-      questionIndexTask.value = res.data
-      if (!res.data || res.data.status === 'SUCCEEDED' || res.data.status === 'FAILED') {
-        stopQuestionIndexPolling()
-        await loadQuestionIndexTasks()
+  const generation = questionIndexPollGeneration
+  const scheduleNext = () => {
+    if (generation !== questionIndexPollGeneration) return
+    questionIndexPollTimer = window.setTimeout(async () => {
+      questionIndexPollTimer = undefined
+      try {
+        const res = await opsApi.getQuestionIndexTask(taskId)
+        if (generation !== questionIndexPollGeneration) return
+        questionIndexTask.value = res.data
+        if (!res.data || res.data.status === 'SUCCEEDED' || res.data.status === 'FAILED') {
+          stopQuestionIndexPolling()
+          await loadQuestionIndexTasks()
+          return
+        }
+      } catch {
+        if (generation === questionIndexPollGeneration) stopQuestionIndexPolling()
+        return
       }
-    } catch {
-      stopQuestionIndexPolling()
-    }
-  }, 1500)
+      scheduleNext()
+    }, 1500)
+  }
+  scheduleNext()
 }
 
 const submitRebuild = async () => {
@@ -3540,7 +3561,8 @@ const formatCostMicros = (value?: number | null) => {
 
 const formatTime = (value?: string) => value ? value.replace('T', ' ').slice(0, 19) : '未加载'
 
-const formatPayload = (payload: string) => {
+const formatPayload = (payload?: string) => {
+  if (!payload) return '原始事件载荷已按权限隐藏'
   try {
     return JSON.stringify(JSON.parse(payload), null, 2)
   } catch {

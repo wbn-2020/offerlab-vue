@@ -1,0 +1,69 @@
+name: Frontend CI
+
+on:
+  push:
+    branches:
+      - dev-v2
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: offerlab-vue
+
+    steps:
+      - name: Check out frontend source
+        uses: actions/checkout@v4
+        with:
+          path: offerlab-vue
+
+      - name: Check out backend contract source
+        uses: actions/checkout@v4
+        with:
+          repository: wbn-2020/offerlab-java
+          ref: ${{ vars.OFFERLAB_BACKEND_REF || (github.head_ref == 'main' || github.head_ref == 'dev-v2') && github.head_ref || (github.ref_name == 'main' || github.ref_name == 'dev-v2') && github.ref_name || github.base_ref || 'dev-v2' }}
+          path: offerlab-java
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: offerlab-vue/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Lint application and scripts
+        run: npm run lint
+
+      - name: Type-check Vue and TypeScript
+        run: npm run typecheck
+
+      - name: Run source guards
+        run: npm run test:guards
+
+      - name: Build production bundle
+        run: npx vite build
+
+      - name: Audit dependencies
+        run: npm run audit
+
+      - name: Upload production bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: offerlab-frontend-dist
+          path: offerlab-vue/dist
+          if-no-files-found: error

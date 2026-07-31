@@ -1,4 +1,5 @@
 export type ApiId = string | number
+export type ApiLong = string | number
 
 export interface User {
   uid: ApiId
@@ -15,6 +16,11 @@ export interface User {
   profileVisible?: boolean
   intentVisible?: boolean
   privacyReason?: string
+  acceptContactRequest?: boolean
+  contactRequestPolicy?: 'all' | 'following' | 'mutual' | 'off' | string
+  canStartContactRequest?: boolean
+  contactRequestReasonCode?: string
+  contactRequestReasonMessage?: string
 }
 
 export type UserBrief = User
@@ -30,6 +36,18 @@ export interface UserIntent {
   interestTopics?: string[]
   interestTags?: string[]
   contentPreferences?: string[]
+}
+
+export interface PostTrustSignals {
+  profileAvailable: boolean
+  completenessScore: number
+  lastConfirmedAt?: number
+  freshnessStatus?: string
+  hasAcceptedAnswer: boolean
+  acceptedSuggestionCount: number
+  publicCorrectionCount: number
+  sourceComplete: boolean
+  resolved: boolean
 }
 
 export interface Post {
@@ -61,12 +79,62 @@ export interface Post {
   riskLevel?: string | number
   moderationStatus?: string | number
   recommendationReasons?: string[]
+  rankingReasons?: string[]
+  trustSignals?: PostTrustSignals
   myInteraction?: {
     liked: boolean
     favorited: boolean
   }
   createdAt: number
   updatedAt: number
+}
+
+export type FavoriteFolderVisibility = 'public' | 'private'
+
+export interface FavoriteFolder {
+  id: ApiId
+  name: string
+  description?: string
+  visibility: FavoriteFolderVisibility
+  userId?: ApiId
+  ownerId?: ApiId
+  sortOrder?: number
+  isDefault?: boolean
+  defaultFolder?: boolean
+  privateFolder?: boolean
+  postCount: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface FavoriteFolderCreateReq {
+  name: string
+  description?: string
+  visibility?: FavoriteFolderVisibility | 1 | 2
+  isPublic?: boolean
+  privateFolder?: boolean
+}
+
+export interface FavoriteFolderUpdateReq {
+  name?: string
+  description?: string
+  visibility?: FavoriteFolderVisibility | 1 | 2
+  isPublic?: boolean
+  privateFolder?: boolean
+}
+
+export interface FavoriteFolderSortReq {
+  sortOrder: number
+}
+
+export interface FavoriteMoveReq {
+  postId: ApiId
+  folderId?: ApiId | null
+}
+
+export interface FavoriteBatchMoveReq {
+  postIds: ApiId[]
+  folderId?: ApiId | null
 }
 
 export interface PostPublishStatus {
@@ -77,6 +145,10 @@ export interface PostPublishStatus {
   }
   search?: {
     visible?: boolean
+    source?: string
+    degraded?: boolean
+    fallbackReason?: string
+    diagnostics?: Record<string, unknown>
   }
 }
 
@@ -86,6 +158,7 @@ export interface PostVersionHistory {
   authorId?: ApiId
   editorUid?: ApiId
   baseVersion?: number
+  resultVersion?: number
   title: string
   content: string
   contentSummary?: string
@@ -95,6 +168,15 @@ export interface PostVersionHistory {
   extension?: Record<string, any>
   tags: Tag[]
   changeSummary?: string
+  publicUpdateSummary?: string
+  impactScope?: string
+  createdAt: number
+}
+
+export interface PublicPostUpdate {
+  resultVersion: number
+  publicUpdateSummary: string
+  impactScope?: string
   createdAt: number
 }
 
@@ -153,10 +235,24 @@ export interface Comment {
   replyToUser?: User
   likeCount: number
   myLiked?: boolean
+  authorReply?: boolean
+  authorPinned?: boolean
+  featured?: boolean
+  helpfulCount?: number
+  myHelpful?: boolean
+  hotScore?: number
+  folded?: boolean
+  foldReason?: string
+  qualityBadges?: string[]
   canDelete?: boolean
+  replyCount?: number
+  hasMoreReplies?: boolean
+  repliesNextCursor?: string
   createdAt: number
   replies?: Comment[]
 }
+
+export type CommentSort = 'latest' | 'quality'
 
 export interface PostReportReq {
   reason?: string
@@ -179,6 +275,9 @@ export interface PostReport {
   reason: string
   detail?: string
   reportStatus?: number
+  userStatus?: UserReportStatus
+  reporterNotified?: boolean
+  reporterReceiptText?: string
   reviewerUid?: ApiId
   reviewNote?: string
   createTime?: string
@@ -195,16 +294,111 @@ export interface CommentReport {
   reason: string
   detail?: string
   reportStatus?: number
+  userStatus?: UserReportStatus
+  reporterNotified?: boolean
+  reporterReceiptText?: string
   reviewerUid?: ApiId
   reviewNote?: string
   createTime?: string
   reviewTime?: string
 }
 
+export type UserReportStatus = 'PROCESSING' | 'ACTION_TAKEN' | 'NOT_ACCEPTED' | 'CLOSED'
+
+export type UserReportSourceType = 'POST_REPORT' | 'COMMENT_REPORT' | 'CONTACT_REQUEST_REPORT'
+
+export interface UserReportReceipt {
+  reportId: ApiId
+  sourceType: UserReportSourceType
+  targetId: ApiId
+  postId?: ApiId
+  targetTitle?: string
+  targetSummary?: string
+  reason: string
+  detail?: string
+  userStatus: UserReportStatus
+  resultText: string
+  targetPath?: string
+  createTime?: string
+  reviewTime?: string
+  createdAt: number
+  reviewedAt?: number
+  targetAvailable: boolean
+}
+
+export type ContactRequestStatus =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'IGNORED'
+  | 'REPORTED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+
+export type ContactRequestScene = 'ask' | 'supplement' | 'feedback' | 'collaboration'
+
+export type ContactRequestSourceType = 'profile' | 'post' | 'comment'
+
+export interface ContactRequest {
+  requestId: ApiId
+  requesterUid: ApiId
+  requesterName?: string
+  requester?: UserBrief
+  receiverUid: ApiId
+  receiverName?: string
+  receiver?: UserBrief
+  sourceType: ContactRequestSourceType | string
+  sourceId?: ApiId
+  scene: ContactRequestScene | string
+  messagePreview: string
+  requestStatus: ContactRequestStatus | string
+  createTime?: string
+  updateTime?: string
+  receiverActionTime?: string
+  expireTime?: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ContactRequestStats {
+  inboxTotal: number
+  inboxPending: number
+  inboxAccepted: number
+  inboxRejected: number
+  inboxIgnored: number
+  inboxReported: number
+  inboxCancelled: number
+  inboxExpired: number
+  outboxTotal: number
+  outboxPending: number
+  outboxAccepted: number
+  outboxRejected: number
+  outboxIgnored: number
+  outboxReported: number
+  outboxCancelled: number
+  outboxExpired: number
+}
+
+export interface ContactRequestSettings {
+  acceptContactRequest: boolean
+  contactRequestPolicy: 'all' | 'following' | 'mutual' | 'off' | string
+  dailyLimit: number
+  contactRequestDailyLimit?: number
+}
+
+export interface ContactRequestCreateReq {
+  receiverUid: ApiId
+  sourceType: ContactRequestSourceType | string
+  sourceId?: ApiId | null
+  scene: ContactRequestScene | string
+  message: string
+}
+
 export interface Notification {
   notificationId: ApiId
   notificationIds?: ApiId[]
   type: string
+  action?: string
   title: string
   content: string
   curationFeedback?: CreatorCurationFeedback
@@ -244,6 +438,14 @@ export interface NotificationRealtimeStatus {
   serverTime: number
   pollIntervalSeconds: number
   websocketEnabled: boolean
+}
+
+export interface DiscussionFollowStatus {
+  postId: ApiId
+  followed: boolean
+  lastReadCommentId?: ApiId
+  lastNotifiedCommentId?: ApiId
+  source?: string
 }
 
 export interface PaginatedResponse<T> {
@@ -340,7 +542,11 @@ export interface OperationTopicSectionContract {
 
 export interface OperationTopicPublishCheckContract {
   topicId: ApiId
+  draftRevision: number
   canPublish: boolean
+  source: string
+  degraded: boolean
+  checkedAt?: string
   items: Array<{
     code: string
     label: string
@@ -355,6 +561,7 @@ export type EditorAssistContextSource =
   | 'series_entry'
   | 'topic_candidate'
   | 'content_type_template'
+  | 'collaboration_need'
   | 'manual_publish'
 
 export type EditorAssistAction =
@@ -364,6 +571,7 @@ export type EditorAssistAction =
   | 'series'
   | 'topic'
   | 'template'
+  | 'fulfill'
 
 export type EditorAssistContextType =
   | 'post'
@@ -372,6 +580,7 @@ export type EditorAssistContextType =
   | 'series'
   | 'topic'
   | 'template'
+  | 'need'
 
 export interface EditorAssistContext {
   source: EditorAssistContextSource
@@ -381,6 +590,7 @@ export interface EditorAssistContext {
   commentId?: string
   ideaId?: string
   seriesId?: string
+  needId?: string
   topicId?: string
   templateCode?: string
   returnHref?: string
@@ -531,6 +741,60 @@ export interface GrowthReportHighlightPost {
   domainName?: string
   interactionCount: number
   featured: boolean
+}
+
+export interface EffectiveReadSession {
+  sessionToken: string
+  postId?: ApiId
+  minimumActiveSeconds: number
+  minimumScrollPercent?: number
+  heartbeatIntervalSeconds: number
+  heartbeatTimeoutSeconds: number
+  nextHeartbeatSeq: number
+  activeSeconds: number
+  maxScrollPercent: number
+  qualified: boolean
+  completed: boolean
+  expiresAt?: number
+}
+
+export type EffectiveReadActivityState = 'ACTIVE' | 'PAUSED'
+
+export interface EffectiveReadHeartbeatReq {
+  sessionToken: string
+  heartbeatSeq: number
+  activityState: EffectiveReadActivityState
+  scrollPercent: number
+}
+
+export interface EffectiveReadHeartbeatResult {
+  accepted: boolean
+  countingActive: boolean
+  nextHeartbeatSeq: number
+  activeSeconds: number
+  maxScrollPercent: number
+  qualified: boolean
+  completed: boolean
+  expiresAt?: number
+}
+
+export interface EffectiveReadCompleteReq {
+  sessionToken: string
+}
+
+export interface EffectiveReadAbandonReq {
+  sessionToken: string
+}
+
+export interface EffectiveReadAbandonResult {
+  abandoned: boolean
+}
+
+export interface EffectiveReadCompleteResult {
+  recorded?: boolean
+  completed?: boolean
+  activeSeconds?: number
+  maxScrollPercent?: number
 }
 
 export interface CreatorFeedbackWindow {
@@ -691,6 +955,7 @@ export interface CreatorTopicEditorQuery {
   postType?: string
   topic?: string
   seriesId?: string
+  needId?: string
   postId?: string
   commentId?: string
   ideaId?: string
@@ -751,6 +1016,37 @@ export interface CreatorWorkspaceAction {
   disabled?: boolean
 }
 
+export interface CreatorTrustedContentMetrics {
+  degraded?: boolean
+  fallbackReason?: string
+  pendingSuggestions: number
+  freshnessAwaitingConfirmation: number
+  profileConfirmationDue: number
+  unresolvedQuestions: number
+  usefulFeedback7Days: number
+  usefulFeedback30Days: number
+  effectiveReads7Days: number
+  effectiveReads30Days: number
+  pendingSuggestionItems?: CreatorTrustedContentTaskItem[]
+  freshnessItems?: CreatorTrustedContentTaskItem[]
+  profileConfirmationItems?: CreatorTrustedContentTaskItem[]
+  pendingQuestionItems?: CreatorTrustedContentTaskItem[]
+}
+
+export interface CreatorTrustedContentTaskItem {
+  id: ApiId
+  postId: ApiId
+  postTitle: string
+  status?: string
+  statusLabel?: string
+  type?: string
+  href?: string
+  suggestionId?: ApiId
+  createdAt?: number
+  updatedAt?: number
+  submittedAt?: number
+}
+
 export interface CreatorGrowthWorkspace {
   source: CreatorWorkspaceSource
   updatedAt: number
@@ -768,6 +1064,7 @@ export interface CreatorGrowthWorkspace {
   representativePosts: CreatorRepresentativePost[]
   topicIdeas: CreatorTopicIdea[]
   searchGaps: CreatorSearchGap[]
+  trustedContent?: CreatorTrustedContentMetrics
   incentiveCopy: CreatorIncentiveCopy
 }
 
@@ -803,6 +1100,10 @@ export interface ExpertCertificationApplication {
   riskAcknowledged: boolean
   riskWarning?: string
   autoCertified: boolean
+  reviewerUid?: ApiId
+  reviewNote?: string
+  revokedBy?: ApiId
+  revokeNote?: string
   createTime: number
   updateTime: number
   reviewTime?: number
@@ -814,6 +1115,11 @@ export interface ExpertCertificationApplyPayload {
   evidenceSummary: string
   evidenceLinks: string[]
   riskAcknowledged?: boolean
+}
+
+export interface ExpertCertificationReviewPayload {
+  approved: boolean
+  note?: string
 }
 
 export interface KnowledgeRelationGraph {

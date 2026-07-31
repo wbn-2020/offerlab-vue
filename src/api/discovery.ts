@@ -1,4 +1,6 @@
 import client, { BizException, type Result } from './client'
+import type { ApiId, PaginatedResponse, Post } from './types'
+import { adaptPage, adaptPost } from './adapters'
 
 export type DiscoverySource =
   | 'remote'
@@ -33,6 +35,7 @@ export interface DiscoveryItem {
   slug?: string
   sourceId?: string | number
   domain?: number
+  postType?: number
   icon?: string
   tags?: string[]
   reason?: string
@@ -47,6 +50,7 @@ export interface DiscoveryMap {
   modules: Record<string, DiscoveryModuleState>
   featuredTopics: DiscoveryItem[]
   channels: DiscoveryItem[]
+  contentForms: DiscoveryItem[]
   activeTopics: DiscoveryItem[]
   searchEntrypoints: DiscoveryItem[]
 }
@@ -71,6 +75,7 @@ interface RemoteDiscoveryItem {
   slug?: string
   sourceId?: string | number
   domain?: number
+  postType?: number
   icon?: string
   tags?: unknown[]
   reason?: string
@@ -85,6 +90,7 @@ interface RemoteDiscoveryMap {
   modules?: Record<string, RemoteDiscoveryModuleState>
   featuredTopics?: RemoteDiscoveryItem[]
   channels?: RemoteDiscoveryItem[]
+  contentForms?: RemoteDiscoveryItem[]
   activeTopics?: RemoteDiscoveryItem[]
   searchEntrypoints?: RemoteDiscoveryItem[]
 }
@@ -97,11 +103,12 @@ const displayableSources: ReadonlySet<DiscoverySource> = new Set([
   'public-content-query',
 ])
 
-const moduleKeys = ['featuredTopics', 'channels', 'activeTopics', 'searchEntrypoints'] as const
+const moduleKeys = ['featuredTopics', 'channels', 'contentForms', 'activeTopics', 'searchEntrypoints'] as const
 
 const moduleTitles: Record<typeof moduleKeys[number], string> = {
   featuredTopics: '精选专题',
   channels: '频道入口',
+  contentForms: '内容形式',
   activeTopics: '活跃话题',
   searchEntrypoints: '搜索延展',
 }
@@ -109,6 +116,7 @@ const moduleTitles: Record<typeof moduleKeys[number], string> = {
 const emptyItemArrays = () => ({
   featuredTopics: [] as DiscoveryItem[],
   channels: [] as DiscoveryItem[],
+  contentForms: [] as DiscoveryItem[],
   activeTopics: [] as DiscoveryItem[],
   searchEntrypoints: [] as DiscoveryItem[],
 })
@@ -155,6 +163,7 @@ const adaptItem = (item: RemoteDiscoveryItem | undefined): DiscoveryItem | null 
     slug: deriveTopicSlug(item),
     sourceId: item.sourceId,
     domain: item.domain,
+    postType: item.postType,
     icon: item.icon,
     tags: Array.isArray(item.tags) ? item.tags.map(String).filter(isSafeText).slice(0, 4) : [],
     reason: safeReasonText,
@@ -210,9 +219,10 @@ const adaptMap = (raw: RemoteDiscoveryMap | null | undefined): DiscoveryMap => {
   if (!raw) return emptyDiscoveryMap('discovery_map_empty')
   const featuredTopics = adaptItems(raw.featuredTopics, 5)
   const channels = adaptItems(raw.channels, 8)
+  const contentForms = adaptItems(raw.contentForms, 8)
   const activeTopics = adaptItems(raw.activeTopics, 8)
   const searchEntrypoints = adaptItems(raw.searchEntrypoints, 6)
-  const arrays = { featuredTopics, channels, activeTopics, searchEntrypoints }
+  const arrays = { featuredTopics, channels, contentForms, activeTopics, searchEntrypoints }
   const modules = Object.fromEntries(moduleKeys.map((key) => [
     key,
     adaptModule(key, raw.modules?.[key], arrays[key]),
@@ -226,6 +236,7 @@ const adaptMap = (raw: RemoteDiscoveryMap | null | undefined): DiscoveryMap => {
     modules,
     featuredTopics,
     channels,
+    contentForms,
     activeTopics,
     searchEntrypoints,
   }
@@ -251,4 +262,20 @@ export const discoveryApi = {
       }
     }
   },
+
+  listPublicChannelPosts: async (params: {
+    type: number
+    domain?: number
+    cursor?: string
+    size?: number
+  }): Promise<Result<PaginatedResponse<Post>>> => {
+    const res = await client.get('/api/v1/posts', { params }) as Result<any>
+    return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
+  },
+
+  followPublicAuthor: (uid: ApiId): Promise<Result<void>> =>
+    client.post(`/api/v1/users/${uid}/follow`),
+
+  unfollowPublicAuthor: (uid: ApiId): Promise<Result<void>> =>
+    client.delete(`/api/v1/users/${uid}/follow`),
 }

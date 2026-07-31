@@ -22,7 +22,10 @@
         :to="item.href || '/explore'"
         class="operation-slot-item"
       >
-        <span>{{ item.contentType === 'OPERATION_TOPIC' || item.sourceType === 'OPERATION_TOPIC' || item.sourceType === 'TOPIC' ? '专题入口' : '内容入口' }}</span>
+        <span>
+          {{ item.contentType === 'OPERATION_TOPIC' || item.sourceType === 'OPERATION_TOPIC' || item.sourceType === 'TOPIC' ? '专题入口' : '内容入口' }}
+          <em v-if="item.topicScope === 'CROSS_DOMAIN'" class="operation-slot-scope">跨频道</em>
+        </span>
         <strong>{{ item.title }}</strong>
         <small>{{ item.summary || item.reasonText || item.reason || '来自公开可见内容的运营整理' }}</small>
       </RouterLink>
@@ -66,7 +69,7 @@ const visibleItems = computed(() => (slot.value?.items || [])
   .filter((item) => isOpsOrchestrationCopyAllowed(`${item.title} ${item.summary || ''} ${item.reasonText || item.reason || ''}`))
   .slice(0, 4))
 const isUnavailable = computed(() => Boolean(slot.value?.degraded || loadError.value))
-const labelText = computed(() => isUnavailable.value ? '运营位暂不可用' : (slot.value?.displayLabel || '运营整理'))
+const labelText = computed(() => isUnavailable.value ? '暂不可用' : (slot.value?.displayLabel || '运营整理'))
 const explanationText = computed(() => {
   if (loadError.value) return '运营位接口暂不可用，前台不会伪装成自然推荐；当前保留稳定空状态。'
   if (isUnavailable.value) return slot.value?.explanation || '后端运营位未接通时展示稳定空状态，不代表正式发布配置。'
@@ -179,6 +182,18 @@ watch(() => props.slotCode, loadSlot)
   color: rgb(8 145 178);
 }
 
+/* 跨频道专题的中性标注：不用任何单频道配色，避免入口卡冒充频道归属。 */
+.operation-slot-item .operation-slot-scope {
+  margin-left: 0.35rem;
+  border: 1px dashed rgb(148 163 184);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 800;
+  color: rgb(71 85 105);
+}
+
 .operation-slot-item strong {
   display: -webkit-box;
   overflow: hidden;
@@ -259,6 +274,11 @@ watch(() => props.slotCode, loadSlot)
 
 .dark .operation-slot-item span {
   color: rgb(103 232 249);
+}
+
+.dark .operation-slot-item .operation-slot-scope {
+  border-color: rgb(71 85 105);
+  color: rgb(148 163 184);
 }
 
 .dark .operation-slot-item strong {

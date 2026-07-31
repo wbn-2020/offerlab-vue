@@ -1,22 +1,24 @@
 <template>
   <article
-    class="group rounded-xl border border-slate-200/80 bg-white/92 p-5 shadow-[var(--shadow-soft)] backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[var(--shadow-card)] dark:border-slate-800/80 dark:bg-slate-900/85 dark:hover:border-primary-800"
+    class="post-card group"
   >
-    <div class="mb-4 flex items-center justify-between gap-4">
+    <div class="post-card__author-row">
       <div class="flex min-w-0 items-center gap-3">
-        <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary-600 to-sky-500 text-sm font-black text-white shadow-sm shadow-primary-600/20">
-          <img v-if="post.author.avatar" :src="post.author.avatar" :alt="post.author.nickname" class="h-full w-full object-cover" />
-          <span v-else>{{ authorInitial }}</span>
-        </div>
+        <UserAvatar
+          class="post-author-avatar"
+          :src="post.author.avatar"
+          :name="post.author.nickname"
+          alt=""
+        />
         <div class="min-w-0">
           <div class="flex min-w-0 items-center gap-2">
             <span class="truncate font-semibold text-slate-900 dark:text-slate-100">{{ post.author.nickname || '未知用户' }}</span>
-            <span v-if="post.author.isBigV" class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">大V</span>
+            <span v-if="post.author.isBigV" class="post-author-badge">大V</span>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <span>{{ formatTime(post.createdAt) }}</span>
             <span class="content-type-pill">{{ contentTypeLabel }}</span>
-            <span v-if="post.domain" class="domain-badge inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
+            <span v-if="isKnownDomain(post.domain)" class="domain-badge inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
               {{ getDomainIcon(post.domain) }} {{ getDomainLabel(post.domain) }}
             </span>
           </div>
@@ -27,36 +29,40 @@
         <button
           v-if="canFollowAuthor"
           type="button"
-          class="rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-bold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-primary-800 dark:bg-primary-950 dark:text-primary-300 dark:hover:bg-primary-900/50"
+          class="post-follow-button"
           :disabled="isFollowing"
           @click.prevent="handleFollow"
         >
           {{ post.author.isFollowing ? '已关注' : '关注' }}
         </button>
 
-        <div v-if="props.showRecommendFeedback" class="relative" data-feedback-menu>
+        <div v-if="props.showFeedControls || props.showRecommendFeedback" class="relative" data-feedback-menu>
           <button
             type="button"
-            class="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+            class="post-feedback-trigger"
             aria-label="推荐反馈"
             title="推荐反馈"
+            :aria-busy="feedFeedbackPending"
+            :disabled="feedFeedbackPending"
             @click.prevent="showFeedbackMenu = !showFeedbackMenu"
           >
-            <MoreHorizontal class="h-4 w-4" />
+            <Loader2 v-if="feedFeedbackPending" class="h-4 w-4 animate-spin" />
+            <MoreHorizontal v-else class="h-4 w-4" />
           </button>
           <div
             v-if="showFeedbackMenu"
-            class="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-slate-200 bg-white py-2 shadow-lg dark:border-slate-800 dark:bg-slate-900"
+            class="post-feedback-menu"
             @click.prevent
           >
             <button
-              v-for="item in feedbackActions"
+              v-for="item in visibleFeedbackActions"
               :key="item.action"
               type="button"
               class="feedback-menu-item"
               @click.stop.prevent="handleNotInterested(item)"
             >
-              <EyeOff class="h-4 w-4" />
+              <RotateCcw v-if="item.action === 'RESTORE'" class="h-4 w-4" />
+              <EyeOff v-else class="h-4 w-4" />
               <span>
                 <strong>{{ item.label }}</strong>
                 <small>{{ item.description }}</small>
@@ -87,11 +93,19 @@
         v-html="displaySummary"
       />
 
-      <div v-if="showReasonPanel && displayRecommendationReasons.length" class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900 dark:bg-indigo-950/40">
-          <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-            <Lightbulb class="h-3.5 w-3.5" />
+      <div v-if="feedExplanationVisible" class="post-feed-explanation">
+        <div class="post-feed-explanation__heading">
+          <Lightbulb class="h-3.5 w-3.5" />
+          <span>{{ feedSourceLabel || '推荐说明' }}</span>
+        </div>
+        <p>{{ feedReasonText }}</p>
+      </div>
+
+      <div v-if="showReasonPanel && displayRecommendationReasons.length" class="post-reason-panel">
+        <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+          <Lightbulb class="h-3.5 w-3.5" />
           {{ reasonPanelTitle }}
-          </div>
+        </div>
         <div class="flex flex-wrap gap-1.5">
           <span
             v-for="reason in displayRecommendationReasons"
@@ -103,8 +117,37 @@
         </div>
       </div>
 
-      <div v-if="recommendationFeedbackSubmittedLabel" class="feedback-submitted-note mb-4">
+      <div
+        v-if="trustSignalChips.length || (isSearchContext && rankingReasonLabels.length)"
+        class="post-trust-panel"
+      >
+        <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+          <ShieldCheck class="h-3.5 w-3.5" />
+          {{ isSearchContext && rankingReasonLabels.length ? '可信排序说明' : '公开可信信号' }}
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <span
+            v-for="signal in trustSignalChips"
+            :key="signal"
+            class="rounded-full bg-white px-2 py-1 text-xs text-emerald-700 dark:bg-slate-900 dark:text-emerald-200"
+          >
+            {{ signal }}
+          </span>
+          <span
+            v-for="reason in rankingReasonLabels"
+            :key="reason"
+            class="rounded-full bg-white px-2 py-1 text-xs text-emerald-700 dark:bg-slate-900 dark:text-emerald-200"
+          >
+            {{ reason }}
+          </span>
+        </div>
+      </div>
+
+      <div v-if="recommendationFeedbackSubmittedLabel && !feedFeedbackPending && !feedFeedbackError" class="feedback-submitted-note mb-4">
         {{ recommendationFeedbackSubmittedLabel }}
+      </div>
+      <div v-if="feedFeedbackError" class="feedback-error-note mb-4" role="alert">
+        {{ feedFeedbackError }}
       </div>
 
       <div v-if="hotReasonLabel || riskWarning" class="mb-4 space-y-2">
@@ -123,7 +166,7 @@
         class="domain-card-media mb-3"
         :class="`domain-card-media--${domainCardSurface.tone}`"
       >
-        <img :src="displayCardImageUrl" :alt="domainCardSurface.imageAlt || post.title" @error="handleCardImageError" />
+        <img :src="displayCardImageUrl" :alt="domainCardSurface.imageAlt || post.title" referrerpolicy="no-referrer" @error="handleCardImageError">
       </div>
 
       <div v-if="domainCardSurface.chips.length" class="mb-3 flex flex-wrap gap-2">
@@ -154,14 +197,14 @@
         </span>
       </div>
 
-      <div v-if="visibleTags.length" class="mb-4 flex flex-wrap gap-2">
+      <div v-if="visibleTags.length" class="post-tag-list">
         <span v-for="tag in visibleTags" :key="tag.id" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
           {{ tag.name }}
         </span>
       </div>
     </RouterLink>
 
-    <div class="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
+    <div class="post-card__footer">
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
         <span class="card-action" title="浏览量">
           <Eye class="h-4 w-4" />
@@ -203,7 +246,9 @@
           :post-id="post.postId"
           :favorited="Boolean(post.myInteraction?.favorited)"
           :open-after-save="Boolean(post.myInteraction?.favorited)"
-          @organize="handleOrganizeSavedPost"
+          trigger-label="移动分组"
+          :disabled="favoritePending"
+          @moved="handleSavedPostMoved"
         />
         <button
           v-if="!isOwnPost"
@@ -222,9 +267,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { Eye, EyeOff, Flag, Heart, Lightbulb, MessageCircle, MoreHorizontal, ShieldAlert, Star, TrendingUp } from 'lucide-vue-next'
+import { Eye, EyeOff, Flag, Heart, Lightbulb, Loader2, MessageCircle, MoreHorizontal, RotateCcw, ShieldAlert, ShieldCheck, Star, TrendingUp } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
@@ -232,20 +277,25 @@ import { userApi } from '@/api/user'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
-import { getContentTypeShortLabel, isLegacyInterviewType } from '@/utils/contentTypes'
+import { getContentTypeShortLabel } from '@/utils/contentTypes'
 import { buildDomainCardSurface } from '@/utils/domainPostSurfaces'
-import { getDomainIcon, getDomainLabel } from '@/utils/domains'
+import { getDomainIcon, getDomainLabel, isKnownDomain } from '@/utils/domains'
 import { findHighRiskContentWarning, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 import { getPostUnavailableState, normalizeRiskNoticeForUsers } from '@/utils/governanceDisplay'
-import type { FeedFeedbackAction } from '@/api/feed'
+import type { FeedControlAction, FeedFeedbackAction, FeedPost, LegacyFeedFeedbackAction } from '@/api/feed'
 import PostSaveOrganizer from '@/components/post/PostSaveOrganizer.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 
 const props = defineProps<{
-  post: Post
+  post: Post | FeedPost
   showRecommendFeedback?: boolean
+  showFeedControls?: boolean
   showReasonPanel?: boolean
   likePending?: boolean
   favoritePending?: boolean
+  feedFeedbackAction?: FeedControlAction | null
+  feedFeedbackPending?: boolean
+  feedFeedbackError?: string
   detailQuery?: Record<string, string | number | boolean | undefined>
 }>()
 
@@ -253,6 +303,7 @@ const emit = defineEmits<{
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
   notInterested: [postId: Post['postId'], action: FeedFeedbackAction, reason: string]
+  feedFeedback: [postId: Post['postId'], action: FeedControlAction]
   'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
 
@@ -263,39 +314,65 @@ const isFollowing = ref(false)
 const failedImageUrl = ref('')
 const showFeedbackMenu = ref(false)
 const recommendationFeedbackSubmittedLabel = ref('')
+// 反馈请求失败时清掉“已记录”乐观提示，避免与错误信息并存或错误消失后再冒出来。
+watch(() => props.feedFeedbackError, (message) => {
+  if (message) recommendationFeedbackSubmittedLabel.value = ''
+})
 const feedbackActions: Array<{
   action: FeedFeedbackAction
   label: string
   reason: string
   description: string
+  legacy?: boolean
 }> = [
   {
-    action: 'not_interested',
+    action: 'HIDE',
+    label: '暂时隐藏',
+    reason: 'user_hide',
+    description: '只对当前账号隐藏这条内容，可立即撤销。',
+  },
+  {
+    action: 'LESS_LIKE_THIS',
+    label: '减少同类',
+    reason: 'user_less_like_this',
+    description: '降低相似内容的出现频率，之后可以恢复默认。',
+  },
+  {
+    action: 'RESTORE',
+    label: '恢复默认',
+    reason: 'user_restore',
+    description: '撤销当前账号对这条内容的 Feed 控制。',
+  },
+  {
+    action: 'not_interested' satisfies LegacyFeedFeedbackAction,
     label: '不感兴趣',
     reason: 'not_relevant',
     description: '记录这次反馈，并隐藏当前内容。',
+    legacy: true,
   },
   {
-    action: 'less_like_this',
+    action: 'less_like_this' satisfies LegacyFeedFeedbackAction,
     label: '少看此类',
     reason: 'less_like_this',
     description: '记录偏好线索，暂不表示已改变后续推荐。',
+    legacy: true,
   },
   {
-    action: 'hide_author',
+    action: 'hide_author' satisfies LegacyFeedFeedbackAction,
     label: '少看作者',
     reason: 'less_from_author',
     description: '记录作者相关反馈，不等同于举报或拉黑。',
+    legacy: true,
   },
   {
-    action: 'more_like_this',
+    action: 'more_like_this' satisfies LegacyFeedFeedbackAction,
     label: '更多类似',
     reason: 'more_like_this',
     description: '记录这次反馈，不会立即改变当前列表。',
+    legacy: true,
   },
 ]
 
-const authorInitial = computed(() => props.post.author.nickname?.charAt(0) || '?')
 const authorUid = computed(() => String(props.post.author.uid ?? ''))
 const isOwnPost = computed(() => String(authStore.user?.uid ?? '') === String(props.post.author.uid))
 const isAnonymousMaskedAuthor = computed(() => Boolean(props.post.anonymous)
@@ -318,6 +395,20 @@ const normalizedDetailQuery = computed(() => Object.fromEntries(
 const isSearchContext = computed(() => normalizedDetailQuery.value.from === 'search')
 const reasonPanelTitle = computed(() => isSearchContext.value ? '命中说明' : '为什么推荐')
 const showReasonPanel = computed(() => props.showReasonPanel || props.showRecommendFeedback)
+const feedPost = computed(() => props.post as FeedPost)
+const feedSourceLabel = computed(() => feedPost.value.sourceLabel || '')
+const feedReasonText = computed(() => feedPost.value.reasonText || '')
+const feedExplanationVisible = computed(() => Boolean(
+  feedSourceLabel.value || feedReasonText.value,
+))
+const visibleFeedbackActions = computed(() => {
+  const currentAction = props.feedFeedbackAction
+  return feedbackActions.filter((item) => {
+    if (item.legacy) return false
+    if (currentAction && currentAction !== 'RESTORE') return item.action === 'RESTORE'
+    return item.action === 'HIDE' || item.action === 'LESS_LIKE_THIS'
+  })
+})
 const detailTo = computed(() => ({
   path: `/post/${props.post.postId}`,
   query: normalizedDetailQuery.value,
@@ -351,6 +442,34 @@ const legacyInterviewResultText = computed(() => {
   return getResultText(result)
 })
 const visibleTags = computed(() => props.post.tags.slice(0, 4))
+const trustSignalChips = computed(() => {
+  const signals = props.post.trustSignals
+  if (!signals) return []
+  const chips: string[] = []
+  if (signals.profileAvailable) {
+    chips.push(signals.completenessScore > 0 ? `经验背景完整度 ${signals.completenessScore}%` : '已补充经验背景')
+  }
+  if (signals.freshnessStatus === 'CURRENT') chips.push('作者确认当前有效')
+  if (signals.freshnessStatus === 'UPDATED') chips.push('内容已更新')
+  if (signals.sourceComplete) chips.push('已说明来源或披露')
+  if (signals.resolved || signals.hasAcceptedAnswer) chips.push('讨论已有结果')
+  if (signals.publicCorrectionCount > 0) chips.push('有公开纠错记录')
+  return chips.slice(0, 4)
+})
+const rankingReasonLabels = computed(() => {
+  const labels: Record<string, string> = {
+    trust_profile_available: '已补充经验背景',
+    experience_context_complete: '说明了适用条件',
+    author_recently_confirmed: '作者近期确认',
+    source_or_disclosure_provided: '已说明来源或披露',
+    accepted_public_answer: '已有公开采纳回答',
+    public_correction_history: '有公开纠错记录',
+  }
+  return (props.post.rankingReasons || [])
+    .map((reason) => labels[reason] || '')
+    .filter(Boolean)
+    .slice(0, 3)
+})
 const riskWarning = computed(() => normalizeRiskNoticeForUsers(findHighRiskContentWarning([
   props.post.title,
   props.post.summary,
@@ -421,9 +540,9 @@ const handleFavorite = () => {
   emit('favorite', props.post.postId)
 }
 
-const handleOrganizeSavedPost = () => {
+const handleSavedPostMoved = (_postId: Post['postId'], _folderId: unknown, folderName: string) => {
   if (!requireLogin()) return
-  toast.success('已记录到本机整理入口；独立清单后端未接入时不会跨设备同步。')
+  toast.success(`已移动到${folderName}`)
 }
 
 const handleReport = () => {
@@ -439,6 +558,10 @@ const handleNotInterested = (item: typeof feedbackActions[number]) => {
   if (!requireLogin()) return
   showFeedbackMenu.value = false
   recommendationFeedbackSubmittedLabel.value = `已记录：${item.label}`
+  if (item.action === 'HIDE' || item.action === 'LESS_LIKE_THIS' || item.action === 'RESTORE') {
+    emit('feedFeedback', props.post.postId, item.action)
+    return
+  }
   emit('notInterested', props.post.postId, item.action, item.reason)
 }
 
@@ -457,12 +580,27 @@ const handleFollow = async () => {
       emit('follow-change', props.post.author.uid, true)
       toast.success('已关注')
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     isFollowing.value = false
   }
 }
+
+// 点击卡片外部时关闭“减少推荐”菜单，与顶栏下拉菜单保持一致的交互。
+const handleDocumentClick = (event: MouseEvent) => {
+  if (!showFeedbackMenu.value) return
+  const target = event.target as HTMLElement | null
+  if (!target?.closest('.feedback-menu-wrapper')) showFeedbackMenu.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick)
+})
 </script>
 
 <style scoped>
@@ -505,6 +643,47 @@ const handleFollow = async () => {
   font-weight: 800;
   line-height: 1.5;
   color: rgb(21 128 61);
+}
+
+.feedback-error-note {
+  border-radius: 0.7rem;
+  border: 1px solid rgb(254 205 211);
+  background: rgb(255 241 242);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.5;
+  color: rgb(190 24 93);
+}
+
+.post-feed-explanation {
+  margin-bottom: 1rem;
+  border-left: 3px solid rgb(14 116 144);
+  background: rgb(240 253 250);
+  padding: 0.65rem 0.75rem;
+  color: rgb(15 118 110);
+}
+
+.post-feed-explanation__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.post-feed-explanation__heading small {
+  color: rgb(71 85 105);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.post-feed-explanation p {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.55;
 }
 
 .card-action {
@@ -692,6 +871,22 @@ const handleFollow = async () => {
   color: rgb(134 239 172);
 }
 
+.dark .feedback-error-note {
+  border-color: rgb(159 18 57 / 0.72);
+  background: rgb(76 5 25 / 0.4);
+  color: rgb(253 164 175);
+}
+
+.dark .post-feed-explanation {
+  border-left-color: rgb(45 212 191);
+  background: rgb(19 78 74 / 0.3);
+  color: rgb(153 246 228);
+}
+
+.dark .post-feed-explanation__heading small {
+  color: rgb(148 163 184);
+}
+
 .dark .card-action:hover {
   background: rgb(30 41 59);
 }
@@ -751,5 +946,483 @@ const handleFollow = async () => {
 .dark :deep(.search-highlight) {
   background: rgb(133 77 14);
   color: rgb(254 243 199);
+}
+
+.post-card {
+  padding: 1.1rem 0;
+  border-bottom: 1px solid rgb(229 231 235);
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.post-card:first-child {
+  padding-top: 0;
+}
+
+.post-card:hover {
+  background: rgb(255 255 255 / 0.62);
+}
+
+.post-card__author-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.post-card__author-row > .flex > .flex:first-child {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.post-detail-link {
+  display: grid;
+  gap: 0.45rem;
+  border-radius: 0;
+}
+
+.post-detail-link:has(.domain-card-media) {
+  grid-template-columns: minmax(0, 1fr) 9.5rem;
+  column-gap: 1rem;
+}
+
+.post-detail-link:has(.domain-card-media) > :not(.domain-card-media) {
+  grid-column: 1;
+}
+
+.post-detail-link:has(.domain-card-media) > .domain-card-media {
+  grid-column: 2;
+  grid-row: 1 / span 8;
+  align-self: start;
+}
+
+.post-detail-link h3 {
+  margin: 0 !important;
+  color: rgb(31 41 55);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.post-detail-link p {
+  margin: 0 !important;
+  color: rgb(75 85 99);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.post-reason-panel,
+.post-trust-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  border: 0;
+  background: transparent;
+}
+
+.post-reason-panel > div,
+.post-trust-panel > div {
+  display: contents;
+}
+
+.post-reason-panel :is(span, div > span),
+.post-trust-panel :is(span, div > span) {
+  display: inline-flex;
+  width: auto;
+  align-items: center;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgb(107 114 128);
+  font-size: 0.7rem;
+}
+
+.post-reason-panel > .mb-1,
+.post-trust-panel > .mb-1 {
+  width: 100%;
+  margin: 0;
+  color: rgb(37 99 235);
+}
+
+.post-trust-panel > .mb-1 {
+  color: rgb(5 150 105);
+}
+
+.post-signal-note {
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.post-signal-note--hot {
+  border-color: rgb(219 234 254);
+  background: rgb(239 246 255 / 0.75);
+  color: rgb(29 78 216);
+}
+
+.post-signal-note--risk {
+  border-color: rgb(254 215 170);
+  background: rgb(255 247 237);
+  color: rgb(154 52 18);
+}
+
+.domain-card-media {
+  width: 100%;
+  margin: 0 !important;
+  border-color: rgb(229 231 235);
+  border-radius: 6px;
+  aspect-ratio: 1 / 0.78;
+}
+
+.domain-card-media img {
+  transition: transform 0.2s ease;
+}
+
+.post-detail-link:hover .domain-card-media img {
+  transform: scale(1.02);
+}
+
+.domain-card-chip {
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
+.post-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+
+.post-tag-list > span {
+  padding: 0.15rem 0.45rem;
+  border-color: rgb(229 231 235);
+  border-radius: 4px;
+  background: rgb(249 250 251);
+  color: rgb(107 114 128);
+  font-size: 0.7rem;
+}
+
+.post-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgb(243 244 246);
+  color: rgb(107 114 128);
+  font-size: 0.8125rem;
+}
+
+.post-card__footer .card-action {
+  min-height: 1.85rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 5px;
+}
+
+.post-card__footer .card-action:hover {
+  background: rgb(243 244 246);
+}
+
+.post-card__footer :deep(.post-save-organizer-trigger) {
+  min-height: 1.85rem;
+}
+
+.dark .post-card {
+  border-color: rgb(63 63 70);
+}
+
+.dark .post-card:hover {
+  background: rgb(24 26 32 / 0.72);
+}
+
+.dark .post-detail-link h3 {
+  color: rgb(241 245 249);
+}
+
+.dark .post-detail-link p,
+.dark .post-reason-panel :is(span, div > span),
+.dark .post-trust-panel :is(span, div > span) {
+  color: rgb(148 163 184);
+}
+
+.dark .domain-card-media,
+.dark .post-tag-list > span {
+  border-color: rgb(63 63 70);
+  background: rgb(24 26 32);
+}
+
+.dark .post-card__footer {
+  border-color: rgb(39 39 42);
+  color: rgb(148 163 184);
+}
+
+.dark .post-card__footer .card-action:hover {
+  background: rgb(39 39 42);
+}
+
+@media (max-width: 560px) {
+  .post-card {
+    padding: 1rem 0;
+  }
+
+  .post-card__author-row {
+    gap: 0.65rem;
+  }
+
+  .post-detail-link:has(.domain-card-media) {
+    grid-template-columns: minmax(0, 1fr) 5.75rem;
+    column-gap: 0.75rem;
+  }
+
+  .post-card__footer .card-action {
+    min-height: 2rem;
+    padding: 0.2rem 0.3rem;
+  }
+}
+
+.post-card {
+  padding: 1.15rem 1.1rem;
+  border-bottom-color: var(--border-subtle);
+  background: var(--surface);
+  transition: background-color 0.18s ease;
+}
+
+.post-card:first-child {
+  padding-top: 1.15rem;
+}
+
+.post-card:last-child {
+  border-bottom: 0;
+}
+
+.post-card:hover {
+  background: #fbfdff;
+}
+
+.post-card__author-row {
+  margin-bottom: 0.75rem;
+}
+
+.post-author-avatar {
+  display: grid;
+  width: 2.45rem;
+  height: 2.45rem;
+  flex: 0 0 auto;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--primary-600);
+  color: white;
+  font-size: 0.8125rem;
+  font-weight: 850;
+}
+
+.post-author-badge {
+  display: inline-flex;
+  min-height: 1.15rem;
+  align-items: center;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  background: #fff4e5;
+  color: #b54708;
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+.post-follow-button {
+  min-height: 1.9rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--primary-100);
+  border-radius: 5px;
+  background: var(--primary-50);
+  color: var(--primary-600);
+  font-size: 0.7rem;
+  font-weight: 750;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.post-follow-button:hover:not(:disabled) {
+  border-color: rgb(147 197 253);
+  background: var(--primary-100);
+}
+
+.post-follow-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.post-feedback-trigger {
+  display: grid;
+  width: 1.9rem;
+  height: 1.9rem;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.post-feedback-trigger:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.post-feedback-menu {
+  position: absolute;
+  right: 0;
+  z-index: 20;
+  width: 15.5rem;
+  margin-top: 0.45rem;
+  padding: 0.35rem 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: 0 4px 8px rgb(16 24 40 / 0.08);
+}
+
+.content-type-pill,
+.domain-badge {
+  min-height: 1.2rem;
+  border-radius: 4px;
+  background: var(--primary-50);
+  color: var(--primary-600);
+  font-size: 0.6875rem;
+}
+
+.domain-badge {
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.post-detail-link {
+  gap: 0.4rem;
+}
+
+.post-detail-link h3 {
+  color: var(--text-strong);
+  font-size: 1.025rem;
+  font-weight: 760;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.post-detail-link p {
+  max-width: 68ch;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.72;
+  text-wrap: pretty;
+}
+
+.post-detail-link:focus-visible {
+  border-radius: 5px;
+  box-shadow: 0 0 0 3px rgb(219 234 254 / 0.82);
+}
+
+.domain-card-media {
+  border-color: var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface-3);
+}
+
+.post-tag-list > span {
+  border: 0;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.post-card__footer {
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top-color: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.post-card__footer .card-action {
+  min-height: 2rem;
+  border-radius: 5px;
+}
+
+.post-card__footer .card-action:hover {
+  background: var(--surface-3);
+}
+
+.dark .post-card,
+.dark .post-feedback-menu {
+  background: rgb(24 26 32);
+}
+
+.dark .post-card:hover {
+  background: rgb(27 29 35);
+}
+
+.dark .post-author-badge {
+  background: rgb(124 45 18 / 0.45);
+  color: rgb(253 186 116);
+}
+
+.dark .post-follow-button {
+  border-color: rgb(30 58 138);
+  background: rgb(30 58 138 / 0.36);
+  color: rgb(147 197 253);
+}
+
+.dark .post-feedback-trigger:hover,
+.dark .post-card__footer .card-action:hover,
+.dark .post-tag-list > span,
+.dark .domain-badge {
+  background: rgb(39 39 42);
+}
+
+.dark .post-feedback-menu,
+.dark .domain-card-media {
+  border-color: rgb(63 63 70);
+}
+
+.dark .post-detail-link h3 {
+  color: rgb(241 245 249);
+}
+
+.dark .post-detail-link p {
+  color: rgb(148 163 184);
+}
+
+.dark .post-detail-link:focus-visible {
+  box-shadow: 0 0 0 3px rgb(30 58 138 / 0.48);
+}
+
+.dark .post-card__footer {
+  border-color: rgb(39 39 42);
+}
+
+@media (max-width: 560px) {
+  .post-card {
+    padding: 1rem;
+  }
+
+  .post-card:first-child {
+    padding-top: 1rem;
+  }
+
+  .post-author-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .post-card__author-row {
+    align-items: flex-start;
+  }
+
+  .post-detail-link:has(.domain-card-media) {
+    grid-template-columns: minmax(0, 1fr) 6rem;
+  }
+
+  .post-detail-link h3 {
+    font-size: 0.95rem;
+  }
 }
 </style>

@@ -74,16 +74,25 @@
             <summary class="filter-summary">
               筛选、热门词和搜索记录
             </summary>
-          <section class="side-panel">
+          <section v-if="searchMode === 'posts'" class="side-panel">
             <h2 class="side-title">筛选</h2>
             <div class="space-y-3">
               <label class="field-label">
-                标签 / 关键词
+                频道
+                <select v-model.number="filters.domain" class="field-input" @change="scheduleDebouncedSearch">
+                  <option :value="undefined">全部频道</option>
+                  <option v-for="item in domainOptions" :key="item.domain" :value="item.domain">
+                    {{ item.icon }} {{ item.domainName }}
+                  </option>
+                </select>
+              </label>
+              <label class="field-label">
+                高级筛选：标签 / 实体
                 <input v-model.trim="filters.company" class="field-input" placeholder="例如 AI 工具 / 租房 / 读书" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
-                频道 / 场景
-                <input v-model.trim="filters.position" class="field-input" placeholder="例如 学习成长 / 生活方式" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                高级筛选：场景 / 岗位
+                <input v-model.trim="filters.position" class="field-input" placeholder="例如 转行 / 租房 / 产品经理" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
                 内容类型
@@ -92,17 +101,40 @@
                   <option v-for="item in searchContentTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
               </label>
-              <label v-if="includeTestData" class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                <input
-                  v-model="includeTestData"
-                  type="checkbox"
-                  class="mt-1 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                  @change="scheduleDebouncedSearch"
-                />
-                <span>
-                  包含测试数据
-                  <span class="block text-slate-400 dark:text-slate-500">用于 CODEX-E2E / smoke 回归记录诊断</span>
-                </span>
+              <label class="field-label">
+                经验护照
+                <select v-model="filters.trustProfile" class="field-input" @change="scheduleDebouncedSearch">
+                  <option value="">全部</option>
+                  <option value="true">已补充</option>
+                  <option value="false">未补充</option>
+                </select>
+              </label>
+              <label class="field-label">
+                内容时效
+                <select v-model="filters.freshnessStatus" class="field-input" @change="scheduleDebouncedSearch">
+                  <option value="">全部状态</option>
+                  <option value="CURRENT">当前有效</option>
+                  <option value="POSSIBLY_STALE">可能已过时</option>
+                  <option value="AWAITING_AUTHOR_CONFIRMATION">等待作者确认</option>
+                  <option value="UPDATED">已更新</option>
+                  <option value="SUPERSEDED">已有后续内容</option>
+                </select>
+              </label>
+              <label class="field-label">
+                讨论结果
+                <select v-model="filters.resolved" class="field-input" @change="scheduleDebouncedSearch">
+                  <option value="">全部</option>
+                  <option value="true">已有结果</option>
+                  <option value="false">仍待补充</option>
+                </select>
+              </label>
+              <label class="field-label">
+                来源说明
+                <select v-model="filters.sourceComplete" class="field-input" @change="scheduleDebouncedSearch">
+                  <option value="">全部</option>
+                  <option value="true">来源完整</option>
+                  <option value="false">来源待补充</option>
+                </select>
               </label>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-2">
@@ -252,10 +284,12 @@
 
           <template v-else-if="searchMode === 'users' && userResults.length">
             <RouterLink v-for="item in userResults" :key="item.uid" :to="`/u/${item.uid}`" class="user-row">
-              <div class="avatar">
-                <img v-if="item.avatar" :src="item.avatar" :alt="item.nickname" class="h-full w-full object-cover" />
-                <span v-else>{{ item.nickname.charAt(0) || '?' }}</span>
-              </div>
+              <UserAvatar
+                class="avatar"
+                :src="item.avatar"
+                :name="item.nickname"
+                alt=""
+              />
               <div class="min-w-0 flex-1">
                 <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.nickname }}</h3>
                 <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{{ userSignatureText(item) }}</p>
@@ -423,20 +457,24 @@ import { toast } from 'vue-sonner'
 import client, { getErrorMessage, type Result } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import { postApi } from '@/api/post'
 import { searchApi, type SearchStatus } from '@/api/search'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
+import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, Post, Tag, User } from '@/api/types'
 import { safeStorage } from '@/utils/safeStorage'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeLabel } from '@/utils/contentTypes'
-import { COMMUNITY_CHANNELS, isKnownDomain } from '@/utils/domains'
+import { ALL_COMMUNITY_CHANNELS, getCommunityChannel, isKnownDomain } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
 import { filterSearchSuggestionTerms, filterVisiblePosts, findHighRiskContentWarning } from '@/utils/recommendationGovernance'
 
-type SortValue = 'relevance' | 'latest' | 'hot'
+type SortValue = 'relevance' | 'latest' | 'hot' | 'trusted'
+type BooleanFilter = '' | 'true' | 'false'
+type FreshnessFilter = '' | 'CURRENT' | 'POSSIBLY_STALE' | 'AWAITING_AUTHOR_CONFIRMATION' | 'UPDATED' | 'SUPERSEDED'
 type SearchMode = 'posts' | 'users' | 'topics' | 'tags'
 type SearchSnapshot = {
   id: string
@@ -448,6 +486,10 @@ type SearchSnapshot = {
   position: string
   type?: number
   sort: SortValue
+  trustProfile: BooleanFilter
+  freshnessStatus: FreshnessFilter
+  resolved: BooleanFilter
+  sourceComplete: BooleanFilter
   updatedAt: number
 }
 
@@ -483,32 +525,51 @@ const RECENT_SEARCH_KEY = 'recent-searches'
 const SAVED_SEARCH_KEY = 'saved-searches'
 const MAX_RECENT_SEARCHES = 8
 const MAX_SAVED_SEARCHES = 8
+const MAX_SEARCH_RESULTS = 100
 const SEARCH_DEBOUNCE_MS = 450
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const filters = reactive<{ q: string; domain?: number; company: string; position: string; type?: number; sort: SortValue }>({
+const { domains: domainOptions, loadDomains } = useDomainCatalog()
+const filters = reactive<{
+  q: string
+  domain?: number
+  company: string
+  position: string
+  type?: number
+  sort: SortValue
+  trustProfile: BooleanFilter
+  freshnessStatus: FreshnessFilter
+  resolved: BooleanFilter
+  sourceComplete: BooleanFilter
+}>({
   q: '',
   domain: undefined,
   company: '',
   position: '',
   type: undefined,
   sort: 'relevance',
+  trustProfile: '',
+  freshnessStatus: '',
+  resolved: '',
+  sourceComplete: '',
 })
 
 const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: 'relevance', label: '相关度' },
   { value: 'latest', label: '最新' },
   { value: 'hot', label: '热门' },
+  { value: 'trusted', label: '可信优先' },
 ]
 const searchContentTypes = COMMUNITY_CONTENT_TYPES
-const recommendedChannels = COMMUNITY_CHANNELS.slice(0, 4)
-const recommendedTopics = Array.from(new Set(COMMUNITY_CHANNELS.flatMap((channel) => channel.topics || []))).slice(0, 6)
-const recommendedTags = Array.from(new Set(COMMUNITY_CHANNELS.flatMap((channel) => channel.tags || []))).slice(0, 8)
+const recommendedChannels = computed(() => ALL_COMMUNITY_CHANNELS
+  .filter((channel) => channel.domain && domainOptions.value.some((item) => Number(item.domain) === Number(channel.domain)))
+  .slice(0, 5))
+const recommendedTopics = Array.from(new Set(ALL_COMMUNITY_CHANNELS.flatMap((channel) => channel.topics || []))).slice(0, 6)
+const recommendedTags = Array.from(new Set(ALL_COMMUNITY_CHANNELS.flatMap((channel) => channel.tags || []))).slice(0, 8)
 
 const searchMode = ref<SearchMode>('posts')
-const includeTestData = ref(false)
 const searchResults = ref<Post[]>([])
 const userResults = ref<User[]>([])
 const topicResults = ref<CommunityTopic[]>([])
@@ -556,7 +617,17 @@ const resultSummaryText = computed(() => {
 const hasQuery = computed(() => {
   if (searchMode.value === 'users') return Boolean(filters.q)
   if (searchMode.value === 'topics' || searchMode.value === 'tags') return Boolean(filters.q)
-  return Boolean(filters.q || filters.company || filters.position || filters.type)
+  return Boolean(
+    filters.q
+    || filters.domain
+    || filters.company
+    || filters.position
+    || filters.type
+    || filters.trustProfile
+    || filters.freshnessStatus
+    || filters.resolved
+    || filters.sourceComplete,
+  )
 })
 const shouldAutoRunSearch = computed(() => (
   hasQuery.value
@@ -582,8 +653,8 @@ const filterVisibleTags = (items: Tag[], keyword: string) => (
 const searchDiagnosticText = computed(() => {
   const diagnostics = searchResultMeta.value?.diagnostics
   if (!diagnostics) return ''
-  if (diagnostics.emptyReason === 'test_data_filtered_unless_includeTestData') {
-    return '当前关键词像自动化回归记录，公开搜索默认会隐藏这类数据；仅 URL 诊断模式会显示。'
+  if (String(diagnostics.emptyReason || '').startsWith('test_data_filtered')) {
+    return '当前关键词像自动化回归记录，这类数据不会出现在公开搜索中。'
   }
   if (diagnostics.emptyReason === 'type_or_filter_no_match') {
     return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、标签或频道。'
@@ -597,11 +668,25 @@ const searchDiagnosticText = computed(() => {
   }
   return ''
 })
+const postDetailSearchSources = new Set(['elasticsearch', 'mysql', 'client_fallback'])
+const postDetailFallbackReasons = new Set([
+  'elasticsearch_empty',
+  'elasticsearch_visibility_filtered',
+  'elasticsearch_unavailable',
+  'mysql_fallback_continuation',
+  'hot_sort_mysql',
+  'search_api_error',
+])
 const postDetailQuery = computed<Record<string, string>>(() => {
-  if (!searchResultMeta.value) return {} as Record<string, string>
-  return {
-    from: 'search',
+  const meta = searchResultMeta.value
+  if (!meta) return {} as Record<string, string>
+  const query: Record<string, string> = { from: 'search' }
+  if (meta.source && postDetailSearchSources.has(meta.source)) query.source = meta.source
+  if (meta.degraded) query.degraded = 'true'
+  if (meta.fallbackReason && postDetailFallbackReasons.has(meta.fallbackReason)) {
+    query.fallbackReason = meta.fallbackReason
   }
+  return query
 })
 const searchSignalNote = computed(() => {
   const sources = new Set<RecommendationSource>()
@@ -609,7 +694,7 @@ const searchSignalNote = computed(() => {
   if (hotWords.value.length) sources.add(hotWordsSource.value)
   if (!sources.size) return ''
   const labels = Array.from(sources).map(sourceLabel).join(' / ')
-  return `搜索建议仅来自公开内容信号，来源：${labels}；最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议。`
+  return `搜索建议来自公开内容和近期公共搜索趋势，来源：${labels}；最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议。`
 })
 const emptyTitle = computed(() => {
   if (searchMode.value === 'users') return filters.q ? '没有找到这个作者' : '先输入作者昵称'
@@ -634,6 +719,7 @@ const noResultWordActions = computed<KeywordRecommendation[]>(() => {
 })
 const relaxActions = computed(() => {
   const actions: RecommendationAction[] = []
+  if (filters.domain) actions.push({ key: 'domain', label: '不限频道', source: 'local', action: clearDomainFilter })
   if (filters.type) actions.push({ key: 'type', label: '不限内容类型', source: 'local', action: clearTypeFilter })
   if (filters.position) actions.push({ key: 'position', label: '不限场景', source: 'local', action: clearPositionFilter })
   if (filters.company) actions.push({ key: 'company', label: '不限标签', source: 'local', action: clearCompanyFilter })
@@ -642,10 +728,10 @@ const relaxActions = computed(() => {
 })
 const sourceLabel = (source: RecommendationSource) => {
   const labels: Record<RecommendationSource, string> = {
-    remote: 'remote',
-    local: 'local',
-    fallback: 'fallback',
-    demo: 'demo',
+    remote: '实时推荐',
+    local: '当前筛选',
+    fallback: '社区推荐',
+    demo: '示例内容',
   }
   return labels[source]
 }
@@ -782,6 +868,7 @@ const fallbackReasonText = (reason?: string) => {
     elasticsearch_empty: '索引没有召回可见结果，已补充数据库中的公开内容',
     elasticsearch_visibility_filtered: '索引结果经过可见性过滤后不足，已补充数据库中的公开内容',
     elasticsearch_unavailable: '搜索服务当前不可用，已使用数据库兜底',
+    mysql_fallback_continuation: '本页继续沿用首屏确定的数据库排序',
     hot_sort_mysql: '热门排序使用数据库热度计算',
     search_api_error: '搜索请求失败，已保留本页兜底入口',
   }
@@ -853,21 +940,38 @@ const switchToUserSearchFromError = async () => {
 
 const syncFromRoute = () => {
   filters.q = typeof route.query.q === 'string' ? route.query.q : ''
-  const domain = Number(route.query.domain)
   const nextMode = route.query.mode === 'users' || route.query.mode === 'topics' || route.query.mode === 'tags'
     ? route.query.mode
     : 'posts'
-  filters.domain = nextMode === 'posts' && isKnownDomain(domain) ? domain : undefined
+  const channelKey = typeof route.query.channel === 'string' ? route.query.channel : undefined
+  const routeChannel = nextMode === 'posts' ? getCommunityChannel(channelKey) : undefined
+  const domain = Number(route.query.domain ?? routeChannel?.domain)
+  filters.domain = nextMode === 'posts'
+    && isKnownDomain(domain)
+    && domainOptions.value.some((item) => Number(item.domain) === domain)
+    ? domain
+    : undefined
   filters.company = typeof route.query.company === 'string' ? route.query.company : ''
   filters.position = typeof route.query.position === 'string' ? route.query.position : ''
-  const type = Number(route.query.type)
+  const type = Number(route.query.type ?? routeChannel?.postTypes?.[0])
   filters.type = Number.isFinite(type) && type > 0 ? type : undefined
-  if (filters.domain) {
-    filters.domain = undefined
-  }
-  filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' ? route.query.sort : 'relevance'
+  filters.sort = route.query.sort === 'latest' || route.query.sort === 'hot' || route.query.sort === 'trusted'
+    ? route.query.sort
+    : 'relevance'
+  filters.trustProfile = route.query.trustProfile === 'true' || route.query.trustProfile === 'false'
+    ? route.query.trustProfile
+    : ''
+  const freshness = typeof route.query.freshnessStatus === 'string' ? route.query.freshnessStatus : ''
+  filters.freshnessStatus = ['CURRENT', 'POSSIBLY_STALE', 'AWAITING_AUTHOR_CONFIRMATION', 'UPDATED', 'SUPERSEDED'].includes(freshness)
+    ? freshness as FreshnessFilter
+    : ''
+  filters.resolved = route.query.resolved === 'true' || route.query.resolved === 'false'
+    ? route.query.resolved
+    : ''
+  filters.sourceComplete = route.query.sourceComplete === 'true' || route.query.sourceComplete === 'false'
+    ? route.query.sourceComplete
+    : ''
   searchMode.value = nextMode
-  includeTestData.value = false
 }
 
 const pushQuery = () => {
@@ -876,10 +980,15 @@ const pushQuery = () => {
     path: '/search',
     query: {
       ...(filters.q ? { q: filters.q } : {}),
+      ...(searchMode.value === 'posts' && filters.domain ? { domain: String(filters.domain) } : {}),
       ...(filters.company ? { company: filters.company } : {}),
       ...(filters.position ? { position: filters.position } : {}),
       ...(filters.type ? { type: String(filters.type) } : {}),
       ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
+      ...(searchMode.value === 'posts' && filters.trustProfile ? { trustProfile: filters.trustProfile } : {}),
+      ...(searchMode.value === 'posts' && filters.freshnessStatus ? { freshnessStatus: filters.freshnessStatus } : {}),
+      ...(searchMode.value === 'posts' && filters.resolved ? { resolved: filters.resolved } : {}),
+      ...(searchMode.value === 'posts' && filters.sourceComplete ? { sourceComplete: filters.sourceComplete } : {}),
       ...(searchMode.value !== 'posts' ? { mode: searchMode.value } : {}),
     },
   }).finally(() => {
@@ -891,18 +1000,23 @@ const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'domain' | 'company'
   if (snapshot.mode === 'users') return snapshot.q || '作者搜索'
   if (snapshot.mode === 'topics') return snapshot.q || '话题搜索'
   if (snapshot.mode === 'tags') return snapshot.q || '标签搜索'
-  return [snapshot.q, snapshot.company, snapshot.position, snapshot.type ? postTypeText(snapshot.type) : '']
+  const domainLabel = domainOptions.value.find((item) => Number(item.domain) === Number(snapshot.domain))?.domainName
+  return [snapshot.q, domainLabel, snapshot.company, snapshot.position, snapshot.type ? postTypeText(snapshot.type) : '']
     .filter(Boolean)
     .join(' / ') || '全部内容'
 }
 
 const currentSnapshot = (): SearchSnapshot => {
   const mode = searchMode.value
-  const domain = undefined
+  const domain = mode === 'posts' ? filters.domain : undefined
   const company = mode === 'posts' ? filters.company : ''
   const position = mode === 'posts' ? filters.position : ''
   const type = mode === 'posts' ? filters.type : undefined
   const sort = mode === 'posts' ? filters.sort : 'relevance'
+  const trustProfile = mode === 'posts' ? filters.trustProfile : ''
+  const freshnessStatus = mode === 'posts' ? filters.freshnessStatus : ''
+  const resolved = mode === 'posts' ? filters.resolved : ''
+  const sourceComplete = mode === 'posts' ? filters.sourceComplete : ''
   const snapshot = {
     mode,
     q: filters.q,
@@ -912,7 +1026,7 @@ const currentSnapshot = (): SearchSnapshot => {
     type,
   }
   return {
-    id: [mode, filters.q, domain ?? 'all', company, position, type ?? 'all', sort].join('|'),
+    id: [mode, filters.q, domain ?? 'all', company, position, type ?? 'all', sort, trustProfile, freshnessStatus, resolved, sourceComplete].join('|'),
     label: snapshotLabel(snapshot),
     mode,
     q: filters.q,
@@ -921,6 +1035,10 @@ const currentSnapshot = (): SearchSnapshot => {
     position,
     type,
     sort,
+    trustProfile,
+    freshnessStatus,
+    resolved,
+    sourceComplete,
     updatedAt: Date.now(),
   }
 }
@@ -929,9 +1047,23 @@ const isSearchSnapshot = (value: unknown): value is SearchSnapshot => {
   if (!value || typeof value !== 'object') return false
   const item = value as Partial<SearchSnapshot>
   const modeOk = item.mode === 'posts' || item.mode === 'users' || item.mode === 'topics' || item.mode === 'tags'
-  const sortOk = item.sort === 'relevance' || item.sort === 'latest' || item.sort === 'hot'
+  const sortOk = item.sort === 'relevance' || item.sort === 'latest' || item.sort === 'hot' || item.sort === 'trusted'
   const domainOk = item.domain == null || isKnownDomain(item.domain)
-  return Boolean(typeof item.id === 'string' && typeof item.label === 'string' && modeOk && sortOk && domainOk)
+  const booleanFilterOk = [item.trustProfile, item.resolved, item.sourceComplete]
+    .every((filter) => filter === undefined || filter === '' || filter === 'true' || filter === 'false')
+  const freshnessFilterOk = item.freshnessStatus === undefined
+    || item.freshnessStatus === ''
+    || ['CURRENT', 'POSSIBLY_STALE', 'AWAITING_AUTHOR_CONFIRMATION', 'UPDATED', 'SUPERSEDED']
+      .includes(item.freshnessStatus)
+  return Boolean(
+    typeof item.id === 'string'
+    && typeof item.label === 'string'
+    && modeOk
+    && sortOk
+    && domainOk
+    && booleanFilterOk
+    && freshnessFilterOk,
+  )
 }
 
 const readSnapshots = (key: string) => {
@@ -1080,11 +1212,15 @@ const clearRecentSearches = () => {
 const applySearchSnapshot = async (snapshot: SearchSnapshot) => {
   searchMode.value = snapshot.mode
   filters.q = snapshot.q || ''
-  filters.domain = undefined
+  filters.domain = snapshot.domain
   filters.company = snapshot.company || ''
   filters.position = snapshot.position || ''
   filters.type = snapshot.type
   filters.sort = snapshot.sort
+  filters.trustProfile = snapshot.trustProfile || ''
+  filters.freshnessStatus = snapshot.freshnessStatus || ''
+  filters.resolved = snapshot.resolved || ''
+  filters.sourceComplete = snapshot.sourceComplete || ''
   await runSearch(false)
 }
 
@@ -1127,6 +1263,11 @@ const handleSearchInput = () => {
 
 const clearCompanyFilter = () => {
   filters.company = ''
+  runSearch(false)
+}
+
+const clearDomainFilter = () => {
+  filters.domain = undefined
   runSearch(false)
 }
 
@@ -1173,7 +1314,7 @@ const runSearch = async (append = false, syncRoute = true) => {
       userResults.value = []
       tagResults.value = []
       searchResultMeta.value = null
-      const res = await postApi.listTopics({ limit: 30 })
+      const res = await postApi.listTopics({ keyword: filters.q || undefined, limit: 50 })
       if (requestId !== searchRequestId) return
       topicResults.value = filterVisibleTopics(res.data || [], filters.q).slice(0, 20)
       if (!append) rememberRecentSearch()
@@ -1196,20 +1337,27 @@ const runSearch = async (append = false, syncRoute = true) => {
 
     const params = {
       q: filters.q || undefined,
+      domain: filters.domain,
       company: filters.company || undefined,
       position: filters.position || undefined,
       type: filters.type,
       sort: filters.sort,
+      trustProfile: filters.trustProfile ? filters.trustProfile === 'true' : undefined,
+      freshnessStatus: filters.freshnessStatus || undefined,
+      resolved: filters.resolved ? filters.resolved === 'true' : undefined,
+      sourceComplete: filters.sourceComplete ? filters.sourceComplete === 'true' : undefined,
       cursor: append ? cursor.value : undefined,
       size: 20,
-      includeTestData: false,
     } as Parameters<typeof searchApi.searchPosts>[0]
     const res = await searchApi.searchPosts(params)
     const page = res.data
     if (requestId !== searchRequestId) return
-    const rawItems = filterPublicContent(page?.items || [])
-    const cleanItems = filterVisiblePosts(rawItems)
-    searchResults.value = append ? [...searchResults.value, ...cleanItems] : cleanItems
+    const cleanItems = filterVisiblePosts(filterPublicContent(page?.items || []))
+    const mergedItems = append ? [...searchResults.value, ...cleanItems] : cleanItems
+    const uniqueItems = Array.from(new Map(
+      mergedItems.map((item) => [String(item.postId), item]),
+    ).values())
+    searchResults.value = uniqueItems.slice(0, MAX_SEARCH_RESULTS)
     userResults.value = []
     topicResults.value = []
     tagResults.value = []
@@ -1221,7 +1369,11 @@ const runSearch = async (append = false, syncRoute = true) => {
       diagnostics: page.diagnostics,
     } : null
     cursor.value = page?.nextCursor
-    hasMore.value = Boolean(page?.hasMore && page?.nextCursor)
+    hasMore.value = Boolean(
+      page?.hasMore
+      && page?.nextCursor
+      && uniqueItems.length < MAX_SEARCH_RESULTS,
+    )
     if (!append) rememberRecentSearch()
   } catch (error: any) {
     if (requestId !== searchRequestId) return
@@ -1254,7 +1406,10 @@ const resetFilters = async () => {
   filters.position = ''
   filters.type = undefined
   filters.sort = 'relevance'
-  includeTestData.value = false
+  filters.trustProfile = ''
+  filters.freshnessStatus = ''
+  filters.resolved = ''
+  filters.sourceComplete = ''
   searchMode.value = 'posts'
   suggestions.value = []
   searchResults.value = []
@@ -1282,7 +1437,16 @@ const resetResults = () => {
 
 const setMode = async (mode: SearchMode) => {
   searchMode.value = mode
-  filters.domain = undefined
+  if (mode !== 'posts') {
+    filters.domain = undefined
+    filters.company = ''
+    filters.position = ''
+    filters.type = undefined
+    filters.trustProfile = ''
+    filters.freshnessStatus = ''
+    filters.resolved = ''
+    filters.sourceComplete = ''
+  }
   resetResults()
   await runSearch(false)
 }
@@ -1305,6 +1469,10 @@ const searchHotContent = async () => {
   filters.position = ''
   filters.type = undefined
   filters.sort = 'hot'
+  filters.trustProfile = ''
+  filters.freshnessStatus = ''
+  filters.resolved = ''
+  filters.sourceComplete = ''
   await runSearch(false)
 }
 
@@ -1371,6 +1539,8 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
 
 onMounted(async () => {
   loadSearchSnapshots()
+  syncFromRoute()
+  await loadDomains()
   syncFromRoute()
   await loadSearchStatus()
   await searchApi.hotSearches().then((res) => {

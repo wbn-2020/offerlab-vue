@@ -1,11 +1,14 @@
 import axios from 'axios'
 import client, { BizException, type Result } from './client'
+import type { KnowledgeRelationDisplayState, KnowledgeRelationReviewStatus, KnowledgeRelationSource } from './knowledge'
 import type { ApiId, ContentSeriesItem, ContentSeriesProgress, PaginatedResponse, Post } from './types'
 import { adaptPage, adaptPost } from './adapters'
-import { normalizeDomain } from '@/utils/domains'
+import { normalizeDomain, requireKnownDomain } from '@/utils/domains'
 import { safeStorage } from '@/utils/safeStorage'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 import { isPublicCollectionVisible, isPublicPostVisible } from '@/utils/recommendationGovernance'
+
+export type ContentSeriesKnowledgeProjectionState = KnowledgeRelationDisplayState
 
 export interface ContentSeriesRecord {
   id: string
@@ -17,8 +20,9 @@ export interface ContentSeriesRecord {
   visibility: 'public' | 'private'
   goalCount: number
   status: 'active' | 'paused' | 'completed'
-  assetStatus?: 'active' | 'archived'
   previewSource?: 'remote' | 'local' | 'fallback' | 'demo'
+  knowledgeProjectionState: ContentSeriesKnowledgeProjectionState
+  knowledgeProjectionReason?: string
   sourceNote?: string
   targetHref?: string
   deleted?: boolean
@@ -118,6 +122,52 @@ const normalizePreviewSource = (raw: any): NonNullable<ContentSeriesRecord['prev
   if (value === 'local' || String(raw?.id || '').startsWith('series_')) return 'local'
   return 'remote'
 }
+const knowledgeRelationSources = new Set<KnowledgeRelationSource>(['manual', 'topic', 'series', 'search', 'tag', 'curation'])
+const knowledgeRelationReviewStatuses = new Set<KnowledgeRelationReviewStatus>(['AUTO_SAFE', 'PENDING_REVIEW', 'APPROVED', 'REJECTED'])
+const normalizeKnowledgeProjection = (
+  raw: any,
+  previewSource: NonNullable<ContentSeriesRecord['previewSource']>,
+): Pick<ContentSeriesRecord, 'knowledgeProjectionState' | 'knowledgeProjectionReason'> => {
+  if (previewSource !== 'remote') {
+    return {
+      knowledgeProjectionState: 'DEGRADED',
+      knowledgeProjectionReason: `${previewSource} response has no formal relation evidence.`,
+    }
+  }
+
+  const relationState = safeText(raw?.relationState ?? raw?.knowledgeProjectionState).toUpperCase()
+  const relationReviewStatus = safeText(raw?.relationReviewStatus ?? raw?.knowledgeReviewStatus).toUpperCase()
+  const relationSource = safeText(raw?.relationSource ?? raw?.knowledgeRelationSource)
+  const sourceKnown = knowledgeRelationSources.has(relationSource as KnowledgeRelationSource)
+  const reviewKnown = knowledgeRelationReviewStatuses.has(relationReviewStatus as KnowledgeRelationReviewStatus)
+  const hasConfirmedEvidence = relationState === 'CONFIRMED'
+    && sourceKnown
+    && reviewKnown
+    && relationReviewStatus === 'APPROVED'
+    && Boolean(
+      safeText(raw?.relationId)
+      && safeText(raw?.sourceAssetId)
+      && safeText(raw?.targetAssetId)
+      && safeText(raw?.reasonText),
+    )
+
+  if (hasConfirmedEvidence) return { knowledgeProjectionState: 'CONFIRMED' }
+  if (relationState === 'DEGRADED'
+    || (relationState && relationState !== 'CONFIRMED' && relationState !== 'SUGGESTED')
+    || (relationState === 'CONFIRMED' && (!sourceKnown || !reviewKnown))
+    || (relationState === 'SUGGESTED' && ((relationSource && !sourceKnown) || (relationReviewStatus && !reviewKnown)))) {
+    return {
+      knowledgeProjectionState: 'DEGRADED',
+      knowledgeProjectionReason: safeText(raw?.degradedReason) || 'Relation evidence is incomplete.',
+    }
+  }
+  return {
+    knowledgeProjectionState: 'SUGGESTED',
+    knowledgeProjectionReason: relationState === 'CONFIRMED'
+      ? 'Confirmed state was rejected because approved review or relation evidence is incomplete.'
+      : undefined,
+  }
+}
 const visibilityCodeOf = (value?: ContentSeriesDraftPayload['visibility']) => value === 'public' ? 1 : 2
 
 const decorateRecord = (record: Omit<ContentSeriesRecord, 'progress'>, remoteProgress?: any): ContentSeriesRecord => ({
@@ -138,6 +188,7 @@ const normalizeSeriesItem = (raw: any): ContentSeriesItem => ({
 
 const adaptSeriesRecord = (raw: any): ContentSeriesRecord => {
   const items = Array.isArray(raw?.items) ? raw.items.map(normalizeSeriesItem) : []
+  const previewSource = normalizePreviewSource(raw)
   return decorateRecord({
     id: safeText(raw?.id) || createLocalId('series'),
     creatorUid: raw?.creatorUid == null ? undefined : String(raw.creatorUid),
@@ -148,9 +199,9 @@ const adaptSeriesRecord = (raw: any): ContentSeriesRecord => {
     visibility: normalizeVisibility(raw?.visibility),
     goalCount: Math.max(1, Number(raw?.goalCount || raw?.progress?.totalPostCount || items.length || 3)),
     status: raw?.status === 'paused' || raw?.status === 'completed' ? raw.status : 'active',
-    assetStatus: raw?.assetStatus === 'archived' ? 'archived' : 'active',
-    previewSource: normalizePreviewSource(raw),
-    sourceNote: safeText(raw?.sourceNote) || '公开系列来自内容系列接口；local-only/fallback 仅作只读展示。',
+    previewSource,
+    ...normalizeKnowledgeProjection(raw, previewSource),
+    sourceNote: safeText(raw?.sourceNote) || '公开系列可参与请求时关系投影；local-only/fallback 仅作降级展示。',
     targetHref: safeText(raw?.targetHref ?? raw?.href) || undefined,
     deleted: raw?.deleted ?? raw?.isDeleted,
     restricted: raw?.restricted ?? raw?.isRestricted,
@@ -180,9 +231,10 @@ const mergeRemoteSeriesRecord = (raw: any, localRecord?: ContentSeriesRecord): C
       Number(remoteRecord.progress.totalCount || 0),
     ),
     status: localRecord?.status || remoteRecord.status || 'active',
-    assetStatus: remoteRecord.assetStatus || localRecord?.assetStatus || 'active',
-    previewSource: 'remote',
-    sourceNote: remoteRecord.sourceNote || localRecord?.sourceNote || '公开系列来自内容系列接口。',
+    previewSource: remoteRecord.previewSource,
+    knowledgeProjectionState: remoteRecord.knowledgeProjectionState,
+    knowledgeProjectionReason: remoteRecord.knowledgeProjectionReason,
+    sourceNote: remoteRecord.sourceNote || localRecord?.sourceNote || '公开系列可参与请求时关系投影。',
     targetHref: remoteRecord.targetHref || localRecord?.targetHref,
     deleted: remoteRecord.deleted ?? localRecord?.deleted,
     restricted: remoteRecord.restricted ?? localRecord?.restricted,
@@ -212,7 +264,7 @@ const toRemoteSeriesPayload = (payload: ContentSeriesDraftPayload) => ({
   title: safeText(payload.title),
   description: safeText(payload.summary) || undefined,
   coverUrl: safeText(payload.coverUrl) || undefined,
-  domain: normalizeDomain(payload.domain),
+  domain: requireKnownDomain(payload.domain),
   visibility: visibilityCodeOf(payload.visibility),
 })
 
@@ -238,6 +290,11 @@ const localOnlyResult = <T>(data: T): ContentSeriesResult<T> => ({
   status: 'fallback',
 })
 
+const throwLocalOnlyWriteError = (error: unknown, message: string): never => {
+  if (shouldRethrowSeriesError(error)) throw error
+  throw new BizException(30901, message)
+}
+
 const shouldRethrowSeriesError = (error: unknown) => {
   if (error instanceof BizException) {
     return error.code === 10401 || error.code === 10403
@@ -245,6 +302,18 @@ const shouldRethrowSeriesError = (error: unknown) => {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status
     return status === 401 || status === 403 || status === 404 || (typeof status === 'number' && status >= 500)
+  }
+  return false
+}
+
+const shouldRethrowAssignmentDeleteError = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10401 || error.code === 10403
+  }
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status
+    if (status === 404) return false
+    return status === 401 || status === 403 || (typeof status === 'number' && status >= 500)
   }
   return false
 }
@@ -323,19 +392,21 @@ export const contentSeriesApi = {
   },
 
   create: async (payload: ContentSeriesDraftPayload, ownerId?: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord>> => {
+    const domain = requireKnownDomain(payload.domain)
     const localRecord = decorateRecord({
       id: createLocalId('series'),
       creatorUid: ownerId == null ? undefined : String(ownerId),
       title: safeText(payload.title) || '未命名合集',
       summary: safeText(payload.summary) || undefined,
       coverUrl: safeText(payload.coverUrl) || undefined,
-      domain: normalizeDomain(payload.domain),
+      domain,
       visibility: payload.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || 3)),
       status: payload.status || 'active',
-      assetStatus: 'active',
       previewSource: 'local',
-      sourceNote: 'local-only 系列仅保存在本地，不能进入公共知识资产。',
+      knowledgeProjectionState: 'DEGRADED',
+      knowledgeProjectionReason: 'Local-only series has no remote relation evidence.',
+      sourceNote: 'local-only 系列仅保存在本地，不参与正式知识关系。',
       targetHref: undefined,
       items: [],
       createdAt: Date.now(),
@@ -348,28 +419,29 @@ export const contentSeriesApi = {
       upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
     } catch (error) {
-      if (shouldRethrowSeriesError(error)) throw error
       upsertLocalRecord(ownerId, localRecord)
-      return localOnlyResult(localRecord)
+      return throwLocalOnlyWriteError(error, 'Content series was saved locally only. Remote save failed; it is not public or synced.')
     }
   },
 
   update: async (seriesId: ApiId, payload: ContentSeriesDraftPayload, ownerId?: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord>> => {
     const records = readLocalSeries(ownerId)
     const current = records.find((item) => item.id === String(seriesId))
+    const domain = requireKnownDomain(payload.domain ?? current?.domain)
     const localRecord = decorateRecord({
       id: String(seriesId),
       creatorUid: current?.creatorUid || (ownerId == null ? undefined : String(ownerId)),
       title: safeText(payload.title) || current?.title || '未命名合集',
       summary: safeText(payload.summary) || current?.summary || undefined,
       coverUrl: safeText(payload.coverUrl) || current?.coverUrl || undefined,
-      domain: normalizeDomain(payload.domain ?? current?.domain),
+      domain,
       visibility: payload.visibility || current?.visibility || 'private',
       goalCount: Math.max(1, Number(payload.goalCount || current?.goalCount || 3)),
       status: payload.status || current?.status || 'active',
-      assetStatus: current?.assetStatus || 'active',
-      previewSource: current?.previewSource || 'local',
-      sourceNote: current?.sourceNote || 'local-only 系列仅保存在本地，不能进入公共知识资产。',
+      previewSource: 'local',
+      knowledgeProjectionState: 'DEGRADED',
+      knowledgeProjectionReason: 'Local update has no confirmed remote relation evidence.',
+      sourceNote: 'local-only 系列更新仅保存在本地，不参与正式知识关系。',
       targetHref: current?.targetHref,
       items: current?.items || [],
       createdAt: current?.createdAt || Date.now(),
@@ -382,28 +454,43 @@ export const contentSeriesApi = {
       upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
     } catch (error) {
-      if (shouldRethrowSeriesError(error)) throw error
       upsertLocalRecord(ownerId, localRecord)
-      return localOnlyResult(localRecord)
+      return throwLocalOnlyWriteError(error, 'Content series was saved locally only. Remote update failed; public data was not changed.')
     }
   },
 
   syncAssignment: async (payload: ContentSeriesAssignmentPayload, ownerId?: ApiId): Promise<ContentSeriesResult<ContentSeriesRecord | null>> => {
     const localRecord = syncLocalAssignment(ownerId, payload)
-    if (!payload.seriesId || payload.postId == null) {
+    const nextSeriesId = payload.seriesId == null ? '' : String(payload.seriesId)
+    const previousSeriesId = payload.previousSeriesId == null ? '' : String(payload.previousSeriesId)
+    if (payload.postId == null) {
       return localOnlyResult(localRecord)
     }
 
     try {
-      const res = await client.post(`/api/v1/content-series/${payload.seriesId}/posts`, {
+      if (previousSeriesId && previousSeriesId !== nextSeriesId) {
+        try {
+          await client.delete(`/api/v1/content-series/${previousSeriesId}/posts/${payload.postId}`)
+        } catch (error) {
+          if (shouldRethrowAssignmentDeleteError(error)) throw error
+        }
+      }
+      if (!nextSeriesId) {
+        return {
+          code: 0,
+          message: 'assignment_removed',
+          data: localRecord,
+          status: 'remote',
+        }
+      }
+      const res = await client.post(`/api/v1/content-series/${nextSeriesId}/posts`, {
         postId: payload.postId,
       }) as Result<any>
       const data = res.data ? mergeRemoteSeriesRecord(res.data, localRecord || undefined) : localRecord
       if (data) upsertLocalRecord(ownerId, data)
       return { ...res, data, status: 'remote' }
     } catch (error) {
-      if (shouldRethrowSeriesError(error)) throw error
-      return localOnlyResult(localRecord)
+      return throwLocalOnlyWriteError(error, 'Content series assignment was saved locally only. Remote assignment failed; public data was not changed.')
     }
   },
 

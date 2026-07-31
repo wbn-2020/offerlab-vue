@@ -1,8 +1,8 @@
 import client, { BizException, Result } from './client'
-import type { ApiId, CommunityTopic, ContentTypeOption, PaginatedResponse, Post, PostPublishStatus, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, Tag } from './types'
-import { adaptCommunityTopic, adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptTag, adaptTime } from './adapters'
+import type { ApiId, CommunityTopic, ContentTypeOption, PaginatedResponse, Post, PostPublishStatus, PostReport, PostReportReq, PostReportReviewReq, PostVersionHistory, PublicPostUpdate, Tag } from './types'
+import { adaptCommunityTopic, adaptPage, adaptPost, adaptPostReport, adaptPostVersionHistory, adaptPublicPostUpdate, adaptTag, adaptTime } from './adapters'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
-import { normalizeDomain } from '@/utils/domains'
+import { isKnownDomain, normalizeDomain } from '@/utils/domains'
 
 export interface PostCreateReq {
   domain?: number
@@ -29,6 +29,9 @@ export interface PostUpdateReq {
   tagIds?: ApiId[]
   tagNames?: string[]
   draftId?: ApiId
+  publicUpdateSummary?: string
+  impactScope?: string
+  respondedSuggestionIds?: ApiId[]
 }
 
 export interface PostCreateResult {
@@ -81,7 +84,9 @@ function adaptPostDraft(raw: any): PostDraft {
     uid: String(raw?.uid ?? ''),
     sourcePostId: raw?.sourcePostId ? String(raw.sourcePostId) : undefined,
     postType: Number(raw?.postType ?? 1),
-    domain: normalizeDomain(raw?.domain ?? extension?.domain),
+    domain: isKnownDomain(raw?.domain ?? extension?.domain)
+      ? normalizeDomain(raw?.domain ?? extension?.domain)
+      : undefined,
     anonymous: Boolean(raw?.anonymous ?? extension?.anonymous),
     title: sanitizeVisibleText(raw?.title) || undefined,
     content: sanitizeVisibleText(raw?.content) || undefined,
@@ -213,16 +218,12 @@ const emptyResult = <T>(data: T | null): Result<T> => ({
   data,
 })
 
-const legacyTrainingDisabled = <T>(): Promise<Result<T>> => (
-  Promise.reject(new BizException(10404, '该个人训练能力已从闻野公共社区关闭'))
-)
-
 const shouldDisableServerDrafts = (error: unknown) => {
   if (error instanceof BizException) {
-    return error.code === 10404 || error.code >= 20000
+    return error.code === 10404
   }
   const status = (error as any)?.response?.status
-  return status === 404 || status === 405 || status >= 500
+  return status === 404 || status === 405
 }
 
 const rememberDraftFailure = (error: unknown) => {
@@ -240,11 +241,22 @@ export const postApi = {
     return { ...res, data: res.data ? adaptPost(res.data) : null }
   },
 
+  getReviewPreview: async (postId: ApiId): Promise<Result<Post>> => {
+    const res = await client.get(`/api/v1/posts/admin/review-preview/${postId}`) as Result<any>
+    return { ...res, data: res.data ? adaptPost(res.data) : null }
+  },
+
 
   listVersions: async (postId: ApiId, limit = 10): Promise<Result<PostVersionHistory[]>> => {
     const res = await client.get(`/api/v1/posts/${postId}/versions`, { params: { limit } }) as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPostVersionHistory) : [] }
   },
+
+  listPublicUpdates: async (postId: ApiId, limit = 10): Promise<Result<PublicPostUpdate[]>> => {
+    const res = await client.get(`/api/v1/posts/${postId}/updates`, { params: { limit } }) as Result<any>
+    return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptPublicPostUpdate) : [] }
+  },
+
   update: (postId: ApiId, req: PostUpdateReq): Promise<Result<PostCreateResult>> =>
     client.put(`/api/v1/posts/${postId}`, req),
 
@@ -337,20 +349,30 @@ export const postApi = {
     return { ...res, data: Array.isArray(res.data) ? res.data : [] }
   },
 
-  getPublishStatus: async (_postId: ApiId): Promise<Result<PostPublishStatus>> =>
-    legacyTrainingDisabled<PostPublishStatus>(),
+  getPublishStatus: async (postId: ApiId): Promise<Result<PostPublishStatus>> => {
+    const res = await client.get(`/api/v1/search/posts/${postId}/publish-status`) as Result<PostPublishStatus>
+    return res
+  },
 
-  getInterviewMaterials: async (_postId: ApiId): Promise<Result<InterviewMaterialPack>> =>
-    legacyTrainingDisabled<InterviewMaterialPack>(),
+  getInterviewMaterials: async (postId: ApiId): Promise<Result<InterviewMaterialPack>> => {
+    const res = await client.get(`/api/v1/posts/${postId}/interview-materials`) as Result<any>
+    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
+  },
 
-  generateInterviewMaterials: async (_postId: ApiId): Promise<Result<InterviewMaterialPack>> =>
-    legacyTrainingDisabled<InterviewMaterialPack>(),
+  generateInterviewMaterials: async (postId: ApiId): Promise<Result<InterviewMaterialPack>> => {
+    const res = await client.post(`/api/v1/posts/${postId}/interview-materials/generate`) as Result<any>
+    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
+  },
 
-  updateInterviewMaterial: async (_id: ApiId, _req: InterviewMaterialUpdateReq): Promise<Result<InterviewMaterialPack>> =>
-    legacyTrainingDisabled<InterviewMaterialPack>(),
+  updateInterviewMaterial: async (id: ApiId, req: InterviewMaterialUpdateReq): Promise<Result<InterviewMaterialPack>> => {
+    const res = await client.put(`/api/v1/interview-materials/${id}`, req) as Result<any>
+    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
+  },
 
-  saveInterviewMaterialToPrep: async (_id: ApiId): Promise<Result<InterviewMaterialPack>> =>
-    legacyTrainingDisabled<InterviewMaterialPack>(),
+  saveInterviewMaterialToPrep: async (id: ApiId): Promise<Result<InterviewMaterialPack>> => {
+    const res = await client.post(`/api/v1/interview-materials/${id}/save-to-prep`) as Result<any>
+    return { ...res, data: res.data ? adaptInterviewMaterialPack(res.data) : null }
+  },
 
   getTags: async (): Promise<Result<Tag[]>> => {
     const res = await client.get('/api/v1/tags') as Result<any>
@@ -396,7 +418,7 @@ export const postApi = {
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },
 
-  listTopics: async (params?: { featured?: boolean; limit?: number }): Promise<Result<CommunityTopic[]>> => {
+  listTopics: async (params?: { featured?: boolean; keyword?: string; limit?: number }): Promise<Result<CommunityTopic[]>> => {
     const res = await client.get('/api/v1/topics', { params }) as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptCommunityTopic) : [] }
   },

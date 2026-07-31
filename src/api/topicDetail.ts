@@ -1,6 +1,7 @@
 import client, { BizException, type Result } from './client'
 import { adaptPost } from './adapters'
 import type { ApiId, Post } from './types'
+import { legacyTopicSectionKey, nonEmptyTopicItemList } from '@/utils/topicSectionIdentity'
 
 export type TopicDetailSource =
   | 'remote'
@@ -47,6 +48,8 @@ export interface TopicRelatedEntry {
   reasonText?: string
 }
 
+export type CuratedTopicScope = 'DOMAIN' | 'CROSS_DOMAIN'
+
 export interface CuratedTopicDetail {
   id: ApiId | string
   slug: string
@@ -63,6 +66,10 @@ export interface CuratedTopicDetail {
   publishedAt?: string
   archivedAt?: string
   offlineAt?: string
+  // 只读透传后端派生的专题范围；前端不得自行由 domain 是否为空推断跨频道。
+  topicScope?: CuratedTopicScope
+  // 单频道专题保留后端频道值；跨频道专题为 null，缺失字段保持 undefined。
+  domain?: number | null
   sections: CuratedTopicSection[]
   relatedEntries: TopicRelatedEntry[]
   updatedAt?: string
@@ -93,6 +100,7 @@ export interface ArchivedTopicAsset extends Omit<PublishedTopicIndex, 'status' |
 
 interface RemoteTopicSection {
   id?: ApiId
+  sectionKey?: string
   title?: string
   sourceType?: string
   sourceId?: ApiId
@@ -120,6 +128,8 @@ interface RemoteTopicDetail {
   fallbackReason?: string
   operationType?: string
   currentVersion?: number
+  topicScope?: string
+  domain?: number | null
   sections?: RemoteTopicSection[]
   publishedAt?: string
   publishTime?: string
@@ -216,6 +226,8 @@ const unavailableTopicDetail = (
   degraded: true,
   fallbackReason,
   currentVersion: raw?.currentVersion,
+  topicScope: adaptTopicScope(raw?.topicScope),
+  domain: raw?.domain,
   sourceNote: status === 'OFFLINE'
     ? '专题已下线，当前不作为公开专题继续展示。'
     : '专题暂时不可用，未展示后台草稿、预览或内部说明。',
@@ -258,22 +270,52 @@ const adaptSection = (
   index: number,
   source: TopicDetailSource,
 ): CuratedTopicSection | null => {
-  if (!raw || !isDisplayableSource(source) || !isSafeText(raw.title) || !isSafeText(raw.note || raw.reasonText)) return null
-  const rawItems = Array.isArray(raw.items) && raw.items.length ? raw.items : [raw]
+  if (!raw || !isDisplayableSource(source) || !isSafeText(raw.title)) return null
+  const rawItems = nonEmptyTopicItemList(raw.items, undefined) || [raw]
   const items = rawItems
     .map((item, itemIndex) => adaptItem(item, source, itemIndex + 1))
     .filter(Boolean) as CuratedTopicItem[]
   if (!items.length) return null
   return {
-    id: String(raw.id || `section:${index + 1}`),
+    id: String(raw.sectionKey || raw.id || `section:${index + 1}`),
     title: raw.title || `Section ${index + 1}`,
     source,
     sourceType: raw.sourceType || 'POST',
     sourceId: raw.sourceId,
-    reasonText: isSafeText(raw.reasonText || raw.note) ? raw.reasonText || raw.note : undefined,
+    reasonText: undefined,
     sortOrder: raw.sortOrder ?? index + 1,
     items,
   }
+}
+
+const mergeRemoteTopicSections = (sections: RemoteTopicSection[]): RemoteTopicSection[] => {
+  const merged = new Map<string, RemoteTopicSection>()
+  sections.forEach((section, index) => {
+    const title = String(section?.title || '').trim()
+    const key = String(
+      section?.sectionKey
+      || legacyTopicSectionKey(title, index + 1),
+    )
+    const items = nonEmptyTopicItemList(section?.items, undefined) || [section]
+    const existing = merged.get(key)
+    if (!existing) {
+      merged.set(key, {
+        ...section,
+        sectionKey: key,
+        reasonText: undefined,
+        note: undefined,
+        items: [...items],
+      })
+      return
+    }
+    existing.items = [...(existing.items || []), ...items]
+      .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+    existing.sortOrder = Math.min(
+      Number(existing.sortOrder) || Number(section.sortOrder) || index + 1,
+      Number(section.sortOrder) || Number(existing.sortOrder) || index + 1,
+    )
+  })
+  return [...merged.values()].sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
 }
 
 const hasDisplayableItems = (section: CuratedTopicSection | null): section is CuratedTopicSection => (
@@ -337,7 +379,7 @@ const adaptTopicDetail = (raw: RemoteTopicDetail | null | undefined, slug: strin
   if (status !== 'PUBLISHED' && status !== 'ARCHIVED') {
     return unavailableTopicDetail(raw, slug, status === 'DEGRADED' ? 'DEGRADED' : 'UNAVAILABLE', 'operation_topic_not_public_snapshot')
   }
-  const sections = (Array.isArray(raw.sections) ? raw.sections : [])
+  const sections = mergeRemoteTopicSections(Array.isArray(raw.sections) ? raw.sections : [])
     .map((section, index) => adaptSection(section, index, source))
     .filter(hasDisplayableItems)
   if (!sections.length) {
@@ -360,11 +402,18 @@ const adaptTopicDetail = (raw: RemoteTopicDetail | null | undefined, slug: strin
     sortNote: '章节顺序来自已发布快照。',
     publishedAt: raw.publishedAt || raw.publishTime,
     archivedAt: raw.archivedAt || raw.archiveTime,
+    topicScope: adaptTopicScope(raw.topicScope),
+    domain: raw.domain,
     sections,
     relatedEntries: [],
     updatedAt: raw.updateTime,
   }
 }
+
+// 只认后端派生的两态；缺失/异常值一律置空，绝不由 domain 是否为空自行推断。
+const adaptTopicScope = (raw: string | undefined): CuratedTopicScope | undefined => (
+  raw === 'DOMAIN' || raw === 'CROSS_DOMAIN' ? raw : undefined
+)
 
 const topicNotFound = (error: unknown) => {
   if (error instanceof BizException) return error.code === 10404

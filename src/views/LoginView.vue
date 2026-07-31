@@ -15,6 +15,21 @@
           <p class="text-sm text-slate-600 dark:text-slate-400">{{ siteBrand.description }}</p>
         </div>
 
+        <section v-if="recoveryState" class="auth-recovery mb-6" :data-auth-recovery="recoveryState">
+          <div>
+            <strong>{{ recoveryTitle }}</strong>
+            <p>{{ recoveryText }}</p>
+          </div>
+          <button
+            v-if="recoveryState === 'hydrate_failed' && authStore.token"
+            type="button"
+            :disabled="isRetryingSession"
+            @click="retrySession"
+          >
+            {{ isRetryingSession ? '重试中...' : '重试当前会话' }}
+          </button>
+        </section>
+
         <!-- Form -->
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <!-- Account Field -->
@@ -27,7 +42,7 @@
               name="account"
               autocomplete="username"
               aria-label="账号或邮箱"
-              placeholder="admin / user1 / your@email.com"
+              placeholder="输入账号或邮箱"
               class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
               :disabled="isLoading"
             />
@@ -62,14 +77,7 @@
         </form>
 
         <!-- Divider -->
-        <div class="relative my-6">
-          <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-slate-200 dark:border-slate-800" />
-          </div>
-          <div class="relative flex justify-center text-xs">
-            <span class="px-2 bg-white dark:bg-slate-900 text-slate-500">或</span>
-          </div>
-        </div>
+        <div class="my-6 border-t border-slate-200 dark:border-slate-800" />
 
         <!-- Register Link -->
         <p class="text-center text-sm text-slate-600 dark:text-slate-400">
@@ -91,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive } from 'vue'
+import { computed, onMounted, ref, reactive } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
@@ -108,7 +116,8 @@ const { login } = useAuth()
 const authStore = useAuthStore()
 
 const isLoading = ref(false)
-const showDemoAccounts = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true'
+const isRetryingSession = ref(false)
+const showDemoAccounts = import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true'
 const form = reactive({
   email: '',
   password: '',
@@ -118,6 +127,19 @@ const errors = reactive({
   email: '',
   password: '',
 })
+
+const recoveryState = computed(() => {
+  const reason = String(route.query.reason || '')
+  if (reason === 'session_expired' || authStore.sessionExpired) return 'session_expired'
+  if (reason === 'hydrate_failed' || authStore.hydrateFailed) return 'hydrate_failed'
+  return ''
+})
+const recoveryTitle = computed(() => recoveryState.value === 'session_expired'
+  ? '当前会话已过期'
+  : '暂时无法确认当前会话')
+const recoveryText = computed(() => recoveryState.value === 'session_expired'
+  ? '请重新登录，完成后会返回刚才访问的页面。'
+  : authStore.hydrationError || '账号服务暂时没有返回可信结果。你可以重试当前会话，或使用其他账号登录。')
 
 // Validation schema
 const loginSchema = z.object({
@@ -160,12 +182,32 @@ const handleSubmit = async () => {
   }
 }
 
+const retrySession = async () => {
+  isRetryingSession.value = true
+  await authStore.hydrate()
+  try {
+    if (authStore.isLoggedIn) {
+      await router.replace(safeRedirect(route.query.redirect))
+      toast.success('会话已恢复')
+    } else if (authStore.sessionExpired) {
+      await router.replace({
+        path: '/login',
+        query: { redirect: safeRedirect(route.query.redirect), reason: 'session_expired' },
+      })
+    } else {
+      toast.error(authStore.hydrationError || '当前会话仍无法确认，请稍后重试。')
+    }
+  } finally {
+    isRetryingSession.value = false
+  }
+}
+
 onMounted(async () => {
   if (route.query.switchAccount === '1') {
     authStore.logout()
     return
   }
-  if (authStore.token && !authStore.user) {
+  if (authStore.token && !authStore.user && !authStore.hydrateFailed) {
     await authStore.hydrate()
   }
   if (authStore.isLoggedIn) {
@@ -199,5 +241,45 @@ onMounted(async () => {
 
 .auth-submit {
   min-height: 44px;
+}
+
+.auth-recovery {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgb(253 230 138);
+  border-radius: 0.5rem;
+  background: rgb(255 251 235);
+  padding: 0.8rem;
+  color: rgb(146 64 14);
+}
+
+.auth-recovery strong,
+.auth-recovery p {
+  display: block;
+}
+
+.auth-recovery p {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.auth-recovery button {
+  flex: none;
+  min-height: 2.25rem;
+  border-radius: 0.375rem;
+  background: rgb(146 64 14);
+  padding: 0 0.75rem;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.dark .auth-recovery {
+  border-color: rgb(146 64 14);
+  background: rgb(69 26 3 / 0.45);
+  color: rgb(253 230 138);
 }
 </style>

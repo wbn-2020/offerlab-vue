@@ -4,6 +4,7 @@ const runtimeProcess = globalThis.process
 const baseUrl = runtimeProcess?.env?.OFFERLAB_VISUAL_BASE_URL || 'http://127.0.0.1:5173'
 const outputDir = runtimeProcess?.env?.OFFERLAB_VISUAL_OUTPUT_DIR || 'visual-snapshots'
 const useFixtureApi = runtimeProcess?.env?.OFFERLAB_VISUAL_FIXTURE_API === '1'
+const visualReadyTimeoutMs = Math.max(5000, Number(runtimeProcess?.env?.OFFERLAB_VISUAL_READY_TIMEOUT_MS) || 20000)
 const visualTheme = ['light', 'dark', 'auto'].includes(runtimeProcess?.env?.OFFERLAB_VISUAL_THEME)
   ? runtimeProcess.env.OFFERLAB_VISUAL_THEME
   : 'dark'
@@ -29,7 +30,7 @@ export const visualSnapshotRoutes = [
   { name: 'questions', path: '/questions' },
   { name: 'editor', path: '/editor', auth: 'user' },
   { name: 'me', path: '/me', auth: 'user' },
-  { name: 'mock-interview', path: '/mock-interview', auth: 'user' },
+  { name: 'mock-interview-disabled', path: '/mock-interview', expectedPath: '/questions', auth: 'user' },
   { name: 'admin-ops', path: '/admin/ops', auth: 'admin' },
   { name: 'admin-governance', path: '/admin/governance', auth: 'admin' },
 ]
@@ -128,6 +129,67 @@ async function installFixtureApi(context) {
   })
 }
 
+function trackApiRequests(page) {
+  const pendingApiRequests = new Set()
+  const shouldTrack = (request) => {
+    const url = request.url()
+    if (!url.includes('/api/v1/')) return false
+    return !url.includes('/notifications/realtime-status') && !url.includes('/notifications/unread-count')
+  }
+  page.on('request', (request) => {
+    if (shouldTrack(request)) pendingApiRequests.add(request)
+  })
+  page.on('requestfinished', (request) => pendingApiRequests.delete(request))
+  page.on('requestfailed', (request) => pendingApiRequests.delete(request))
+  return () => pendingApiRequests.size
+}
+
+async function waitForVisualReady(page, expectedPath, pendingApiCount) {
+  await page.waitForFunction(
+    (path) => window.location.pathname === path,
+    expectedPath,
+    { timeout: visualReadyTimeoutMs },
+  )
+  await page.waitForSelector('#app', { state: 'attached', timeout: visualReadyTimeoutMs })
+  await page.waitForFunction(() => {
+    const app = document.querySelector('#app')
+    if (!(app instanceof HTMLElement)) return false
+    const style = getComputedStyle(app)
+    const text = (app.innerText || app.textContent || '').trim()
+    return style.display !== 'none' && style.visibility !== 'hidden' && text.length >= 20
+  }, undefined, { timeout: visualReadyTimeoutMs })
+  await page.evaluate(async () => {
+    if (document.fonts?.ready) await document.fonts.ready
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  })
+
+  const deadline = Date.now() + visualReadyTimeoutMs
+  let lastSignature = ''
+  let stableSamples = 0
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => {
+      const app = document.querySelector('#app')
+      const bodyText = (document.body?.innerText || '').trim()
+      return {
+        appChildren: app?.childElementCount || 0,
+        bodyChars: bodyText.length,
+        scrollHeight: document.documentElement.scrollHeight,
+        scrollWidth: document.documentElement.scrollWidth,
+      }
+    })
+    const signature = JSON.stringify(state)
+    if (pendingApiCount() === 0 && state.appChildren > 0 && state.bodyChars >= 20 && signature === lastSignature) {
+      stableSamples += 1
+      if (stableSamples >= 3) return
+    } else {
+      stableSamples = 0
+    }
+    lastSignature = signature
+    await page.waitForTimeout(250)
+  }
+  throw new Error(`Visual route did not become stable within ${visualReadyTimeoutMs}ms (pending API requests: ${pendingApiCount()}).`)
+}
+
 async function loadPlaywright() {
   try {
     return await import('playwright')
@@ -176,7 +238,10 @@ async function launchChromium(playwright, fs) {
       }
     }
     const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`Playwright Chromium executable is missing and no local Chrome/Edge fallback was found. Set OFFERLAB_PLAYWRIGHT_EXECUTABLE_PATH to a browser executable before running visual snapshots. ${message}`)
+    throw new Error(
+      `Playwright Chromium executable is missing and no local Chrome/Edge fallback was found. Set OFFERLAB_PLAYWRIGHT_EXECUTABLE_PATH to a browser executable before running visual snapshots. ${message}`,
+      { cause: error },
+    )
   }
 }
 
@@ -225,6 +290,8 @@ async function collectPageMetrics(page) {
       return false
     }
     const textOf = (element) => (element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim()
+    const doc = document.documentElement
+    const expectsDarkSurface = theme === 'dark' || (theme === 'auto' && doc.classList.contains('dark'))
     const selectorChecks = [
       { selector: '.metric-value', name: 'home metric value', minContrast: 4.5, noLightSurface: false },
       { selector: '.metric-label', name: 'home metric label', minContrast: 4.5, noLightSurface: false },
@@ -242,7 +309,6 @@ async function collectPageMetrics(page) {
       { selector: '.governance-page .violation-card', name: 'governance violation card', minContrast: 4.5, noLightSurface: true },
       { selector: '.governance-page .field-input', name: 'governance field input', minContrast: 4.5, noLightSurface: true },
     ]
-    const doc = document.documentElement
     const bodyText = (document.body?.innerText || '').trim()
     const mojibakeHits = ['鐧', '鎶', '娴', '�', '锛', '绠', '诲'].filter((item) => bodyText.includes(item))
     const overflowCandidates = Array.from(document.querySelectorAll('body *'))
@@ -272,7 +338,7 @@ async function collectPageMetrics(page) {
           const renderedText = textOf(element)
           const ratio = foreground && background && renderedText ? contrast(foreground, background) : null
           const rect = element.getBoundingClientRect()
-          const lightSurface = check.noLightSurface && luminance(background) > 0.62
+          const lightSurface = expectsDarkSurface && check.noLightSurface && luminance(background) > 0.62
           const lowContrast = ratio !== null && ratio < check.minContrast
           const clippedText = element.scrollWidth > element.clientWidth + 2 || element.scrollHeight > element.clientHeight + 2
           return {
@@ -302,6 +368,7 @@ async function collectPageMetrics(page) {
       title: document.title,
       finalUrl: location.href,
       requestedTheme: theme,
+      expectsDarkSurface,
       darkMode: doc.classList.contains('dark'),
       bodyChars: bodyText.length,
       bodyTextSample: bodyText.replace(/\s+/g, ' ').slice(0, 220),
@@ -359,13 +426,15 @@ export async function runVisualSnapshots() {
           }
         }, { key: authStorageKey, token: authToken, theme: visualTheme })
         const page = await context.newPage()
+        const pendingApiCount = trackApiRequests(page)
         const url = new URL(route.path, baseUrl).toString()
+        const screenshotPath = path.join(outputDir, `${safeName(route.name)}-${viewport.name}.png`)
         try {
           await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
           await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined)
+          await waitForVisualReady(page, expectedPath, pendingApiCount)
           const metrics = await collectPageMetrics(page)
           const finalPath = new URL(metrics.finalUrl).pathname
-          const screenshotPath = path.join(outputDir, `${safeName(route.name)}-${viewport.name}.png`)
           await page.screenshot({
             path: screenshotPath,
             fullPage: true,
@@ -382,6 +451,32 @@ export async function runVisualSnapshots() {
             screenshotPath,
             ...metrics,
           })
+        } catch (error) {
+          let metrics = {}
+          try {
+            metrics = await collectPageMetrics(page)
+          } catch {
+            // Navigation failures can leave the page without an executable document.
+          }
+          try {
+            await page.screenshot({ path: screenshotPath, fullPage: true })
+          } catch {
+            // Keep the route-level failure in summary.json even when Chromium cannot capture it.
+          }
+          const finalPath = metrics.finalUrl ? new URL(metrics.finalUrl).pathname : ''
+          results.push({
+            route: route.path,
+            routeName: route.name,
+            viewport: viewport.name,
+            viewportSize: viewport,
+            auth: route.auth || 'public',
+            expectedPath,
+            finalPath,
+            unexpectedRoute: finalPath !== expectedPath,
+            screenshotPath,
+            captureError: error instanceof Error ? error.message : String(error),
+            ...metrics,
+          })
         } finally {
           await context.close()
         }
@@ -393,17 +488,19 @@ export async function runVisualSnapshots() {
 
   await fs.writeFile(
     path.join(outputDir, 'summary.json'),
-    JSON.stringify({ baseUrl, visualTheme, capturedAt: new Date().toISOString(), results }, null, 2),
+    JSON.stringify({ baseUrl, visualTheme, useFixtureApi, capturedAt: new Date().toISOString(), results }, null, 2),
     'utf8',
   )
 
   const failures = results.filter((item) => (
     item.missingAuth
+    || item.captureError
     || item.unexpectedRoute
     || !item.hasAppRoot
     || item.bodyChars < 20
     || item.horizontalOverflow
     || (visualTheme === 'dark' && item.darkMode !== true)
+    || (visualTheme === 'light' && item.darkMode !== false)
     || item.mojibakeHits?.length > 0
     || item.keyComponentFailures?.length > 0
   ))

@@ -80,7 +80,7 @@ assertNotIncludes(certification, 'item.eligibilitySummary }}</p>', 'certificatio
 
 assertIncludes(header, '认证作者申请', 'header certification entry must use creator wording')
 assertNotIncludes(header, '专家认证申请', 'header must not expose old expert application wording')
-assertIncludes(router, "meta: { title: '认证作者申请' }", 'router title must use creator certification wording')
+assertIncludes(router, "title: '认证作者申请'", 'router title must use creator certification wording')
 assertIncludes(knowledgeExplore, '认证作者', 'knowledge explore entry must use creator certification wording')
 assertNotIncludes(knowledgeExplore, '专家认证', 'knowledge explore entry must not expose old expert certification wording')
 assertIncludes(growthReport, '认证作者', 'growth report entry must use creator certification wording')

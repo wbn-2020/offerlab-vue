@@ -10,38 +10,41 @@ const adapters = readFileSync(new URL('../src/api/adapters.ts', import.meta.url)
 assert.match(homeView, />\s*综合\s*</, 'HomeView must expose a 综合 entry')
 assert.match(
   homeView,
-  /<router-link[\s\S]*?to="\/"[\s\S]*?>[\s\S]*?综合[\s\S]*?<\/router-link>/,
-  'The 综合 entry must route to / without a domain query',
+  /<router-link[\s\S]*?:to="homeDomainLocation\(\)"[\s\S]*?>[\s\S]*?综合[\s\S]*?<\/router-link>/,
+  'The 综合 entry must clear domain through the route-state helper',
 )
 assert.match(
   homeView,
-  /v-for="d in COMMUNITY_CHANNELS"/,
-  'Domain/channel entries must be rendered from COMMUNITY_CHANNELS while preserving DOMAIN_OPTIONS validation',
+  /const homeDomainLocation[\s\S]*feed:\s*activeFeed\.value[\s\S]*\.\.\.\(domain\s*\?\s*\{\s*domain:/,
+  'Domain links must preserve the selected feed while omitting an empty domain query',
 )
 assert.match(
   homeView,
-  /const\s+legalDomainValues\s*=\s*new\s+Set/,
-  'HomeView must build a legal domain set from DOMAIN_OPTIONS',
+  /v-for="d in homeDomainOptions"/,
+  'Domain/channel entries must be rendered from the shared enabled domain catalog',
 )
+assert.match(homeView, /useDomainCatalog/, 'HomeView must consume the shared domain catalog')
 assert.match(
   homeView,
-  /DOMAIN_OPTIONS\.map\(\([^)]*\)\s*=>\s*[^)]*\.value\)/,
-  'HomeView legal domain set must derive values from DOMAIN_OPTIONS',
-)
-assert.match(
-  homeView,
-  /legalDomainValues\.has\(q\)\s*\?\s*q\s*:\s*undefined/,
-  'activeDomain must reject query values outside DOMAIN_OPTIONS before API calls',
+  /const activeDomain = computed\(\(\) => \{[\s\S]*homeDomainOptions\.value\.some\(\(item\) => Number\(item\.domain\) === q\) \? q : undefined[\s\S]*\}\)/,
+  'activeDomain must reject query values outside the enabled shared domain catalog before API calls',
 )
 assert.match(
   infiniteFeed,
   /apiMap\[currentFeed\.value\]\(pageParam,\s*pageSize,\s*currentDomain\.value\)/,
   'useInfiniteFeed must pass currentDomain.value into the selected feed API call, including featured',
 )
+const maxPagesMatch = infiniteFeed.match(/const\s+maxPages\s*=\s*(\d+)/)
+assert.ok(maxPagesMatch, 'useInfiniteFeed must define a maxPages cap to avoid unbounded feed memory growth')
+const maxPagesValue = Number(maxPagesMatch[1])
+assert.ok(
+  maxPagesValue > 0 && maxPagesValue <= 50,
+  'useInfiniteFeed maxPages must stay a bounded positive cap (retain enough pages for scroll-back without unbounded growth)',
+)
 assert.match(
   infiniteFeed,
-  /const\s+maxPages\s*=\s*6/,
-  'useInfiniteFeed must cap retained pages to avoid unbounded feed memory growth',
+  /getNextPageParam:[\s\S]*?\n\s*maxPages,/,
+  'useInfiniteFeed must pass maxPages to TanStack Query so cached pages are actually evicted',
 )
 assert.match(
   infiniteFeed,
@@ -61,13 +64,13 @@ assert.match(
 assert.match(domains, /export\s+const\s+normalizeDomain\s*=/, 'domains.ts must expose a shared normalizeDomain helper')
 assert.match(
   adapters,
-  /import\s+\{\s*normalizeDomain[\s\S]*?\}\s+from\s+['"]@\/utils\/domains['"]/,
-  'adaptPost must import normalizeDomain from the shared domain helper',
+  /import\s+\{[\s\S]*isKnownDomain[\s\S]*normalizeDomain[\s\S]*\}\s+from\s+['"]@\/utils\/domains['"]/,
+  'adaptPost must import optional validation and normalization from the shared domain helper',
 )
 assert.match(
   adapters,
-  /normalizeDomain\(\s*source\?\.domain\s*\?\?\s*extension\?\.domain\s*\)/,
-  'adaptPost must normalize source.domain with extension.domain fallback',
+  /const rawDomain = source\?\.domain \?\? extension\?\.domain[\s\S]*const domain = isKnownDomain\(rawDomain\) \? normalizeDomain\(rawDomain\) : undefined/,
+  'adaptPost must preserve missing or invalid domains as unclassified instead of normalizing them to TECH',
 )
 
 console.log('phase2 home domain feed guard passed')

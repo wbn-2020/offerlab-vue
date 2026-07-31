@@ -71,7 +71,12 @@ export const useAccessibleDialog = (isOpen: DialogOpenSource, options: Accessibl
     const active = document.activeElement
     if (!dialog.contains(active)) {
       event.preventDefault()
-      first.focus({ preventScroll: true })
+      ;(event.shiftKey ? last : first).focus({ preventScroll: true })
+      return
+    }
+    if (!elements.includes(active as HTMLElement)) {
+      event.preventDefault()
+      ;(event.shiftKey ? last : first).focus({ preventScroll: true })
       return
     }
     if (event.shiftKey && active === first) {

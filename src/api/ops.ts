@@ -195,6 +195,15 @@ export interface MyAdminPermissions {
   adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY' | 'LOCKED'
   admin: boolean
   ops: boolean
+  opsRole?: boolean
+  opsOrchestration?: {
+    publish?: boolean
+    offline?: boolean
+    rollback?: boolean
+  }
+  opsOrchestrationPublisher?: boolean
+  opsOrchestrationOffline?: boolean
+  opsOrchestrationRollback?: boolean
   contentModerator: boolean
   domainModerator: boolean
   moderatedDomains: number[]
@@ -217,7 +226,7 @@ export interface OutboxMessage {
   aggregateType: string
   aggregateId: ApiId
   topic: string
-  payload: string
+  payload?: string
   msgStatus: number
   retryCount: number
   nextRetryTime?: string
@@ -290,6 +299,8 @@ export interface SearchAnalytics {
   noResultKeywords: SearchAnalyticsItem[]
   prepClicks: SearchAnalyticsItem[]
   recommendClicks: SearchAnalyticsItem[]
+  availability?: 'available' | 'degraded'
+  degradedReason?: string
 }
 
 export interface PostSearchDiagnostics {
@@ -580,9 +591,19 @@ const normalizeReviewQueueItems = (raw: unknown): ReviewQueueItem[] => normalize
 
 const optionalPanelUnavailable = (error: unknown) => {
   if (error instanceof BizException) {
-    return error.code === 10404
+    return [10401, 10403, 10404].includes(error.code)
   }
   const status = (error as any)?.response?.status
+  return status === 401 || status === 403 || status === 404 || status === 405
+}
+
+const compatibilityEndpointUnavailable = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10404 || error.status === 404 || error.status === 405
+  }
+  const status = typeof error === 'object' && error !== null && 'response' in error
+    ? (error as { response?: { status?: unknown } }).response?.status
+    : undefined
   return status === 404 || status === 405
 }
 
@@ -644,12 +665,12 @@ export const opsApi = {
   listAdmins: (params?: { limit?: number }): Promise<Result<AdminUserRole[]>> =>
     client.get('/api/v1/ops/admins', { params }),
 
-  addAdmin: (data: { uid: ApiId; roleCode?: string; remark?: string; auditRemark?: string }): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
+  addAdmin: (data: { uid: ApiId; roleCode: string; remark?: string; auditRemark?: string }): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
     client.post('/api/v1/ops/admins', { ...data, confirmationPhrase: 'CONFIRM' }),
 
   updateAdminStatus: (
     uid: ApiId,
-    data: { enabled: boolean; roleCode?: string; remark?: string; auditRemark?: string },
+    data: { enabled: boolean; roleCode: string; remark?: string; auditRemark?: string },
   ): Promise<Result<{ uid: ApiId; roleCode: string; enabled: boolean; updated: boolean }>> =>
     client.post(`/api/v1/ops/admins/${uid}/status`, { ...data, confirmationPhrase: 'CONFIRM' }),
 
@@ -690,10 +711,26 @@ export const opsApi = {
 
   searchAnalytics: async (params?: { days?: number; limit?: number; includeTestData?: boolean }): Promise<Result<SearchAnalytics>> => {
     try {
-      return await client.get('/api/v1/ops/search/analytics', { params })
+      const res = await client.get('/api/v1/ops/search/analytics', { params, skipAuthRedirect: true }) as Result<SearchAnalytics>
+      return {
+        ...res,
+        data: {
+          ...emptySearchAnalytics(),
+          ...(res.data || {}),
+          availability: 'available',
+        },
+      }
     } catch (error) {
-      if (!optionalPanelUnavailable(error)) throw error
-      return okResult(emptySearchAnalytics())
+      if (!compatibilityEndpointUnavailable(error)) throw error
+      return {
+        code: 0,
+        message: '搜索运营统计接口未部署，已进入兼容降级状态',
+        data: {
+          ...emptySearchAnalytics(),
+          availability: 'degraded',
+          degradedReason: '当前环境未提供搜索运营统计接口（HTTP 404/405），以下不代表真实的零数据。',
+        },
+      }
     }
   },
 
@@ -883,11 +920,11 @@ export const opsApi = {
   previewNotificationRetryTasks: (ids: ApiId[]): Promise<Result<BatchActionPreview>> =>
     client.post('/api/v1/ops/notification-retry-tasks/replay-batch/preview', { ids }),
 
-  reviewQuestion: (id: ApiId, status: number, remark?: string): Promise<Result<{ questionId: ApiId; status: number }>> =>
-    client.post(`/api/v1/admin/questions/${id}/review`, withRemark({}, remark), { params: { status } }),
+  reviewQuestion: (id: ApiId, status: number, expectedUpdateTime: string, remark?: string): Promise<Result<{ questionId: ApiId; status: number }>> =>
+    client.post(`/api/v1/admin/questions/${id}/review`, withRemark({ expectedUpdateTime }, remark), { params: { status } }),
 
-  batchReviewQuestions: (ids: ApiId[], status: number, remark?: string): Promise<Result<{ requested: number; reviewed: number; status: number }>> =>
-    client.post('/api/v1/admin/questions/batch-review', withRiskConfirm({ ids, status }, remark)),
+  batchReviewQuestions: (ids: ApiId[], status: number, expectedUpdateTimes: Record<string, string>, remark?: string): Promise<Result<{ requested: number; reviewed: number; status: number }>> =>
+    client.post('/api/v1/admin/questions/batch-review', withRiskConfirm({ ids, status, expectedUpdateTimes }, remark)),
 
   listQuestions: (params?: { status?: number; limit?: number }): Promise<Result<Question[]>> =>
     client.get('/api/v1/admin/questions', { params }),
@@ -909,7 +946,10 @@ export const opsApi = {
   questionSummary: (): Promise<Result<{ pending: number; approved: number; hidden: number; total: number }>> =>
     client.get('/api/v1/admin/questions/summary'),
 
-  updateQuestion: (id: ApiId, data: Partial<Question> & { status?: number } & RiskRemark): Promise<Result<Question>> =>
+  updateQuestion: (
+    id: ApiId,
+    data: Omit<Partial<Question>, 'status' | 'updateTime'> & { expectedUpdateTime: string } & RiskRemark,
+  ): Promise<Result<Question>> =>
     client.post(`/api/v1/admin/questions/${id}`, data),
 
   getQuestionDuplicateGroup: (id: ApiId): Promise<Result<QuestionDuplicateGroup>> =>

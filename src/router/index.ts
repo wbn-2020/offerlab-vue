@@ -1,5 +1,14 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import {
+  createRouter,
+  createWebHistory,
+  type RouteLocationGeneric,
+  type RouteLocationNormalized,
+} from 'vue-router'
 import { setupRouterGuards } from './guards'
+import { legacyCollaborationDetailPath } from '@/utils/collaborationRoutes'
+
+const enableLegacyTrainingRoutes = import.meta.env.VITE_OFFERLAB_ENABLE_LEGACY_TRAINING === 'true'
+const legacyTrainingRedirect = () => ({ name: 'Questions', query: { legacy: 'training-disabled' } })
 
 const routes = [
   {
@@ -13,6 +22,59 @@ const routes = [
     name: 'Explore',
     component: () => import('@/views/ExploreView.vue'),
     meta: { title: '发现' },
+  },
+  {
+    path: '/collaboration',
+    name: 'CollaborationHub',
+    component: () => import('@/views/CollaborationHubView.vue'),
+    beforeEnter: (to: RouteLocationNormalized) => {
+      const legacyPath = legacyCollaborationDetailPath(to.query)
+      return legacyPath || true
+    },
+    meta: { title: '公共共建' },
+  },
+  {
+    path: '/collaboration/needs/:needId',
+    name: 'CollaborationNeedDetail',
+    component: () => import('@/views/CollaborationNeedDetailView.vue'),
+    meta: { title: '共建需求详情' },
+  },
+  {
+    path: '/collaboration/series/:seriesId',
+    name: 'CollaborationSeriesDetail',
+    component: () => import('@/views/CollaborationSeriesDetailView.vue'),
+    meta: { title: '协作合集详情' },
+  },
+  {
+    path: '/collaboration/activities/:activityId',
+    name: 'CollaborationActivityDetail',
+    component: () => import('@/views/CollaborationActivityDetailView.vue'),
+    meta: { title: '共创活动详情' },
+  },
+  {
+    path: '/collaboration/discussions/:discussionId',
+    name: 'CollaborationDiscussionDetail',
+    component: () => import('@/views/CollaborationDiscussionDetailView.vue'),
+    meta: { title: '结构化讨论详情' },
+  },
+  {
+    path: '/collaboration/office-hours/:officeHourId',
+    name: 'CollaborationOfficeHourDetail',
+    component: () => import('@/views/CollaborationOfficeHourDetailView.vue'),
+    meta: { title: '经验交流详情' },
+  },
+  {
+    path: '/collaboration/office-hours/:officeHourId/reservations/:reservationId',
+    name: 'CollaborationOfficeHourReservation',
+    redirect: (to: RouteLocationGeneric) => ({
+      path: '/collaboration',
+      query: {
+        tab: 'office-hours',
+        officeHourId: Array.isArray(to.params.officeHourId) ? to.params.officeHourId[0] : to.params.officeHourId,
+        reservationId: Array.isArray(to.params.reservationId) ? to.params.reservationId[0] : to.params.reservationId,
+      },
+    }),
+    meta: { title: '经验交流预约处理', requiresAuth: true },
   },
   {
     path: '/trend',
@@ -35,7 +97,9 @@ const routes = [
   {
     path: '/companies/:company/prep',
     name: 'CompanyPrep',
-    redirect: (to: any) => ({ name: 'Search', query: { q: String(to.params.company || ''), mode: 'posts' } }),
+    ...(enableLegacyTrainingRoutes
+      ? { component: () => import('@/views/CompanyPrepView.vue') }
+      : { redirect: legacyTrainingRedirect }),
     meta: { title: '主题学习包' },
   },
   {
@@ -69,16 +133,28 @@ const routes = [
     meta: { title: '合集详情' },
   },
   {
+    path: '/favorite-folders/:id',
+    name: 'FavoriteFolderDetail',
+    component: () => import('@/views/FavoriteFolderDetailView.vue'),
+    meta: { title: '公开收藏夹' },
+  },
+  {
     path: '/growth/profile',
     name: 'GrowthProfile',
     component: () => import('@/views/GrowthProfileView.vue'),
-    meta: { title: '成长档案' },
+    meta: { title: '成长档案', requiresAuth: true },
   },
   {
     path: '/growth/report',
     name: 'GrowthReport',
     component: () => import('@/views/GrowthReportView.vue'),
-    meta: { title: '成长周报月报' },
+    meta: { title: '成长周报月报', requiresAuth: true },
+  },
+  {
+    path: '/growth/community',
+    name: 'CommunityGrowth',
+    component: () => import('@/views/CommunityGrowthView.vue'),
+    meta: { title: '社区成长', requiresAuth: true },
   },
   {
     path: '/knowledge/explore',
@@ -90,7 +166,16 @@ const routes = [
     path: '/certification/apply',
     name: 'CertificationApply',
     component: () => import('@/views/CertificationApplyView.vue'),
-    meta: { title: '认证作者申请' },
+    meta: { title: '认证作者申请', requiresAuth: true },
+  },
+  {
+    path: '/u/:uid/contributions',
+    name: 'PublicCollaborationContributions',
+    component: () => import('@/views/CollaborationContributionView.vue'),
+    props: (route: RouteLocationNormalized) => ({
+      uid: Array.isArray(route.params.uid) ? route.params.uid[0] : route.params.uid,
+    }),
+    meta: { title: '公开协作贡献' },
   },
   {
     path: '/u/:uid',
@@ -105,6 +190,36 @@ const routes = [
     meta: { title: '我的主页', requiresAuth: true },
   },
   {
+    path: '/me/knowledge',
+    name: 'KnowledgeMaintenance',
+    component: () => import('@/views/KnowledgeMaintenanceView.vue'),
+    meta: { title: '我的知识维护', requiresAuth: true },
+  },
+  {
+    path: '/me/relationships',
+    name: 'RelationshipWorkspace',
+    component: () => import('@/views/RelationshipWorkspaceView.vue'),
+    meta: { title: '关系与订阅中心', requiresAuth: true },
+  },
+  {
+    path: '/me/collaboration',
+    name: 'CollaborationActionCenter',
+    component: () => import('@/views/CollaborationActionCenterView.vue'),
+    meta: { title: '协作行动中心', requiresAuth: true },
+  },
+  {
+    path: '/me/collaboration/contributions',
+    name: 'MyCollaborationContributions',
+    component: () => import('@/views/CollaborationContributionView.vue'),
+    meta: { title: '我的协作贡献', requiresAuth: true },
+  },
+  {
+    path: '/me/contact-requests',
+    name: 'ContactRequests',
+    component: () => import('@/views/ContactRequestsView.vue'),
+    meta: { title: '联系请求', requiresAuth: true },
+  },
+  {
     path: '/me/creator',
     alias: '/creator/workbench',
     name: 'CreatorWorkbench',
@@ -112,16 +227,26 @@ const routes = [
     meta: { title: '创作者工作台', requiresAuth: true },
   },
   {
+    path: '/me/maintenance',
+    name: 'ContentMaintenanceTasks',
+    component: () => import('@/views/MaintenanceTasksView.vue'),
+    meta: { title: '我的维护任务', requiresAuth: true },
+  },
+  {
     path: '/me/prep',
     name: 'MePrep',
-    redirect: '/me',
-    meta: { title: '个人学习空间', requiresAuth: true },
+    ...(enableLegacyTrainingRoutes
+      ? { component: () => import('@/views/MePrepView.vue') }
+      : { redirect: legacyTrainingRedirect }),
+    meta: { title: '个人学习空间', requiresAuth: true, legacyFeature: 'private-training' },
   },
   {
     path: '/mock-interview',
     name: 'MockInterview',
-    redirect: '/questions',
-    meta: { title: '个人练习归档', requiresAuth: true },
+    ...(enableLegacyTrainingRoutes
+      ? { component: () => import('@/views/MockInterviewView.vue') }
+      : { redirect: legacyTrainingRedirect }),
+    meta: { title: '个人练习归档', requiresAuth: true, legacyFeature: 'mock-interview' },
   },
   {
     path: '/me/notifications',
@@ -129,6 +254,18 @@ const routes = [
     name: 'Notifications',
     component: () => import('@/views/NotificationsView.vue'),
     meta: { title: '通知', requiresAuth: true },
+  },
+  {
+    path: '/me/reports',
+    name: 'MyReports',
+    component: () => import('@/views/MyReportsView.vue'),
+    meta: { title: '我的举报', requiresAuth: true },
+  },
+  {
+    path: '/me/reports/:sourceType/:reportId',
+    name: 'MyReportDetail',
+    component: () => import('@/views/MyReportsView.vue'),
+    meta: { title: 'Report Detail', requiresAuth: true },
   },
   {
     path: '/me/settings',
@@ -159,6 +296,53 @@ const routes = [
     name: 'AdminOperations',
     component: () => import('@/views/AdminOperationsView.vue'),
     meta: { title: '运营编排', requiresAuth: true, adminPermission: 'admin' },
+  },
+  {
+    path: '/admin/collaboration',
+    name: 'AdminCollaboration',
+    component: () => import('@/views/AdminCollaborationView.vue'),
+    meta: {
+      title: '公共共建治理',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+    },
+  },
+  {
+    path: '/admin/collaboration/insights',
+    name: 'AdminCollaborationInsights',
+    component: () => import('@/views/CollaborationContributionView.vue'),
+    props: { showContributions: false, showAnalytics: true },
+    meta: {
+      title: '协作运营洞察',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'ops', 'admin'],
+    },
+  },
+  {
+    path: '/admin/community-growth',
+    name: 'AdminCommunityGrowth',
+    component: () => import('@/views/AdminCommunityGrowthView.vue'),
+    meta: { title: '激励与角色治理', requiresAuth: true, adminPermission: 'admin' },
+  },
+  {
+    path: '/admin/community-health',
+    name: 'AdminChannelHealth',
+    component: () => import('@/views/AdminChannelHealthView.vue'),
+    meta: {
+      title: '频道健康度',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'ops', 'admin'],
+    },
+  },
+  {
+    path: '/admin/content-maintenance',
+    name: 'AdminContentMaintenance',
+    component: () => import('@/views/AdminMaintenanceTasksView.vue'),
+    meta: {
+      title: '内容维护治理',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+    },
   },
   {
     path: '/admin/questions',
@@ -214,6 +398,12 @@ const routes = [
     name: 'Register',
     component: () => import('@/views/RegisterView.vue'),
     meta: { title: '注册' },
+  },
+  {
+    path: '/welcome',
+    name: 'Welcome',
+    component: () => import('@/views/WelcomeView.vue'),
+    meta: { title: '欢迎加入', requiresAuth: true },
   },
   {
     path: '/about',

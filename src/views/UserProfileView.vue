@@ -17,9 +17,13 @@
           <div class="h-28 bg-gradient-to-r from-primary-600 via-sky-600 to-emerald-500" />
           <div class="-mt-10 flex flex-col gap-5 px-6 pb-6 sm:flex-row sm:items-start sm:justify-between">
             <div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
-              <div class="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-white bg-slate-950 text-2xl font-bold text-white dark:border-slate-900">
-                {{ avatarText }}
-              </div>
+              <UserAvatar
+                class="h-24 w-24 shrink-0 rounded-full border-4 border-white text-2xl font-bold dark:border-slate-900"
+                :src="user.profileVisible === false ? '' : user.avatar"
+                :name="user.profileVisible === false ? '受限主页' : user.nickname"
+                alt=""
+                :fallback="avatarText"
+              />
               <div class="min-w-0 pt-1">
                 <h1 class="text-2xl font-bold text-slate-950 dark:text-slate-50">
                   {{ user.profileVisible === false ? '受限主页' : user.nickname }}
@@ -39,7 +43,7 @@
                 disabled-reason="该作者主页当前不可公开分享"
               />
               <button
-                v-if="user.profileVisible !== false"
+                v-if="user.profileVisible !== false && !isViewingSelf"
                 type="button"
                 class="follow-button"
                 :disabled="isFollowBusy"
@@ -47,6 +51,17 @@
               >
                 {{ isFollowBusy ? '处理中...' : user.isFollowing ? '已关注' : '关注' }}
               </button>
+              <template v-if="showContactAuthorEntry">
+                <button
+                  v-if="canStartContactRequest"
+                  type="button"
+                  class="contact-author-button"
+                  @click="openContactRequestDialog"
+                >
+                  联系作者
+                </button>
+                <span v-else class="contact-author-unavailable">作者暂未开放联系请求</span>
+              </template>
             </div>
           </div>
         </section>
@@ -139,6 +154,9 @@
                 </article>
               </div>
             </div>
+            <RouterLink :to="`/u/${profileUid}/contributions`" class="open-link mt-5 inline-flex">
+              查看公开协作贡献
+            </RouterLink>
           </section>
 
           <section class="profile-panel">
@@ -264,26 +282,69 @@
               </article>
             </div>
           </section>
+          <section class="profile-panel">
+            <div class="border-b border-slate-200 pb-4 dark:border-slate-800">
+              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">Public favorite folders</h2>
+              <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                Only public folders are shown. Private folders and non-public posts stay hidden.
+              </p>
+            </div>
+            <div v-if="isLoadingFavoriteFolders" class="py-8 text-sm text-slate-500 dark:text-slate-400">
+              Loading public favorite folders...
+            </div>
+            <div v-else-if="favoriteFoldersError" class="py-8 text-sm text-rose-600 dark:text-rose-300">
+              {{ favoriteFoldersError }}
+            </div>
+            <div v-else-if="publicFavoriteFolders.length === 0" class="py-8 text-sm text-slate-500 dark:text-slate-400">
+              This author has not published favorite folders yet.
+            </div>
+            <div v-else class="collection-grid pt-5">
+              <article v-for="folder in publicFavoriteFolders" :key="folder.id" class="collection-card">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3>{{ folder.name }}</h3>
+                    <span>{{ folder.postCount }} posts</span>
+                  </div>
+                  <p>{{ folder.description || 'A public favorite folder curated by this author.' }}</p>
+                </div>
+                <div class="collection-meta">
+                  <span>{{ formatTime(folder.updatedAt) }}</span>
+                  <RouterLink :to="`/favorite-folders/${folder.id}`">Open folder</RouterLink>
+                </div>
+              </article>
+            </div>
+          </section>
         </template>
       </template>
     </div>
     </main>
+    <ContactRequestDialog
+      v-if="user"
+      v-model="isContactDialogOpen"
+      :receiver-uid="user.uid"
+      :receiver-name="user.nickname"
+      source-type="profile"
+      :source-id="profileUid"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { userApi } from '@/api/user'
 import { postApi } from '@/api/post'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
+import { interactionApi } from '@/api/interaction'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PublicShareButton from '@/components/common/PublicShareButton.vue'
-import type { Post, User, UserIntent } from '@/api/types'
+import ContactRequestDialog from '@/components/contact/ContactRequestDialog.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
+import type { FavoriteFolder, Post, User, UserIntent } from '@/api/types'
 import { buildContributionSummary, buildTypeDistribution, type ContributionSummary } from '@/utils/communityMetrics'
 import {
   buildFollowReasons,
@@ -304,13 +365,19 @@ const user = ref<User | null>(null)
 const userIntent = ref<UserIntent | null>(null)
 const posts = ref<Post[]>([])
 const publicCollections = ref<ContentSeriesRecord[]>([])
+const publicFavoriteFolders = ref<FavoriteFolder[]>([])
 const backendContribution = ref<ContributionSummary | null>(null)
 const isLoading = ref(false)
 const isLoadingCollections = ref(false)
+const isLoadingFavoriteFolders = ref(false)
 const loadError = ref('')
 const collectionsError = ref('')
+const favoriteFoldersError = ref('')
 const failedCollectionCoverUrls = ref(new Set<string>())
 const isFollowBusy = ref(false)
+const isContactDialogOpen = ref(false)
+let profileLoadGeneration = 0
+let profileLoadController: AbortController | null = null
 
 const profileUid = computed(() => String(route.params.uid || ''))
 const avatarText = computed(() => user.value?.nickname?.charAt(0) || '?')
@@ -345,6 +412,17 @@ const relationshipContext = computed(() => authStore.isLoggedIn
       isPublicVisitor: false,
     })
   : { visibleToViewer: false, items: [] })
+const isViewingSelf = computed(() => String(authStore.user?.uid ?? '') === String(user.value?.uid ?? ''))
+const isContactRequestOpen = computed(() => {
+  if (!user.value || user.value.profileVisible === false) return false
+  if (user.value.canStartContactRequest !== undefined) return user.value.canStartContactRequest === true
+  if (user.value.acceptContactRequest === false) return false
+  return String(user.value.contactRequestPolicy ?? '').toLowerCase() !== 'off'
+})
+const showContactAuthorEntry = computed(() => Boolean(user.value)
+  && user.value?.profileVisible !== false
+  && !isViewingSelf.value)
+const canStartContactRequest = computed(() => showContactAuthorEntry.value && isContactRequestOpen.value)
 
 const formatTime = (value: number) => {
   if (!value) return '刚刚更新'
@@ -366,37 +444,73 @@ const handleCollectionCoverError = (coverUrl?: string) => {
   failedCollectionCoverUrls.value = new Set([...failedCollectionCoverUrls.value, safeCoverUrl])
 }
 
-const loadPublicCollections = async (uid: string) => {
+const isActiveProfileLoad = (generation: number, uid: string, signal: AbortSignal) => (
+  !signal.aborted
+  && generation === profileLoadGeneration
+  && uid === profileUid.value
+)
+
+const loadPublicCollections = async (uid: string, generation: number, signal: AbortSignal) => {
   isLoadingCollections.value = true
   collectionsError.value = ''
   try {
     const res = await contentSeriesApi.listPublicByUser(uid, undefined, 6)
+    if (!isActiveProfileLoad(generation, uid, signal)) return
     publicCollections.value = filterVisibleCollections(res.data || [])
   } catch (error: any) {
+    if (!isActiveProfileLoad(generation, uid, signal)) return
     publicCollections.value = []
     collectionsError.value = getErrorMessage(error, '公开合集加载失败')
   } finally {
-    isLoadingCollections.value = false
+    if (isActiveProfileLoad(generation, uid, signal)) {
+      isLoadingCollections.value = false
+    }
+  }
+}
+
+const loadPublicFavoriteFolders = async (uid: string, generation: number, signal: AbortSignal) => {
+  isLoadingFavoriteFolders.value = true
+  favoriteFoldersError.value = ''
+  try {
+    const res = await interactionApi.listPublicFavoriteFoldersByUser(uid, 6)
+    if (!isActiveProfileLoad(generation, uid, signal)) return
+    publicFavoriteFolders.value = (res.data || []).filter((folder) => folder.visibility === 'public')
+  } catch (error: any) {
+    if (!isActiveProfileLoad(generation, uid, signal)) return
+    publicFavoriteFolders.value = []
+    favoriteFoldersError.value = getErrorMessage(error, '公开收藏夹加载失败')
+  } finally {
+    if (isActiveProfileLoad(generation, uid, signal)) {
+      isLoadingFavoriteFolders.value = false
+    }
   }
 }
 
 const loadProfile = async () => {
   const uid = profileUid.value
   if (!uid) return
+  profileLoadController?.abort()
+  const controller = new AbortController()
+  profileLoadController = controller
+  const generation = ++profileLoadGeneration
   isLoading.value = true
   loadError.value = ''
   user.value = null
   posts.value = []
   publicCollections.value = []
+  publicFavoriteFolders.value = []
   userIntent.value = null
   backendContribution.value = null
   try {
     const profile = await userApi.getProfile(uid)
+    if (!isActiveProfileLoad(generation, uid, controller.signal)) return
     user.value = profile.data
     if (!profile.data || profile.data.profileVisible === false) {
       posts.value = []
       userIntent.value = null
       backendContribution.value = null
+      isLoadingCollections.value = false
+      isLoadingFavoriteFolders.value = false
       return
     }
     const [intent, authoredPosts, contributionRes] = await Promise.allSettled([
@@ -404,14 +518,21 @@ const loadProfile = async () => {
       postApi.list({ authorId: uid }),
       userApi.getContribution(uid),
     ])
+    if (!isActiveProfileLoad(generation, uid, controller.signal)) return
     userIntent.value = intent.status === 'fulfilled' ? intent.value.data : null
     posts.value = authoredPosts.status === 'fulfilled' ? filterVisiblePosts(authoredPosts.value.data?.items || []) : []
     backendContribution.value = contributionRes.status === 'fulfilled' ? contributionRes.value.data : null
-    await loadPublicCollections(uid)
+    await Promise.all([
+      loadPublicCollections(uid, generation, controller.signal),
+      loadPublicFavoriteFolders(uid, generation, controller.signal),
+    ])
   } catch (error: any) {
+    if (!isActiveProfileLoad(generation, uid, controller.signal)) return
     loadError.value = getErrorMessage(error, '用户资料加载失败')
   } finally {
-    isLoading.value = false
+    if (isActiveProfileLoad(generation, uid, controller.signal)) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -420,13 +541,15 @@ const toggleFollow = async () => {
   if (!requireLogin()) return
   if (isFollowBusy.value) return
   isFollowBusy.value = true
+  const targetUid = String(user.value.uid)
   const wasFollowing = Boolean(user.value.isFollowing)
   try {
     if (wasFollowing) {
-      await userApi.unfollow(user.value.uid)
+      await userApi.unfollow(targetUid)
     } else {
-      await userApi.follow(user.value.uid)
+      await userApi.follow(targetUid)
     }
+    if (String(user.value?.uid ?? '') !== targetUid || profileUid.value !== targetUid) return
     user.value = {
       ...user.value,
       isFollowing: !wasFollowing,
@@ -439,6 +562,12 @@ const toggleFollow = async () => {
   }
 }
 
+const openContactRequestDialog = () => {
+  if (!canStartContactRequest.value) return
+  if (!requireLogin()) return
+  isContactDialogOpen.value = true
+}
+
 watch(profileUid, loadProfile, { immediate: true })
 watch([user, loadError, profileUid], () => {
   applyPageSeo({
@@ -449,6 +578,12 @@ watch([user, loadError, profileUid], () => {
     canonical: `/u/${profileUid.value}`,
   })
 }, { immediate: true })
+
+onBeforeUnmount(() => {
+  profileLoadGeneration += 1
+  profileLoadController?.abort()
+  profileLoadController = null
+})
 </script>
 
 <style scoped>
@@ -473,6 +608,7 @@ watch([user, loadError, profileUid], () => {
 }
 
 .follow-button,
+.contact-author-button,
 .open-link {
   display: inline-flex;
   min-height: 40px;
@@ -487,6 +623,26 @@ watch([user, loadError, profileUid], () => {
   font-weight: 600;
 }
 
+.contact-author-button {
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.contact-author-unavailable {
+  display: inline-flex;
+  min-height: 40px;
+  max-width: 100%;
+  align-items: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 0.625rem 1rem;
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .profile-actions {
   display: flex;
   flex-wrap: wrap;
@@ -495,7 +651,8 @@ watch([user, loadError, profileUid], () => {
   justify-content: flex-end;
 }
 
-.follow-button:disabled {
+.follow-button:disabled,
+.contact-author-button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
@@ -771,6 +928,13 @@ watch([user, loadError, profileUid], () => {
   color: rgb(226 232 240);
 }
 
+.dark .contact-author-button,
+.dark .contact-author-unavailable {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
 .dark .score-card,
 .dark .mini-stat {
   border-color: rgb(30 41 59);
@@ -832,6 +996,8 @@ watch([user, loadError, profileUid], () => {
   }
 
   .follow-button,
+  .contact-author-button,
+  .contact-author-unavailable,
   .profile-actions {
     width: 100%;
   }

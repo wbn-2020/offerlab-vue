@@ -199,11 +199,14 @@
               <label class="field-label">轮次<input v-model.trim="form.interviewRound" class="field-input" /></label>
               <label class="field-label">难度<select v-model="form.difficulty" class="field-input"><option value="easy">简单</option><option value="medium">中等</option><option value="hard">困难</option></select></label>
             </div>
-            <label class="field-label">状态<select v-model.number="form.status" class="field-input"><option :value="0">待审核</option><option :value="1">通过</option><option :value="2">隐藏</option></select></label>
+            <div class="field-label">
+              当前状态
+              <span :class="['status-pill mt-2 w-fit', statusClass(selectedQuestion.status)]">{{ statusText(selectedQuestion.status) }}</span>
+            </div>
             <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
               <button type="submit" class="primary-button" :disabled="isSaving || form.questionText.length < 4">保存</button>
-              <button type="button" class="secondary-button" :disabled="isSaving" @click="quickReview(1)">通过</button>
-              <button type="button" class="secondary-button danger-action" :disabled="isSaving" @click="quickReview(2)">隐藏</button>
+              <button type="button" class="secondary-button" :disabled="isSaving || selectedQuestion.status !== 0" @click="quickReview(1)">通过</button>
+              <button type="button" class="secondary-button danger-action" :disabled="isSaving || selectedQuestion.status !== 0" @click="quickReview(2)">隐藏</button>
             </div>
 
             <section class="duplicate-panel">
@@ -320,7 +323,7 @@ const filters = reactive({
   minQualityScore: undefined as number | undefined,
   maxQualityScore: undefined as number | undefined,
 })
-const form = reactive({ questionText: '', answerHint: '', examPoint: '', referenceAnswer: '', sourceSnippet: '', qualityReason: '', company: '', position: '', interviewRound: '', difficulty: 'medium', status: 1 })
+const form = reactive({ questionText: '', answerHint: '', examPoint: '', referenceAnswer: '', sourceSnippet: '', qualityReason: '', company: '', position: '', interviewRound: '', difficulty: 'medium' })
 const hasRows = computed(() => questions.value.length > 0)
 const allCurrentPageSelected = computed(() => questions.value.length > 0 && questions.value.every((item) => selectedIds.value.includes(item.id)))
 const activeIndexTask = computed(() => questionIndexTasks.value.find((task) => task.status === 'PENDING' || task.status === 'RUNNING'))
@@ -493,7 +496,6 @@ const selectQuestion = (question: Question) => {
   form.position = question.position || ''
   form.interviewRound = question.interviewRound || ''
   form.difficulty = question.difficulty || 'medium'
-  form.status = question.status ?? 1
   loadDuplicateGroup(question.id)
 }
 
@@ -513,11 +515,16 @@ const loadDuplicateGroup = async (id: Question['id']) => {
 
 const saveQuestion = async (remark: string) => {
   if (!selectedQuestion.value) return
+  const expectedUpdateTime = selectedQuestion.value.updateTime
+  if (!expectedUpdateTime) {
+    toast.error('题目版本缺失，请刷新列表后重试')
+    return
+  }
   isSaving.value = true
   try {
-    const payload = { ...form, remark }
+    const payload = { ...form, expectedUpdateTime, remark }
     const res = await opsApi.updateQuestion(selectedQuestion.value.id, payload)
-    toast.success('题目已保存')
+    toast.success('题目已保存并重新进入待审核')
     if (res.data) selectQuestion(res.data)
     await loadQuestions()
   } catch (error: any) {
@@ -529,9 +536,8 @@ const saveQuestion = async (remark: string) => {
 
 const saveQuestionWithConfirm = async () => {
   if (!selectedQuestion.value) return
-  const statusChanged = form.status !== selectedQuestion.value.status
   const note = await requireRiskConfirm({
-    title: statusChanged ? '保存题目并变更状态' : '保存题目变更',
+    title: '保存题目变更',
     level: 'high',
     reversible: true,
     impactCount: 1,
@@ -539,7 +545,7 @@ const saveQuestionWithConfirm = async () => {
     context: riskContext(
       `来源帖子：${selectedQuestion.value.sourcePostId || '--'}`,
       `当前状态：${statusText(selectedQuestion.value.status)}`,
-      statusChanged ? `保存后状态：${statusText(form.status)}` : undefined,
+      '保存后状态：待审核',
     ),
     confirmText: '确认保存',
   })
@@ -548,19 +554,33 @@ const saveQuestionWithConfirm = async () => {
 }
 
 const quickReview = async (status: number) => {
-  if (!selectedQuestion.value) return
+  const current = selectedQuestion.value
+  if (!current || current.status !== 0) return
+  if (!current.updateTime) {
+    toast.error('题目版本缺失，请刷新列表后重试')
+    return
+  }
   const note = await requireRiskConfirm({
     title: status === 2 ? '隐藏题目' : '通过题目审核',
     level: status === 2 ? 'high' : 'medium',
     reversible: true,
     impactCount: 1,
-    objects: riskObjects([selectedQuestion.value.id, selectedQuestion.value.questionText]),
-    context: riskContext(`来源帖子：${selectedQuestion.value.sourcePostId || '--'}`, `当前状态：${statusText(selectedQuestion.value.status)}`),
+    objects: riskObjects([current.id, current.questionText]),
+    context: riskContext(`来源帖子：${current.sourcePostId || '--'}`, `当前状态：${statusText(current.status)}`),
     confirmText: status === 2 ? '确认隐藏' : '确认通过',
   })
   if (note === null) return
-  form.status = status
-  await saveQuestion(note)
+  isSaving.value = true
+  try {
+    await opsApi.reviewQuestion(current.id, status, current.updateTime, note)
+    toast.success(status === 2 ? '题目已隐藏' : '题目已通过审核')
+    selectedQuestion.value = null
+    await loadQuestions()
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '题目审核失败'))
+  } finally {
+    isSaving.value = false
+  }
 }
 
 const toggleSelection = (id: Question['id']) => {
@@ -586,9 +606,18 @@ const batchReview = async (status: number) => {
     confirmText: status === 2 ? '确认批量隐藏' : '确认批量通过',
   })
   if (note === null) return
+  const expectedUpdateTimes = Object.fromEntries(
+    questions.value
+      .filter((item) => ids.includes(item.id))
+      .map((item) => [String(item.id), item.updateTime || '']),
+  )
+  if (Object.values(expectedUpdateTimes).some((value) => !value)) {
+    toast.error('题目内容版本缺失，请刷新后重试')
+    return
+  }
   isBatching.value = true
   try {
-    const res = await opsApi.batchReviewQuestions(ids, status, note)
+    const res = await opsApi.batchReviewQuestions(ids, status, expectedUpdateTimes, note)
     toast.success(`已处理 ${res.data?.reviewed || ids.length} 道题`)
     if (selectedQuestion.value && ids.includes(selectedQuestion.value.id)) {
       selectedQuestion.value = null

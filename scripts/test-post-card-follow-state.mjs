@@ -20,7 +20,7 @@ if (!postCard.includes("'follow-change'")) {
   failures.push('PostCard must emit follow-change after follow/unfollow succeeds')
 }
 
-if (!/<article[\s\S]*class="group/.test(postCard) || !/class="post-detail-link"/.test(postCard)) {
+if (!/<article[^>]*class="[^"]*\bgroup\b[^"]*"/.test(postCard) || !/class="post-detail-link"/.test(postCard)) {
   failures.push('PostCard must split the card container from the detail RouterLink so action buttons are not nested inside a link')
 }
 

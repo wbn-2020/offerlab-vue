@@ -1,254 +1,62 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell community-home">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
-      <section class="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-stretch">
-        <div class="surface-card overflow-hidden p-6 sm:p-7">
-          <div class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div class="max-w-2xl">
-              <div class="mb-3 flex flex-wrap gap-2">
-                <span class="muted-pill">综合频道</span>
-                <span class="muted-pill">推荐内容</span>
-                <span class="muted-pill">热门话题</span>
+    <main class="community-home-main mx-auto max-w-[1280px] px-4 py-5 sm:px-6 lg:py-7">
+      <div class="community-feed-layout">
+        <aside class="community-feed-layout__left hidden lg:block">
+          <div class="sticky top-24 space-y-5">
+            <nav class="home-channel-nav" aria-label="首页频道">
+              <div class="home-rail-heading">
+                <p class="home-rail-label">频道</p>
+                <RouterLink to="/explore">全部</RouterLink>
               </div>
-              <h1 class="text-2xl font-black tracking-normal text-slate-950 dark:text-white sm:text-3xl">
-                发现真实经验，分享有用内容
-              </h1>
-              <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-                在这里浏览不同频道的经验、攻略、资源和讨论，也可以把自己的经历、问题、清单或观点发布出来。
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-3">
-              <RouterLink to="/editor" class="primary-action">
+              <router-link
+                :to="homeDomainLocation()"
+                :replace="false"
+                class="home-channel-link"
+                :class="{ 'home-channel-link--active': activeDomain === undefined }"
+              >
+                <span class="home-channel-link__icon">全</span>
+                综合
+              </router-link>
+              <router-link
+                v-for="d in homeDomainOptions"
+                :key="d.domain"
+                :to="homeDomainLocation(d.domain === activeDomain ? undefined : Number(d.domain))"
+                :replace="false"
+                class="home-channel-link"
+                :class="{ 'home-channel-link--active': d.domain === activeDomain }"
+              >
+                <span class="home-channel-link__icon">{{ d.icon }}</span>
+                <span class="truncate">{{ d.domainName }}</span>
+              </router-link>
+              <RouterLink to="/explore" class="home-channel-link home-channel-link--discover">
+                <Compass class="h-4 w-4" />
+                逛逛发现
+              </RouterLink>
+              <RouterLink to="/editor" class="home-channel-publish">
                 <PenLine class="h-4 w-4" />
                 发布内容
               </RouterLink>
-              <RouterLink to="/explore" class="secondary-action">
-                <Compass class="h-4 w-4" />
-                逛发现
-              </RouterLink>
-            </div>
-          </div>
+            </nav>
 
-          <div class="home-metric-grid mt-6 grid gap-3 sm:grid-cols-3">
-            <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">推荐内容</span>
-              <strong class="metric-value">{{ readableMetricValue }}</strong>
-            </div>
-            <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">热门话题</span>
-              <strong class="metric-value">{{ tagMetricValue }}</strong>
-            </div>
-            <div class="metric-tile border-slate-200/80 bg-slate-50/90 dark:border-slate-700/80 dark:bg-slate-950/60">
-              <span class="metric-label">活跃作者</span>
-              <strong class="metric-value">{{ peerMetricValue }}</strong>
-            </div>
-          </div>
-
-          <div class="hot-rising-grid mt-6 grid gap-3 md:grid-cols-3">
-            <button
-              v-for="entry in hotRisingEntries"
-              :key="entry.key"
-              type="button"
-              class="hot-rising-card"
-              :class="`hot-rising-card--${entry.tone}`"
-              @click="setHomeFeed(entry.feed)"
-            >
-              <span class="hot-rising-card__topline">
-                <span class="hot-rising-card__badge">{{ entry.badge }}</span>
-                <component :is="entry.icon" class="h-4 w-4" />
-              </span>
-              <strong>{{ entry.title }}</strong>
-              <span class="hot-rising-card__sample">{{ entry.sampleTitle }}</span>
-              <span class="hot-rising-card__reason">{{ entry.reason }}</span>
-            </button>
-          </div>
-        </div>
-
-        <section class="surface-card p-5">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-black text-slate-950 dark:text-white">快速搜索</h2>
-              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">按兴趣、频道和内容形式快速定位</p>
-            </div>
-            <Search class="h-5 w-5 text-primary-500" />
-          </div>
-          <form class="mt-4 space-y-3" @submit.prevent="submitHeroSearch">
-            <div class="relative">
-              <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                v-model="heroKeyword"
-                class="quick-input border-slate-200 bg-slate-50 text-slate-950 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-100 pl-9"
-                placeholder="例如 学习方法、租房经验、AI 工具、书单推荐"
-              />
-            </div>
-            <button type="submit" class="primary-action w-full">
-              搜索内容
-            </button>
-          </form>
-        </section>
-      </section>
-
-      <section class="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <RouterLink
-          v-for="action in todayActions"
-          :key="action.title"
-          :to="action.href"
-          class="home-action-card"
-          :class="action.primary ? 'home-action-card-primary' : ''"
-        >
-          <span class="home-action-icon">
-            <component :is="action.icon" class="h-4 w-4" />
-          </span>
-          <span class="min-w-0">
-            <span class="block text-sm font-black text-slate-950 dark:text-white">{{ action.title }}</span>
-            <span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">{{ action.description }}</span>
-          </span>
-        </RouterLink>
-      </section>
-
-      <RevisitSummaryPanel class="mb-6" compact />
-      <OperationSlotCard class="mb-6" slot-code="HOME_FEATURED" title="社区运营整理" />
-
-      <!-- 领域筛选 -->
-      <section class="mb-6 flex flex-wrap gap-2">
-        <router-link
-          to="/"
-          class="domain-chip inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:hover:bg-primary-950"
-          :class="activeDomain === undefined ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/50 dark:border-primary-700' : 'bg-white dark:bg-slate-900'"
-        >
-          <span>综合</span>
-        </router-link>
-        <router-link
-          v-for="d in COMMUNITY_CHANNELS"
-          :key="d.key"
-          :to="d.domain ? (d.domain === activeDomain ? '/' : { path: '/', query: { domain: d.domain } }) : { path: '/search', query: { type: String(d.postTypes?.[0] || ''), sort: 'hot' } }"
-          class="domain-chip inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:hover:bg-primary-950"
-          :class="d.domain != null && d.domain === activeDomain ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/50 dark:border-primary-700' : 'bg-white dark:bg-slate-900'"
-        >
-          <span>{{ d.icon }}</span>
-          <span>{{ d.name }}</span>
-        </router-link>
-      </section>
-
-      <section class="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <article class="surface-card p-5">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-black text-slate-950 dark:text-white">领域来源口径</h2>
-              <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">{{ domainSourceSummary }}</p>
-            </div>
-            <span class="rounded-full bg-primary-50 px-3 py-1 text-xs font-black text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
-              {{ activeDomainMeta?.icon || '🧭' }} {{ activeDomainMeta?.domainName || '综合' }}
-            </span>
-          </div>
-          <p class="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            首页筛选继续沿用稳定的默认五大领域，领域说明和提示优先同步 `/api/v1/domains`，与发现页保持一致的来源口径。
-          </p>
-          <p class="mt-2 text-xs leading-6 text-slate-500 dark:text-slate-400">
-            {{ activeDomainMeta?.browseNotice || activeDomainMeta?.description || '当前未指定领域时，会展示综合内容和默认社区入口。' }}
-          </p>
-        </article>
-
-        <article class="surface-card p-5">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-black text-slate-950 dark:text-white">内容合集</h2>
-              <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">{{ homeSeriesSummary }}</p>
-            </div>
-            <RouterLink :to="seriesWorkbenchHref" class="secondary-action px-4">
-              打开
-            </RouterLink>
-          </div>
-
-          <div v-if="homeSeriesPreview.length" class="mt-4 space-y-3">
-            <div
-              v-for="item in homeSeriesPreview"
-              :key="item.id"
-              class="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</div>
-                  <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ item.progress.label }}</div>
-                </div>
-                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  {{ item.goalCount }} 篇目标
-                </span>
-              </div>
-              <div class="home-series-mini-bar mt-3">
-                <span :style="{ width: `${item.progress.completionRate}%` }" />
-              </div>
-            </div>
-          </div>
-
-          <p v-else class="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            {{ authStore.isLoggedIn ? '先创建一个合集，再把发布页里的草稿和已发布内容归入同一组主题内容。' : '登录后可查看自己的合集进度，并在发布页里直接归属到某个合集。' }}
-          </p>
-        </article>
-      </section>
-
-      <section v-if="authStore.isLoggedIn && taskSections.length" class="mb-6 grid gap-4 lg:hidden">
-        <article
-          v-for="section in taskSections"
-          :key="section.taskType"
-          class="surface-card p-5"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="task-section-label">
-                {{ section.taskType === 'DAILY' ? '今日行动' : '新用户引导' }}
-              </p>
-              <h2 class="text-sm font-black text-slate-950 dark:text-white">{{ section.title }}</h2>
-              <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
-            </div>
-            <span class="task-progress-pill">{{ taskProgressLabel(section) }}</span>
-          </div>
-          <div class="mt-4 space-y-3">
-            <div
-              v-for="item in section.items"
-              :key="`${section.taskType}:${item.taskCode}`"
-              class="task-item"
-              :class="{ 'task-item-complete': item.completed }"
-            >
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="task-check">{{ item.completed ? '✓' : '·' }}</span>
-                  <h3 class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</h3>
-                </div>
-                <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ item.description }}</p>
-              </div>
-              <button
-                type="button"
-                class="task-action-button"
-                :disabled="isTaskBusy(section.taskType, item.taskCode)"
-                @click="handleTaskAction(section, item)"
-              >
-                {{ item.completed ? '已完成' : (item.actionText || '去完成') }}
-              </button>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
-        <aside class="hidden lg:block">
-          <div class="sticky top-24 space-y-5">
-            <section class="surface-card p-5">
+            <section class="home-profile-panel">
               <template v-if="authStore.isLoggedIn && authStore.user">
                 <div class="flex items-start gap-3">
-                  <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary-600 to-sky-500 text-xl font-black text-white shadow-sm shadow-primary-600/20">
-                    <img v-if="authStore.user.avatar" :src="authStore.user.avatar" :alt="authStore.user.nickname" class="h-full w-full object-cover" />
-                    <span v-else>{{ authStore.user.nickname.charAt(0) || '?' }}</span>
-                  </div>
+                  <UserAvatar
+                    class="home-profile-avatar"
+                    :src="authStore.user.avatar"
+                    :name="authStore.user.nickname"
+                    alt=""
+                  />
                   <div class="min-w-0">
                     <h3 class="truncate font-black text-slate-950 dark:text-white">{{ authStore.user.nickname }}</h3>
                     <p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                    {{ currentUserSignature }}
+                      {{ currentUserSignature }}
                     </p>
                   </div>
                 </div>
-                <div class="mt-5 grid grid-cols-2 gap-3 text-center">
+                <div class="home-profile-stats">
                   <RouterLink to="/me" class="profile-stat">
                     <span>{{ authStore.user.postCount ?? 0 }}</span>
                     <small>帖子</small>
@@ -258,12 +66,17 @@
                     <small>粉丝</small>
                   </RouterLink>
                 </div>
+                <RouterLink to="/series/workbench" class="home-profile-collection-link">
+                  <Library class="h-4 w-4" />
+                  <span>内容合集</span>
+                </RouterLink>
               </template>
               <template v-else>
-                <div>
-                  <h3 class="font-black text-slate-950 dark:text-white">开始沉淀你的实践经验</h3>
-                  <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">登录后可以发布经验、问题、攻略或资源，收藏内容并关注作者。</p>
-                  <RouterLink to="/login" class="primary-action mt-4 w-full">
+                <div class="home-profile-empty">
+                  <p class="home-rail-label">个人空间</p>
+                  <h3>把每一次经历留在这里</h3>
+                  <p>登录后发布、收藏和关注，都能在个人主页继续整理。</p>
+                  <RouterLink to="/login" class="primary-action">
                     登录
                   </RouterLink>
                 </div>
@@ -273,7 +86,7 @@
             <section
               v-for="section in taskSections"
               :key="section.taskType"
-              class="surface-card p-5"
+              class="home-task-panel"
             >
               <div class="flex items-start justify-between gap-3">
                 <div>
@@ -311,17 +124,17 @@
               </div>
             </section>
 
-            <section class="surface-panel p-5">
-              <div class="mb-4 flex items-center justify-between">
-                <h3 class="font-black text-slate-950 dark:text-white">热门标签</h3>
-                <Tag class="h-4 w-4 text-slate-400" />
+            <section class="home-rail-section home-tag-panel">
+              <div class="home-rail-section__title">
+                <h3>热门标签</h3>
+                <Tag class="h-4 w-4" />
               </div>
-              <div class="flex flex-wrap gap-2">
+              <div class="home-tag-list">
                 <RouterLink
                   v-for="tag in topTags"
                   :key="tag.id"
                   :to="`/tag/${tag.slug || tag.id}`"
-                  class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-primary-800 dark:hover:bg-primary-950/60"
+                  class="home-tag-link"
                 >
                   {{ tag.name }}
                 </RouterLink>
@@ -330,61 +143,191 @@
           </div>
         </aside>
 
-        <section class="min-w-0">
-          <div class="surface-card mb-5 p-2">
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              <button
-                v-for="tab in feedTabs"
-                :key="tab"
-                type="button"
-                :disabled="tab === 'following' && !authStore.isLoggedIn"
-                :class="[
-                  'rounded-lg px-3 py-3 text-left text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50',
-                  activeFeed === tab
-                    ? 'bg-primary-600 text-white shadow-sm shadow-primary-600/20'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
-                ]"
-                @click="activeFeed = tab"
+        <section class="home-feed-column min-w-0">
+          <section class="home-feed-intro">
+            <div>
+              <p class="home-rail-label">{{ activeDomainMeta?.domainName || '综合频道' }}</p>
+              <h1>{{ activeDomainMeta?.domainName ? `${activeDomainMeta.domainName}的真实经验` : '发现真实经验，分享有用内容' }}</h1>
+              <p>{{ activeDomainMeta?.description || '从社区正在讨论的话题、可复用的攻略和不同频道的日常见闻里，找到下一条值得读的内容。' }}</p>
+            </div>
+            <RouterLink to="/editor" class="home-feed-intro__publish">
+              <PenLine class="h-4 w-4" />
+              写一篇
+            </RouterLink>
+            <div class="home-mobile-channels" aria-label="移动频道导航">
+              <router-link :to="homeDomainLocation()" :replace="false" :class="{ 'home-mobile-channels__item--active': activeDomain === undefined }">综合</router-link>
+              <router-link
+                v-for="d in homeDomainOptions"
+                :key="`mobile-${d.domain}`"
+                :to="homeDomainLocation(Number(d.domain))"
+                :replace="false"
+                :class="{ 'home-mobile-channels__item--active': d.domain === activeDomain }"
               >
-                <span class="block">{{ feedLabels[tab] }}</span>
-                <span class="mt-1 block text-xs font-medium opacity-75">{{ feedShortDescriptions[tab] }}</span>
+                {{ d.icon }} {{ d.domainName }}
+              </router-link>
+            </div>
+            <div class="home-reading-pulse" aria-label="社区动态入口">
+              <button
+                v-for="entry in hotRisingEntries"
+                :key="entry.key"
+                type="button"
+                class="home-reading-pulse__item"
+                :class="`home-reading-pulse__item--${entry.tone}`"
+                @click="setHomeFeed(entry.feed)"
+              >
+                <component :is="entry.icon" class="h-3.5 w-3.5" />
+                <span>{{ entry.badge }}</span>
+                <strong>{{ entry.title }}</strong>
               </button>
             </div>
-            <p class="px-3 pb-2 pt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
+          </section>
+
+          <section
+            v-for="section in taskSections"
+            :key="`mobile-${section.taskType}`"
+            class="home-task-panel home-task-panel--mobile lg:hidden"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="task-section-label">
+                  {{ section.taskType === 'DAILY' ? '今日行动' : '新用户引导' }}
+                </p>
+                <h3 class="font-black text-slate-950 dark:text-white">{{ section.title }}</h3>
+                <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
+              </div>
+              <span class="task-progress-pill">{{ taskProgressLabel(section) }}</span>
+            </div>
+            <div class="mt-4 space-y-3">
+              <div
+                v-for="item in section.items"
+                :key="`mobile-${section.taskType}:${item.taskCode}`"
+                class="task-item"
+                :class="{ 'task-item-complete': item.completed }"
+              >
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="task-check">{{ item.completed ? '✓' : '·' }}</span>
+                    <h4 class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</h4>
+                  </div>
+                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ item.description }}</p>
+                </div>
+                <button
+                  type="button"
+                  class="task-action-button"
+                  :disabled="isTaskBusy(section.taskType, item.taskCode)"
+                  @click="handleTaskAction(section, item)"
+                >
+                  {{ item.completed ? '已完成' : (item.actionText || '去完成') }}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <OperationSlotCard class="home-operation-slot" slot-code="HOME_FEATURED" />
+
+          <div class="home-feed-controls">
+            <FeedTabs
+              class="home-feed-tabs"
+              :model-value="activeFeed"
+              :tabs="homeFeedTabs"
+              :loading="feedPreferenceStatus === 'loading'"
+              :error="feedPreferenceStatus === 'error' ? feedPreferenceError : ''"
+              @update:model-value="setHomeFeed"
+              @retry="loadFeedPreferences"
+            />
+            <p class="home-feed-description">
               {{ feedDescriptions[activeFeed] }}
               <span v-if="activeFeed === 'recommend'" class="mt-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
                 推荐理由会结合兴趣设置、内容标签、近期热度和新内容信号生成。
               </span>
             </p>
-            <div class="border-t border-slate-100 px-3 py-3 dark:border-slate-800">
-              <div class="mb-2 flex items-center gap-2 text-xs font-black text-slate-500 dark:text-slate-400">
+            <div class="home-content-types">
+              <div class="home-content-types__label">
                 <Sparkles class="h-3.5 w-3.5" />
                 内容频道
               </div>
-              <div class="flex flex-wrap gap-2">
+              <div class="home-content-types__list">
                 <button
                   type="button"
-                  :class="['channel-chip', !activeContentType ? 'channel-chip-active' : '']"
-                  @click="activeContentType = undefined"
+                  class="channel-chip"
+                  @click="router.push({ path: '/search', query: { mode: 'posts', sort: 'hot' } })"
                 >
                   全部
                 </button>
-                <button
+                <RouterLink
                   v-for="type in contentTypeChannels"
                   :key="type.value"
-                  type="button"
-                  :class="['channel-chip', activeContentType === type.value ? 'channel-chip-active' : '']"
-                  @click="toggleContentType(type.value)"
+                  :to="contentTypeHref(type.value)"
+                  class="channel-chip"
                 >
                   {{ type.shortLabel }}
-                </button>
+                </RouterLink>
               </div>
             </div>
           </div>
 
-          <div class="space-y-4">
-            <LoadingSkeleton v-if="isLoading" />
-            <div v-else-if="isError" class="surface-card feed-error-card p-6">
+          <section v-if="authStore.isLoggedIn" class="feed-control-manager" :data-feed-control-state="feedControlManagerState">
+            <header>
+              <div>
+                <p class="home-rail-label">个人设置</p>
+                <h2>信息流控制</h2>
+                <span>分页查看当前账号隐藏或减少同类的内容，并随时恢复默认。</span>
+              </div>
+              <button type="button" class="secondary-action" @click="toggleFeedControlManager">
+                <Settings2 class="h-4 w-4" />
+                {{ feedControlManagerOpen ? '收起' : '管理设置' }}
+              </button>
+            </header>
+
+            <div v-if="feedControlManagerOpen" class="feed-control-manager__body">
+              <div v-if="feedControlManagerLoading && feedControlManagerItems.length === 0" class="feed-control-manager__state" role="status">
+                <Loader2 class="h-4 w-4 animate-spin" />
+                正在读取个人信息流设置
+              </div>
+              <div v-else-if="feedControlManagerError && feedControlManagerItems.length === 0" class="feed-control-manager__state feed-control-manager__state--error" role="alert">
+                <span>{{ feedControlManagerError }}</span>
+                <button type="button" @click="loadFeedControlManager()">重试</button>
+              </div>
+              <div v-else-if="feedControlManagerItems.length === 0" class="feed-control-manager__state">
+                当前账号没有已保存的信息流控制。
+              </div>
+              <template v-else>
+                <div class="feed-control-manager__list">
+                  <article v-for="preference in feedControlManagerItems" :key="String(preference.postId)">
+                    <div>
+                      <RouterLink :to="`/post/${preference.postId}`">内容 #{{ preference.postId }}</RouterLink>
+                      <span>{{ feedControlActionLabel(preference.action) }}</span>
+                      <p>{{ preference.reasonText || explainFeedControl(undefined, preference.reasonCode, preference.action) }}</p>
+                    </div>
+                    <button
+                      type="button"
+                      :disabled="feedFeedbackPendingIds.has(String(preference.postId))"
+                      title="恢复默认信息流设置"
+                      @click="restoreManagedFeedControl(preference.postId)"
+                    >
+                      <RotateCcw class="h-4 w-4" />
+                      恢复
+                    </button>
+                  </article>
+                </div>
+                <p v-if="feedControlManagerError" class="feed-control-manager__append-error">{{ feedControlManagerError }}</p>
+                <button
+                  v-if="feedControlManagerHasMore"
+                  type="button"
+                  class="secondary-action feed-control-manager__more"
+                  :disabled="feedControlManagerLoadingMore"
+                  @click="loadFeedControlManager(true)"
+                >
+                  <Loader2 v-if="feedControlManagerLoadingMore" class="h-4 w-4 animate-spin" />
+                  {{ feedControlManagerLoadingMore ? '加载中' : '加载更多设置' }}
+                </button>
+              </template>
+            </div>
+          </section>
+
+          <div class="home-feed-list">
+            <LoadingSkeleton v-if="isLoading" variant="feed" />
+            <div v-else-if="isError && !visiblePosts.length" class="surface-card feed-error-card p-6">
               <div>
                 <h3 class="text-lg font-black text-slate-950 dark:text-slate-100">信息流加载失败</h3>
                 <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{{ feedErrorText }}</p>
@@ -406,11 +349,16 @@
                 :key="post.postId"
                 :post="post"
                 :show-recommend-feedback="activeFeed === 'recommend'"
+                :show-feed-controls="true"
                 :like-pending="isActionPending('like', post.postId)"
                 :favorite-pending="isActionPending('favorite', post.postId)"
+                :feed-feedback-action="feedPreferenceActionFor(post.postId)"
+                :feed-feedback-pending="feedFeedbackPendingIds.has(String(post.postId))"
+                :feed-feedback-error="feedFeedbackErrors[String(post.postId)]"
                 @like="handleLike"
                 @favorite="handleFavorite"
                 @not-interested="handleRecommendFeedback"
+                @feed-feedback="handleFeedControl"
                 @follow-change="handlePostAuthorFollowChange"
               />
             </template>
@@ -418,102 +366,116 @@
               v-else
               :title="emptyFeedTitle"
               :description="emptyFeedDescription"
-              :actionText="emptyFeedActionText"
-              :actionHref="emptyFeedActionHref"
+              :action-text="emptyFeedActionText"
+              :action-href="emptyFeedActionHref"
             />
           </div>
 
-          <div v-if="hasNextPage && !isFetching" class="mt-6 text-center">
+          <div v-if="feedUndo" class="feed-undo-banner" role="status" aria-live="polite">
+            <span>已暂时隐藏“{{ feedUndo.title }}”</span>
+            <button
+              type="button"
+              :disabled="feedFeedbackPendingIds.has(feedUndo.postId)"
+              @click="restoreFeedControl(feedUndo.postId)"
+            >
+              撤销
+            </button>
+          </div>
+
+          <div v-if="isError && visiblePosts.length && !isFetching" class="feed-loadmore-error mt-6">
+            <span>{{ feedErrorText }}</span>
+            <button type="button" class="secondary-action px-5" @click="() => fetchNextPage()">重试加载更多</button>
+          </div>
+
+          <div v-else-if="hasNextPage && !isFetching" class="mt-6 text-center">
             <button type="button" class="secondary-action px-6" @click="() => fetchNextPage()">
               加载更多
             </button>
           </div>
 
           <div v-if="isFetching" class="mt-6">
-            <LoadingSkeleton />
+            <LoadingSkeleton variant="feed" />
           </div>
         </section>
 
-        <aside class="hidden lg:block">
-          <div class="sticky top-24 space-y-5">
-            <section class="surface-card p-5">
-              <div class="mb-4 flex items-center justify-between">
-                <h3 class="font-black text-slate-950 dark:text-white">精选内容</h3>
-                <Sparkles class="h-4 w-4 text-amber-500" />
+        <aside class="community-feed-layout__right hidden lg:block">
+          <div class="home-right-rail sticky top-24">
+            <section class="home-rail-section home-rail-section--featured">
+              <div class="home-rail-section__title">
+                <h3>精选内容</h3>
+                <Sparkles class="h-4 w-4" />
               </div>
-              <div v-if="featuredPreview.length" class="space-y-3">
+              <div v-if="featuredPreview.length" class="home-featured-list">
                 <RouterLink
-                  v-for="post in featuredPreview"
+                  v-for="(post, index) in featuredPreview"
                   :key="post.postId"
                   :to="`/post/${post.postId}`"
-                  class="block rounded-lg border border-amber-100 bg-amber-50/60 p-3 transition-colors hover:border-amber-200 hover:bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20 dark:hover:bg-amber-950/35"
+                  class="home-featured-row"
                 >
-                  <span class="text-[11px] font-black text-amber-700 dark:text-amber-300">精选</span>
-                  <h4 class="mt-1 line-clamp-2 text-sm font-bold text-slate-900 dark:text-slate-100">{{ post.title }}</h4>
+                  <span>{{ String(index + 1).padStart(2, '0') }}</span>
+                  <h4>{{ post.title }}</h4>
                 </RouterLink>
               </div>
-              <p v-else class="text-sm leading-6 text-slate-500 dark:text-slate-400">
+              <p v-else class="home-rail-section__empty">
                 切到精选信息流可查看运营标记的高质量内容。
               </p>
             </section>
 
-            <section class="surface-card p-5">
-              <div class="mb-4 flex items-center justify-between">
-                <h3 class="font-black text-slate-950 dark:text-white">热门话题</h3>
-                <Compass class="h-4 w-4 text-primary-500" />
+            <section class="home-rail-section">
+              <div class="home-rail-section__title">
+                <h3>热门话题</h3>
+                <Compass class="h-4 w-4" />
               </div>
-              <div class="space-y-2">
+              <div class="home-topic-list">
                 <RouterLink
                   v-for="topic in topicItems"
                   :key="topic.name"
                   :to="topic.href"
-                  class="group flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                  class="home-topic-row"
                 >
-                  <span class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ topic.name }}</span>
-                  <span class="ml-3 shrink-0 text-xs text-slate-500 dark:text-slate-400">{{ topic.count }}</span>
+                  <span>{{ topic.name }}</span>
+                  <small>{{ topic.count }}</small>
                 </RouterLink>
               </div>
             </section>
 
-            <section class="surface-card p-5">
-              <div class="mb-4 flex items-center justify-between">
-                <h3 class="font-black text-slate-950 dark:text-white">标签热度</h3>
-                <TrendingUp class="h-4 w-4 text-teal-500" />
+            <section class="home-rail-section">
+              <div class="home-rail-section__title">
+                <h3>标签热度</h3>
+                <TrendingUp class="h-4 w-4" />
               </div>
-              <div class="space-y-2">
+              <div class="home-trending-list">
                 <RouterLink
                   v-for="(tag, index) in trendingTags"
                   :key="tag.id"
                   :to="`/tag/${tag.slug || tag.id}`"
-                  class="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                  class="home-trending-row"
                 >
-                  <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-500 group-hover:bg-primary-100 group-hover:text-primary-700 dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-primary-950 dark:group-hover:text-primary-300">
-                    {{ index + 1 }}
-                  </span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ tag.name }}</span>
-                    <span class="block text-xs text-slate-500 dark:text-slate-400">{{ tag.count ?? 0 }} 篇内容</span>
-                  </span>
+                  <span>{{ String(index + 1).padStart(2, '0') }}</span>
+                  <strong>{{ tag.name }}</strong>
+                  <small>{{ tag.count ?? 0 }}</small>
                 </RouterLink>
               </div>
             </section>
 
-            <section class="surface-card p-5">
-              <div class="mb-4 flex items-center justify-between">
-                <h3 class="font-black text-slate-950 dark:text-white">推荐用户</h3>
-                <Users class="h-4 w-4 text-amber-500" />
+            <section class="home-rail-section">
+              <div class="home-rail-section__title">
+                <h3>推荐作者</h3>
+                <Users class="h-4 w-4" />
               </div>
-              <div class="space-y-3">
+              <div class="home-author-list">
                 <div
                   v-for="user in recommendedUsers"
                   :key="user.uid"
-                  class="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                  class="home-author-row"
                 >
                   <RouterLink :to="`/u/${user.uid}`" class="flex min-w-0 flex-1 items-center gap-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-500 to-teal-500 text-xs font-black text-white">
-                      <img v-if="user.avatar" :src="user.avatar" :alt="user.nickname" class="h-full w-full object-cover" />
-                      <span v-else>{{ user.nickname.charAt(0) || '?' }}</span>
-                    </div>
+                    <UserAvatar
+                      class="home-author-avatar"
+                      :src="user.avatar"
+                      :name="user.nickname"
+                      alt=""
+                    />
                     <div class="min-w-0">
                       <div class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ user.nickname }}</div>
                       <div class="truncate text-xs text-slate-500 dark:text-slate-400">{{ userDisplaySignature(user) }}</div>
@@ -521,8 +483,8 @@
                   </RouterLink>
                   <button
                     type="button"
-                    class="shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-60"
-                    :class="user.isFollowing ? 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800' : 'border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950 dark:text-primary-300'"
+                    class="home-follow-button"
+                    :class="{ 'home-follow-button--following': user.isFollowing }"
                     :disabled="isSelf(user) || followingBusyIds.has(String(user.uid))"
                     @click="toggleFollowUser(user)"
                   >
@@ -543,30 +505,34 @@ import { computed, onMounted, ref, watch, type Component } from 'vue'
 import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
-import { BookOpen, Compass, FileText, PenLine, Search, Sparkles, Tag, Target, TrendingUp, Users } from 'lucide-vue-next'
+import { Compass, Library, Loader2, PenLine, RotateCcw, Settings2, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
-import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
-import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
 import { taskApi, type UserTaskItem, type UserTaskOverview } from '@/api/tasks'
 import { userApi } from '@/api/user'
-import { feedApi, type FeedFeedbackAction } from '@/api/feed'
+import { feedApi, type FeedControlAction, type FeedFeedbackAction, type FeedPreference } from '@/api/feed'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PostCard from '@/components/post/PostCard.vue'
-import RevisitSummaryPanel from '@/components/retention/RevisitSummaryPanel.vue'
-import OperationSlotCard from '@/components/operations/OperationSlotCard.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import OperationSlotCard from '@/components/operations/OperationSlotCard.vue'
+import FeedTabs from '@/components/feed/FeedTabs.vue'
+import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import type { CommunityTopic, Post, Tag as PostTag, User } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
-import { COMMUNITY_CHANNELS, DOMAIN_OPTIONS } from '@/utils/domains'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
-import { findHighRiskContentWarning, filterVisiblePosts, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
+import {
+  explainFeedControl,
+  findHighRiskContentWarning,
+  filterVisiblePosts,
+  normalizeRecommendationReason,
+} from '@/utils/recommendationGovernance'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -574,30 +540,26 @@ const route = useRoute()
 const queryClient = useQueryClient()
 const { requireLogin } = useLoginRedirect()
 
-const activeFeed = ref<FeedType>('recommend')
-const heroKeyword = ref('')
-const activeContentType = ref<number | undefined>()
+const feedTabs: FeedType[] = ['following', 'recommend', 'latest', 'hot', 'featured']
+const feedTypeSet = new Set(feedTabs)
+const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
+const parseFeedType = (value: unknown): FeedType => {
+  const normalized = String(firstQueryValue(value) || '').toLowerCase() as FeedType
+  if (!feedTypeSet.has(normalized)) return 'recommend'
+  if (normalized === 'following' && !authStore.isLoggedIn) return 'recommend'
+  return normalized
+}
+const activeFeed = ref<FeedType>(parseFeedType(route.query.feed))
 const onboardingOverview = ref<UserTaskOverview | null>(null)
 const dailyOverview = ref<UserTaskOverview | null>(null)
-const homeDomains = ref<PublicDomainConfig[]>([...localDomainConfigs])
-const domainSource = ref<DomainConfigSource>('fallback')
-const homeSeriesPreview = ref<ContentSeriesRecord[]>([])
-const homeSeriesSource = ref<'remote' | 'fallback'>('fallback')
+const { domains: homeDomainOptions, loadDomains: loadHomeDomains } = useDomainCatalog()
 const hotPreviewPosts = ref<Post[]>([])
 const latestPreviewPosts = ref<Post[]>([])
 const recommendPreviewPosts = ref<Post[]>([])
-const legalDomainValues = new Set<number>(DOMAIN_OPTIONS.map((d) => d.value))
 const activeDomain = computed(() => {
   const q = Number(route.query.domain)
-  return legalDomainValues.has(q) ? q : undefined
+  return homeDomainOptions.value.some((item) => Number(item.domain) === q) ? q : undefined
 })
-interface TodayAction {
-  title: string
-  description: string
-  href: RouteLocationRaw
-  icon: Component
-  primary?: boolean
-}
 interface HotRisingEntry {
   key: string
   title: string
@@ -608,20 +570,12 @@ interface HotRisingEntry {
   icon: Component
   tone: 'hot' | 'rising' | 'featured'
 }
-const feedTabs: FeedType[] = ['following', 'recommend', 'latest', 'hot', 'featured']
 const feedLabels: Record<FeedType, string> = {
   following: '关注',
   recommend: '推荐',
   latest: '最新',
   hot: '热门',
   featured: '精选',
-}
-const feedShortDescriptions: Record<FeedType, string> = {
-  following: '熟人动态',
-  recommend: '高相关内容',
-  latest: '新发布',
-  hot: '正在升温',
-  featured: '人工挑选',
 }
 const feedDescriptions: Record<FeedType, string> = {
   following: '只看你关注作者的最新动态，适合持续追踪熟悉的社区内容。',
@@ -638,35 +592,41 @@ const sampledFeedContentCount = ref(0)
 const followingBusyIds = ref(new Set<string>())
 const taskBusyKeys = ref(new Set<string>())
 const locallyHiddenPostIds = ref(new Set<string>())
+const feedPreferences = ref<Record<string, FeedPreference>>({})
+const feedFeedbackPendingIds = ref(new Set<string>())
+const feedFeedbackErrors = ref<Record<string, string | undefined>>({})
+const feedPreferenceStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+const feedPreferenceError = ref('')
+const feedUndo = ref<{ postId: string; title: string } | null>(null)
+const feedControlManagerOpen = ref(firstQueryValue(route.query.controls) === '1')
+const feedControlManagerItems = ref<FeedPreference[]>([])
+const feedControlManagerLoading = ref(false)
+const feedControlManagerLoadingMore = ref(false)
+const feedControlManagerError = ref('')
+const feedControlManagerNextCursor = ref('')
+const feedControlManagerHasMore = ref(false)
+let feedControlManagerRequestGeneration = 0
 const { posts, error: feedError, fetchNextPage, hasNextPage, isError, isFetching, isLoading, refetch } = useInfiniteFeed(activeFeed, activeDomain)
+const homeFeedTabs = computed(() => feedTabs.map((value) => ({
+  value,
+  label: feedLabels[value],
+  disabled: value === 'following' && !authStore.isLoggedIn,
+  panelId: 'home-feed-panel',
+})))
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
 const topTags = computed(() => sortedTags.value.slice(0, 10))
 const trendingTags = computed(() => sortedTags.value.slice(0, 6))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
-const homeDomainOptions = computed(() => homeDomains.value.length ? homeDomains.value : localDomainConfigs)
 const activeDomainMeta = computed(() => (
   homeDomainOptions.value.find((item) => Number(item.domain) === Number(activeDomain.value))
-  ?? localDomainConfigs.find((item) => Number(item.domain) === Number(activeDomain.value))
   ?? null
 ))
-const domainSourceSummary = computed(() => {
-  const activeLabel = activeDomainMeta.value?.domainName || (activeDomain.value == null ? '综合' : '默认领域')
-  return domainSource.value === 'remote'
-    ? `首页领域说明已同步 /api/v1/domains，筛选继续保留默认五大领域 · 当前 ${activeLabel}`
-    : `接口暂未返回，首页当前使用本地 fallback 并保留默认五大领域 · 当前 ${activeLabel}`
-})
-const seriesWorkbenchHref = computed(() => authStore.isLoggedIn ? '/series/workbench' : '/login')
-const homeSeriesSummary = computed(() => {
-  if (!authStore.isLoggedIn) return '登录后可查看你的合集进度和阶段性整理计划'
-  if (!homeSeriesPreview.value.length) {
-    return homeSeriesSource.value === 'fallback'
-      ? '当前还没有合集，本地 fallback 已准备好创建流程'
-      : '还没有合集，先创建一个主题整理空间'
-  }
-  return homeSeriesSource.value === 'remote'
-    ? `已同步 ${homeSeriesPreview.value.length} 个合集`
-    : `已从本地 fallback 恢复 ${homeSeriesPreview.value.length} 个合集`
+const feedControlManagerState = computed(() => {
+  if (!feedControlManagerOpen.value) return 'closed'
+  if (feedControlManagerLoading.value && feedControlManagerItems.value.length === 0) return 'loading'
+  if (feedControlManagerError.value && feedControlManagerItems.value.length === 0) return 'error'
+  return feedControlManagerItems.value.length ? 'ready' : 'empty'
 })
 const topicItems = computed(() => {
   const remoteTopics = topics.value.slice(0, 6).map((topic) => ({
@@ -683,12 +643,7 @@ const topicItems = computed(() => {
 const cleanPosts = computed(() => filterVisiblePosts(filterPublicContent(posts.value)))
 const featuredPreview = computed(() => cleanPosts.value.filter(isFeaturedPost).slice(0, 3))
 const visiblePosts = computed(() => {
-  const base = activeFeed.value === 'recommend'
-    ? cleanPosts.value.filter((post) => !locallyHiddenPostIds.value.has(String(post.postId)))
-    : cleanPosts.value
-  return activeContentType.value
-    ? base.filter((post) => Number(post.postType) === Number(activeContentType.value))
-    : base
+  return cleanPosts.value.filter((post) => !locallyHiddenPostIds.value.has(String(post.postId)))
 })
 const explainHotReason = (post: Post | undefined, fallback: string) => {
   if (!post) return fallback
@@ -747,43 +702,6 @@ const hotRisingEntries = computed<HotRisingEntry[]>(() => {
     },
   ]
 })
-const readableContentCount = computed(() => Math.max(visiblePosts.value.length, sampledFeedContentCount.value))
-const readableMetricValue = computed(() => readableContentCount.value > 0 ? String(readableContentCount.value) : '先看精选')
-const tagMetricValue = computed(() => topTags.value.length > 0 ? String(topTags.value.length) : '去发现')
-const peerMetricValue = computed(() => recommendedUsers.value.length > 0 ? String(recommendedUsers.value.length) : '看作者')
-const todayActions = computed<TodayAction[]>(() => [
-  {
-    title: '看推荐内容',
-    description: '从真实经验、攻略清单和资源推荐里找灵感',
-    href: '/',
-    icon: Compass,
-    primary: true,
-  },
-  {
-    title: '逛频道广场',
-    description: '科技数码、学习成长、职场经验、生活方式都在发现页',
-    href: '/explore',
-    icon: Sparkles,
-  },
-  {
-    title: '查看知识库',
-    description: '从社区内容沉淀的结构化知识卡里找线索',
-    href: '/questions',
-    icon: BookOpen,
-  },
-  {
-    title: '发布内容',
-    description: '分享经验、提出问题、推荐资源或写一篇复盘',
-    href: '/editor',
-    icon: FileText,
-  },
-  {
-    title: '收藏回看',
-    description: '回到个人空间，整理收藏、合集和最近创作',
-    href: authStore.isLoggedIn ? '/me?tab=favorites' : '/login',
-    icon: Target,
-  },
-])
 const currentUserSignature = computed(() => {
   const signature = authStore.user?.signature?.trim()
   return signature && !isSyntheticVisibleText(signature)
@@ -803,7 +721,7 @@ const taskSections = computed(() => {
 })
 const feedErrorText = computed(() => getErrorMessage(feedError.value, '当前信息流暂时不可用，请稍后重试。'))
 const homeFallbackQuestionQuery = computed(() => {
-  const keyword = heroKeyword.value.trim() || topTags.value[0]?.name || ''
+  const keyword = topTags.value[0]?.name || ''
   return keyword ? { q: keyword } : {}
 })
 const emptyFeedTitle = computed(() => {
@@ -836,31 +754,56 @@ const updatePost = (postId: Post['postId'], updater: (post: Post) => void) => {
 }
 const { toggleLike, toggleFavorite, isActionPending } = usePostInteraction(updatePost)
 
-const loadHomeDomains = async () => {
-  try {
-    const res = await domainApi.listPublic()
-    homeDomains.value = res.data?.length ? res.data : [...localDomainConfigs]
-    domainSource.value = res.source
-  } catch {
-    homeDomains.value = [...localDomainConfigs]
-    domainSource.value = 'fallback'
-  }
-}
+// 客户端兜底引导：仅在后端引导接口不可用时使用。全部是导航型任务，不会误报“已完成”。
+const fallbackOnboardingOverview = (): UserTaskOverview => ({
+  taskType: 'ONBOARDING',
+  title: '欢迎加入社区',
+  subtitle: '先完成这几步，快速熟悉闻野。',
+  active: true,
+  completedCount: 0,
+  totalCount: 3,
+  items: [
+    {
+      taskCode: 'fallback-explore',
+      title: '逛逛社区内容',
+      description: '从发现页看看不同频道正在讨论的真实经验。',
+      actionText: '去发现',
+      actionRoute: '/explore',
+      manualCompletable: false,
+      completed: false,
+    },
+    {
+      taskCode: 'fallback-profile',
+      title: '完善个人资料',
+      description: '填写昵称和简介，让更多成员了解你的关注方向。',
+      actionText: '去完善',
+      actionRoute: '/me/settings',
+      manualCompletable: false,
+      completed: false,
+    },
+    {
+      taskCode: 'fallback-publish',
+      title: '发布第一篇内容',
+      description: '把最近一次经历、问题或清单写成一篇内容。',
+      actionText: '去发布',
+      actionRoute: '/editor',
+      manualCompletable: false,
+      completed: false,
+    },
+  ],
+})
 
-const loadHomeSeriesPreview = async () => {
-  if (!authStore.isLoggedIn) {
-    homeSeriesPreview.value = []
-    homeSeriesSource.value = 'fallback'
-    return
-  }
-  try {
-    const res = await contentSeriesApi.listMine(authStore.user?.uid)
-    homeSeriesPreview.value = (res.data || []).slice(0, 3)
-    homeSeriesSource.value = res.status
-  } catch {
-    homeSeriesPreview.value = []
-    homeSeriesSource.value = 'fallback'
-  }
+// 面板里是否还有未完成任务：全部完成后交互就不必再打任务接口。
+// 这里不能只看手动任务——点赞/收藏正是用来自动完成非手动任务的，所以只按完成态判断。
+const hasIncompleteTasks = computed(() => taskSections.value.some(
+  (section) => section.items.some((item) => !item.completed),
+))
+
+// 交互（点赞/收藏/关注）触发的刷新：只有当仍有未完成任务、且已登录时才刷新，避免每次互动都打接口。
+const refreshTaskPanelsIfNeeded = async () => {
+  if (!authStore.isLoggedIn) return
+  if (!hasIncompleteTasks.value) return
+  await refreshTaskPanels()
 }
 
 const refreshTaskPanels = async () => {
@@ -875,6 +818,9 @@ const refreshTaskPanels = async () => {
   ])
   if (onboardingRes.status === 'fulfilled') {
     onboardingOverview.value = onboardingRes.value.data
+  } else if (!onboardingOverview.value) {
+    // 后端引导接口不可用时给一份客户端兜底，保证新用户至少看到可操作的上手路径。
+    onboardingOverview.value = fallbackOnboardingOverview()
   }
   if (dailyRes.status === 'fulfilled') {
     dailyOverview.value = dailyRes.value.data
@@ -897,7 +843,7 @@ const handleTaskAction = async (section: UserTaskOverview, item: UserTaskItem) =
     }
     await refreshTaskPanels()
     await router.push(nextRoute)
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.error(getErrorMessage(error, '行动状态更新失败'))
   } finally {
     const next = new Set(taskBusyKeys.value)
@@ -906,18 +852,141 @@ const handleTaskAction = async (section: UserTaskOverview, item: UserTaskItem) =
   }
 }
 
-const submitHeroSearch = () => {
-  const q = heroKeyword.value.trim()
-  router.push({ path: '/search', query: q ? { q } : {} })
-}
+const contentTypeHref = (type: number): RouteLocationRaw => ({
+  path: '/search',
+  query: {
+    mode: 'posts',
+    type: String(type),
+    sort: 'hot',
+    ...(activeDomain.value ? { domain: String(activeDomain.value) } : {}),
+  },
+})
 
-const toggleContentType = (type: number) => {
-  activeContentType.value = activeContentType.value === type ? undefined : type
-}
+const homeDomainLocation = (domain?: number): RouteLocationRaw => ({
+  path: '/',
+  query: {
+    feed: activeFeed.value,
+    ...(domain ? { domain: String(domain) } : {}),
+    ...(feedControlManagerOpen.value ? { controls: '1' } : {}),
+  },
+})
 
 const setHomeFeed = (feed: FeedType) => {
-  activeFeed.value = feed
-  activeContentType.value = undefined
+  const nextFeed = feed === 'following' && !authStore.isLoggedIn ? 'recommend' : feed
+  if (activeFeed.value === nextFeed && firstQueryValue(route.query.feed) === nextFeed) return
+  void router.push({
+    path: route.path,
+    query: {
+      ...route.query,
+      feed: nextFeed,
+    },
+  })
+}
+
+let feedPreferenceRequestGeneration = 0
+let feedControlRevision = 0
+const currentFeedAccountKey = () => `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
+const resetFeedControlState = () => {
+  feedControlRevision += 1
+  feedControlManagerRequestGeneration += 1
+  feedPreferences.value = {}
+  locallyHiddenPostIds.value = new Set()
+  feedFeedbackPendingIds.value = new Set()
+  feedFeedbackErrors.value = {}
+  feedPreferenceError.value = ''
+  feedUndo.value = null
+  feedControlManagerItems.value = []
+  feedControlManagerLoading.value = false
+  feedControlManagerLoadingMore.value = false
+  feedControlManagerError.value = ''
+  feedControlManagerNextCursor.value = ''
+  feedControlManagerHasMore.value = false
+}
+
+const loadFeedPreferences = async () => {
+  const accountKey = currentFeedAccountKey()
+  const requestGeneration = ++feedPreferenceRequestGeneration
+  const controlRevision = feedControlRevision
+  if (!authStore.isLoggedIn || !authStore.user?.uid || !authStore.token) {
+    feedPreferenceStatus.value = 'idle'
+    return
+  }
+  feedPreferenceStatus.value = 'loading'
+  try {
+    const res = await feedApi.listFeedbackPreferences(undefined, 100)
+    if (requestGeneration !== feedPreferenceRequestGeneration || accountKey !== currentFeedAccountKey()) return
+    if (controlRevision !== feedControlRevision) {
+      feedPreferenceStatus.value = 'ready'
+      return
+    }
+    const preferences = (res.data?.items || [])
+      .filter((item) => String(item.postId))
+    feedPreferences.value = Object.fromEntries(preferences.map((item) => [String(item.postId), item]))
+    locallyHiddenPostIds.value = new Set(preferences
+      .filter((item) => item.action === 'HIDE')
+      .map((item) => String(item.postId)))
+    feedPreferenceStatus.value = 'ready'
+  } catch (error: unknown) {
+    if (requestGeneration !== feedPreferenceRequestGeneration || accountKey !== currentFeedAccountKey()) return
+    feedPreferenceStatus.value = 'error'
+    feedPreferenceError.value = getErrorMessage(error, '信息流设置同步失败，不影响继续浏览。')
+  }
+}
+
+const feedPreferenceActionFor = (postId: Post['postId']) =>
+  feedPreferences.value[String(postId)]?.action
+
+const loadFeedControlManager = async (append = false) => {
+  if (!authStore.isLoggedIn || !feedControlManagerOpen.value) return
+  if (append && (!feedControlManagerHasMore.value || feedControlManagerLoadingMore.value)) return
+  const accountKey = currentFeedAccountKey()
+  const generation = ++feedControlManagerRequestGeneration
+  if (append) feedControlManagerLoadingMore.value = true
+  else feedControlManagerLoading.value = true
+  feedControlManagerError.value = ''
+  try {
+    const res = await feedApi.listFeedbackPreferences(
+      append ? feedControlManagerNextCursor.value || undefined : undefined,
+      20,
+    )
+    if (generation !== feedControlManagerRequestGeneration || accountKey !== currentFeedAccountKey()) return
+    const incoming = res.data?.items || []
+    const merged = append ? [...feedControlManagerItems.value, ...incoming] : incoming
+    feedControlManagerItems.value = Array.from(
+      new Map(merged.map((item) => [String(item.postId), item])).values(),
+    )
+    feedControlManagerNextCursor.value = res.data?.nextCursor || ''
+    feedControlManagerHasMore.value = Boolean(res.data?.hasMore && feedControlManagerNextCursor.value)
+  } catch (error: unknown) {
+    if (generation !== feedControlManagerRequestGeneration || accountKey !== currentFeedAccountKey()) return
+    feedControlManagerError.value = getErrorMessage(error, '个人信息流设置暂时无法读取。')
+  } finally {
+    if (generation === feedControlManagerRequestGeneration && accountKey === currentFeedAccountKey()) {
+      feedControlManagerLoading.value = false
+      feedControlManagerLoadingMore.value = false
+    }
+  }
+}
+
+const toggleFeedControlManager = () => {
+  feedControlManagerOpen.value = !feedControlManagerOpen.value
+  if (!feedControlManagerOpen.value) feedControlManagerRequestGeneration += 1
+  void router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      controls: feedControlManagerOpen.value ? '1' : undefined,
+    },
+  })
+  if (feedControlManagerOpen.value && feedControlManagerItems.value.length === 0) {
+    void loadFeedControlManager()
+  }
+}
+
+const feedControlActionLabel = (action: FeedControlAction) => {
+  if (action === 'LESS_LIKE_THIS') return '减少同类'
+  if (action === 'RESTORE') return '已恢复'
+  return '暂时隐藏'
 }
 
 const switchFeedAfterError = (feed: FeedType) => {
@@ -931,14 +1000,14 @@ const handleLike = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
   await toggleLike(post)
-  await refreshTaskPanels()
+  await refreshTaskPanelsIfNeeded()
 }
 
 const handleFavorite = async (postId: Post['postId']) => {
   const post = findPost(postId)
   if (!post) return
   await toggleFavorite(post)
-  await refreshTaskPanels()
+  await refreshTaskPanelsIfNeeded()
 }
 
 const handlePostAuthorFollowChange = (authorUid: User['uid'], following: boolean) => {
@@ -962,8 +1031,103 @@ const handleRecommendFeedback = async (postId: Post['postId'], action: FeedFeedb
       locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(String(postId))
     }
     toast.success(action === 'more_like_this' ? '已记录这次反馈' : '已记录反馈，当前内容已隐藏')
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.error(getErrorMessage(error, '推荐反馈提交失败'))
+  }
+}
+
+const setFeedFeedbackPending = (postId: Post['postId'], pending: boolean) => {
+  const id = String(postId)
+  const next = new Set(feedFeedbackPendingIds.value)
+  if (pending) next.add(id)
+  else next.delete(id)
+  feedFeedbackPendingIds.value = next
+}
+
+const setFeedFeedbackError = (postId: Post['postId'], message?: string) => {
+  const id = String(postId)
+  feedFeedbackErrors.value = { ...feedFeedbackErrors.value, [id]: message }
+}
+
+const feedControlErrorMessage = (error: unknown, action: FeedControlAction) => {
+  const candidate = error as { code?: unknown; response?: { status?: unknown } } | null | undefined
+  const code = Number(candidate?.code || 0)
+  if (code === 20002) return '缓存服务暂时不可用，信息流设置尚未生效，请稍后重试。'
+  if (code === 20001) return '设置未能持久化，刷新或换设备后可能无法保留，请稍后重试。'
+  if (action === 'RESTORE') return getErrorMessage(error, '恢复失败，原有信息流设置仍然保留。')
+  return getErrorMessage(error, '信息流控制提交失败，当前内容不会被误隐藏。')
+}
+
+const handleFeedControl = async (postId: Post['postId'], action: FeedControlAction) => {
+  if (!requireLogin()) return false
+  const id = String(postId)
+  const accountKey = currentFeedAccountKey()
+  const post = findPost(postId)
+  setFeedFeedbackPending(postId, true)
+  setFeedFeedbackError(postId)
+  try {
+    if (action === 'RESTORE') {
+      await feedApi.restoreFeedback(postId)
+    } else {
+      await feedApi.recordFeedback(postId, action, action === 'HIDE' ? 'user_hide' : 'user_less_like_this')
+    }
+    if (accountKey !== currentFeedAccountKey()) return
+    feedControlRevision += 1
+    if (action === 'RESTORE') {
+      const next = { ...feedPreferences.value }
+      delete next[id]
+      feedPreferences.value = next
+      const hidden = new Set(locallyHiddenPostIds.value)
+      hidden.delete(id)
+      locallyHiddenPostIds.value = hidden
+      if (feedUndo.value?.postId === id) feedUndo.value = null
+      feedControlManagerItems.value = feedControlManagerItems.value
+        .filter((item) => String(item.postId) !== id)
+      toast.success('已恢复默认信息流设置')
+      return true
+    }
+    const preference: FeedPreference = {
+      postId,
+      action,
+      reason: action === 'HIDE' ? 'user_hide' : 'user_less_like_this',
+      reasonText: explainFeedControl(undefined, undefined, action),
+    }
+    feedPreferences.value = {
+      ...feedPreferences.value,
+      [id]: preference,
+    }
+    if (feedControlManagerOpen.value) {
+      feedControlManagerItems.value = [
+        preference,
+        ...feedControlManagerItems.value.filter((item) => String(item.postId) !== id),
+      ]
+    }
+    if (action === 'HIDE') {
+      locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(id)
+      feedUndo.value = { postId: id, title: post?.title || '当前内容' }
+      toast.success('当前内容已暂时隐藏，可撤销')
+    } else {
+      feedUndo.value = null
+      toast.success('已减少同类内容，之后可以恢复默认')
+    }
+    return true
+  } catch (error: unknown) {
+    if (accountKey !== currentFeedAccountKey()) return
+    const message = feedControlErrorMessage(error, action)
+    setFeedFeedbackError(postId, message)
+    toast.error(message)
+    return false
+  } finally {
+    if (accountKey === currentFeedAccountKey()) setFeedFeedbackPending(postId, false)
+  }
+}
+
+const restoreFeedControl = (postId: Post['postId']) => handleFeedControl(postId, 'RESTORE')
+const restoreManagedFeedControl = async (postId: Post['postId']) => {
+  const restored = await restoreFeedControl(postId)
+  if (restored) {
+    feedControlManagerItems.value = feedControlManagerItems.value
+      .filter((item) => String(item.postId) !== String(postId))
   }
 }
 
@@ -982,8 +1146,8 @@ const toggleFollowUser = async (user: User) => {
     user.isFollowing = !wasFollowing
     user.followerCount = Math.max(0, (user.followerCount ?? 0) + (wasFollowing ? -1 : 1))
     await queryClient.invalidateQueries({ queryKey: ['feed', 'following'] })
-    await refreshTaskPanels()
-  } catch (error: any) {
+    await refreshTaskPanelsIfNeeded()
+  } catch (error: unknown) {
     toast.error(getErrorMessage(error, '关注操作失败'))
   } finally {
     const next = new Set(followingBusyIds.value)
@@ -992,17 +1156,36 @@ const toggleFollowUser = async (user: User) => {
   }
 }
 
+let homePreviewRequestId = 0
+const loadHomePreviewPosts = async () => {
+  const requestId = ++homePreviewRequestId
+  const domainSnapshot = activeDomain.value
+  const [latestRes, hotRes, recommendRes] = await Promise.allSettled([
+    feedApi.getLatest(undefined, 6, domainSnapshot),
+    feedApi.getHot(undefined, 6, domainSnapshot),
+    feedApi.getRecommend(undefined, 6, domainSnapshot),
+  ])
+  if (requestId !== homePreviewRequestId || activeDomain.value !== domainSnapshot) return
+  latestPreviewPosts.value = latestRes.status === 'fulfilled'
+    ? filterVisiblePosts(filterPublicContent(latestRes.value.data?.items || []), 3)
+    : []
+  hotPreviewPosts.value = hotRes.status === 'fulfilled'
+    ? filterVisiblePosts(filterPublicContent(hotRes.value.data?.items || []), 3)
+    : []
+  recommendPreviewPosts.value = recommendRes.status === 'fulfilled'
+    ? filterVisiblePosts(filterPublicContent(recommendRes.value.data?.items || []), 3)
+    : []
+  const feedCounts = [latestRes, hotRes, recommendRes]
+    .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
+    .map((res) => filterVisiblePosts(filterPublicContent(res.value.data?.items || [])).length)
+  sampledFeedContentCount.value = Math.max(0, ...feedCounts)
+}
+
 onMounted(async () => {
-  if (route.query.feed === 'featured') {
-    activeFeed.value = 'featured'
-  }
-  const [tagRes, topicRes, userRes, latestRes, hotRes, recommendRes] = await Promise.allSettled([
+  const [tagRes, topicRes, userRes] = await Promise.allSettled([
     postApi.getTags(),
     postApi.listTopics({ featured: true, limit: 6 }),
     userApi.searchUsers('', 6),
-    feedApi.getLatest(undefined, 6, activeDomain.value),
-    feedApi.getHot(undefined, 6, activeDomain.value),
-    feedApi.getRecommend(undefined, 6, activeDomain.value),
   ])
   if (tagRes.status === 'fulfilled') {
     tags.value = filterPublicContent(tagRes.value.data || [])
@@ -1013,33 +1196,83 @@ onMounted(async () => {
   if (userRes.status === 'fulfilled') {
     recommendedUsers.value = filterPublicContent(userRes.value.data || [])
   }
-  if (latestRes.status === 'fulfilled') {
-    latestPreviewPosts.value = filterVisiblePosts(filterPublicContent(latestRes.value.data?.items || []), 3)
-  }
-  if (hotRes.status === 'fulfilled') {
-    hotPreviewPosts.value = filterVisiblePosts(filterPublicContent(hotRes.value.data?.items || []), 3)
-  }
-  if (recommendRes.status === 'fulfilled') {
-    recommendPreviewPosts.value = filterVisiblePosts(filterPublicContent(recommendRes.value.data?.items || []), 3)
-  }
-  const feedCounts = [latestRes, hotRes, recommendRes]
-    .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
-    .map((res) => filterVisiblePosts(filterPublicContent(res.value.data?.items || [])).length)
-  sampledFeedContentCount.value = Math.max(0, ...feedCounts)
-  await Promise.all([loadHomeDomains(), loadHomeSeriesPreview()])
+  await loadHomeDomains()
   await refreshTaskPanels()
 })
 
-watch(() => authStore.isLoggedIn, async (loggedIn) => {
-  if (!loggedIn) {
+watch(
+  [() => firstQueryValue(route.query.feed), () => authStore.isLoggedIn],
+  ([routeFeed]) => {
+    const nextFeed = parseFeedType(routeFeed)
+    if (activeFeed.value !== nextFeed) activeFeed.value = nextFeed
+    if (String(routeFeed || '').toLowerCase() !== nextFeed) {
+      void router.replace({
+        path: route.path,
+        query: {
+          ...route.query,
+          feed: nextFeed,
+        },
+      })
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  [() => firstQueryValue(route.query.domain), () => homeDomainOptions.value.map((item) => String(item.domain)).join(',')],
+  ([routeDomain]) => {
+    if (!homeDomainOptions.value.length) return
+    const rawDomain = String(routeDomain || '')
+    if (!rawDomain) return
+    const normalizedDomain = String(Number(rawDomain))
+    const valid = homeDomainOptions.value.some((item) => String(item.domain) === normalizedDomain)
+    if (valid && rawDomain === normalizedDomain) return
+    void router.replace({
+      path: route.path,
+      query: {
+        ...route.query,
+        domain: valid ? normalizedDomain : undefined,
+      },
+    })
+  },
+  { immediate: true },
+)
+
+watch(
+  () => firstQueryValue(route.query.controls),
+  (value) => {
+    const open = value === '1'
+    if (feedControlManagerOpen.value === open) return
+    feedControlManagerOpen.value = open
+    if (open) void loadFeedControlManager()
+  },
+)
+
+watch(activeDomain, () => {
+  void loadHomePreviewPosts()
+}, { immediate: true })
+
+watch([() => authStore.isLoggedIn, () => authStore.user?.uid], async ([loggedIn, ownerUid]) => {
+  if (!loggedIn || ownerUid == null) {
     onboardingOverview.value = null
     dailyOverview.value = null
-    homeSeriesPreview.value = []
-    homeSeriesSource.value = 'fallback'
     return
   }
-  await Promise.all([refreshTaskPanels(), loadHomeSeriesPreview()])
+  await refreshTaskPanels()
 })
+
+watch(
+  [() => authStore.user?.uid, () => authStore.token],
+  async () => {
+    feedPreferenceRequestGeneration += 1
+    resetFeedControlState()
+    await queryClient.invalidateQueries({ queryKey: ['feed'] })
+    void refetch()
+    void loadFeedPreferences()
+    if (feedControlManagerOpen.value) void loadFeedControlManager()
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped>
@@ -1407,6 +1640,79 @@ watch(() => authStore.isLoggedIn, async (loggedIn) => {
   min-height: 2.5rem;
 }
 
+.feed-loadmore-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(253 230 138);
+  background: rgb(255 251 235);
+  padding: 0.85rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgb(146 64 14);
+}
+
+.dark .feed-loadmore-error {
+  border-color: rgb(120 53 15);
+  background: rgb(69 26 3 / 0.4);
+  color: rgb(253 230 138);
+}
+
+.feed-undo-banner {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  border: 1px solid rgb(165 180 252);
+  border-radius: 6px;
+  background: rgb(238 242 255);
+  padding: 0.75rem 0.9rem;
+  color: rgb(49 46 129);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.12);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.feed-undo-banner span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-undo-banner button {
+  min-height: 2.25rem;
+  flex: 0 0 auto;
+  border-radius: 5px;
+  border: 1px solid rgb(129 140 248);
+  padding: 0 0.75rem;
+  color: rgb(67 56 202);
+}
+
+.feed-undo-banner button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.dark .feed-undo-banner {
+  border-color: rgb(79 70 229);
+  background: rgb(49 46 129 / 0.92);
+  color: rgb(224 231 255);
+  box-shadow: 0 12px 28px rgb(2 6 23 / 0.35);
+}
+
+.dark .feed-undo-banner button {
+  border-color: rgb(129 140 248);
+  color: rgb(224 231 255);
+}
+
 .dark .profile-stat {
   border-color: rgb(51 65 85 / 0.8);
   background: rgb(15 23 42 / 0.75);
@@ -1554,5 +1860,1274 @@ watch(() => authStore.isLoggedIn, async (loggedIn) => {
 
 .dark .home-series-mini-bar {
   background: rgb(30 41 59);
+}
+
+/* Community-first home layout. Existing data sources stay intact while the
+   browsing surface becomes a stable three-column content stream. */
+.community-home-main {
+  min-height: calc(100vh - 64px);
+}
+
+.community-feed-layout {
+  align-items: start;
+}
+
+.home-channel-nav {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0 0.15rem;
+}
+
+.home-rail-label {
+  margin: 0 0 0.4rem;
+  color: rgb(107 114 128);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.home-channel-link,
+.home-channel-publish {
+  display: flex;
+  min-height: 2.45rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 0.55rem;
+  border-radius: 6px;
+  color: rgb(75 85 99);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.home-channel-link:hover,
+.home-channel-link--active {
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
+.home-channel-link__icon {
+  display: grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 5px;
+  background: rgb(243 244 246);
+  color: rgb(75 85 99);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.home-channel-link--active .home-channel-link__icon {
+  background: rgb(219 234 254);
+  color: rgb(29 78 216);
+}
+
+.home-channel-link--discover {
+  margin-top: 0.45rem;
+  border-top: 1px solid rgb(229 231 235);
+  border-radius: 0;
+  padding-top: 0.7rem;
+}
+
+.home-channel-publish {
+  justify-content: center;
+  margin-top: 0.5rem;
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.home-channel-publish:hover {
+  background: rgb(29 78 216);
+  color: white;
+}
+
+.home-feed-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 0.2rem 0 1.25rem;
+  border-bottom: 1px solid rgb(229 231 235);
+}
+
+.home-feed-intro h1 {
+  margin: 0;
+  color: rgb(23 23 23);
+  font-size: 1.35rem;
+  line-height: 1.35;
+}
+
+.home-feed-intro p:not(.home-rail-label) {
+  max-width: 41rem;
+  margin: 0.4rem 0 0;
+  color: rgb(107 114 128);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.home-feed-intro__publish {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 6px;
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.home-feed-intro__publish:hover {
+  background: rgb(219 234 254);
+}
+
+.home-mobile-channels {
+  display: none;
+}
+
+.home-feed-controls {
+  margin-bottom: 1.1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid rgb(229 231 235);
+}
+
+.home-feed-controls > .grid {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.home-feed-controls > .grid::-webkit-scrollbar {
+  display: none;
+}
+
+.home-feed-controls button {
+  min-height: 2.1rem;
+  flex: 0 0 auto;
+  padding: 0 0.65rem;
+  border-radius: 5px;
+  background: transparent !important;
+  color: rgb(107 114 128) !important;
+  box-shadow: none !important;
+  font-size: 0.8125rem;
+}
+
+.home-feed-controls button span:last-child {
+  display: none;
+}
+
+.home-feed-controls button.bg-primary-600 {
+  background: rgb(239 246 255) !important;
+  color: rgb(29 78 216) !important;
+}
+
+.home-feed-controls > p {
+  padding: 0.55rem 0 0 !important;
+  color: rgb(107 114 128);
+  font-size: 0.75rem;
+}
+
+.home-feed-controls > .border-t {
+  display: none;
+}
+
+.community-feed-layout aside .surface-card,
+.community-feed-layout aside .surface-panel {
+  border-color: rgb(229 231 235);
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.community-feed-layout aside .surface-card > .mb-4 h3,
+.community-feed-layout aside .surface-panel > .mb-4 h3 {
+  font-size: 0.875rem;
+}
+
+.community-feed-layout aside .surface-card .rounded-xl {
+  border-radius: 6px;
+}
+
+.community-feed-layout aside .surface-card .rounded-lg {
+  border-radius: 6px;
+}
+
+.community-feed-layout .profile-stat {
+  border-color: rgb(229 231 235);
+  border-radius: 6px;
+  background: rgb(249 250 251);
+}
+
+.community-feed-layout .profile-stat span {
+  color: rgb(37 99 235);
+}
+
+.community-feed-layout .task-item {
+  border-color: rgb(229 231 235);
+  border-radius: 6px;
+  background: rgb(249 250 251);
+}
+
+.community-feed-layout .task-progress-pill,
+.community-feed-layout .task-action-button {
+  border-radius: 5px;
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
+.community-feed-layout .task-action-button {
+  border-color: rgb(191 219 254);
+}
+
+.community-feed-layout .topic-count {
+  min-width: 2rem;
+  border-radius: 5px;
+  background: rgb(243 244 246);
+  color: rgb(107 114 128);
+  text-align: center;
+}
+
+.community-feed-layout .recommended-user-card {
+  border-radius: 6px;
+}
+
+.dark .home-channel-link,
+.dark .home-rail-label,
+.dark .home-feed-intro p:not(.home-rail-label) {
+  color: rgb(148 163 184);
+}
+
+.dark .home-channel-link:hover,
+.dark .home-channel-link--active {
+  background: rgb(30 58 138 / 0.35);
+  color: rgb(147 197 253);
+}
+
+.dark .home-channel-link__icon {
+  background: rgb(39 39 42);
+  color: rgb(203 213 225);
+}
+
+.dark .home-channel-link--active .home-channel-link__icon {
+  background: rgb(30 58 138 / 0.45);
+  color: rgb(147 197 253);
+}
+
+.dark .home-channel-link--discover,
+.dark .home-feed-intro,
+.dark .home-feed-controls {
+  border-color: rgb(63 63 70);
+}
+
+.dark .home-feed-intro h1 {
+  color: rgb(241 245 249);
+}
+
+.dark .home-feed-intro__publish,
+.dark .home-feed-controls button.bg-primary-600 {
+  border-color: rgb(30 58 138);
+  background: rgb(30 58 138 / 0.35) !important;
+  color: rgb(147 197 253) !important;
+}
+
+.dark .community-feed-layout aside .surface-card,
+.dark .community-feed-layout aside .surface-panel,
+.dark .community-feed-layout .profile-stat,
+.dark .community-feed-layout .task-item {
+  border-color: rgb(63 63 70);
+  background: rgb(24 26 32);
+}
+
+@media (max-width: 1023px) {
+  .community-home-main {
+    max-width: 760px;
+  }
+
+  .home-feed-intro {
+    padding-top: 0;
+  }
+
+  .home-mobile-channels {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding-top: 0.25rem;
+    scrollbar-width: none;
+  }
+
+  .home-mobile-channels::-webkit-scrollbar {
+    display: none;
+  }
+
+  .home-mobile-channels a {
+    display: inline-flex;
+    min-height: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 0 0.6rem;
+    border-radius: 5px;
+    background: rgb(243 244 246);
+    color: rgb(75 85 99);
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .home-mobile-channels a.home-mobile-channels__item--active {
+    background: rgb(239 246 255);
+    color: rgb(29 78 216);
+  }
+
+  .dark .home-mobile-channels a {
+    background: rgb(39 39 42);
+    color: rgb(203 213 225);
+  }
+
+  .dark .home-mobile-channels a.home-mobile-channels__item--active {
+    background: rgb(30 58 138 / 0.35);
+    color: rgb(147 197 253);
+  }
+}
+
+@media (max-width: 640px) {
+  .community-home-main {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+
+  .home-feed-intro {
+    gap: 0.75rem;
+  }
+
+  .home-feed-intro h1 {
+    font-size: 1.15rem;
+  }
+
+  .home-feed-intro__publish {
+    min-height: 2rem;
+    padding: 0 0.55rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Editorial community stream: wide enough for reading, compact enough for repeat visits. */
+.community-home-main {
+  width: min(1320px, 100%);
+  min-height: calc(100vh - 68px);
+}
+
+.community-feed-layout {
+  display: grid;
+  grid-template-columns: 196px minmax(0, 700px) 284px;
+  gap: 2rem;
+  align-items: start;
+  justify-content: center;
+}
+
+.community-feed-layout__left,
+.community-feed-layout__right,
+.home-feed-column {
+  min-width: 0;
+}
+
+.home-channel-nav {
+  gap: 0.2rem;
+  padding: 0;
+}
+
+.home-rail-heading,
+.home-rail-section__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.home-rail-heading {
+  margin-bottom: 0.35rem;
+  padding: 0 0.55rem;
+}
+
+.home-rail-heading > a {
+  color: var(--primary-600);
+  font-size: 0.6875rem;
+  font-weight: 750;
+}
+
+.home-rail-label {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.home-channel-link,
+.home-channel-publish {
+  min-height: 2.5rem;
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.home-channel-link:hover,
+.home-channel-link--active {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.home-channel-link__icon {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.home-channel-link--active .home-channel-link__icon {
+  background: var(--primary-100);
+  color: var(--primary-600);
+}
+
+.home-channel-link--discover {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  padding-top: 0.75rem;
+}
+
+.home-channel-publish {
+  margin-top: 0.6rem;
+  border: 1px solid var(--primary-600);
+  background: var(--primary-600);
+  color: white;
+  font-weight: 750;
+}
+
+.home-channel-publish:hover {
+  border-color: var(--primary-700);
+  background: var(--primary-700);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.home-profile-panel,
+.home-task-panel {
+  border-top: 1px solid var(--border-subtle);
+  padding: 1rem 0 0;
+}
+
+.home-profile-avatar,
+.home-author-avatar {
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--primary-600);
+  color: white;
+  font-weight: 850;
+}
+
+.home-profile-avatar {
+  width: 2.8rem;
+  height: 2.8rem;
+  flex: 0 0 auto;
+  font-size: 1rem;
+}
+
+.home-profile-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.home-profile-stats .profile-stat {
+  padding: 0.7rem 0.35rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.home-profile-stats .profile-stat + .profile-stat {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.home-profile-stats .profile-stat:hover {
+  background: var(--surface-2);
+}
+
+.home-profile-stats .profile-stat span {
+  color: var(--text-strong);
+  font-size: 0.95rem;
+}
+
+.home-profile-collection-link {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: var(--primary-600);
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.home-profile-collection-link:hover {
+  background: var(--surface-2);
+}
+
+.home-profile-empty h3 {
+  margin: 0.45rem 0 0;
+  color: var(--text-strong);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.home-profile-empty p:not(.home-rail-label) {
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.65;
+}
+
+.home-profile-empty .primary-action {
+  width: 100%;
+  margin-top: 0.9rem;
+}
+
+.home-task-panel {
+  padding-bottom: 0.15rem;
+}
+
+.home-task-panel > .flex:first-child h3 {
+  font-size: 0.875rem;
+}
+
+.home-task-panel .task-section-label {
+  color: var(--text-muted);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.home-task-panel .task-item {
+  border-color: var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.home-task-panel .task-progress-pill,
+.home-task-panel .task-action-button {
+  border-color: var(--primary-100);
+  border-radius: 5px;
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.home-rail-section {
+  padding: 1rem 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.home-rail-section__title h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.home-rail-section__title svg {
+  color: var(--text-muted);
+}
+
+.home-tag-panel {
+  padding-bottom: 0;
+}
+
+.home-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.home-tag-link {
+  display: inline-flex;
+  min-height: 1.8rem;
+  align-items: center;
+  padding: 0 0.5rem;
+  border-radius: 5px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.home-tag-link:hover {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.home-feed-intro {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.9rem 1rem;
+  padding: 0.15rem 0 1.35rem;
+  border-bottom-color: var(--border-subtle);
+}
+
+.home-feed-intro h1 {
+  color: var(--text-strong);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.home-feed-intro p:not(.home-rail-label) {
+  max-width: 39rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.home-feed-intro__publish {
+  min-height: 2.35rem;
+  border: 1px solid var(--primary-100);
+  border-radius: var(--radius-control);
+  background: var(--primary-50);
+  color: var(--primary-600);
+  font-weight: 750;
+  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.home-feed-intro__publish:hover {
+  border-color: rgb(147 197 253);
+  background: var(--primary-100);
+  transform: translateY(-1px);
+}
+
+.home-reading-pulse {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-top: 0.1rem;
+  scrollbar-width: none;
+}
+
+.home-reading-pulse::-webkit-scrollbar {
+  display: none;
+}
+
+.home-reading-pulse__item {
+  display: inline-flex;
+  min-height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.home-reading-pulse__item strong {
+  color: var(--text-primary);
+  font-weight: 750;
+}
+
+.home-reading-pulse__item:hover {
+  background: var(--surface);
+  border-color: var(--border-subtle);
+  color: var(--primary-600);
+  transform: translateY(-1px);
+}
+
+.home-reading-pulse__item--hot svg {
+  color: #d92d20;
+}
+
+.home-reading-pulse__item--rising svg {
+  color: #0f9f8c;
+}
+
+.home-reading-pulse__item--featured svg {
+  color: #b54708;
+}
+
+.home-feed-controls {
+  margin: 0;
+  padding: 0.75rem 0 1rem;
+  border-bottom-color: var(--border-subtle);
+}
+
+.home-operation-slot {
+  margin: 1rem 0 0.25rem;
+}
+
+.home-feed-tabs {
+  display: flex;
+  gap: 0.15rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.home-feed-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.home-feed-tabs button {
+  position: relative;
+  min-height: 2.35rem;
+  flex: 0 0 auto;
+  padding: 0 0.65rem !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 700 !important;
+}
+
+.home-feed-tabs button:hover:not(:disabled) {
+  background: var(--surface-3) !important;
+  color: var(--text-primary) !important;
+}
+
+.home-feed-tabs button.home-feed-tab--active {
+  background: var(--primary-50) !important;
+  color: var(--primary-600) !important;
+}
+
+.home-feed-description {
+  padding: 0.65rem 0 0 !important;
+  color: var(--text-muted) !important;
+  font-size: 0.75rem !important;
+  line-height: 1.65 !important;
+}
+
+.home-content-types {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--surface-3);
+}
+
+.home-content-types__label {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.home-content-types__list {
+  display: flex;
+  min-width: 0;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.home-content-types__list::-webkit-scrollbar {
+  display: none;
+}
+
+.home-content-types .channel-chip {
+  min-height: 1.8rem;
+  flex: 0 0 auto;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.home-content-types .channel-chip:hover {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.home-feed-list {
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+}
+
+.home-feed-list :deep(.post-card) {
+  margin: 0;
+}
+
+.home-feed-list :deep(.post-card:first-child) {
+  padding-top: 1.1rem;
+}
+
+.home-feed-list :deep(.surface-card) {
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+}
+
+.home-right-rail {
+  display: grid;
+}
+
+.home-right-rail .home-rail-section:first-child {
+  padding-top: 0.1rem;
+  border-top: 0;
+}
+
+.home-rail-section__empty {
+  margin: 0.7rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.65;
+}
+
+.home-featured-list,
+.home-topic-list,
+.home-trending-list,
+.home-author-list {
+  margin-top: 0.65rem;
+}
+
+.home-featured-row,
+.home-topic-row,
+.home-trending-row,
+.home-author-row {
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.home-featured-row {
+  display: grid;
+  grid-template-columns: 1.85rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.home-featured-row:last-child,
+.home-topic-row:last-child,
+.home-trending-row:last-child {
+  border-bottom: 0;
+}
+
+.home-featured-row > span {
+  color: var(--primary-600);
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.home-featured-row h4 {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 720;
+  line-height: 1.5;
+}
+
+.home-featured-row:hover h4,
+.home-topic-row:hover > span,
+.home-trending-row:hover strong {
+  color: var(--primary-600);
+}
+
+.home-topic-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.3rem;
+  border-bottom: 1px solid var(--surface-3);
+  color: var(--text-primary);
+}
+
+.home-topic-row > span {
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-topic-row small {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.home-trending-row {
+  display: grid;
+  grid-template-columns: 1.85rem minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+  min-height: 2.45rem;
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.home-trending-row > span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.home-trending-row strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-trending-row small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.home-author-list {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.home-author-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0;
+}
+
+.home-author-row:hover {
+  background: var(--surface-2);
+}
+
+.home-author-avatar {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+}
+
+.home-author-row :deep(.truncate) {
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 720;
+}
+
+.home-author-row :deep(.text-xs) {
+  font-size: 0.6875rem;
+}
+
+.home-follow-button {
+  min-height: 1.8rem;
+  flex: 0 0 auto;
+  padding: 0 0.45rem;
+  border: 1px solid var(--primary-100);
+  border-radius: 5px;
+  background: var(--primary-50);
+  color: var(--primary-600);
+  font-size: 0.7rem;
+  font-weight: 750;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.home-follow-button:hover:not(:disabled) {
+  border-color: rgb(147 197 253);
+  background: var(--primary-100);
+}
+
+.home-follow-button--following {
+  border-color: var(--border-subtle);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.home-follow-button--following:hover:not(:disabled) {
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
+}
+
+.dark .home-channel-link,
+.dark .home-rail-label,
+.dark .home-feed-intro p:not(.home-rail-label),
+.dark .home-profile-empty p:not(.home-rail-label),
+.dark .home-rail-section__empty,
+.dark .home-feed-description {
+  color: rgb(148 163 184) !important;
+}
+
+.dark .home-channel-link:hover,
+.dark .home-channel-link--active,
+.dark .home-feed-tabs button.home-feed-tab--active,
+.dark .home-feed-intro__publish,
+.dark .home-reading-pulse__item:hover,
+.dark .home-content-types .channel-chip:hover,
+.dark .home-tag-link:hover {
+  background: rgb(30 58 138 / 0.36) !important;
+  color: rgb(147 197 253) !important;
+}
+
+.dark .home-channel-link__icon,
+.dark .home-reading-pulse__item,
+.dark .home-content-types .channel-chip,
+.dark .home-tag-link {
+  background: rgb(39 39 42);
+  color: rgb(203 213 225);
+}
+
+.dark .home-channel-link--active .home-channel-link__icon {
+  background: rgb(30 58 138 / 0.48);
+  color: rgb(147 197 253);
+}
+
+.dark .home-channel-link--discover,
+.dark .home-profile-panel,
+.dark .home-task-panel,
+.dark .home-rail-section,
+.dark .home-profile-stats,
+.dark .home-profile-stats .profile-stat + .profile-stat,
+.dark .home-feed-intro,
+.dark .home-feed-controls,
+.dark .home-content-types,
+.dark .home-feed-list,
+.dark .home-featured-row,
+.dark .home-topic-row,
+.dark .home-trending-row {
+  border-color: rgb(63 63 70);
+}
+
+.dark .home-profile-stats .profile-stat,
+.dark .home-profile-stats .profile-stat:hover,
+.dark .home-author-row:hover {
+  background: transparent;
+}
+
+.dark .home-task-panel .task-item,
+.dark .home-feed-list {
+  background: rgb(24 26 32);
+}
+
+.dark .home-profile-stats .profile-stat span,
+.dark .home-feed-intro h1,
+.dark .home-profile-empty h3,
+.dark .home-rail-section__title h3,
+.dark .home-featured-row h4,
+.dark .home-topic-row > span,
+.dark .home-trending-row strong,
+.dark .home-author-row :deep(.truncate),
+.dark .home-reading-pulse__item strong {
+  color: rgb(241 245 249);
+}
+
+.dark .home-follow-button--following {
+  border-color: rgb(63 63 70);
+  background: transparent;
+  color: rgb(203 213 225);
+}
+
+@media (max-width: 1023px) {
+  .community-feed-layout {
+    display: block;
+  }
+
+  .home-feed-column {
+    width: min(720px, 100%);
+    margin: 0 auto;
+  }
+
+  .home-task-panel--mobile {
+    margin-top: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .community-home-main {
+    min-height: calc(100vh - 58px);
+  }
+
+  .home-feed-intro {
+    gap: 0.65rem;
+    padding-bottom: 1rem;
+  }
+
+  .home-feed-intro h1 {
+    font-size: 1.25rem;
+  }
+
+  .home-reading-pulse {
+    margin-right: -1rem;
+    padding-right: 1rem;
+  }
+
+  .home-mobile-channels {
+    margin-right: -1rem;
+    padding-right: 1rem;
+  }
+
+  .home-content-types {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .home-content-types__list {
+    width: calc(100% + 1rem);
+    margin-right: -1rem;
+    padding-right: 1rem;
+  }
+
+  .home-feed-list {
+    margin-right: -1rem;
+    margin-left: -1rem;
+  }
+}
+
+.feed-control-manager {
+  margin-bottom: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1rem 0;
+}
+
+.feed-control-manager > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.feed-control-manager h2 {
+  margin-top: 0.2rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.feed-control-manager header span {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.feed-control-manager__body {
+  margin-top: 0.9rem;
+}
+
+.feed-control-manager__state {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 0.5rem;
+  padding: 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.feed-control-manager__state--error,
+.feed-control-manager__append-error {
+  color: rgb(190 24 93);
+}
+
+.feed-control-manager__state button {
+  text-decoration: underline;
+}
+
+.feed-control-manager__list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.feed-control-manager__list article {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.7rem;
+}
+
+.feed-control-manager__list article:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.feed-control-manager__list a,
+.feed-control-manager__list span,
+.feed-control-manager__list p {
+  display: block;
+}
+
+.feed-control-manager__list a {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.feed-control-manager__list span,
+.feed-control-manager__list p {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.feed-control-manager__list button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.4rem;
+  padding: 0 0.65rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.feed-control-manager__append-error {
+  margin-top: 0.7rem;
+  font-size: 0.75rem;
+}
+
+.feed-control-manager__more {
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .feed-control-manager > header {
+    flex-direction: column;
+  }
+
+  .feed-control-manager > header .secondary-action {
+    width: 100%;
+  }
 }
 </style>

@@ -113,7 +113,7 @@
             <p>{{ editorAssistContextSource || '编辑器上下文' }}</p>
             <strong>{{ editorAssistContextTitle }}</strong>
             <span>{{ editorAssistContextCopy }}</span>
-            <small v-if="editorAssistContextResult.degraded">{{ editorAssistContextResult.fallbackReason }}</small>
+            <small v-if="editorAssistContextResult.degraded">部分辅助信息暂不可用，你仍可继续手动编辑。</small>
           </div>
           <RouterLink v-if="editorAssistReturnHref" :to="editorAssistReturnHref">返回来源</RouterLink>
         </section>
@@ -126,6 +126,45 @@
             <small>仅作为辅助上下文，正文与发布仍需手动确认，也不承诺收录、精选、曝光、收益或排名。</small>
           </div>
           <RouterLink v-if="editorSearchGapReturnHref" :to="editorSearchGapReturnHref">返回来源</RouterLink>
+        </section>
+
+        <section v-if="isEditing" class="public-update-editor mx-4" aria-labelledby="public-update-editor-title">
+          <div class="public-update-editor-head">
+            <div>
+              <p>公开更新记录</p>
+              <strong id="public-update-editor-title">说明这次修改解决了什么</strong>
+              <span>摘要会随新版本公开展示；不会公开旧正文、私密建议或审核信息。</span>
+            </div>
+            <RouterLink v-if="editorAssistReturnHref" :to="editorAssistReturnHref">返回内容详情</RouterLink>
+          </div>
+          <div v-if="respondedSuggestionIds.length" class="public-update-source">
+            本次编辑关联 {{ respondedSuggestionIds.length }} 条读者建议。保存成功后，这些建议才会标记为已合并。
+          </div>
+          <div class="public-update-fields">
+            <label>
+              <span>公开更新摘要</span>
+              <textarea
+                v-model="publicUpdateSummary"
+                data-field="publicUpdateSummary"
+                rows="3"
+                maxlength="240"
+                placeholder="例如：补充适用条件并更新失效链接"
+              />
+              <small>{{ publicUpdateSummary.length }} / 240</small>
+            </label>
+            <label>
+              <span>影响范围</span>
+              <select v-model="updateImpactScope">
+                <option value="CONTENT">正文说明</option>
+                <option value="CONCLUSION">结论或建议</option>
+                <option value="CONDITIONS">适用条件</option>
+                <option value="SOURCES">来源或链接</option>
+                <option value="FULL_CONTENT">整体更新</option>
+              </select>
+              <small>不填写摘要时，本次编辑仍会保留私有版本历史，但不会生成公开更新记录。</small>
+            </label>
+          </div>
+          <p v-if="publicUpdateError" class="field-error">{{ publicUpdateError }}</p>
         </section>
 
         <section class="template-helper mx-4">
@@ -178,16 +217,19 @@
           <label class="text-sm font-medium text-slate-700 dark:text-slate-300">频道</label>
           <select
             v-model="selectedDomain"
+            data-field="domain"
             class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
+            <option :value="undefined">请选择频道</option>
             <option v-for="d in editorDomainOptions" :key="d.domain" :value="d.domain">
               {{ d.icon }} {{ d.domainName }} — {{ d.description }}
             </option>
           </select>
           <p class="domain-source-note">
-            <span>{{ editorDomainSourceSummary }}</span>
-            <span v-if="selectedDomainMeta?.postingNotice"> · {{ selectedDomainMeta.postingNotice }}</span>
+            <span v-if="selectedDomainMeta?.postingNotice">{{ selectedDomainMeta.postingNotice }}</span>
+            <span v-else>选择最贴近内容主题的频道，方便其他人发现和参与讨论。</span>
           </p>
+          <p v-if="fieldErrors.domain" class="field-error">{{ fieldErrors.domain }}</p>
         </div>
 
         <section v-if="selectedDomain === DOMAIN.CAREER" class="anonymous-career-toggle mx-4">
@@ -208,6 +250,228 @@
             <p v-for="message in metaErrorMessages" :key="message">{{ message }}</p>
           </div>
         </div>
+
+        <section class="mx-4 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/70 dark:bg-emerald-950/20">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p class="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">可信经验护照</p>
+              <h2 class="mt-1 text-sm font-extrabold text-slate-900 dark:text-slate-100">说明这份经验来自哪里、适用于谁</h2>
+              <p class="mt-1 max-w-3xl text-xs leading-5 text-slate-600 dark:text-slate-300">
+                这是经验背景和边界说明，不是认证、资质或平台背书。不填写不会阻断发布。
+              </p>
+            </div>
+            <label class="inline-flex min-h-10 shrink-0 items-center gap-2 text-sm font-bold text-emerald-800 dark:text-emerald-200">
+              <input v-model="trustProfileEnabled" type="checkbox" />
+              {{ trustProfileEnabled ? '已加入护照' : '为内容补充护照' }}
+            </label>
+          </div>
+
+          <div v-if="trustProfileEnabled" class="mt-4 grid gap-4 md:grid-cols-2">
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              你与这段经验的关系
+              <select v-model="trustProfileDraft.authorRole" class="field-input">
+                <option value="PARTICIPANT">亲历参与者</option>
+                <option value="PRACTITIONER">持续实践者</option>
+                <option value="OBSERVER">观察记录者</option>
+                <option value="CURATOR">资料整理者</option>
+              </select>
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                经历开始
+                <input v-model="trustProfileDraft.experienceStartAt" type="datetime-local" :max="trustProfileMaxDateTime" class="field-input" />
+              </label>
+              <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                经历结束
+                <input v-model="trustProfileDraft.experienceEndAt" type="datetime-local" :max="trustProfileMaxDateTime" class="field-input" />
+              </label>
+            </div>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              适用人群
+              <input v-model.trim="trustProfileDraft.applicableAudience" maxlength="500" class="field-input" placeholder="例如：第一次独立租房、准备转行、长期远程办公的人" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              适用情境
+              <input v-model.trim="trustProfileDraft.applicableContext" maxlength="1000" class="field-input" placeholder="说明地区、时间、预算、工具或其他前提" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              过程概述
+              <textarea v-model.trim="trustProfileDraft.processSummary" rows="3" maxlength="2000" class="field-input" placeholder="你实际做了什么，经历了哪些步骤" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              结果概述
+              <textarea v-model.trim="trustProfileDraft.outcomeSummary" rows="3" maxlength="2000" class="field-input" placeholder="结果如何，哪些变化可以观察或复核" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              已知限制
+              <textarea v-model.trim="trustProfileDraft.knownLimitations" rows="3" maxlength="2000" class="field-input" placeholder="哪些条件变化后可能不再适用" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+              来源说明
+              <textarea v-model.trim="trustProfileDraft.sourceSummary" rows="3" maxlength="1000" class="field-input" placeholder="可核对的公开来源、记录方式或资料范围" />
+            </label>
+            <label class="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200 md:col-span-2">
+              利益关系披露
+              <textarea v-model.trim="trustProfileDraft.interestDisclosure" rows="2" maxlength="1000" class="field-input" placeholder="是否收到样品、赞助、雇佣关系或存在其他可能影响判断的关系" />
+            </label>
+          </div>
+        </section>
+
+        <section id="references" class="post-reference-editor mx-4" aria-labelledby="post-reference-editor-title">
+          <div class="post-reference-editor-head">
+            <div>
+              <p class="post-reference-kicker">来源维护</p>
+              <h2 id="post-reference-editor-title">来源与证据清单</h2>
+              <span v-if="isEditing">可在这里新增、编辑或删除这篇帖子的公开来源；来源不会改变正文发布流程。</span>
+              <span v-else>新建帖子尚未生成 postId，来源暂不可维护。请先发布内容，再回到编辑页补充来源。</span>
+            </div>
+            <button
+              v-if="isEditing"
+              type="button"
+              class="post-reference-icon-button"
+              title="刷新来源清单"
+              aria-label="刷新来源清单"
+              :disabled="postReferencesLoading || postReferenceSaving"
+              @click="loadPostReferences()"
+            >
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': postReferencesLoading }" />
+            </button>
+          </div>
+
+          <template v-if="isEditing">
+            <p v-if="postReferenceError" class="post-reference-error" role="alert">{{ postReferenceError }}</p>
+
+            <form v-if="postReferenceEditing" class="post-reference-form" @submit.prevent="savePostReference">
+              <div class="post-reference-form-grid">
+                <label>
+                  <span>来源标题</span>
+                  <input
+                    v-model.trim="postReferenceDraft.title"
+                    type="text"
+                    maxlength="255"
+                    placeholder="例如：官方文档或公开报告"
+                    required
+                  >
+                </label>
+                <label>
+                  <span>来源类型</span>
+                  <select v-model="postReferenceDraft.referenceType">
+                    <option v-for="item in postReferenceTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+                  </select>
+                </label>
+                <label class="post-reference-form-wide">
+                  <span>公开链接</span>
+                  <input
+                    v-model.trim="postReferenceDraft.url"
+                    type="url"
+                    maxlength="2048"
+                    placeholder="https://..."
+                    required
+                  >
+                </label>
+                <label>
+                  <span>状态</span>
+                  <select v-model="postReferenceDraft.referenceStatus">
+                    <option value="ACTIVE">可访问</option>
+                    <option value="BROKEN">需要核查</option>
+                  </select>
+                </label>
+                <label class="post-reference-form-wide">
+                  <span>备注 <small>可选</small></span>
+                  <textarea v-model.trim="postReferenceDraft.note" rows="2" maxlength="1000" placeholder="说明这条来源支持了正文中的哪一部分" />
+                </label>
+                <label v-if="postReferenceDraft.referenceStatus === 'BROKEN'" class="post-reference-form-wide">
+                  <span>失效原因 <small>可选</small></span>
+                  <input v-model.trim="postReferenceDraft.brokenReason" maxlength="500" placeholder="例如：链接需要登录或页面已移除">
+                </label>
+              </div>
+              <div class="post-reference-form-actions">
+                <button type="button" class="post-reference-secondary-button" :disabled="postReferenceSaving" @click="cancelPostReferenceEdit">
+                  <X class="h-4 w-4" />
+                  取消
+                </button>
+                <button type="submit" class="post-reference-primary-button" :disabled="postReferenceSaving">
+                  <Loader2 v-if="postReferenceSaving" class="h-4 w-4 animate-spin" />
+                  <Save v-else class="h-4 w-4" />
+                  {{ postReferenceSaving ? '保存中...' : postReferenceEditingId ? '保存修改' : '添加来源' }}
+                </button>
+              </div>
+            </form>
+
+            <div v-else class="post-reference-toolbar">
+              <p v-if="postReferencesLoading" role="status">正在读取来源清单...</p>
+              <p v-else-if="!postReferences.length">还没有来源。补充可核对的公开链接，有助于读者理解内容依据。</p>
+              <p v-else>共 {{ postReferences.length }} 条来源，按服务端保存顺序展示。</p>
+              <button type="button" class="post-reference-primary-button" :disabled="postReferenceSaving" @click="startNewPostReference">
+                <Plus class="h-4 w-4" />
+                添加来源
+              </button>
+            </div>
+
+            <ul v-if="!postReferencesLoading && postReferences.length" class="post-reference-list">
+              <li v-for="item in sortedPostReferences" :key="item.id" class="post-reference-item">
+                <div class="post-reference-item-main">
+                  <div class="post-reference-item-title-row">
+                    <a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                    <ExternalLink class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </div>
+                  <p class="post-reference-meta">
+                    <span>{{ postReferenceTypeLabel(item.referenceType) }}</span>
+                    <span>{{ item.sourceDomain || '来源域名待识别' }}</span>
+                    <span :class="item.referenceStatus === 'BROKEN' ? 'post-reference-status-broken' : 'post-reference-status-active'">
+                      {{ postReferenceStatusLabel(item.referenceStatus) }}
+                    </span>
+                  </p>
+                  <p v-if="item.note" class="post-reference-note">{{ item.note }}</p>
+                  <p v-if="item.brokenReason" class="post-reference-broken-reason">{{ item.brokenReason }}</p>
+                </div>
+                <div class="post-reference-item-actions">
+                  <button
+                    type="button"
+                    class="post-reference-icon-button"
+                    title="上移来源"
+                    :aria-label="`上移来源：${item.title}`"
+                    :disabled="postReferenceSaving || sortedPostReferences[0]?.id === item.id"
+                    @click="movePostReference(item.id, -1)"
+                  >
+                    <ArrowUp class="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    class="post-reference-icon-button"
+                    title="下移来源"
+                    :aria-label="`下移来源：${item.title}`"
+                    :disabled="postReferenceSaving || sortedPostReferences[sortedPostReferences.length - 1]?.id === item.id"
+                    @click="movePostReference(item.id, 1)"
+                  >
+                    <ArrowDown class="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    class="post-reference-icon-button"
+                    title="编辑来源"
+                    :aria-label="`编辑来源：${item.title}`"
+                    :disabled="postReferenceSaving || postReferenceDeletingId === item.id"
+                    @click="startEditPostReference(item)"
+                  >
+                    <Pencil class="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    class="post-reference-icon-button post-reference-delete-button"
+                    title="删除来源"
+                    :aria-label="`删除来源：${item.title}`"
+                    :disabled="postReferenceSaving || postReferenceDeletingId === item.id"
+                    @click="deletePostReference(item)"
+                  >
+                    <Loader2 v-if="postReferenceDeletingId === item.id" class="h-4 w-4 animate-spin" />
+                    <Trash2 v-else class="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </template>
+        </section>
 
         <section class="mx-4 grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] xl:items-start">
           <div class="space-y-4">
@@ -252,7 +516,7 @@
             :preview="editorPreviewModel"
             eyebrow="公开卡片预览"
             title="发布前预览与公开卡片预览"
-            description="基于当前标题、正文、频道、标签、匿名状态和合集归属做前端实时映射；发布建议面板开启后才会触发建议请求。"
+            description="基于当前标题、正文、频道、标签、匿名状态和合集归属做前端实时映射；开启后会在标题、正文、标签或频道变化时自动刷新建议。"
           />
         </section>
 
@@ -406,7 +670,7 @@
                   {{ item.title }}<small>{{ item.progressText }}</small>
                 </span>
               </div>
-              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">合集列表当前来自本地 fallback，未依赖真实后端。</p>
+              <p v-if="seriesSource === 'fallback'" class="stage3-empty-copy">合集暂未完成同步，本次编辑内容仍会保留。</p>
             </article>
           </div>
         </section>
@@ -533,8 +797,19 @@ import PostMeta from '@/components/post/PostMeta.vue'
 import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
 import { contentAssistApi, type ContentAssistRequest } from '@/api/contentAssist'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
-import { domainApi, localDomainConfigs, type DomainConfigSource, type PublicDomainConfig } from '@/api/domains'
 import { postApi, type PostDraft } from '@/api/post'
+import {
+  postReferenceApi,
+  type PostReference,
+  type PostReferenceStatus,
+  type PostReferenceType,
+  type PostReferenceWrite,
+} from '@/api/postReferences'
+import {
+  trustedContentApi,
+  type TrustProfile,
+  type TrustProfileUpdateReq,
+} from '@/api/trustedContent'
 import type { ContentAssistQualityMetric, ContentAssistResult, ContentAssistSuggestion } from '@/api/types'
 import {
   EDITOR_ASSIST_TEMPLATE_BOUNDARY,
@@ -545,6 +820,7 @@ import {
   type EditorAssistTemplate,
   type EditorAssistTemplateCode,
 } from '@/data/editorAssistTemplates'
+import { ArrowDown, ArrowUp, ExternalLink, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import {
   describeEditorAssistContext,
@@ -558,6 +834,7 @@ import { buildEditorQualityChecklist } from '@/utils/editorQualityChecklist'
 import { safeStorage } from '@/utils/safeStorage'
 import { hasLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 import { useAuthStore } from '@/stores/auth'
+import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import {
   ALL_CONTENT_TYPES,
   COMMUNITY_CONTENT_TYPES,
@@ -568,12 +845,13 @@ import {
   isLegacyInterviewType,
 } from '@/utils/contentTypes'
 import type { PostTypeValue } from '@/utils/contentTypes'
-import { DOMAIN, DOMAIN_OPTIONS, normalizeDomain } from '@/utils/domains'
+import { DOMAIN, DOMAIN_OPTIONS, isKnownDomain, normalizeDomain } from '@/utils/domains'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const LOCAL_DRAFT_TTL = 7 * 24 * 60 * 60 * 1000
+const LOCAL_DRAFT_NAMESPACE = 'post-draft'
 const CONTENT_MAX_LENGTH = 50000
 const AUTO_SAVE_DEBOUNCE_MS = 1500
 
@@ -607,6 +885,62 @@ const form = ref<EditorForm>({
   extension: {},
   coverUrl: ''
 })
+const publicUpdateSummary = ref('')
+const updateImpactScope = ref('CONTENT')
+const respondedSuggestionIds = ref<string[]>([])
+const publicUpdateError = ref('')
+const emptyTrustProfileDraft = (): TrustProfileUpdateReq => ({
+  authorRole: 'PARTICIPANT',
+  experienceStartAt: undefined,
+  experienceEndAt: undefined,
+  applicableAudience: '',
+  applicableContext: '',
+  processSummary: '',
+  outcomeSummary: '',
+  knownLimitations: '',
+  sourceSummary: '',
+  interestDisclosure: '',
+})
+const trustProfileEnabled = ref(false)
+const trustProfileDraft = ref<TrustProfileUpdateReq>(emptyTrustProfileDraft())
+const trustProfileMaxDateTime = computed(() => {
+  const now = new Date()
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 16)
+})
+type PostReferenceDraft = {
+  referenceType: PostReferenceType
+  title: string
+  url: string
+  note: string
+  referenceStatus: PostReferenceStatus
+  brokenReason: string
+}
+const postReferenceTypeOptions: Array<{ value: PostReferenceType; label: string }> = [
+  { value: 'SOURCE', label: '资料来源' },
+  { value: 'EXAMPLE', label: '案例示例' },
+  { value: 'DATA', label: '数据依据' },
+  { value: 'FOLLOW_UP', label: '后续阅读' },
+]
+const emptyPostReferenceDraft = (): PostReferenceDraft => ({
+  referenceType: 'SOURCE',
+  title: '',
+  url: '',
+  note: '',
+  referenceStatus: 'ACTIVE',
+  brokenReason: '',
+})
+const postReferences = ref<PostReference[]>([])
+const postReferencesLoading = ref(false)
+const postReferenceError = ref('')
+const postReferenceEditing = ref(false)
+const postReferenceEditingId = ref('')
+const postReferenceSaving = ref(false)
+const postReferenceDeletingId = ref('')
+const postReferenceDraft = ref<PostReferenceDraft>(emptyPostReferenceDraft())
+const sortedPostReferences = computed(() => [...postReferences.value].sort((a, b) => (
+  Number(a.sortOrder) - Number(b.sortOrder)
+)))
 
 const formCoverFailedUrl = ref('')
 const formCoverHasFailed = computed(() => Boolean(form.value.coverUrl) && formCoverFailedUrl.value === form.value.coverUrl)
@@ -622,7 +956,16 @@ watch(() => form.value.coverUrl, () => {
 
 const tagInput = ref('')
 const selectedTags = ref<string[]>([])
-const selectedDomain = ref<number>(DOMAIN.LIFESTYLE)
+const selectedDomain = ref<number | undefined>()
+const { domains: editorDomainOptions, loadDomains: loadEditorDomains } = useDomainCatalog()
+const resolveOptionalDomain = (value: unknown, anonymous = false): number | undefined => {
+  if (anonymous) return DOMAIN.CAREER
+  const candidate = typeof value === 'string' || typeof value === 'number' ? value : undefined
+  const domain = isKnownDomain(candidate) ? normalizeDomain(candidate) : undefined
+  return domain && editorDomainOptions.value.some((item) => Number(item.domain) === Number(domain))
+    ? domain
+    : undefined
+}
 const anonymousCareerPost = ref(false)
 const isPublishing = ref(false)
 const isEditing = ref(false)
@@ -636,8 +979,6 @@ const selectedDraftId = ref('')
 const serverDrafts = ref<PostDraft[]>([])
 const lastDraftSignature = ref('')
 const showStageTwoPublishingAssist = false
-const editorDomains = ref<PublicDomainConfig[]>([...localDomainConfigs])
-const domainSource = ref<DomainConfigSource>('fallback')
 const seriesRecords = ref<ContentSeriesRecord[]>([])
 const seriesSource = ref<'remote' | 'fallback'>('fallback')
 const isSeriesLoading = ref(false)
@@ -653,6 +994,7 @@ const stageThreeAssistPreferenceKey = computed(() => `editor_stage3_assist:${dra
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let stageThreeAssistTimer: ReturnType<typeof setTimeout> | null = null
 let stageThreeAssistRequestId = 0
+let seriesRequestId = 0
 
 type QualityCheck = {
   key: string
@@ -907,6 +1249,13 @@ const questionQualityChecks = computed<QualityCheck[]>(() => {
 
 const qualityChecks = computed<QualityCheck[]>(() => [
   {
+    key: 'domain',
+    title: '选择频道',
+    description: '选择最贴近内容主题的频道，方便内容被准确发现。',
+    passed: selectedDomain.value != null,
+    required: true,
+  },
+  {
     key: 'title',
     title: '标题清晰',
     description: '至少 8 个字符，方便搜索和列表快速判断主题。',
@@ -955,6 +1304,7 @@ const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) =
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
 const publishDisabledReason = computed(() => {
   if (isLoadingPost.value) return '帖子内容加载完成后才能发布'
+  if (!selectedDomain.value) return '请选择频道后再发布'
   if (blockingQualityIssues.value.length === 0) return ''
   return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
 })
@@ -1054,16 +1404,9 @@ const topicNamesFromExtension = (value: Record<string, any>) => {
   return raw.map((item) => sanitizeVisibleText(item)).filter(Boolean)
 }
 
-const editorDomainOptions = computed(() => editorDomains.value.length ? editorDomains.value : localDomainConfigs)
 const selectedDomainMeta = computed(() => (
   editorDomainOptions.value.find((item) => Number(item.domain) === Number(selectedDomain.value))
-  ?? localDomainConfigs.find((item) => Number(item.domain) === Number(selectedDomain.value))
-  ?? localDomainConfigs[0]
-))
-const editorDomainSourceSummary = computed(() => (
-  domainSource.value === 'remote'
-    ? `频道来源已同步 /api/v1/domains · 当前 ${selectedDomainMeta.value?.domainName || '生活方式'}`
-    : `接口暂未返回，当前使用本地 fallback · 当前 ${selectedDomainMeta.value?.domainName || '生活方式'}`
+  ?? null
 ))
 const selectedTopicNames = computed(() => topicNamesFromExtension(extensionValue.value))
 const selectedSeriesRecord = computed(() => (
@@ -1135,9 +1478,9 @@ const stageThreeAssistHeadline = computed(() => {
   if (stageThreeAssistStatus.value === 'unauthenticated') return '登录后可获得写作建议、标签/话题建议和合集工作台联动。'
   if (stageThreeAssistStatus.value === 'disabled') return '发布建议默认关闭，当前仅保留发布检查、草稿保护和合集选择；显式开启后，如后端未配置建议服务会自动回退到规则建议。'
   if (stageThreeAssistStatus.value === 'loading') return '正在根据标题、正文、标签和领域生成发布建议。'
-  if (stageThreeAssistStatus.value === 'degraded') return stageThreeAssist.value?.fallbackReason || '建议接口未返回结果，当前使用本地规则降级建议。'
+  if (stageThreeAssistStatus.value === 'degraded') return '部分智能建议暂不可用，当前已保留基础写作检查。'
   if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
-  if (!stageThreeAssist.value) return '发布建议已开启，开启后会在标题、正文、标签或频道变化时自动刷新建议；也可以手动点击“刷新建议”。后端未配置建议服务时会回退到规则建议。'
+  if (!stageThreeAssist.value) return '发布建议已开启，会在标题、正文、标签或频道变化时自动刷新；也可以手动点击“刷新建议”。'
   return '围绕写作助手、质量评分、标签/话题建议和合集归属整理发布前动作。'
 })
 
@@ -1168,7 +1511,7 @@ const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
   title: normalizedTitle.value,
   content: normalizedContent.value,
   postType: form.value.postType,
-  domain: selectedDomain.value,
+  domain: selectedDomain.value ?? undefined,
   tags: normalizedTags.value,
   extension: {
     ...extensionValue.value,
@@ -1182,26 +1525,19 @@ const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
   aiEnabled: assistPanelEnabled.value,
 })
 
-const loadEditorDomains = async () => {
-  try {
-    const res = await domainApi.listPublic()
-    editorDomains.value = res.data || localDomainConfigs
-    domainSource.value = res.source
-  } catch {
-    editorDomains.value = [...localDomainConfigs]
-    domainSource.value = 'fallback'
-  }
-}
-
 const loadSeriesWorkbench = async () => {
-  if (!authStore.isLoggedIn) {
+  const ownerUid = authStore.user?.uid
+  const requestId = ++seriesRequestId
+  if (!authStore.isLoggedIn || ownerUid == null) {
     seriesRecords.value = []
     seriesSource.value = 'fallback'
+    isSeriesLoading.value = false
     return
   }
   isSeriesLoading.value = true
   try {
-    const res = await contentSeriesApi.listMine(authStore.user?.uid)
+    const res = await contentSeriesApi.listMine(ownerUid)
+    if (requestId !== seriesRequestId || String(authStore.user?.uid ?? '') !== String(ownerUid)) return
     seriesRecords.value = res.data || []
     seriesSource.value = res.status
     if (selectedSeriesId.value && !seriesRecords.value.some((item) => String(item.id) === String(selectedSeriesId.value))) {
@@ -1214,7 +1550,7 @@ const loadSeriesWorkbench = async () => {
       })
     }
   } finally {
-    isSeriesLoading.value = false
+    if (requestId === seriesRequestId) isSeriesLoading.value = false
   }
 }
 
@@ -1246,6 +1582,11 @@ const loadStageThreeAssist = async (manual = false) => {
     clearStageThreeAssistState()
     return
   }
+  if (!selectedDomain.value) {
+    clearStageThreeAssistState()
+    if (manual) toast.info('请先选择频道，再生成写作建议')
+    return
+  }
 
   const requestId = ++stageThreeAssistRequestId
   isStageThreeAssistLoading.value = true
@@ -1274,7 +1615,7 @@ const loadStageThreeAssist = async (manual = false) => {
 
 const scheduleStageThreeAssist = () => {
   clearStageThreeAssistTimer()
-  if (!authStore.isLoggedIn || !assistPanelEnabled.value || isForbiddenEdit.value) return
+  if (!authStore.isLoggedIn || !assistPanelEnabled.value || isForbiddenEdit.value || !selectedDomain.value) return
   stageThreeAssistTimer = setTimeout(() => {
     stageThreeAssistTimer = null
     void loadStageThreeAssist(false)
@@ -1339,7 +1680,9 @@ const removeTopicSuggestion = (topic: string) => {
 }
 
 const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: string) => {
-  if (!authStore.isLoggedIn) return
+  const ownerUid = authStore.user?.uid
+  if (!authStore.isLoggedIn || ownerUid == null) return
+  if (!selectedDomain.value) return
   const previousSeriesId = sanitizeVisibleText(extensionValue.value.seriesId)
   if (!selectedSeriesId.value && !previousSeriesId) return
   const res = await contentSeriesApi.syncAssignment({
@@ -1351,16 +1694,24 @@ const syncSeriesAssignment = async (status: 'draft' | 'published', postId?: stri
     summary: sanitizeVisibleText(extensionValue.value.summary) || assistSummaryText.value || knowledgeSummary.value,
     domain: selectedDomain.value,
     status,
-  }, authStore.user?.uid)
+  }, ownerUid)
+  if (String(authStore.user?.uid ?? '') !== String(ownerUid)) return
   seriesSource.value = res.status
   if (res.status === 'fallback') {
     toast.warning('合集归属暂时仅保存在本地，尚未完成远端同步。')
   }
-  const refreshed = await contentSeriesApi.listMine(authStore.user?.uid)
-  seriesRecords.value = refreshed.data || seriesRecords.value
-  seriesSource.value = refreshed.status
-  if (refreshed.status === 'fallback') {
-    toast.warning('合集工作台当前展示的是本地 fallback 结果。')
+  await loadSeriesWorkbench()
+  if (seriesSource.value === 'fallback') {
+    toast.warning('合集暂未完成同步，本次编辑内容仍会保留。')
+  }
+}
+
+const syncPublishedSeriesAssignment = async (postId?: string) => {
+  try {
+    await syncSeriesAssignment('published', postId)
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -1508,6 +1859,14 @@ const localDraftKey = (owner = draftOwner.value) => {
   return postId ? `post_draft:${owner}:edit:${postId}` : `post_draft:${owner}:new`
 }
 
+const localDraftStorageOptions = (owner = draftOwner.value) => ({
+  owner,
+  namespace: LOCAL_DRAFT_NAMESPACE,
+  ttlMs: LOCAL_DRAFT_TTL,
+  maxEntryBytes: 1_000_000,
+})
+let draftStorageWarningShown = false
+
 const currentDraftSignature = computed(() => JSON.stringify({
   postType: form.value.postType,
   title: form.value.title,
@@ -1518,6 +1877,9 @@ const currentDraftSignature = computed(() => JSON.stringify({
   selectedDomain: selectedDomain.value,
   anonymousCareerPost: anonymousCareerPost.value,
   serverDraftId: serverDraftId.value,
+  publicUpdateSummary: publicUpdateSummary.value,
+  updateImpactScope: updateImpactScope.value,
+  respondedSuggestionIds: respondedSuggestionIds.value,
 }))
 
 const hasMeaningfulDraft = computed(() => Boolean(
@@ -1535,7 +1897,8 @@ const markDraftClean = () => {
 }
 
 const persistLocalDraft = () => {
-  safeStorage.set(localDraftKey(), JSON.stringify({
+  if (draftOwner.value === 'guest') return false
+  const result = safeStorage.setDraft(localDraftKey(), JSON.stringify({
     savedAt: Date.now(),
     owner: draftOwner.value,
     ...form.value,
@@ -1543,8 +1906,20 @@ const persistLocalDraft = () => {
     selectedDomain: selectedDomain.value,
     anonymousCareerPost: anonymousCareerPost.value,
     serverDraftId: serverDraftId.value,
-  }))
+    publicUpdateSummary: publicUpdateSummary.value,
+    updateImpactScope: updateImpactScope.value,
+    respondedSuggestionIds: respondedSuggestionIds.value,
+  }), localDraftStorageOptions())
+  if (!result.ok) {
+    if (!draftStorageWarningShown) {
+      draftStorageWarningShown = true
+      toast.warning('本地草稿空间不足或不可用，当前内容尚未完成本地保护。')
+    }
+    return false
+  }
+  draftStorageWarningShown = false
   markDraftClean()
+  return true
 }
 
 const clearAutoSaveTimer = () => {
@@ -1602,7 +1977,7 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
   } catch {
     extension = {}
   }
-  selectedDomain.value = normalizeDomain(draft.domain ?? extension.domain ?? (extension.anonymous ? DOMAIN.CAREER : DOMAIN.LIFESTYLE))
+  selectedDomain.value = resolveOptionalDomain(draft.domain ?? extension.domain, Boolean(draft.anonymous ?? extension.anonymous))
   form.value = {
     postType: getContentTypeOption(draft.postType || DEFAULT_POST_TYPE).value,
     title: draft.title || '',
@@ -1679,7 +2054,7 @@ const loadLatestSourceDraft = async (postId: string) => {
 }
 
 const restoreLocalDraft = (onlyWhenNotEditing = false) => {
-  const draft = safeStorage.get(localDraftKey())
+  const draft = safeStorage.getDraft(localDraftKey(), localDraftStorageOptions())
   if (!draft || (onlyWhenNotEditing && isEditing.value)) return false
   try {
     const draftData = JSON.parse(draft)
@@ -1696,23 +2071,32 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
     const savedSelectedDomain = draftForm.selectedDomain ?? draftForm.extension?.domain
     const savedAnonymousCareerPost = Boolean(draftForm.anonymousCareerPost ?? draftForm.extension?.anonymous)
     const savedServerDraftId = draftForm.serverDraftId
+    const savedPublicUpdateSummary = draftForm.publicUpdateSummary
+    const savedUpdateImpactScope = draftForm.updateImpactScope
+    const savedRespondedSuggestionIds = draftForm.respondedSuggestionIds
     delete draftForm.selectedTags
     delete draftForm.selectedDomain
     delete draftForm.anonymousCareerPost
     delete draftForm.serverDraftId
+    delete draftForm.publicUpdateSummary
+    delete draftForm.updateImpactScope
+    delete draftForm.respondedSuggestionIds
     delete draftForm.savedAt
     delete draftForm.owner
     form.value = { ...form.value, ...draftForm }
-    selectedDomain.value = savedSelectedDomain != null
-      ? normalizeDomain(savedSelectedDomain)
-      : savedAnonymousCareerPost
-        ? DOMAIN.CAREER
-        : selectedDomain.value
+    selectedDomain.value = resolveOptionalDomain(savedSelectedDomain, savedAnonymousCareerPost)
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? savedAnonymousCareerPost : false
     selectedTags.value = draftTags || []
     selectedSeriesId.value = sanitizeVisibleText((draftForm.extension || {}).seriesId)
     serverDraftId.value = savedServerDraftId || ''
     selectedDraftId.value = savedServerDraftId || ''
+    publicUpdateSummary.value = sanitizeVisibleText(savedPublicUpdateSummary).slice(0, 240)
+    updateImpactScope.value = sanitizeVisibleText(savedUpdateImpactScope) || 'CONTENT'
+    respondedSuggestionIds.value = Array.isArray(savedRespondedSuggestionIds)
+      ? [...new Set(savedRespondedSuggestionIds
+        .map(String)
+        .filter((id: string) => /^[1-9]\d*$/.test(id)))].slice(0, 20)
+      : []
     markDraftClean()
     return true
   } catch {
@@ -1741,9 +2125,24 @@ const topicIdeaEditorQuery = () => {
   }
 }
 
-const topicIdeaQueryValue = (key: 'source' | 'title' | 'topic' | 'seriesId' | 'postType' | 'postId' | 'ideaId' | 'action' | 'contextSource') => {
+const topicIdeaQueryValue = (key: 'source' | 'title' | 'topic' | 'seriesId' | 'postType' | 'domain' | 'postId' | 'ideaId' | 'action' | 'contextSource') => {
   const editorQuery = topicIdeaEditorQuery()
   return editorQuery[key] ?? route.query[key]
+}
+
+const applyTrustedUpdateContext = () => {
+  if (!isEditing.value) return
+  const rawIds = [
+    ...(Array.isArray(route.query.suggestionId) ? route.query.suggestionId : [route.query.suggestionId]),
+    ...(Array.isArray(route.query.suggestionIds) ? route.query.suggestionIds : [route.query.suggestionIds]),
+  ]
+    .flatMap((value) => String(value || '').split(','))
+    .map((value) => value.trim())
+    .filter((value) => /^[1-9]\d*$/.test(value))
+  respondedSuggestionIds.value = [...new Set([...respondedSuggestionIds.value, ...rawIds])].slice(0, 20)
+  if (!publicUpdateSummary.value) {
+    publicUpdateSummary.value = topicIdeaQueryText(route.query.updateSummary ?? route.query.reasonText, 240)
+  }
 }
 
 const normalizeTopicIdeaPostType = (value: unknown): PostTypeValue | undefined => {
@@ -1796,6 +2195,7 @@ const applyTopicIdeaQuery = () => {
   const topic = context.topic || legacyTopic
   const seriesId = context.seriesId || ''
   const postType = normalizeTopicIdeaPostType(context.postType)
+  const domain = resolveOptionalDomain(topicIdeaQueryValue('domain'))
   const contextPostId = context.postId || legacyPostId
   const ideaId = context.ideaId || legacyIdeaId
   const action = context.action || ''
@@ -1806,6 +2206,7 @@ const applyTopicIdeaQuery = () => {
 
   if (title && !form.value.title.trim()) form.value.title = title
   if (postType) form.value.postType = postType
+  if (domain) selectedDomain.value = domain
   if (template) selectedAssistTemplateCode.value = template.code
   if (seriesId && seriesRecords.value.some((item) => String(item.id) === String(seriesId))) {
     selectedSeriesId.value = seriesId
@@ -1831,11 +2232,248 @@ const applyTopicIdeaQuery = () => {
   return true
 }
 
-watch(draftOwner, (_nextOwner, prevOwner) => {
-  if (prevOwner) {
-    safeStorage.remove(localDraftKey(prevOwner))
+watch(draftOwner, async (nextOwner, prevOwner) => {
+  seriesRequestId += 1
+  if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
+    safeStorage.clearSensitive(prevOwner)
+  }
+  if (nextOwner === 'guest') {
+    seriesRecords.value = []
+    seriesSource.value = 'fallback'
+    isSeriesLoading.value = false
+  } else if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
+    await loadSeriesWorkbench()
+  }
+  if (nextOwner !== 'guest') {
+    draftStorageWarningShown = false
   }
 })
+
+const toDateTimeInputValue = (value?: string) => value ? value.slice(0, 16) : undefined
+
+const applyTrustProfileDraft = (profile: TrustProfile | null) => {
+  if (!profile?.profileAvailable) {
+    trustProfileEnabled.value = false
+    trustProfileDraft.value = emptyTrustProfileDraft()
+    return
+  }
+  trustProfileEnabled.value = true
+  trustProfileDraft.value = {
+    authorRole: profile.authorRole || 'PARTICIPANT',
+    experienceStartAt: toDateTimeInputValue(profile.experienceStartAt),
+    experienceEndAt: toDateTimeInputValue(profile.experienceEndAt),
+    applicableAudience: profile.applicableAudience || '',
+    applicableContext: profile.applicableContext || '',
+    processSummary: profile.processSummary || '',
+    outcomeSummary: profile.outcomeSummary || '',
+    knownLimitations: profile.knownLimitations || '',
+    sourceSummary: profile.sourceSummary || '',
+    interestDisclosure: profile.interestDisclosure || '',
+  }
+}
+
+const loadTrustProfileForEditor = async (postId: string) => {
+  try {
+    const res = await trustedContentApi.loadTrustProfile(postId)
+    applyTrustProfileDraft(res.data)
+  } catch {
+    trustProfileEnabled.value = false
+    trustProfileDraft.value = emptyTrustProfileDraft()
+    toast.warning('经验护照暂时无法读取，仍可继续编辑正文。')
+  }
+}
+
+const postReferenceTypeLabel = (type: PostReferenceType) => (
+  postReferenceTypeOptions.find((item) => item.value === type)?.label || '资料来源'
+)
+
+const postReferenceStatusLabel = (status: PostReferenceStatus) => (
+  status === 'BROKEN' ? '需要核查' : '可访问'
+)
+
+const cancelPostReferenceEdit = () => {
+  postReferenceEditing.value = false
+  postReferenceEditingId.value = ''
+  postReferenceDraft.value = emptyPostReferenceDraft()
+}
+
+const startNewPostReference = () => {
+  postReferenceError.value = ''
+  postReferenceEditingId.value = ''
+  postReferenceDraft.value = emptyPostReferenceDraft()
+  postReferenceEditing.value = true
+}
+
+const startEditPostReference = (item: PostReference) => {
+  postReferenceError.value = ''
+  postReferenceEditingId.value = item.id
+  postReferenceDraft.value = {
+    referenceType: item.referenceType,
+    title: item.title,
+    url: item.url,
+    note: item.note || '',
+    referenceStatus: item.referenceStatus,
+    brokenReason: item.brokenReason || '',
+  }
+  postReferenceEditing.value = true
+}
+
+const loadPostReferences = async (postId = currentPostId()) => {
+  if (!postId) {
+    postReferences.value = []
+    postReferenceError.value = ''
+    return
+  }
+  postReferencesLoading.value = true
+  postReferenceError.value = ''
+  try {
+    const res = await postReferenceApi.list(postId)
+    postReferences.value = res.data || []
+  } catch (error) {
+    postReferenceError.value = getErrorMessage(error, '来源清单暂时无法读取，仍可继续编辑正文。')
+  } finally {
+    postReferencesLoading.value = false
+  }
+}
+
+const validPostReferenceUrl = (value: string) => {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const savePostReference = async () => {
+  const postId = currentPostId()
+  if (!postId) {
+    postReferenceError.value = '帖子尚未生成 postId，请先发布内容后再维护来源。'
+    return
+  }
+  const draft = postReferenceDraft.value
+  const title = draft.title.trim()
+  const url = draft.url.trim()
+  if (!title) {
+    postReferenceError.value = '请填写来源标题。'
+    return
+  }
+  if (!validPostReferenceUrl(url)) {
+    postReferenceError.value = '请输入以 http:// 或 https:// 开头的公开链接。'
+    return
+  }
+
+  const editingItem = postReferenceEditingId.value
+    ? postReferences.value.find((item) => item.id === postReferenceEditingId.value)
+    : undefined
+  if (postReferenceEditingId.value && !editingItem) {
+    postReferenceError.value = '这条来源已发生变化，请刷新清单后重试。'
+    return
+  }
+
+  const body: PostReferenceWrite = {
+    referenceType: draft.referenceType,
+    title,
+    url,
+    note: draft.note.trim() || undefined,
+    referenceStatus: draft.referenceStatus,
+    brokenReason: draft.referenceStatus === 'BROKEN' ? draft.brokenReason.trim() || undefined : undefined,
+    expectedRevision: editingItem?.revision,
+  }
+  postReferenceSaving.value = true
+  postReferenceError.value = ''
+  try {
+    const res = editingItem
+      ? await postReferenceApi.update(postId, editingItem.id, body)
+      : await postReferenceApi.create(postId, body)
+    if (res.data) {
+      postReferences.value = editingItem
+        ? postReferences.value.map((item) => item.id === res.data?.id ? res.data : item)
+        : [...postReferences.value, res.data]
+    } else {
+      await loadPostReferences(postId)
+    }
+    cancelPostReferenceEdit()
+    toast.success(editingItem ? '来源已更新' : '来源已添加')
+  } catch (error) {
+    postReferenceError.value = getErrorMessage(error, editingItem ? '来源更新失败，请重试。' : '来源添加失败，请重试。')
+  } finally {
+    postReferenceSaving.value = false
+  }
+}
+
+const deletePostReference = async (item: PostReference) => {
+  const postId = currentPostId()
+  if (!postId || postReferenceDeletingId.value) return
+  if (!window.confirm(`确认删除来源“${item.title}”？此操作不会删除帖子正文。`)) return
+  postReferenceDeletingId.value = item.id
+  postReferenceError.value = ''
+  try {
+    await postReferenceApi.remove(postId, item.id, item.revision)
+    postReferences.value = postReferences.value.filter((reference) => reference.id !== item.id)
+    if (postReferenceEditingId.value === item.id) cancelPostReferenceEdit()
+    toast.success('来源已删除')
+  } catch (error) {
+    postReferenceError.value = getErrorMessage(error, '来源删除失败，请刷新后重试。')
+  } finally {
+    postReferenceDeletingId.value = ''
+  }
+}
+
+const movePostReference = async (referenceId: string, direction: -1 | 1) => {
+  const postId = currentPostId()
+  if (!postId || postReferenceSaving.value) return
+  const ordered = [...sortedPostReferences.value]
+  const index = ordered.findIndex((item) => item.id === referenceId)
+  const targetIndex = index + direction
+  if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) return
+  const [moved] = ordered.splice(index, 1)
+  if (!moved) return
+  ordered.splice(targetIndex, 0, moved)
+  postReferenceSaving.value = true
+  postReferenceError.value = ''
+  try {
+    const res = await postReferenceApi.reorder(postId, ordered.map((item) => ({
+      referenceId: item.id,
+      expectedRevision: item.revision,
+    })))
+    postReferences.value = res.data || []
+  } catch (error) {
+    postReferenceError.value = getErrorMessage(error, '来源排序失败，请刷新后重试。')
+    await loadPostReferences(postId)
+  } finally {
+    postReferenceSaving.value = false
+  }
+}
+
+const saveTrustProfileAfterPost = async (postId: string) => {
+  if (!trustProfileEnabled.value) return
+  const draft = trustProfileDraft.value
+  if (
+    draft.experienceStartAt
+    && draft.experienceEndAt
+    && draft.experienceEndAt < draft.experienceStartAt
+  ) {
+    toast.warning('经验结束时间不能早于开始时间，帖子已保存但护照未更新。')
+    return
+  }
+  try {
+    await trustedContentApi.saveTrustProfile(postId, {
+      ...draft,
+      experienceStartAt: draft.experienceStartAt || undefined,
+      experienceEndAt: draft.experienceEndAt || undefined,
+      applicableAudience: draft.applicableAudience?.trim() || undefined,
+      applicableContext: draft.applicableContext?.trim() || undefined,
+      processSummary: draft.processSummary?.trim() || undefined,
+      outcomeSummary: draft.outcomeSummary?.trim() || undefined,
+      knownLimitations: draft.knownLimitations?.trim() || undefined,
+      sourceSummary: draft.sourceSummary?.trim() || undefined,
+      interestDisclosure: draft.interestDisclosure?.trim() || undefined,
+    })
+  } catch (error) {
+    toast.warning(getErrorMessage(error, '帖子已保存，但经验护照暂未同步。'))
+  }
+}
 
 const loadPostForEdit = async (postId: string) => {
   isLoadingPost.value = true
@@ -1860,10 +2498,14 @@ const loadPostForEdit = async (postId: string) => {
       extension: post.extension || {},
       coverUrl: post.coverUrl || ''
     }
-    selectedDomain.value = normalizeDomain(post.domain ?? (post.anonymous ? DOMAIN.CAREER : DOMAIN.LIFESTYLE))
+    selectedDomain.value = resolveOptionalDomain(post.domain, Boolean(post.anonymous))
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
     selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
     selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)
+    await Promise.all([
+      loadTrustProfileForEditor(postId),
+      loadPostReferences(postId),
+    ])
     markDraftClean()
     return true
   } catch (error) {
@@ -1889,6 +2531,7 @@ onMounted(async () => {
     if (!loaded) return
     const restoredServerDraft = await loadLatestSourceDraft(postId)
     if (!restoredServerDraft) restoreLocalDraft()
+    applyTrustedUpdateContext()
     clearStageThreeAssistState()
     return
   }
@@ -1945,6 +2588,13 @@ const saveDraft = async () => {
 
 const publishPost = async () => {
   clearFieldErrors()
+  publicUpdateError.value = ''
+  if (!selectedDomain.value) {
+    fieldErrors.value = { domain: '请选择频道' }
+    requestAnimationFrame(focusFirstFieldError)
+    toast.error('请选择频道后再发布')
+    return
+  }
   if (isContentOverLimit.value) {
     fieldErrors.value = { content: `正文不能超过 ${CONTENT_MAX_LENGTH} 字` }
     requestAnimationFrame(focusFirstFieldError)
@@ -1953,6 +2603,14 @@ const publishPost = async () => {
   }
   if (blockingQualityIssues.value.length > 0) {
     toast.error(`请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`)
+    return
+  }
+  if (isEditing.value && respondedSuggestionIds.value.length > 0 && !publicUpdateSummary.value.trim()) {
+    publicUpdateError.value = '关联读者建议时，请填写公开更新摘要，说明实际修改了什么。'
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('[data-field="publicUpdateSummary"]')?.focus()
+    })
+    toast.error(publicUpdateError.value)
     return
   }
 
@@ -1979,6 +2637,11 @@ const publishPost = async () => {
         seriesTitle: selectedSeriesRecord.value?.title || undefined,
       }),
       draftId: serverDraftId.value || undefined,
+      publicUpdateSummary: isEditing.value ? publicUpdateSummary.value.trim() || undefined : undefined,
+      impactScope: isEditing.value && publicUpdateSummary.value.trim() ? updateImpactScope.value : undefined,
+      respondedSuggestionIds: isEditing.value && respondedSuggestionIds.value.length
+        ? respondedSuggestionIds.value
+        : undefined,
     }
 
     const postId = currentPostId()
@@ -1989,15 +2652,20 @@ const publishPost = async () => {
       }
       const res = await postApi.update(postId, req)
       if (res.code === 0) {
-        await syncSeriesAssignment('published', postId)
+        await saveTrustProfileAfterPost(postId)
+        const seriesSynced = await syncPublishedSeriesAssignment(postId)
         safeStorage.remove(localDraftKey())
         serverDraftId.value = ''
         selectedDraftId.value = ''
         markDraftClean()
         if (!isEditing.value) await loadServerDrafts()
         const reviewRequired = Boolean(res.data?.reviewRequired)
-        toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
-        router.push(reviewRequired ? '/me' : { path: `/post/${postId}`, query: { published: '1' } })
+        if (seriesSynced) {
+          toast.success(reviewRequired ? '已提交审核，通过后对外展示' : '保存成功')
+        } else {
+          toast.warning(reviewRequired ? '内容已提交审核，但合集暂未同步' : '内容已保存，但合集暂未同步，可稍后在合集工作台重试')
+        }
+        router.push(postPublishDestination(postId, reviewRequired))
       } else {
         toast.error(getResultMessage(res, '保存失败'))
       }
@@ -2006,15 +2674,22 @@ const publishPost = async () => {
     const res = await postApi.create(req)
     if (res.code === 0) {
       const createdPostId = res.data?.postId == null ? undefined : String(res.data.postId)
-      await syncSeriesAssignment('published', createdPostId)
+      if (createdPostId) {
+        await saveTrustProfileAfterPost(createdPostId)
+      }
+      const seriesSynced = await syncPublishedSeriesAssignment(createdPostId)
       safeStorage.remove(localDraftKey())
       serverDraftId.value = ''
       selectedDraftId.value = ''
       markDraftClean()
       if (!isEditing.value) await loadServerDrafts()
       const reviewRequired = Boolean(res.data?.reviewRequired)
-      toast.success(reviewRequired ? '已提交审核，通过后对外展示' : isEditing.value ? '保存成功' : '发布成功')
-      router.push(reviewRequired || !createdPostId ? '/me' : { path: `/post/${createdPostId}`, query: { published: '1' } })
+      if (seriesSynced) {
+        toast.success(reviewRequired ? '已提交审核，通过后对外展示' : '发布成功')
+      } else {
+        toast.warning(reviewRequired ? '内容已提交审核，但合集暂未同步' : '内容已发布，但合集暂未同步，可稍后在合集工作台重试')
+      }
+      router.push(postPublishDestination(createdPostId, reviewRequired))
     } else {
       toast.error(getResultMessage(res, `${isEditing.value ? '保存' : '发布'}失败`))
     }
@@ -2145,6 +2820,34 @@ const safeReturnPath = () => {
   return candidates.map(normalizeSameSitePath).find(Boolean) || fallbackReturnPath.value
 }
 
+const collaborationDeliveryReturnPath = (postId: string | undefined, reviewRequired: boolean) => {
+  const context = editorAssistContext.value
+  if (context?.source !== 'collaboration_need' || !context.needId) return ''
+  const base = normalizeSameSitePath(context.returnHref) || `/collaboration/needs/${encodeURIComponent(context.needId)}`
+  const [pathAndQuery, hash = ''] = base.split('#', 2)
+  const [pathname, rawQuery = ''] = pathAndQuery.split('?', 2)
+  const query = new URLSearchParams(rawQuery)
+  if (reviewRequired || !postId) {
+    query.delete('deliveryType')
+    query.delete('deliveryId')
+    query.set('deliveryPendingReview', '1')
+  } else {
+    query.delete('deliveryPendingReview')
+    query.set('deliveryType', 'POST')
+    query.set('deliveryId', postId)
+  }
+  const suffix = query.toString()
+  return `${pathname}${suffix ? `?${suffix}` : ''}${hash ? `#${hash}` : ''}`
+}
+
+const postPublishDestination = (postId: string | undefined, reviewRequired: boolean) => {
+  const collaborationReturn = collaborationDeliveryReturnPath(postId, reviewRequired)
+  if (collaborationReturn) return collaborationReturn
+  return reviewRequired || !postId
+    ? '/me'
+    : { path: `/post/${postId}`, query: { published: '1' } }
+}
+
 const goBack = () => {
   router.push(safeReturnPath())
 }
@@ -2170,6 +2873,7 @@ watch([normalizedTitle, normalizedContent, normalizedTags, selectedDomain], sche
 
 watch(() => authStore.isLoggedIn, async (loggedIn) => {
   if (!loggedIn) {
+    seriesRequestId += 1
     seriesRecords.value = []
     clearStageThreeAssistState()
     return
@@ -2372,6 +3076,365 @@ onBeforeUnmount(() => {
   border: 1px solid rgb(187 247 208);
   background: rgb(240 253 244);
   padding: 1rem;
+}
+
+.public-update-editor {
+  border: 1px solid rgb(167 243 208);
+  border-radius: 0.5rem;
+  background: rgb(240 253 250);
+  padding: 1rem;
+}
+
+.public-update-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.public-update-editor-head p {
+  color: rgb(5 150 105);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.public-update-editor-head strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgb(15 23 42);
+}
+
+.public-update-editor-head span,
+.public-update-fields small {
+  display: block;
+  margin-top: 0.25rem;
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.public-update-editor-head a {
+  flex: 0 0 auto;
+  color: rgb(4 120 87);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.public-update-source {
+  margin-top: 0.75rem;
+  color: rgb(6 95 70);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.public-update-fields {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(12rem, 0.65fr);
+  gap: 0.85rem;
+}
+
+.public-update-fields label {
+  display: grid;
+  gap: 0.4rem;
+  color: rgb(51 65 85);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.public-update-fields textarea,
+.public-update-fields select {
+  width: 100%;
+  border: 1px solid rgb(148 163 184);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.65rem 0.75rem;
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.public-update-fields textarea:focus,
+.public-update-fields select:focus {
+  border-color: rgb(5 150 105);
+  box-shadow: 0 0 0 2px rgb(167 243 208 / 0.6);
+}
+
+.post-reference-editor {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 1rem;
+}
+
+.post-reference-editor-head,
+.post-reference-toolbar,
+.post-reference-item,
+.post-reference-item-title-row,
+.post-reference-item-actions,
+.post-reference-form-actions,
+.post-reference-primary-button,
+.post-reference-secondary-button,
+.post-reference-icon-button {
+  display: flex;
+  align-items: center;
+}
+
+.post-reference-editor-head,
+.post-reference-toolbar,
+.post-reference-item {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.post-reference-editor-head {
+  align-items: flex-start;
+}
+
+.post-reference-kicker {
+  color: rgb(37 99 235);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.post-reference-editor-head h2 {
+  margin-top: 0.15rem;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.post-reference-editor-head span,
+.post-reference-toolbar p {
+  margin-top: 0.25rem;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.post-reference-error {
+  border-radius: 0.5rem;
+  background: rgb(255 241 242);
+  padding: 0.65rem 0.75rem;
+  color: rgb(190 18 60);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.post-reference-form {
+  display: grid;
+  gap: 0.85rem;
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.9rem;
+}
+
+.post-reference-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.45fr);
+  gap: 0.75rem;
+}
+
+.post-reference-form-grid label {
+  display: grid;
+  gap: 0.4rem;
+  color: rgb(51 65 85);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.post-reference-form-grid label > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.post-reference-form-grid small {
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.post-reference-form-grid input,
+.post-reference-form-grid select,
+.post-reference-form-grid textarea {
+  width: 100%;
+  border: 1px solid rgb(148 163 184);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.65rem 0.75rem;
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.post-reference-form-grid textarea {
+  resize: vertical;
+}
+
+.post-reference-form-grid input:focus,
+.post-reference-form-grid select:focus,
+.post-reference-form-grid textarea:focus {
+  border-color: rgb(37 99 235);
+  box-shadow: 0 0 0 2px rgb(191 219 254 / 0.7);
+}
+
+.post-reference-form-wide {
+  grid-column: 1 / -1;
+}
+
+.post-reference-form-actions {
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.post-reference-primary-button,
+.post-reference-secondary-button,
+.post-reference-icon-button {
+  min-height: 2.35rem;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.post-reference-primary-button {
+  border: 1px solid rgb(37 99 235);
+  background: rgb(37 99 235);
+  padding: 0.5rem 0.8rem;
+  color: white;
+}
+
+.post-reference-primary-button:hover:not(:disabled) {
+  border-color: rgb(29 78 216);
+  background: rgb(29 78 216);
+}
+
+.post-reference-secondary-button,
+.post-reference-icon-button {
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.post-reference-secondary-button {
+  padding: 0.5rem 0.8rem;
+}
+
+.post-reference-icon-button {
+  width: 2.35rem;
+  flex: 0 0 2.35rem;
+}
+
+.post-reference-secondary-button:hover:not(:disabled),
+.post-reference-icon-button:hover:not(:disabled) {
+  border-color: rgb(147 197 253);
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
+.post-reference-delete-button:hover:not(:disabled) {
+  border-color: rgb(253 164 175);
+  background: rgb(255 241 242);
+  color: rgb(190 18 60);
+}
+
+.post-reference-primary-button:disabled,
+.post-reference-secondary-button:disabled,
+.post-reference-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.post-reference-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.post-reference-item {
+  align-items: flex-start;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.8rem;
+}
+
+.post-reference-item-main {
+  min-width: 0;
+}
+
+.post-reference-item-title-row {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  color: rgb(37 99 235);
+}
+
+.post-reference-item-title-row a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.post-reference-meta {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+}
+
+.post-reference-meta > span:not(:last-child)::after {
+  margin-left: 0.35rem;
+  content: "·";
+  color: rgb(148 163 184);
+}
+
+.post-reference-status-active,
+.post-reference-status-broken {
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-weight: 800;
+}
+
+.post-reference-status-active {
+  background: rgb(220 252 231);
+  color: rgb(22 101 52);
+}
+
+.post-reference-status-broken {
+  background: rgb(254 249 195);
+  color: rgb(133 77 14);
+}
+
+.post-reference-note,
+.post-reference-broken-reason {
+  margin-top: 0.4rem;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.post-reference-note {
+  color: rgb(71 85 105);
+}
+
+.post-reference-broken-reason {
+  color: rgb(180 83 9);
+  font-weight: 700;
+}
+
+.post-reference-item-actions {
+  flex: 0 0 auto;
+  gap: 0.4rem;
 }
 
 .editor-assist-context p,
@@ -3069,21 +4132,122 @@ onBeforeUnmount(() => {
 }
 
 .dark .editor-assist-context,
-.dark .template-helper {
+.dark .template-helper,
+.dark .public-update-editor {
   border-color: rgb(30 64 175);
   background: rgb(15 23 42);
 }
 
 .dark .editor-assist-context strong,
-.dark .template-helper strong {
+.dark .template-helper strong,
+.dark .public-update-editor-head strong {
   color: rgb(248 250 252);
 }
 
 .dark .editor-assist-context span,
 .dark .editor-assist-context small,
 .dark .template-helper small,
-.dark .template-helper span {
+.dark .template-helper span,
+.dark .public-update-editor-head span,
+.dark .public-update-fields small {
   color: rgb(203 213 225);
+}
+
+.dark .public-update-editor-head p,
+.dark .public-update-editor-head a,
+.dark .public-update-source {
+  color: rgb(110 231 183);
+}
+
+.dark .public-update-fields label {
+  color: rgb(226 232 240);
+}
+
+.dark .public-update-fields textarea,
+.dark .public-update-fields select {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23);
+  color: rgb(248 250 252);
+}
+
+.dark .post-reference-editor {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+}
+
+.dark .post-reference-editor-head h2 {
+  color: rgb(248 250 252);
+}
+
+.dark .post-reference-editor-head span,
+.dark .post-reference-toolbar p,
+.dark .post-reference-note {
+  color: rgb(203 213 225);
+}
+
+.dark .post-reference-error {
+  background: rgb(69 10 10 / 0.55);
+  color: rgb(254 202 202);
+}
+
+.dark .post-reference-form,
+.dark .post-reference-item {
+  background: rgb(2 6 23);
+}
+
+.dark .post-reference-item {
+  border-color: rgb(51 65 85);
+}
+
+.dark .post-reference-form-grid label {
+  color: rgb(226 232 240);
+}
+
+.dark .post-reference-form-grid small,
+.dark .post-reference-meta {
+  color: rgb(148 163 184);
+}
+
+.dark .post-reference-form-grid input,
+.dark .post-reference-form-grid select,
+.dark .post-reference-form-grid textarea {
+  border-color: rgb(71 85 105);
+  background: rgb(15 23 42);
+  color: rgb(248 250 252);
+}
+
+.dark .post-reference-secondary-button,
+.dark .post-reference-icon-button {
+  border-color: rgb(71 85 105);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .post-reference-secondary-button:hover:not(:disabled),
+.dark .post-reference-icon-button:hover:not(:disabled) {
+  border-color: rgb(59 130 246);
+  background: rgb(30 41 59);
+  color: rgb(191 219 254);
+}
+
+.dark .post-reference-delete-button:hover:not(:disabled) {
+  border-color: rgb(190 18 60);
+  background: rgb(76 5 25);
+  color: rgb(254 205 211);
+}
+
+.dark .post-reference-status-active {
+  background: rgb(20 83 45);
+  color: rgb(187 247 208);
+}
+
+.dark .post-reference-status-broken {
+  background: rgb(113 63 18);
+  color: rgb(254 240 138);
+}
+
+.dark .post-reference-broken-reason {
+  color: rgb(253 186 116);
 }
 
 .dark .editor-assist-context a,
@@ -3306,10 +4470,60 @@ onBeforeUnmount(() => {
   }
 
   .editor-assist-context,
-  .template-helper {
+  .template-helper,
+  .public-update-editor-head {
     margin-inline: 0;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .public-update-editor {
+    margin-inline: 0;
+  }
+
+  .public-update-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .post-reference-editor {
+    margin-inline: 0;
+  }
+
+  .post-reference-editor-head,
+  .post-reference-toolbar,
+  .post-reference-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .post-reference-editor-head > .post-reference-icon-button {
+    align-self: flex-end;
+  }
+
+  .post-reference-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .post-reference-form-wide {
+    grid-column: auto;
+  }
+
+  .post-reference-toolbar .post-reference-primary-button {
+    width: 100%;
+  }
+
+  .post-reference-item-actions {
+    justify-content: flex-end;
+  }
+
+  .post-reference-form-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .post-reference-form-actions button {
+    min-height: 44px;
+    width: 100%;
   }
 
   .editor-assist-context a,

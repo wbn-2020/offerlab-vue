@@ -47,7 +47,11 @@ assert.match(composable, /resolveRiskConfirm/, 'risk composable must expose conf
 assert.match(composable, /cancelRiskConfirm/, 'risk composable must expose cancel resolver')
 assert.match(opsView + questionsView + aliasesView + governanceView, /const requireRiskConfirm = \(request: RiskConfirmRequest\) => confirmRisk\(request\)/, 'admin views must use the shared risk confirmation helper')
 assert.match(read('../src/api/ops.ts'), /type RiskRemark = \{ remark: string \}/, 'ops API must model high-risk note as a required payload field')
-assert.match(read('../src/api/ops.ts'), /updateQuestion: \(id: ApiId, data: Partial<Question> & \{ status\?: number \} & RiskRemark\)/, 'question update API must require an explicit risk remark')
+assert.match(
+  read('../src/api/ops.ts'),
+  /updateQuestion:\s*\([\s\S]*data:\s*Omit<Partial<Question>, 'status' \| 'updateTime'> & \{ expectedUpdateTime: string \} & RiskRemark,[\s\S]*\): Promise<Result<Question>>/,
+  'question content update API must require optimistic-lock time and an explicit risk remark without accepting status changes',
+)
 assert.match(read('../src/api/ops.ts'), /createCompanyAlias: \(data: \{ canonicalCompany: string; alias: string; status\?: number \} & RiskRemark\)/, 'company alias create API must require an explicit risk remark')
 assert.match(read('../src/api/ops.ts'), /updateCompanyAlias: \(id: ApiId, data: \{ canonicalCompany: string; alias: string; status\?: number \} & RiskRemark\)/, 'company alias update API must require an explicit risk remark')
 
@@ -116,10 +120,10 @@ assertRiskBeforeCall(questionsView, 'retryQuestionIndexTask', /opsApi\.retryQues
 assertRiskBeforeCall(questionsView, 'saveQuestionWithConfirm', /saveQuestion\(note\)/, 'question form save')
 assert.match(functionBody(questionsView, 'saveQuestionWithConfirm'), /level: 'high'/, 'question form save must require a backend-compatible high-risk note')
 assert.match(functionBody(questionsView, 'saveQuestion'), /const saveQuestion = async \(remark: string\)/, 'question save helper must require the risk note returned by the dialog')
-assert.match(functionBody(questionsView, 'saveQuestion'), /const payload = \{ \.\.\.form, remark \}/, 'question save helper must always send the risk note to the backend')
+assert.match(functionBody(questionsView, 'saveQuestion'), /const payload = \{ \.\.\.form, expectedUpdateTime, remark \}/, 'question save helper must always send optimistic-lock time and the risk note to the backend')
 assert.doesNotMatch(functionBody(questionsView, 'saveQuestion'), /remarkOrEvent|Event|remark \? \{ \.\.\.form, remark \} : \{ \.\.\.form \}/, 'question save helper must not keep optional event-compatible paths that bypass risk notes')
-assertRiskBeforeCall(questionsView, 'quickReview', /saveQuestion\(note\)/, 'single question review or hide')
-assertRiskBeforeCall(questionsView, 'batchReview', /opsApi\.batchReviewQuestions\(ids, status, note\)/, 'batch question review or hide')
+assertRiskBeforeCall(questionsView, 'quickReview', /opsApi\.reviewQuestion\(current\.id, status, current\.updateTime, note\)/, 'single question review or hide')
+assertRiskBeforeCall(questionsView, 'batchReview', /opsApi\.batchReviewQuestions\(ids, status, expectedUpdateTimes, note\)/, 'batch question review or hide')
 assert.match(functionBody(questionsView, 'batchReview'), /level: 'critical'/, 'batch question review must send a backend-compatible critical confirmation phrase')
 assertRiskBeforeCall(questionsView, 'hideSelectedDuplicates', /opsApi\.hideQuestionDuplicates\(selectedQuestion\.value\.id, ids, note\)/, 'duplicate question hide')
 

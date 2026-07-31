@@ -1,5 +1,5 @@
-import type { ApiId, Comment, CommentReport, CommunityTopic, CreatorCurationFeedback, DisplayableCurationFeedbackSource, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, Tag, User, UserIntent } from './types'
-import { normalizeDomain } from '@/utils/domains'
+import type { ApiId, Comment, CommentReport, CommunityTopic, ContactRequest, ContactRequestSettings, ContactRequestStats, CreatorCurationFeedback, DisplayableCurationFeedbackSource, FavoriteFolder, FavoriteFolderVisibility, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, PublicPostUpdate, Tag, User, UserIntent, UserReportReceipt, UserReportSourceType, UserReportStatus } from './types'
+import { isKnownDomain, normalizeDomain } from '@/utils/domains'
 import { filterDistributionPosts, isPublicCollectionVisible, isPublicPostVisible, neutralizeHighRiskRecommendationReason, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
 import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 
@@ -75,11 +75,29 @@ export interface ContentListSummary {
   operable: boolean
 }
 
-export interface ContentListAsset extends ContentListSummary {}
+export type ContentListAsset = ContentListSummary
 
 const normalizeContentListVisibility = (value: unknown): ContentListVisibility => {
   const normalized = String(value ?? '').trim().toLowerCase()
   return normalized === 'public' || normalized === '1' ? 'public' : 'private'
+}
+
+export const normalizeFavoriteFolderVisibility = (value: unknown): FavoriteFolderVisibility => {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  return normalized === 'public' || normalized === '1' ? 'public' : 'private'
+}
+
+const normalizeFavoriteFolderRawVisibility = (raw: any): FavoriteFolderVisibility => {
+  if (raw?.visibility !== undefined && raw?.visibility !== null) {
+    return normalizeFavoriteFolderVisibility(raw.visibility)
+  }
+  if (raw?.privateFolder !== undefined && raw?.privateFolder !== null) {
+    return raw.privateFolder === false ? 'public' : 'private'
+  }
+  if (raw?.isPublic !== undefined && raw?.isPublic !== null) {
+    return raw.isPublic ? 'public' : 'private'
+  }
+  return 'private'
 }
 
 export const isPublicAssetPostVisible = (entry: unknown) => (
@@ -159,6 +177,26 @@ export function adaptContentList(raw: any): ContentListSummary {
   }
 }
 
+export function adaptFavoriteFolder(raw: any): FavoriteFolder {
+  const visibility = normalizeFavoriteFolderRawVisibility(raw)
+  const defaultFolder = Boolean(raw?.defaultFolder ?? raw?.isDefault ?? raw?.default)
+  return {
+    id: adaptId(raw?.id ?? raw?.folderId),
+    name: safeVisibleText(raw?.name ?? raw?.title, '默认收藏夹'),
+    description: sanitizeVisibleText(raw?.description) || undefined,
+    visibility,
+    userId: raw?.userId == null && raw?.uid == null ? undefined : adaptId(raw?.userId ?? raw?.uid),
+    ownerId: raw?.ownerId == null && raw?.userId == null && raw?.uid == null ? undefined : adaptId(raw?.ownerId ?? raw?.userId ?? raw?.uid),
+    sortOrder: Number(raw?.sortOrder ?? raw?.sort_order ?? 0),
+    isDefault: defaultFolder,
+    defaultFolder,
+    privateFolder: visibility !== 'public',
+    postCount: Number(raw?.postCount ?? raw?.itemCount ?? raw?.count ?? 0),
+    createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
+    updatedAt: adaptTime(raw?.updatedAt ?? raw?.updateTime ?? raw?.createdAt ?? raw?.createTime),
+  }
+}
+
 function safeSameSitePath(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const path = value.trim()
@@ -222,6 +260,11 @@ export function adaptUser(raw: any): User {
     profileVisible: raw?.profileVisible ?? true,
     intentVisible: raw?.intentVisible ?? true,
     privacyReason: raw?.privacyReason,
+    acceptContactRequest: raw?.acceptContactRequest ?? raw?.contactRequestSettings?.acceptContactRequest ?? raw?.contactRequestOpen ?? raw?.contactRequestsOpen,
+    contactRequestPolicy: raw?.contactRequestPolicy ?? raw?.contactRequestSettings?.contactRequestPolicy,
+    canStartContactRequest: raw?.canStartContactRequest,
+    contactRequestReasonCode: raw?.contactRequestReasonCode,
+    contactRequestReasonMessage: raw?.contactRequestReasonMessage,
   }
 }
 
@@ -338,6 +381,21 @@ function stripSearchHighlight(value: unknown) {
   return typeof value === 'string' ? value.replace(/<\/?em>/gi, '') : ''
 }
 
+function adaptPostTrustSignals(raw: any): Post['trustSignals'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  return {
+    profileAvailable: Boolean(raw.profileAvailable),
+    completenessScore: Math.max(0, Math.min(100, Number(raw.completenessScore ?? 0))),
+    lastConfirmedAt: raw.lastConfirmedAt ? adaptTime(raw.lastConfirmedAt) : undefined,
+    freshnessStatus: sanitizeVisibleText(raw.freshnessStatus) || undefined,
+    hasAcceptedAnswer: Boolean(raw.hasAcceptedAnswer),
+    acceptedSuggestionCount: Math.max(0, Number(raw.acceptedSuggestionCount ?? 0)),
+    publicCorrectionCount: Math.max(0, Number(raw.publicCorrectionCount ?? 0)),
+    sourceComplete: Boolean(raw.sourceComplete),
+    resolved: Boolean(raw.resolved),
+  }
+}
+
 export function adaptPost(raw: any): Post {
   const source = raw?.post
     ? {
@@ -354,7 +412,8 @@ export function adaptPost(raw: any): Post {
   const rawSummary = source?.summary
   const rawContent = source?.content ?? source?.summary ?? ''
   const extension = parseExtension(source)
-  const domain = normalizeDomain(source?.domain ?? extension?.domain)
+  const rawDomain = source?.domain ?? extension?.domain
+  const domain = isKnownDomain(rawDomain) ? normalizeDomain(rawDomain) : undefined
   const anonymous = Boolean(source?.anonymous ?? extension?.anonymous ?? false)
   const adaptedAuthor = source?.author ? adaptUser(source.author) : emptyAuthor(authorId)
   const author = anonymous
@@ -388,12 +447,20 @@ export function adaptPost(raw: any): Post {
     restricted: Boolean(source?.restricted ?? source?.isRestricted ?? false),
     riskLevel: source?.riskLevel,
     moderationStatus: source?.moderationStatus,
+    trustSignals: adaptPostTrustSignals(source?.trustSignals ?? raw?.trustSignals),
     recommendationReasons: (Array.isArray(raw?.recommendationReasons)
       ? raw.recommendationReasons
       : Array.isArray(source?.recommendationReasons)
         ? source.recommendationReasons
         : [])
       .map((item: unknown) => neutralizeHighRiskRecommendationReason(normalizeRecommendationReason(sanitizeVisibleText(item)), source))
+      .filter(Boolean),
+    rankingReasons: (Array.isArray(raw?.rankingReasons)
+      ? raw.rankingReasons
+      : Array.isArray(source?.rankingReasons)
+        ? source.rankingReasons
+        : [])
+      .map((item: unknown) => sanitizeVisibleText(item))
       .filter(Boolean),
     myInteraction: {
       liked: Boolean(myInteraction.liked ?? source?.liked ?? false),
@@ -411,6 +478,7 @@ export function adaptPostVersionHistory(raw: any): PostVersionHistory {
     authorId: raw?.authorId ? adaptId(raw.authorId) : undefined,
     editorUid: raw?.editorUid ? adaptId(raw.editorUid) : undefined,
     baseVersion: Number(raw?.baseVersion ?? 0),
+    resultVersion: raw?.resultVersion == null ? undefined : Number(raw.resultVersion),
     title: safeVisibleText(raw?.title, '内容编码异常，已隐藏标题'),
     content: safeVisibleText(raw?.content, '内容编码异常，已隐藏原文'),
     contentSummary: sanitizeVisibleText(raw?.contentSummary ?? raw?.summary, '内容编码异常，已隐藏摘要'),
@@ -420,11 +488,25 @@ export function adaptPostVersionHistory(raw: any): PostVersionHistory {
     extension: parseExtension(raw),
     tags: Array.isArray(raw?.tags) ? raw.tags.map(adaptTag) : [],
     changeSummary: sanitizeVisibleText(raw?.changeSummary) || undefined,
+    publicUpdateSummary: sanitizeVisibleText(raw?.publicUpdateSummary) || undefined,
+    impactScope: sanitizeVisibleText(raw?.impactScope) || undefined,
+    createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
+  }
+}
+
+export function adaptPublicPostUpdate(raw: any): PublicPostUpdate {
+  return {
+    resultVersion: Number(raw?.resultVersion ?? 0),
+    publicUpdateSummary: safeVisibleText(raw?.publicUpdateSummary, '更新摘要暂不可用'),
+    impactScope: sanitizeVisibleText(raw?.impactScope) || undefined,
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
   }
 }
 
 export function adaptComment(raw: any): Comment {
+  const qualityBadges = Array.isArray(raw?.qualityBadges)
+    ? raw.qualityBadges.map((item: unknown) => sanitizeVisibleText(item)).filter(Boolean)
+    : []
   return {
     commentId: adaptId(raw?.commentId ?? raw?.id),
     postId: adaptId(raw?.postId),
@@ -436,13 +518,64 @@ export function adaptComment(raw: any): Comment {
     replyToUser: raw?.replyToUser ? adaptUser(raw.replyToUser) : undefined,
     likeCount: Number(raw?.likeCount ?? 0),
     myLiked: Boolean(raw?.myLiked ?? raw?.liked ?? false),
+    authorReply: Boolean(raw?.authorReply ?? false),
+    authorPinned: Boolean(raw?.authorPinned ?? false),
+    featured: Boolean(raw?.featured ?? false),
+    helpfulCount: Number(raw?.helpfulCount ?? 0),
+    myHelpful: Boolean(raw?.myHelpful ?? false),
+    hotScore: Number(raw?.hotScore ?? 0),
+    folded: Boolean(raw?.folded ?? false),
+    foldReason: sanitizeVisibleText(raw?.foldReason) || undefined,
+    qualityBadges,
     canDelete: Boolean(raw?.canDelete ?? false),
+    replyCount: Number(raw?.replyCount ?? raw?.replies?.length ?? 0),
+    hasMoreReplies: Boolean(raw?.hasMoreReplies ?? false),
+    repliesNextCursor: raw?.repliesNextCursor == null ? undefined : String(raw.repliesNextCursor),
     createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
     replies: Array.isArray(raw?.replies) ? raw.replies.map(adaptComment) : undefined,
   }
 }
 
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value === 'string') {
+    const text = value.trim().toLowerCase()
+    if (['true', '1', 'yes', 'y'].includes(text)) return true
+    if (['false', '0', 'no', 'n'].includes(text)) return false
+  }
+  return Boolean(value)
+}
+
+function adaptReportReceiptFields(raw: any, fallbackStatus: unknown) {
+  const userStatus = normalizeUserReportStatus(
+    raw?.userStatus
+      ?? raw?.reportUserStatus
+      ?? raw?.receiptStatus
+      ?? raw?.reportStatus
+      ?? raw?.status
+      ?? fallbackStatus,
+  )
+  return {
+    userStatus,
+    reporterNotified: normalizeOptionalBoolean(
+      raw?.reporterNotified
+        ?? raw?.reporterNotificationSent
+        ?? raw?.notificationSent
+        ?? raw?.receiptNotified
+        ?? raw?.notified,
+    ),
+    reporterReceiptText: safeVisibleText(
+      raw?.reporterReceiptText
+        ?? raw?.userReceiptText
+        ?? raw?.resultText
+        ?? raw?.userResultText,
+      userReportStatusText[userStatus],
+    ),
+  }
+}
+
 export function adaptPostReport(raw: any): PostReport {
+  const receiptFields = adaptReportReceiptFields(raw, raw?.reportStatus ?? raw?.status)
   return {
     reportId: adaptId(raw?.reportId ?? raw?.id),
     postId: adaptId(raw?.postId),
@@ -452,6 +585,9 @@ export function adaptPostReport(raw: any): PostReport {
     reason: safeVisibleText(raw?.reason ?? raw?.reasonType, '举报原因编码异常'),
     detail: sanitizeVisibleText(raw?.detail ?? raw?.reasonText),
     reportStatus: raw?.reportStatus ?? raw?.status,
+    userStatus: receiptFields.userStatus,
+    reporterNotified: receiptFields.reporterNotified,
+    reporterReceiptText: receiptFields.reporterReceiptText,
     reviewerUid: raw?.reviewerUid ? adaptId(raw.reviewerUid) : undefined,
     reviewNote: sanitizeVisibleText(raw?.reviewNote ?? raw?.reviewRemark ?? raw?.remark),
     createTime: raw?.createTime ?? raw?.createdAt,
@@ -460,6 +596,7 @@ export function adaptPostReport(raw: any): PostReport {
 }
 
 export function adaptCommentReport(raw: any): CommentReport {
+  const receiptFields = adaptReportReceiptFields(raw, raw?.reportStatus ?? raw?.status)
   return {
     reportId: adaptId(raw?.reportId ?? raw?.id),
     commentId: adaptId(raw?.commentId),
@@ -470,6 +607,9 @@ export function adaptCommentReport(raw: any): CommentReport {
     reason: safeVisibleText(raw?.reason ?? raw?.reasonType, '举报原因编码异常'),
     detail: sanitizeVisibleText(raw?.detail ?? raw?.reasonText),
     reportStatus: raw?.reportStatus ?? raw?.status,
+    userStatus: receiptFields.userStatus,
+    reporterNotified: receiptFields.reporterNotified,
+    reporterReceiptText: receiptFields.reporterReceiptText,
     reviewerUid: raw?.reviewerUid ? adaptId(raw.reviewerUid) : undefined,
     reviewNote: sanitizeVisibleText(raw?.reviewNote ?? raw?.reviewRemark ?? raw?.remark),
     createTime: raw?.createTime ?? raw?.createdAt,
@@ -477,16 +617,205 @@ export function adaptCommentReport(raw: any): CommentReport {
   }
 }
 
+const userReportStatuses: ReadonlySet<UserReportStatus> = new Set([
+  'PROCESSING',
+  'ACTION_TAKEN',
+  'NOT_ACCEPTED',
+  'CLOSED',
+])
+
+const userReportStatusText: Record<UserReportStatus, string> = {
+  PROCESSING: '平台已收到，正在处理。',
+  ACTION_TAKEN: '平台已处理该内容。',
+  NOT_ACCEPTED: '经复核，暂未发现明确违规。',
+  CLOSED: '举报已处理完成。',
+}
+
+function normalizeUserReportStatus(value: unknown): UserReportStatus {
+  const text = sanitizeVisibleText(value).toUpperCase()
+  if (userReportStatuses.has(text as UserReportStatus)) return text as UserReportStatus
+  const numeric = Number(value)
+  if (numeric === 1) return 'ACTION_TAKEN'
+  if (numeric === 2) return 'NOT_ACCEPTED'
+  if (numeric === 3) return 'CLOSED'
+  return 'PROCESSING'
+}
+
+function normalizeUserReportSourceType(value: unknown): UserReportSourceType {
+  const text = sanitizeVisibleText(value).toUpperCase()
+  if (text === 'COMMENT_REPORT' || text === 'COMMENT') return 'COMMENT_REPORT'
+  if (text === 'CONTACT_REQUEST_REPORT' || text === 'CONTACT_REQUEST' || text === 'CONTACT') {
+    return 'CONTACT_REQUEST_REPORT'
+  }
+  return 'POST_REPORT'
+}
+
+export function adaptUserReportReceipt(raw: any): UserReportReceipt {
+  const sourceType = normalizeUserReportSourceType(raw?.sourceType ?? raw?.reportType ?? raw?.type)
+  const userStatus = normalizeUserReportStatus(raw?.userStatus ?? raw?.reportStatus ?? raw?.status)
+  const reportId = adaptId(raw?.reportId ?? raw?.id)
+  const postId = raw?.postId == null ? undefined : adaptId(raw.postId)
+  const targetId = adaptId(raw?.targetId ?? (sourceType === 'COMMENT_REPORT' ? raw?.commentId : raw?.postId) ?? reportId)
+  const targetAvailable = raw?.targetAvailable === undefined || raw?.targetAvailable === null
+    ? true
+    : Boolean(raw.targetAvailable)
+  const targetPath = safeSameSitePath(raw?.targetPath)
+    ?? safeSameSitePath(raw?.jumpPath)
+    ?? (targetAvailable && postId ? `/post/${postId}` : undefined)
+  const reviewTime = raw?.reviewTime ?? raw?.reviewedAt ?? raw?.updatedAt
+  return {
+    reportId,
+    sourceType,
+    targetId,
+    postId,
+    targetTitle: sanitizeVisibleText(raw?.targetTitle ?? raw?.postTitle ?? raw?.title) || undefined,
+    targetSummary: sanitizeVisibleText(raw?.targetSummary ?? raw?.postSummary ?? raw?.commentSummary ?? raw?.summary) || undefined,
+    reason: safeVisibleText(raw?.reason ?? raw?.reasonType, '举报原因已记录'),
+    detail: sanitizeVisibleText(raw?.detail ?? raw?.reasonText) || undefined,
+    userStatus,
+    resultText: safeVisibleText(raw?.resultText ?? raw?.userResultText, userReportStatusText[userStatus]),
+    targetPath,
+    createTime: raw?.createTime ?? raw?.createdAt,
+    reviewTime,
+    createdAt: adaptTime(raw?.createdAt ?? raw?.createTime),
+    reviewedAt: reviewTime ? adaptTime(reviewTime) : undefined,
+    targetAvailable,
+  }
+}
+
+function adaptOptionalUser(raw: any, fallbackUid: any, fallbackName: any): User | undefined {
+  if (raw && typeof raw === 'object') return adaptUser(raw)
+  const uid = fallbackUid ?? raw
+  if (uid === undefined || uid === null || uid === '') return undefined
+  return {
+    uid: adaptId(uid),
+    nickname: safeVisibleText(fallbackName, '未知用户'),
+    avatar: '',
+    signature: '',
+    createdAt: Date.now(),
+  }
+}
+
+function contactRequestUserId(user: any, fallback: any): ApiId {
+  if (fallback !== undefined && fallback !== null && fallback !== '') return adaptId(fallback)
+  if (user && typeof user === 'object') return adaptId(user.uid ?? user.id)
+  return adaptId(user)
+}
+
+function normalizeContactRequestStatus(value: unknown): string {
+  const status = sanitizeVisibleText(value).toUpperCase()
+  return status || 'PENDING'
+}
+
+function normalizeContactRequestPolicy(value: unknown, enabled: boolean): string {
+  if (!enabled) return 'off'
+  const policy = sanitizeVisibleText(value).toLowerCase()
+  if (['all', 'following', 'mutual', 'off'].includes(policy)) return policy
+  return 'following'
+}
+
+export function adaptContactRequest(raw: any): ContactRequest {
+  const requesterUid = contactRequestUserId(raw?.requester, raw?.requesterUid)
+  const receiverUid = contactRequestUserId(raw?.receiver, raw?.receiverUid)
+  const requester = adaptOptionalUser(raw?.requester, requesterUid, raw?.requesterName ?? raw?.requesterNickname)
+  const receiver = adaptOptionalUser(raw?.receiver, receiverUid, raw?.receiverName ?? raw?.receiverNickname)
+  const createTime = raw?.createTime ?? raw?.createdAt
+  const updateTime = raw?.updateTime ?? raw?.updatedAt
+  return {
+    requestId: adaptId(raw?.requestId ?? raw?.id),
+    requesterUid,
+    requesterName: sanitizeVisibleText(raw?.requesterName ?? raw?.requesterNickname ?? requester?.nickname) || undefined,
+    requester,
+    receiverUid,
+    receiverName: sanitizeVisibleText(raw?.receiverName ?? raw?.receiverNickname ?? receiver?.nickname) || undefined,
+    receiver,
+    sourceType: sanitizeVisibleText(raw?.sourceType ?? raw?.source_type ?? 'profile').toLowerCase() || 'profile',
+    sourceId: raw?.sourceId === undefined && raw?.source_id === undefined ? undefined : adaptId(raw?.sourceId ?? raw?.source_id),
+    scene: sanitizeVisibleText(raw?.scene).toLowerCase() || 'ask',
+    messagePreview: safeVisibleText(raw?.messagePreview ?? raw?.message ?? raw?.content, ''),
+    requestStatus: normalizeContactRequestStatus(raw?.requestStatus ?? raw?.status),
+    createTime,
+    updateTime,
+    receiverActionTime: raw?.receiverActionTime ?? raw?.actionTime,
+    expireTime: raw?.expireTime ?? raw?.expiredAt,
+    createdAt: adaptTime(createTime),
+    updatedAt: adaptTime(updateTime ?? createTime),
+  }
+}
+
+export function adaptContactRequestSettings(raw: any): ContactRequestSettings {
+  const acceptContactRequest = raw?.acceptContactRequest !== undefined && raw?.acceptContactRequest !== null
+    ? Boolean(raw.acceptContactRequest)
+    : sanitizeVisibleText(raw?.contactRequestPolicy).toLowerCase() !== 'off'
+  return {
+    acceptContactRequest,
+    contactRequestPolicy: normalizeContactRequestPolicy(raw?.contactRequestPolicy ?? raw?.policy, acceptContactRequest),
+    dailyLimit: Number(raw?.dailyLimit ?? raw?.contactRequestDailyLimit ?? 0),
+  }
+}
+
+export function adaptContactRequestStats(raw: any): ContactRequestStats {
+  return {
+    inboxTotal: Number(raw?.inboxTotal ?? 0),
+    inboxPending: Number(raw?.inboxPending ?? 0),
+    inboxAccepted: Number(raw?.inboxAccepted ?? 0),
+    inboxRejected: Number(raw?.inboxRejected ?? 0),
+    inboxIgnored: Number(raw?.inboxIgnored ?? 0),
+    inboxReported: Number(raw?.inboxReported ?? 0),
+    inboxCancelled: Number(raw?.inboxCancelled ?? 0),
+    inboxExpired: Number(raw?.inboxExpired ?? 0),
+    outboxTotal: Number(raw?.outboxTotal ?? 0),
+    outboxPending: Number(raw?.outboxPending ?? 0),
+    outboxAccepted: Number(raw?.outboxAccepted ?? 0),
+    outboxRejected: Number(raw?.outboxRejected ?? 0),
+    outboxIgnored: Number(raw?.outboxIgnored ?? 0),
+    outboxReported: Number(raw?.outboxReported ?? 0),
+    outboxCancelled: Number(raw?.outboxCancelled ?? 0),
+    outboxExpired: Number(raw?.outboxExpired ?? 0),
+  }
+}
+
 export function adaptNotification(raw: any): Notification {
-  const content = typeof raw?.content === 'object' && raw.content ? raw.content : {}
+  const content = typeof raw?.content === 'object' && raw.content ? { ...raw.content } : {}
   const type = raw?.type ?? 'system'
+  const action = String(content.action || raw?.action || '')
+  if (action && !content.action) content.action = action
+  if (action === 'report_receipt') {
+    for (const key of ['sourceType', 'reportId', 'userStatus', 'reportStatus', 'status', 'resultText', 'userResultText']) {
+      if (content[key] === undefined && raw?.[key] !== undefined) content[key] = raw[key]
+    }
+  }
+  if (isContactRequestAction(action)) {
+    for (const key of ['requestId', 'contactRequestId', 'id', 'requester', 'requesterUid', 'receiver', 'receiverUid', 'status', 'requestStatus']) {
+      if (content[key] === undefined && raw?.[key] !== undefined) content[key] = raw[key]
+    }
+  }
+  if (action === 'collaboration_need_state_changed') {
+    for (const key of ['needId', 'targetNeedId', 'eventType', 'status', 'targetPath', 'jumpPath', 'dedupKey', 'reasonText']) {
+      if (content[key] === undefined && raw?.[key] !== undefined) content[key] = raw[key]
+    }
+  }
+  const discussionFollowAction = isDiscussionFollowAction(action)
+  const reportReceiptAction = action === 'report_receipt'
+  const contactRequestAction = isContactRequestAction(action)
+  const collaborationNeedStateAction = action === 'collaboration_need_state_changed'
   const curationFeedback = adaptNotificationCurationFeedback(content)
   const aggregateCount = Number((raw?.aggregateCount ?? content.aggregateCount) || 0)
   const unreadCount = Number(raw?.unreadCount ?? content.unreadCount ?? ((raw?.read ?? raw?.isRead) ? 0 : 1))
-  const targetId = content.postId ?? content.commentId ?? content.userId ?? content.targetId
+  const targetId = contactRequestAction
+    ? content.requestId ?? content.contactRequestId ?? content.id
+    : reportReceiptAction
+    ? content.reportId ?? content.targetId
+    : collaborationNeedStateAction
+    ? content.needId ?? content.targetId
+    : content.postId ?? content.commentId ?? content.userId ?? content.targetId
   const targetType = Number(content.targetType)
   const postId = content.postId ?? (
-    (type === 'system' && content.action === 'topic_post_published')
+    discussionFollowAction
+      ? content.targetPostId ?? content.targetId
+      : undefined
+  ) ?? (
+    (type === 'system' && action === 'topic_post_published')
       || (['like', 'favorite', 'mention'].includes(type) && targetType === 1)
       ? content.targetId
       : undefined
@@ -497,17 +826,27 @@ export function adaptNotification(raw: any): Notification {
     ?? curationFeedback?.href
     ?? safeSameSitePath(content.targetPath)
     ?? safeSameSitePath(content.jumpPath)
+  const reportReceiptPath = reportReceiptAction ? reportReceiptNotificationPath(content) : undefined
+  const contactRequestPath = contactRequestAction ? contactRequestNotificationPath(action) : undefined
+  const collaborationNeedPath = collaborationNeedStateAction
+    ? collaborationNeedStateNotificationPath(content, targetPath)
+    : undefined
   const sender = raw?.sender ? adaptUser(raw.sender) : undefined
   return {
     notificationId: adaptId(raw?.notificationId ?? raw?.id),
     notificationIds: Array.isArray(raw?.notificationIds) ? raw.notificationIds.map(adaptId) : undefined,
     type,
+    action,
     title: notificationHeading(type, content, sender?.nickname, aggregateCount),
     content: notificationContent(type, content, sender?.nickname, aggregateCount),
     curationFeedback,
     sender,
     relatedId: targetId ? adaptId(targetId) : undefined,
-    targetPath: targetPath ?? (userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined),
+    targetPath: reportReceiptPath
+      ?? contactRequestPath
+      ?? collaborationNeedPath
+      ?? targetPath
+      ?? (userId ? `/u/${adaptId(userId)}` : postId ? `/post/${adaptId(postId)}` : undefined),
     read: Boolean(raw?.read ?? raw?.isRead ?? false),
     aggregateCount: aggregateCount > 1 ? aggregateCount : undefined,
     unreadCount,
@@ -566,7 +905,117 @@ function senderUserId(sender?: any): string | undefined {
   return rawId == null ? undefined : adaptId(rawId)
 }
 
+const discussionFollowActionHeadings: Record<string, string> = {
+  discussion_follow_comment: '你关注的讨论有新回复',
+  discussion_follow_featured_reply: '你关注的讨论有精选回复',
+  discussion_follow_author_pinned: '作者置顶了关键回应',
+  discussion_follow_author_reply: '作者补充了新的回应',
+}
+
+const discussionFollowActionContents: Record<string, string> = {
+  discussion_follow_comment: '你关注的讨论有了新的公开回复，点击回到原帖继续查看。',
+  discussion_follow_featured_reply: '你关注的讨论有一条精选回复。',
+  discussion_follow_author_pinned: '作者置顶了一条关键回应。',
+  discussion_follow_author_reply: '作者补充了新的回应。',
+}
+
+const trustedContentActionHeadings: Record<string, string> = {
+  answerAccepted: '你的回答已被采纳',
+  contentSuggestionSubmitted: '收到新的内容建议',
+  contentSuggestionDecided: '内容建议已有处理结果',
+}
+
+const trustedContentActionContents: Record<string, string> = {
+  answerAccepted: '作者采纳了你的回答，点击查看原讨论。',
+  contentSuggestionSubmitted: '有读者提交了补充或纠错建议，点击查看并处理。',
+  contentSuggestionDecided: '作者已处理你的补充或纠错建议，点击查看处理结果。',
+}
+
+const collaborationNeedStateHeadings: Record<string, string> = {
+  CLAIMED: '协作需求已被认领',
+  SUBMITTED: '协作产出等待验收',
+  REJECTED: '协作产出已退回修改',
+  WITHDRAWN: '协作提交已撤回',
+  ACCEPTED: '协作产出已验收',
+  COMPLETED: '协作需求已完成',
+  CLOSED: '协作需求已关闭',
+  MERGED: '协作需求已合并',
+  RELEASED: '协作需求重新开放',
+}
+
+const collaborationNeedStateContents: Record<string, string> = {
+  CLAIMED: '这项需求已有人认领，点击查看当前协作进展。',
+  SUBMITTED: '认领者已提交公开产出，点击查看并跟进验收。',
+  REJECTED: '本次提交已退回修改，点击查看需求详情与处理说明。',
+  WITHDRAWN: '认领者已撤回提交，需求回到交付推进中。',
+  ACCEPTED: '公开产出已通过验收，点击查看需求与交付结果。',
+  COMPLETED: '这项协作需求已经完成，点击查看公开交付。',
+  CLOSED: '这项协作需求已经关闭，点击查看最终状态。',
+  MERGED: '这项需求已合并到其他需求，点击查看后续去向。',
+  RELEASED: '原认领已释放，需求重新开放给社区成员。',
+}
+
+const contactRequestActionHeadings: Record<string, string> = {
+  contact_request_received: '收到联系请求',
+  contact_request_accepted: '联系请求已被接受',
+  contact_request_rejected: '联系请求已被拒绝',
+}
+
+const contactRequestActionContents: Record<string, string> = {
+  contact_request_received: '有人发来了联系请求。',
+  contact_request_accepted: '你的联系请求已被接受。',
+  contact_request_rejected: '你的联系请求已被拒绝。',
+}
+
+function isDiscussionFollowAction(action: string): boolean {
+  return Object.prototype.hasOwnProperty.call(discussionFollowActionHeadings, action)
+}
+
+function isContactRequestAction(action: string): boolean {
+  return Object.prototype.hasOwnProperty.call(contactRequestActionHeadings, action)
+}
+
+function contactRequestNotificationPath(action: string): string {
+  return action === 'contact_request_received'
+    ? '/me/contact-requests?tab=inbox'
+    : '/me/contact-requests?tab=outbox'
+}
+
+function reportReceiptNotificationPath(content: Record<string, any>): string {
+  const reportId = content.reportId ?? content.targetId ?? content.id
+  if (reportId === undefined || reportId === null || reportId === '') return '/me/reports'
+  const sourceType = normalizeUserReportSourceType(content.sourceType ?? content.reportType ?? content.type)
+  return `/me/reports/${encodeURIComponent(sourceType)}/${encodeURIComponent(String(adaptId(reportId)))}`
+}
+
+function collaborationNeedStateNotificationPath(
+  content: Record<string, any>,
+  preferredPath?: string,
+): string | undefined {
+  const suppliedPath = safeSameSitePath(preferredPath)
+    ?? safeSameSitePath(content.targetPath)
+    ?? safeSameSitePath(content.jumpPath)
+  if (suppliedPath) return suppliedPath
+  const eventType = sanitizeVisibleText(content.eventType).toUpperCase()
+  const needId = eventType === 'MERGED'
+    ? content.targetNeedId ?? content.needId ?? content.targetId
+    : content.needId ?? content.targetId
+  if (needId === undefined || needId === null || needId === '') return undefined
+  return `/collaboration/needs/${encodeURIComponent(String(adaptId(needId)))}`
+}
+
 function notificationHeading(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {
+  const contactRequestHeading = contactRequestActionHeadings[String(content.action || '')]
+  if (contactRequestHeading) return contactRequestHeading
+  const discussionHeading = discussionFollowActionHeadings[String(content.action || '')]
+  if (discussionHeading) return discussionHeading
+  const trustedContentHeading = trustedContentActionHeadings[String(content.action || '')]
+  if (trustedContentHeading) return trustedContentHeading
+  if (content.action === 'collaboration_need_state_changed') {
+    const eventType = sanitizeVisibleText(content.eventType).toUpperCase()
+    return collaborationNeedStateHeadings[eventType] || '协作需求状态已更新'
+  }
+  if (type === 'system' && content.action === 'report_receipt') return '举报处理结果'
   if (type === 'system' && isCurationFeedbackPayload(content)) return '公开内容入选反馈'
   if (type === 'system' && content.action === 'question_extract_succeeded') return '题目已整理完成'
   if (type === 'system' && content.action === 'question_extract_failed') return '题目整理失败'
@@ -595,6 +1044,24 @@ function notificationTitle(type: string, senderName?: string, aggregateCount = 0
 }
 
 function notificationContent(type: string, content: Record<string, any>, senderName?: string, aggregateCount = 0): string {
+  const contactRequestContent = contactRequestActionContents[String(content.action || '')]
+  if (contactRequestContent) return contactRequestContent
+  const discussionContent = discussionFollowActionContents[String(content.action || '')]
+  if (discussionContent) return discussionContent
+  const trustedContent = trustedContentActionContents[String(content.action || '')]
+  if (trustedContent) return trustedContent
+  if (content.action === 'collaboration_need_state_changed') {
+    const eventType = sanitizeVisibleText(content.eventType).toUpperCase()
+    const base = collaborationNeedStateContents[eventType] || '协作需求有新的状态变化，点击查看详情。'
+    const reasonText = sanitizeVisibleText(content.reasonText)
+    if (!reasonText) return base
+    const conciseReason = reasonText.length > 120 ? `${reasonText.slice(0, 120)}...` : reasonText
+    return `${base} 说明：${conciseReason}`
+  }
+  if (type === 'system' && content.action === 'report_receipt') {
+    const userStatus = normalizeUserReportStatus(content.userStatus ?? content.reportStatus ?? content.status)
+    return safeVisibleText(content.resultText ?? content.userResultText, userReportStatusText[userStatus])
+  }
   if (type === 'system' && isCurationFeedbackPayload(content)) {
     const contentTitle = safeCurationFeedbackText(content.contentTitle ?? content.postTitle ?? content.title, '公开内容标题暂未返回')
     const placementLabel = safeCurationFeedbackText(content.placementLabel ?? content.topicTitle ?? content.sectionTitle ?? content.slotName, '公开内容收录')

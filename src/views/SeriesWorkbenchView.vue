@@ -74,6 +74,7 @@
               <label class="block">
                 <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">领域</span>
                 <select v-model="seriesDraft.domain" class="series-input">
+                  <option :value="0" disabled>请选择频道</option>
                   <option
                     v-for="domain in localDomainConfigs"
                     :key="domain.domain"
@@ -186,7 +187,7 @@
             <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span class="series-meta-pill">{{ domainNameOf(record.domain) }}</span>
               <span class="series-meta-pill">{{ record.visibility === 'private' ? '私密合集' : '公开合集' }}</span>
-              <span class="series-meta-pill">{{ seriesKnowledgeAssetLabel(record) }}</span>
+              <span class="series-meta-pill">{{ seriesKnowledgeProjectionLabel(record) }}</span>
               <span v-if="seriesSource !== 'remote' || record.previewSource !== 'remote'" class="series-meta-pill">
                 {{ seriesPreviewSourceLabel(record) }} · 只读展示
               </span>
@@ -194,14 +195,14 @@
               <span class="series-meta-pill">最近更新 {{ formatTimestamp(record.updatedAt) }}</span>
             </div>
 
-            <div class="series-knowledge-asset mt-4">
-              <strong>{{ record.visibility === 'public' ? '公开知识资产' : '非公共知识资产' }}</strong>
-              <p>{{ seriesKnowledgeAssetCopy(record) }}</p>
+            <div class="series-knowledge-projection mt-4">
+              <strong>{{ record.visibility === 'public' ? '公开系列关系投影' : '私密系列' }}</strong>
+              <p>{{ seriesKnowledgeProjectionCopy(record) }}</p>
               <RouterLink
-                v-if="record.visibility === 'public' && seriesSource === 'remote' && record.previewSource === 'remote'"
+                v-if="record.visibility === 'public' && record.knowledgeProjectionState !== 'DEGRADED'"
                 :to="{ path: '/knowledge/explore', query: { assetType: 'series', assetId: record.id } }"
               >
-                查看公共关系
+                查看关系投影
               </RouterLink>
             </div>
 
@@ -262,6 +263,7 @@ import { getErrorMessage } from '@/api/client'
 import { contentSeriesApi, type ContentSeriesDraftPayload, type ContentSeriesRecord } from '@/api/contentSeries'
 import { localDomainConfigs } from '@/api/domains'
 import { useAuthStore } from '@/stores/auth'
+import { isKnownDomain } from '@/utils/domains'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 
 const authStore = useAuthStore()
@@ -269,7 +271,7 @@ const authStore = useAuthStore()
 const createDefaultSeriesDraft = (): ContentSeriesDraftPayload => ({
   title: '',
   summary: '',
-  domain: localDomainConfigs[0]?.domain ?? 1,
+  domain: 0,
   visibility: 'private',
   goalCount: 3,
   status: 'active',
@@ -317,18 +319,23 @@ const seriesPreviewSourceLabel = (record: ContentSeriesRecord) => {
   return 'remote'
 }
 
-const seriesKnowledgeAssetLabel = (record: ContentSeriesRecord) => {
-  if (record.visibility !== 'public') return '不进入公共资产'
-  if (seriesSource.value !== 'remote' || record.previewSource !== 'remote') return '只读展示'
-  return record.assetStatus === 'archived' ? '归档公共资产' : '可作为公共资产'
+const seriesKnowledgeProjectionLabel = (record: ContentSeriesRecord) => {
+  if (record.visibility !== 'public') return '不参与公开投影'
+  if (record.knowledgeProjectionState === 'CONFIRMED') return '存在已确认关系'
+  if (record.knowledgeProjectionState === 'DEGRADED') return '关系投影降级'
+  return '请求时关系建议'
 }
 
-const seriesKnowledgeAssetCopy = (record: ContentSeriesRecord) => {
-  if (record.visibility !== 'public') return '私密合集只用于个人管理，不进入 PublicKnowledgeAsset。'
-  if (seriesSource.value !== 'remote' || record.previewSource !== 'remote') {
-    return `${seriesPreviewSourceLabel(record)} 系列只能只读展示，不能进入公共知识资产，也不会生成正式关系。`
+const seriesKnowledgeProjectionCopy = (record: ContentSeriesRecord) => {
+  if (record.visibility !== 'public') return '私密合集只用于个人管理，不参与公开知识关系投影。'
+  if (record.knowledgeProjectionState === 'CONFIRMED') {
+    return record.sourceNote || '仅审核通过且关系证据完整的记录会显示为已确认关系。'
   }
-  return record.sourceNote || '公开系列可作为 PublicKnowledgeAsset，与公开内容、专题和标签形成来源可解释的关系。'
+  if (record.knowledgeProjectionState === 'DEGRADED') {
+    return `${seriesPreviewSourceLabel(record)} 数据仅作降级展示，不能视为正式关系。`
+  }
+  return record.knowledgeProjectionReason
+    || '公开系列可参与请求时关系推荐；这些连接是即时阅读建议，不代表已保存或人工确认的知识关系。'
 }
 
 const formatTimestamp = (value: number) => {
@@ -378,7 +385,7 @@ const resetSeriesDraft = () => {
 const normalizeSeriesDraft = (): ContentSeriesDraftPayload => ({
   title: sanitizeVisibleText(seriesDraft.title) || '',
   summary: sanitizeVisibleText(seriesDraft.summary) || '',
-  domain: Number(seriesDraft.domain || localDomainConfigs[0]?.domain || 1),
+  domain: Number(seriesDraft.domain),
   visibility: seriesDraft.visibility || 'private',
   goalCount: Math.min(20, Math.max(1, Number(seriesDraft.goalCount || 1))),
   status: seriesDraft.status || 'active',
@@ -423,6 +430,10 @@ const saveSeriesDraft = async () => {
     toast.error('请先填写合集标题')
     return
   }
+  if (!isKnownDomain(payload.domain)) {
+    toast.error('请选择频道')
+    return
+  }
 
   isSavingSeries.value = true
   try {
@@ -435,9 +446,7 @@ const saveSeriesDraft = async () => {
       activeSeriesId.value = res.data.id
       editingSeriesId.value = res.data.id
       fillSeriesDraft(res.data)
-    }
-
-    toast.success(res.status === 'fallback' ? '合集已保存到本地 fallback' : '合集已保存')
+    }    toast.success('Content series saved')
     await loadSeriesWorkbench()
   } catch (error) {
     toast.error(getErrorMessage(error, '合集保存失败'))
@@ -549,7 +558,7 @@ onMounted(async () => {
   padding: 0.85rem 0.95rem;
 }
 
-.series-knowledge-asset {
+.series-knowledge-projection {
   display: grid;
   gap: 0.35rem;
   border: 1px solid rgb(226 232 240);
@@ -558,19 +567,19 @@ onMounted(async () => {
   padding: 0.85rem 0.95rem;
 }
 
-.series-knowledge-asset strong {
+.series-knowledge-projection strong {
   color: rgb(15 23 42);
   font-size: 0.875rem;
   font-weight: 900;
 }
 
-.series-knowledge-asset p {
+.series-knowledge-projection p {
   color: rgb(100 116 139);
   font-size: 0.8125rem;
   line-height: 1.6;
 }
 
-.series-knowledge-asset a {
+.series-knowledge-projection a {
   justify-self: start;
   color: rgb(37 99 235);
   font-size: 0.8125rem;
@@ -608,17 +617,17 @@ onMounted(async () => {
 .dark .series-input,
 .dark .series-textarea,
 .dark .series-item-row,
-.dark .series-knowledge-asset {
+.dark .series-knowledge-projection {
   border-color: rgb(51 65 85);
   background: rgb(2 6 23);
   color: rgb(226 232 240);
 }
 
-.dark .series-knowledge-asset strong {
+.dark .series-knowledge-projection strong {
   color: rgb(241 245 249);
 }
 
-.dark .series-knowledge-asset p {
+.dark .series-knowledge-projection p {
   color: rgb(148 163 184);
 }
 

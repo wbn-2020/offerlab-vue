@@ -1,7 +1,8 @@
 import client, { BizException, type Result } from './client'
 import { postApi } from './post'
-import type { ApiId, Post } from './types'
+import type { ApiId, OperationTopicPublishCheckContract, Post } from './types'
 import { filterStrongExposurePosts, filterVisiblePosts } from '@/utils/recommendationGovernance'
+import { legacyTopicSectionKey, nonEmptyTopicItemList } from '@/utils/topicSectionIdentity'
 import {
   canMutateOpsOrchestration,
   filterOpsOrchestrationDisplayItems,
@@ -106,12 +107,13 @@ export interface OperationCandidate {
   topicId?: ApiId
   topicSlug?: string
   sectionKey?: string
-  domain?: number
+  domain?: number | null
   contentType?: string
   reason?: string
   reasonText?: string
   visibilityCheck?: string
   governanceState?: string
+  blockReasons?: string[]
   updatedAt?: string
   href?: string
   fallback?: boolean
@@ -149,6 +151,8 @@ export interface OperationSlotItem {
   source: OperationSource
   blocked?: boolean
   blockReasons?: string[]
+  // 仅专题类条目携带：后端派生的专题范围，用于入口卡诚实标注「跨频道」。
+  topicScope?: 'DOMAIN' | 'CROSS_DOMAIN'
   fallback?: boolean
   example?: boolean
   exampleLabel?: string
@@ -179,6 +183,7 @@ export interface OperationTopicItem {
   sourceType: 'POST' | string
   sourceId: ApiId
   contentId?: ApiId
+  domain?: number | null
   title: string
   summary?: string
   href?: string
@@ -204,20 +209,10 @@ export interface OperationTopicSection {
   items: OperationTopicItem[]
 }
 
-export interface OperationTopicPublishCheckItem {
-  code: string
-  label: string
-  passed: boolean
-  detail: string
-}
+export type OperationTopicPublishCheckItem = OperationTopicPublishCheckContract['items'][number]
 
-export interface OperationTopicPublishCheck {
-  topicId: ApiId
-  canPublish: boolean
+export interface OperationTopicPublishCheck extends OperationTopicPublishCheckContract {
   source: OperationSource
-  degraded: boolean
-  checkedAt?: string
-  items: OperationTopicPublishCheckItem[]
 }
 
 export interface OperationTopic {
@@ -233,10 +228,15 @@ export interface OperationTopic {
   previewToken?: string
   itemCount?: number
   currentVersion?: number
+  draftRevision?: number
   archivedReason?: string
   source?: OperationSource
   degraded?: boolean
   fallbackReason?: string
+  // 只读透传后端派生的专题范围；缺失时不自行推断。
+  topicScope?: 'DOMAIN' | 'CROSS_DOMAIN'
+  // 单频道专题的频道值；跨频道专题恒为空。
+  domain?: number | null
   sections?: OperationTopicSection[]
   publishCheck?: OperationTopicPublishCheck
   fallback?: boolean
@@ -267,7 +267,7 @@ interface RemotePostBrief {
   title?: string
   summary?: string
   content?: string
-  domain?: number
+  domain?: number | null
   postType?: number
   tags?: Array<{ name?: string; tagName?: string }>
   createTime?: string
@@ -286,10 +286,13 @@ interface RemoteOperationTopic {
   previewToken?: string
   currentVersion?: number
   version?: number
+  draftRevision?: number
   archivedReason?: string
   source?: OperationSource
   degraded?: boolean
   fallbackReason?: string
+  topicScope?: string
+  domain?: number | null
   sections?: RemoteOperationTopicSection[]
   publishCheck?: OperationTopicPublishCheck
   updateTime?: string
@@ -529,7 +532,8 @@ const adaptRemoteCandidate = (item: any): OperationCandidate => {
     reason: item?.reason || 'PUBLIC_VISIBLE_GOVERNED',
     reasonText: item?.reasonText || item?.reason,
     visibilityCheck: item?.visibilityCheck,
-    governanceState: item?.operable === false ? 'filtered' : 'eligible',
+    governanceState: item?.operable === true ? 'eligible' : 'filtered',
+    blockReasons: Array.isArray(item?.blockReasons) ? item.blockReasons : [],
     updatedAt: post?.createTime,
     href: postItem.href,
   }
@@ -560,6 +564,7 @@ const adaptRemoteTopicItem = (item: RemoteOperationTopicItem, sortFallback: numb
     sourceType: item.sourceType || 'POST',
     sourceId,
     contentId: item.contentId || item.postId || sourceId,
+    domain: post?.domain,
     title: item.title || postItem.title,
     summary: item.summary || postItem.summary || item.note,
     href: postItem.href || (sourceId ? postHref(sourceId) : undefined),
@@ -573,9 +578,31 @@ const adaptRemoteTopicItem = (item: RemoteOperationTopicItem, sortFallback: numb
   }
 }
 
+const candidateToTopicItem = (
+  candidate: OperationCandidate,
+  reasonText: string,
+  sortOrder: number,
+): OperationTopicItem => ({
+  id: `candidate:${candidate.sourceType}:${candidate.sourceId}`,
+  sourceType: candidate.sourceType,
+  sourceId: candidate.sourceId,
+  contentId: candidate.sourceId,
+  domain: candidate.domain,
+  title: candidate.title,
+  summary: candidate.summary,
+  href: candidate.href,
+  status: 'ACTIVE',
+  sortOrder,
+  reasonText,
+  source: 'remote',
+  blocked: candidate.governanceState === 'filtered',
+  blockReasons: candidate.governanceState === 'filtered' ? ['governance_filtered'] : [],
+})
+
 const adaptRemoteTopicSection = (section: RemoteOperationTopicSection, sortFallback: number): OperationTopicSection => {
   const sourceId = section.sourceId || postIdOf(section.post)
-  const items = section.items || section.contents || (sourceId ? [{
+  const nestedItems = nonEmptyTopicItemList(section.items, section.contents)
+  const items = nestedItems || (sourceId ? [{
     id: section.id,
     sourceType: section.sourceType || 'POST',
     sourceId,
@@ -587,23 +614,70 @@ const adaptRemoteTopicSection = (section: RemoteOperationTopicSection, sortFallb
     sortOrder: section.sortOrder ?? section.rank,
     post: section.post,
   }] : [])
-  const key = section.key || section.sectionKey || `section-${sortFallback}`
+  const title = section.title || section.name || ''
+  const key = section.sectionKey
+    || section.key
+    || legacyTopicSectionKey(title, sortFallback)
   return {
     id: section.id,
     key,
-    title: section.title || section.name || key,
+    title: title || key,
     summary: section.summary || section.description,
     status: section.status || 'ACTIVE',
     sortOrder: section.sortOrder ?? section.rank ?? sortFallback,
-    reasonText: section.reasonText,
+    // The backend stores one row per content item. A row reason belongs to that
+    // item, not to the logical section assembled by sectionKey.
+    reasonText: nestedItems ? section.reasonText : undefined,
     items: items.map((item, index) => adaptRemoteTopicItem(item, index + 1)),
   }
+}
+
+const mergeOperationTopicSections = (sections: OperationTopicSection[]): OperationTopicSection[] => {
+  const merged = new Map<string, OperationTopicSection>()
+  sections.forEach((section) => {
+    const key = section.key
+    const existing = merged.get(key)
+    if (!existing) {
+      merged.set(key, {
+        ...section,
+        reasonText: undefined,
+        items: [...(section.items || [])],
+      })
+      return
+    }
+    existing.items = [...existing.items, ...(section.items || [])]
+      .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+    existing.sortOrder = Math.min(Number(existing.sortOrder) || 0, Number(section.sortOrder) || Number(existing.sortOrder) || 0)
+  })
+  return Array.from(merged.values()).sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder))
+}
+
+const operationTopicSectionPayloads = (topic: OperationTopic) => {
+  const sections = topic.sections || []
+  const emptySection = sections.find((section) => !(section.items || []).length)
+  if (emptySection) {
+    throw new BizException(10001, `Operation topic section "${emptySection.title || emptySection.key}" has no content items`)
+  }
+  return sections.flatMap((section) => {
+    const sectionItems = section.items || []
+    return sectionItems.map((item) => ({
+      title: section.title,
+      sectionKey: section.key,
+      sourceType: item.sourceType,
+      sourceId: item.sourceId,
+      status: item.status,
+      sortOrder: item.sortOrder,
+      reasonText: item.reasonText,
+      reasonConfirmed: Boolean(item.reasonText),
+      note: item.reasonText,
+    }))
+  })
 }
 
 const adaptRemoteTopic = (topic: RemoteOperationTopic): OperationTopic => {
   const source = topic.source || 'remote'
   const degraded = Boolean(topic.degraded || source !== 'remote')
-  const sections = (topic.sections || []).map((section, index) => adaptRemoteTopicSection(section, index + 1))
+  const sections = mergeOperationTopicSections((topic.sections || []).map((section, index) => adaptRemoteTopicSection(section, index + 1)))
   const itemCount = sections.reduce((total, section) => total + section.items.length, 0)
   return {
     id: topic.id || topic.slug || 'topic',
@@ -618,14 +692,93 @@ const adaptRemoteTopic = (topic: RemoteOperationTopic): OperationTopic => {
     previewToken: topic.previewToken,
     itemCount: itemCount || sections.length,
     currentVersion: topic.currentVersion ?? topic.version,
+    draftRevision: validDraftRevision(topic.draftRevision),
     archivedReason: topic.archivedReason,
     source,
     degraded,
     fallbackReason: topic.fallbackReason,
+    topicScope: adaptOperationTopicScope(topic.topicScope),
+    domain: topic.domain,
     sections,
     publishCheck: topic.publishCheck,
     fallback: degraded,
   }
+}
+
+// 只认后端派生的两态；缺失/异常值置空，不由 domain 是否为空自行推断跨频道。
+const adaptOperationTopicScope = (raw: string | undefined): 'DOMAIN' | 'CROSS_DOMAIN' | undefined => (
+  raw === 'DOMAIN' || raw === 'CROSS_DOMAIN' ? raw : undefined
+)
+
+const validDraftRevision = (value: unknown): number | undefined => (
+  Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : undefined
+)
+
+const OPERATION_SOURCES: readonly OperationSource[] = [
+  'remote',
+  'legacy-featured',
+  'public-content-query',
+  'fallback-demo',
+  'unavailable',
+]
+
+const adaptTopicPublishCheck = (
+  raw: unknown,
+  expectedTopicId: ApiId,
+): OperationTopicPublishCheck => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new BizException(20500, '发布前检查响应格式不正确，请刷新后重试')
+  }
+  const value = raw as Record<string, unknown>
+  const draftRevision = validDraftRevision(value.draftRevision)
+  const source = typeof value.source === 'string'
+    && OPERATION_SOURCES.includes(value.source as OperationSource)
+    ? value.source as OperationSource
+    : undefined
+  const rawItems = value.items
+  const validItems = Array.isArray(rawItems) && rawItems.every((item) => (
+    item != null
+    && typeof item === 'object'
+    && !Array.isArray(item)
+    && typeof (item as Record<string, unknown>).code === 'string'
+    && typeof (item as Record<string, unknown>).label === 'string'
+    && typeof (item as Record<string, unknown>).passed === 'boolean'
+    && typeof (item as Record<string, unknown>).detail === 'string'
+  ))
+  if (
+    String(value.topicId ?? '') !== String(expectedTopicId)
+    || draftRevision === undefined
+    || typeof value.canPublish !== 'boolean'
+    || source === undefined
+    || typeof value.degraded !== 'boolean'
+    || !validItems
+    || (value.checkedAt != null && typeof value.checkedAt !== 'string')
+  ) {
+    throw new BizException(20500, '发布前检查响应缺少有效的服务端修订号，请刷新后重试')
+  }
+  return {
+    topicId: value.topicId as ApiId,
+    draftRevision,
+    canPublish: value.canPublish,
+    source,
+    degraded: value.degraded,
+    checkedAt: value.checkedAt as string | undefined,
+    items: rawItems as OperationTopicPublishCheckItem[],
+  }
+}
+
+// 后端候选阻断码 → 运营者可读的人话；未知码原样透出，不掩盖。
+const CANDIDATE_BLOCK_COPY: Record<string, string> = {
+  DOMAIN_MISMATCH_FOR_SCOPED_TOPIC: '频道不匹配：单频道专题不能收录其他频道内容',
+  POST_DOMAIN_UNKNOWN: '该内容暂无频道归属，单频道专题不能收录',
+  POST_UNAVAILABLE: '内容不可用或不可见',
+  POST_NOT_PUBLIC_GOVERNED: '内容未通过公开治理过滤',
+  ALREADY_IN_TOPIC: '该内容已在专题中',
+}
+
+const describeCandidateBlock = (blockReasons: string[] | undefined): string => {
+  const reasons = (blockReasons || []).map((code) => CANDIDATE_BLOCK_COPY[code] || code)
+  return reasons.length ? `无法收录：${reasons.join('；')}` : '无法收录：候选未通过治理校验'
 }
 
 const adaptRemoteSlotItem = (item: RemoteOperationSlotItem, rankFallback: number): OperationSlotItem => {
@@ -648,6 +801,7 @@ const adaptRemoteSlotItem = (item: RemoteOperationSlotItem, rankFallback: number
       source: item.source || 'remote',
       blocked: Boolean(item.blocked),
       blockReasons: item.blockReasons || [],
+      topicScope: topic.topicScope,
     }
   }
   const postItem = adaptRemotePostItem(item.post, 'Curated public content')
@@ -733,8 +887,8 @@ const emptyPublicOperationSlot = (
     title: 'Community Featured',
     description: 'The featured slot is temporarily unavailable.',
     status: 'OFFLINE',
-    displayLabel: 'Unavailable',
-    explanation: 'The public featured slot is empty while the backend curation service is unavailable.',
+    displayLabel: '示例/fallback',
+    explanation: '运营整理暂时不可用，当前展示稳定空状态。',
     source: 'unavailable',
     degraded: true,
     fallbackReason,
@@ -817,6 +971,16 @@ export const operationsApi = {
   },
 
   saveOperationTopicDraft: async (topic: OperationTopic): Promise<Result<OperationTopic>> => {
+    if (topic.topicScope !== 'DOMAIN' && topic.topicScope !== 'CROSS_DOMAIN') {
+      throw new BizException(10001, '请先明确专题范围：单频道或跨频道（全站）')
+    }
+    if (topic.topicScope === 'DOMAIN' && topic.domain == null) {
+      throw new BizException(10001, '单频道专题需要选择一个频道')
+    }
+    const expectedDraftRevision = validDraftRevision(topic.draftRevision)
+    if (expectedDraftRevision === undefined) {
+      throw new BizException(30003, '专题草稿缺少服务端修订号，请刷新后重试')
+    }
     const res = await client.put(`/api/v1/operations/admin/topics/${topic.id}`, {
       name: topic.title,
       description: topic.summary,
@@ -824,22 +988,21 @@ export const operationsApi = {
       operationType: topic.activityType || 'TOPIC',
       startsAt: topic.startTime,
       endsAt: topic.endTime,
-      sections: (topic.sections || []).flatMap((section) => {
-        const sectionItems = section.items || []
-        if (!sectionItems.length) return []
-        return sectionItems.map((item) => ({
-          title: section.title,
-          sourceType: item.sourceType,
-          sourceId: item.sourceId,
-          status: item.status,
-          sortOrder: item.sortOrder,
-          reasonText: item.reasonText || section.reasonText,
-          reasonConfirmed: Boolean(item.reasonText || section.reasonText),
-          note: item.reasonText || section.reasonText,
-        }))
-      }),
+      topicScope: topic.topicScope,
+      domain: topic.topicScope === 'CROSS_DOMAIN' ? null : topic.domain,
+      expectedDraftRevision,
+      sections: operationTopicSectionPayloads(topic),
     }) as Result<RemoteOperationTopic>
-    return { ...res, data: adaptRemoteTopic(res.data || topic) }
+    if (!res.data) {
+      throw new BizException(20500, '专题保存响应缺少服务端草稿，请刷新后重试')
+    }
+    const saved = adaptRemoteTopic(res.data)
+    if (String(saved.id) !== String(topic.id)
+      || validDraftRevision(saved.draftRevision) === undefined
+      || Number(saved.draftRevision) <= expectedDraftRevision) {
+      throw new BizException(20500, '专题保存响应缺少新的服务端修订号，请刷新后重试')
+    }
+    return { ...res, data: saved }
   },
 
   addTopicCandidateToSection: async (
@@ -848,33 +1011,39 @@ export const operationsApi = {
     candidate: OperationCandidate,
     reasonText: string,
     sortOrder = 100,
-  ): Promise<Result<OperationTopicItem>> => Promise.resolve({ code: 0, message: 'ok', data: {
-    id: `draft:${topicId}:${sectionKey}:${candidate.sourceType}:${candidate.sourceId}`,
-    sourceType: candidate.sourceType,
-    sourceId: candidate.sourceId,
-    contentId: candidate.sourceId,
-    title: candidate.title,
-    summary: candidate.summary,
-    href: candidate.href,
-    status: 'ACTIVE',
-    sortOrder,
-    reasonText,
-    source: 'remote',
-    fallback: false,
-  } }),
+  ): Promise<Result<OperationTopicItem>> => {
+    const res = await client.post(`/api/v1/operations/admin/topics/${topicId}/candidate-hints`, [{
+      candidateSource: 'SECTION_ADD',
+      source: 'operation_ui',
+      sourceType: candidate.sourceType,
+      sourceId: candidate.sourceId,
+      topicId,
+      topicSlug: candidate.topicSlug,
+      sectionKey,
+      title: candidate.title,
+      href: candidate.href,
+      reasonText,
+      visibilityCheck: candidate.visibilityCheck,
+      returnHref: candidate.href,
+      persistCandidate: false,
+    }]) as Result<unknown>
+    const remoteCandidates = normalizeItems(res.data).map(adaptRemoteCandidate)
+    const selected = remoteCandidates.find((item) => (
+      item.sourceType === candidate.sourceType
+      && String(item.sourceId) === String(candidate.sourceId)
+    ))
+    if (!selected) {
+      throw new BizException(10001, '候选校验未返回匹配结果，请刷新后重试')
+    }
+    if (selected.governanceState === 'filtered') {
+      throw new BizException(10001, describeCandidateBlock(selected.blockReasons))
+    }
+    return { ...res, data: candidateToTopicItem(selected, reasonText, sortOrder) }
+  },
 
   runTopicPublishCheck: async (topicId: ApiId): Promise<Result<OperationTopicPublishCheck>> => {
-    const res = await client.post(`/api/v1/operations/admin/topics/${topicId}/publish-check`) as Result<OperationTopicPublishCheck>
-    return {
-      ...res,
-      data: res.data || {
-        topicId,
-        canPublish: false,
-        source: 'unavailable',
-        degraded: true,
-        items: [],
-      },
-    }
+    const res = await client.post(`/api/v1/operations/admin/topics/${topicId}/publish-check`) as Result<unknown>
+    return { ...res, data: adaptTopicPublishCheck(res.data, topicId) }
   },
 
   listOperationAudit: async (params?: { limit?: number }): Promise<Result<OperationCapability<OperationAuditLog>>> => {
@@ -953,14 +1122,21 @@ export const operationsApi = {
     action: OperationAction,
     note?: string,
     permissions?: OpsOrchestrationPermissions | null,
+    expectedDraftRevision?: number,
   ): Promise<Result<OperationActionResult>> => {
-    const permissionAction = action === 'archive' ? 'offline' : action
-    if (action !== 'preview' && !canMutateOpsOrchestration(permissions, permissionAction as OpsOrchestrationAction)) {
+    if (action === 'archive' && !canMutateOpsOrchestration(permissions, 'offline')) {
       return Promise.reject(new BizException(10403, 'operation orchestration permission required'))
+    }
+    if (action !== 'preview' && action !== 'archive' && !canMutateOpsOrchestration(permissions, action as OpsOrchestrationAction)) {
+      return Promise.reject(new BizException(10403, 'operation orchestration permission required'))
+    }
+    if (resourceKind === 'topic' && validDraftRevision(expectedDraftRevision) === undefined) {
+      return Promise.reject(new BizException(30003, '专题草稿缺少服务端修订号，请刷新后重试'))
     }
     return client.post(`/api/v1/operations/admin/${resourceKind}s/${id}/${action}`, {
       note,
       confirmationPhrase: action === 'preview' ? undefined : 'CONFIRM',
+      expectedDraftRevision: resourceKind === 'topic' ? expectedDraftRevision : undefined,
     })
   },
 }

@@ -70,17 +70,23 @@
         <label class="field-label">
           我的回答
           <textarea
-            v-model="draftAnswers[String(answer.questionId)].answerText"
+            :value="draftAnswers[String(answer.questionId)]?.answerText || ''"
             class="answer-input"
             rows="5"
             maxlength="4000"
             :disabled="session.status === 'completed'"
             placeholder="先按清晰表达完整回答，再补充项目场景和权衡。"
+            @input="updateDraft(answer.questionId, 'answerText', ($event.target as HTMLTextAreaElement).value)"
           />
         </label>
         <label class="field-label">
           自评分
-          <select v-model.number="draftAnswers[String(answer.questionId)].score" class="field-input" :disabled="session.status === 'completed'">
+          <select
+            :value="draftAnswers[String(answer.questionId)]?.score || 0"
+            class="field-input"
+            :disabled="session.status === 'completed'"
+            @change="updateDraft(answer.questionId, 'score', Number(($event.target as HTMLSelectElement).value))"
+          >
             <option :value="0">0 分</option>
             <option :value="1">1 分</option>
             <option :value="2">2 分</option>
@@ -93,11 +99,12 @@
       <label class="field-label mt-3">
         复盘备注
         <input
-          v-model="draftAnswers[String(answer.questionId)].selfReview"
+          :value="draftAnswers[String(answer.questionId)]?.selfReview || ''"
           class="field-input"
           maxlength="1000"
           :disabled="session.status === 'completed'"
           placeholder="例如：定义清楚了，但项目例子不够具体。"
+          @input="updateDraft(answer.questionId, 'selfReview', ($event.target as HTMLInputElement).value)"
         />
       </label>
 
@@ -248,15 +255,20 @@ const props = defineProps<{
   isRetryingAiReview: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   'copy-report': []
   'download-report': []
   'toggle-ai-review': [enabled: boolean]
+  'update-draft': [questionId: string, field: keyof DraftAnswer, value: string | number]
   'mark-weak-questions-review': []
   'save-answer-cards': []
   'retry-ai-review': []
   submit: []
 }>()
+
+const updateDraft = (questionId: string | number, field: keyof DraftAnswer, value: string | number) => {
+  emit('update-draft', String(questionId), field, value)
+}
 
 const aiReviewFailedCount = computed(() => props.session?.answers.filter((answer) => answer.aiReviewStatus === 'FAILED').length || 0)
 const nextMockInterviewLink = computed(() => ({

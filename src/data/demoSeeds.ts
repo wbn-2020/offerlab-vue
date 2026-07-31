@@ -30,6 +30,12 @@ import type { ContributionSummary } from '@/utils/communityMetrics'
 const now = Date.now()
 const day = 24 * 60 * 60 * 1000
 
+export const isLocalDemoSeedAllowed = () => (
+  import.meta.env.VITE_OFFERLAB_ALLOW_LOCAL_DEMO === 'true'
+  || import.meta.env.VITE_OFFERLAB_DEMO_FALLBACK === 'true'
+  || import.meta.env.VITE_OFFERLAB_USE_DEMO === 'true'
+)
+
 const demoAuthor: User = {
   uid: 'demo-author-001',
   nickname: '闻野示例作者',
@@ -48,9 +54,36 @@ const tags = {
   systemDesign: { id: 'tag-system-design', name: '系统设计', slug: 'system-design', category: 'architecture', count: 28 },
   interview: { id: 'tag-interview', name: '面试复盘', slug: 'interview-review', category: 'career', count: 24 },
   java: { id: 'tag-java', name: 'Java 后端', slug: 'java-backend', category: 'backend', count: 37 },
+  openTools: { id: 'tag-open-tools', name: '开源工具', slug: 'open-tools', category: 'technology', count: 18 },
+  digitalSafety: { id: 'tag-digital-safety', name: '数字安全', slug: 'digital-safety', category: 'technology', count: 16 },
+  careerGrowth: { id: 'tag-career-growth', name: '职业成长', slug: 'career-growth', category: 'career', count: 22 },
+  collaboration: { id: 'tag-collaboration', name: '沟通协作', slug: 'collaboration', category: 'career', count: 19 },
+  financialSafety: { id: 'tag-financial-safety', name: '财务安全', slug: 'financial-safety', category: 'finance', count: 21 },
+  riskEducation: { id: 'tag-risk-education', name: '风险教育', slug: 'risk-education', category: 'finance', count: 17 },
+  learningMethods: { id: 'tag-learning-methods', name: '学习方法', slug: 'learning-methods', category: 'learning', count: 26 },
+  readingNotes: { id: 'tag-reading-notes', name: '阅读笔记', slug: 'reading-notes', category: 'learning', count: 20 },
+  lifeExperience: { id: 'tag-life-experience', name: '生活经验', slug: 'life-experience', category: 'lifestyle', count: 24 },
+  healthManagement: { id: 'tag-health-management', name: '健康管理', slug: 'health-management', category: 'lifestyle', count: 18 },
 } satisfies Record<string, Tag>
 
-const post = (id: string, postType: number, title: string, summary: string, tagList: Tag[]): Post => ({
+const communityDomainNames: Record<number, string> = {
+  1: '科技数码',
+  2: '职场发展',
+  3: '学习成长',
+  4: '生活方式',
+  5: '投资理财',
+}
+
+const communityDomainName = (domain?: number) => communityDomainNames[domain || 0] || '综合讨论'
+
+const post = (
+  id: string,
+  postType: number,
+  domain: number,
+  title: string,
+  summary: string,
+  tagList: Tag[],
+): Post => ({
   postId: id,
   postType,
   title,
@@ -59,7 +92,7 @@ const post = (id: string, postType: number, title: string, summary: string, tagL
   tags: tagList,
   author: demoAuthor,
   counter: { view: 1280, like: 96, comment: 18, favorite: 54 },
-  domain: 1,
+  domain,
   extension: {
     source: 'local_demo_seed',
     example: true,
@@ -75,6 +108,7 @@ export const demoPosts: Post[] = [
   post(
     'demo-post-coupon-stock',
     1,
+    1,
     '高并发优惠券库存扣减复盘',
     '从 Redis 预扣、MySQL 最终一致和 MQ 补偿三个层面复盘一次秒杀库存治理。',
     [tags.redis, tags.kafka, tags.systemDesign],
@@ -82,11 +116,134 @@ export const demoPosts: Post[] = [
   post(
     'demo-post-kafka-review',
     2,
+    1,
     'Kafka 消息堆积面试复盘',
     '把排障过程拆成监控信号、消费瓶颈、扩容策略和复盘行动，适合系统设计追问。',
     [tags.kafka, tags.interview, tags.java],
   ),
+  post(
+    'demo-community-digital-emergency-kit',
+    14,
+    1,
+    '数字生活应急包清单：备份、密码与双重验证',
+    '从重要文件三份备份、密码管理器、双重验证恢复码和设备丢失预案四部分展开。',
+    [tags.openTools, tags.digitalSafety],
+  ),
+  post(
+    'demo-community-open-source-telemetry',
+    16,
+    1,
+    '开源软件要不要默认收集遥测数据',
+    '讨论默认选项、充分告知、本地查看和撤回授权，不把隐私与改进体验处理成单选题。',
+    [tags.openTools, tags.digitalSafety],
+  ),
+  post(
+    'demo-community-home-file-server',
+    15,
+    1,
+    '把旧电脑改成家庭资料站的一次实践',
+    '记录硬盘检查、局域网共享、自动备份、断电恢复，以及长期维护的真实成本。',
+    [tags.openTools, tags.digitalSafety],
+  ),
+  post(
+    'demo-community-freelance-ledger',
+    15,
+    2,
+    '从全职工作到自由职业三个月的真实账本',
+    '逐周记录收入波动、客户沟通、工作边界和作息变化，也保留准备不足造成的压力。',
+    [tags.careerGrowth, tags.collaboration],
+  ),
+  post(
+    'demo-community-career-gap',
+    13,
+    2,
+    '职业空窗期如何向家人和招聘方解释',
+    '收集诚实又有边界的表达方式，说明休整、照护、学习或求职中真正完成的事情。',
+    [tags.careerGrowth, tags.collaboration],
+  ),
+  post(
+    'demo-community-cross-functional-review',
+    11,
+    2,
+    '第一次带跨职能项目失败后的复盘',
+    '从目标定义、决策记录和风险升级三个环节复盘，并给出下一次启动会的检查表。',
+    [tags.careerGrowth, tags.collaboration],
+  ),
+  post(
+    'demo-community-emergency-fund',
+    14,
+    5,
+    '建立家庭应急金前的六项检查',
+    '先核对必要支出、收入稳定性、保险缺口、负债和流动性。仅作风险教育，不构成投资建议。',
+    [tags.financialSafety, tags.riskEducation],
+  ),
+  post(
+    'demo-community-index-fund-risk',
+    13,
+    5,
+    '指数基金定投前先确认哪些风险',
+    '讨论波动、费用、跟踪误差和本金损失，并强调根据自己的风险承受能力独立判断。',
+    [tags.financialSafety, tags.riskEducation],
+  ),
+  post(
+    'demo-community-rent-or-buy',
+    16,
+    5,
+    '租房还是买房，先讨论现金流和生活选择',
+    '把通勤、家庭计划、城市流动性、首付占用和压力测试放进同一张讨论表。',
+    [tags.financialSafety, tags.riskEducation],
+  ),
+  post(
+    'demo-community-morning-learning-system',
+    15,
+    3,
+    '我的晨间一小时学习系统运行了半年',
+    '由固定触发、短时专注、主动回忆和每周复盘组成，也记录删掉无效打卡后的变化。',
+    [tags.learningMethods, tags.readingNotes],
+  ),
+  post(
+    'demo-community-reading-template',
+    14,
+    3,
+    '读一本非虚构书的三层笔记模板',
+    '依次记录原文位置、自己的解释和可行动的问题，同时避免让笔记形式超过内容。',
+    [tags.learningMethods, tags.readingNotes],
+  ),
+  post(
+    'demo-community-learning-reset',
+    11,
+    3,
+    '连续学习计划中断后的复盘',
+    '从任务粒度、环境阻力和休息不足找原因，把目标改成每周可恢复的节奏。',
+    [tags.learningMethods, tags.readingNotes],
+  ),
+  post(
+    'demo-community-shared-space-rules',
+    13,
+    4,
+    '合租公共空间怎么制定不伤人的规则',
+    '讨论清洁频率、物品边界、访客和安静时间，把指责改成可以重新协商的约定。',
+    [tags.lifeExperience, tags.healthManagement],
+  ),
+  post(
+    'demo-community-longer-commute-home',
+    16,
+    4,
+    '要不要搬去离公司更远但更舒适的房子',
+    '从通勤、睡眠、租金、社交支持和居住稳定性讨论，不把一种选择当作标准答案。',
+    [tags.lifeExperience, tags.healthManagement],
+  ),
+  post(
+    'demo-community-screen-free-weekend',
+    15,
+    4,
+    '周末无屏幕半天带来的生活观察',
+    '记录四周内注意力、散步和家庭交流的变化，也说明这种安排并不适合所有人。',
+    [tags.lifeExperience, tags.healthManagement],
+  ),
 ]
+
+const demoTechnologyPosts = demoPosts.filter((item) => item.domain === 1)
 
 export const demoContentLists: ContentListSummary[] = [
   {
@@ -95,7 +252,7 @@ export const demoContentLists: ContentListSummary[] = [
     description: '默认保存未整理收藏，当前仅用于本机演示整理入口。',
     visibility: 'private',
     ownerId: 'demo-user',
-    itemCount: 2,
+    itemCount: demoPosts.length,
     items: demoPosts.map((item, index) => ({
       id: `demo-list-read-later-${item.postId}`,
       postId: item.postId,
@@ -119,8 +276,8 @@ export const demoContentLists: ContentListSummary[] = [
     description: '只展示公开且通过治理过滤的内容，当前为本机示例。',
     visibility: 'public',
     ownerId: demoAuthor.uid,
-    itemCount: 2,
-    items: demoPosts.map((item, index) => ({
+    itemCount: demoTechnologyPosts.length,
+    items: demoTechnologyPosts.map((item, index) => ({
       id: `demo-list-public-system-design-${item.postId}`,
       postId: item.postId,
       post: item,
@@ -277,7 +434,7 @@ export const demoCompanyPrep = (company = '字节跳动'): CompanyPrep => ({
   company: company || '字节跳动',
   aliases: [company || '字节跳动', 'ByteDance', '抖音电商'],
   relatedPositionCount: 3,
-  recentPosts: demoPosts,
+  recentPosts: demoPosts.filter((item) => item.domain === 1 || item.domain === 2).slice(0, 6),
   topQuestions: demoQuestions,
   recommendedQuestions: demoQuestions.slice(0, 2),
   topTags: [
@@ -426,28 +583,36 @@ export const demoGrowthProfile: GrowthProfile = {
   strongestDomain: '科技数码',
   emergingDomain: '学习成长',
   nextFocus: '作者主页 demo：继续发布经验分享、攻略清单和资源推荐，系统会汇总公开内容反馈和主页展示线索。',
-  domains: [
-    {
-      domain: 1,
-      domainName: '科技数码',
-      postCount: 2,
-      seriesCount: 1,
-      activeDays: 5,
-      interactionCount: 168,
-      viewCount: 2480,
+  domains: [1, 2, 3, 4, 5].map((domain) => {
+    const posts = demoPosts.filter((item) => item.domain === domain)
+    return {
+      domain,
+      domainName: communityDomainName(domain),
+      postCount: posts.length,
+      seriesCount: domain === 1 ? 1 : 0,
+      activeDays: Math.max(posts.length, 1),
+      interactionCount: posts.reduce(
+        (total, item) => total + item.counter.like + item.counter.comment + item.counter.favorite,
+        0,
+      ),
+      viewCount: posts.reduce((total, item) => total + item.counter.view, 0),
       dimensions: [
-        { key: 'depth', label: '技术深度', score: 82, explanation: '能把 Redis、Kafka 和幂等设计串成完整链路。' },
-        { key: 'review', label: '复盘完整度', score: 76, explanation: '已经包含问题、行动和结果，可继续补充量化指标。' },
+        {
+          key: 'breadth',
+          label: '内容覆盖',
+          score: 72 + posts.length,
+          explanation: `${communityDomainName(domain)}已有经验、讨论或资源样例，可继续补充真实反馈。`,
+        },
       ],
-      representativePosts: demoPosts.map((item) => ({
+      representativePosts: posts.map((item, index) => ({
         postId: item.postId,
         title: item.title,
         domain: item.domain,
         heat: item.counter.view + item.counter.like * 5,
-        featured: true,
+        featured: index === 0,
       })),
-    },
-  ],
+    }
+  }),
 }
 
 export const demoGrowthReport: GrowthReport = {
@@ -455,18 +620,23 @@ export const demoGrowthReport: GrowthReport = {
   days: 7,
   degraded: true,
   degradationReasons: ['local_demo_seed'],
-  publishedPostCount: 2,
+  publishedPostCount: demoPosts.length,
   interactionCount: 168,
   featuredPostCount: 1,
   seriesContributionCount: 1,
-  domainChanges: [
-    { domain: 1, domainName: '科技数码', currentPostCount: 2, previousPostCount: 0, trend: 'up', reason: '新增经验分享和复盘记录各 1 篇。' },
-  ],
+  domainChanges: [1, 2, 3, 4, 5].map((domain) => ({
+    domain,
+    domainName: communityDomainName(domain),
+    currentPostCount: demoPosts.filter((item) => item.domain === domain).length,
+    previousPostCount: 0,
+    trend: 'up' as const,
+    reason: `新增${communityDomainName(domain)}冷启动内容。`,
+  })),
   highlightPosts: demoPosts.map((item) => ({
     postId: item.postId,
     title: item.title,
     domain: item.domain,
-    domainName: '科技数码',
+    domainName: communityDomainName(item.domain),
     interactionCount: item.counter.like + item.counter.comment + item.counter.favorite,
     featured: item.postId === 'demo-post-coupon-stock',
   })),
@@ -483,7 +653,7 @@ export const demoCreatorFeedbackSummary: CreatorFeedbackSummary = {
     {
       days: 7,
       label: '近 7 天',
-      postCount: 2,
+      postCount: demoPosts.length,
       viewCount: 860,
       likeCount: 42,
       favoriteCount: 31,
@@ -494,7 +664,7 @@ export const demoCreatorFeedbackSummary: CreatorFeedbackSummary = {
     {
       days: 30,
       label: '近 30 天',
-      postCount: 2,
+      postCount: demoPosts.length,
       viewCount: 2480,
       likeCount: 96,
       favoriteCount: 54,
@@ -516,7 +686,7 @@ export const demoCreatorTopPosts: CreatorTopPost[] = demoPosts.map((item, index)
   title: item.title,
   summary: item.summary,
   domain: item.domain,
-  domainName: '科技数码',
+  domainName: communityDomainName(item.domain),
   viewCount: item.counter.view,
   likeCount: item.counter.like,
   favoriteCount: item.counter.favorite,
@@ -547,7 +717,7 @@ export const demoCreatorRepresentativePosts: CreatorRepresentativePost[] = demoP
   title: item.title,
   summary: item.summary,
   domain: item.domain,
-  domainName: '科技数码',
+  domainName: communityDomainName(item.domain),
   heat: item.counter.view + item.counter.favorite * 6 + item.counter.comment * 4,
   featured: item.postId === 'demo-post-coupon-stock',
   publicCollectionCount: 1,
@@ -680,7 +850,7 @@ export const demoProfileContribution: ContributionSummary = {
   level: 'L2',
   badge: '作者主页 demo',
   score: 168,
-  postCount: 2,
+  postCount: demoPosts.length,
   featuredCount: 1,
   viewCount: 2480,
   likeCount: 96,

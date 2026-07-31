@@ -1,10 +1,11 @@
 <template>
   <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 flex flex-col items-center text-center">
     <!-- 头像 -->
-    <img
-      :src="user.avatar || 'https://via.placeholder.com/120'"
-      :alt="user.nickname"
-      class="w-16 h-16 rounded-full mb-4 border-2 border-primary-500"
+    <UserAvatar
+      :src="user.avatar"
+      :name="user.nickname"
+      alt=""
+      class="mb-4 h-16 w-16 rounded-full border-2 border-primary-500 text-lg"
     />
 
     <!-- 昵称 + 大V徽章 -->
@@ -68,6 +69,7 @@ import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import type { User } from '@/api/types'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { userApi } from '@/api/user'

@@ -2,6 +2,7 @@ import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { opsApi } from '@/api/ops'
 import { applyPageSeo } from '@/utils/seo'
+import { canAccessWelcomeOnboarding } from '@/utils/welcomeOnboarding'
 import {
   adminPermissionRequirementText,
   createAdminPermissionCache,
@@ -25,36 +26,58 @@ export function setupRouterGuards(router: Router) {
 
     if (authStore.token && !authStore.ready) {
       await authStore.hydrate()
-    } else if (authStore.token && !authStore.user) {
+    } else if (requiresAuth && authStore.token && !authStore.user && !authStore.hydrateFailed) {
       await authStore.hydrate()
     }
 
+    if (requiresAuth && authStore.sessionExpired) {
+      next({ name: 'Login', query: { redirect: to.fullPath, reason: 'session_expired' } })
+      return
+    }
+    if (requiresAuth && authStore.hydrateFailed) {
+      next({ name: 'Login', query: { redirect: to.fullPath, reason: 'hydrate_failed' } })
+      return
+    }
     if (requiresAuth && !authStore.isLoggedIn) {
       next({ name: 'Login', query: { redirect: to.fullPath } })
-    } else {
-      if (adminPermission) {
-        try {
-          const permissions = await adminPermissionCache.getAdminPermissions(authStore.token)
-          if (!hasAdminPermission(permissions, adminPermission)) {
-            next({
-              name: 'Forbidden',
-              query: {
-                from: to.fullPath,
-                role: adminPermissionRequirementText(adminPermission),
-              },
-            })
-            return
-          }
-        } catch (error) {
-          if (isPermissionDeniedError(error)) {
-            adminPermissionCache.invalidateAdminPermissions(authStore.token)
-          }
-          next({ name: 'Forbidden', query: { from: to.fullPath, reason: 'permission_check_failed' } })
+      return
+    }
+    if (
+      to.name === 'Welcome'
+      && !canAccessWelcomeOnboarding(authStore.user?.uid)
+    ) {
+      next({ path: '/' })
+      return
+    }
+
+    if (adminPermission) {
+      try {
+        const permissions = await adminPermissionCache.getAdminPermissions(authStore.token)
+        if (!hasAdminPermission(permissions, adminPermission)) {
+          next({
+            name: 'Forbidden',
+            query: {
+              from: to.fullPath,
+              role: adminPermissionRequirementText(adminPermission),
+              reason: 'permission_denied',
+            },
+          })
           return
         }
+      } catch (error) {
+        adminPermissionCache.invalidateAdminPermissions(authStore.token)
+        next({
+          name: 'Forbidden',
+          query: {
+            from: to.fullPath,
+            role: adminPermissionRequirementText(adminPermission),
+            reason: isPermissionDeniedError(error) ? 'permission_denied' : 'permission_unavailable',
+          },
+        })
+        return
       }
-      next()
     }
+    next()
   })
 
   router.afterEach((to) => {

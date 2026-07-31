@@ -21,7 +21,7 @@ for (const field of [
 }
 assert.match(postApi, /interface PostDraftReq[\s\S]*domain\?:\s*number/, 'PostDraftReq must send explicit draft domain')
 assert.match(postApi, /interface PostDraftReq[\s\S]*anonymous\?:\s*boolean/, 'PostDraftReq must send explicit draft anonymous')
-assert.match(postApi, /domain:\s*normalizeDomain\(\s*raw\?\.domain\s*\?\?\s*extension\?\.domain\s*\)/, 'adaptPostDraft must normalize top-level domain with extJson.domain fallback')
+assert.match(postApi, /domain:\s*isKnownDomain\(\s*raw\?\.domain\s*\?\?\s*extension\?\.domain\s*\)[\s\S]*\?\s*normalizeDomain\(\s*raw\?\.domain\s*\?\?\s*extension\?\.domain\s*\)[\s\S]*:\s*undefined/, 'adaptPostDraft must preserve an unclassified draft when neither top-level nor extJson domain is valid')
 assert.match(postApi, /anonymous:\s*Boolean\(\s*raw\?\.anonymous\s*\?\?\s*extension\?\.anonymous\s*\)/, 'adaptPostDraft must read anonymous from top-level field with extJson fallback')
 assert.match(postApi, /draftId\?: ApiId/, 'post create/update requests must carry draftId')
 assert.match(postApi, /listDrafts/, 'post API must list server drafts')
@@ -62,7 +62,7 @@ assert.match(editor, /domain:\s*selectedDomain\.value/, 'server draft request mu
 assert.match(editor, /anonymous:\s*selectedDomain\.value\s*===\s*DOMAIN\.CAREER\s*\?\s*anonymousCareerPost\.value\s*:\s*false/, 'server draft request must include anonymous only for CAREER')
 assert.match(editor, /domain:\s*selectedDomain\.value[\s\S]*anonymous:\s*selectedDomain\.value\s*===\s*DOMAIN\.CAREER/s, 'server draft extJson must preserve domain and anonymous fallback values')
 assert.match(editor, /applyDraft/, 'editor must apply server drafts into the form')
-assert.match(editor, /normalizeDomain\(\s*draft\.domain\s*\?\?\s*extension\.domain\s*\?\?\s*\(extension\.anonymous\s*\?\s*DOMAIN\.CAREER\s*:\s*DOMAIN\.LIFESTYLE\)\s*\)/, 'server draft restore must prefer explicit domain, fallback to extJson.domain, then community default')
+assert.match(editor, /selectedDomain\.value\s*=\s*resolveOptionalDomain\(\s*draft\.domain\s*\?\?\s*extension\.domain,\s*Boolean\(\s*draft\.anonymous\s*\?\?\s*extension\.anonymous\s*\)\s*\)/, 'server draft restore must prefer explicit domain, fallback to extJson.domain, and otherwise preserve an unclassified draft')
 assert.match(editor, /anonymousCareerPost\.value\s*=\s*selectedDomain\.value\s*===\s*DOMAIN\.CAREER\s*\?\s*Boolean\(\s*draft\.anonymous\s*\?\?\s*extension\.anonymous\s*\)\s*:\s*false/, 'server draft restore must prefer explicit anonymous and fallback to extJson.anonymous')
 assert.match(editor, /draftForm\.extension\?\.domain/, 'local draft restore must fallback to legacy extension.domain')
 assert.match(editor, /loadServerDrafts/, 'editor must load server drafts for new posts')

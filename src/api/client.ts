@@ -2,18 +2,83 @@ import axios, { AxiosError, AxiosInstance } from 'axios'
 import { authTokenStore } from '@/utils/authTokenStore'
 import { useAuthStore } from '@/stores/auth'
 import { safeRedirect } from '@/utils/navigation'
+import { notifySessionExpired } from '@/utils/sessionExpiry'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
     skipAuthRedirect?: boolean
+    authSessionVersion?: number
   }
 }
+
+export type ResultProvenanceSource = 'remote' | 'demo' | 'fallback' | 'unavailable'
 
 export interface Result<T = any> {
   code: number
   message: string
   data: T | null
   traceId?: string
+  source?: ResultProvenanceSource
+  degraded?: boolean
+  fallbackReason?: string
+}
+
+type ResultPayloadProvenance = {
+  source?: unknown
+  degraded?: unknown
+  fallbackReason?: unknown
+  degradationReasons?: unknown
+}
+
+const resultPayloadProvenance = (data: unknown): ResultPayloadProvenance | null => (
+  data != null && typeof data === 'object' && !Array.isArray(data)
+    ? data as ResultPayloadProvenance
+    : null
+)
+
+export const withRemoteResultProvenance = <T>(result: Result<T>): Result<T> => {
+  const metadata = resultPayloadProvenance(result.data)
+  const rawSources = [result.source, metadata?.source].filter((value) => value != null)
+  const sourceTexts = rawSources
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim().toLowerCase())
+  const malformedSource = rawSources.some((value) => (
+    typeof value !== 'string' || !value.trim()
+  ))
+  const rawDegradedMarkers = [result.degraded, metadata?.degraded]
+    .filter((value) => value != null)
+  const malformedDegraded = rawDegradedMarkers.some((value) => typeof value !== 'boolean')
+  const rawFallbackReasons = [result.fallbackReason, metadata?.fallbackReason]
+    .filter((value) => value != null)
+  const malformedFallbackReason = rawFallbackReasons.some((value) => typeof value !== 'string')
+  const fallbackReason = rawFallbackReasons
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .find(Boolean)
+    || (malformedFallbackReason ? 'malformed_payload_fallback_reason' : '')
+  const hasDegradationReasons = metadata?.degradationReasons != null
+    && (!Array.isArray(metadata.degradationReasons) || metadata.degradationReasons.length > 0)
+  const explicitlyNonRemote = sourceTexts.some((value) => value !== 'remote')
+  const degraded = rawDegradedMarkers.some((value) => value === true)
+    || malformedSource
+    || malformedDegraded
+    || explicitlyNonRemote
+    || Boolean(fallbackReason)
+    || hasDegradationReasons
+  const source: ResultProvenanceSource = sourceTexts.some((value) => value.includes('demo'))
+    ? 'demo'
+    : sourceTexts.some((value) => value.includes('unavailable'))
+      ? 'unavailable'
+      : explicitlyNonRemote
+        ? 'fallback'
+        : 'remote'
+
+  return {
+    ...result,
+    source,
+    degraded,
+    ...(fallbackReason ? { fallbackReason } : {}),
+  }
 }
 
 export class BizException extends Error {
@@ -22,11 +87,22 @@ export class BizException extends Error {
     public message: string,
     public traceId?: string,
     public data?: unknown,
+    public status?: number,
   ) {
     super(message)
     this.name = 'BizException'
   }
 }
+
+const isResultPayload = (value: unknown): value is Result<unknown> => {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<Result<unknown>>
+  return typeof candidate.code === 'number'
+    && typeof candidate.message === 'string'
+}
+
+const toBizException = (result: Result<unknown>, status?: number) =>
+  new BizException(result.code, result.message, result.traceId, result.data, status)
 
 const errorMessageMap: Record<number, string> = {
   10001: '参数不正确，请检查填写内容后重试',
@@ -43,6 +119,7 @@ const errorMessageMap: Record<number, string> = {
   20500: '依赖服务暂时不可用，请稍后重试',
   30001: '请勿重复操作',
   30002: '当前状态不允许执行该操作，请刷新后重试',
+  30003: '该内容已被其他管理员修改，请刷新后重试',
   30101: '用户不存在或已注销',
   30102: '该账号已存在，请直接登录',
   30103: '账号或密码不正确',
@@ -57,10 +134,21 @@ const errorMessageMap: Record<number, string> = {
   30602: '当前未收藏',
 }
 
+/**
+ * Trace ID 只用于排查，不进入面向用户的提示文案。
+ * 需要展示给支持人员时使用 getErrorTraceId 单独获取。
+ */
+export function getErrorTraceId(error: unknown): string | undefined {
+  if (error instanceof BizException) return error.traceId
+  if (axios.isAxiosError(error) && isResultPayload(error.response?.data)) {
+    return error.response.data.traceId
+  }
+  return undefined
+}
+
 export function getErrorMessage(error: unknown, fallback = '操作失败') {
   if (error instanceof BizException) {
-    const message = errorMessageMap[error.code] || error.message || fallback
-    return error.traceId ? `${message}（Trace: ${error.traceId}）` : message
+    return errorMessageMap[error.code] || error.message || fallback
   }
   if (axios.isAxiosError(error)) {
     if (error.response?.status === 400) return errorMessageMap[10001]
@@ -80,8 +168,7 @@ export function getErrorMessage(error: unknown, fallback = '操作失败') {
 }
 
 export function getResultMessage(result: Pick<Result, 'message' | 'traceId'> | null | undefined, fallback = '操作失败') {
-  const message = result?.message || fallback
-  return result?.traceId ? `${message}（Trace: ${result.traceId}）` : message
+  return result?.message || fallback
 }
 
 const rawApiBaseURL = (import.meta.env.VITE_API_BASE_URL || '').trim()
@@ -106,23 +193,51 @@ const client: AxiosInstance = axios.create({
   withCredentials: true,
 })
 
-const redirectToLogin = () => {
+let sessionExpiryRedirect: Promise<void> | null = null
+
+const redirectToLogin = async () => {
   if (window.location.pathname === '/login') return
-  const redirect = safeRedirect(`${window.location.pathname}${window.location.search}${window.location.hash}`)
-  const target = redirect && redirect !== '/' ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
-  window.location.assign(target)
+  if (sessionExpiryRedirect) return sessionExpiryRedirect
+  sessionExpiryRedirect = (async () => {
+    const redirect = safeRedirect(`${window.location.pathname}${window.location.search}${window.location.hash}`)
+    // 优先交给已注册的 SPA 处理器（软导航 + 会话过期提示），避免整页硬刷新丢掉
+    // 评论框 / 联系请求等尚未提交的内存态。没有处理器或导航失败时再兜底硬跳。
+    if (await notifySessionExpired({ redirect: redirect && redirect !== '/' ? redirect : '' })) return
+    const target = redirect && redirect !== '/' ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
+    window.location.assign(target)
+  })().finally(() => {
+    sessionExpiryRedirect = null
+  })
+  return sessionExpiryRedirect
 }
+
+// crypto.randomUUID 仅在安全上下文（HTTPS / localhost）可用。局域网 IP、旧 WebView、
+// 部分 App 内置浏览器下为 undefined，若直接调用会导致每个请求在离开浏览器前抛错。
+const safeTraceId = (): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
+}
+
+const currentAuthSessionVersion = () => authTokenStore.getVersion?.() ?? 0
+
+const requestBelongsToCurrentAuthSession = (requestVersion: unknown) =>
+  typeof requestVersion === 'number'
+  && Number.isSafeInteger(requestVersion)
+  && requestVersion >= 0
+  && requestVersion === currentAuthSessionVersion()
 
 // 请求拦截器
 client.interceptors.request.use((config) => {
   const token = authTokenStore.get()
+  config.authSessionVersion = currentAuthSessionVersion()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
 
   // 生成或使用现有的 traceId
-  const traceId = crypto.randomUUID()
-  config.headers['X-Trace-Id'] = traceId
+  config.headers['X-Trace-Id'] = safeTraceId()
 
   return config
 })
@@ -132,20 +247,27 @@ client.interceptors.response.use(
   (response): any => {
     const result = response.data as Result
     if (result.code !== 0) {
-      const error = new BizException(result.code, result.message, result.traceId, result.data)
+      const error = toBizException(result, response.status)
       return Promise.reject(error)
     }
     return result as any
   },
-  (error: AxiosError) => {
-    if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
-      authTokenStore.clear()
+  async (error: AxiosError<Result<unknown>>) => {
+    if (
+      error.response?.status === 401
+      && !error.config?.skipAuthRedirect
+      && requestBelongsToCurrentAuthSession(error.config?.authSessionVersion)
+    ) {
       try {
-        useAuthStore().logout()
+        useAuthStore().expireSession()
       } catch {
-        // Pinia may not be active during very early boot; token cleanup above is still authoritative.
+        // Pinia may not be active during very early boot; token cleanup is still authoritative.
+        authTokenStore.clear()
       }
-      redirectToLogin()
+      await redirectToLogin()
+    }
+    if (isResultPayload(error.response?.data)) {
+      return Promise.reject(toBizException(error.response.data, error.response?.status))
     }
     return Promise.reject(error)
   },

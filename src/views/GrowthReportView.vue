@@ -28,7 +28,7 @@
               成长档案
             </RouterLink>
             <RouterLink to="/certification/apply" class="secondary-action">
-              社区身份
+              认证作者
             </RouterLink>
           </div>
         </div>
@@ -110,7 +110,7 @@
                 >
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
-                      <strong class="truncate text-sm text-slate-900 dark:text-slate-100">{{ change.domainName }}</strong>
+                      <strong class="truncate text-sm text-slate-900 dark:text-slate-100">{{ domainChangeLabel(change) }}</strong>
                       <span :class="['trend-pill', trendClass(change.trend)]">{{ trendLabel(change.trend) }}</span>
                     </div>
                     <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ change.reason }}</p>
@@ -165,7 +165,7 @@
                 class="highlight-card"
               >
                 <div class="flex items-center justify-between gap-3">
-                  <span class="highlight-domain">{{ post.domainName || getDomainLabel(post.domain) }}</span>
+                  <span class="highlight-domain">{{ highlightDomainLabel(post) }}</span>
                   <span v-if="post.featured" class="highlight-flag">精选</span>
                 </div>
                 <h3 class="mt-3 text-base font-black text-slate-950 dark:text-white">{{ post.title }}</h3>
@@ -198,7 +198,7 @@ import { getErrorMessage } from '@/api/client'
 import { growthApi } from '@/api/growth'
 import { useAuthStore } from '@/stores/auth'
 import type { GrowthReport } from '@/api/types'
-import { getDomainLabel } from '@/utils/domains'
+import { getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -213,6 +213,16 @@ const loading = ref(false)
 const error = ref('')
 const report = ref<GrowthReport | null>(null)
 const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
+const highlightDomainLabel = (post: GrowthReport['highlightPosts'][number]) => (
+  isKnownDomain(post.domain)
+    ? post.domainName || getDomainLabelSafe(post.domain)
+    : getDomainLabelSafe(post.domain)
+)
+const domainChangeLabel = (change: GrowthReport['domainChanges'][number]) => (
+  isKnownDomain(change.domain)
+    ? change.domainName || getDomainLabelSafe(change.domain)
+    : getDomainLabelSafe(change.domain)
+)
 const reportDemoNotice = computed(() => report.value?.degradationReasons?.includes('local_demo_seed')
   ? '这些内容是本地样例，用来说明周期报告会如何汇总公开内容，不代表你的真实发布、互动或精选数据。'
   : ''

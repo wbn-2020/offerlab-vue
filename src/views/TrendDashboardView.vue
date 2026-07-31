@@ -168,7 +168,7 @@
               <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">Distribution Ops</p>
               <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">推荐与搜索运营摘要</h2>
               <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                汇总热门搜索、无结果词和推荐入口点击，仅用于内容组织和发现体验观察。
+                汇总热门搜索、无结果词和搜索页推荐动作点击，仅用于内容组织和发现体验观察。
               </p>
             </div>
             <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
@@ -176,7 +176,15 @@
             </span>
           </div>
 
-          <div class="grid gap-4 lg:grid-cols-3">
+          <div
+            v-if="opsSummaryMessage"
+            :class="['ops-summary-notice', `ops-summary-notice--${opsSummaryState}`]"
+            role="status"
+          >
+            {{ opsSummaryMessage }}
+          </div>
+
+          <div v-if="opsSummaryState === 'available' || opsSummaryState === 'degraded'" class="grid gap-4 lg:grid-cols-3">
             <div class="ops-summary-column">
               <h3>热门搜索</h3>
               <button
@@ -193,7 +201,7 @@
             </div>
 
             <div class="ops-summary-column">
-              <h3>推荐入口点击</h3>
+              <h3>搜索页推荐动作点击</h3>
               <button
                 v-for="item in recommendClickRows"
                 :key="`recommend:${item.name}`"
@@ -204,7 +212,7 @@
                 <span>{{ item.name }}</span>
                 <strong>{{ item.count }}</strong>
               </button>
-              <div v-if="!recommendClickRows.length" class="ops-summary-empty">暂无推荐入口数据</div>
+              <div v-if="!recommendClickRows.length" class="ops-summary-empty">暂无搜索页推荐动作点击数据</div>
             </div>
 
             <div class="ops-summary-column">
@@ -258,7 +266,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getErrorMessage } from '@/api/client'
+import { BizException, getErrorMessage } from '@/api/client'
 import { dashboardApi, type RankedMetric, type TrendDashboard, type TrendRange } from '@/api/dashboard'
 import { opsApi, type SearchAnalytics } from '@/api/ops'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -276,7 +284,8 @@ const activeDomain = ref<number | undefined>(undefined)
 const dashboard = ref<TrendDashboard | null>(null)
 const comparisonDashboard = ref<TrendDashboard | null>(null)
 const searchAnalytics = ref<SearchAnalytics | null>(null)
-const opsSummaryError = ref('')
+const opsSummaryState = ref<'loading' | 'available' | 'degraded' | 'restricted' | 'unavailable'>('loading')
+const opsSummaryMessage = ref('')
 const isLoading = ref(false)
 const errorText = ref('')
 const router = useRouter()
@@ -302,7 +311,13 @@ const activeRangeLabel = computed(() => periods.find((period) => period.value ==
 const domainDistribution = computed(() => comparisonDashboard.value?.domainDistribution || [])
 const domainHotContent = computed(() => comparisonDashboard.value?.domainHotContent || [])
 const maxDomainCount = computed(() => Math.max(1, ...domainDistribution.value.map((item) => item.count)))
-const opsSummaryStatusLabel = computed(() => opsSummaryError.value ? '已降级' : '近 30 天')
+const opsSummaryStatusLabel = computed(() => {
+  if (opsSummaryState.value === 'loading') return '加载中'
+  if (opsSummaryState.value === 'degraded') return '兼容降级'
+  if (opsSummaryState.value === 'restricted') return '权限受限'
+  if (opsSummaryState.value === 'unavailable') return '暂不可用'
+  return '近 30 天'
+})
 const analyticsRows = (items: SearchAnalytics['hotKeywords'] | undefined) => {
   const source = items || []
   const visibleNames = filterSearchSuggestionTerms(source.map((item) => item.keyword || item.company || item.target || ''), 8)
@@ -369,30 +384,52 @@ const domainComparisonRows = computed<DomainComparisonRow[]>(() => {
 const loadDashboard = async () => {
   isLoading.value = true
   errorText.value = ''
-  opsSummaryError.value = ''
+  opsSummaryState.value = 'loading'
+  opsSummaryMessage.value = ''
   try {
-    const [selectedRes, comparisonRes, analyticsRes] = await Promise.all([
+    const [selectedRes, comparisonRes] = await Promise.all([
       dashboardApi.getTrendDashboard(activeRange.value, activeDomain.value),
       dashboardApi.getTrendDashboard(activeRange.value),
-      opsApi.searchAnalytics({ days: 30, limit: 8 }),
     ])
     dashboard.value = selectedRes.data
     comparisonDashboard.value = comparisonRes.data
-    searchAnalytics.value = analyticsRes.data
   } catch (error: any) {
     errorText.value = getErrorMessage(error, '趋势数据暂不可用')
     dashboard.value = null
     comparisonDashboard.value = null
-    try {
-      const analyticsRes = await opsApi.searchAnalytics({ days: 30, limit: 8 })
-      searchAnalytics.value = analyticsRes.data
-    } catch (analyticsError: any) {
-      opsSummaryError.value = getErrorMessage(analyticsError, '运营摘要暂不可用')
-      searchAnalytics.value = null
+  }
+
+  try {
+    const analyticsRes = await opsApi.searchAnalytics({ days: 30, limit: 8 })
+    searchAnalytics.value = analyticsRes.data
+    if (analyticsRes.data?.availability === 'degraded') {
+      opsSummaryState.value = 'degraded'
+      opsSummaryMessage.value = analyticsRes.data.degradedReason || '搜索运营统计处于兼容降级状态，当前空列表不代表真实的零数据。'
+    } else {
+      opsSummaryState.value = 'available'
+    }
+  } catch (analyticsError: unknown) {
+    searchAnalytics.value = null
+    if (isOpsAnalyticsRestricted(analyticsError)) {
+      opsSummaryState.value = 'restricted'
+      opsSummaryMessage.value = '搜索运营摘要需要运营权限，当前账号无法查看；此状态不代表没有运营数据。'
+    } else {
+      opsSummaryState.value = 'unavailable'
+      opsSummaryMessage.value = getErrorMessage(analyticsError, '搜索运营摘要暂不可用，当前状态不代表没有运营数据。')
     }
   } finally {
     isLoading.value = false
   }
+}
+
+const isOpsAnalyticsRestricted = (error: unknown) => {
+  if (error instanceof BizException) {
+    return error.code === 10401 || error.code === 10403 || error.status === 401 || error.status === 403
+  }
+  const status = typeof error === 'object' && error !== null && 'response' in error
+    ? (error as { response?: { status?: unknown } }).response?.status
+    : undefined
+  return status === 401 || status === 403
 }
 
 const setRange = (range: TrendRange) => {
@@ -592,6 +629,30 @@ watch([activeRange, activeDomain], loadDashboard)
   color: rgb(15 23 42);
 }
 
+.ops-summary-notice {
+  margin-bottom: 1rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.8rem 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgb(51 65 85);
+}
+
+.ops-summary-notice--degraded {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235);
+  color: rgb(146 64 14);
+}
+
+.ops-summary-notice--restricted,
+.ops-summary-notice--unavailable {
+  border-color: rgb(254 202 202);
+  background: rgb(254 242 242);
+  color: rgb(153 27 27);
+}
+
 .ops-summary-column {
   min-width: 0;
   border-radius: 0.75rem;
@@ -677,6 +738,25 @@ watch([activeRange, activeDomain], loadDashboard)
 .dark .empty-state {
   border-color: rgb(51 65 85);
   color: rgb(148 163 184);
+}
+
+.dark .ops-summary-notice {
+  border-color: rgb(51 65 85);
+  background: rgb(2 6 23 / 0.42);
+  color: rgb(203 213 225);
+}
+
+.dark .ops-summary-notice--degraded {
+  border-color: rgb(180 83 9);
+  background: rgb(120 53 15 / 0.24);
+  color: rgb(253 230 138);
+}
+
+.dark .ops-summary-notice--restricted,
+.dark .ops-summary-notice--unavailable {
+  border-color: rgb(153 27 27);
+  background: rgb(127 29 29 / 0.22);
+  color: rgb(254 202 202);
 }
 
 .dark .domain-comparison-row {

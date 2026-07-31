@@ -135,6 +135,10 @@ has(operationSlotCard, /isOpsOrchestrationCopyAllowed/, 'Public operation slot c
 missing(operationSlotCard, /示例\/fallback|fallback demo|demo\/fallback/i, 'V3 public operation slot empty state must not expose fallback/demo wording.')
 has(adminOperationsView, /canAccessOpsOrchestrationAdmin/, 'Ops orchestration admin page must gate local actions by admin access.')
 has(adminOperationsView, /canMutateOpsOrchestration\(opsPermissions\.value, action as OpsOrchestrationAction\)/, 'Ops orchestration admin page must block publish/offline/rollback before confirmation when action permission is absent.')
-has(adminOperationsView, /runLifecycleAction\(resourceKind, resourceId, action, note, opsPermissions\.value\)/, 'Ops orchestration admin page must pass permissions into lifecycle API guard.')
+has(
+  adminOperationsView,
+  /operationsApi\.runLifecycleAction\(\s*resourceKind,\s*resourceId,\s*action,\s*note,\s*opsPermissions\.value,\s*expectedDraftRevision,\s*\)/,
+  'Ops orchestration admin page must pass permissions and the expected draft revision into the lifecycle API guard.',
+)
 
 console.log('Phase 16 ops orchestration guards passed.')

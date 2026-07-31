@@ -3,10 +3,13 @@ import { existsSync, readFileSync } from 'node:fs'
 
 const exploreView = readFileSync(new URL('../src/views/ExploreView.vue', import.meta.url), 'utf8')
 const domainsApiPath = new URL('../src/api/domains.ts', import.meta.url)
+const domainCatalogPath = new URL('../src/composables/useDomainCatalog.ts', import.meta.url)
 
 assert.equal(existsSync(domainsApiPath), true, 'src/api/domains.ts must exist for stage-2 explore entry fallback handling')
+assert.equal(existsSync(domainCatalogPath), true, 'shared domain catalog must exist')
 
 const domainsApi = readFileSync(domainsApiPath, 'utf8')
+const domainCatalog = readFileSync(domainCatalogPath, 'utf8')
 
 assert.match(
   domainsApi,
@@ -20,13 +23,13 @@ assert.match(
 )
 assert.match(
   exploreView,
-  /from\s+['"]@\/api\/domains['"]/,
-  'ExploreView must import the domains API adapter',
+  /useDomainCatalog/,
+  'ExploreView must consume the shared domain catalog',
 )
 assert.match(
-  exploreView,
-  /DOMAIN_OPTIONS/,
-  'ExploreView must still keep the local domain constant fallback available',
+  domainCatalog,
+  /localDomainConfigs/,
+  'shared domain catalog must keep the local domain fallback available',
 )
 assert.match(
   exploreView,
@@ -50,18 +53,18 @@ assert.match(
 )
 assert.match(
   exploreView,
-  /const loadChannelLatestPosts[\s\S]*Promise\.allSettled\(activeChannelPostTypes\.value\.map[\s\S]*postApi\.list\(\{[\s\S]*type/,
-  'ExploreView must fetch each active channel post type separately before merging latest posts',
+  /const loadChannelLatestPosts[\s\S]*Promise\.allSettled\(activeEntryPostTypes\.value\.map[\s\S]*discoveryApi\.listPublicChannelPosts\(\{[\s\S]*type/,
+  'ExploreView must fetch each active channel or content-form post type through the discovery adapter before merging latest posts',
 )
 assert.match(
   exploreView,
-  /postApi\.list\(\{[\s\S]*size:\s*8[\s\S]*domain:\s*activeDomain\.value[\s\S]*type:\s*activeListType\.value/,
-  'ExploreView must keep the normal latest-post request with active domain and single-type filters',
+  /discoveryApi\.listPublicChannelPosts\(\{[\s\S]*type,[\s\S]*size:\s*6[\s\S]*domain:\s*activeChannelDomain\.value/,
+  'ExploreView must read channel latest posts through the discovery adapter with effective channel-domain filters',
 )
 assert.match(
   exploreView,
-  /dashboardApi\.getTrendDashboard\(\s*['"]30d['"]\s*,\s*activeDomain\.value\s*\)/,
-  'ExploreView must request trend data with the active domain filter',
+  /channelLatestPosts\.value\s*=\s*filterVisiblePosts\(filterPublicContent\(\s*settled[\s\S]*\.flatMap\(/,
+  'ExploreView must merge the public results returned for the active channel or content-form entry',
 )
 
 console.log('stage2 explore entry guard passed')

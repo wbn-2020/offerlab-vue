@@ -11,12 +11,13 @@
               Community Knowledge Explore
             </h1>
             <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Explore public posts, series, topics, tags, and search entries as community knowledge assets. This page only provides public reading suggestions and never creates personal routes or completion requirements.
+              这里是根据当前可见公开内容即时生成的只读知识投影，不是持久化知识库或人工审核关系。页面只提供阅读建议，不创建个人路线或完成要求。
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
             <RouterLink to="/search?sort=hot" class="secondary-action">Search</RouterLink>
             <RouterLink to="/explore" class="secondary-action">Explore</RouterLink>
+            <RouterLink to="/certification/apply" class="secondary-action">认证作者申请</RouterLink>
           </div>
         </div>
       </section>
@@ -51,18 +52,19 @@
         <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <label class="block">
             <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Asset ID</span>
-            <input v-model.trim="filters.assetId" class="filter-input" placeholder="optional" />
+            <input
+              v-model.trim="filters.assetId"
+              class="filter-input"
+              :disabled="!filters.assetType"
+              :placeholder="filters.assetType ? 'optional' : '先选择 Post 或 Series'"
+            />
           </label>
           <label class="block">
-            <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Asset type</span>
+            <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Asset ID type</span>
             <select v-model="filters.assetType" class="filter-input">
-              <option value="">Any type</option>
+              <option value="">No asset ID</option>
               <option value="post">Post</option>
               <option value="series">Series</option>
-              <option value="collection">Collection</option>
-              <option value="topic">Topic</option>
-              <option value="tag">Tag</option>
-              <option value="search_entry">Search entry</option>
             </select>
           </label>
           <label class="block">
@@ -90,7 +92,7 @@
         </div>
 
         <EmptyState
-          v-else-if="!graph || (!graph.assets.length && !graph.paths.length && !visibleGaps.length && !graph.snapshots.length && !graph.nodes.length)"
+          v-else-if="!graph || (!graph.assets.length && !graph.paths.length && !visibleGaps.length && !graph.snapshots.length && !graph.nodes.length && !confirmedRelations.length && !dynamicSuggestions.length)"
           title="No public knowledge assets for this seed"
           description="Try another domain, post, tag, topic, or public asset seed."
         />
@@ -98,14 +100,14 @@
         <div v-else class="space-y-6">
           <section class="grid gap-4 sm:grid-cols-3">
             <article class="surface-card stat-card p-5">
-              <span class="stat-label">公共知识资产 PublicKnowledgeAsset</span>
+              <span class="stat-label">公开内容投影</span>
               <strong>{{ graph.assets.length }}</strong>
-              <p>Formal assets only use active or archived lifecycle states.</p>
+              <p>按请求即时生成，仅用于公开浏览，不代表已持久化资产。</p>
             </article>
             <article class="surface-card stat-card p-5">
-              <span class="stat-label">知识关系 KnowledgeRelation</span>
-              <strong>{{ visibleRelations.length }}</strong>
-              <p>fallback/demo/local-only sources are read-only diagnostics. 只读诊断，不会写入正式资产。</p>
+              <span class="stat-label">已确认关系</span>
+              <strong>{{ confirmedRelations.length }}</strong>
+              <p>仅显示来源和审核状态均明确、且已获批准的关系。</p>
             </article>
             <article class="surface-card stat-card p-5">
               <span class="stat-label">Seed</span>
@@ -123,7 +125,7 @@
             <div class="mb-4">
               <h2 class="text-lg font-black text-slate-950 dark:text-white">公共知识资产 Public Assets</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Source notes, previewSource, and archived state are shown separately from persisted assetStatus.
+                状态和来源仅描述本次公开投影；当前系统尚未持久化知识资产生命周期。
               </p>
             </div>
             <div class="knowledge-asset-grid">
@@ -131,7 +133,7 @@
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="asset-type-chip">{{ assetTypeLabel(asset.assetType) }}</span>
                   <span :class="['asset-state-chip', asset.assetStatus === 'archived' ? 'asset-state-archived' : '']">
-                    {{ asset.assetStatus === 'archived' ? 'archived revisit' : 'active public asset' }}
+                    {{ asset.assetStatus === 'active' ? 'current public projection' : 'public projection status' }}
                   </span>
                   <span v-if="asset.previewSource !== 'remote'" class="asset-readonly-chip">
                     {{ previewSourceLabel(asset.previewSource) }} read-only
@@ -189,21 +191,21 @@
             </article>
 
             <article v-if="graph.snapshots.length" class="surface-card p-6">
-              <h2 class="text-lg font-black text-slate-950 dark:text-white">归档快照 Archived Snapshots</h2>
+              <h2 class="text-lg font-black text-slate-950 dark:text-white">请求时公开投影</h2>
               <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                KnowledgeAssetSnapshot is for public archived or stable assets and does not include drafts, internal notes, or preview tokens.
+                这些对象在每次请求时根据当前公开数据生成，不代表已保存的资产历史；时间字段仅表示本次响应时间。
               </p>
               <div class="mt-4 space-y-3">
                 <div v-for="snapshot in graph.snapshots" :key="snapshot.snapshotId" class="knowledge-gap-row">
                   <strong>{{ snapshot.title }}</strong>
                   <p>{{ snapshot.summary || snapshot.sourceNote }}</p>
-                  <small>archivedAt: {{ snapshot.archivedAt || 'not provided' }}</small>
+                  <small>responseTime: {{ snapshot.archivedAt || 'not provided' }}</small>
                 </div>
               </div>
             </article>
           </section>
 
-          <section v-if="groupedNodes.length || visibleRelations.length || graph.edges.length" class="grid gap-6 xl:grid-cols-[1fr_1fr]">
+          <section v-if="groupedNodes.length || confirmedRelations.length || dynamicSuggestions.length" class="grid gap-6 xl:grid-cols-[1fr_1fr]">
             <article v-if="groupedNodes.length" class="surface-card p-6">
               <h2 class="text-lg font-black text-slate-950 dark:text-white">Graph Nodes</h2>
               <div class="mt-4 space-y-4">
@@ -224,30 +226,53 @@
               </div>
             </article>
 
-            <article class="surface-card p-6">
-              <h2 class="text-lg font-black text-slate-950 dark:text-white">Relations</h2>
+            <article v-if="confirmedRelations.length || dynamicSuggestions.length" class="surface-card p-6">
+              <h2 class="text-lg font-black text-slate-950 dark:text-white">Relation Evidence</h2>
               <div class="mt-4 space-y-3">
-                <div v-for="relation in visibleRelations" :key="relation.relationId" class="edge-row">
-                  <div class="min-w-0 flex-1">
-                    <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {{ relation.sourceAssetId }} -> {{ relation.targetAssetId }}
+                <div v-if="confirmedRelations.length" class="relation-group">
+                  <h3>Confirmed relations</h3>
+                  <p>Approved relations with an explicit source.</p>
+                  <div v-for="relation in confirmedRelations" :key="relation.relationId" class="edge-row">
+                    <div class="min-w-0 flex-1">
+                      <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {{ relation.sourceAssetId }} -> {{ relation.targetAssetId }}
+                      </div>
+                      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {{ relation.reasonText }}
+                      </p>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {{ relation.reasonText }}
-                    </p>
+                    <span class="relation-chip">{{ relationLabel(relation.relationType) }}</span>
                   </div>
-                  <span class="relation-chip">{{ relationLabel(relation.relationType) }}</span>
                 </div>
-                <div v-for="edge in graph.edges" :key="edgeKey(edge)" class="edge-row">
-                  <div class="min-w-0 flex-1">
-                    <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {{ nodeLabel(edge.source) }} -> {{ nodeLabel(edge.target) }}
+                <div v-if="suggestedDynamicRelations.length" class="relation-group">
+                  <h3>Suggested dynamic relations</h3>
+                  <p>Read-only suggestions. They are not confirmed facts.</p>
+                  <div v-for="relation in suggestedDynamicRelations" :key="relation.relationId" class="edge-row">
+                    <div class="min-w-0 flex-1">
+                      <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {{ nodeLabel(relation.sourceAssetId) }} -> {{ nodeLabel(relation.targetAssetId) }}
+                      </div>
+                      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {{ relation.degradedReason || relation.reasonText }}
+                      </p>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {{ relationLabel(edge.relation) }} / weight {{ edge.weight }}
-                    </p>
+                    <span class="relation-chip">SUGGESTED</span>
                   </div>
-                  <span class="relation-chip">{{ edge.relation }}</span>
+                </div>
+                <div v-if="degradedRelations.length" class="relation-group relation-degraded-note">
+                  <h3>Degraded relation state</h3>
+                  <p>Review or source evidence is unavailable. These records are never treated as confirmed facts.</p>
+                  <div v-for="relation in degradedRelations" :key="relation.relationId" class="edge-row">
+                    <div class="min-w-0 flex-1">
+                      <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {{ nodeLabel(relation.sourceAssetId) }} -> {{ nodeLabel(relation.targetAssetId) }}
+                      </div>
+                      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {{ relation.degradedReason || relation.reasonText }}
+                      </p>
+                    </div>
+                    <span class="relation-chip relation-chip-degraded">DEGRADED</span>
+                  </div>
                 </div>
               </div>
             </article>
@@ -268,14 +293,14 @@ import { getErrorMessage } from '@/api/client'
 import { localDomainConfigs } from '@/api/domains'
 import {
   isDispatchableKnowledgeGap,
-  isPersistableKnowledgeRelation,
+  isConfirmedKnowledgeRelation,
   knowledgeApi,
   type KnowledgeAssetType,
   type KnowledgeExploreResponse,
   type KnowledgeGap,
   type KnowledgePreviewSource,
 } from '@/api/knowledge'
-import type { KnowledgeRelationEdge, KnowledgeRelationNode } from '@/api/types'
+import type { KnowledgeRelationNode } from '@/api/types'
 import { DOMAIN, getDomainLabel } from '@/utils/domains'
 
 interface KnowledgeExploreFilters {
@@ -343,6 +368,16 @@ const relationLabel = (relation: string) => {
       return 'fills gap'
     case 'search_entry':
       return 'search entry'
+    case 'duplicate_of':
+      return 'duplicate of'
+    case 'supersedes':
+      return 'supersedes'
+    case 'supplements':
+      return 'supplements'
+    case 'prerequisite_of':
+      return 'prerequisite of'
+    case 'contradicts':
+      return 'contradicts'
     default:
       return relation
   }
@@ -364,7 +399,10 @@ const groupedNodes = computed(() => {
 
 const nodeMap = computed(() => new Map((graph.value?.nodes || []).map((item) => [item.key, item])))
 const nodeLabel = (key: string) => nodeMap.value.get(key)?.label || key
-const visibleRelations = computed(() => (graph.value?.relations || []).filter((relation) => isPersistableKnowledgeRelation(relation)))
+const confirmedRelations = computed(() => (graph.value?.confirmedRelations || []).filter(isConfirmedKnowledgeRelation))
+const dynamicSuggestions = computed(() => graph.value?.dynamicSuggestions || [])
+const suggestedDynamicRelations = computed(() => dynamicSuggestions.value.filter((relation) => relation.relationState === 'SUGGESTED'))
+const degradedRelations = computed(() => dynamicSuggestions.value.filter((relation) => relation.relationState === 'DEGRADED'))
 const visibleGaps = computed(() => (graph.value?.gaps || []).filter((gap: KnowledgeGap) => isDispatchableKnowledgeGap(gap)))
 const responseStateCopy = computed(() => {
   if (!graph.value) return ''
@@ -391,7 +429,7 @@ const normalizePositiveInt = (value: unknown, fallback = 0) => {
   return Number.isFinite(next) && next > 0 ? Math.round(next) : fallback
 }
 
-const knowledgeAssetTypes: readonly KnowledgeAssetType[] = ['post', 'series', 'collection', 'topic', 'tag', 'search_entry']
+const knowledgeAssetTypes: readonly KnowledgeAssetType[] = ['post', 'series']
 const normalizeAssetType = (value: unknown): KnowledgeAssetType | '' => (
   typeof value === 'string' && knowledgeAssetTypes.includes(value as KnowledgeAssetType)
     ? value as KnowledgeAssetType
@@ -400,8 +438,8 @@ const normalizeAssetType = (value: unknown): KnowledgeAssetType | '' => (
 
 const syncFromRoute = () => {
   filters.domain = normalizePositiveInt(route.query.domain, DOMAIN.TECH)
-  filters.assetId = typeof route.query.assetId === 'string' ? route.query.assetId : ''
   filters.assetType = normalizeAssetType(route.query.assetType)
+  filters.assetId = filters.assetType && typeof route.query.assetId === 'string' ? route.query.assetId : ''
   filters.postId = typeof route.query.postId === 'string' ? route.query.postId : ''
   filters.tagId = typeof route.query.tagId === 'string' ? route.query.tagId : ''
   filters.topicId = typeof route.query.topicId === 'string' ? route.query.topicId : ''
@@ -410,7 +448,7 @@ const syncFromRoute = () => {
 
 const queryFromFilters = () => ({
   ...(filters.domain ? { domain: String(filters.domain) } : {}),
-  ...(filters.assetId ? { assetId: filters.assetId } : {}),
+  ...(filters.assetType && filters.assetId ? { assetId: filters.assetId } : {}),
   ...(filters.assetType ? { assetType: filters.assetType } : {}),
   ...(filters.postId ? { postId: filters.postId } : {}),
   ...(filters.tagId ? { tagId: filters.tagId } : {}),
@@ -422,9 +460,9 @@ const loadGraph = async () => {
   loading.value = true
   error.value = ''
   try {
-    const res = await knowledgeApi.assets({
+    const res = await knowledgeApi.explore({
       domain: filters.domain || undefined,
-      assetId: filters.assetId || undefined,
+      assetId: filters.assetType && filters.assetId ? filters.assetId : undefined,
       assetType: filters.assetType || undefined,
       postId: filters.postId || undefined,
       tagId: filters.tagId || undefined,
@@ -456,7 +494,6 @@ const resetFilters = async () => {
 }
 
 const nodeIdentity = (key: string, fallback: string) => key.split(':')[1] || fallback
-const edgeKey = (edge: KnowledgeRelationEdge) => `${edge.source}->${edge.target}:${edge.relation}`
 const nodeRoute = (node: KnowledgeRelationNode) => {
   const identity = encodeURIComponent(nodeIdentity(node.key, node.label))
   if (!identity) return ''
@@ -600,6 +637,35 @@ watch(() => route.fullPath, async () => {
   font-size: 0.875rem;
 }
 
+.relation-group {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.relation-group h3 {
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  font-weight: 900;
+}
+
+.relation-group > p,
+.relation-degraded-note {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: rgb(100 116 139);
+}
+
+.relation-degraded-note {
+  border: 1px solid rgb(253 186 116);
+  border-radius: 0.5rem;
+  background: rgb(255 247 237);
+  padding: 0.75rem;
+}
+
+.relation-chip-degraded {
+  background: rgb(255 237 213);
+  color: rgb(154 52 18);
+}
 .edge-row {
   display: flex;
   align-items: center;
@@ -620,7 +686,8 @@ watch(() => route.fullPath, async () => {
 .dark .knowledge-state-banner strong,
 .dark .knowledge-asset-card h3,
 .dark .knowledge-path-row strong,
-.dark .knowledge-gap-row strong {
+.dark .knowledge-gap-row strong,
+.dark .relation-group h3 {
   color: rgb(241 245 249);
 }
 
@@ -650,5 +717,15 @@ watch(() => route.fullPath, async () => {
 .dark .relation-chip {
   background: rgb(30 41 59);
   color: rgb(203 213 225);
+}
+
+.dark .relation-group > p,
+.dark .relation-degraded-note {
+  color: rgb(148 163 184);
+}
+
+.dark .relation-degraded-note {
+  border-color: rgb(154 52 18);
+  background: rgb(67 20 7);
 }
 </style>

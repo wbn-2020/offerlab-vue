@@ -1,10 +1,4 @@
 import client, { BizException, type Result } from './client'
-import {
-  demoCreatorFeedbackSummary,
-  demoCreatorGrowthWorkspace,
-  demoCreatorRepresentativePosts,
-  demoCreatorTopicIdeas,
-} from '@/data/demoSeeds'
 import { isPublicPostVisible } from '@/utils/recommendationGovernance'
 import { adaptId } from './adapters'
 import type {
@@ -22,6 +16,8 @@ import type {
   CreatorTopPost,
   CreatorTopicEditorQuery,
   CreatorTopicIdea,
+  CreatorTrustedContentMetrics,
+  CreatorTrustedContentTaskItem,
   CreatorWorkspaceAction,
   CreatorWorkspaceSummary,
   CreatorWorkspaceSource,
@@ -35,6 +31,93 @@ const safeText = (value: unknown, fallback = '') => {
   if (typeof value !== 'string') return fallback
   const next = value.trim()
   return next || fallback
+}
+
+type CreatorTrustedContentContract = CreatorTrustedContentMetrics & {
+  degraded: boolean
+  fallbackReason?: string
+}
+
+const TRUSTED_CONTENT_CONTRACT_MISSING = 'trusted_content_contract_missing'
+const TRUSTED_CONTENT_CONTRACT_INVALID = 'trusted_content_contract_invalid'
+const TRUSTED_CONTENT_METRIC_FIELDS = [
+  'pendingSuggestions',
+  'freshnessAwaitingConfirmation',
+  'profileConfirmationDue',
+  'unresolvedQuestions',
+  'usefulFeedback7Days',
+  'usefulFeedback30Days',
+  'effectiveReads7Days',
+  'effectiveReads30Days',
+] as const
+type CreatorTrustedContentMetricField = (typeof TRUSTED_CONTENT_METRIC_FIELDS)[number]
+
+const trustedContentMetric = (value: unknown) => {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  if (typeof value === 'string' && !value.trim()) return undefined
+  const metric = Number(value)
+  return Number.isSafeInteger(metric) && metric >= 0 ? metric : undefined
+}
+
+const trustedContentTaskItems = (value: unknown): CreatorTrustedContentTaskItem[] => {
+  if (!Array.isArray(value)) return []
+  return value.slice(0, 5).flatMap((raw: any, index) => {
+    const postId = adaptId(raw?.postId)
+    if (!postId) return []
+    const href = safeSameSitePath(raw?.href) || `/post/${postId}`
+    return [{
+      id: adaptId(raw?.id ?? raw?.suggestionId ?? `${postId}-${index}`),
+      postId,
+      postTitle: safeText(raw?.postTitle, '未命名公开内容'),
+      status: safeText(raw?.status) || undefined,
+      statusLabel: safeText(raw?.statusLabel ?? raw?.status ?? raw?.type, '待处理'),
+      type: safeText(raw?.type) || undefined,
+      href,
+      suggestionId: raw?.suggestionId == null ? undefined : adaptId(raw.suggestionId),
+      createdAt: raw?.createdAt == null ? undefined : toTimestamp(raw.createdAt),
+      updatedAt: raw?.updatedAt == null ? undefined : toTimestamp(raw.updatedAt),
+      submittedAt: raw?.submittedAt == null ? undefined : toTimestamp(raw.submittedAt),
+    }]
+  })
+}
+
+const adaptCreatorTrustedContent = (raw: any): CreatorTrustedContentContract => {
+  const contractMissing = raw == null || typeof raw !== 'object' || Array.isArray(raw)
+  const metrics: Record<CreatorTrustedContentMetricField, number | undefined> = {
+    pendingSuggestions: trustedContentMetric(raw?.pendingSuggestions),
+    freshnessAwaitingConfirmation: trustedContentMetric(raw?.freshnessAwaitingConfirmation),
+    profileConfirmationDue: trustedContentMetric(raw?.profileConfirmationDue),
+    unresolvedQuestions: trustedContentMetric(raw?.unresolvedQuestions),
+    usefulFeedback7Days: trustedContentMetric(raw?.usefulFeedback7Days),
+    usefulFeedback30Days: trustedContentMetric(raw?.usefulFeedback30Days),
+    effectiveReads7Days: trustedContentMetric(raw?.effectiveReads7Days),
+    effectiveReads30Days: trustedContentMetric(raw?.effectiveReads30Days),
+  }
+  const invalidMetricFields = TRUSTED_CONTENT_METRIC_FIELDS.filter((field) => metrics[field] == null)
+  const declaredFallbackReason = contractMissing ? '' : safeText(raw?.fallbackReason)
+  const degraded = contractMissing
+    || truthyFlag(raw?.degraded)
+    || invalidMetricFields.length > 0
+    || Boolean(declaredFallbackReason)
+  const fallbackReason = contractMissing
+    ? TRUSTED_CONTENT_CONTRACT_MISSING
+    : declaredFallbackReason || (degraded ? TRUSTED_CONTENT_CONTRACT_INVALID : undefined)
+  return {
+    degraded: degraded,
+    fallbackReason,
+    pendingSuggestions: metrics.pendingSuggestions ?? 0,
+    freshnessAwaitingConfirmation: metrics.freshnessAwaitingConfirmation ?? 0,
+    profileConfirmationDue: metrics.profileConfirmationDue ?? 0,
+    unresolvedQuestions: metrics.unresolvedQuestions ?? 0,
+    usefulFeedback7Days: metrics.usefulFeedback7Days ?? 0,
+    usefulFeedback30Days: metrics.usefulFeedback30Days ?? 0,
+    effectiveReads7Days: metrics.effectiveReads7Days ?? 0,
+    effectiveReads30Days: metrics.effectiveReads30Days ?? 0,
+    pendingSuggestionItems: trustedContentTaskItems(raw?.pendingSuggestionItems),
+    freshnessItems: trustedContentTaskItems(raw?.freshnessItems),
+    profileConfirmationItems: trustedContentTaskItems(raw?.profileConfirmationItems),
+    pendingQuestionItems: trustedContentTaskItems(raw?.pendingQuestionItems),
+  }
 }
 
 const textBlockers = [
@@ -314,7 +397,6 @@ export const adaptCreatorCurationFeedback = (raw: any): CreatorCurationFeedback 
     raw?.placementLabel ?? topicTitle ?? sectionTitle ?? raw?.slotName,
     topicSlug ? `专题 ${topicSlug}` : '公开内容收录',
   )
-  const triggeredAt = toTimestamp(raw?.triggeredAt ?? raw?.includedAt ?? raw?.createdAt ?? raw?.createTime, Date.now())
   return {
     eventId: adaptId(raw?.eventId ?? raw?.id ?? `${contentId}:${raw?.triggeredAt ?? raw?.createdAt ?? ''}`),
     contentId,
@@ -328,8 +410,8 @@ export const adaptCreatorCurationFeedback = (raw: any): CreatorCurationFeedback 
     sectionTitle: sectionTitle || sectionKey || undefined,
     reasonText: safeCurationText(raw?.reasonText ?? raw?.curationReason ?? raw?.reason, '运营收录理由暂未返回'),
     href: safeSameSitePath(raw?.href ?? raw?.targetPath ?? raw?.jumpPath ?? (contentId ? `/post/${contentId}` : undefined)),
-    triggeredAt,
-    includedAt: triggeredAt,
+    triggeredAt: toTimestamp(raw?.triggeredAt ?? raw?.includedAt ?? raw?.createdAt ?? raw?.createTime, Date.now()),
+    includedAt: toTimestamp(raw?.includedAt ?? raw?.triggeredAt ?? raw?.createdAt ?? raw?.createTime, Date.now()),
     status: normalizeCreatorCurationFeedbackStatus(raw),
     source,
     displayableSource,
@@ -747,6 +829,14 @@ export const emptyCreatorGrowthWorkspace = (
   const curationFeedback: CreatorCurationFeedback[] = []
   const topicIdeas: CreatorTopicIdea[] = []
   const searchGaps: CreatorSearchGap[] = []
+  const trustedContent = adaptCreatorTrustedContent(undefined)
+  const degradationReasons = [fallbackReason]
+  if (
+    trustedContent.fallbackReason
+    && !degradationReasons.includes(trustedContent.fallbackReason)
+  ) {
+    degradationReasons.push(trustedContent.fallbackReason)
+  }
   const updatedAt = Date.now()
   const summary = adaptCreatorWorkspaceSummary(
     { copy: source === 'demo' ? '示例反馈只说明结构，不承诺曝光效果。' : '发布公开内容后，这里会展示公开反馈概览。' },
@@ -762,9 +852,9 @@ export const emptyCreatorGrowthWorkspace = (
     source,
     updatedAt,
     periodDays: 30,
-    degraded: source !== 'remote',
+    degraded: trustedContent.degraded || source === 'fallback' || source === 'demo',
     fallbackReason,
-    degradationReasons: [fallbackReason],
+    degradationReasons,
     summary,
     maintainablePosts: [],
     curationFeedback: curationFeedback,
@@ -775,6 +865,7 @@ export const emptyCreatorGrowthWorkspace = (
     representativePosts: [],
     topicIdeas,
     searchGaps,
+    trustedContent,
     incentiveCopy: adaptCreatorIncentiveCopy({}),
   }
 }
@@ -803,11 +894,22 @@ export const adaptCreatorGrowthWorkspace = (raw: any): CreatorGrowthWorkspace =>
   const searchGaps = toList(raw?.searchGaps ?? raw?.creatorSearchGaps ?? raw?.aggregatedSearchGaps, adaptCreatorSearchGap)
     .filter((item) => Boolean(item.keyword && item.reasonText))
     .slice(0, 6)
+  const trustedContent = adaptCreatorTrustedContent(raw?.trustedContent ?? raw?.trustedContentMetrics)
   const hasData = workspaceHasData(feedbackSummary, maintainablePosts, curationFeedback, replyOpportunities, representativePosts, topicIdeas, searchGaps)
   const source = normalizeCreatorWorkspaceSource(raw?.source, hasData ? 'remote' : 'empty')
-  const fallbackReason = safeText(raw?.fallbackReason) || (source === 'empty' ? 'empty_response' : undefined)
+  const sourceDegraded = source === 'fallback' || source === 'demo'
+  const fallbackReason = safeText(raw?.fallbackReason)
+    || (trustedContent.degraded ? trustedContent.fallbackReason : undefined)
+    || (source === 'empty' ? 'empty_response' : undefined)
   const degradationReasons = adaptStringList(raw?.degradationReasons)
   if (fallbackReason && !degradationReasons.includes(fallbackReason)) degradationReasons.push(fallbackReason)
+  if (
+    trustedContent.degraded
+    && trustedContent.fallbackReason
+    && !degradationReasons.includes(trustedContent.fallbackReason)
+  ) {
+    degradationReasons.push(trustedContent.fallbackReason)
+  }
   const summary = adaptCreatorWorkspaceSummary(
     raw?.summary,
     periodDays,
@@ -822,7 +924,7 @@ export const adaptCreatorGrowthWorkspace = (raw: any): CreatorGrowthWorkspace =>
     source,
     updatedAt,
     periodDays,
-    degraded: Boolean(raw?.degraded) || source !== 'remote',
+    degraded: truthyFlag(raw?.degraded) || trustedContent.degraded || sourceDegraded,
     fallbackReason,
     degradationReasons,
     summary,
@@ -835,6 +937,7 @@ export const adaptCreatorGrowthWorkspace = (raw: any): CreatorGrowthWorkspace =>
     representativePosts,
     topicIdeas,
     searchGaps,
+    trustedContent,
     incentiveCopy: adaptCreatorIncentiveCopy(raw?.incentiveCopy ?? raw?.nonPaymentIncentiveCopy),
   }
 }
@@ -845,10 +948,12 @@ const localDemoResult = <T>(data: T): Result<T> => ({
   data,
 })
 
+const loadDemoSeeds = () => import('@/data/demoSeeds')
+
 export const isDemoFallbackEnabled = () => {
   const env = import.meta.env
   return Boolean(
-    env.DEV
+    env.VITE_OFFERLAB_ALLOW_LOCAL_DEMO === 'true'
     || env.VITE_OFFERLAB_DEMO_FALLBACK === 'true'
     || env.VITE_OFFERLAB_USE_DEMO === 'true',
   )
@@ -870,7 +975,6 @@ export const creatorFeedbackApi = {
     try {
       const res = await client.get('/api/v1/creator-growth/feedback-summary', {
         params: { days },
-        skipAuthRedirect: true,
       }) as Result<any>
       return {
         ...res,
@@ -878,6 +982,8 @@ export const creatorFeedbackApi = {
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoCreatorFeedbackSummary, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorFeedbackSummary)
       }
       throw error
@@ -886,15 +992,15 @@ export const creatorFeedbackApi = {
 
   getWorkspace: async (): Promise<Result<CreatorGrowthWorkspace>> => {
     try {
-      const res = await client.get('/api/v1/creator-growth/workspace', {
-        skipAuthRedirect: true,
-      }) as Result<any>
+      const res = await client.get('/api/v1/creator-growth/workspace') as Result<any>
       return {
         ...res,
         data: res.data ? adaptCreatorGrowthWorkspace(res.data) : emptyCreatorGrowthWorkspace('empty_response', 'empty'),
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoCreatorGrowthWorkspace, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorGrowthWorkspace)
       }
       throw error
@@ -903,15 +1009,15 @@ export const creatorFeedbackApi = {
 
   getTopicIdeas: async (): Promise<Result<CreatorTopicIdea[]>> => {
     try {
-      const res = await client.get('/api/v1/creator-growth/topic-ideas', {
-        skipAuthRedirect: true,
-      }) as Result<any>
+      const res = await client.get('/api/v1/creator-growth/topic-ideas') as Result<any>
       return {
         ...res,
         data: Array.isArray(res.data) ? res.data.map(adaptCreatorTopicIdea) : [],
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoCreatorTopicIdeas, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorTopicIdeas)
       }
       throw error
@@ -920,15 +1026,15 @@ export const creatorFeedbackApi = {
 
   getRepresentativePosts: async (): Promise<Result<CreatorRepresentativePost[]>> => {
     try {
-      const res = await client.get('/api/v1/creator-growth/representative-posts', {
-        skipAuthRedirect: true,
-      }) as Result<any>
+      const res = await client.get('/api/v1/creator-growth/representative-posts') as Result<any>
       return {
         ...res,
         data: toVisibleCreatorPostList(res.data, adaptCreatorRepresentativePost),
       }
     } catch (error) {
       if (shouldUseDemoFallback(error)) {
+        const { demoCreatorRepresentativePosts, isLocalDemoSeedAllowed } = await loadDemoSeeds()
+        if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorRepresentativePosts)
       }
       throw error
@@ -945,9 +1051,7 @@ export const creatorFeedbackApi = {
 
   getCurationFeedbackSummary: async (): Promise<Result<CreatorCurationFeedbackSummary>> => {
     try {
-      const res = await client.get('/api/v1/creator-growth/curation-feedback', {
-        skipAuthRedirect: true,
-      }) as Result<any>
+      const res = await client.get('/api/v1/creator-growth/curation-feedback') as Result<any>
       return {
         ...res,
         data: res.data ? adaptCreatorCurationFeedbackSummary(res.data) : emptyCreatorCurationFeedbackSummary('empty_response', 'empty'),

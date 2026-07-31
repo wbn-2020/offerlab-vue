@@ -53,6 +53,7 @@
             @copy-report="copyInterviewReport"
             @download-report="downloadInterviewReport"
             @toggle-ai-review="aiReviewEnabled = $event"
+            @update-draft="updateDraftAnswer"
             @mark-weak-questions-review="markWeakQuestionsForReview"
             @save-answer-cards="saveMockAnswersAsAnswerCards"
             @retry-ai-review="retryAiReview"
@@ -82,6 +83,7 @@ import { filterPublicContent } from '@/utils/textQuality'
 
 type DraftAnswer = { answerText: string; selfReview: string; score: number }
 type StoredInterviewDraft = { elapsedSeconds?: number; answers?: Record<string, DraftAnswer> }
+const MOCK_INTERVIEW_DRAFT_TTL = 7 * 24 * 60 * 60 * 1000
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -96,6 +98,20 @@ const currentSession = ref<MockInterviewSession | null>(null)
 const recentSessions = ref<MockInterviewSession[]>([])
 const stats = ref<MockInterviewStats | null>(null)
 const draftAnswers = reactive<Record<string, DraftAnswer>>({})
+
+const updateDraftAnswer = (
+  questionId: string,
+  field: keyof DraftAnswer,
+  value: string | number,
+) => {
+  const draft = draftAnswers[questionId]
+  if (!draft) return
+  if (field === 'score') {
+    draft.score = Number(value)
+    return
+  }
+  draft[field] = String(value)
+}
 const startedAt = ref(Date.now())
 const elapsedSeconds = ref(0)
 const isStarting = ref(false)
@@ -114,8 +130,16 @@ let draftSaveInFlight = false
 let pendingServerDraft = false
 let lastServerDraftPayload = ''
 let aiReviewPollTimer: ReturnType<typeof setTimeout> | null = null
+let draftStorageWarningShown = false
+let disposed = false
 
 const draftStorageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
+const draftStorageOptions = (owner = draftStorageOwner.value) => ({
+  owner,
+  namespace: 'mock-interview-draft',
+  ttlMs: MOCK_INTERVIEW_DRAFT_TTL,
+  maxEntryBytes: 500_000,
+})
 const answeredCount = computed(() => Object.values(draftAnswers).filter((item) => item.answerText.trim()).length)
 const totalScore = computed(() => Object.values(draftAnswers).reduce((sum, item) => sum + (item.answerText.trim() ? Number(item.score || 0) : 0), 0))
 const elapsedText = computed(() => formatDuration(currentSession.value?.status === 'completed' ? currentSession.value.durationSeconds : elapsedSeconds.value))
@@ -291,22 +315,22 @@ const submitInterview = async () => {
 }
 
 const refreshCurrentSession = async () => {
-  if (!currentSession.value) return
+  if (disposed || !currentSession.value) return
   const sessionId = currentSession.value.id
   try {
     const res = await questionApi.mockInterviewDetail(sessionId)
-    if (res.data && currentSession.value?.id === sessionId) {
+    if (!disposed && res.data && currentSession.value?.id === sessionId) {
       currentSession.value = res.data
       hydrateDrafts(res.data)
     }
   } finally {
-    scheduleAiReviewRefresh()
+    if (!disposed && currentSession.value?.id === sessionId) scheduleAiReviewRefresh()
   }
 }
 
 const scheduleAiReviewRefresh = () => {
   stopAiReviewRefresh()
-  if (!hasPendingAiReview.value) return
+  if (disposed || !hasPendingAiReview.value) return
   aiReviewPollTimer = setTimeout(refreshCurrentSession, 3000)
 }
 
@@ -486,7 +510,7 @@ const isStoredDraft = (value: any): value is StoredInterviewDraft => {
 
 const readStoredDraft = (sessionId: string | number): StoredInterviewDraft | null => {
   try {
-    const parsed = JSON.parse(safeStorage.get(draftStorageKey(sessionId)) || 'null')
+    const parsed = JSON.parse(safeStorage.getDraft(draftStorageKey(sessionId), draftStorageOptions()) || 'null')
     return isStoredDraft(parsed) ? parsed : null
   } catch {
     return null
@@ -494,11 +518,21 @@ const readStoredDraft = (sessionId: string | number): StoredInterviewDraft | nul
 }
 
 const saveCurrentDraft = () => {
-  if (!currentSession.value || currentSession.value.status !== 'started') return
-  safeStorage.set(draftStorageKey(currentSession.value.id), JSON.stringify({
+  if (
+    !currentSession.value
+    || currentSession.value.status !== 'started'
+    || draftStorageOwner.value === 'guest'
+  ) return
+  const result = safeStorage.setDraft(draftStorageKey(currentSession.value.id), JSON.stringify({
     elapsedSeconds: elapsedSeconds.value,
     answers: draftAnswers,
-  }))
+  }), draftStorageOptions())
+  if (!result.ok && !draftStorageWarningShown) {
+    draftStorageWarningShown = true
+    toast.warning('本地复盘草稿空间不足或不可用，请保持网络连接以同步草稿。')
+  } else if (result.ok) {
+    draftStorageWarningShown = false
+  }
 }
 
 const saveCurrentDraftToServer = async () => {
@@ -546,6 +580,7 @@ const syncStartFormFromRoute = () => {
 }
 
 onMounted(() => {
+  disposed = false
   syncStartFormFromRoute()
   loadRecent()
   loadStats()
@@ -558,6 +593,13 @@ onMounted(() => {
 
 watch(draftAnswers, saveCurrentDraft, { deep: true })
 
+watch(draftStorageOwner, (nextOwner, prevOwner) => {
+  if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
+    safeStorage.clearSensitive(prevOwner)
+  }
+  draftStorageWarningShown = false
+})
+
 watch(elapsedSeconds, (value) => {
   if (value % 15 === 0) {
     saveCurrentDraft()
@@ -566,6 +608,8 @@ watch(elapsedSeconds, (value) => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
+  selectRequestId += 1
   saveCurrentDraft()
   saveCurrentDraftToServer()
   stopAiReviewRefresh()

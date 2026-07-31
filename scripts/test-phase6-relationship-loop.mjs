@@ -29,6 +29,7 @@ assert.match(search, /handlePostAuthorFollowChange/, 'search must sync post auth
 assert.match(explore, /toggleFollowUser/, 'explore recommended authors must keep follow actions available')
 assert.match(topicDetail, /handlePostAuthorFollowChange/, 'topic detail must sync post author follow changes across visible cards')
 assert.match(userProfile, /isFollowBusy/, 'public author profile follow button must have a busy guard')
+assert.match(userProfile, /v-if="user\.profileVisible !== false && !isViewingSelf"[\s\S]*class="follow-button"/, 'public author profile must hide follow controls when viewing yourself')
 assert.match(userProfile, /followerCount: Math\.max\(0, Number\(user\.value\.followerCount \?\? 0\)/, 'public author profile must update follower count locally')
 
 console.log('phase6 relationship loop guard passed')

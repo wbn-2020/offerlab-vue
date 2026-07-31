@@ -103,7 +103,7 @@
         <p class="mx-auto mb-6 max-w-lg text-sm leading-6 text-slate-600 dark:text-slate-400">
           {{ hasActiveFilters
             ? '当前筛选条件没有命中题目，可以清空筛选或换一个技术栈、场景关键词。'
-            : '知识卡来自公开技术内容和结构化任务；本地演示库为空时，可以先发布技术内容，或去发现页浏览社区内容。' }}
+            : '知识卡来自公开内容中的问题与结构化整理；当前为空时，可以先发布经验、问题或资源，也可以去发现页浏览社区内容。' }}
         </p>
         <div class="flex flex-wrap justify-center gap-3">
           <button v-if="hasActiveFilters" type="button" class="primary-action px-5 py-2.5" @click="resetFilters">清空筛选</button>
@@ -192,11 +192,11 @@ const syncFromRoute = () => {
   filters.company = String(route.query.company ?? '')
   filters.position = String(route.query.position ?? '')
   filters.difficulty = String(route.query.difficulty ?? '')
-  filters.mistakeReason = ''
-  filters.progressStatus = ''
-  filters.hasNote = false
-  filters.hasAnswerDraft = false
-  filters.hasStarStory = false
+  filters.mistakeReason = String(route.query.mistakeReason ?? '')
+  filters.progressStatus = String(route.query.progressStatus ?? '')
+  filters.hasNote = route.query.hasNote === 'true'
+  filters.hasAnswerDraft = route.query.hasAnswerDraft === 'true'
+  filters.hasStarStory = route.query.hasStarStory === 'true'
   filters.sort = String(route.query.sort ?? 'latest')
   page.value = Number(route.query.page ?? 1) || 1
 }
@@ -214,7 +214,11 @@ const fetchQuestions = async (append = false, targetPage = page.value) => {
     return
   }
   const requestId = ++listRequestId
-  append ? (isLoadingMore.value = true) : (isLoading.value = true)
+  if (append) {
+    isLoadingMore.value = true
+  } else {
+    isLoading.value = true
+  }
   if (append) {
     loadMoreError.value = ''
   } else {
@@ -227,11 +231,11 @@ const fetchQuestions = async (append = false, targetPage = page.value) => {
       company: filters.company || undefined,
       position: filters.position || undefined,
       difficulty: filters.difficulty || undefined,
-      mistakeReason: undefined,
-      progressStatus: undefined,
-      hasNote: undefined,
-      hasAnswerDraft: undefined,
-      hasStarStory: undefined,
+      mistakeReason: filters.mistakeReason || undefined,
+      progressStatus: filters.progressStatus || undefined,
+      hasNote: filters.hasNote || undefined,
+      hasAnswerDraft: filters.hasAnswerDraft || undefined,
+      hasStarStory: filters.hasStarStory || undefined,
       sort: filters.sort,
       page: targetPage,
       pageSize: 20,
@@ -270,6 +274,11 @@ const applyFilters = async () => {
       ...(filters.company ? { company: filters.company } : {}),
       ...(filters.position ? { position: filters.position } : {}),
       ...(filters.difficulty ? { difficulty: filters.difficulty } : {}),
+      ...(filters.mistakeReason ? { mistakeReason: filters.mistakeReason } : {}),
+      ...(filters.progressStatus ? { progressStatus: filters.progressStatus } : {}),
+      ...(filters.hasNote ? { hasNote: 'true' } : {}),
+      ...(filters.hasAnswerDraft ? { hasAnswerDraft: 'true' } : {}),
+      ...(filters.hasStarStory ? { hasStarStory: 'true' } : {}),
       ...(filters.sort && filters.sort !== 'latest' ? { sort: filters.sort } : {}),
     },
   })
@@ -311,7 +320,38 @@ const applyQuickFilter = async (patch: Partial<typeof filters>) => {
   await applyFilters()
 }
 
-const quickFilters: Array<{ key: string; label: string; active: () => boolean; apply: () => void | Promise<void> }> = []
+const quickFilters: Array<{ key: string; label: string; active: () => boolean; apply: () => void | Promise<void> }> = [
+  {
+    key: 'review',
+    label: '只看待复习',
+    active: () => filters.progressStatus === 'review',
+    apply: () => applyQuickFilter({ progressStatus: 'review' }),
+  },
+  {
+    key: 'mistakes',
+    label: '只看我的错因',
+    active: () => Boolean(filters.mistakeReason),
+    apply: () => applyQuickFilter({ mistakeReason: filters.mistakeReason || 'any' }),
+  },
+  {
+    key: 'answer-cards',
+    label: '回答卡',
+    active: () => filters.hasAnswerDraft,
+    apply: () => applyQuickFilter({ hasAnswerDraft: true }),
+  },
+  {
+    key: 'notes',
+    label: '笔记',
+    active: () => filters.hasNote,
+    apply: () => applyQuickFilter({ hasNote: true }),
+  },
+  {
+    key: 'star-stories',
+    label: 'STAR',
+    active: () => filters.hasStarStory,
+    apply: () => applyQuickFilter({ hasStarStory: true }),
+  },
+]
 
 watch(() => route.query, () => {
   syncFromRoute()

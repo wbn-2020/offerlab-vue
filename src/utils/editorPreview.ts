@@ -1,7 +1,7 @@
 import type { ContentSeriesRecord } from '@/api/contentSeries'
 import type { PublicDomainConfig } from '@/api/domains'
 import { getContentTypeOption } from '@/utils/contentTypes'
-import { DOMAIN, getDomainOption, normalizeDomain } from '@/utils/domains'
+import { DOMAIN, getDomainLabelSafe, getDomainOption, isKnownDomain } from '@/utils/domains'
 import { sanitizeVisibleText } from '@/utils/textQuality'
 
 type PreviewTagLike = string | number | { name?: unknown; label?: unknown; value?: unknown } | null | undefined
@@ -39,7 +39,8 @@ export interface EditorPreviewModel {
   summaryPlaceholder: boolean
   summarySource: 'explicit' | 'derived' | 'placeholder'
   domain: {
-    value: number
+    known: boolean
+    value: number | null
     label: string
     icon: string
     description: string
@@ -185,10 +186,20 @@ const resolveDomain = (domainValue: unknown, domains: EditorPreviewDomainInput[]
   const safeDomainValue = typeof domainValue === 'number' || typeof domainValue === 'string' || domainValue == null
     ? domainValue
     : undefined
-  const normalizedValue = normalizeDomain(safeDomainValue)
+  if (!isKnownDomain(safeDomainValue)) {
+    return {
+      known: false,
+      value: null,
+      label: getDomainLabelSafe(safeDomainValue),
+      icon: '',
+      description: '',
+    }
+  }
+  const normalizedValue = Number(safeDomainValue)
   const matched = domains.find((item) => Number(item.domain) === Number(normalizedValue))
   const fallback = getDomainOption(normalizedValue)
   return {
+    known: true,
     value: normalizedValue,
     label: normalizeText(matched?.domainName) || fallback.label,
     icon: normalizeText(matched?.icon) || fallback.icon,
@@ -217,7 +228,7 @@ const resolveCover = (draft: EditorPreviewDraftInput, title: string) => {
   }
 }
 
-const resolveAnonymous = (domainValue: number, anonymousCareerPost: boolean) => {
+const resolveAnonymous = (domainValue: number | null, anonymousCareerPost: boolean) => {
   const enabled = domainValue === DOMAIN.CAREER && Boolean(anonymousCareerPost)
   if (enabled) {
     return {

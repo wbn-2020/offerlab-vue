@@ -26,11 +26,14 @@ export interface SearchParams {
   company?: string
   position?: string
   type?: number
-  yearsOfExp?: number
-  sort?: 'relevance' | 'latest' | 'hot'
+  domain?: number
+  sort?: 'relevance' | 'latest' | 'hot' | 'trusted'
+  trustProfile?: boolean
+  freshnessStatus?: string
+  resolved?: boolean
+  sourceComplete?: boolean
   cursor?: string
   size?: number
-  includeTestData?: boolean
 }
 
 export interface SearchStatus {
@@ -109,8 +112,20 @@ export interface ZeroResultAction {
 
 export const searchApi = {
   searchPosts: async (params: SearchParams): Promise<Result<PaginatedResponse<Post>>> => {
-    const publicParams = { ...(params || {}) }
-    delete publicParams.includeTestData
+    const publicParams: SearchParams = {
+      q: params.q,
+      company: params.company,
+      position: params.position,
+      type: params.type,
+      domain: params.domain,
+      sort: params.sort,
+      trustProfile: params.trustProfile,
+      freshnessStatus: params.freshnessStatus,
+      resolved: params.resolved,
+      sourceComplete: params.sourceComplete,
+      cursor: params.cursor,
+      size: params.size,
+    }
     const res = await client.get('/api/v1/search/posts', { params: publicParams }) as Result<any>
     return { ...res, data: res.data ? adaptPage(res.data, adaptPost) : null }
   },

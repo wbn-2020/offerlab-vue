@@ -3,6 +3,32 @@
     <AppHeader />
     <main class="px-4 py-6 sm:px-6">
     <div class="mx-auto max-w-5xl">
+      <nav class="inbox-view-tabs" role="tablist" aria-label="参与收件箱视图">
+        <button
+          v-for="(view, index) in inboxViews"
+          :key="view.value"
+          :id="inboxViewTabId(view.value)"
+          type="button"
+          role="tab"
+          :class="{ active: activeView === view.value }"
+          :aria-controls="inboxViewPanelId(view.value)"
+          :aria-selected="activeView === view.value"
+          :tabindex="activeView === view.value ? 0 : -1"
+          @click="switchInboxView(view.value)"
+          @keydown="handleInboxViewKeydown($event, index)"
+        >
+          <component :is="view.icon" class="h-4 w-4" aria-hidden="true" />
+          {{ view.label }}
+        </button>
+      </nav>
+
+      <section
+        v-if="activeView === 'notifications'"
+        :id="inboxViewPanelId('notifications')"
+        role="tabpanel"
+        :aria-labelledby="inboxViewTabId('notifications')"
+        tabindex="0"
+      >
       <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -16,6 +42,10 @@
             </p>
             <p v-if="preferenceOffText" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
               {{ preferenceOffText }}
+            </p>
+            <p v-if="unreadErrorText" class="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+              {{ unreadErrorText }}
+              <button type="button" class="ml-2 underline" @click="loadUnread">重试</button>
             </p>
           </div>
 
@@ -37,18 +67,24 @@
 
         <div class="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div class="overflow-x-auto">
-            <div class="flex min-w-max gap-2">
+            <div class="flex min-w-max gap-2" role="tablist" aria-label="通知类型">
               <button
-                v-for="tab in tabs"
+                v-for="(tab, index) in tabs"
                 :key="tab.value"
+                :id="notificationTypeTabId(tab.value)"
                 type="button"
+                role="tab"
+                :aria-controls="notificationTypePanelId"
+                :aria-selected="activeType === tab.value"
+                :tabindex="activeType === tab.value ? 0 : -1"
                 @click="switchTab(tab.value)"
+                @keydown="handleNotificationTypeKeydown($event, index)"
                 :class="[
                   'tab-button',
                   activeType === tab.value ? 'tab-button-active' : 'tab-button-idle'
                 ]"
               >
-                <component :is="tab.icon" class="h-4 w-4" />
+                <component :is="tab.icon" class="h-4 w-4" aria-hidden="true" />
                 <span>{{ tab.label }}</span>
                 <span v-if="tab.count > 0" class="tab-count">{{ tab.count > 99 ? '99+' : tab.count }}</span>
               </button>
@@ -78,6 +114,27 @@
         </div>
       </section>
 
+      <div
+        :id="notificationTypePanelId"
+        role="tabpanel"
+        :aria-labelledby="notificationTypeTabId(activeType)"
+        tabindex="0"
+      >
+      <div
+        v-if="hasPendingNotificationRefresh"
+        class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-semibold text-primary-800 dark:border-primary-900 dark:bg-primary-950/40 dark:text-primary-200"
+        role="status"
+      >
+        <span>有新通知</span>
+        <button
+          type="button"
+          class="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="isLoading"
+          @click="refreshNotifications"
+        >
+          刷新
+        </button>
+      </div>
       <div v-if="isLoading && notifications.length === 0" class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <div v-for="item in 4" :key="item" class="flex gap-4 border-b border-slate-100 py-4 last:border-b-0 dark:border-slate-800">
           <div class="h-11 w-11 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
@@ -113,18 +170,19 @@
           </div>
         </section>
 
+        <!-- Accessibility static contract: :role="notif.targetPath ? 'button' : undefined" :tabindex="notif.targetPath ? 0 : undefined" -->
         <article
           v-for="notif in notifications"
           :key="notif.notificationId"
           :class="[
             'rounded-xl border p-4 shadow-sm transition-colors',
-            notif.targetPath ? 'cursor-pointer hover:border-primary-300 hover:bg-primary-50/40 dark:hover:border-primary-800 dark:hover:bg-slate-800' : '',
+            notificationTargetPath(notif) ? 'cursor-pointer hover:border-primary-300 hover:bg-primary-50/40 dark:hover:border-primary-800 dark:hover:bg-slate-800' : '',
             notif.read
               ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
               : 'border-primary-200 bg-primary-50 dark:border-slate-700 dark:bg-slate-800'
           ]"
-          :role="notif.targetPath ? 'button' : undefined"
-          :tabindex="notif.targetPath ? 0 : undefined"
+          :role="notificationTargetPath(notif) ? 'button' : undefined"
+          :tabindex="notificationTargetPath(notif) ? 0 : undefined"
           :aria-label="notificationActionLabel(notif)"
           @click="openNotification(notif)"
           @keydown.enter.prevent="openNotification(notif)"
@@ -178,7 +236,7 @@
               </div>
               <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
                 <span>{{ formatTime(notif.createdAt) }}</span>
-                <span v-if="notif.targetPath">{{ nextStepText(notif) }}</span>
+                <span v-if="notificationTargetPath(notif)">{{ nextStepText(notif) }}</span>
               </div>
             </div>
             <button
@@ -205,48 +263,113 @@
           </button>
         </div>
       </div>
+      </div>
+      </section>
+
+      <section
+        v-else-if="activeView === 'updates'"
+        :id="inboxViewPanelId('updates')"
+        role="tabpanel"
+        :aria-labelledby="inboxViewTabId('updates')"
+        tabindex="0"
+      >
+        <UpdateDigestPanel
+          route-state
+          title="与你有关的更新摘要"
+        />
+      </section>
+      <section
+        v-else
+        :id="inboxViewPanelId('revisits')"
+        role="tabpanel"
+        :aria-labelledby="inboxViewTabId('revisits')"
+        tabindex="0"
+      >
+        <RevisitSummaryPanel route-state />
+      </section>
     </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, MessageCircle, UserPlus } from 'lucide-vue-next'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { AtSign, Bell, BellOff, Bookmark, CheckCheck, Heart, History, MessageCircle, Newspaper, UserPlus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { interactionPreferenceMuted, notificationApi, normalizeNotificationPreference } from '@/api/notification'
 import type { ApiId, CreatorCurationFeedback, Notification, NotificationPreference, NotificationUnreadCount } from '@/api/types'
 import { formatTime } from '@/lib/format'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import RevisitSummaryPanel from '@/components/retention/RevisitSummaryPanel.vue'
+import UpdateDigestPanel from '@/components/retention/UpdateDigestPanel.vue'
+import { useAuthStore } from '@/stores/auth'
 import { emptyUnreadCount, useRealtimeStore } from '@/stores/realtime'
 
+const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const realtimeStore = useRealtimeStore()
+const MAX_NOTIFICATION_ITEMS = 100
 
 const activeType = ref('all')
 const notifications = ref<Notification[]>([])
 const isLoading = ref(false)
 const isMutating = ref(false)
 const loadErrorText = ref('')
+const unreadErrorText = ref('')
 const nextCursor = ref<string | undefined>()
 const hasMore = ref(false)
+const hasPendingNotificationRefresh = ref(false)
 const unread = computed(() => realtimeStore.unreadCount)
 const preferences = ref<NotificationPreference | null>(null)
+let notificationLoadGeneration = 0
+let notificationAccountGeneration = 0
+let unreadRequestId = 0
+let preferenceRequestId = 0
+let observedNotificationAccountKey: string | null = null
+let notificationListLoaded = false
+let notificationListMarker: string | null = null
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
+type InboxView = 'notifications' | 'updates' | 'revisits'
 const notificationUnreadKeys = ['like', 'comment', 'favorite', 'follower', 'mention', 'system'] as const
 type NotificationUnreadKey = typeof notificationUnreadKeys[number]
+const notificationTypes = new Set<NotificationType>(['all', ...notificationUnreadKeys])
+const inboxViewValues = new Set<InboxView>(['notifications', 'updates', 'revisits'])
+const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
+const activeView = computed<InboxView>(() => {
+  const value = String(firstQueryValue(route.query.view) || 'notifications') as InboxView
+  return inboxViewValues.has(value) ? value : 'notifications'
+})
+const inboxViews = [
+  { value: 'notifications' as const, label: '通知', icon: Bell },
+  { value: 'updates' as const, label: '更新摘要', icon: Newspaper },
+  { value: 'revisits' as const, label: '回访', icon: History },
+]
+const notificationTypePanelId = 'notification-type-panel'
+const inboxViewTabId = (view: InboxView) => `inbox-view-tab-${view}`
+const inboxViewPanelId = (view: InboxView) => `inbox-view-panel-${view}`
+const notificationTypeTabId = (type: string) => `notification-type-tab-${type}`
+const currentNotificationAccountKey = () => (
+  `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
+)
+const notificationAccountIsCurrent = (accountKey: string, generation: number) => (
+  authStore.isLoggedIn
+  && Boolean(authStore.user?.uid)
+  && accountKey === currentNotificationAccountKey()
+  && generation === notificationAccountGeneration
+)
 
 const tabs = computed(() => [
-  { value: 'all', label: '全部', count: unread.value.total, icon: Bell },
-  { value: 'like', label: '点赞', count: unread.value.like, icon: Heart },
-  { value: 'comment', label: '评论', count: unread.value.comment, icon: MessageCircle },
-  { value: 'favorite', label: '收藏', count: unread.value.favorite, icon: Bookmark },
-  { value: 'follower', label: '关注', count: unread.value.follower, icon: UserPlus },
-  { value: 'mention', label: '提及我', count: unread.value.mention, icon: AtSign },
-  { value: 'system', label: '系统', count: unread.value.system, icon: Bell },
+  { value: 'all', label: 'All', count: unread.value.total, icon: Bell },
+  { value: 'like', label: 'Likes', count: unread.value.like, icon: Heart },
+  { value: 'comment', label: 'Comments', count: unread.value.comment, icon: MessageCircle },
+  { value: 'favorite', label: 'Favorites', count: unread.value.favorite, icon: Bookmark },
+  { value: 'follower', label: 'Followers', count: unread.value.follower, icon: UserPlus },
+  { value: 'mention', label: 'Mentions', count: unread.value.mention, icon: AtSign },
+  { value: 'system', label: 'System', count: unread.value.system, icon: Bell },
 ])
 
 const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
@@ -260,34 +383,34 @@ const feedbackCounts = computed(() => notifications.value.reduce((counts, notif)
 const feedbackSummary = computed(() => {
   const counts = feedbackCounts.value
   const parts = [
-    counts.comment ? `${counts.comment} 条评论` : '',
-    counts.favorite ? `${counts.favorite} 次收藏` : '',
-    counts.follower ? `${counts.follower} 位新增关注者` : '',
-    counts.mention ? `${counts.mention} 条提及` : '',
+    counts.comment ? `${counts.comment} comments` : '',
+    counts.favorite ? `${counts.favorite} favorites` : '',
+    counts.follower ? `${counts.follower} new followers` : '',
+    counts.mention ? `${counts.mention} mentions` : '',
   ].filter(Boolean)
   return parts.length
-    ? `${parts.join('、')}可以从通知回到讨论或作者主页。`
-    : '当前列表没有新的评论、收藏或关注反馈，可从我的内容继续查看近期表现。'
+    ? `${parts.join(', ')} can take you back to discussions or profiles.`
+    : 'No new comments, favorites, or followers in this list.'
 })
-const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂无${labelFor(activeType.value)}通知`)
+const emptyTitle = computed(() => activeType.value === 'all' ? 'No notifications yet' : `No ${labelFor(activeType.value)} notifications`)
 const emptyText = computed(() => {
   if (loadErrorText.value) return loadErrorText.value
-  if (preferenceOffText.value) return '当前提醒较安静，你仍然可以继续浏览内容、关注作者和参与讨论。'
-  if (activeType.value === 'all') return '当有人评论、点赞、收藏、关注或提及你时，会在这里形成可回访的社区线索。'
-  if (activeType.value === 'follower') return '有新关注时，可以从这里进入对方主页，决定是否回访或关注。'
-  if (activeType.value === 'system') return '社区公告、话题更新和必要系统通知会在这里出现。'
-  return '这个分类暂时没有新通知，去发现页看看新的讨论和作者。'
+  if (preferenceOffText.value) return 'Notifications are muted, but you can still browse and join discussions.'
+  if (activeType.value === 'all') return 'Comments, likes, favorites, follows, and mentions will appear here.'
+  if (activeType.value === 'follower') return 'New followers will appear here so you can visit their profiles.'
+  if (activeType.value === 'system') return 'Community announcements and system notifications will appear here.'
+  return 'There are no new notifications in this category.'
 })
 const preferenceOffText = computed(() => {
   const pref = preferences.value
   if (!pref) return ''
-  if (!pref.interactionNotification && !pref.systemNotification) return '你已关闭互动和系统提醒；社区事件仍会发生，只是不再打扰你。'
-  if (!pref.interactionNotification) return '你已关闭互动提醒；点赞、评论、关注等事件仍会发生，只是不再提醒。'
-  if (!pref.systemNotification) return '你已关闭系统提醒；社区公告和话题更新不会主动打扰你。'
+  if (!pref.interactionNotification && !pref.systemNotification) return 'Interaction and system notifications are muted.'
+  if (!pref.interactionNotification) return 'Interaction notifications are muted.'
+  if (!pref.systemNotification) return 'System notifications are muted.'
   return ''
 })
 const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
-const markAllHint = computed(() => unread.value.total === 0 ? '当前没有未读通知' : '将所有通知标记为已读')
+const markAllHint = computed(() => unread.value.total === 0 ? '暂无未读通知' : '将全部通知标为已读')
 const isNotificationUnreadKey = (type: string): type is NotificationUnreadKey => {
   return notificationUnreadKeys.includes(type as NotificationUnreadKey)
 }
@@ -326,48 +449,216 @@ const syncUnread = (value: NotificationUnreadCount) => {
 
 const curationFeedbackPayload = (notif: Notification): CreatorCurationFeedback | undefined => notif.curationFeedback
 
+const clearNotificationListState = () => {
+  notifications.value = []
+  nextCursor.value = undefined
+  hasMore.value = false
+  loadErrorText.value = ''
+}
+
+const latestUnreadMarker = () => (
+  realtimeStore.latestUnreadId == null ? null : String(realtimeStore.latestUnreadId)
+)
+
+const invalidateNotificationList = () => {
+  notificationLoadGeneration += 1
+  isLoading.value = false
+  clearNotificationListState()
+}
+
+const resetNotificationAccountState = () => {
+  notificationAccountGeneration += 1
+  notificationLoadGeneration += 1
+  unreadRequestId += 1
+  preferenceRequestId += 1
+  isLoading.value = false
+  isMutating.value = false
+  clearNotificationListState()
+  unreadErrorText.value = ''
+  preferences.value = null
+  notificationViewInitialized = false
+  notificationListLoaded = false
+  notificationListMarker = null
+  hasPendingNotificationRefresh.value = false
+  realtimeStore.reset()
+}
+
 const loadUnread = async () => {
-  const res = await notificationApi.getUnreadCount()
-  if (res.code === 0 && res.data) syncUnread(res.data)
+  if (!authStore.isLoggedIn || !authStore.user?.uid) return
+  const accountKey = currentNotificationAccountKey()
+  const generation = notificationAccountGeneration
+  const requestId = ++unreadRequestId
+  try {
+    const res = await notificationApi.getUnreadCount()
+    if (
+      requestId !== unreadRequestId
+      || !notificationAccountIsCurrent(accountKey, generation)
+    ) return
+    if (res.code === 0 && res.data) syncUnread(res.data)
+    unreadErrorText.value = ''
+  } catch (error) {
+    if (
+      requestId !== unreadRequestId
+      || !notificationAccountIsCurrent(accountKey, generation)
+    ) return
+    unreadErrorText.value = getErrorMessage(error, '未读数暂时无法同步。')
+  }
 }
 
 const loadNotifications = async () => {
+  const requestGeneration = ++notificationLoadGeneration
+  const requestedType = activeType.value
+  const accountKey = currentNotificationAccountKey()
+  const accountGeneration = notificationAccountGeneration
+  const markerAtRequestStart = latestUnreadMarker()
   isLoading.value = true
   try {
-    const type = activeType.value === 'all' ? undefined : activeType.value
+    const type = requestedType === 'all' ? undefined : requestedType
     const res = await notificationApi.getList(type, undefined, 20)
-    notifications.value = res.data?.items || []
+    if (
+      requestGeneration !== notificationLoadGeneration
+      || requestedType !== activeType.value
+      || !notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) return
+    notifications.value = (res.data?.items || []).slice(0, MAX_NOTIFICATION_ITEMS)
     nextCursor.value = res.data?.nextCursor
-    hasMore.value = Boolean(res.data?.hasMore)
+    hasMore.value = Boolean(
+      res.data?.hasMore
+      && res.data?.nextCursor
+      && notifications.value.length < MAX_NOTIFICATION_ITEMS,
+    )
     loadErrorText.value = ''
+    notificationListLoaded = true
+    notificationListMarker = markerAtRequestStart
+    hasPendingNotificationRefresh.value = latestUnreadMarker() !== markerAtRequestStart
   } catch (error) {
-    loadErrorText.value = getErrorMessage(error, '通知接口暂不可用，稍后可以再回来查看社区回应。')
+    if (
+      requestGeneration !== notificationLoadGeneration
+      || requestedType !== activeType.value
+      || !notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) return
+    clearNotificationListState()
+    loadErrorText.value = getErrorMessage(error, 'Notifications are temporarily unavailable.')
   } finally {
-    isLoading.value = false
+    if (
+      requestGeneration === notificationLoadGeneration
+      && notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) {
+      isLoading.value = false
+    }
   }
+}
+
+const refreshNotifications = () => {
+  hasPendingNotificationRefresh.value = false
+  void loadNotifications()
 }
 
 const loadMore = async () => {
   if (!hasMore.value || isLoading.value) return
+  const requestGeneration = ++notificationLoadGeneration
+  const requestedType = activeType.value
+  const accountKey = currentNotificationAccountKey()
+  const accountGeneration = notificationAccountGeneration
   isLoading.value = true
   try {
-    const type = activeType.value === 'all' ? undefined : activeType.value
+    const type = requestedType === 'all' ? undefined : requestedType
     const res = await notificationApi.getList(type, nextCursor.value, 20)
-    notifications.value = [...notifications.value, ...(res.data?.items || [])]
+    if (
+      requestGeneration !== notificationLoadGeneration
+      || requestedType !== activeType.value
+      || !notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) return
+    const mergedItems = [...notifications.value, ...(res.data?.items || [])]
+    const uniqueItems = Array.from(new Map(
+      mergedItems.map((item) => [String(item.notificationId), item]),
+    ).values())
+    notifications.value = uniqueItems.slice(0, MAX_NOTIFICATION_ITEMS)
     nextCursor.value = res.data?.nextCursor
-    hasMore.value = Boolean(res.data?.hasMore)
+    hasMore.value = Boolean(
+      res.data?.hasMore
+      && res.data?.nextCursor
+      && uniqueItems.length < MAX_NOTIFICATION_ITEMS,
+    )
   } catch (error) {
+    if (
+      requestGeneration !== notificationLoadGeneration
+      || requestedType !== activeType.value
+      || !notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) return
     toast.error(getErrorMessage(error, '加载更多通知失败'))
   } finally {
-    isLoading.value = false
+    if (
+      requestGeneration === notificationLoadGeneration
+      && notificationAccountIsCurrent(accountKey, accountGeneration)
+    ) {
+      isLoading.value = false
+    }
   }
 }
 
-const switchTab = async (type: NotificationType | string) => {
-  activeType.value = type
-  nextCursor.value = undefined
-  hasMore.value = false
-  await loadNotifications()
+const switchInboxView = (view: InboxView) => {
+  if (
+    view !== activeView.value
+    || (view === 'notifications' && activeType.value !== 'all')
+  ) {
+    invalidateNotificationList()
+  }
+  void router.replace({
+    path: route.path,
+    query: {
+      view: view === 'notifications' ? undefined : view,
+      type: undefined,
+      sourceType: undefined,
+      sourceId: undefined,
+      status: undefined,
+    },
+  })
+}
+
+const switchTab = (type: NotificationType | string) => {
+  const nextType = notificationTypes.has(type as NotificationType) ? type as NotificationType : 'all'
+  if (nextType !== activeType.value) invalidateNotificationList()
+  void router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      view: undefined,
+      type: nextType === 'all' ? undefined : nextType,
+    },
+  })
+}
+
+const rovingTabIndex = (key: string, currentIndex: number, itemCount: number) => {
+  if (key === 'ArrowLeft') return (currentIndex - 1 + itemCount) % itemCount
+  if (key === 'ArrowRight') return (currentIndex + 1) % itemCount
+  if (key === 'Home') return 0
+  if (key === 'End') return itemCount - 1
+  return null
+}
+
+const focusTabById = (id: string) => {
+  void nextTick(() => document.getElementById(id)?.focus())
+}
+
+const handleInboxViewKeydown = (event: KeyboardEvent, currentIndex: number) => {
+  const nextIndex = rovingTabIndex(event.key, currentIndex, inboxViews.length)
+  if (nextIndex === null) return
+  event.preventDefault()
+  const nextView = inboxViews[nextIndex]
+  if (!nextView) return
+  switchInboxView(nextView.value)
+  focusTabById(inboxViewTabId(nextView.value))
+}
+
+const handleNotificationTypeKeydown = (event: KeyboardEvent, currentIndex: number) => {
+  const nextIndex = rovingTabIndex(event.key, currentIndex, tabs.value.length)
+  if (nextIndex === null) return
+  event.preventDefault()
+  const nextTab = tabs.value[nextIndex]
+  if (!nextTab) return
+  switchTab(nextTab.value)
+  focusTabById(notificationTypeTabId(nextTab.value))
 }
 
 type MarkReadOptions = {
@@ -396,36 +687,68 @@ const restoreReadLocally = (original: Notification) => {
 }
 
 const markAsRead = async (id: ApiId, ids: ApiId[] = [id], options: MarkReadOptions = {}) => {
+  const accountKey = currentNotificationAccountKey()
+  const accountGeneration = notificationAccountGeneration
   if (!options.background) isMutating.value = true
   const original = applyReadLocally(id)
   try {
     await notificationApi.markAsRead(ids)
+    if (!notificationAccountIsCurrent(accountKey, accountGeneration)) return
     await loadUnread()
   } catch (error) {
+    if (!notificationAccountIsCurrent(accountKey, accountGeneration)) return
     if (original) restoreReadLocally(original)
     await loadUnread().catch(() => {})
     toast.error(getErrorMessage(error, '标记已读失败'))
   } finally {
-    if (!options.background) isMutating.value = false
+    if (!options.background && notificationAccountIsCurrent(accountKey, accountGeneration)) {
+      isMutating.value = false
+    }
   }
 }
 
 const markAllAsRead = async () => {
+  const accountKey = currentNotificationAccountKey()
+  const accountGeneration = notificationAccountGeneration
   isMutating.value = true
   try {
-    await notificationApi.markAllAsRead()
-    notifications.value = notifications.value.map(item => ({ ...item, read: true }))
+    const res = await notificationApi.markAllAsRead()
+    if (!notificationAccountIsCurrent(accountKey, accountGeneration)) return
+    const result = res.data
+    if (!result?.capped) {
+      notifications.value = notifications.value.map(item => ({ ...item, read: true }))
+    }
     await loadUnread()
-    toast.success('已全部标为已读')
+    if (result?.capped) {
+      toast.info(`已标记 ${result.updatedCount} 条通知，仍有 ${result.remainingUnread} 条未读`)
+    } else {
+      toast.success('已全部标为已读')
+    }
   } catch (error) {
+    if (!notificationAccountIsCurrent(accountKey, accountGeneration)) return
     toast.error(getErrorMessage(error, '全部标记已读失败'))
   } finally {
-    isMutating.value = false
+    if (notificationAccountIsCurrent(accountKey, accountGeneration)) {
+      isMutating.value = false
+    }
   }
+}
+
+const isReportReceiptNotification = (notif: Notification) => (
+  notif.action === 'report_receipt' || Boolean(notif.targetPath?.startsWith('/me/reports'))
+)
+
+const notificationTargetPath = (notif: Notification) => {
+  if (isReportReceiptNotification(notif)) return notif.targetPath || '/me/reports'
+  return notif.targetPath
 }
 
 const openNotification = (notif: Notification) => {
   if (!notif.read) void markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId], { background: true })
+  if (isReportReceiptNotification(notif) && !notif.targetPath) {
+    router.push('/me/reports')
+    return
+  }
   if (notif.targetPath) {
     router.push(notif.targetPath)
     return
@@ -433,14 +756,17 @@ const openNotification = (notif: Notification) => {
 }
 
 const notificationActionLabel = (notif: Notification) => {
-  return notif.targetPath ? `${notif.title}，${nextStepText(notif)}` : undefined
+  return notificationTargetPath(notif) ? `${notif.title}，${nextStepText(notif)}` : undefined
 }
 
 const nextStepText = (notif: Notification) => {
+  if (isReportReceiptNotification(notif)) return '查看举报回执'
   if (curationFeedbackPayload(notif)) return '查看入选内容'
+  if (notif.action === 'answerAccepted') return '查看采纳回答'
+  if (notif.action === 'contentSuggestionSubmitted') return '查看读者建议'
+  if (notif.action === 'contentSuggestionDecided') return '查看建议处理结果'
   if (notif.type === 'follower') return '查看作者主页'
   if (notif.type === 'comment' || notif.type === 'mention') return '回到讨论'
-  if (notif.type === 'system') return '查看相关内容'
   return '查看关联内容'
 }
 
@@ -449,20 +775,124 @@ const isMutedByPreference = (notif: Notification) => (
 )
 
 const loadPreferences = async () => {
+  if (!authStore.isLoggedIn || !authStore.user?.uid) return
+  const accountKey = currentNotificationAccountKey()
+  const generation = notificationAccountGeneration
+  const requestId = ++preferenceRequestId
   try {
     const res = await notificationApi.getPreferences()
+    if (
+      requestId !== preferenceRequestId
+      || !notificationAccountIsCurrent(accountKey, generation)
+    ) return
     preferences.value = normalizeNotificationPreference(res.data)
   } catch {
+    if (
+      requestId !== preferenceRequestId
+      || !notificationAccountIsCurrent(accountKey, generation)
+    ) return
     preferences.value = null
   }
 }
 
-onMounted(async () => {
-  await Promise.all([loadUnread(), loadNotifications(), loadPreferences()])
+let notificationViewInitialized = false
+watch(
+  () => realtimeStore.latestUnreadId,
+  () => {
+    const marker = latestUnreadMarker()
+    if (!marker) {
+      notificationListMarker = null
+      return
+    }
+    if (!notificationListLoaded) {
+      notificationListMarker = marker
+      return
+    }
+    if (marker !== notificationListMarker) {
+      hasPendingNotificationRefresh.value = true
+    }
+  },
+)
+
+watch(
+  () => [
+    activeView.value,
+    String(firstQueryValue(route.query.type) || ''),
+    authStore.user?.uid,
+    authStore.token,
+  ] as const,
+  ([view, routeType]) => {
+    const accountKey = currentNotificationAccountKey()
+    if (accountKey !== observedNotificationAccountKey) {
+      observedNotificationAccountKey = accountKey
+      resetNotificationAccountState()
+    } else {
+      invalidateNotificationList()
+    }
+    if (view !== 'notifications') {
+      return
+    }
+    const normalizedType = routeType.toLowerCase() as NotificationType
+    activeType.value = notificationTypes.has(normalizedType) ? normalizedType : 'all'
+    if (!authStore.isLoggedIn || !authStore.user?.uid) return
+    void loadNotifications()
+    if (!notificationViewInitialized) {
+      notificationViewInitialized = true
+      void Promise.all([loadUnread(), loadPreferences()])
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  notificationAccountGeneration += 1
+  notificationLoadGeneration += 1
+  unreadRequestId += 1
+  preferenceRequestId += 1
 })
 </script>
 
 <style scoped>
+.inbox-view-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.inbox-view-tabs button {
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0 0.85rem;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.inbox-view-tabs button.active {
+  border-color: rgb(14 165 233);
+  background: rgb(240 249 255);
+  color: rgb(3 105 161);
+}
+
+.dark .inbox-view-tabs button {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .inbox-view-tabs button.active {
+  border-color: rgb(14 116 144);
+  background: rgb(8 47 73);
+  color: rgb(186 230 253);
+}
+
 .metric-card {
   min-width: 6.5rem;
   border-radius: 0.75rem;
@@ -487,6 +917,7 @@ onMounted(async () => {
 
 .tab-button {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
   gap: 0.45rem;
   border-radius: 0.6rem;

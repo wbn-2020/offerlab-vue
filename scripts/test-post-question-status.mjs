@@ -40,7 +40,11 @@ assert.match(block, /pendingReviewCount/, 'PostQuestionBlock must render pending
 assert.match(block, /normalizedStatus\.value === 'succeeded' && extractedCount\.value > 0 && visibleCount\.value === 0/, 'PostQuestionBlock must treat succeeded extraction with zero visible questions as pending review')
 assert.doesNotMatch(block, /[链鏆棰鍚绋]|�|\?\? \?\?\?\?/, 'PostQuestionBlock must not contain visible mojibake text')
 assert.match(block, /setTimeout\(\(\) => \{[\s\S]*load\(\{ silent: true \}\)/, 'PostQuestionBlock must auto-refresh while extraction is pending or running')
-assert.match(block, /onBeforeUnmount\(clearPoll\)/, 'PostQuestionBlock must clean up extraction polling timers')
+assert.match(
+  block,
+  /onBeforeUnmount\(\(\) => \{[\s\S]*disposed = true[\s\S]*loadGeneration \+= 1[\s\S]*clearPoll\(\)[\s\S]*\}\)/,
+  'PostQuestionBlock must invalidate pending loads and clean up extraction polling timers',
+)
 assert.match(block, /重新结构化/, 'admins must keep a manual restructuring entry')
 
 assert.match(api, /extractPostQuestions: \(postId: ApiId, remark: string\)/, 'manual extraction API must require an audit remark')

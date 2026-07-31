@@ -43,26 +43,26 @@
           :action-href="loginRedirectHref"
         />
 
-        <LoadingSkeleton v-else-if="loading" />
-
-        <div v-else-if="error" class="surface-card p-6">
-          <h2 class="text-lg font-black text-slate-950 dark:text-white">成长档案暂时不可用</h2>
-          <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ error }}</p>
-          <button type="button" class="primary-action mt-4" @click="loadProfile">
-            重新加载
-          </button>
-        </div>
-
-        <EmptyState
-          v-else-if="!profile || !profile.domains.length"
-          title="还没有足够的成长数据"
-          description="继续发布内容、整理系列或参与互动后，这里会逐步形成你的成长画像。"
-          action-text="去发布"
-          action-href="/editor"
-        />
-
         <div v-else class="space-y-6">
-          <section class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <LoadingSkeleton v-if="loading" />
+
+          <div v-else-if="error" class="surface-card p-6">
+            <h2 class="text-lg font-black text-slate-950 dark:text-white">成长档案暂时不可用</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ error }}</p>
+            <button type="button" class="primary-action mt-4" @click="loadProfile">
+              重新加载
+            </button>
+          </div>
+
+          <EmptyState
+            v-else-if="!profile || !profile.domains.length"
+            title="还没有足够的成长数据"
+            description="公开内容档案尚未形成；下方成长路径仍会独立展示可读取的共建、贡献、权益和角色记录。"
+            action-text="去发布"
+            action-href="/editor"
+          />
+
+          <section v-else class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <article class="surface-card p-6">
               <div class="grid gap-4 md:grid-cols-3">
                 <div class="summary-card">
@@ -100,108 +100,135 @@
             </article>
           </section>
 
-          <section id="curation-feedback" class="surface-card p-6">
-            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 class="text-lg font-black text-slate-950 dark:text-white">最近入选反馈</h2>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  展示公开内容被社区收录后的可回访信息。
-                </p>
-              </div>
-              <span v-if="curationFeedbackSummary?.degraded" class="curation-state-pill">降级空态</span>
+          <section id="growth-path" class="surface-card p-6">
+            <div class="mb-4">
+              <h2 class="text-lg font-black text-slate-950 dark:text-white">成长路径</h2>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                按社区六步成长路径，如实映射你已留下的公开记录。路径只反映记录本身，不排先后高低、不代表资质，也不与任何人对比。
+              </p>
             </div>
-            <div v-if="recentCurationFeedbackItems.length" class="grid gap-3 lg:grid-cols-3">
-              <RouterLink
-                v-for="item in recentCurationFeedbackItems"
-                :key="item.eventId"
-                :to="item.href"
-                class="curation-card"
-              >
-                <span class="curation-card-kicker">收录位置：{{ curationFeedbackLocation(item) }}</span>
-                <h3>{{ item.contentTitle }}</h3>
-                <p>收录理由：{{ item.reasonText }}</p>
-                <small>{{ curationFeedbackStatusLabel(item) }} · {{ formatTime(item.includedAt || item.triggeredAt) }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="curation-empty">暂无公开内容入选反馈</p>
+            <p v-if="pathLoading" class="growth-path-loading">正在读取你的记录…</p>
+            <ol v-else class="growth-path-list">
+              <li v-for="(step, index) in growthPathSteps" :key="step.key" class="growth-path-step">
+                <span :class="['growth-path-marker', `growth-path-marker--${step.state}`]">{{ index + 1 }}</span>
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="growth-path-title">{{ step.title }}</h3>
+                    <span :class="['growth-path-state', `growth-path-state--${step.state}`]">
+                      {{ growthPathStateLabel(step.state) }}
+                    </span>
+                  </div>
+                  <p class="growth-path-hint">{{ step.hint }}</p>
+                  <p v-for="line in step.evidence" :key="line" class="growth-path-evidence">{{ line }}</p>
+                </div>
+              </li>
+            </ol>
           </section>
 
-          <section class="grid gap-4 lg:grid-cols-2">
-            <article
-              v-for="domain in profile.domains"
-              :key="domain.domain"
-              class="surface-card p-6"
-            >
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <template v-if="profile && profile.domains.length">
+            <section id="curation-feedback" class="surface-card p-6">
+              <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <div class="flex items-center gap-3">
-                    <span class="domain-icon">{{ getDomainIcon(domain.domain) }}</span>
-                    <div>
-                      <h2 class="text-lg font-black text-slate-950 dark:text-white">{{ domain.domainName }}</h2>
-                      <p class="text-xs text-slate-500 dark:text-slate-400">
-                        综合得分 {{ totalScore(domain) }} / 400
-                      </p>
-                    </div>
-                  </div>
-                  <div class="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    <span class="meta-pill">发布 {{ domain.postCount }}</span>
-                    <span class="meta-pill">系列 {{ domain.seriesCount }}</span>
-                    <span class="meta-pill">活跃日 {{ domain.activeDays }}</span>
-                    <span class="meta-pill">互动 {{ domain.interactionCount }}</span>
-                    <span class="meta-pill">浏览 {{ domain.viewCount }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-5 space-y-3">
-                <div v-for="dimension in domain.dimensions" :key="dimension.key">
-                  <div class="mb-1 flex items-center justify-between gap-3 text-sm">
-                    <strong class="text-slate-900 dark:text-slate-100">{{ dimension.label }}</strong>
-                    <span class="text-slate-500 dark:text-slate-400">{{ dimension.score }}</span>
-                  </div>
-                  <div class="dimension-bar">
-                    <span :style="{ width: `${dimension.score}%` }" />
-                  </div>
-                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                    {{ dimension.explanation }}
+                  <h2 class="text-lg font-black text-slate-950 dark:text-white">最近入选反馈</h2>
+                  <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    展示公开内容被社区收录后的可回访信息。
                   </p>
                 </div>
+                <span v-if="curationFeedbackSummary?.degraded" class="curation-state-pill">降级空态</span>
               </div>
+              <div v-if="recentCurationFeedbackItems.length" class="grid gap-3 lg:grid-cols-3">
+                <RouterLink
+                  v-for="item in recentCurationFeedbackItems"
+                  :key="item.eventId"
+                  :to="item.href"
+                  class="curation-card"
+                >
+                  <span class="curation-card-kicker">收录位置：{{ curationFeedbackLocation(item) }}</span>
+                  <h3>{{ item.contentTitle }}</h3>
+                  <p>收录理由：{{ item.reasonText }}</p>
+                  <small>{{ curationFeedbackStatusLabel(item) }} · {{ formatTime(item.includedAt || item.triggeredAt) }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="curation-empty">暂无公开内容入选反馈</p>
+            </section>
 
-              <div class="mt-5">
-                <div class="mb-2 flex items-center justify-between gap-3">
-                  <strong class="text-sm text-slate-900 dark:text-slate-100">代表内容</strong>
-                  <span class="text-xs text-slate-500 dark:text-slate-400">最多展示 4 条</span>
-                </div>
-                <div v-if="domain.representativePosts.length" class="space-y-2">
-                  <RouterLink
-                    v-for="post in domain.representativePosts"
-                    :key="post.postId"
-                    :to="`/post/${post.postId}`"
-                    class="post-row"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {{ post.title }}
-                      </div>
-                      <div class="mt-1 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <span>{{ post.heat }} 热度</span>
-                        <span>{{ getDomainLabel(post.domain ?? domain.domain) }}</span>
-                        <span v-if="post.featured">精选</span>
+            <section class="grid gap-4 lg:grid-cols-2">
+              <article
+                v-for="domain in profile.domains"
+                :key="domain.domain"
+                class="surface-card p-6"
+              >
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div class="flex items-center gap-3">
+                      <span v-if="isKnownDomain(domain.domain)" class="domain-icon">{{ getDomainIcon(domain.domain) }}</span>
+                      <div>
+                        <h2 class="text-lg font-black text-slate-950 dark:text-white">{{ profileDomainLabel(domain) }}</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                          综合得分 {{ totalScore(domain) }} / 400
+                        </p>
                       </div>
                     </div>
-                    <span class="post-row-link">查看</span>
-                  </RouterLink>
+                    <div class="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      <span class="meta-pill">发布 {{ domain.postCount }}</span>
+                      <span class="meta-pill">系列 {{ domain.seriesCount }}</span>
+                      <span class="meta-pill">活跃日 {{ domain.activeDays }}</span>
+                      <span class="meta-pill">互动 {{ domain.interactionCount }}</span>
+                      <span class="meta-pill">浏览 {{ domain.viewCount }}</span>
+                    </div>
+                  </div>
                 </div>
-                <p
-                  v-else
-                  class="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
-                >
-                  这个领域还在积累样本，继续发布或整理系列后会形成更稳定的代表内容。
-                </p>
-              </div>
-            </article>
-          </section>
+
+                <div class="mt-5 space-y-3">
+                  <div v-for="dimension in domain.dimensions" :key="dimension.key">
+                    <div class="mb-1 flex items-center justify-between gap-3 text-sm">
+                      <strong class="text-slate-900 dark:text-slate-100">{{ dimension.label }}</strong>
+                      <span class="text-slate-500 dark:text-slate-400">{{ dimension.score }}</span>
+                    </div>
+                    <div class="dimension-bar">
+                      <span :style="{ width: `${dimension.score}%` }" />
+                    </div>
+                    <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                      {{ dimension.explanation }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-5">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <strong class="text-sm text-slate-900 dark:text-slate-100">代表内容</strong>
+                    <span class="text-xs text-slate-500 dark:text-slate-400">最多展示 4 条</span>
+                  </div>
+                  <div v-if="domain.representativePosts.length" class="space-y-2">
+                    <RouterLink
+                      v-for="post in domain.representativePosts"
+                      :key="post.postId"
+                      :to="`/post/${post.postId}`"
+                      class="post-row"
+                    >
+                      <div class="min-w-0 flex-1">
+                        <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {{ post.title }}
+                        </div>
+                        <div class="mt-1 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                          <span>{{ post.heat }} 热度</span>
+                          <span>{{ representativePostDomainLabel(post.domain, domain.domain) }}</span>
+                          <span v-if="post.featured">精选</span>
+                        </div>
+                      </div>
+                      <span class="post-row-link">查看</span>
+                    </RouterLink>
+                  </div>
+                  <p
+                    v-else
+                    class="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                  >
+                    这个领域还在积累样本，继续发布或整理系列后会形成更稳定的代表内容。
+                  </p>
+                </div>
+              </article>
+            </section>
+          </template>
         </div>
       </section>
     </main>
@@ -209,18 +236,29 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import { getErrorMessage } from '@/api/client'
+import { getErrorMessage, type Result } from '@/api/client'
 import { creatorFeedbackApi } from '@/api/creatorFeedback'
 import { growthApi } from '@/api/growth'
+import { incentiveApi, type IncentiveAccount } from '@/api/incentives'
+import { collaborationApi } from '@/api/collaboration'
+import {
+  hasUntrustedGrowthMetadata,
+  isTrustedGrowthResult,
+  summarizeGrowthPath,
+  toGrowthCount,
+  type GrowthPathSnapshot,
+  type GrowthPathState,
+  type GrowthPayloadMetadata,
+} from '@/utils/growthPath'
 import { useAuthStore } from '@/stores/auth'
 import type { CreatorCurationFeedback, CreatorCurationFeedbackSummary, GrowthProfile, GrowthProfileDomain } from '@/api/types'
 import { formatTime } from '@/lib/format'
-import { getDomainIcon, getDomainLabel } from '@/utils/domains'
+import { getDomainIcon, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -237,12 +275,23 @@ const days = ref(30)
 const loading = ref(false)
 const error = ref('')
 const profile = ref<GrowthProfile | null>(null)
+const profilePathPayloadTrusted = ref(false)
 const curationFeedbackSummary = ref<CreatorCurationFeedbackSummary | null>(null)
 
 const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 const primaryDomain = computed(() => profile.value?.domains?.[0] ?? null)
-const strongestDomain = computed(() => profile.value?.strongestDomain || primaryDomain.value?.domainName || '--')
+const strongestDomain = computed(() => profile.value?.strongestDomain
+  || (primaryDomain.value ? profileDomainLabel(primaryDomain.value) : '--'))
 const emergingDomain = computed(() => profile.value?.emergingDomain || '继续观察')
+const profileDomainLabel = (domain: GrowthProfileDomain) => (
+  isKnownDomain(domain.domain)
+    ? domain.domainName || getDomainLabelSafe(domain.domain)
+    : getDomainLabelSafe(domain.domain)
+)
+const representativePostDomainLabel = (
+  postDomain?: number | null,
+  fallbackDomain?: number | null,
+) => getDomainLabelSafe(postDomain == null ? fallbackDomain : postDomain)
 const profileDemoNotice = computed(() => profile.value?.degradationReasons?.includes('local_demo_seed')
   ? '这些内容是本地样例，用来说明成长档案会如何组织公开内容，不代表你的真实成长画像。'
   : ''
@@ -268,46 +317,386 @@ const totalScore = (domain: GrowthProfileDomain) => (
   domain.dimensions.reduce((sum, item) => sum + Number(item.score || 0), 0)
 )
 
-const loadProfile = async () => {
-  if (!authStore.isLoggedIn) {
-    profile.value = null
-    curationFeedbackSummary.value = null
-    error.value = ''
+// ---- 成长路径（六步，仅自见）----
+// 每个来源独立降级：读不到就是 null，由 growthPath 纯函数映射成「暂无法读取」，
+// 绝不把读取失败伪装成「还没有」。
+type GrowthPathSources = Pick<GrowthPathSnapshot, 'coBuild' | 'records' | 'reputation' | 'perks' | 'roles'>
+type CountPage = GrowthPayloadMetadata & { total?: unknown }
+type SessionRequestOwner = {
+  requestId: number
+  uid: string
+  sessionQueryScope: number
+}
+
+const pathSources = ref<GrowthPathSources | null>(null)
+const pathLoading = ref(false)
+let profileRequestId = 0
+let growthPathRequestId = 0
+
+const currentSessionOwner = (requestId: number): SessionRequestOwner | null => {
+  const uid = String(authStore.user?.uid ?? '')
+  if (!authStore.isLoggedIn || !uid) return null
+  return {
+    requestId,
+    uid,
+    sessionQueryScope: Number(authStore.sessionQueryScope),
+  }
+}
+
+const sessionOwnerIsCurrent = (owner: SessionRequestOwner, activeRequestId: number) => (
+  owner.requestId === activeRequestId
+  && authStore.isLoggedIn
+  && owner.uid === String(authStore.user?.uid ?? '')
+  && owner.sessionQueryScope === Number(authStore.sessionQueryScope)
+)
+
+const trustedSettledData = <T>(
+  result: PromiseSettledResult<Result<T>>,
+): T | null => {
+  if (result.status !== 'fulfilled') return null
+  return isTrustedGrowthResult(result.value) ? result.value.data : null
+}
+
+const isUsableNestedGrowthObject = (payload: unknown): payload is Record<string, unknown> => {
+  return payload != null
+    && typeof payload === 'object'
+    && !Array.isArray(payload)
+    && !hasUntrustedGrowthMetadata(payload)
+}
+
+const trustedPageTotal = (page: CountPage | null | undefined): number | null => (
+  isUsableNestedGrowthObject(page) ? toGrowthCount(page.total) : null
+)
+
+const reputationSlice = (
+  accounts: IncentiveAccount[],
+): GrowthPathSources['reputation'] => {
+  const reputationDomains = new Set<string>()
+  let pointBalance = 0
+  for (const rawAccount of accounts as unknown[]) {
+    if (!rawAccount || typeof rawAccount !== 'object') return null
+    const account = rawAccount as Partial<IncentiveAccount>
+    if (account.accountType === 'REPUTATION') {
+      const totalBalance = toGrowthCount(account.totalBalance)
+      if (totalBalance === null) return null
+      if (totalBalance > 0) {
+        const domainCode = String(account.domainCode ?? '').trim()
+        if (!domainCode) return null
+        reputationDomains.add(domainCode)
+      }
+      continue
+    }
+    if (account.accountType === 'POINT') {
+      const availableBalance = toGrowthCount(account.availableBalance)
+      if (availableBalance === null) return null
+      pointBalance += availableBalance
+      if (!Number.isSafeInteger(pointBalance)) return null
+      continue
+    }
+    return null
+  }
+  return {
+    trusted: true,
+    reputationDomainCount: reputationDomains.size,
+    pointBalance,
+  }
+}
+
+const loadGrowthPathSources = async () => {
+  const owner = currentSessionOwner(++growthPathRequestId)
+  if (!owner) {
+    pathSources.value = null
+    pathLoading.value = false
     return
   }
+  pathLoading.value = true
+  pathSources.value = null
+  try {
+    const [claimed, created, ledger, accounts, entitlements, thanks, bounties, roles] = await Promise.allSettled([
+      collaborationApi.needs.mine({ size: 1 }),
+      collaborationApi.needs.createdMine({ size: 1 }),
+      incentiveApi.getMyLedger({ size: 1 }),
+      incentiveApi.getMySummary(),
+      incentiveApi.getMyEntitlements({ size: 1 }),
+      incentiveApi.getMyThanks({ size: 1 }),
+      incentiveApi.getMyBounties({ size: 1 }),
+      incentiveApi.getMyRoles({ size: 1 }),
+    ])
+    if (!sessionOwnerIsCurrent(owner, growthPathRequestId)) return
+
+    const claimedData = trustedSettledData(claimed)
+    const createdData = trustedSettledData(created)
+    const ledgerData = trustedSettledData(ledger)
+    const claimedCount = trustedPageTotal(claimedData)
+    const createdCount = trustedPageTotal(createdData)
+    const ledgerCount = trustedPageTotal(ledgerData)
+    const accountsData = trustedSettledData(accounts)
+    const entitlementsData = trustedSettledData(entitlements)
+    const entitlementCount = trustedPageTotal(entitlementsData)
+    const thanksData = trustedSettledData(thanks)
+    const thanksReceivedCount = thanksData && isUsableNestedGrowthObject(thanksData.received)
+      ? toGrowthCount(thanksData.receivedTotal)
+      : null
+    const bountiesData = trustedSettledData(bounties)
+    const bountySubmissionCount = trustedPageTotal(bountiesData?.submissions)
+    const rolesData = trustedSettledData(roles)
+    const grantCount = trustedPageTotal(rolesData?.grants)
+    const applicationCount = trustedPageTotal(rolesData?.applications)
+
+    pathSources.value = {
+      coBuild: claimedCount !== null && createdCount !== null
+        ? {
+            trusted: true,
+            claimedCount,
+            createdCount,
+          }
+        : null,
+      records: ledgerCount === null ? null : { trusted: true, ledgerCount },
+      reputation: Array.isArray(accountsData) ? reputationSlice(accountsData) : null,
+      perks: entitlementCount !== null && thanksReceivedCount !== null && bountySubmissionCount !== null
+        ? {
+            trusted: true,
+            entitlementCount,
+            thanksReceivedCount,
+            bountySubmissionCount,
+          }
+        : null,
+      roles: grantCount !== null && applicationCount !== null
+        ? {
+            trusted: true,
+            grantCount,
+            applicationCount,
+          }
+        : null,
+    }
+  } finally {
+    if (sessionOwnerIsCurrent(owner, growthPathRequestId)) {
+      pathLoading.value = false
+    }
+  }
+}
+
+const trustedProfilePathSource = computed<GrowthPathSnapshot['posts']>(() => {
+  const current = profile.value
+  if (
+    !current
+    || !profilePathPayloadTrusted.value
+    || current.degraded
+    || current.degradationReasons.length > 0
+  ) return null
+  const counts = current.domains.map((domain) => toGrowthCount(domain.postCount))
+  if (counts.some((count) => count === null)) return null
+  return {
+    trusted: true,
+    windowPostCount: counts.reduce<number>((sum, count) => sum + (count ?? 0), 0),
+  }
+})
+
+const growthPathSteps = computed(() => summarizeGrowthPath({
+  windowDays: trustedProfilePathSource.value ? profile.value?.days || days.value : days.value,
+  posts: trustedProfilePathSource.value,
+  coBuild: pathSources.value?.coBuild ?? null,
+  records: pathSources.value?.records ?? null,
+  reputation: pathSources.value?.reputation ?? null,
+  perks: pathSources.value?.perks ?? null,
+  roles: pathSources.value?.roles ?? null,
+}))
+
+const growthPathStateLabel = (state: GrowthPathState) => {
+  if (state === 'active') return '有记录'
+  if (state === 'empty') return '还没有'
+  return '暂无法读取'
+}
+
+const loadProfile = async () => {
+  const owner = currentSessionOwner(++profileRequestId)
+  if (!owner) {
+    profile.value = null
+    profilePathPayloadTrusted.value = false
+    curationFeedbackSummary.value = null
+    error.value = ''
+    loading.value = false
+    return
+  }
+  const requestedDays = days.value
   loading.value = true
   error.value = ''
   try {
     const [profileResult, curationResult] = await Promise.allSettled([
-      growthApi.getProfile(days.value),
+      growthApi.getProfile(requestedDays),
       creatorFeedbackApi.getCurationFeedbackSummary(),
     ])
+    if (!sessionOwnerIsCurrent(owner, profileRequestId)) return
     if (profileResult.status === 'rejected') throw profileResult.reason
     profile.value = profileResult.value.data
+    profilePathPayloadTrusted.value = isTrustedGrowthResult(profileResult.value)
     curationFeedbackSummary.value = curationResult.status === 'fulfilled' ? curationResult.value.data : null
   } catch (err) {
+    if (!sessionOwnerIsCurrent(owner, profileRequestId)) return
     profile.value = null
+    profilePathPayloadTrusted.value = false
     curationFeedbackSummary.value = null
     error.value = getErrorMessage(err, '加载成长档案失败')
   } finally {
-    loading.value = false
+    if (sessionOwnerIsCurrent(owner, profileRequestId)) {
+      loading.value = false
+    }
   }
 }
 
-watch(days, async () => {
-  await loadProfile()
+const invalidateSessionLoads = () => {
+  profileRequestId += 1
+  growthPathRequestId += 1
+  loading.value = false
+  pathLoading.value = false
+}
+
+const reloadSessionData = () => {
+  invalidateSessionLoads()
+  profile.value = null
+  profilePathPayloadTrusted.value = false
+  curationFeedbackSummary.value = null
+  pathSources.value = null
+  error.value = ''
+  if (!authStore.isLoggedIn) return
+  void loadProfile()
+  void loadGrowthPathSources()
+}
+
+watch(days, () => {
+  void loadProfile()
 })
 
-watch(() => authStore.isLoggedIn, async () => {
-  await loadProfile()
-})
+watch(
+  () => [
+    authStore.isLoggedIn,
+    String(authStore.user?.uid ?? ''),
+    Number(authStore.sessionQueryScope),
+  ] as const,
+  reloadSessionData,
+)
 
-onMounted(async () => {
-  await loadProfile()
-})
+onMounted(reloadSessionData)
+onBeforeUnmount(invalidateSessionLoads)
 </script>
 
 <style scoped>
+.growth-path-loading {
+  font-size: 0.85rem;
+  color: rgb(100 116 139);
+}
+
+.growth-path-list {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.growth-path-step {
+  display: flex;
+  gap: 0.85rem;
+}
+
+.growth-path-marker {
+  display: inline-flex;
+  height: 1.9rem;
+  width: 1.9rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.growth-path-marker--active {
+  background: rgb(209 250 229);
+  color: rgb(6 95 70);
+}
+
+.growth-path-marker--empty {
+  background: rgb(226 232 240);
+  color: rgb(71 85 105);
+}
+
+.growth-path-marker--unavailable {
+  border: 1px dashed rgb(148 163 184);
+  background: transparent;
+  color: rgb(100 116 139);
+}
+
+.growth-path-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.growth-path-state {
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.growth-path-state--active {
+  background: rgb(209 250 229);
+  color: rgb(6 95 70);
+}
+
+.growth-path-state--empty {
+  background: rgb(241 245 249);
+  color: rgb(100 116 139);
+}
+
+.growth-path-state--unavailable {
+  border: 1px dashed rgb(148 163 184);
+  color: rgb(100 116 139);
+}
+
+.growth-path-hint {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: rgb(100 116 139);
+}
+
+.growth-path-evidence {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: rgb(51 65 85);
+}
+
+.dark .growth-path-loading,
+.dark .growth-path-hint {
+  color: rgb(148 163 184);
+}
+
+.dark .growth-path-title {
+  color: rgb(241 245 249);
+}
+
+.dark .growth-path-evidence {
+  color: rgb(203 213 225);
+}
+
+.dark .growth-path-marker--active,
+.dark .growth-path-state--active {
+  background: rgb(6 78 59 / 0.6);
+  color: rgb(110 231 183);
+}
+
+.dark .growth-path-marker--empty,
+.dark .growth-path-state--empty {
+  background: rgb(30 41 59);
+  color: rgb(148 163 184);
+}
+
+.dark .growth-path-marker--unavailable,
+.dark .growth-path-state--unavailable {
+  border-color: rgb(71 85 105);
+  color: rgb(148 163 184);
+}
+
 .growth-kicker {
   display: inline-flex;
   align-items: center;

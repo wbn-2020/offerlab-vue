@@ -1,7 +1,7 @@
 import type { Post } from '@/api/types'
-import { DOMAIN } from '@/utils/domains'
+import { DOMAIN, isKnownDomain } from '@/utils/domains'
 
-type SurfaceTone = 'tech' | 'career' | 'reading' | 'lifestyle' | 'investment'
+type SurfaceTone = 'neutral' | 'tech' | 'career' | 'reading' | 'lifestyle' | 'investment'
 
 export interface DomainSurfaceChip {
   label: string
@@ -258,7 +258,8 @@ const buildInvestment = (post: Post) => {
 }
 
 const buildSurface = (post: Post) => {
-  switch (post.domain) {
+  if (!isKnownDomain(post.domain)) return null
+  switch (Number(post.domain)) {
     case DOMAIN.CAREER:
       return buildCareer(post)
     case DOMAIN.READING:
@@ -268,14 +269,24 @@ const buildSurface = (post: Post) => {
     case DOMAIN.INVESTMENT:
       return buildInvestment(post)
     case DOMAIN.TECH:
-    default:
       return buildTech(post)
+    default:
+      return null
   }
 }
 
 export const buildDomainCardSurface = (post: Post): DomainCardSurface => {
-  const surface: DomainCardSurface = buildSurface(post).card
   const images = imageList(post, extensionOf(post))
+  const built = buildSurface(post)
+  if (!built) {
+    return {
+      tone: 'neutral',
+      chips: [],
+      imageUrl: images[0],
+      imageAlt: images[0] ? post.title : undefined,
+    }
+  }
+  const surface: DomainCardSurface = built.card
   if (surface.imageUrl || !images[0]) return surface
   return {
     ...surface,
@@ -285,6 +296,7 @@ export const buildDomainCardSurface = (post: Post): DomainCardSurface => {
 }
 
 export const buildDomainDetailSurface = (post: Post): DomainDetailSurface | null => {
-  const detail = buildSurface(post).detail
+  const detail = buildSurface(post)?.detail
+  if (!detail) return null
   return hasContent(detail) ? detail : null
 }

@@ -90,7 +90,10 @@ const sandbox = {
   exports: {},
   require: (specifier) => {
     if (specifier === '@/utils/domains') {
-      return { DOMAIN: { TECH: 1, CAREER: 2, READING: 3, LIFESTYLE: 4, INVESTMENT: 5 } }
+      return {
+        DOMAIN: { TECH: 1, CAREER: 2, READING: 3, LIFESTYLE: 4, INVESTMENT: 5 },
+        isKnownDomain: (value) => [1, 2, 3, 4, 5].includes(Number(value)),
+      }
     }
     return nodeRequire(specifier)
   },

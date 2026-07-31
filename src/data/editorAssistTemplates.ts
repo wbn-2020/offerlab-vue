@@ -43,6 +43,7 @@ const contextHintLabels: Record<EditorAssistContextType, string> = {
   series: '公开合集',
   topic: '公开话题',
   template: '模板入口',
+  need: '共建需求',
 }
 
 const withTemplateMetadata = (template: EditorAssistTemplateDefinition): EditorAssistTemplate => ({

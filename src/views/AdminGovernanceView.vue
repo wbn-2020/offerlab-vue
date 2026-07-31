@@ -147,13 +147,15 @@
           <h2 class="panel-title">用户限制</h2>
           <div class="space-y-3">
             <div v-for="item in users" :key="item.uid" class="row-card">
-              <div class="user-limit-row">
-                <div class="user-limit-main">
-                  <div class="user-brief">
-                    <img v-if="item.avatarUrl" :src="item.avatarUrl" alt="" class="user-avatar" />
-                    <div v-else class="user-avatar user-avatar-fallback">
-                      <CircleUserRound class="h-5 w-5" />
-                    </div>
+                <div class="user-limit-row">
+                  <div class="user-limit-main">
+                    <div class="user-brief">
+                    <UserAvatar
+                      class="user-avatar"
+                      :src="item.avatarUrl"
+                      :name="item.nickname"
+                      alt=""
+                    />
                     <div class="min-w-0">
                       <strong class="block truncate text-slate-950 dark:text-slate-50">{{ item.nickname || `用户 ${item.uid}` }}</strong>
                       <span class="font-mono text-xs font-semibold text-slate-400">用户编号 {{ item.uid }}</span>
@@ -533,6 +535,52 @@
         </aside>
       </section>
 
+      <section v-else-if="activeTab === 'expert-certifications'" class="panel">
+        <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 class="panel-title !mb-1">专家认证审核</h2>
+            <p class="text-sm text-slate-500">仅处理当前频道的申请；通过或拒绝都会写入认证状态与治理审计。</p>
+          </div>
+          <button type="button" class="secondary-button" :disabled="isLoading || !selectedDomainParam" @click="loadExpertCertificationApplications()">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
+            刷新申请
+          </button>
+        </div>
+
+        <div v-if="expertCertificationLoadNotice" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {{ expertCertificationLoadNotice }}
+        </div>
+
+        <div v-if="expertCertificationApplications.length" class="space-y-3">
+          <article v-for="application in expertCertificationApplications" :key="String(application.id)" class="row-card">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <strong class="text-slate-950 dark:text-slate-50">申请 #{{ application.id }}</strong>
+                  <span class="meta-chip">申请人 {{ application.applicantUid || '--' }}</span>
+                  <span class="meta-chip">{{ application.domainName || domainLabel(application.domain) }}</span>
+                  <span class="meta-chip">{{ application.statusLabel || '待审核' }}</span>
+                </div>
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{{ application.evidenceSummary || '未提供审核说明' }}</p>
+                <div v-if="application.evidenceLinks.length" class="mt-2 flex flex-wrap gap-2 text-xs">
+                  <a v-for="link in application.evidenceLinks" :key="link" :href="link" class="text-sky-700 underline dark:text-sky-300" target="_blank" rel="noopener noreferrer">{{ link }}</a>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                  <span>资格：{{ application.eligibilityPassed ? '已通过' : '需人工判断' }}</span>
+                  <span>提交：{{ formatCertificationTime(application.createTime) }}</span>
+                  <span v-if="application.riskAcknowledged">已确认风险边界</span>
+                </div>
+              </div>
+              <div class="flex shrink-0 flex-wrap gap-2">
+                <button type="button" class="primary-button" :disabled="isSaving || application.status !== 10" @click="reviewExpertCertification(application, true)">通过</button>
+                <button type="button" class="secondary-button danger-button" :disabled="isSaving || application.status !== 10" @click="reviewExpertCertification(application, false)">拒绝</button>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div v-else-if="!expertCertificationLoadNotice" class="empty-panel">当前频道没有待审核的认证申请</div>
+      </section>
+
       <section v-else-if="activeTab === 'queue'" class="panel">
         <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -549,7 +597,9 @@
               <option value="">全部来源</option>
               <option value="POST_REPORT">帖子举报</option>
               <option value="COMMENT_REPORT">评论举报</option>
+              <option value="CONTACT_REQUEST_REPORT">联系请求举报</option>
               <option value="MODERATION_HIT">敏感词命中</option>
+              <option value="POST_PENDING_REVIEW">帖子待审</option>
               <option value="QUESTION_PENDING">待审知识卡</option>
               <option value="AI_TASK_FAILED">失败 AI 任务</option>
             </select>
@@ -611,12 +661,25 @@
                   <span>{{ item.status }}</span>
                   <span>{{ formatQueueTime(item.createdAt) }}</span>
                   <span>{{ queueSourceLabel(item.sourceType) }}</span>
+                  <span v-if="item.reporterNotificationText">举报者通知：{{ item.reporterNotificationText }}</span>
                   <span v-if="item.assigneeUid">处理人 {{ item.assigneeUid }}</span>
                   <span v-if="item.handledAt">处理于 {{ formatQueueTime(item.handledAt) }}</span>
                 </div>
+                <p v-if="item.reporterReceiptPreview" class="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                  用户可见回执预览：{{ item.reporterReceiptPreview }}
+                </p>
               </div>
               <div class="flex flex-wrap gap-2">
-                <RouterLink :to="item.actionPath" class="secondary-button">{{ item.actionLabel }}</RouterLink>
+                <button
+                  v-if="item.sourceType === 'POST_PENDING_REVIEW'"
+                  type="button"
+                  class="secondary-button"
+                  :disabled="previewLoadingId === item.id"
+                  @click="openPendingPostPreview(item)"
+                >
+                  {{ previewLoadingId === item.id ? '加载中' : item.actionLabel }}
+                </button>
+                <RouterLink v-else :to="item.actionPath" class="secondary-button">{{ item.actionLabel }}</RouterLink>
                 <button v-if="item.actionTab" type="button" class="secondary-button" @click="goToQueueItem(item)">在治理中心定位</button>
                 <button v-if="canQueueAction(item, 'claim')" type="button" class="secondary-button" :disabled="isSaving" @click="handleReviewQueueAction(item, 'claim')">认领</button>
                 <button v-if="canQueueAction(item, 'release')" type="button" class="secondary-button" :disabled="isSaving" @click="handleReviewQueueAction(item, 'release')">释放</button>
@@ -651,6 +714,7 @@
           <div class="space-y-3 text-sm leading-6 text-slate-500">
             <p>帖子/评论举报仍由现有审核接口处理，治理中心提供统一入口和指标。</p>
             <p>举报能力真实承接到帖子和评论举报接口；重复举报或频率限制会向用户显示失败态，不显示虚假的提交成功。</p>
+            <p>举报处理完成后，仅向举报者展示公开回执文案；后台处理人、内部备注和敏感治理规则不会进入用户通知。</p>
             <p>高风险内容不提供专业建议背书；投资、医疗、法律、心理等内容只作为经验讨论，并保留风险提示。</p>
             <p>内容不可见、已删除、已下架或受限时，列表和详情页应展示温和失效态，不进入热榜、频道精选或推荐池。</p>
             <p>关键词、禁言、封禁、精选等高风险操作使用确认弹窗，并写入后台审计日志。</p>
@@ -716,6 +780,22 @@
       @cancel="cancelRiskConfirm"
     />
 
+    <div v-if="selectedPendingReviewPost" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="closePendingPostPreview">
+      <article class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="pending-post-preview-title" tabindex="-1">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-slate-400">待审帖子全文</p>
+            <h2 id="pending-post-preview-title" class="mt-1 text-lg font-bold text-slate-950 dark:text-slate-50">{{ selectedPendingReviewPost.title || `帖子 ${selectedPendingReviewPost.postId}` }}</h2>
+            <p class="mt-1 text-sm text-slate-500">{{ domainLabel(selectedPendingReviewPost.domain) }} · 作者 {{ selectedPendingReviewPost.author.uid }}</p>
+          </div>
+          <button ref="pendingPostPreviewCloseButton" type="button" class="secondary-button" @click="closePendingPostPreview">关闭</button>
+        </div>
+        <div class="max-h-[70vh] overflow-auto p-5">
+          <div class="whitespace-pre-wrap break-words text-sm leading-7 text-slate-700 dark:text-slate-200">{{ selectedPendingReviewPost.content || '暂无正文' }}</div>
+        </div>
+      </article>
+    </div>
+
     <div v-if="selectedAudit" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @click.self="closeAuditDetail">
       <article class="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="audit-detail-title" tabindex="-1">
         <div class="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
@@ -752,20 +832,23 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { AlertTriangle, CircleUserRound, RefreshCw, ShieldOff, Unlock } from 'lucide-vue-next'
+import { AlertTriangle, RefreshCw, ShieldOff, Unlock } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import UserAvatar from '@/components/user/UserAvatar.vue'
 import { getErrorMessage } from '@/api/client'
 import { opsApi, type AdminAuditLog, type MigrationStatus, type ModerationKeyword, type ModerationKeywordHit, type MyAdminPermissions, type ReviewQueueItem as BackendReviewQueueItem, type ReviewQueueRiskLevel, type ReviewQueueStatus, type UserModerationState } from '@/api/ops'
 import { postApi, type DomainModerator } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
+import { expertCertificationApi } from '@/api/expertCertification'
 import type { Question } from '@/api/question'
 import type { AiExtractTask } from '@/api/ops'
-import type { CommentReport, CommunityTopic, Post, PostReport, Tag } from '@/api/types'
+import type { CommentReport, CommunityTopic, ExpertCertificationApplication, Post, PostReport, Tag, UserReportStatus } from '@/api/types'
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 import { useRiskConfirm, type RiskConfirmRequest } from '@/composables/useRiskConfirm'
-import { DOMAIN_OPTIONS, getDomainLabel } from '@/utils/domains'
+import { useAuthStore } from '@/stores/auth'
+import { DOMAIN_OPTIONS, getDomainLabel, getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
 
 const tabs = [
   { label: '迁移检查', value: 'migration', scope: 'ops' },
@@ -775,6 +858,7 @@ const tabs = [
   { label: '精选管理', value: 'featured', scope: 'domainModeration' },
   { label: '专题管理', value: 'topics', scope: 'globalModeration' },
   { label: '标签治理', value: 'tags', scope: 'globalModeration' },
+  { label: '专家认证', value: 'expert-certifications', scope: 'domainModeration' },
   { label: '审核队列', value: 'queue', scope: 'domainModeration' },
   { label: '审核总览', value: 'review', scope: 'domainModeration' },
   { label: '审计日志', value: 'audit', scope: 'ops' },
@@ -783,8 +867,9 @@ const tabs = [
 tabs.splice(tabs.findIndex((tab) => tab.value === 'topics'), 0, { label: '领域版主', value: 'moderators', scope: 'domainModeration' })
 
 const route = useRoute()
+const authStore = useAuthStore()
 
-type ReviewQueueSourceType = 'POST_REPORT' | 'COMMENT_REPORT' | 'MODERATION_HIT' | 'QUESTION_PENDING' | 'AI_TASK_FAILED' | string
+type ReviewQueueSourceType = 'POST_REPORT' | 'COMMENT_REPORT' | 'MODERATION_HIT' | 'POST_PENDING_REVIEW' | 'QUESTION_PENDING' | 'AI_TASK_FAILED' | string
 type ReviewQueueRisk = ReviewQueueRiskLevel
 
 interface ReviewQueueItem {
@@ -802,9 +887,12 @@ interface ReviewQueueItem {
   actionPath: string
   actionLabel: string
   actionTab?: string
+  reporterNotificationText?: string
+  reporterReceiptPreview?: string
   backendItem?: BackendReviewQueueItem
   queueStatus?: ReviewQueueStatus
   assigneeUid?: string
+  creatorUid?: string
   handledAt?: string | number
 }
 
@@ -836,9 +924,15 @@ const safeBackendReviewQueueItems = computed<BackendReviewQueueItem[]>(() => Arr
 const reviewQueueSource = ref<'backend' | 'frontend-fallback'>('frontend-fallback')
 const reviewQueueLoadWarnings = ref<string[]>([])
 const auditLogs = ref<AdminAuditLog[]>([])
+const expertCertificationApplications = ref<ExpertCertificationApplication[]>([])
+const expertCertificationLoadNotice = ref('')
 const selectedAudit = ref<AdminAuditLog | null>(null)
+const selectedPendingReviewPost = ref<Post | null>(null)
+const previewLoadingId = ref('')
+const previewedPendingPostIds = ref<Set<string>>(new Set())
 const selectedKeyword = ref<ModerationKeyword | null>(null)
 const auditCloseButton = ref<HTMLButtonElement | null>(null)
+const pendingPostPreviewCloseButton = ref<HTMLButtonElement | null>(null)
 const keywordForm = reactive({ keyword: '', scope: 'ALL', matchType: 'CONTAINS', action: 'BLOCK', enabled: 1, remark: '' })
 const hitFilters = reactive({ scope: '', action: '', keyword: '', uid: '' })
 const auditFilters = reactive({ action: '', resourceType: '', operatorUid: '', startDate: '', endDate: '' })
@@ -931,6 +1025,33 @@ const clampTagPage = () => {
 const changeTagPage = (page: number) => {
   tagPage.value = Math.min(Math.max(page, 1), tagPageCount.value)
 }
+
+type AdminReportWithReceipt = Pick<PostReport, 'reportStatus' | 'userStatus' | 'reporterNotified' | 'reporterReceiptText'>
+
+const publicReportReceiptText: Record<UserReportStatus, string> = {
+  PROCESSING: '平台已收到，正在处理。',
+  ACTION_TAKEN: '平台已处理该内容。',
+  NOT_ACCEPTED: '经复核，暂未发现明确违规。',
+  CLOSED: '举报已处理完成。',
+}
+
+const reportUserStatus = (item: AdminReportWithReceipt): UserReportStatus => {
+  if (item.userStatus) return item.userStatus
+  const status = Number(item.reportStatus ?? 0)
+  if (status === 1) return 'ACTION_TAKEN'
+  if (status === 2) return 'NOT_ACCEPTED'
+  if (status === 3) return 'CLOSED'
+  return 'PROCESSING'
+}
+
+const reporterNotificationText = (item: AdminReportWithReceipt) => {
+  if (item.reporterNotified === true) return '已通知'
+  if (item.reporterNotified === false) return Number(item.reportStatus ?? 0) === 0 ? '待处理后通知' : '未通知'
+  return Number(item.reportStatus ?? 0) === 0 ? '待处理后生成' : '后端未返回'
+}
+
+const reporterReceiptPreview = (item: AdminReportWithReceipt) => item.reporterReceiptText || publicReportReceiptText[reportUserStatus(item)]
+
 const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
   const items: ReviewQueueItem[] = []
   postReports.value
@@ -952,6 +1073,8 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         actionPath: `/post/${item.postId}`,
         actionLabel: '查看帖子',
         actionTab: 'review',
+        reporterNotificationText: reporterNotificationText(item),
+        reporterReceiptPreview: reporterReceiptPreview(item),
       })
     })
   commentReports.value
@@ -973,6 +1096,8 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
         actionPath: `/post/${item.postId}`,
         actionLabel: '查看原帖',
         actionTab: 'review',
+        reporterNotificationText: reporterNotificationText(item),
+        reporterReceiptPreview: reporterReceiptPreview(item),
       })
     })
   hits.value
@@ -1041,14 +1166,11 @@ const frontendReviewQueueItems = computed<ReviewQueueItem[]>(() => {
 const backendReviewQueueViewItems = computed<ReviewQueueItem[]>(() => safeBackendReviewQueueItems.value
   .map(toReviewQueueItem)
   .sort((a, b) => riskRank(b.riskLevel) - riskRank(a.riskLevel) || queueTimeValue(b.createdAt) - queueTimeValue(a.createdAt)))
-const reviewQueueItems = computed<ReviewQueueItem[]>(() => {
-  if (reviewQueueSource.value === 'backend' && backendReviewQueueViewItems.value.length > 0) {
-    return backendReviewQueueViewItems.value
-  }
-  return frontendReviewQueueItems.value
-})
+const reviewQueueItems = computed<ReviewQueueItem[]>(() => (
+  reviewQueueSource.value === 'backend' ? backendReviewQueueViewItems.value : frontendReviewQueueItems.value
+))
 const reviewQueueSourceText = computed(() => (
-  reviewQueueSource.value === 'backend' && backendReviewQueueViewItems.value.length > 0
+  reviewQueueSource.value === 'backend'
     ? '后端统一队列'
     : '前端聚合预览'
 ))
@@ -1131,8 +1253,8 @@ const setSelectedGovernanceDomain = async (domain: number | '') => {
   await refreshAll()
 }
 
-const domainLabel = (domain?: number | null) => getDomainLabel(domain)
-const queueDomainText = (domain?: number) => (domain ? getDomainLabel(domain) : '未标注频道')
+const domainLabel = (domain?: number | null) => getDomainLabelSafe(domain)
+const queueDomainText = (domain?: number) => getDomainLabelSafe(domain)
 
 const isQueueCreatedInRange = (value?: string | number) => {
   if (!value) return !(queueFilters.startDate || queueFilters.endDate)
@@ -1178,6 +1300,8 @@ const clearDomainModerationState = () => {
   domainModerators.value = []
   postReports.value = []
   commentReports.value = []
+  expertCertificationApplications.value = []
+  expertCertificationLoadNotice.value = ''
 }
 
 const clearModerationState = () => {
@@ -1191,7 +1315,6 @@ const loadGlobalModerationData = (loaders: Array<Promise<void>>) => {
     return
   }
   reviewQueueLoadWarnings.value = []
-  loaders.push(loadBackendReviewQueue(false))
   loaders.push(opsApi.listModerationKeywords({ limit: 80 }).then((res) => { keywords.value = res.data || [] }))
   loaders.push(opsApi.listModerationHits({ limit: 80 }).then((res) => { hits.value = res.data || [] }))
   loaders.push(opsApi.listModerationUsers(80).then((res) => { users.value = res.data || [] }))
@@ -1217,10 +1340,12 @@ const loadDomainModerationData = (loaders: Array<Promise<void>>) => {
     clearDomainModerationState()
     return
   }
+  loaders.push(loadBackendReviewQueue(false))
   loaders.push(postApi.listAdminReports({ status: 0, limit: 50, domain: selectedDomainParam.value }).then((res) => { postReports.value = res.data || [] }))
   loaders.push(interactionApi.listAdminCommentReports({ status: 0, limit: 50, domain: selectedDomainParam.value }).then((res) => { commentReports.value = res.data || [] }))
   loaders.push(loadFeaturedPosts(false))
   loaders.push(loadDomainModerators(false))
+  loaders.push(loadExpertCertificationApplications(false))
 }
 
 const refreshAll = async () => {
@@ -1265,11 +1390,6 @@ const loadReviewQueue = async () => {
     await refreshAll()
     return
   }
-  if (!canGlobalModerate.value) {
-    reviewQueueSource.value = 'frontend-fallback'
-    backendReviewQueueItems.value = []
-    return
-  }
   isLoading.value = true
   try {
     await loadBackendReviewQueue(true)
@@ -1288,7 +1408,9 @@ const queueSourceLabel = (sourceType: string) => {
   const labels: Record<string, string> = {
     POST_REPORT: '帖子举报',
     COMMENT_REPORT: '评论举报',
+    CONTACT_REQUEST_REPORT: '联系请求举报',
     MODERATION_HIT: '敏感词命中',
+    POST_PENDING_REVIEW: '帖子待审',
     QUESTION_PENDING: '待审知识卡',
     AI_TASK_FAILED: '失败 AI 任务',
   }
@@ -1298,6 +1420,7 @@ const queueSourceLabel = (sourceType: string) => {
 const queueTargetText = (targetType: string) => {
   const labels: Record<string, string> = {
     POST: '帖子',
+    POST_PENDING_REVIEW: '帖子',
     COMMENT: '评论',
     CONTENT: '内容',
     QUESTION: '知识卡',
@@ -1317,9 +1440,40 @@ const queueStatusText = (status?: string) => {
   return status ? labels[status] || status : '待处理'
 }
 
+const queueExtJson = (item: BackendReviewQueueItem): Record<string, unknown> => {
+  if (!item.extJson) return {}
+  try {
+    const parsed = JSON.parse(item.extJson)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}
+  } catch {
+    return {}
+  }
+}
+
+const queueExtId = (item: BackendReviewQueueItem, key: string) => {
+  const value = queueExtJson(item)[key]
+  if (typeof value !== 'string' && typeof value !== 'number') return ''
+  const id = String(value).trim()
+  return /^[1-9]\d*$/.test(id) ? id : ''
+}
+
+const queueDomain = (item: BackendReviewQueueItem) => {
+  const directDomain = Number(item.domain)
+  if (isKnownDomain(directDomain)) return directDomain
+  const extDomain = Number(queueExtJson(item).domain)
+  return isKnownDomain(extDomain) ? extDomain : undefined
+}
+
 const queueActionPath = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'POST_REPORT' || item.sourceType === 'POST') return `/post/${item.sourceId || item.id}`
-  if (item.sourceType === 'COMMENT_REPORT') return item.sourceId ? `/post/${item.sourceId}` : '/admin/governance'
+  if (item.sourceType === 'POST_PENDING_REVIEW') return '/admin/governance?tab=queue'
+  if (item.sourceType === 'COMMENT_REPORT') {
+    const postId = queueExtId(item, 'postId')
+    const commentId = queueExtId(item, 'commentId')
+    if (!postId) return '/admin/governance?tab=review'
+    return commentId ? `/post/${postId}#comment-${commentId}` : `/post/${postId}`
+  }
+  if (item.sourceType === 'CONTACT_REQUEST_REPORT') return '/admin/governance?tab=review'
   if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '/admin/questions'
   if (item.sourceType === 'AI_TASK_FAILED' || item.sourceType === 'AI_TASK') return '/admin/ops'
   return '/admin/governance'
@@ -1327,7 +1481,9 @@ const queueActionPath = (item: BackendReviewQueueItem) => {
 
 const queueActionLabel = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'POST_REPORT' || item.sourceType === 'POST') return '查看帖子'
-  if (item.sourceType === 'COMMENT_REPORT') return '查看来源'
+  if (item.sourceType === 'POST_PENDING_REVIEW') return '查看待审全文'
+  if (item.sourceType === 'COMMENT_REPORT') return queueExtId(item, 'postId') ? '查看原帖' : '留在治理页'
+  if (item.sourceType === 'CONTACT_REQUEST_REPORT') return '查看联系请求举报'
   if (item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'QUESTION') return '进入知识卡审核'
   if (item.sourceType === 'AI_TASK_FAILED' || item.sourceType === 'AI_TASK') return '进入运维中心'
   return '查看来源'
@@ -1335,7 +1491,7 @@ const queueActionLabel = (item: BackendReviewQueueItem) => {
 
 const queueActionTab = (item: BackendReviewQueueItem) => {
   if (item.sourceType === 'MODERATION_HIT') return 'hits'
-  if (item.sourceType === 'POST_REPORT' || item.sourceType === 'COMMENT_REPORT') return 'review'
+  if (item.sourceType === 'POST_REPORT' || item.sourceType === 'COMMENT_REPORT' || item.sourceType === 'CONTACT_REQUEST_REPORT') return 'review'
   return undefined
 }
 
@@ -1353,7 +1509,7 @@ const toReviewQueueItem = (item: BackendReviewQueueItem): ReviewQueueItem => ({
   title: item.title || `${queueSourceLabel(item.sourceType)} ${item.sourceId || item.id}`,
   summary: item.summary || item.handleNote || '',
   riskLevel: normalizeQueueRisk(item.riskLevel),
-  domain: item.domain,
+  domain: queueDomain(item),
   status: queueStatusText(item.queueStatus),
   createdAt: item.createTime || item.updateTime,
   actionPath: queueActionPath(item),
@@ -1362,11 +1518,12 @@ const toReviewQueueItem = (item: BackendReviewQueueItem): ReviewQueueItem => ({
   backendItem: item,
   queueStatus: item.queueStatus,
   assigneeUid: item.assigneeUid === undefined || item.assigneeUid === null ? undefined : String(item.assigneeUid),
+  creatorUid: item.creatorUid === undefined || item.creatorUid === null ? undefined : String(item.creatorUid),
   handledAt: item.handledTime,
 })
 
 const loadBackendReviewQueue = async (showToast = true) => {
-  if (!canGlobalModerate.value) {
+  if (!canModerate.value) {
     backendReviewQueueItems.value = []
     reviewQueueSource.value = 'frontend-fallback'
     return
@@ -1394,15 +1551,53 @@ const loadBackendReviewQueue = async (showToast = true) => {
 
 type ReviewQueueAction = 'claim' | 'release' | 'approve' | 'reject' | 'close'
 
+const pendingPostPreviewKey = (item: ReviewQueueItem) => {
+  const version = item.backendItem ? queueExtJson(item.backendItem).version : undefined
+  return `${item.targetId}:${String(version ?? 'legacy')}`
+}
+
 const canQueueAction = (item: ReviewQueueItem, action: ReviewQueueAction) => {
-  if (!canGlobalModerate.value) return false
+  if (!canModerate.value) return false
   if (!item.backendItem || reviewQueueSource.value !== 'backend') return false
+  const currentUid = String(authStore.user?.uid ?? '')
+  if (!currentUid) return false
+  if (item.creatorUid && item.creatorUid === currentUid) return false
+  if (item.assigneeUid && item.assigneeUid !== currentUid) return false
   if ((item.sourceType === 'POST_REPORT' || item.sourceType === 'COMMENT_REPORT') && (action === 'approve' || action === 'reject' || action === 'close')) {
     return false
   }
-  if (action === 'claim') return item.queueStatus === 'pending' || item.queueStatus === 'claimed'
-  if (action === 'release') return item.queueStatus === 'claimed'
+  if ((item.sourceType === 'QUESTION_PENDING' || item.sourceType === 'AI_TASK_FAILED')
+      && (action === 'approve' || action === 'reject' || action === 'close')) {
+    return false
+  }
+  if (item.sourceType === 'POST_PENDING_REVIEW'
+      && (action === 'approve' || action === 'reject')
+      && !previewedPendingPostIds.value.has(pendingPostPreviewKey(item))) {
+    return false
+  }
+  if (action === 'claim') return item.queueStatus === 'pending' && !item.assigneeUid
+  if (action === 'release') return item.queueStatus === 'claimed' && item.assigneeUid === currentUid
   return item.queueStatus === 'pending' || item.queueStatus === 'claimed'
+}
+
+const openPendingPostPreview = async (item: ReviewQueueItem) => {
+  const postId = item.backendItem?.sourceId
+  if (!postId || previewLoadingId.value) return
+  previewLoadingId.value = item.id
+  try {
+    const res = await postApi.getReviewPreview(postId)
+    if (!res.data) throw new Error('待审帖子不存在')
+    selectedPendingReviewPost.value = res.data
+    previewedPendingPostIds.value = new Set([...previewedPendingPostIds.value, pendingPostPreviewKey(item)])
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '待审帖子全文加载失败'))
+  } finally {
+    previewLoadingId.value = ''
+  }
+}
+
+const closePendingPostPreview = () => {
+  selectedPendingReviewPost.value = null
 }
 
 const queueActionText = (action: ReviewQueueAction) => {
@@ -1417,7 +1612,7 @@ const queueActionText = (action: ReviewQueueAction) => {
 }
 
 const handleReviewQueueAction = async (item: ReviewQueueItem, action: ReviewQueueAction) => {
-  if (!canGlobalModerate.value) return
+  if (!canModerate.value) return
   if (!item.backendItem) return
   const actionText = queueActionText(action)
   const note = await requireRiskConfirm({
@@ -1545,6 +1740,11 @@ useAccessibleDialog(() => Boolean(selectedAudit.value), {
   initialFocus: auditCloseButton,
 })
 
+useAccessibleDialog(() => Boolean(selectedPendingReviewPost.value), {
+  close: closePendingPostPreview,
+  initialFocus: pendingPostPreviewCloseButton,
+})
+
 const loadHits = async () => {
   if (!canGlobalModerate.value) return
   isLoading.value = true
@@ -1606,6 +1806,62 @@ const loadDomainModerators = async (showToast = true) => {
   } catch (error: any) {
     domainModerators.value = []
     if (showToast) toast.error(getErrorMessage(error, '领域版主加载失败'))
+  }
+}
+
+const loadExpertCertificationApplications = async (showToast = true) => {
+  if (!canModerate.value) return
+  const domain = selectedDomainParam.value
+  if (!isKnownDomain(domain)) {
+    expertCertificationApplications.value = []
+    expertCertificationLoadNotice.value = '请选择一个频道后查看专家认证申请。'
+    return
+  }
+  expertCertificationLoadNotice.value = ''
+  try {
+    const res = await expertCertificationApi.listReviewQueue(domain, 10, 50)
+    expertCertificationApplications.value = res.data || []
+  } catch (error: any) {
+    expertCertificationApplications.value = []
+    expertCertificationLoadNotice.value = '专家认证申请暂不可用，请稍后重试。'
+    if (showToast) toast.error(getErrorMessage(error, '专家认证申请加载失败'))
+  }
+}
+
+const formatCertificationTime = (value?: number) => {
+  if (!value) return '--'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '--' : date.toLocaleString('zh-CN', { hour12: false })
+}
+
+const reviewExpertCertification = async (application: ExpertCertificationApplication, approved: boolean) => {
+  if (!canModerate.value || application.status !== 10) return
+  const action = approved ? '通过' : '拒绝'
+  const note = await requireRiskConfirm({
+    title: `${action}专家认证申请`,
+    level: approved ? 'high' : 'medium',
+    reversible: !approved,
+    impactCount: 1,
+    objects: riskObjects([`expert-cert:${application.id}`, `uid:${application.applicantUid}`, `domain:${application.domain}`]),
+    context: riskContext(
+      `申请人：${application.applicantUid || '--'}`,
+      `频道：${application.domainName || domainLabel(application.domain)}`,
+      application.evidenceSummary ? `说明：${application.evidenceSummary}` : undefined,
+    ),
+    confirmText: `确认${action}`,
+    requireNote: !approved,
+    notePlaceholder: approved ? '可填写审核备注' : '请填写拒绝原因，会写入治理审计',
+  })
+  if (note === null) return
+  isSaving.value = true
+  try {
+    await expertCertificationApi.review(application.id, { approved, note })
+    toast.success(`认证申请已${action}`)
+    await loadExpertCertificationApplications(false)
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, `认证申请${action}失败`))
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -1801,9 +2057,11 @@ const saveTopic = async () => {
       tagNames: topicTagNames(),
       note: note || topicForm.note,
     }
-    selectedTopic.value
-      ? await postApi.updateTopic(selectedTopic.value.id, payload)
-      : await postApi.createTopic(payload)
+    if (selectedTopic.value) {
+      await postApi.updateTopic(selectedTopic.value.id, payload)
+    } else {
+      await postApi.createTopic(payload)
+    }
     toast.success('话题已保存')
     resetTopic()
     await loadTopics(false)
@@ -2144,9 +2402,11 @@ const saveKeyword = async () => {
   const payloadWithAudit = { ...payload, auditRemark: note }
   isSaving.value = true
   try {
-    selectedKeyword.value
-      ? await opsApi.updateModerationKeyword(selectedKeyword.value.id, payloadWithAudit)
-      : await opsApi.createModerationKeyword(payloadWithAudit)
+    if (selectedKeyword.value) {
+      await opsApi.updateModerationKeyword(selectedKeyword.value.id, payloadWithAudit)
+    } else {
+      await opsApi.createModerationKeyword(payloadWithAudit)
+    }
     toast.success('关键词已保存')
     resetKeyword()
     await refreshAll()
@@ -2498,14 +2758,6 @@ onMounted(refreshAll)
   border-radius: 999px;
   border: 1px solid rgb(226 232 240);
   object-fit: cover;
-}
-
-.user-avatar-fallback {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(239 246 255);
-  color: rgb(37 99 235);
 }
 
 .violation-card {
@@ -2883,11 +3135,6 @@ onMounted(refreshAll)
 
 .dark .user-avatar {
   border-color: rgb(30 41 59);
-}
-
-.dark .user-avatar-fallback {
-  background: rgb(30 41 59);
-  color: rgb(147 197 253);
 }
 
 .dark .detail-card {

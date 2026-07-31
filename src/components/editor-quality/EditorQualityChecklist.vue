@@ -33,7 +33,7 @@
 
     <div class="editor-quality-checklist__list">
       <article
-        v-for="item in items"
+        v-for="item in checklistItems"
         :key="item.key"
         class="editor-quality-checklist__item"
         :class="`editor-quality-checklist__item--${item.state}`"
@@ -135,7 +135,7 @@ const fallbackResult = computed<EditorQualityChecklistResult>(() => {
   return buildEditorQualityChecklist(props.input || {})
 })
 
-const items = computed(() => fallbackResult.value.items)
+const checklistItems = computed(() => fallbackResult.value.items)
 const resolvedSummary = computed(() => fallbackResult.value.summary)
 
 const stateSymbol = (state: EditorQualityChecklistState) => {
