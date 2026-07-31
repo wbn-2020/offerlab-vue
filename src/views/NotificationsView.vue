@@ -120,6 +120,21 @@
         :aria-labelledby="notificationTypeTabId(activeType)"
         tabindex="0"
       >
+      <div
+        v-if="hasPendingNotificationRefresh"
+        class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-semibold text-primary-800 dark:border-primary-900 dark:bg-primary-950/40 dark:text-primary-200"
+        role="status"
+      >
+        <span>有新通知</span>
+        <button
+          type="button"
+          class="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="isLoading"
+          @click="refreshNotifications"
+        >
+          刷新
+        </button>
+      </div>
       <div v-if="isLoading && notifications.length === 0" class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <div v-for="item in 4" :key="item" class="flex gap-4 border-b border-slate-100 py-4 last:border-b-0 dark:border-slate-800">
           <div class="h-11 w-11 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
@@ -306,6 +321,7 @@ const loadErrorText = ref('')
 const unreadErrorText = ref('')
 const nextCursor = ref<string | undefined>()
 const hasMore = ref(false)
+const hasPendingNotificationRefresh = ref(false)
 const unread = computed(() => realtimeStore.unreadCount)
 const preferences = ref<NotificationPreference | null>(null)
 let notificationLoadGeneration = 0
@@ -313,6 +329,8 @@ let notificationAccountGeneration = 0
 let unreadRequestId = 0
 let preferenceRequestId = 0
 let observedNotificationAccountKey: string | null = null
+let notificationListLoaded = false
+let notificationListMarker: string | null = null
 
 type NotificationType = 'all' | 'like' | 'comment' | 'favorite' | 'follower' | 'mention' | 'system'
 type InboxView = 'notifications' | 'updates' | 'revisits'
@@ -438,6 +456,10 @@ const clearNotificationListState = () => {
   loadErrorText.value = ''
 }
 
+const latestUnreadMarker = () => (
+  realtimeStore.latestUnreadId == null ? null : String(realtimeStore.latestUnreadId)
+)
+
 const invalidateNotificationList = () => {
   notificationLoadGeneration += 1
   isLoading.value = false
@@ -455,6 +477,9 @@ const resetNotificationAccountState = () => {
   unreadErrorText.value = ''
   preferences.value = null
   notificationViewInitialized = false
+  notificationListLoaded = false
+  notificationListMarker = null
+  hasPendingNotificationRefresh.value = false
   realtimeStore.reset()
 }
 
@@ -485,6 +510,7 @@ const loadNotifications = async () => {
   const requestedType = activeType.value
   const accountKey = currentNotificationAccountKey()
   const accountGeneration = notificationAccountGeneration
+  const markerAtRequestStart = latestUnreadMarker()
   isLoading.value = true
   try {
     const type = requestedType === 'all' ? undefined : requestedType
@@ -502,6 +528,9 @@ const loadNotifications = async () => {
       && notifications.value.length < MAX_NOTIFICATION_ITEMS,
     )
     loadErrorText.value = ''
+    notificationListLoaded = true
+    notificationListMarker = markerAtRequestStart
+    hasPendingNotificationRefresh.value = latestUnreadMarker() !== markerAtRequestStart
   } catch (error) {
     if (
       requestGeneration !== notificationLoadGeneration
@@ -518,6 +547,11 @@ const loadNotifications = async () => {
       isLoading.value = false
     }
   }
+}
+
+const refreshNotifications = () => {
+  hasPendingNotificationRefresh.value = false
+  void loadNotifications()
 }
 
 const loadMore = async () => {
@@ -762,6 +796,24 @@ const loadPreferences = async () => {
 }
 
 let notificationViewInitialized = false
+watch(
+  () => realtimeStore.latestUnreadId,
+  () => {
+    const marker = latestUnreadMarker()
+    if (!marker) {
+      notificationListMarker = null
+      return
+    }
+    if (!notificationListLoaded) {
+      notificationListMarker = marker
+      return
+    }
+    if (marker !== notificationListMarker) {
+      hasPendingNotificationRefresh.value = true
+    }
+  },
+)
+
 watch(
   () => [
     activeView.value,

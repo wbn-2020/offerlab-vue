@@ -66,6 +66,9 @@ export const useRealtimeStore = defineStore('realtime', () => {
   }
 
   const pushNotification = (notification: Notification) => {
+    if (notification.notificationId === null || notification.notificationId === undefined || notification.notificationId === '') {
+      return false
+    }
     if (!rememberNotificationId(notification.notificationId)) return false
     const type = notification.type as keyof NotificationUnreadCount
     const typedCount = type in unreadCount.value ? unreadCount.value[type] + 1 : 0
