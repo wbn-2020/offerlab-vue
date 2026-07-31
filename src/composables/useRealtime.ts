@@ -1,6 +1,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { notificationApi } from '@/api/notification'
 import { adaptNotification } from '@/api/adapters'
+import type { NotificationUnreadCount } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 import { useRealtimeStore } from '@/stores/realtime'
 import { encodePacket, decodePacket, Command } from '@/lib/packet-codec'
@@ -9,7 +10,16 @@ const MIN_POLL_INTERVAL_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 20000
 const FALLBACK_POLL_INTERVAL_SECONDS = 60
 const AUTH_TIMEOUT_MS = 10000
-const POLL_ONLY_RECONNECT_CLOSE_CODES = new Set([4001, 4002, 4003])
+const DEFAULT_WEBSOCKET_PATH = '/ws/notifications'
+const POLL_ONLY_RECONNECT_CLOSE_CODES = new Set([4001, 4002, 4003, 4004])
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+)
+
+const isAuthenticatedResponse = (body: unknown) => (
+  isRecord(body) && body.authenticated === true
+)
 
 export function useRealtime() {
   const authStore = useAuthStore()
@@ -82,14 +92,17 @@ export function useRealtime() {
   }
 
   const resolveWebSocketUrl = (rawUrl: string | undefined) => {
-    const raw = rawUrl?.trim()
-    if (!raw) return ''
+    const raw = rawUrl?.trim() || DEFAULT_WEBSOCKET_PATH
     try {
       const baseProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const base = `${baseProtocol}//${window.location.host}`
       const url = new URL(raw, base)
       if (window.location.protocol === 'https:' && url.protocol !== 'wss:') return ''
       if (url.protocol !== 'ws:' && url.protocol !== 'wss:') return ''
+      if (url.username || url.password) return ''
+      if (Array.from(url.searchParams.keys()).some(key => (
+        ['token', 'access_token', 'authorization'].includes(key.toLowerCase())
+      ))) return ''
       return url.toString()
     } catch {
       return ''
@@ -119,6 +132,7 @@ export function useRealtime() {
     const socket = new WebSocket(wsUrl)
     ws.value = socket
     socket.binaryType = 'arraybuffer'
+    let authenticated = false
 
     socket.onopen = () => {
       if (!isActiveGeneration(targetGeneration) || ws.value !== socket) {
@@ -127,7 +141,13 @@ export function useRealtime() {
       }
       // TCP open 只代表链路建立；收到成功的 AUTH_RESP 后才算可用连接。
       realtimeStore.setConnected(false)
-      socket.send(encodePacket(Command.AUTH_REQ, { token: authStore.token }))
+      const token = authStore.token
+      if (!token) {
+        socket.close(4003, 'Authentication rejected')
+        return
+      }
+      // JWT is intentionally restricted to this first application frame.
+      socket.send(encodePacket(Command.AUTH_REQ, { token }))
       stopAuthTimer()
       authTimer = setTimeout(() => {
         authTimer = null
@@ -139,7 +159,10 @@ export function useRealtime() {
 
     socket.onmessage = (event) => {
       if (!isActiveGeneration(targetGeneration) || ws.value !== socket) return
-      if (!(event.data instanceof ArrayBuffer)) return
+      if (!(event.data instanceof ArrayBuffer)) {
+        socket.close(4002, 'Invalid packet')
+        return
+      }
       let packet
       try {
         packet = decodePacket(event.data)
@@ -147,31 +170,44 @@ export function useRealtime() {
         socket.close(4002, 'Invalid packet')
         return
       }
-      if (packet.cmd === Command.AUTH_RESP) {
-        const accepted = packet.body === true
-          || packet.body?.success === true
-          || packet.body?.authenticated === true
-          || packet.body?.ok === true
-          || packet.body?.code === 0
-        if (!accepted) {
+
+      if (!authenticated) {
+        if (packet.cmd !== Command.AUTH_RESP) {
+          socket.close(4002, 'Invalid packet')
+          return
+        }
+        if (!isAuthenticatedResponse(packet.body)) {
           socket.close(4003, 'Authentication rejected')
           return
         }
+        authenticated = true
         stopAuthTimer()
         reconnectAttempts = 0
         realtimeStore.setConnected(true)
         stopHeartbeat()
         heartbeatTimer = setInterval(() => {
           if (!isActiveGeneration(targetGeneration) || ws.value !== socket) return
-          socket.send(encodePacket(Command.PING))
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(encodePacket(Command.PING))
+          }
         }, 30000)
         return
       }
-      if (!realtimeStore.connected) return
+
       if (packet.cmd === Command.NOTIF_PUSH) {
+        if (!isRecord(packet.body)) {
+          socket.close(4002, 'Invalid packet')
+          return
+        }
         realtimeStore.pushNotification(adaptNotification(packet.body))
       } else if (packet.cmd === Command.UNREAD_COUNT) {
-        realtimeStore.setUnreadCount(packet.body)
+        if (!isRecord(packet.body)) {
+          socket.close(4002, 'Invalid packet')
+          return
+        }
+        realtimeStore.setUnreadCount(packet.body as unknown as NotificationUnreadCount)
+      } else if (packet.cmd !== Command.PONG) {
+        socket.close(4002, 'Invalid packet')
       }
     }
 
