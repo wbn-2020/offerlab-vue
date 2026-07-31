@@ -9,7 +9,7 @@
         <p class="digest-eyebrow">我的更新摘要</p>
         <h2>{{ title || `${sourceLabel}的近期进展` }}</h2>
         <p>
-          只展示当前账号仍可见的公开更新；读取摘要不会标记通知已读，也不会完成或刷新回访项。
+          只展示当前账号仍可见的公开更新；读取摘要不会改变摘要或回访状态。
         </p>
       </div>
       <RouterLink
@@ -22,21 +22,39 @@
 
     <div v-if="routeState" class="digest-filters" aria-label="更新摘要筛选">
       <label>
-        <span>来源类型</span>
-        <select :value="effectiveSourceType || ''" @change="setRouteSourceType">
-          <option value="">全部来源</option>
-          <option v-for="option in sourceTypeOptions" :key="option.value" :value="option.value">
+        <span>订阅来源</span>
+        <select :value="effectiveSubscriptionSourceType || ''" @change="setRouteSubscriptionSourceType">
+          <option value="">全部订阅来源</option>
+          <option v-for="option in subscriptionSourceTypeOptions" :key="option.value" :value="option.value">
             {{ option.label }}
           </option>
         </select>
       </label>
       <label>
-        <span>来源 ID</span>
+        <span>订阅来源 ID</span>
         <input
-          :value="effectiveSourceId == null ? '' : String(effectiveSourceId)"
+          :value="effectiveSubscriptionSourceId == null ? '' : String(effectiveSubscriptionSourceId)"
           inputmode="numeric"
           placeholder="可选"
-          @change="setRouteSourceId"
+          @change="setRouteSubscriptionSourceId"
+        >
+      </label>
+      <label>
+        <span>关联资源</span>
+        <select :value="effectiveResourceType || ''" @change="setRouteResourceType">
+          <option value="">全部资源</option>
+          <option v-for="option in resourceTypeOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
+      <label>
+        <span>资源 ID</span>
+        <input
+          :value="effectiveResourceId == null ? '' : String(effectiveResourceId)"
+          inputmode="numeric"
+          placeholder="可选"
+          @change="setRouteResourceId"
         >
       </label>
     </div>
@@ -72,17 +90,17 @@
       <div v-if="items.length" class="digest-list">
         <article v-for="item in items" :key="item.digestKey" class="digest-item">
           <div class="digest-item-icon">
-            <component :is="sourceIcon(item.sourceType)" class="h-4 w-4" />
+            <component :is="sourceIcon(item.subscriptionSourceType ?? item.resourceType)" class="h-4 w-4" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="digest-item-title">
               <h3>{{ item.title }}</h3>
-              <span v-if="item.notificationUnread" class="digest-unread">未读来源</span>
               <span v-if="item.occurrenceCount > 1" class="digest-count">{{ item.occurrenceCount }} 条合并</span>
             </div>
             <p>{{ item.summary || eventLabel(item.eventType) }}</p>
             <div class="digest-meta">
-              <span>{{ sourceTypeLabel(item.sourceType) }}</span>
+              <span>{{ subscriptionSourceLabel(item) }}</span>
+              <span>{{ resourceTypeLabel(item.resourceType) }}</span>
               <span v-if="item.occurredAt">{{ formatOptionalTime(item.occurredAt) }}</span>
               <span v-if="item.revisit">回访状态：{{ revisitStatusLabel(item.revisit.status) }}</span>
             </div>
@@ -98,7 +116,7 @@
         <BellRing class="h-4 w-4" />
         <div>
           <strong>暂时没有新的公开更新</strong>
-          <p>没有符合当前类型、账号可见性和通知偏好的摘要。</p>
+          <p>没有符合当前筛选条件和账号可见性的更新摘要。</p>
         </div>
       </div>
 
@@ -120,17 +138,29 @@ import { getErrorMessage } from '@/api/client'
 import {
   updateDigestApi,
   type UpdateDigestItem,
+  type UpdateDigestResourceType,
   type UpdateDigestSourceType,
+  type UpdateDigestSubscriptionSourceType,
 } from '@/api/updateDigest'
 import { formatTime } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
 
 const props = withDefaults(defineProps<{
+  subscriptionSourceType?: UpdateDigestSubscriptionSourceType
+  subscriptionSourceId?: string | number
+  resourceType?: UpdateDigestResourceType
+  resourceId?: string | number
+  /** @deprecated Use subscriptionSourceType or resourceType. */
   sourceType?: UpdateDigestSourceType
+  /** @deprecated Use subscriptionSourceId or resourceId. */
   sourceId?: string | number
   title?: string
   routeState?: boolean
 }>(), {
+  subscriptionSourceType: undefined,
+  subscriptionSourceId: undefined,
+  resourceType: undefined,
+  resourceId: undefined,
   sourceType: undefined,
   sourceId: undefined,
   title: '',
@@ -150,39 +180,99 @@ const errorText = ref('')
 const loadMoreError = ref('')
 let requestGeneration = 0
 
-const sourceTypeOptions: Array<{ value: UpdateDigestSourceType; label: string }> = [
+const subscriptionSourceTypeOptions: Array<{
+  value: UpdateDigestSubscriptionSourceType
+  label: string
+}> = [
+  { value: 'TOPIC', label: '主题' },
+  { value: 'DISCUSSION', label: '讨论' },
+  { value: 'NEED', label: '共建需求' },
+]
+const resourceTypeOptions: Array<{ value: UpdateDigestResourceType; label: string }> = [
   { value: 'POST', label: '公开内容' },
   { value: 'TOPIC', label: '主题' },
   { value: 'NEED', label: '共建需求' },
   { value: 'COLLECTION', label: '合集' },
   { value: 'SERIES', label: '协作系列' },
 ]
-const validSourceTypes = new Set(sourceTypeOptions.map((option) => option.value))
+const validSubscriptionSourceTypes = new Set(
+  subscriptionSourceTypeOptions.map((option) => option.value),
+)
+const validResourceTypes = new Set(resourceTypeOptions.map((option) => option.value))
 const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
-const routeSourceType = computed(() => {
+const validCanonicalIdentifier = (value: string) => /^[1-9][0-9]{0,79}$/.test(value)
+const routeValue = (name: string) => String(firstQueryValue(route.query[name]) || '').trim()
+const routeSubscriptionSourceType = computed(() => {
   if (!props.routeState) return undefined
-  const value = String(firstQueryValue(route.query.sourceType) || '').toUpperCase()
-  return validSourceTypes.has(value as UpdateDigestSourceType) ? value as UpdateDigestSourceType : undefined
+  const value = routeValue('subscriptionSourceType').toUpperCase()
+  return validSubscriptionSourceTypes.has(value as UpdateDigestSubscriptionSourceType)
+    ? value as UpdateDigestSubscriptionSourceType
+    : undefined
 })
-const routeSourceId = computed(() => {
+const routeSubscriptionSourceId = computed(() => {
   if (!props.routeState) return undefined
-  const value = String(firstQueryValue(route.query.sourceId) || '').trim()
-  return /^[A-Za-z0-9._:-]{1,80}$/.test(value) ? value : undefined
+  const value = routeValue('subscriptionSourceId')
+  return validCanonicalIdentifier(value) ? value : undefined
 })
-const effectiveSourceType = computed(() => props.sourceType ?? routeSourceType.value)
-const effectiveSourceId = computed(() => props.sourceId ?? routeSourceId.value)
+const routeResourceType = computed(() => {
+  if (!props.routeState) return undefined
+  const value = routeValue('resourceType').toUpperCase()
+  return validResourceTypes.has(value as UpdateDigestResourceType)
+    ? value as UpdateDigestResourceType
+    : undefined
+})
+const routeResourceId = computed(() => {
+  if (!props.routeState) return undefined
+  const value = routeValue('resourceId')
+  return validCanonicalIdentifier(value) ? value : undefined
+})
+const routeLegacySourceType = computed(() => {
+  if (!props.routeState) return undefined
+  const value = routeValue('sourceType').toUpperCase()
+  return validResourceTypes.has(value as UpdateDigestSourceType)
+    ? value as UpdateDigestSourceType
+    : undefined
+})
+const routeLegacySourceId = computed(() => {
+  if (!props.routeState) return undefined
+  const value = routeValue('sourceId')
+  return validCanonicalIdentifier(value) ? value : undefined
+})
+const effectiveSubscriptionSourceType = computed(
+  () => props.subscriptionSourceType ?? routeSubscriptionSourceType.value,
+)
+const effectiveSubscriptionSourceId = computed(
+  () => props.subscriptionSourceId ?? routeSubscriptionSourceId.value,
+)
+const effectiveResourceType = computed(() => (
+  props.resourceType
+  ?? routeResourceType.value
+  ?? props.sourceType
+  ?? routeLegacySourceType.value
+))
+const effectiveResourceId = computed(() => (
+  props.resourceId
+  ?? routeResourceId.value
+  ?? props.sourceId
+  ?? routeLegacySourceId.value
+))
 const accountKey = computed(() => `${String(authStore.user?.uid ?? 'anonymous')}:${authStore.token ? 'authenticated' : 'anonymous'}`)
-const requestKey = computed(() => `${accountKey.value}:${effectiveSourceType.value || 'ALL'}:${effectiveSourceId.value ?? 'ALL'}`)
+const requestKey = computed(() => JSON.stringify([
+  accountKey.value,
+  effectiveSubscriptionSourceType.value,
+  effectiveSubscriptionSourceId.value,
+  effectiveResourceType.value,
+  effectiveResourceId.value,
+]))
 const loginPath = computed(() => ({
   path: '/login',
   query: { redirect: route.fullPath },
 }))
 const sourceLabel = computed(() => {
-  if (effectiveSourceType.value === 'TOPIC') return '关注主题'
-  if (effectiveSourceType.value === 'COLLECTION') return '关注合集'
-  if (effectiveSourceType.value === 'SERIES') return '协作系列'
-  if (effectiveSourceType.value === 'NEED') return '共建需求'
-  if (effectiveSourceType.value === 'POST') return '公开内容'
+  if (effectiveSubscriptionSourceType.value) {
+    return `关注${subscriptionSourceTypeLabel(effectiveSubscriptionSourceType.value)}`
+  }
+  if (effectiveResourceType.value) return resourceTypeLabel(effectiveResourceType.value)
   return '关注内容'
 })
 const state = computed(() => {
@@ -193,11 +283,16 @@ const state = computed(() => {
 })
 const partialNotice = computed(() => {
   if (loadMoreError.value) return `部分摘要加载失败：${loadMoreError.value}，已保留当前结果。`
-  if (diagnostics.value.notificationSourceUnavailable === true) {
-    return '通知投影暂时不可用，当前没有补造本地更新。'
+  if (
+    diagnostics.value.digestSourceUnavailable === true
+  ) {
+    return '更新摘要暂时不可用，当前没有补造本地更新。'
   }
-  if (diagnostics.value.preferenceCheckDegraded === true) {
-    return '部分通知偏好暂时无法确认，相关更新已保守隐藏。'
+  if (
+    diagnostics.value.resourceVerificationDegraded === true
+    || diagnostics.value.resourceVisibilityCheckDegraded === true
+  ) {
+    return '部分更新的公开性暂时无法确认，相关内容已保守隐藏。'
   }
   return ''
 })
@@ -244,8 +339,10 @@ const load = async (append = false) => {
   const account = requestKey.value
   try {
     const res = await updateDigestApi.list({
-      sourceType: effectiveSourceType.value,
-      sourceId: effectiveSourceId.value,
+      subscriptionSourceType: effectiveSubscriptionSourceType.value,
+      subscriptionSourceId: effectiveSubscriptionSourceId.value,
+      resourceType: effectiveResourceType.value,
+      resourceId: effectiveResourceId.value,
       cursor: append ? nextCursor.value : undefined,
       size: 10,
     })
@@ -287,20 +384,49 @@ const replaceRouteFilters = (patch: Record<string, string | undefined>) => {
   })
 }
 
-const setRouteSourceType = (event: Event) => {
+const setRouteSubscriptionSourceType = (event: Event) => {
   const value = (event.target as HTMLSelectElement).value.toUpperCase()
   replaceRouteFilters({
-    sourceType: validSourceTypes.has(value as UpdateDigestSourceType) ? value : undefined,
+    subscriptionSourceType: validSubscriptionSourceTypes.has(value as UpdateDigestSubscriptionSourceType)
+      ? value
+      : undefined,
+    subscriptionSourceId: undefined,
+    sourceType: undefined,
     sourceId: undefined,
   })
 }
 
-const setRouteSourceId = (event: Event) => {
+const setRouteSubscriptionSourceId = (event: Event) => {
   const value = (event.target as HTMLInputElement).value.trim()
-  replaceRouteFilters({ sourceId: /^[A-Za-z0-9._:-]{1,80}$/.test(value) ? value : undefined })
+  replaceRouteFilters({
+    subscriptionSourceId: validCanonicalIdentifier(value) ? value : undefined,
+    sourceType: undefined,
+    sourceId: undefined,
+  })
 }
 
-const sourceIcon = (sourceType: UpdateDigestSourceType) => {
+const setRouteResourceType = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value.toUpperCase()
+  replaceRouteFilters({
+    resourceType: validResourceTypes.has(value as UpdateDigestResourceType) ? value : undefined,
+    resourceId: undefined,
+    sourceType: undefined,
+    sourceId: undefined,
+  })
+}
+
+const setRouteResourceId = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value.trim()
+  replaceRouteFilters({
+    resourceId: validCanonicalIdentifier(value) ? value : undefined,
+    sourceType: undefined,
+    sourceId: undefined,
+  })
+}
+
+const sourceIcon = (
+  sourceType: UpdateDigestSubscriptionSourceType | UpdateDigestResourceType | undefined,
+) => {
   if (sourceType === 'TOPIC') return Lightbulb
   if (sourceType === 'COLLECTION') return Layers3
   if (sourceType === 'SERIES') return Layers3
@@ -308,13 +434,25 @@ const sourceIcon = (sourceType: UpdateDigestSourceType) => {
   return BookOpen
 }
 
-const sourceTypeLabel = (sourceType: UpdateDigestSourceType) => {
+const subscriptionSourceTypeLabel = (sourceType: UpdateDigestSubscriptionSourceType) => {
   if (sourceType === 'TOPIC') return '主题'
-  if (sourceType === 'COLLECTION') return '合集'
-  if (sourceType === 'SERIES') return '协作系列'
-  if (sourceType === 'NEED') return '共建需求'
-  return '公开内容'
+  if (sourceType === 'DISCUSSION') return '讨论'
+  return '共建需求'
 }
+
+const resourceTypeLabel = (sourceType: UpdateDigestResourceType) => {
+  if (sourceType === 'TOPIC') return '关联主题'
+  if (sourceType === 'NEED') return '共建需求'
+  if (sourceType === 'COLLECTION') return '关联合集'
+  if (sourceType === 'SERIES') return '关联协作系列'
+  return '关联公开内容'
+}
+
+const subscriptionSourceLabel = (item: UpdateDigestItem) => (
+  item.subscriptionSourceType
+    ? `因关注${subscriptionSourceTypeLabel(item.subscriptionSourceType)}`
+    : '来自已关注内容'
+)
 
 const revisitStatusLabel = (status: string) => {
   const normalized = String(status || '').toUpperCase()
@@ -522,17 +660,11 @@ watch(
   margin-top: 0.25rem;
 }
 
-.digest-unread,
 .digest-count {
   border-radius: 999px;
   padding: 0.15rem 0.45rem;
   font-size: 0.68rem;
   font-weight: 900;
-}
-
-.digest-unread {
-  background: rgb(254 226 226);
-  color: rgb(185 28 28);
 }
 
 .digest-count {
@@ -638,14 +770,9 @@ watch(
   color: rgb(254 202 202);
 }
 
-.dark .digest-unread {
-  background: rgb(69 10 10);
-  color: rgb(254 202 202);
-}
-
 .digest-filters {
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr);
+  grid-template-columns: repeat(4, minmax(9rem, 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -679,6 +806,12 @@ watch(
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
   color: rgb(226 232 240);
+}
+
+@media (max-width: 960px) {
+  .digest-filters {
+    grid-template-columns: repeat(2, minmax(10rem, 1fr));
+  }
 }
 
 @media (max-width: 640px) {

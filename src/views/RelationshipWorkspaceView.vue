@@ -111,7 +111,7 @@
                 class="row-button"
                 @click="openPreference(item)"
               >
-                订阅设置
+                {{ item.deliveryPreferenceSupported ? '订阅设置' : '接收方式不可用' }}
               </button>
             </div>
           </article>
@@ -157,7 +157,10 @@
               {{ selected.title }}
             </h2>
             <p id="relationship-preference-description" class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-              只调整更新接收方式，不会替代原资源页面上的关注或取消关注动作。
+              只调整后续来源更新的接收方式，不会替代原资源页面上的关注或取消关注动作。
+            </p>
+            <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+              不影响直接回复、@ 提及及与你提交事项相关的结果通知。
             </p>
           </div>
           <button type="button" class="icon-button" aria-label="关闭订阅设置" title="关闭" @click="closePreference">
@@ -169,26 +172,54 @@
           <Loader2 class="h-4 w-4 animate-spin" /> 正在读取偏好...
         </div>
         <div v-else class="mt-6 space-y-5">
-          <div>
-            <label for="delivery-mode" class="field-label">更新接收方式</label>
-            <select id="delivery-mode" v-model="preferenceMode" class="field-select">
-              <option value="IMMEDIATE">即时更新</option>
-              <option value="DIGEST">摘要更新</option>
-              <option value="MUTED">暂不提醒</option>
-            </select>
-          </div>
-          <div>
-            <label for="preference-expires-at" class="field-label">静音截止时间（可选）</label>
-            <input id="preference-expires-at" v-model="expiresAt" type="datetime-local" class="field-input">
-            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">留空表示持续生效；到期后由服务端按默认偏好处理。</p>
-          </div>
-          <p v-if="preferenceError" class="text-sm text-rose-600 dark:text-rose-300">{{ preferenceError }}</p>
-          <p v-if="preferenceNotice" class="text-sm text-emerald-700 dark:text-emerald-300">{{ preferenceNotice }}</p>
-          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button type="button" class="secondary-action" :disabled="isPreferenceSaving" @click="clearPreference">恢复即时更新</button>
-            <button type="button" class="primary-action" :disabled="isPreferenceSaving" @click="savePreference">
-              {{ isPreferenceSaving ? '保存中...' : '保存偏好' }}
-            </button>
+          <template v-if="selected.deliveryPreferenceSupported">
+            <fieldset class="preference-fieldset">
+              <legend class="field-label">更新接收方式</legend>
+              <div class="delivery-mode-group" role="radiogroup" aria-label="更新接收方式">
+                <label
+                  v-for="option in deliveryModeOptions"
+                  :key="option.value"
+                  class="delivery-mode-option"
+                  :class="{ active: preferenceMode === option.value }"
+                >
+                  <input
+                    v-model="preferenceMode"
+                    type="radio"
+                    name="delivery-mode"
+                    :value="option.value"
+                    :disabled="isPreferenceSaving"
+                  >
+                  <span>
+                    <strong>{{ option.label }}</strong>
+                    <small>{{ option.description }}</small>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+            <div v-if="preferenceMode === 'MUTED'">
+              <label for="preference-expires-at" class="field-label">静音至（可选）</label>
+              <input id="preference-expires-at" v-model="expiresAt" type="datetime-local" class="field-input">
+              <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">留空表示持续静音。</p>
+            </div>
+            <p v-if="preferenceError" class="text-sm text-rose-600 dark:text-rose-300">{{ preferenceError }}</p>
+            <p v-if="preferenceNotice" class="text-sm text-emerald-700 dark:text-emerald-300">{{ preferenceNotice }}</p>
+            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" class="secondary-action" :disabled="isPreferenceSaving" @click="clearPreference">恢复即时更新</button>
+              <button type="button" class="primary-action" :disabled="isPreferenceSaving" @click="savePreference">
+                {{ isPreferenceSaving ? '保存中...' : '保存偏好' }}
+              </button>
+            </div>
+          </template>
+          <div
+            v-else
+            class="preference-unsupported"
+            data-relationship-preference-state="unsupported"
+          >
+            <AlertCircle class="h-5 w-5 flex-shrink-0" />
+            <div>
+              <h3>当前关系暂不支持调整接收方式</h3>
+              <p>{{ selected.deliveryPreferenceUnsupportedReason || '该关系暂不支持来源级更新接收设置。' }}</p>
+            </div>
           </div>
         </div>
       </section>
@@ -292,6 +323,27 @@ const displayedItems = computed(() => items.value.filter((item) => validSourceTy
 
 const preferenceMode = ref<RelationshipDeliveryMode>('IMMEDIATE')
 const expiresAt = ref('')
+const deliveryModeOptions: Array<{
+  value: RelationshipDeliveryMode
+  label: string
+  description: string
+}> = [
+  {
+    value: 'IMMEDIATE',
+    label: '即时更新',
+    description: '新的来源更新会及时提醒。',
+  },
+  {
+    value: 'DIGEST',
+    label: '摘要更新',
+    description: '集中收纳到更新摘要，不发送即时提醒。',
+  },
+  {
+    value: 'MUTED',
+    label: '暂不提醒',
+    description: '保留关注关系，后续更新暂不投递。',
+  },
+]
 const preferenceDialog = ref<HTMLElement | null>(null)
 const preferenceDialogTitle = ref<HTMLElement | null>(null)
 const lastPreferenceTriggerId = ref('')
@@ -432,7 +484,9 @@ useAccessibleDialog(() => Boolean(selected.value), {
 })
 
 const savePreference = async () => {
-  const normalizedExpiry = toUtcIso(expiresAt.value)
+  const normalizedExpiry = preferenceMode.value === 'MUTED'
+    ? toUtcIso(expiresAt.value)
+    : null
   const didSave = await saveWorkspacePreference(preferenceMode.value, normalizedExpiry)
   if (didSave && selectedPreference.value) {
     preferenceMode.value = selectedPreference.value.deliveryMode
@@ -760,6 +814,79 @@ watch([items, focusedSourceId], () => {
   border-radius: 0.375rem;
 }
 
+.preference-fieldset {
+  min-width: 0;
+}
+
+.delivery-mode-group {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.delivery-mode-option {
+  display: flex;
+  min-height: 4.25rem;
+  cursor: pointer;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  color: rgb(51 65 85);
+}
+
+.delivery-mode-option.active {
+  border-color: rgb(14 165 233);
+  background: rgb(240 249 255);
+}
+
+.delivery-mode-option input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.1rem;
+  accent-color: rgb(2 132 199);
+}
+
+.delivery-mode-option span {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.delivery-mode-option strong {
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+}
+
+.delivery-mode-option small {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.preference-unsupported {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border: 1px solid rgb(254 215 170);
+  border-radius: 0.375rem;
+  background: rgb(255 251 235);
+  padding: 0.9rem;
+  color: rgb(146 64 14);
+}
+
+.preference-unsupported h3 {
+  color: rgb(120 53 15);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.preference-unsupported p {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
 .dark .summary-card,
 .dark .workspace-panel,
 .dark .preference-modal {
@@ -786,6 +913,34 @@ watch([items, focusedSourceId], () => {
 .dark .row-button {
   border-color: rgb(51 65 85);
   background: rgb(15 23 42);
+}
+
+.dark .delivery-mode-option {
+  border-color: rgb(51 65 85);
+  color: rgb(203 213 225);
+}
+
+.dark .delivery-mode-option.active {
+  border-color: rgb(14 116 144);
+  background: rgb(8 47 73 / 0.45);
+}
+
+.dark .delivery-mode-option strong {
+  color: rgb(241 245 249);
+}
+
+.dark .delivery-mode-option small {
+  color: rgb(148 163 184);
+}
+
+.dark .preference-unsupported {
+  border-color: rgb(120 53 15);
+  background: rgb(69 26 3);
+  color: rgb(253 186 116);
+}
+
+.dark .preference-unsupported h3 {
+  color: rgb(254 215 170);
 }
 
 .dark .relationship-row.focused {

@@ -82,8 +82,8 @@
 
       <UpdateDigestPanel
         v-if="topicReady && !isCuratedTopic"
-        source-type="TOPIC"
-        :source-id="topicSlug"
+        subscription-source-type="TOPIC"
+        :subscription-source-id="topic?.id"
         title="我关注的主题更新"
       />
 

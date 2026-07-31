@@ -27,13 +27,20 @@ assert.match(composable, /loadMore/, 'relationship workspace must expose keyset 
 assert.match(composable, /MAX_FOCUS_PAGES/, 'relationship deep links must perform bounded pagination to locate later items')
 assert.match(composable, /focusNotice/, 'relationship deep links must expose an unavailable target state')
 assert.match(composable, /mode\.value === 'MUTED'/, 'preference changes must immediately respect the active relationship mode')
-assert.ok(
-  (composable.match(/mode\.value === 'ALL'/g) || []).length >= 2,
-  'saving and clearing preferences must both re-apply the active relationship mode',
+assert.match(
+  composable,
+  /const updateItemsForPreference[\s\S]*mode\.value === 'ALL'[\s\S]*mode\.value === 'MUTED' \? entry\.deliveryMode === 'MUTED' : entry\.deliveryMode !== 'MUTED'/,
+  'a shared preference update helper must re-apply the active relationship mode',
 )
-assert.ok(
-  (composable.match(/mode\.value === 'MUTED' \? entry\.deliveryMode === 'MUTED' : entry\.deliveryMode !== 'MUTED'/g) || []).length >= 2,
-  'relationship mode filtering must immediately remove items that no longer match',
+assert.match(
+  composable,
+  /const savePreference[\s\S]*updateItemsForPreference\(item, preference\)/,
+  'saving a preference must re-apply the active relationship mode',
+)
+assert.match(
+  composable,
+  /const clearPreference[\s\S]*updateItemsForPreference\(item, \{/,
+  'clearing a preference must re-apply the active relationship mode',
 )
 
 assert.match(view, /data-relationship-state="loading"/, 'relationship view must expose loading state')
