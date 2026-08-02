@@ -19,22 +19,36 @@
             <div class="row-main">
               <div class="row-title">
                 <span :class="['status-pill', statusClass(item.status)]">{{ statusLabel(item.status) }}</span>
-                <strong>{{ item.benefitCode }}</strong>
+                <strong>{{ benefitLabel(item.benefitCode) }}</strong>
                 <span class="meta-chip">{{ item.entitlementType }}</span>
               </div>
               <p>权益键 {{ item.entitlementKey }} · 剩余 {{ item.quantityRemaining }}/{{ item.quantityTotal }}</p>
-              <small>订单 #{{ item.orderId }} · {{ formatTime(item.grantedAt) }}<template v-if="item.reversible"> · 可逆</template></small>
+              <small>订单 #{{ item.orderId }} · {{ formatTime(item.grantedAt) }}<template v-if="item.reversible"> · 可逆</template><template v-if="item.benefitCode === 'AI_ASSIST_QUOTA'"> · 仅在编辑器主动发起 AI 增强时使用</template></small>
             </div>
-            <button
-              v-if="canConsume(item)"
-              type="button"
-              class="primary-button compact"
-              :disabled="busy"
-              @click="consume(item)"
+            <RouterLink
+              v-if="item.benefitCode === 'AI_ASSIST_QUOTA' && item.status === 'ACTIVE' && Number(item.quantityRemaining) > 0"
+              to="/editor"
+              class="secondary-button compact"
             >
-              <Gauge class="h-4 w-4" />消费 1 次
-            </button>
+              前往 AI 创作增强
+            </RouterLink>
           </article>
+        </div>
+        <div class="subsection-heading usage-heading"><div><strong>最近使用记录</strong><span>{{ entitlementUsages.total }} 条</span></div></div>
+        <StateBlock :loading="usageState.loading" :error="usageState.error" :empty="entitlementUsages.items.length === 0" empty-text="暂无权益使用记录。" @retry="loadEntitlementUsages" />
+        <div v-if="!usageState.loading && !usageState.error && entitlementUsages.items.length" class="mini-list">
+          <div v-for="item in entitlementUsages.items.slice(0, 8)" :key="String(item.usageId)">
+            <span :class="['status-pill', statusClass(item.status)]">{{ usageStatusLabel(item) }}</span>
+            <strong>{{ benefitLabel(item.benefitCode) }} · {{ item.amount }} 次</strong>
+            <small>{{ usageDetail(item) }}</small>
+            <RouterLink
+              v-if="item.benefitCode === 'AI_ASSIST_QUOTA' && item.status === 'RESERVED'"
+              to="/editor"
+              class="secondary-button compact"
+            >
+              查看 AI 增强
+            </RouterLink>
+          </div>
         </div>
       </div>
 
@@ -86,12 +100,13 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { Gauge, Inbox, Loader2, RefreshCw, Send, ShieldCheck, Undo2 } from 'lucide-vue-next'
+import { Inbox, Loader2, RefreshCw, Send, ShieldCheck, Undo2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getErrorMessage, type Result } from '@/api/client'
 import {
   incentiveApi,
   type BenefitEntitlement,
+  type BenefitEntitlementUsage,
   type BountyAppeal,
   type IncentiveAppeal,
   type PageResult,
@@ -117,14 +132,16 @@ const StateBlock = defineComponent({
 })
 
 const entitlementState = state()
+const usageState = state()
 const appealState = state()
 const bountyAppealState = state()
 const entitlements = ref<PageResult<BenefitEntitlement>>(emptyPage())
+const entitlementUsages = ref<PageResult<BenefitEntitlementUsage>>(emptyPage())
 const appeals = ref<PageResult<IncentiveAppeal>>(emptyPage())
 const bountyAppeals = ref<PageResult<BountyAppeal>>(emptyPage())
 const pendingAction = ref('')
 const busy = computed(() => Boolean(pendingAction.value))
-const loadingAny = computed(() => entitlementState.loading || appealState.loading || bountyAppealState.loading || busy.value)
+const loadingAny = computed(() => entitlementState.loading || usageState.loading || appealState.loading || bountyAppealState.loading || busy.value)
 const RETENTION_LIMIT = 300
 const PAGE_SIZE = 50
 const appealForm = reactive({ targetType: 'REVERSAL', targetId: '', reason: '' })
@@ -188,6 +205,10 @@ const loadEntitlements = () => runLoad(entitlementState, async (isCurrent) => {
   const result = await collectPages((page) => incentiveApi.getMyEntitlements({ page, size: PAGE_SIZE }))
   if (isCurrent()) entitlements.value = result
 }, '权益实例加载失败')
+const loadEntitlementUsages = () => runLoad(usageState, async (isCurrent) => {
+  const result = await collectPages((page) => incentiveApi.getMyEntitlementUsages({ page, size: PAGE_SIZE }))
+  if (isCurrent()) entitlementUsages.value = result
+}, '权益使用记录加载失败')
 const loadAppeals = () => runLoad(appealState, async (isCurrent) => {
   const result = await collectPages((page) => incentiveApi.getMyAppeals({ page, size: PAGE_SIZE }))
   if (isCurrent()) appeals.value = result
@@ -196,19 +217,8 @@ const loadBountyAppeals = () => runLoad(bountyAppealState, async (isCurrent) => 
   const result = await collectPages((page) => incentiveApi.getMyBountyAppeals({ page, size: PAGE_SIZE }))
   if (isCurrent()) bountyAppeals.value = result
 }, '悬赏申诉加载失败')
-const refreshAll = () => Promise.all([loadEntitlements(), loadAppeals(), loadBountyAppeals()])
+const refreshAll = () => Promise.all([loadEntitlements(), loadEntitlementUsages(), loadAppeals(), loadBountyAppeals()])
 
-const canConsume = (item: BenefitEntitlement) => item.status === 'ACTIVE'
-  && Number(item.quantityRemaining) > 0
-  && item.entitlementType === 'CONSUMABLE_QUOTA'
-const consume = (item: BenefitEntitlement) => runAction(`consume:${item.id}`, async () => {
-  await incentiveApi.consumeEntitlement(item.id, {
-    amount: 1,
-    idempotencyKey: `entitlement:${item.id}:${crypto.randomUUID()}`,
-    reason: `用户消费权益 ${item.entitlementKey}`,
-  })
-  await loadEntitlements()
-}, '权益额度已消费')
 const submitAppeal = () => runAction('appeal', async () => {
   await incentiveApi.submitAppeal({
     targetType: appealForm.targetType,
@@ -233,6 +243,24 @@ const statusLabel = (value: string) => ({
   APPROVED: '已通过',
   REJECTED: '已拒绝',
 }[value] || value)
+const benefitLabel = (value: string) => ({
+  AI_ASSIST_QUOTA: 'AI 创作增强额度',
+}[value] || value)
+const usageStatusLabel = (item: BenefitEntitlementUsage) => ({
+  RESERVED: item.benefitCode === 'AI_ASSIST_QUOTA' ? 'AI 增强待确认' : '确认中',
+  CONFIRMED: '已使用',
+  RELEASED: '未扣除',
+}[item.status] || item.status)
+const usageDetail = (item: BenefitEntitlementUsage) => {
+  const time = formatTime(item.confirmedAt || item.releasedAt || item.expiresAt)
+  if (item.status === 'RELEASED') return `${time} · ${item.failureCode || '增强未完成，额度已归还'}`
+  if (item.status === 'RESERVED') {
+    return item.benefitCode === 'AI_ASSIST_QUOTA'
+      ? `${time} · AI 增强待确认，可前往编辑器刷新履约状态`
+      : `${time} · 正在确认本次使用结果`
+  }
+  return `${time} · ${item.consumerCode === 'CONTENT_ASSIST_ENHANCED' ? 'AI 创作增强' : item.consumerCode}`
+}
 const statusClass = (value: string) => {
   if (['ACTIVE', 'APPROVED'].includes(value)) return 'status-ok'
   if (['REJECTED', 'REVOKED'].includes(value)) return 'status-danger'
@@ -246,6 +274,8 @@ const formatTime = (value?: string | null) => {
 }
 
 onMounted(refreshAll)
+
+defineExpose({ refreshAll })
 </script>
 
 <style scoped>

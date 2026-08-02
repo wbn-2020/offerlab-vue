@@ -304,6 +304,8 @@
         </div>
       </section>
 
+      <CreatorChallengeWorkspace class="mt-6" />
+
       <section class="creator-center-grid mt-6">
         <article class="creator-action-panel">
           <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -599,6 +601,7 @@ import { Bookmark, BookmarkCheck, FileText, Flag, Globe2, Hash, Heart, ListCheck
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import CreatorChallengeWorkspace from '@/components/creator/CreatorChallengeWorkspace.vue'
 import ParticipationHub from '@/components/me/ParticipationHub.vue'
 import PostCard from '@/components/post/PostCard.vue'
 import UserAvatar from '@/components/user/UserAvatar.vue'

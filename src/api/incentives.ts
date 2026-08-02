@@ -38,6 +38,7 @@ export type LedgerEntryType =
   | 'RECOVERY_RELEASE'
 export type BenefitOrderStatus = 'CREATED' | 'RESERVED' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED'
 export type BenefitEntitlementStatus = 'ACTIVE' | 'CONSUMED' | 'REVOKED'
+export type EntitlementUsageStatus = 'RESERVED' | 'CONFIRMED' | 'RELEASED'
 export type ThankTargetType = 'POST' | 'COMMENT'
 export type BountyRequestType = 'PUBLIC_CONTRIBUTION' | 'CURATION' | 'COLLABORATION'
 export type BountyRiskCategory = 'LOW'
@@ -133,6 +134,22 @@ export interface BenefitEntitlement {
   grantedAt?: string | null
   revokedAt?: string | null
   updateTime?: string | null
+}
+
+export interface BenefitEntitlementUsage {
+  usageId: ApiId
+  entitlementId: ApiId
+  uid: ApiId
+  benefitCode: string
+  consumerCode: string
+  status: EntitlementUsageStatus
+  amount: ApiLong
+  idempotencyKey: string
+  requestFingerprint: string
+  failureCode?: string | null
+  expiresAt?: string | null
+  confirmedAt?: string | null
+  releasedAt?: string | null
 }
 
 export interface ThankTicket {
@@ -504,12 +521,6 @@ export interface BountyCommand {
   reason: string
 }
 
-export interface EntitlementConsumeCommand {
-  amount: number
-  idempotencyKey: string
-  reason: string
-}
-
 export interface IncentiveAppealCommand {
   targetType: string
   targetId: ApiId
@@ -629,11 +640,8 @@ export const incentiveApi = {
   getMyEntitlements: (params: PageQuery = {}): Promise<Result<PageResult<BenefitEntitlement>>> =>
     remoteResult(client.get(`${meBase}/entitlements`, { params })),
 
-  consumeEntitlement: (
-    entitlementId: ApiId,
-    command: EntitlementConsumeCommand,
-  ): Promise<Result<BenefitEntitlement>> =>
-    client.post(`${meBase}/entitlements/${pathId(entitlementId)}/consume`, command),
+  getMyEntitlementUsages: (params: PageQuery = {}): Promise<Result<PageResult<BenefitEntitlementUsage>>> =>
+    remoteResult(client.get(`${meBase}/entitlement-usages`, { params })),
 
   getMyAppeals: (params: PageQuery = {}): Promise<Result<PageResult<IncentiveAppeal>>> =>
     client.get(`${meBase}/appeals`, { params }),
@@ -682,6 +690,9 @@ export const incentiveApi = {
 
   placeBenefitOrder: (command: BenefitOrderCommand): Promise<Result<BenefitOrder>> =>
     client.post(`${benefitBase}/orders`, command),
+
+  getBenefitOrderStatus: (idempotencyKey: string): Promise<Result<BenefitOrder>> =>
+    client.get(`${benefitBase}/orders/status`, { params: { idempotencyKey } }),
 
   cancelBenefitOrder: (
     orderId: ApiId,

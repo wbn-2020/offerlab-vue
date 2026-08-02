@@ -557,6 +557,7 @@ export interface OperationTopicPublishCheckContract {
 
 export type EditorAssistContextSource =
   | 'creator_workbench'
+  | 'creator_challenge'
   | 'post_detail'
   | 'series_entry'
   | 'topic_candidate'

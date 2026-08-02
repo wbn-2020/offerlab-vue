@@ -33,6 +33,7 @@ export const EDITOR_ASSIST_CONTEXT_TYPES: readonly EditorAssistContextType[] = [
 
 export const EDITOR_ASSIST_ENTRY_SOURCES: readonly EditorAssistSource[] = [
   'creator_workbench',
+  'creator_challenge',
   'post_detail',
   'series_entry',
   'topic_candidate',
@@ -249,6 +250,7 @@ export function buildEditorSearchGapSourceHint(context: EditorSearchGapContext |
 
 const sourceLabels: Record<EditorAssistSource, string> = {
   creator_workbench: '创作者工作台',
+  creator_challenge: '创作者挑战',
   post_detail: '内容详情页',
   series_entry: '系列续写入口',
   topic_candidate: '专题候选入口',

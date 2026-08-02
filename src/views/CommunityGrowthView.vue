@@ -454,7 +454,7 @@
           </div>
         </section>
 
-        <CommunityGrowthGovernanceWorkspace />
+        <CommunityGrowthGovernanceWorkspace ref="governanceWorkspaceRef" />
         <CommunityRoleWorkspace />
 
         <section id="roles" class="workspace-panel scroll-mt-24" :aria-busy="roleState.loading">
@@ -603,7 +603,7 @@ import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import CommunityGrowthGovernanceWorkspace from '@/components/incentive/CommunityGrowthGovernanceWorkspace.vue'
 import CommunityRoleWorkspace from '@/components/incentive/CommunityRoleWorkspace.vue'
-import { getErrorMessage } from '@/api/client'
+import { BizException, getErrorMessage } from '@/api/client'
 import {
   incentiveApi,
   type ApiLong,
@@ -621,6 +621,7 @@ import {
   type ThankRecord,
   type ThankTicket,
 } from '@/api/incentives'
+import { safeStorage } from '@/utils/safeStorage'
 
 type LoadState = {
   loading: boolean
@@ -695,6 +696,7 @@ const bountySubmissions = ref<PageResult<BountySubmission>>(emptyPage())
 const roleDefinitions = ref<RoleDefinition[]>([])
 const roleApplications = ref<PageResult<RoleApplication>>(emptyPage())
 const roleGrants = ref<PageResult<RoleGrant>>(emptyPage())
+const governanceWorkspaceRef = ref<{ refreshAll: () => Promise<unknown> } | null>(null)
 
 const ledgerPageNumber = ref(1)
 const catalogPageNumber = ref(1)
@@ -705,6 +707,7 @@ const rolePageNumber = ref(1)
 const pendingAction = ref('')
 const cancelReason = ref('')
 const benefitQuantities = reactive<Record<string, number>>({})
+const benefitOrderAttempts = reactive<Record<string, string>>({})
 
 const thankForm = reactive({
   receiverUid: '',
@@ -885,6 +888,7 @@ const refreshAll = async () => {
     loadThanks(false),
     loadBounties(false),
     loadRoles(false),
+    governanceWorkspaceRef.value?.refreshAll(),
   ])
 }
 
@@ -902,20 +906,89 @@ const canOrderBenefit = (benefit: Benefit) => {
     && Number(benefit.pointCost) * quantity <= pointAvailable.value
 }
 
+const clientRequestToken = () => {
+  const cryptoApi = globalThis.crypto
+  if (typeof cryptoApi?.randomUUID === 'function') return cryptoApi.randomUUID()
+  if (typeof cryptoApi?.getRandomValues === 'function') {
+    const values = new Uint32Array(4)
+    cryptoApi.getRandomValues(values)
+    return [...values].map((value) => value.toString(16).padStart(8, '0')).join('')
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
+const orderAttemptStorageKey = (benefit: Benefit, quantity: number) => (
+  `benefit-order-attempt:${String(benefit.id)}:${quantity}`
+)
+
+const resolveOrderIdempotencyKey = (benefit: Benefit, quantity: number) => {
+  const key = orderAttemptStorageKey(benefit, quantity)
+  const remembered = benefitOrderAttempts[key] || safeStorage.sessionGet(key)
+  if (remembered) {
+    benefitOrderAttempts[key] = remembered
+    return remembered
+  }
+  const idempotencyKey = `benefit:${benefit.id}:${clientRequestToken()}`
+  benefitOrderAttempts[key] = idempotencyKey
+  safeStorage.sessionSet(key, idempotencyKey, { namespace: 'benefit-order' })
+  return idempotencyKey
+}
+
+const clearOrderIdempotencyKey = (benefit: Benefit, quantity: number) => {
+  const key = orderAttemptStorageKey(benefit, quantity)
+  delete benefitOrderAttempts[key]
+  safeStorage.sessionRemove(key)
+}
+
+const outcomeMayBeUnknown = (error: unknown) => {
+  if (error instanceof BizException) return false
+  const status = (error as { response?: { status?: number } })?.response?.status
+  return status == null || status >= 500
+}
+
+const refreshAfterBenefitOrder = async (order: BenefitOrder | null | undefined) => {
+  await Promise.all([
+    loadSummary(),
+    loadOrders(false),
+    loadCatalog(false),
+    order?.status === 'DELIVERED' ? governanceWorkspaceRef.value?.refreshAll() : Promise.resolve(),
+  ])
+}
+
 const placeOrder = async (benefit: Benefit) => {
   if (!canOrderBenefit(benefit)) return
   const actionKey = `order:${benefit.id}`
+  const quantity = normalizedQuantity(benefit)
+  const idempotencyKey = resolveOrderIdempotencyKey(benefit, quantity)
   pendingAction.value = actionKey
   try {
-    await incentiveApi.placeBenefitOrder({
+    const response = await incentiveApi.placeBenefitOrder({
       benefitId: benefit.id,
-      quantity: normalizedQuantity(benefit),
-      idempotencyKey: `benefit:${benefit.id}:${crypto.randomUUID()}`,
+      quantity,
+      idempotencyKey,
     })
-    toast.success('权益订单已创建，野点与库存已预留')
-    await Promise.all([loadSummary(), loadOrders(false), loadCatalog(false)])
+    const order = response.data
+    clearOrderIdempotencyKey(benefit, quantity)
+    toast.success(order?.status === 'DELIVERED' ? '权益已兑换并立即到账' : '权益订单已创建，正在等待交付')
+    await refreshAfterBenefitOrder(order)
   } catch (error) {
-    toast.error(getErrorMessage(error, '权益兑换失败'))
+    if (!outcomeMayBeUnknown(error)) {
+      clearOrderIdempotencyKey(benefit, quantity)
+      toast.error(getErrorMessage(error, '权益兑换失败'))
+      return
+    }
+    try {
+      const status = await incentiveApi.getBenefitOrderStatus(idempotencyKey)
+      if (status.data) {
+        clearOrderIdempotencyKey(benefit, quantity)
+        toast.success(status.data.status === 'DELIVERED' ? '已确认权益兑换并立即到账' : '已确认权益订单已创建')
+        await refreshAfterBenefitOrder(status.data)
+        return
+      }
+    } catch {
+      // Keep the exact idempotency key so a later click remains a safe retry.
+    }
+    toast.info('兑换结果暂未确认。再次点击会复用本次兑换请求，不会重复扣除野点。')
   } finally {
     pendingAction.value = ''
   }
