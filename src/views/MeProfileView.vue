@@ -208,6 +208,64 @@
             </div>
           </div>
         </div>
+        <section
+          class="content-improvement-workbench"
+          aria-labelledby="content-improvement-workbench-title"
+          data-content-improvement-source="server-aggregate-only"
+        >
+          <div class="content-improvement-workbench-head">
+            <div>
+              <div class="trusted-content-title-row">
+                <strong id="content-improvement-workbench-title">内容改进线索</strong>
+                <span v-if="contentImprovementSignalsLoading" class="trusted-content-status">加载中</span>
+                <span v-else-if="contentImprovementSignals?.degraded || contentImprovementSignalsError" class="trusted-content-status">暂不可用</span>
+              </div>
+              <span>仅在达到匿名聚合条件时提示复核，不展示读者、反馈数量或个人分发偏好。</span>
+            </div>
+            <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
+          </div>
+          <p v-if="contentImprovementSignalsError" class="creator-empty-copy">{{ contentImprovementSignalsError }}</p>
+          <div v-else-if="contentImprovementSignalsLoading" class="content-improvement-state" role="status">正在读取匿名质量信号</div>
+          <div v-else-if="contentImprovementSignals?.degraded" class="content-improvement-state">内容改进线索暂不可用，当前不会把它解释为没有需要复核的内容。</div>
+          <div v-else-if="contentImprovementSignals?.items.length" class="content-improvement-list">
+            <article
+              v-for="item in contentImprovementSignals.items"
+              :key="item.postId"
+              :class="['content-improvement-item', { 'is-awaiting-feedback': item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' }]"
+            >
+              <div class="content-improvement-item-copy">
+                <span class="content-improvement-item-domain">{{ item.domainName }}</span>
+                <RouterLink :to="item.postHref" class="content-improvement-item-title">{{ item.postTitle }}</RouterLink>
+                <strong>{{ item.headline }}</strong>
+                <p>{{ item.detail }}</p>
+              </div>
+              <RouterLink
+                v-if="item.state === 'MAINTENANCE_EXISTS' && item.workspaceHref"
+                :to="item.workspaceHref"
+                class="secondary-button content-improvement-edit"
+              >
+                打开维护工作区
+              </RouterLink>
+              <RouterLink v-else-if="item.editHref" :to="item.editHref" class="secondary-button content-improvement-edit">
+                {{ item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' ? '查看当前版本' : '查看并更新' }}
+              </RouterLink>
+            </article>
+          </div>
+          <div
+            v-if="contentImprovementSignals?.hasMore && contentImprovementSignals.nextCursor"
+            class="content-improvement-more"
+          >
+            <button
+              type="button"
+              class="secondary-button"
+              :disabled="contentImprovementSignalsLoadingMore"
+              @click="loadMoreContentImprovementSignals"
+            >
+              {{ contentImprovementSignalsLoadingMore ? '加载中' : '加载更多' }}
+            </button>
+          </div>
+          <p v-else-if="!contentImprovementSignals?.items.length" class="content-improvement-state">近 {{ contentImprovementSignals?.periodDays || 30 }} 天暂无可展示的匿名质量复核线索；这不代表所有读者都满意。</p>
+        </section>
         <div class="mt-5 grid gap-3 sm:grid-cols-5">
           <RouterLink to="/me?tab=posts" class="feedback-stat">
             <MessageCircle class="h-4 w-4 text-primary-600" />
@@ -618,6 +676,7 @@ import type {
   ApiId,
   CommunityTopic,
   ContactRequestStats,
+  CreatorContentImprovementSignals,
   CreatorCurationFeedback,
   CreatorCurationFeedbackSummary,
   CreatorFeedbackWindow,
@@ -757,9 +816,13 @@ const favoriteBatchTargetFolderId = ref('')
 const backendContribution = ref<ContributionSummary | null>(null)
 const creatorWorkspace = ref<CreatorGrowthWorkspace | null>(null)
 const curationFeedbackSummary = ref<CreatorCurationFeedbackSummary | null>(null)
+const contentImprovementSignals = ref<CreatorContentImprovementSignals | null>(null)
 const contactRequestStats = ref<ContactRequestStats | null>(null)
 const creatorWorkspaceLoading = ref(false)
 const creatorWorkspaceError = ref('')
+const contentImprovementSignalsLoading = ref(false)
+const contentImprovementSignalsLoadingMore = ref(false)
+const contentImprovementSignalsError = ref('')
 const ownerCollections = ref<ContentSeriesRecord[]>([])
 const myCollections = ref<ContentSeriesRecord[]>([])
 
@@ -1511,10 +1574,14 @@ const loadCreatorWorkspace = async () => {
   const requestId = ++creatorWorkspaceRequestId
   creatorWorkspaceLoading.value = true
   creatorWorkspaceError.value = ''
+  contentImprovementSignalsLoading.value = true
+  contentImprovementSignalsLoadingMore.value = false
+  contentImprovementSignalsError.value = ''
   try {
-    const [workspaceResult, curationResult] = await Promise.allSettled([
+    const [workspaceResult, curationResult, improvementResult] = await Promise.allSettled([
       creatorFeedbackApi.getWorkspace(),
       creatorFeedbackApi.getCurationFeedbackSummary(),
+      creatorFeedbackApi.getContentImprovementSignals(),
     ])
     if (
       requestId !== creatorWorkspaceRequestId
@@ -1527,13 +1594,97 @@ const loadCreatorWorkspace = async () => {
       creatorWorkspaceError.value = getErrorMessage(workspaceResult.reason, '暂时无法加载完整创作者工作台，已保留本地公开内容估算。')
     }
     curationFeedbackSummary.value = curationResult.status === 'fulfilled' ? curationResult.value.data : null
-    return workspaceResult.status === 'fulfilled' || curationResult.status === 'fulfilled'
+    if (improvementResult.status === 'fulfilled') {
+      contentImprovementSignals.value = improvementResult.value.data
+    } else {
+      contentImprovementSignals.value = null
+      contentImprovementSignalsError.value = getErrorMessage(
+        improvementResult.reason,
+        '内容改进线索暂时无法读取，当前不会用本地互动数据替代。',
+      )
+    }
+    return workspaceResult.status === 'fulfilled'
+      || curationResult.status === 'fulfilled'
+      || improvementResult.status === 'fulfilled'
   } finally {
     if (
       requestId === creatorWorkspaceRequestId
       && profileRequestIsCurrent(generation, accountKey)
     ) {
       creatorWorkspaceLoading.value = false
+      contentImprovementSignalsLoading.value = false
+    }
+  }
+}
+
+const loadMoreContentImprovementSignals = async () => {
+  const current = contentImprovementSignals.value
+  const cursor = current?.nextCursor
+  if (!current || current.degraded || !current.hasMore || !cursor || contentImprovementSignalsLoadingMore.value) return
+
+  const generation = profileGeneration
+  const accountKey = currentProfileAccountKey()
+  const requestId = creatorWorkspaceRequestId
+  contentImprovementSignalsLoadingMore.value = true
+  contentImprovementSignalsError.value = ''
+  try {
+    const response = await creatorFeedbackApi.getContentImprovementSignals(cursor)
+    if (
+      requestId !== creatorWorkspaceRequestId
+      || !profileRequestIsCurrent(generation, accountKey)
+    ) return
+    const next = response.data
+    if (!next) {
+      contentImprovementSignals.value = {
+        ...current,
+        degraded: true,
+        fallbackReason: 'content_improvement_page_unavailable',
+        items: [],
+        hasMore: false,
+        nextCursor: undefined,
+      }
+      return
+    }
+    if (next.degraded) {
+      contentImprovementSignals.value = next
+      return
+    }
+    const items = [...current.items]
+    const existingPostIds = new Set(items.map((item) => String(item.postId)))
+    for (const item of next.items) {
+      if (!existingPostIds.has(String(item.postId))) {
+        existingPostIds.add(String(item.postId))
+        items.push(item)
+      }
+    }
+    contentImprovementSignals.value = {
+      ...next,
+      items,
+    }
+  } catch (error) {
+    if (
+      requestId === creatorWorkspaceRequestId
+      && profileRequestIsCurrent(generation, accountKey)
+    ) {
+      contentImprovementSignals.value = {
+        ...current,
+        degraded: true,
+        fallbackReason: 'content_improvement_page_unavailable',
+        items: [],
+        hasMore: false,
+        nextCursor: undefined,
+      }
+      contentImprovementSignalsError.value = getErrorMessage(
+        error,
+        '内容改进线索暂时无法读取，当前不会把未读取的内容解释为没有需要复核的内容。',
+      )
+    }
+  } finally {
+    if (
+      requestId === creatorWorkspaceRequestId
+      && profileRequestIsCurrent(generation, accountKey)
+    ) {
+      contentImprovementSignalsLoadingMore.value = false
     }
   }
 }
@@ -2020,9 +2171,13 @@ const resetProfileAccountState = () => {
   backendContribution.value = null
   creatorWorkspace.value = null
   curationFeedbackSummary.value = null
+  contentImprovementSignals.value = null
   contactRequestStats.value = null
   creatorWorkspaceLoading.value = false
   creatorWorkspaceError.value = ''
+  contentImprovementSignalsLoading.value = false
+  contentImprovementSignalsLoadingMore.value = false
+  contentImprovementSignalsError.value = ''
   ownerCollections.value = []
   myCollections.value = []
   loadedTabs.clear()
@@ -2708,6 +2863,113 @@ watch(
 .trusted-content-window-list small {
   color: rgb(100 116 139);
   font-size: 0.75rem;
+}
+
+.content-improvement-workbench {
+  margin-top: 1.25rem;
+  border-top: 1px solid rgb(134 239 172);
+  border-bottom: 1px solid rgb(134 239 172);
+  padding: 1rem 0;
+}
+
+.content-improvement-workbench-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.content-improvement-workbench-head > div > span {
+  display: block;
+  margin-top: 0.2rem;
+  max-width: 58rem;
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.content-improvement-workbench-head > a {
+  flex: 0 0 auto;
+  color: rgb(21 128 61);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.content-improvement-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+}
+
+.content-improvement-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-left: 3px solid rgb(22 163 74);
+  padding: 0.75rem 0.85rem;
+  background: rgb(240 253 244);
+}
+
+.content-improvement-item-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.content-improvement-item-domain {
+  color: rgb(22 101 52);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.content-improvement-item-title {
+  overflow: hidden;
+  color: rgb(15 23 42);
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.content-improvement-item-copy strong {
+  color: rgb(22 101 52);
+  font-size: 0.78rem;
+}
+
+.content-improvement-item-copy p,
+.content-improvement-state {
+  margin: 0;
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.content-improvement-state {
+  margin-top: 0.9rem;
+  border: 1px dashed rgb(134 239 172);
+  padding: 0.75rem 0.85rem;
+}
+
+.content-improvement-edit {
+  flex: 0 0 auto;
+}
+
+.content-improvement-more {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.content-improvement-item.is-awaiting-feedback {
+  border-color: rgb(203 213 225);
+  background: rgb(248 250 252);
+}
+
+.content-improvement-item.is-awaiting-feedback .content-improvement-item-domain,
+.content-improvement-item.is-awaiting-feedback .content-improvement-item-copy strong {
+  color: rgb(71 85 105);
 }
 
 .creator-workbench-grid {
@@ -3405,6 +3667,45 @@ watch(
   color: rgb(148 163 184);
 }
 
+.dark .content-improvement-workbench {
+  border-color: rgb(21 128 61);
+}
+
+.dark .content-improvement-workbench-head > div > span,
+.dark .content-improvement-item-copy p,
+.dark .content-improvement-state {
+  color: rgb(148 163 184);
+}
+
+.dark .content-improvement-workbench-head > a,
+.dark .content-improvement-item-domain,
+.dark .content-improvement-item-copy strong {
+  color: rgb(134 239 172);
+}
+
+.dark .content-improvement-item {
+  border-color: rgb(74 222 128);
+  background: rgb(20 83 45 / 0.22);
+}
+
+.dark .content-improvement-item.is-awaiting-feedback {
+  border-color: rgb(71 85 105);
+  background: rgb(15 23 42);
+}
+
+.dark .content-improvement-item.is-awaiting-feedback .content-improvement-item-domain,
+.dark .content-improvement-item.is-awaiting-feedback .content-improvement-item-copy strong {
+  color: rgb(203 213 225);
+}
+
+.dark .content-improvement-item-title {
+  color: rgb(240 253 244);
+}
+
+.dark .content-improvement-state {
+  border-color: rgb(21 128 61);
+}
+
 .dark .workspace-source-pill {
   background: rgb(30 41 59);
   color: rgb(191 219 254) !important;
@@ -3559,6 +3860,16 @@ html.dark .growth-stat {
 
   .trusted-content-workbench-head {
     flex-direction: column;
+  }
+
+  .content-improvement-workbench-head,
+  .content-improvement-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .content-improvement-edit {
+    width: 100%;
   }
 
   .trusted-content-task-list a + a,

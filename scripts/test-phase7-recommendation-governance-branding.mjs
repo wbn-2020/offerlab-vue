@@ -130,8 +130,8 @@ for (const warning of [
   assert.match(governance, new RegExp(warning), `High-risk warnings must cover ${warning}.`)
 }
 
-assert.match(postCard, /normalizeRecommendationReason/, 'PostCard must use the shared recommendation reason normalizer.')
-assert.doesNotMatch(postCard, /const\s+normalizeRecommendationReason\s*=/, 'PostCard must not keep a local recommendation reason normalizer.')
+assert.match(postCard, /recommendationReasonDetails/, 'PostCard must render server-provided recommendation details.')
+assert.doesNotMatch(postCard, /props\.post\.recommendationReasons/, 'PostCard must not reuse legacy reasons as visible recommendation copy.')
 assert.match(explore, /normalizeRecommendationReason/, 'Explore cross-domain recommendations must normalize reasons.')
 assert.match(explore, /filterVisiblePosts/, 'Explore cross-domain recommendations must filter invisible posts.')
 assert.match(home, /filterVisiblePosts/, 'Home feed must use the shared visible post filter.')

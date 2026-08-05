@@ -5,6 +5,8 @@ import type {
   CreatorCurationFeedback,
   CreatorCurationFeedbackSummary,
   CreatorCurationMetrics,
+  CreatorContentImprovementSignal,
+  CreatorContentImprovementSignals,
   CreatorFeedbackSummary,
   CreatorFeedbackWindow,
   CreatorGrowthWorkspace,
@@ -31,6 +33,89 @@ const safeText = (value: unknown, fallback = '') => {
   if (typeof value !== 'string') return fallback
   const next = value.trim()
   return next || fallback
+}
+
+const asObject = (value: unknown): Record<string, unknown> | null => (
+  value != null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+)
+
+export const emptyCreatorContentImprovementSignals = (
+  fallbackReason = 'empty_response',
+): CreatorContentImprovementSignals => ({
+  periodDays: 30,
+  degraded: true,
+  fallbackReason,
+  items: [],
+  hasMore: false,
+})
+
+const adaptCreatorContentImprovementSignal = (raw: unknown): CreatorContentImprovementSignal | null => {
+  const value = asObject(raw)
+  const postId = adaptId(value?.postId)
+  const state = safeText(value?.state)
+  if (
+    !postId
+    || (
+      state !== 'REVIEW_RECOMMENDED'
+      && state !== 'MAINTENANCE_EXISTS'
+      && state !== 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK'
+    )
+  ) return null
+  const postHref = safeCreatorContentImprovementPostHref(value?.postHref, postId)
+  const editHref = safeCreatorContentImprovementEditorHref(value?.editHref, postId)
+  const workspaceHref = safeSameSitePath(value?.workspaceHref)
+  if (!postHref || ((state === 'REVIEW_RECOMMENDED' || state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK') && !editHref)
+    || (state === 'MAINTENANCE_EXISTS' && workspaceHref !== '/me/maintenance')) return null
+  return {
+    postId,
+    postTitle: safeText(value?.postTitle, '未命名公开内容'),
+    domain: Number.isInteger(Number(value?.domain)) ? Number(value?.domain) : undefined,
+    domainName: safeText(value?.domainName, '未分类'),
+    state,
+    headline: safeText(
+      value?.headline,
+      state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK'
+        ? '内容已更新，等待新的匿名反馈'
+        : '近 30 天出现了足够匿名的质量复核信号',
+    ),
+    detail: safeText(
+      value?.detail,
+      state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK'
+        ? '旧版本的匿名复核信号不再代表当前内容；平台尚不能判断问题是否已解决。'
+        : '建议检查标题、背景、过程和结论是否完整。',
+    ),
+    postHref,
+    editHref: state === 'MAINTENANCE_EXISTS' ? undefined : editHref,
+    workspaceHref: state === 'MAINTENANCE_EXISTS' ? workspaceHref : undefined,
+  }
+}
+
+export const adaptCreatorContentImprovementSignals = (raw: unknown): CreatorContentImprovementSignals => {
+  const value = asObject(raw)
+  if (!value) {
+    return emptyCreatorContentImprovementSignals('content_improvement_contract_missing')
+  }
+  const periodDays = Number(value.periodDays)
+  const degraded = truthyFlag(value.degraded)
+  const fallbackReason = safeText(value.fallbackReason) || undefined
+  if (!Array.isArray(value.items)) {
+    return emptyCreatorContentImprovementSignals('content_improvement_contract_invalid')
+  }
+  const items = value.items.map(adaptCreatorContentImprovementSignal)
+  if (items.some((item) => item == null)) {
+    return emptyCreatorContentImprovementSignals('content_improvement_contract_invalid')
+  }
+  const nextCursor = safeQueryText(value.nextCursor, 64) || undefined
+  return {
+    periodDays: Number.isSafeInteger(periodDays) && periodDays > 0 ? periodDays : 30,
+    degraded,
+    fallbackReason,
+    items: items.slice(0, 10) as CreatorContentImprovementSignal[],
+    nextCursor,
+    hasMore: Boolean(value.hasMore && !degraded && nextCursor),
+  }
 }
 
 type CreatorTrustedContentContract = CreatorTrustedContentMetrics & {
@@ -187,6 +272,16 @@ const safeSameSitePath = (value: unknown): string | undefined => (
 
 export const CREATOR_WORKBENCH_EDITOR_SOURCE = 'creator_workbench' as const
 const CREATOR_WORKBENCH_EDITOR_SOURCE_QUERY = { source: 'creator_workbench' } as const
+
+const safeCreatorContentImprovementPostHref = (value: unknown, postId: string | number): string | undefined => {
+  const href = safeSameSitePath(value)
+  return href === `/post/${postId}` ? href : undefined
+}
+
+const safeCreatorContentImprovementEditorHref = (value: unknown, postId: string | number): string | undefined => {
+  const href = safeSameSitePath(value)
+  return href === `/editor/${postId}?source=${CREATOR_WORKBENCH_EDITOR_SOURCE}` ? href : undefined
+}
 
 const creatorEditorActions: ReadonlySet<EditorAssistAction> = new Set([
   'update',
@@ -975,7 +1070,7 @@ export const creatorFeedbackApi = {
     try {
       const res = await client.get('/api/v1/creator-growth/feedback-summary', {
         params: { days },
-      }) as Result<any>
+      }) as Result<unknown>
       return {
         ...res,
         data: res.data ? adaptCreatorFeedbackSummary(res.data) : emptyCreatorFeedbackSummary('empty_response', 'empty'),
@@ -1002,6 +1097,29 @@ export const creatorFeedbackApi = {
         const { demoCreatorGrowthWorkspace, isLocalDemoSeedAllowed } = await loadDemoSeeds()
         if (!isLocalDemoSeedAllowed()) throw error
         return localDemoResult(demoCreatorGrowthWorkspace)
+      }
+      throw error
+    }
+  },
+
+  getContentImprovementSignals: async (cursor?: string): Promise<Result<CreatorContentImprovementSignals>> => {
+    try {
+      const res = await client.get('/api/v1/creator-growth/content-improvement-signals', {
+        params: { size: 5, ...(cursor ? { cursor } : {}) },
+      }) as Result<any>
+      return {
+        ...res,
+        data: res.data
+          ? adaptCreatorContentImprovementSignals(res.data)
+          : emptyCreatorContentImprovementSignals('empty_response'),
+      }
+    } catch (error) {
+      if (shouldUseDemoFallback(error)) {
+        return {
+          code: 0,
+          message: 'content_improvement_backend_not_connected',
+          data: emptyCreatorContentImprovementSignals('backend_not_connected'),
+        }
       }
       throw error
     }

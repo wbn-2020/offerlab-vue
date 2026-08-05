@@ -304,7 +304,7 @@ const routes = [
     meta: {
       title: '公共共建治理',
       requiresAuth: true,
-      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+      adminPermission: ['contentModerator', 'domainModerator', 'ops', 'admin'],
     },
   },
   {
@@ -315,7 +315,7 @@ const routes = [
     meta: {
       title: '协作运营洞察',
       requiresAuth: true,
-      adminPermission: ['contentModerator', 'domainModerator', 'ops', 'admin'],
+      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
     },
   },
   {
@@ -331,7 +331,7 @@ const routes = [
     meta: {
       title: '频道健康度',
       requiresAuth: true,
-      adminPermission: ['contentModerator', 'domainModerator', 'ops', 'admin'],
+      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
     },
   },
   {

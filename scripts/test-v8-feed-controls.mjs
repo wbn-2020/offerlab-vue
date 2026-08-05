@@ -23,7 +23,7 @@ has(feedApi, /\/api\/v1\/feeds\/feedback\/preferences'/, 'Feed preferences must 
 has(feedApi, /\/api\/v1\/feeds\/feedback\/preferences\/\$\{encodeURIComponent/, 'Per-post preferences must use the dedicated server endpoint.')
 has(feedApi, /restoreFeedback[\s\S]*action:\s*'RESTORE'/, 'Undo must persist RESTORE on the server.')
 
-has(postCard, /feedReasonText/, 'PostCard must render the server reason text.')
+has(postCard, /feedExplanationDetails[\s\S]*detail\.text/, 'PostCard must render server-provided explanation text.')
 missing(postCard, /feedReasonCode/, 'PostCard must not expose the internal server reason code.')
 missing(postCard, /原因码：/, 'PostCard must not visibly identify an internal reason code.')
 has(postCard, /feedFeedbackPending[\s\S]*Loader2/, 'PostCard must expose a pending state for Feed controls.')

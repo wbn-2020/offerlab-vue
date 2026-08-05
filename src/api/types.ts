@@ -1048,6 +1048,33 @@ export interface CreatorTrustedContentTaskItem {
   submittedAt?: number
 }
 
+export type CreatorContentImprovementState =
+  | 'REVIEW_RECOMMENDED'
+  | 'MAINTENANCE_EXISTS'
+  | 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK'
+
+export interface CreatorContentImprovementSignal {
+  postId: ApiId
+  postTitle: string
+  domain?: number
+  domainName: string
+  state: CreatorContentImprovementState
+  headline: string
+  detail: string
+  postHref: string
+  editHref?: string
+  workspaceHref?: string
+}
+
+export interface CreatorContentImprovementSignals {
+  periodDays: number
+  degraded: boolean
+  fallbackReason?: string
+  items: CreatorContentImprovementSignal[]
+  nextCursor?: string
+  hasMore: boolean
+}
+
 export interface CreatorGrowthWorkspace {
   source: CreatorWorkspaceSource
   updatedAt: number

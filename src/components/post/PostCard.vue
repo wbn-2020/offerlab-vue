@@ -36,32 +36,39 @@
           {{ post.author.isFollowing ? '已关注' : '关注' }}
         </button>
 
-        <div v-if="props.showFeedControls || props.showRecommendFeedback" class="relative" data-feedback-menu>
+        <div v-if="props.showFeedControls || props.showRecommendFeedback" class="feedback-menu-wrapper relative" data-feedback-menu>
           <button
             type="button"
             class="post-feedback-trigger"
             aria-label="推荐反馈"
             title="推荐反馈"
+            :aria-expanded="showFeedbackMenu"
+            :aria-controls="feedbackMenuId"
             :aria-busy="feedFeedbackPending"
             :disabled="feedFeedbackPending"
             @click.prevent="showFeedbackMenu = !showFeedbackMenu"
+            @keydown.esc.prevent="showFeedbackMenu = false"
           >
             <Loader2 v-if="feedFeedbackPending" class="h-4 w-4 animate-spin" />
             <MoreHorizontal v-else class="h-4 w-4" />
           </button>
           <div
             v-if="showFeedbackMenu"
+            :id="feedbackMenuId"
             class="post-feedback-menu"
+            aria-label="推荐反馈选项"
             @click.prevent
+            @keydown.esc.stop.prevent="showFeedbackMenu = false"
           >
             <button
               v-for="item in visibleFeedbackActions"
               :key="item.action"
               type="button"
               class="feedback-menu-item"
-              @click.stop.prevent="handleNotInterested(item)"
+              @click.stop.prevent="handleFeedbackAction(item)"
             >
               <RotateCcw v-if="item.action === 'RESTORE'" class="h-4 w-4" />
+              <UserX v-else-if="item.action === 'BLOCK_AUTHOR'" class="h-4 w-4" />
               <EyeOff v-else class="h-4 w-4" />
               <span>
                 <strong>{{ item.label }}</strong>
@@ -92,30 +99,6 @@
         class="mb-4 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400"
         v-html="displaySummary"
       />
-
-      <div v-if="feedExplanationVisible" class="post-feed-explanation">
-        <div class="post-feed-explanation__heading">
-          <Lightbulb class="h-3.5 w-3.5" />
-          <span>{{ feedSourceLabel || '推荐说明' }}</span>
-        </div>
-        <p>{{ feedReasonText }}</p>
-      </div>
-
-      <div v-if="showReasonPanel && displayRecommendationReasons.length" class="post-reason-panel">
-        <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-          <Lightbulb class="h-3.5 w-3.5" />
-          {{ reasonPanelTitle }}
-        </div>
-        <div class="flex flex-wrap gap-1.5">
-          <span
-            v-for="reason in displayRecommendationReasons"
-            :key="reason"
-            class="rounded-full bg-white px-2 py-1 text-xs text-indigo-700 dark:bg-slate-900 dark:text-indigo-200"
-          >
-            {{ reason }}
-          </span>
-        </div>
-      </div>
 
       <div
         v-if="trustSignalChips.length || (isSearchContext && rankingReasonLabels.length)"
@@ -150,11 +133,7 @@
         {{ feedFeedbackError }}
       </div>
 
-      <div v-if="hotReasonLabel || riskWarning" class="mb-4 space-y-2">
-        <div v-if="hotReasonLabel" class="post-signal-note post-signal-note--hot">
-          <TrendingUp class="h-3.5 w-3.5" />
-          <span>{{ hotReasonLabel }}</span>
-        </div>
+      <div v-if="riskWarning" class="mb-4">
         <div v-if="riskWarning" class="post-signal-note post-signal-note--risk">
           <ShieldAlert class="h-3.5 w-3.5" />
           <span>{{ riskWarning }}</span>
@@ -203,6 +182,38 @@
         </span>
       </div>
     </RouterLink>
+
+    <section
+      v-if="feedExplanationVisible"
+      class="post-feed-explanation"
+      :aria-label="reasonPanelTitle"
+    >
+      <button
+        type="button"
+        class="post-feed-explanation__trigger"
+        :aria-expanded="showFeedExplanation"
+        :aria-controls="feedExplanationId"
+        @click="showFeedExplanation = !showFeedExplanation"
+      >
+        <span class="post-feed-explanation__heading">
+          <Lightbulb class="h-3.5 w-3.5" />
+          <span>{{ feedExplanationLabel }}</span>
+        </span>
+        <ChevronDown
+          class="h-4 w-4 transition-transform"
+          :class="{ 'rotate-180': showFeedExplanation }"
+        />
+      </button>
+      <div
+        v-if="showFeedExplanation"
+        :id="feedExplanationId"
+        class="post-feed-explanation__content"
+      >
+        <p v-for="detail in feedExplanationDetails" :key="`${detail.code}-${detail.text}`">
+          {{ detail.text }}
+        </p>
+      </div>
+    </section>
 
     <div class="post-card__footer">
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -263,13 +274,89 @@
         </button>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="showAuthorBlockDialog" class="feed-author-control-overlay">
+        <section
+          ref="authorBlockDialog"
+          class="feed-author-control-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="feed-author-control-title"
+          aria-describedby="feed-author-control-description"
+          tabindex="-1"
+        >
+          <div>
+            <p class="feed-author-control-dialog__eyebrow">个人信息流控制</p>
+            <h2 id="feed-author-control-title">屏蔽此作者？</h2>
+            <p id="feed-author-control-description">
+              这只会从你的信息流中隐藏该作者的公开内容，不会通知对方，也不会影响对方发布。你可随时在设置中取消。
+            </p>
+          </div>
+          <div class="feed-author-control-dialog__actions">
+            <button ref="authorBlockCancelButton" type="button" class="feed-author-control-dialog__cancel" @click="closeAuthorBlockDialog">
+              取消
+            </button>
+            <button type="button" class="feed-author-control-dialog__confirm" @click="confirmAuthorBlock">
+              确认屏蔽
+            </button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="showFeedbackReasonDialog" class="feed-author-control-overlay">
+        <section
+          ref="feedbackReasonDialog"
+          class="feed-author-control-dialog feed-feedback-reason-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="feed-feedback-reason-title"
+          aria-describedby="feed-feedback-reason-description"
+          tabindex="-1"
+        >
+          <div>
+            <p class="feed-author-control-dialog__eyebrow">信息流反馈</p>
+            <h2 id="feed-feedback-reason-title">{{ pendingFeedbackLabel }}</h2>
+            <p id="feed-feedback-reason-description">{{ pendingFeedbackDescription }}</p>
+          </div>
+          <div class="feed-feedback-reason-options" role="group" aria-label="选择反馈原因">
+            <button
+              v-for="option in feedbackReasonOptions"
+              :key="option.code"
+              type="button"
+              :class="{ 'feed-feedback-reason-option--active': selectedFeedbackReasonCode === option.code }"
+              :aria-pressed="selectedFeedbackReasonCode === option.code"
+              @click="selectedFeedbackReasonCode = option.code"
+            >
+              <strong>{{ option.label }}</strong>
+              <span>{{ option.description }}</span>
+            </button>
+          </div>
+          <div class="feed-author-control-dialog__actions">
+            <button ref="feedbackReasonCancelButton" type="button" class="feed-author-control-dialog__cancel" @click="closeFeedbackReasonDialog">
+              取消
+            </button>
+            <button
+              type="button"
+              class="feed-author-control-dialog__confirm"
+              :disabled="!selectedFeedbackReasonCode"
+              @click="confirmFeedbackReason"
+            >
+              确认
+            </button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
   </article>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { Eye, EyeOff, Flag, Heart, Lightbulb, Loader2, MessageCircle, MoreHorizontal, RotateCcw, ShieldAlert, ShieldCheck, Star, TrendingUp } from 'lucide-vue-next'
+import { ChevronDown, Eye, EyeOff, Flag, Heart, Lightbulb, Loader2, MessageCircle, MoreHorizontal, RotateCcw, ShieldAlert, ShieldCheck, Star, UserX } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
@@ -280,11 +367,12 @@ import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { getContentTypeShortLabel } from '@/utils/contentTypes'
 import { buildDomainCardSurface } from '@/utils/domainPostSurfaces'
 import { getDomainIcon, getDomainLabel, isKnownDomain } from '@/utils/domains'
-import { findHighRiskContentWarning, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
+import { findHighRiskContentWarning } from '@/utils/recommendationGovernance'
 import { getPostUnavailableState, normalizeRiskNoticeForUsers } from '@/utils/governanceDisplay'
-import type { FeedControlAction, FeedFeedbackAction, FeedPost, LegacyFeedFeedbackAction } from '@/api/feed'
+import type { FeedbackReasonCode, FeedControlAction, FeedPost } from '@/api/feed'
 import PostSaveOrganizer from '@/components/post/PostSaveOrganizer.vue'
 import UserAvatar from '@/components/user/UserAvatar.vue'
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog'
 
 const props = defineProps<{
   post: Post | FeedPost
@@ -302,8 +390,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
-  notInterested: [postId: Post['postId'], action: FeedFeedbackAction, reason: string]
-  feedFeedback: [postId: Post['postId'], action: FeedControlAction]
+  feedFeedback: [postId: Post['postId'], action: FeedControlAction, reasonCode?: FeedbackReasonCode]
+  blockAuthor: [authorUid: Post['author']['uid'], postId: Post['postId']]
   'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
 
@@ -313,17 +401,25 @@ const { requireLogin } = useLoginRedirect()
 const isFollowing = ref(false)
 const failedImageUrl = ref('')
 const showFeedbackMenu = ref(false)
+const showFeedExplanation = ref(false)
+const showAuthorBlockDialog = ref(false)
+const showFeedbackReasonDialog = ref(false)
+const authorBlockDialog = ref<HTMLElement | null>(null)
+const authorBlockCancelButton = ref<HTMLButtonElement | null>(null)
+const feedbackReasonDialog = ref<HTMLElement | null>(null)
+const feedbackReasonCancelButton = ref<HTMLButtonElement | null>(null)
+const pendingFeedbackAction = ref<FeedControlAction | null>(null)
+const selectedFeedbackReasonCode = ref<FeedbackReasonCode | null>(null)
 const recommendationFeedbackSubmittedLabel = ref('')
 // 反馈请求失败时清掉“已记录”乐观提示，避免与错误信息并存或错误消失后再冒出来。
 watch(() => props.feedFeedbackError, (message) => {
   if (message) recommendationFeedbackSubmittedLabel.value = ''
 })
 const feedbackActions: Array<{
-  action: FeedFeedbackAction
+  action: FeedControlAction | 'BLOCK_AUTHOR'
   label: string
   reason: string
   description: string
-  legacy?: boolean
 }> = [
   {
     action: 'HIDE',
@@ -343,34 +439,17 @@ const feedbackActions: Array<{
     reason: 'user_restore',
     description: '撤销当前账号对这条内容的 Feed 控制。',
   },
-  {
-    action: 'not_interested' satisfies LegacyFeedFeedbackAction,
-    label: '不感兴趣',
-    reason: 'not_relevant',
-    description: '记录这次反馈，并隐藏当前内容。',
-    legacy: true,
-  },
-  {
-    action: 'less_like_this' satisfies LegacyFeedFeedbackAction,
-    label: '少看此类',
-    reason: 'less_like_this',
-    description: '记录偏好线索，暂不表示已改变后续推荐。',
-    legacy: true,
-  },
-  {
-    action: 'hide_author' satisfies LegacyFeedFeedbackAction,
-    label: '少看作者',
-    reason: 'less_from_author',
-    description: '记录作者相关反馈，不等同于举报或拉黑。',
-    legacy: true,
-  },
-  {
-    action: 'more_like_this' satisfies LegacyFeedFeedbackAction,
-    label: '更多类似',
-    reason: 'more_like_this',
-    description: '记录这次反馈，不会立即改变当前列表。',
-    legacy: true,
-  },
+]
+const feedbackReasonOptions: Array<{
+  code: FeedbackReasonCode
+  label: string
+  description: string
+}> = [
+  { code: 'NOT_RELEVANT', label: '与当前关注无关', description: '减少不相关内容。' },
+  { code: 'TOO_FREQUENT', label: '出现太频繁', description: '降低同类内容频率。' },
+  { code: 'ALREADY_KNOWN', label: '已经了解', description: '减少重复信息。' },
+  { code: 'QUALITY_NOT_EXPECTED', label: '不符合预期', description: '记录这次内容反馈。' },
+  { code: 'OTHER', label: '其他原因', description: '不需要补充说明。' },
 ]
 
 const authorUid = computed(() => String(props.post.author.uid ?? ''))
@@ -380,6 +459,10 @@ const isAnonymousMaskedAuthor = computed(() => Boolean(props.post.anonymous)
 const canFollowAuthor = computed(() => !isOwnPost.value
   && !isAnonymousMaskedAuthor.value
   && props.post.author.profileVisible !== false
+  && authorUid.value !== ''
+  && authorUid.value !== '0')
+const canBlockAuthor = computed(() => !isOwnPost.value
+  && !Boolean(props.post.anonymous)
   && authorUid.value !== ''
   && authorUid.value !== '0')
 const displayTitle = computed(() => renderSearchHighlight(props.post.highlightTitle, props.post.title))
@@ -393,21 +476,39 @@ const normalizedDetailQuery = computed(() => Object.fromEntries(
     .map(([key, value]) => [key, typeof value === 'boolean' ? (value ? '1' : '0') : value]),
 ))
 const isSearchContext = computed(() => normalizedDetailQuery.value.from === 'search')
-const reasonPanelTitle = computed(() => isSearchContext.value ? '命中说明' : '为什么推荐')
-const showReasonPanel = computed(() => props.showReasonPanel || props.showRecommendFeedback)
 const feedPost = computed(() => props.post as FeedPost)
 const feedSourceLabel = computed(() => feedPost.value.sourceLabel || '')
-const feedReasonText = computed(() => feedPost.value.reasonText || '')
-const feedExplanationVisible = computed(() => Boolean(
-  feedSourceLabel.value || feedReasonText.value,
+const feedExplanationDetails = computed(() => (feedPost.value.recommendationReasonDetails || [])
+  .filter((detail) => Boolean(detail?.code && detail.text?.trim()))
+  .slice(0, 3))
+const feedExplanationVisible = computed(() => feedExplanationDetails.value.length > 0)
+const reasonPanelTitle = computed(() => (
+  props.showReasonPanel && isSearchContext.value ? '命中说明' : '推荐说明'
+))
+const feedExplanationLabel = computed(() => feedSourceLabel.value || reasonPanelTitle.value)
+const feedExplanationId = computed(() => `post-feed-explanation-${String(props.post.postId)}`)
+const feedbackMenuId = computed(() => `post-feedback-menu-${String(props.post.postId)}`)
+const pendingFeedbackLabel = computed(() => (
+  pendingFeedbackAction.value === 'LESS_LIKE_THIS' ? '减少同类内容？' : '暂时隐藏这条内容？'
+))
+const pendingFeedbackDescription = computed(() => (
+  pendingFeedbackAction.value === 'LESS_LIKE_THIS'
+    ? '这会减少当前账号后续看到同类频道内容的频率，不影响任何其他用户。'
+    : '这会从当前账号的信息流中隐藏这条内容，你可以在设置中恢复。'
 ))
 const visibleFeedbackActions = computed(() => {
   const currentAction = props.feedFeedbackAction
-  return feedbackActions.filter((item) => {
-    if (item.legacy) return false
-    if (currentAction && currentAction !== 'RESTORE') return item.action === 'RESTORE'
-    return item.action === 'HIDE' || item.action === 'LESS_LIKE_THIS'
-  })
+  const postActions = currentAction && currentAction !== 'RESTORE'
+    ? feedbackActions.filter((item) => item.action === 'RESTORE')
+    : feedbackActions.filter((item) => item.action === 'HIDE' || item.action === 'LESS_LIKE_THIS')
+  return canBlockAuthor.value
+    ? [...postActions, {
+      action: 'BLOCK_AUTHOR' as const,
+      label: '屏蔽作者',
+      reason: 'user_block_author',
+      description: '仅从你的信息流中隐藏该作者，可在设置中恢复。',
+    }]
+    : postActions
 })
 const detailTo = computed(() => ({
   path: `/post/${props.post.postId}`,
@@ -477,25 +578,6 @@ const riskWarning = computed(() => normalizeRiskNoticeForUsers(findHighRiskConte
   props.post.tags.map((tag) => tag.name).join(' '),
 ].filter(Boolean).join(' '))))
 const cardUnavailableState = computed(() => getPostUnavailableState(props.post))
-const hotReasonLabel = computed(() => {
-  const reasons = props.post.recommendationReasons || []
-  const normalizedReason = reasons.map(normalizeRecommendationReason).find(Boolean)
-  if (isSearchContext.value) return normalizedReason ? `${reasonPanelTitle.value}：${normalizedReason}` : ''
-  const commentCount = Number(props.post.counter?.comment || 0)
-  const favoriteCount = Number(props.post.counter?.favorite || 0)
-  const likeCount = Number(props.post.counter?.like || 0)
-  if (commentCount > 0) return `热榜理由：近期有 ${formatNumber(commentCount)} 条讨论`
-  if (favoriteCount > 0) return `热榜理由：同频道有 ${formatNumber(favoriteCount)} 次收藏`
-  if (likeCount > 0) return `上升理由：社区成员有 ${formatNumber(likeCount)} 次认可`
-  return normalizedReason ? `${isSearchContext.value ? '命中说明' : '推荐理由'}：${normalizedReason}` : ''
-})
-const displayRecommendationReasons = computed(() => {
-  const reasons = props.post.recommendationReasons || []
-  return reasons
-    .map(normalizeRecommendationReason)
-    .filter(Boolean)
-    .slice(0, 3)
-})
 
 const escapeHtml = (value: string) => value
   .replace(/&/g, '&amp;')
@@ -554,15 +636,52 @@ const handleCardImageError = () => {
   failedImageUrl.value = domainCardSurface.value.imageUrl || ''
 }
 
-const handleNotInterested = (item: typeof feedbackActions[number]) => {
-  if (!requireLogin()) return
-  showFeedbackMenu.value = false
-  recommendationFeedbackSubmittedLabel.value = `已记录：${item.label}`
-  if (item.action === 'HIDE' || item.action === 'LESS_LIKE_THIS' || item.action === 'RESTORE') {
-    emit('feedFeedback', props.post.postId, item.action)
+const closeAuthorBlockDialog = () => {
+  showAuthorBlockDialog.value = false
+}
+
+const closeFeedbackReasonDialog = () => {
+  showFeedbackReasonDialog.value = false
+  pendingFeedbackAction.value = null
+  selectedFeedbackReasonCode.value = null
+}
+
+const confirmFeedbackReason = () => {
+  const action = pendingFeedbackAction.value
+  const reasonCode = selectedFeedbackReasonCode.value
+  if (!action || !reasonCode) return
+  closeFeedbackReasonDialog()
+  recommendationFeedbackSubmittedLabel.value = action === 'HIDE'
+    ? '已隐藏这条内容，可在设置中恢复。'
+    : '已记录反馈，后续会减少同类内容。'
+  emit('feedFeedback', props.post.postId, action, reasonCode)
+}
+
+const confirmAuthorBlock = () => {
+  if (!canBlockAuthor.value) {
+    closeAuthorBlockDialog()
     return
   }
-  emit('notInterested', props.post.postId, item.action, item.reason)
+  closeAuthorBlockDialog()
+  recommendationFeedbackSubmittedLabel.value = '已屏蔽该作者，之后可在设置中取消。'
+  emit('blockAuthor', props.post.author.uid, props.post.postId)
+}
+
+const handleFeedbackAction = (item: typeof visibleFeedbackActions.value[number]) => {
+  if (!requireLogin()) return
+  showFeedbackMenu.value = false
+  if (item.action === 'BLOCK_AUTHOR') {
+    showAuthorBlockDialog.value = true
+    return
+  }
+  if (item.action === 'HIDE' || item.action === 'LESS_LIKE_THIS') {
+    pendingFeedbackAction.value = item.action
+    selectedFeedbackReasonCode.value = null
+    showFeedbackReasonDialog.value = true
+    return
+  }
+  recommendationFeedbackSubmittedLabel.value = `已记录：${item.label}`
+  emit('feedFeedback', props.post.postId, item.action)
 }
 
 const handleFollow = async () => {
@@ -601,9 +720,89 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick)
 })
+
+useAccessibleDialog(() => showAuthorBlockDialog.value, {
+  close: closeAuthorBlockDialog,
+  initialFocus: authorBlockCancelButton,
+  dialogRef: authorBlockDialog,
+})
+
+useAccessibleDialog(() => showFeedbackReasonDialog.value, {
+  close: closeFeedbackReasonDialog,
+  initialFocus: feedbackReasonCancelButton,
+  dialogRef: feedbackReasonDialog,
+})
 </script>
 
 <style scoped>
+.feed-author-control-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(15 23 42 / 0.56);
+  padding: 1rem;
+}
+
+.feed-author-control-dialog {
+  display: grid;
+  width: min(100%, 30rem);
+  gap: 1.25rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 1.25rem;
+  color: rgb(15 23 42);
+  box-shadow: 0 22px 55px rgb(15 23 42 / 0.28);
+}
+
+.feed-author-control-dialog__eyebrow {
+  color: rgb(79 70 229);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.feed-author-control-dialog h2 {
+  margin-top: 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.feed-author-control-dialog p:not(.feed-author-control-dialog__eyebrow) {
+  margin-top: 0.5rem;
+  color: rgb(71 85 105);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.feed-author-control-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.feed-author-control-dialog__cancel,
+.feed-author-control-dialog__confirm {
+  min-height: 40px;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.feed-author-control-dialog__cancel {
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  color: rgb(51 65 85);
+}
+
+.feed-author-control-dialog__confirm {
+  background: rgb(79 70 229);
+  color: white;
+}
+
 .feedback-menu-item {
   display: flex;
   width: 100%;
@@ -660,27 +859,42 @@ onBeforeUnmount(() => {
   margin-bottom: 1rem;
   border-left: 3px solid rgb(14 116 144);
   background: rgb(240 253 250);
-  padding: 0.65rem 0.75rem;
   color: rgb(15 118 110);
 }
 
-.post-feed-explanation__heading {
+.post-feed-explanation__trigger {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.75rem;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+.post-feed-explanation__heading {
+  display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 0.4rem;
   font-size: 0.75rem;
   font-weight: 900;
 }
 
-.post-feed-explanation__heading small {
-  color: rgb(71 85 105);
-  font-size: 0.68rem;
-  font-weight: 700;
+.post-feed-explanation__trigger:focus-visible {
+  outline: 3px solid rgb(14 116 144 / 0.35);
+  outline-offset: -3px;
 }
 
-.post-feed-explanation p {
-  margin: 0.3rem 0 0;
+.post-feed-explanation__content {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0 0.75rem 0.7rem;
+}
+
+.post-feed-explanation__content p {
+  margin: 0;
   font-size: 0.78rem;
   font-weight: 700;
   line-height: 1.55;
@@ -856,6 +1070,21 @@ onBeforeUnmount(() => {
   color: rgb(203 213 225);
 }
 
+.dark .feed-author-control-dialog,
+.dark .feed-author-control-dialog__cancel {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+}
+
+.dark .feed-author-control-dialog {
+  color: rgb(248 250 252);
+}
+
+.dark .feed-author-control-dialog p:not(.feed-author-control-dialog__eyebrow),
+.dark .feed-author-control-dialog__cancel {
+  color: rgb(203 213 225);
+}
+
 .dark .feedback-menu-item:hover {
   background: rgb(30 41 59);
   color: rgb(248 250 252);
@@ -883,8 +1112,8 @@ onBeforeUnmount(() => {
   color: rgb(153 246 228);
 }
 
-.dark .post-feed-explanation__heading small {
-  color: rgb(148 163 184);
+.dark .post-feed-explanation__trigger:focus-visible {
+  outline-color: rgb(45 212 191 / 0.45);
 }
 
 .dark .card-action:hover {
@@ -1255,14 +1484,71 @@ onBeforeUnmount(() => {
 
 .post-feedback-trigger {
   display: grid;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 2.75rem;
+  height: 2.75rem;
   place-items: center;
   border: 0;
   border-radius: 5px;
   background: transparent;
   color: var(--text-muted);
   transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.feed-feedback-reason-options {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.feed-feedback-reason-options button {
+  display: grid;
+  gap: 0.15rem;
+  min-height: 3.25rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+.feed-feedback-reason-options button:hover,
+.feed-feedback-reason-options .feed-feedback-reason-option--active {
+  border-color: rgb(79 70 229);
+  background: rgb(238 242 255);
+}
+
+.feed-feedback-reason-options strong {
+  color: rgb(30 41 59);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.feed-feedback-reason-options span {
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.feed-author-control-dialog__confirm:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.dark .feed-feedback-reason-options button {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+}
+
+.dark .feed-feedback-reason-options button:hover,
+.dark .feed-feedback-reason-options .feed-feedback-reason-option--active {
+  border-color: rgb(129 140 248);
+  background: rgb(49 46 129 / 0.45);
+}
+
+.dark .feed-feedback-reason-options strong {
+  color: rgb(226 232 240);
+}
+
+.dark .feed-feedback-reason-options span {
+  color: rgb(148 163 184);
 }
 
 .post-feedback-trigger:hover {

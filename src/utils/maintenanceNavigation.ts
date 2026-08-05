@@ -1,4 +1,5 @@
 import type { ProjectionIssue } from '@/api/projectionHealth'
+import type { ChannelHealthReviewCandidate } from '@/api/channelHealthCandidates'
 import type {
   ContentMaintenanceTaskCreateCmd,
   MaintenanceSourceType,
@@ -34,14 +35,24 @@ export interface MaintenanceTaskPrefill {
 }
 
 export const MAINTENANCE_SOURCE_TYPES: readonly MaintenanceSourceType[] = Object.freeze([
-  'CHANNEL_HEALTH',
-  'SEARCH_GAP',
+    'CHANNEL_HEALTH',
+    'SEARCH_GAP',
   'SUGGESTION',
   'FRESHNESS',
   'PROFILE_CONFIRMATION',
   'QUESTION',
-  'MANUAL',
+    'MANUAL',
 ])
+
+export const MANUAL_MAINTENANCE_SOURCE_TYPES: readonly Exclude<MaintenanceSourceType, 'CHANNEL_HEALTH'>[] =
+  Object.freeze([
+    'SEARCH_GAP',
+    'SUGGESTION',
+    'FRESHNESS',
+    'PROFILE_CONFIRMATION',
+    'QUESTION',
+    'MANUAL',
+  ])
 
 export const DIAGNOSIS_SOURCE_TYPE_BY_ISSUE_TYPE: Readonly<Record<string, MaintenanceSourceType>> = Object.freeze({
   CONTENT_SUGGESTION_PENDING: 'SUGGESTION',
@@ -143,8 +154,10 @@ export const normalizeMaintenanceTaskPrefill = (
   const domainText = queryText(query.domain)
   const domain = /^[1-5]$/.test(domainText) ? Number(domainText) : ''
   const sourceTypeText = queryText(query.sourceType)
-  const sourceType = MAINTENANCE_SOURCE_TYPES.includes(sourceTypeText as MaintenanceSourceType)
-    ? sourceTypeText as MaintenanceSourceType
+  const sourceType = MANUAL_MAINTENANCE_SOURCE_TYPES.includes(
+    sourceTypeText as Exclude<MaintenanceSourceType, 'CHANNEL_HEALTH'>,
+  )
+    ? sourceTypeText as Exclude<MaintenanceSourceType, 'CHANNEL_HEALTH'>
     : 'MANUAL'
   return {
     domain,
@@ -160,7 +173,9 @@ export const buildMaintenanceCreateCommand = (
   draft: MaintenanceTaskFormDraft,
 ): ContentMaintenanceTaskCreateCmd | null => {
   if (!isMaintenanceDomain(draft.domain)
-    || !MAINTENANCE_SOURCE_TYPES.includes(draft.sourceType)) return null
+    || !MANUAL_MAINTENANCE_SOURCE_TYPES.includes(
+      draft.sourceType as Exclude<MaintenanceSourceType, 'CHANNEL_HEALTH'>,
+    )) return null
   const assigneeUid = normalizePositiveLongId(draft.assigneeUid)
   const sourcePostId = normalizePositiveLongId(draft.sourcePostId)
   const sourceRefId = normalizePositiveLongId(draft.sourceRefId)
@@ -215,4 +230,21 @@ export const buildMaintenanceTaskFromIssueTarget = (
     path: '/admin/content-maintenance',
     query,
   }
+}
+
+export const buildMaintenanceTaskFromChannelHealthCandidateTarget = (
+  candidate: ChannelHealthReviewCandidate,
+): MaintenanceNavigationTarget | null => {
+  if (
+    !isMaintenanceDomain(candidate.domain)
+    || candidate.sourceType !== 'CHANNEL_HEALTH'
+    || candidate.lifecycleState !== 'READY'
+    || candidate.actionable !== true
+  ) return null
+  const sourcePostId = normalizePositiveLongId(candidate.sourcePostId)
+  const sourceRefId = normalizePositiveLongId(candidate.sourceRefId)
+  const title = normalizeMaintenanceTitle(candidate.title).slice(0, 160)
+  const detail = normalizeMaintenanceDetail(candidate.detail).slice(0, 2000)
+  if (!sourcePostId || !sourceRefId || title.length < 2 || detail.length < 5) return null
+  return null
 }

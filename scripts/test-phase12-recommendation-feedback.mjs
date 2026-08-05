@@ -28,29 +28,35 @@ has(packageJson.scripts['test:stage-release-guards'], /test:phase12-recommendati
 has(feedApi, /FeedFeedbackAction/, 'Feed feedback API must expose a typed action contract.')
 has(feedApi, /not_interested/, 'Feed feedback API must keep not_interested support.')
 has(feedApi, /less_like_this/, 'Feed feedback API must expose less_like_this as an explicit lightweight action.')
-has(feedApi, /hide_author/, 'Feed feedback API must expose hide_author as an explicit lightweight action.')
 has(feedApi, /more_like_this/, 'Feed feedback API must expose more_like_this as an explicit lightweight action.')
 has(feedApi, /feedbackPayload/, 'Feed feedback API must map UI feedback actions through a backend-safe payload.')
 has(feedApi, /action:\s*action as BackendFeedFeedbackAction/, 'Feed feedback must preserve the backend-supported action contract.')
 has(feedApi, /reason:\s*action === 'not_interested' \? normalizedReason : `\$\{action\}:\$\{normalizedReason\}`/, 'Non-default feedback must preserve its action in the backend reason trace.')
 has(feedApi, /client\.post\('\/api\/v1\/feeds\/feedback'/, 'All supported feedback actions must be recorded by the backend.')
 missing(feedApi, /recorded locally/, 'Feed feedback must not pretend a backend-supported action is local-only.')
+missing(feedApi, /hide_author/, 'Author controls must use the dedicated V29 API instead of the legacy hide_author action.')
 
 has(postCard, /feedbackActions/, 'PostCard must define explicit recommendation feedback actions.')
-for (const label of ['不感兴趣', '少看此类', '少看作者', '更多类似']) {
+for (const label of ['暂时隐藏', '减少同类', '恢复默认', '屏蔽作者']) {
   has(postCard, new RegExp(label), `PostCard feedback menu must expose ${label}.`)
 }
-has(postCard, /暂不表示已改变后续推荐|不会立即改变当前列表/, 'Unsupported feedback entries must avoid pretending to affect recommendation immediately.')
-has(postCard, /displayRecommendationReasons[\s\S]*normalizeRecommendationReason/, 'PostCard recommendation reasons must use the shared neutral normalizer.')
+has(postCard, /仅从你的信息流中隐藏该作者|不会通知对方/, 'Author controls must explain their private feed-only scope.')
+has(postCard, /feedExplanationDetails[\s\S]*recommendationReasonDetails/, 'PostCard must render the server-provided explanation details.')
+missing(postCard, /props\.post\.recommendationReasons/, 'PostCard must not render legacy recommendation reasons as visible explanation copy.')
 has(postCard, /recommendationFeedbackSubmittedLabel|feedback-submitted-note/, 'PostCard must show a minimal local response after a feedback click.')
+missing(postCard, /hide_author/, 'PostCard must not send the legacy hide_author action.')
 
-has(home, /handleRecommendFeedback[\s\S]*FeedFeedbackAction/, 'Home recommendation feedback handler must receive the explicit feedback action.')
-has(home, /action === 'more_like_this'/, 'Home must avoid hiding cards for the reserved more_like_this entry.')
+has(home, /handleFeedControl[\s\S]*FeedbackReasonCode/, 'Home feed controls must receive the V30 typed feedback reason code.')
+has(home, /reasonCode/, 'Home must forward a selected V30 feedback reason code to the Feed API.')
+missing(home, /handleRecommendFeedback/, 'Home must not retain the legacy recommendation-feedback handler.')
+missing(home, /more_like_this/, 'Home must not expose the legacy restore-only more_like_this action.')
 has(home, /locallyHiddenPostIds/, 'Home must keep the minimal hide response for supported negative feedback.')
-has(home, /已记录反馈|已记录这次反馈/, 'Home must use neutral feedback success copy.')
+has(home, /当前内容已暂时隐藏|已减少同类内容/, 'Home must use accurate feed-control success copy.')
+has(home, /handleAuthorBlock[\s\S]*feedApi\.blockAuthor/, 'Home must use the dedicated author-control endpoint.')
 
 has(feedList, /showRecommendFeedback/, 'FeedList must be able to pass recommendation feedback affordances into PostCard.')
-has(feedList, /@not-interested="\([^)]*\) => \$emit\('not-interested'/, 'FeedList must forward recommendation feedback events.')
+has(feedList, /reasonCode\) => \$emit\('feed-feedback'/, 'FeedList must forward bounded feedback reason codes.')
+missing(feedList, /not-interested/, 'FeedList must not retain the legacy recommendation-feedback event.')
 
 has(explore, /normalizeRecommendationReason/, 'Explore recommendation reasons must use the shared neutral normalizer.')
 has(recommendationGovernance, /AI 精准推荐|精准推荐|隐私画像|平台判断你需要|系统认为你必须看|猜你喜欢/, 'Recommendation normalizer must explicitly cover forbidden explanation copy.')

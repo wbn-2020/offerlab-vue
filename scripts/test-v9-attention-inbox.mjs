@@ -23,7 +23,8 @@ has(notifications, /RevisitSummaryPanel[\s\S]*route-state/, 'revisits must reuse
 has(notifications, /route\.query\.type/, 'notification subtype must be URL-driven')
 
 has(digest, /routeState\?: boolean/, 'digest panel must opt into route state without changing detail-page embeds')
-has(digest, /route\.query\.sourceType[\s\S]*route\.query\.sourceId/, 'digest source filters must be restorable')
+has(digest, /routeSubscriptionSourceType[\s\S]*routeSubscriptionSourceId/, 'digest subscription source filters must be restorable')
+has(digest, /routeResourceType[\s\S]*routeResourceId/, 'digest resource filters must be restorable')
 for (const state of ['loading', 'error', 'empty']) {
   has(digest, new RegExp(`data-update-digest-state="${state}"`), `digest must expose ${state}`)
   has(revisits, new RegExp(`data-revisit-state="${state}"`), `revisit must expose ${state}`)

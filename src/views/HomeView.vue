@@ -266,62 +266,50 @@
             </div>
           </div>
 
-          <section v-if="authStore.isLoggedIn" class="feed-control-manager" :data-feed-control-state="feedControlManagerState">
+          <section v-if="authStore.isLoggedIn" class="feed-control-manager" data-v30-feed-control-entry>
             <header>
               <div>
                 <p class="home-rail-label">个人设置</p>
                 <h2>信息流控制</h2>
-                <span>分页查看当前账号隐藏或减少同类的内容，并随时恢复默认。</span>
+                <span>隐藏内容、减少频道内容和屏蔽作者都在同一个设置页管理。</span>
               </div>
-              <button type="button" class="secondary-action" @click="toggleFeedControlManager">
-                <Settings2 class="h-4 w-4" />
-                {{ feedControlManagerOpen ? '收起' : '管理设置' }}
-              </button>
+              <RouterLink :to="{ path: '/me/settings', query: { tab: 'feed-controls' } }" class="secondary-action">
+                管理设置
+              </RouterLink>
             </header>
+          </section>
 
-            <div v-if="feedControlManagerOpen" class="feed-control-manager__body">
-              <div v-if="feedControlManagerLoading && feedControlManagerItems.length === 0" class="feed-control-manager__state" role="status">
-                <Loader2 class="h-4 w-4 animate-spin" />
-                正在读取个人信息流设置
+          <section v-if="activeDomain" class="channel-hot-board" data-v30-channel-hot-board>
+            <header class="channel-hot-board__head">
+              <div>
+                <p class="home-rail-label">频道热榜</p>
+                <h2>{{ activeDomainMeta?.domainName || '当前频道' }}</h2>
               </div>
-              <div v-else-if="feedControlManagerError && feedControlManagerItems.length === 0" class="feed-control-manager__state feed-control-manager__state--error" role="alert">
-                <span>{{ feedControlManagerError }}</span>
-                <button type="button" @click="loadFeedControlManager()">重试</button>
-              </div>
-              <div v-else-if="feedControlManagerItems.length === 0" class="feed-control-manager__state">
-                当前账号没有已保存的信息流控制。
-              </div>
-              <template v-else>
-                <div class="feed-control-manager__list">
-                  <article v-for="preference in feedControlManagerItems" :key="String(preference.postId)">
-                    <div>
-                      <RouterLink :to="`/post/${preference.postId}`">内容 #{{ preference.postId }}</RouterLink>
-                      <span>{{ feedControlActionLabel(preference.action) }}</span>
-                      <p>{{ preference.reasonText || explainFeedControl(undefined, preference.reasonCode, preference.action) }}</p>
-                    </div>
-                    <button
-                      type="button"
-                      :disabled="feedFeedbackPendingIds.has(String(preference.postId))"
-                      title="恢复默认信息流设置"
-                      @click="restoreManagedFeedControl(preference.postId)"
-                    >
-                      <RotateCcw class="h-4 w-4" />
-                      恢复
-                    </button>
-                  </article>
-                </div>
-                <p v-if="feedControlManagerError" class="feed-control-manager__append-error">{{ feedControlManagerError }}</p>
-                <button
-                  v-if="feedControlManagerHasMore"
-                  type="button"
-                  class="secondary-action feed-control-manager__more"
-                  :disabled="feedControlManagerLoadingMore"
-                  @click="loadFeedControlManager(true)"
-                >
-                  <Loader2 v-if="feedControlManagerLoadingMore" class="h-4 w-4 animate-spin" />
-                  {{ feedControlManagerLoadingMore ? '加载中' : '加载更多设置' }}
-                </button>
-              </template>
+              <span>公开内容</span>
+            </header>
+            <div v-if="isChannelHotBoardLoading" class="channel-hot-board__state" role="status">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              正在整理频道热榜
+            </div>
+            <div v-else-if="channelHotBoardError" class="channel-hot-board__state channel-hot-board__state--error" role="alert">
+              {{ channelHotBoardError }}
+            </div>
+            <div v-else-if="channelHotBoard?.items?.length" class="channel-hot-board__list">
+              <RouterLink
+                v-for="entry in channelHotBoard.items"
+                :key="String(entry.item.postId)"
+                :to="`/post/${entry.item.postId}`"
+                class="channel-hot-board__item"
+              >
+                <strong>{{ entry.rank }}</strong>
+                <span>
+                  <b>{{ entry.item.title }}</b>
+                  <small>{{ entry.reasonText }}</small>
+                </span>
+              </RouterLink>
+            </div>
+            <div v-else class="channel-hot-board__state">
+              当前频道还没有可展示的热门内容。
             </div>
           </section>
 
@@ -357,8 +345,8 @@
                 :feed-feedback-error="feedFeedbackErrors[String(post.postId)]"
                 @like="handleLike"
                 @favorite="handleFavorite"
-                @not-interested="handleRecommendFeedback"
                 @feed-feedback="handleFeedControl"
+                @block-author="handleAuthorBlock"
                 @follow-change="handlePostAuthorFollowChange"
               />
             </template>
@@ -505,14 +493,20 @@ import { computed, onMounted, ref, watch, type Component } from 'vue'
 import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
-import { Compass, Library, Loader2, PenLine, RotateCcw, Settings2, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
+import { Compass, Library, Loader2, PenLine, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
 import { postApi } from '@/api/post'
 import { taskApi, type UserTaskItem, type UserTaskOverview } from '@/api/tasks'
 import { userApi } from '@/api/user'
-import { feedApi, type FeedControlAction, type FeedFeedbackAction, type FeedPreference } from '@/api/feed'
+import {
+  feedApi,
+  type ChannelHotBoard,
+  type FeedbackReasonCode,
+  type FeedControlAction,
+  type FeedPreference,
+} from '@/api/feed'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -528,7 +522,6 @@ import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
 import {
-  explainFeedControl,
   findHighRiskContentWarning,
   filterVisiblePosts,
   normalizeRecommendationReason,
@@ -598,14 +591,9 @@ const feedFeedbackErrors = ref<Record<string, string | undefined>>({})
 const feedPreferenceStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 const feedPreferenceError = ref('')
 const feedUndo = ref<{ postId: string; title: string } | null>(null)
-const feedControlManagerOpen = ref(firstQueryValue(route.query.controls) === '1')
-const feedControlManagerItems = ref<FeedPreference[]>([])
-const feedControlManagerLoading = ref(false)
-const feedControlManagerLoadingMore = ref(false)
-const feedControlManagerError = ref('')
-const feedControlManagerNextCursor = ref('')
-const feedControlManagerHasMore = ref(false)
-let feedControlManagerRequestGeneration = 0
+const channelHotBoard = ref<ChannelHotBoard | null>(null)
+const isChannelHotBoardLoading = ref(false)
+const channelHotBoardError = ref('')
 const { posts, error: feedError, fetchNextPage, hasNextPage, isError, isFetching, isLoading, refetch } = useInfiniteFeed(activeFeed, activeDomain)
 const homeFeedTabs = computed(() => feedTabs.map((value) => ({
   value,
@@ -622,12 +610,6 @@ const activeDomainMeta = computed(() => (
   homeDomainOptions.value.find((item) => Number(item.domain) === Number(activeDomain.value))
   ?? null
 ))
-const feedControlManagerState = computed(() => {
-  if (!feedControlManagerOpen.value) return 'closed'
-  if (feedControlManagerLoading.value && feedControlManagerItems.value.length === 0) return 'loading'
-  if (feedControlManagerError.value && feedControlManagerItems.value.length === 0) return 'error'
-  return feedControlManagerItems.value.length ? 'ready' : 'empty'
-})
 const topicItems = computed(() => {
   const remoteTopics = topics.value.slice(0, 6).map((topic) => ({
     name: topic.name,
@@ -867,7 +849,6 @@ const homeDomainLocation = (domain?: number): RouteLocationRaw => ({
   query: {
     feed: activeFeed.value,
     ...(domain ? { domain: String(domain) } : {}),
-    ...(feedControlManagerOpen.value ? { controls: '1' } : {}),
   },
 })
 
@@ -888,19 +869,12 @@ let feedControlRevision = 0
 const currentFeedAccountKey = () => `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
 const resetFeedControlState = () => {
   feedControlRevision += 1
-  feedControlManagerRequestGeneration += 1
   feedPreferences.value = {}
   locallyHiddenPostIds.value = new Set()
   feedFeedbackPendingIds.value = new Set()
   feedFeedbackErrors.value = {}
   feedPreferenceError.value = ''
   feedUndo.value = null
-  feedControlManagerItems.value = []
-  feedControlManagerLoading.value = false
-  feedControlManagerLoadingMore.value = false
-  feedControlManagerError.value = ''
-  feedControlManagerNextCursor.value = ''
-  feedControlManagerHasMore.value = false
 }
 
 const loadFeedPreferences = async () => {
@@ -936,59 +910,6 @@ const loadFeedPreferences = async () => {
 const feedPreferenceActionFor = (postId: Post['postId']) =>
   feedPreferences.value[String(postId)]?.action
 
-const loadFeedControlManager = async (append = false) => {
-  if (!authStore.isLoggedIn || !feedControlManagerOpen.value) return
-  if (append && (!feedControlManagerHasMore.value || feedControlManagerLoadingMore.value)) return
-  const accountKey = currentFeedAccountKey()
-  const generation = ++feedControlManagerRequestGeneration
-  if (append) feedControlManagerLoadingMore.value = true
-  else feedControlManagerLoading.value = true
-  feedControlManagerError.value = ''
-  try {
-    const res = await feedApi.listFeedbackPreferences(
-      append ? feedControlManagerNextCursor.value || undefined : undefined,
-      20,
-    )
-    if (generation !== feedControlManagerRequestGeneration || accountKey !== currentFeedAccountKey()) return
-    const incoming = res.data?.items || []
-    const merged = append ? [...feedControlManagerItems.value, ...incoming] : incoming
-    feedControlManagerItems.value = Array.from(
-      new Map(merged.map((item) => [String(item.postId), item])).values(),
-    )
-    feedControlManagerNextCursor.value = res.data?.nextCursor || ''
-    feedControlManagerHasMore.value = Boolean(res.data?.hasMore && feedControlManagerNextCursor.value)
-  } catch (error: unknown) {
-    if (generation !== feedControlManagerRequestGeneration || accountKey !== currentFeedAccountKey()) return
-    feedControlManagerError.value = getErrorMessage(error, '个人信息流设置暂时无法读取。')
-  } finally {
-    if (generation === feedControlManagerRequestGeneration && accountKey === currentFeedAccountKey()) {
-      feedControlManagerLoading.value = false
-      feedControlManagerLoadingMore.value = false
-    }
-  }
-}
-
-const toggleFeedControlManager = () => {
-  feedControlManagerOpen.value = !feedControlManagerOpen.value
-  if (!feedControlManagerOpen.value) feedControlManagerRequestGeneration += 1
-  void router.replace({
-    path: route.path,
-    query: {
-      ...route.query,
-      controls: feedControlManagerOpen.value ? '1' : undefined,
-    },
-  })
-  if (feedControlManagerOpen.value && feedControlManagerItems.value.length === 0) {
-    void loadFeedControlManager()
-  }
-}
-
-const feedControlActionLabel = (action: FeedControlAction) => {
-  if (action === 'LESS_LIKE_THIS') return '减少同类'
-  if (action === 'RESTORE') return '已恢复'
-  return '暂时隐藏'
-}
-
 const switchFeedAfterError = (feed: FeedType) => {
   setHomeFeed(feed)
   setTimeout(() => {
@@ -1023,19 +944,6 @@ const handlePostAuthorFollowChange = (authorUid: User['uid'], following: boolean
   })
 }
 
-const handleRecommendFeedback = async (postId: Post['postId'], action: FeedFeedbackAction, reason: string) => {
-  if (!requireLogin()) return
-  try {
-    await feedApi.recordFeedback(postId, action, reason)
-    if (action !== 'more_like_this') {
-      locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(String(postId))
-    }
-    toast.success(action === 'more_like_this' ? '已记录这次反馈' : '已记录反馈，当前内容已隐藏')
-  } catch (error: unknown) {
-    toast.error(getErrorMessage(error, '推荐反馈提交失败'))
-  }
-}
-
 const setFeedFeedbackPending = (postId: Post['postId'], pending: boolean) => {
   const id = String(postId)
   const next = new Set(feedFeedbackPendingIds.value)
@@ -1058,7 +966,11 @@ const feedControlErrorMessage = (error: unknown, action: FeedControlAction) => {
   return getErrorMessage(error, '信息流控制提交失败，当前内容不会被误隐藏。')
 }
 
-const handleFeedControl = async (postId: Post['postId'], action: FeedControlAction) => {
+const handleFeedControl = async (
+  postId: Post['postId'],
+  action: FeedControlAction,
+  reasonCode?: FeedbackReasonCode,
+) => {
   if (!requireLogin()) return false
   const id = String(postId)
   const accountKey = currentFeedAccountKey()
@@ -1069,7 +981,12 @@ const handleFeedControl = async (postId: Post['postId'], action: FeedControlActi
     if (action === 'RESTORE') {
       await feedApi.restoreFeedback(postId)
     } else {
-      await feedApi.recordFeedback(postId, action, action === 'HIDE' ? 'user_hide' : 'user_less_like_this')
+      await feedApi.recordFeedback(
+        postId,
+        action,
+        reasonCode ? `v30:${reasonCode.toLowerCase()}` : (action === 'HIDE' ? 'user_hide' : 'user_less_like_this'),
+        reasonCode,
+      )
     }
     if (accountKey !== currentFeedAccountKey()) return
     feedControlRevision += 1
@@ -1081,26 +998,18 @@ const handleFeedControl = async (postId: Post['postId'], action: FeedControlActi
       hidden.delete(id)
       locallyHiddenPostIds.value = hidden
       if (feedUndo.value?.postId === id) feedUndo.value = null
-      feedControlManagerItems.value = feedControlManagerItems.value
-        .filter((item) => String(item.postId) !== id)
       toast.success('已恢复默认信息流设置')
       return true
     }
     const preference: FeedPreference = {
       postId,
       action,
-      reason: action === 'HIDE' ? 'user_hide' : 'user_less_like_this',
-      reasonText: explainFeedControl(undefined, undefined, action),
+      reason: reasonCode ? `v30:${reasonCode.toLowerCase()}` : (action === 'HIDE' ? 'user_hide' : 'user_less_like_this'),
+      reasonCode,
     }
     feedPreferences.value = {
       ...feedPreferences.value,
       [id]: preference,
-    }
-    if (feedControlManagerOpen.value) {
-      feedControlManagerItems.value = [
-        preference,
-        ...feedControlManagerItems.value.filter((item) => String(item.postId) !== id),
-      ]
     }
     if (action === 'HIDE') {
       locallyHiddenPostIds.value = new Set(locallyHiddenPostIds.value).add(id)
@@ -1122,14 +1031,34 @@ const handleFeedControl = async (postId: Post['postId'], action: FeedControlActi
   }
 }
 
-const restoreFeedControl = (postId: Post['postId']) => handleFeedControl(postId, 'RESTORE')
-const restoreManagedFeedControl = async (postId: Post['postId']) => {
-  const restored = await restoreFeedControl(postId)
-  if (restored) {
-    feedControlManagerItems.value = feedControlManagerItems.value
-      .filter((item) => String(item.postId) !== String(postId))
+const handleAuthorBlock = async (authorUid: User['uid'], postId: Post['postId']) => {
+  if (!requireLogin()) return
+  const accountKey = currentFeedAccountKey()
+  setFeedFeedbackPending(postId, true)
+  setFeedFeedbackError(postId)
+  try {
+    await feedApi.blockAuthor(authorUid)
+    if (accountKey !== currentFeedAccountKey()) return
+    const authorId = String(authorUid)
+    locallyHiddenPostIds.value = new Set([
+      ...locallyHiddenPostIds.value,
+      ...posts.value
+        .filter((post) => String(post.author.uid) === authorId)
+        .map((post) => String(post.postId)),
+    ])
+    feedUndo.value = null
+    toast.success('已屏蔽该作者；此设置仅影响你的信息流。')
+  } catch (error: unknown) {
+    if (accountKey !== currentFeedAccountKey()) return
+    const message = getErrorMessage(error, '屏蔽作者失败，当前内容不会被误隐藏。')
+    setFeedFeedbackError(postId, message)
+    toast.error(message)
+  } finally {
+    if (accountKey === currentFeedAccountKey()) setFeedFeedbackPending(postId, false)
   }
 }
+
+const restoreFeedControl = (postId: Post['postId']) => handleFeedControl(postId, 'RESTORE')
 
 const toggleFollowUser = async (user: User) => {
   if (!requireLogin()) return
@@ -1238,18 +1167,36 @@ watch(
   { immediate: true },
 )
 
-watch(
-  () => firstQueryValue(route.query.controls),
-  (value) => {
-    const open = value === '1'
-    if (feedControlManagerOpen.value === open) return
-    feedControlManagerOpen.value = open
-    if (open) void loadFeedControlManager()
-  },
-)
+let channelHotBoardRequestId = 0
+const loadChannelHotBoard = async () => {
+  const domain = activeDomain.value
+  const requestId = ++channelHotBoardRequestId
+  if (!domain) {
+    channelHotBoard.value = null
+    channelHotBoardError.value = ''
+    isChannelHotBoardLoading.value = false
+    return
+  }
+  isChannelHotBoardLoading.value = true
+  channelHotBoardError.value = ''
+  try {
+    const res = await feedApi.getChannelHotBoard(domain, 5)
+    if (requestId !== channelHotBoardRequestId || activeDomain.value !== domain) return
+    channelHotBoard.value = res.data
+  } catch (error: unknown) {
+    if (requestId !== channelHotBoardRequestId || activeDomain.value !== domain) return
+    channelHotBoard.value = null
+    channelHotBoardError.value = getErrorMessage(error, '频道热榜暂时无法读取。')
+  } finally {
+    if (requestId === channelHotBoardRequestId && activeDomain.value === domain) {
+      isChannelHotBoardLoading.value = false
+    }
+  }
+}
 
 watch(activeDomain, () => {
   void loadHomePreviewPosts()
+  void loadChannelHotBoard()
 }, { immediate: true })
 
 watch([() => authStore.isLoggedIn, () => authStore.user?.uid], async ([loggedIn, ownerUid]) => {
@@ -1269,7 +1216,6 @@ watch(
     await queryClient.invalidateQueries({ queryKey: ['feed'] })
     void refetch()
     void loadFeedPreferences()
-    if (feedControlManagerOpen.value) void loadFeedControlManager()
   },
   { immediate: true },
 )
@@ -1411,6 +1357,124 @@ watch(
   overflow: hidden;
   -webkit-box-orient: vertical;
   line-height: 1.55;
+}
+
+.channel-hot-board {
+  border: 1px solid rgb(226 232 240 / 0.92);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.86);
+  padding: 1rem;
+}
+
+.channel-hot-board__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.channel-hot-board__head h2 {
+  margin-top: 0.2rem;
+  color: rgb(15 23 42);
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.channel-hot-board__head > span {
+  border-radius: 999px;
+  background: rgb(240 253 250);
+  padding: 0.25rem 0.55rem;
+  color: rgb(15 118 110);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.channel-hot-board__list {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgb(241 245 249);
+}
+
+.channel-hot-board__item {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  border-bottom: 1px solid rgb(241 245 249);
+  padding: 0.72rem 0;
+}
+
+.channel-hot-board__item:last-child {
+  border-bottom: 0;
+}
+
+.channel-hot-board__item > strong {
+  color: rgb(13 148 136);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.channel-hot-board__item b,
+.channel-hot-board__item small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-hot-board__item b {
+  color: rgb(15 23 42);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.channel-hot-board__item small {
+  margin-top: 0.22rem;
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+}
+
+.channel-hot-board__state {
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: rgb(100 116 139);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.channel-hot-board__state--error {
+  color: rgb(190 24 93);
+}
+
+.dark .channel-hot-board {
+  border-color: rgb(51 65 85 / 0.86);
+  background: rgb(15 23 42 / 0.78);
+}
+
+.dark .channel-hot-board__head h2,
+.dark .channel-hot-board__item b {
+  color: rgb(248 250 252);
+}
+
+.dark .channel-hot-board__head > span {
+  background: rgb(19 78 74 / 0.45);
+  color: rgb(153 246 228);
+}
+
+.dark .channel-hot-board__list,
+.dark .channel-hot-board__item {
+  border-color: rgb(30 41 59);
+}
+
+.dark .channel-hot-board__item > strong {
+  color: rgb(94 234 212);
+}
+
+.dark .channel-hot-board__item small,
+.dark .channel-hot-board__state {
+  color: rgb(148 163 184);
 }
 
 .hot-rising-card__sample {
