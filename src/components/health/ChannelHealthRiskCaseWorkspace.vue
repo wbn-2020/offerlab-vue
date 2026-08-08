@@ -1176,6 +1176,7 @@ const loadQueue = async () => {
       size: 10,
     })
     if (version !== queueRequestVersion) return
+    if (response.data == null) throw new Error('风险处置队列返回为空')
     queue.value = response.data
     if (
       selectedQueueBatchId.value != null
@@ -1205,6 +1206,7 @@ const loadMoreQueue = async () => {
       size: 10,
     })
     if (version !== queueRequestVersion) return
+    if (response.data == null) throw new Error('风险处置队列分页返回为空')
     const seenBatchIds = new Set(queue.value.items.map((item) => String(item.batchId)))
     const nextItems = response.data.items.filter((item) => !seenBatchIds.has(String(item.batchId)))
     if (nextItems.length !== response.data.items.length) throw new Error('风险队列分页结果不可信')
@@ -1247,6 +1249,7 @@ const loadDetail = async (caseId: ApiId) => {
   try {
     const response = await channelHealthRiskCasesApi.detail(caseId)
     if (version !== detailRequestVersion) return
+    if (response.data == null) throw new Error('风险处置单详情返回为空')
     if (String(response.data.id) !== normalizedId) throw new Error('处置单详情不符合所选风险单')
     detail.value = response.data
   } catch (error) {
@@ -1269,6 +1272,7 @@ const loadEvents = async () => {
   try {
     const response = await channelHealthRiskCasesApi.events(caseId, { size: 10 })
     if (version !== eventsRequestVersion) return
+    if (response.data == null) throw new Error('处置事件返回为空')
     events.value = response.data
   } catch (error) {
     if (version !== eventsRequestVersion) return
@@ -1289,6 +1293,7 @@ const loadMoreEvents = async () => {
   try {
     const response = await channelHealthRiskCasesApi.events(caseId, { cursor, size: 10 })
     if (version !== eventsRequestVersion) return
+    if (response.data == null) throw new Error('处置事件分页返回为空')
     const seenIds = new Set(events.value.items.map((item) => String(item.id)))
     const nextItems = response.data.items.filter((item) => !seenIds.has(String(item.id)))
     if (nextItems.length !== response.data.items.length) throw new Error('处置事件分页结果不可信')
@@ -1320,6 +1325,7 @@ const loadEventsForCase = async (caseId: ApiId) => {
   try {
     const response = await channelHealthRiskCasesApi.events(caseId, { size: 10 })
     if (version !== eventsRequestVersion || String(selectedCaseId.value) !== normalizedId) return
+    if (response.data == null) throw new Error('处置事件返回为空')
     events.value = response.data
   } catch (error) {
     if (version !== eventsRequestVersion || String(selectedCaseId.value) !== normalizedId) return
@@ -1420,6 +1426,17 @@ const loadGovernanceData = async (caseId: ApiId) => {
     ])
     if (version !== governanceRequestVersion || String(selectedCaseId.value) !== normalizedId) return
     if (
+      governanceResponse.data == null
+      || milestonesResponse.data == null
+      || revisionsResponse.data == null
+      || actionsResponse.data == null
+      || evidenceResponse.data == null
+      || snapshotResponse.data == null
+      || retrospectiveResponse.data == null
+      || retrospectiveEventsResponse.data == null
+      || recurrenceResponse.data == null
+    ) throw new Error('治理事实返回为空')
+    if (
       String(governanceResponse.data.caseId) !== normalizedId
       || String(snapshotResponse.data.caseId) !== normalizedId
       || String(retrospectiveResponse.data.caseId) !== normalizedId
@@ -1445,15 +1462,17 @@ const loadGovernanceData = async (caseId: ApiId) => {
     retrospective.value = retrospectiveResponse.data
     retrospectiveEvents.value = retrospectiveEventsResponse.data
     recurrenceLinks.value = recurrenceResponse.data
+    const actionItems = actionsResponse.data.items
+    const evidenceItems = evidenceResponse.data.items
     const currentRevisionId = String(governanceResponse.data.currentResolutionRevision?.id || '')
     if (!closeResolutionRevisionIdDraft.value || !revisionsResponse.data.items.some((item) => (
       String(item.id) === closeResolutionRevisionIdDraft.value
     ))) closeResolutionRevisionIdDraft.value = currentRevisionId
     closeActionReferenceIdsDraft.value = closeActionReferenceIdsDraft.value.filter((id) => (
-      actionsResponse.data.items.some((item) => String(item.id) === id)
+      actionItems.some((item) => String(item.id) === id)
     ))
     closeEvidenceEntryIdsDraft.value = closeEvidenceEntryIdsDraft.value.filter((id) => (
-      evidenceResponse.data.items.some((item) => String(item.id) === id)
+      evidenceItems.some((item) => String(item.id) === id)
     ))
   } catch (error) {
     if (version !== governanceRequestVersion || String(selectedCaseId.value) !== normalizedId) return
@@ -1725,6 +1744,7 @@ const previewClose = async () => {
       evidenceEntryIds: closeEvidenceEntryIdsDraft.value,
       retrospectiveOwnerUid: closeRetrospectiveOwnerUidDraft.value,
     })
+    if (response.data == null) throw new Error('关闭预检返回为空')
     if (
       String(response.data.caseId) !== String(current.id)
       || response.data.caseVersion !== current.caseVersion

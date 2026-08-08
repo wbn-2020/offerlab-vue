@@ -1206,13 +1206,16 @@ const adaptResolutionRevision = (raw: unknown): ChannelHealthRiskCaseResolutionR
     || !createTime
     || !outcomeMatchesRecoveryState(outcomeType, contentRecoveryState, residualRiskLevel)
   ) return null
-  const primary = rootCauses.filter((item) => item?.role === 'PRIMARY')
-  const contributing = rootCauses.filter((item) => item?.role === 'CONTRIBUTING')
+  const completeRootCauses = rootCauses.filter(
+    (item): item is ChannelHealthRiskCaseRootCause => item != null,
+  )
+  const primary = completeRootCauses.filter((item) => item.role === 'PRIMARY')
+  const contributing = completeRootCauses.filter((item) => item.role === 'CONTRIBUTING')
   if (
-    rootCauses.some((item) => item == null)
+    completeRootCauses.length !== rootCauses.length
     || primary.length !== 1
     || contributing.length !== rootCauses.length - 1
-    || new Set(rootCauses.map((item) => `${item.role}:${item.sequenceNo}`)).size !== rootCauses.length
+    || new Set(completeRootCauses.map((item) => `${item.role}:${item.sequenceNo}`)).size !== rootCauses.length
   ) return null
   return {
     id,
@@ -1223,7 +1226,7 @@ const adaptResolutionRevision = (raw: unknown): ChannelHealthRiskCaseResolutionR
     recoveryScope,
     residualRiskLevel,
     summary,
-    rootCauses: rootCauses as ChannelHealthRiskCaseRootCause[],
+    rootCauses: completeRootCauses,
     createTime,
   }
 }
