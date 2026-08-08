@@ -23,6 +23,57 @@ export interface ContentAssistRequest {
   aiEnabled?: boolean
 }
 
+export interface ContentAssistCapability {
+  available: boolean
+  remainingQuota: number
+  unavailableReason?: string | null
+  benefitCode: string
+  consumerCode: string
+  targetPath?: string | null
+}
+
+export interface ContentAssistEnhancedPayload {
+  requestStatus: 'RUNNING' | 'SUCCEEDED' | 'FALLBACK' | 'FAILED'
+  usageStatus?: 'RESERVED' | 'CONFIRMED' | 'RELEASED' | null
+  quotaConsumed?: boolean
+  replayed?: boolean
+  requestFingerprint: string
+  provider?: string | null
+  fallbackReason?: string | null
+  writing?: unknown
+  quality?: unknown
+  tagTopic?: unknown
+}
+
+export interface ContentAssistEnhancedOutcome {
+  requestStatus: ContentAssistEnhancedPayload['requestStatus']
+  usageStatus?: ContentAssistEnhancedPayload['usageStatus']
+  quotaConsumed: boolean
+  replayed: boolean
+  requestFingerprint: string
+  assist: ContentAssistResult | null
+}
+
+export interface ContentAssistEnhancedRequestSummary {
+  requestId: string | number
+  requestStatus: ContentAssistEnhancedPayload['requestStatus']
+  usageStatus?: ContentAssistEnhancedPayload['usageStatus']
+  quotaConsumed: boolean
+  requestFingerprint: string
+  errorCode?: string | null
+  createTime?: string | null
+  updateTime?: string | null
+}
+
+interface ContentAssistEnhancedStatusPayload {
+  requestStatus: ContentAssistEnhancedPayload['requestStatus']
+  usageStatus?: ContentAssistEnhancedPayload['usageStatus']
+  quotaConsumed?: boolean
+  requestFingerprint: string
+  errorCode?: string | null
+  result?: ContentAssistEnhancedPayload | null
+}
+
 const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)))
 const LOCAL_RULE_SOURCE_LABEL = '本地规则降级'
 const REMOTE_SOURCE_LABEL = '远端助手'
@@ -442,6 +493,22 @@ const buildWritingCmd = (req: ContentAssistRequest) => ({
   assistTemplateCode: safeText(req.extension?.assistTemplateCode) || undefined,
 })
 
+export const contentAssistEnhancedFingerprintSource = (
+  uid: string | number,
+  req: ContentAssistRequest,
+) => {
+  const command = buildWritingCmd(req)
+  return [
+    String(uid),
+    String(command.title || '').trim(),
+    String(command.postType),
+    command.domain == null ? 'null' : String(command.domain),
+    command.content,
+    command.tagNames.join(','),
+    String(command.assistTemplateCode || '').trim(),
+  ].join('|')
+}
+
 const buildQualityCmd = (req: ContentAssistRequest) => ({
   domain: optionalDomainOf(req.domain),
   postType: Number(req.postType),
@@ -566,6 +633,63 @@ const mergeRemoteAssist = (
   }
 }
 
+const enhancedOutcomeOf = (
+  req: ContentAssistRequest,
+  payload: ContentAssistEnhancedPayload,
+): ContentAssistEnhancedOutcome => {
+  if (payload.requestStatus === 'RUNNING' || payload.requestStatus === 'FAILED') {
+    return {
+      requestStatus: payload.requestStatus,
+      usageStatus: payload.usageStatus,
+      quotaConsumed: Boolean(payload.quotaConsumed),
+      replayed: Boolean(payload.replayed),
+      requestFingerprint: payload.requestFingerprint,
+      assist: null,
+    }
+  }
+  const assist = mergeRemoteAssist(req, {
+    writing: payload.writing,
+    quality: payload.quality,
+    tagTopic: payload.tagTopic,
+    fallbackReason: safeText(payload.fallbackReason),
+  })
+  assist.status = payload.requestStatus === 'FALLBACK' ? 'degraded' : 'ready'
+  assist.sourceLabel = payload.requestStatus === 'FALLBACK' ? LOCAL_RULE_SOURCE_LABEL : REMOTE_SOURCE_LABEL
+  assist.sourceMessage = payload.requestStatus === 'FALLBACK' ? '增强未完成，已回退到免费规则建议' : 'AI 增强结果'
+  assist.fallbackReason = safeText(payload.fallbackReason) || undefined
+  return {
+    requestStatus: payload.requestStatus,
+    usageStatus: payload.usageStatus,
+    quotaConsumed: Boolean(payload.quotaConsumed),
+    replayed: Boolean(payload.replayed),
+    requestFingerprint: payload.requestFingerprint,
+    assist,
+  }
+}
+
+const enhancedOutcomeFromStatus = (
+  req: ContentAssistRequest,
+  payload: ContentAssistEnhancedStatusPayload,
+): ContentAssistEnhancedOutcome => {
+  const result = payload.result
+    ? {
+        ...payload.result,
+        requestStatus: payload.requestStatus,
+        usageStatus: payload.usageStatus,
+        quotaConsumed: payload.quotaConsumed,
+        requestFingerprint: payload.requestFingerprint,
+        fallbackReason: payload.errorCode,
+      }
+    : {
+        requestStatus: payload.requestStatus,
+        usageStatus: payload.usageStatus,
+        quotaConsumed: payload.quotaConsumed,
+        requestFingerprint: payload.requestFingerprint,
+        fallbackReason: payload.errorCode,
+      }
+  return enhancedOutcomeOf(req, result)
+}
+
 export const contentAssistApi = {
   getEditorAssist: async (req: ContentAssistRequest): Promise<Result<ContentAssistResult>> => {
     if (hasPrivateCareerBoundary(req)) {
@@ -633,6 +757,64 @@ export const contentAssistApi = {
           data: buildFailedAssist(getErrorMessage(fallbackError, '建议暂时不可用，请稍后再试。')),
         }
       }
+    }
+  },
+
+  getEnhancedCapability: (): Promise<Result<ContentAssistCapability>> =>
+    client.get('/api/v1/content-assist/capability'),
+
+  enhanceEditorAssist: async (
+    req: ContentAssistRequest,
+    idempotencyKey: string,
+  ): Promise<Result<ContentAssistEnhancedOutcome>> => {
+    const response = await client.post('/api/v1/content-assist/enhanced', {
+      ...buildWritingCmd(req),
+    }, {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    }) as Result<ContentAssistEnhancedPayload>
+    if (!response.data) {
+      throw new Error('content assist enhanced response is empty')
+    }
+    return {
+      ...response,
+      data: enhancedOutcomeOf(req, response.data),
+    }
+  },
+
+  getEnhancedAssistStatus: async (
+    req: ContentAssistRequest,
+    idempotencyKey: string,
+  ): Promise<Result<ContentAssistEnhancedOutcome>> => {
+    const response = await client.get('/api/v1/content-assist/enhanced/status', {
+      params: { idempotencyKey },
+    }) as Result<ContentAssistEnhancedStatusPayload>
+    if (!response.data) {
+      throw new Error('content assist enhanced status response is empty')
+    }
+    return {
+      ...response,
+      data: enhancedOutcomeFromStatus(req, response.data),
+    }
+  },
+
+  listRecentEnhancedAssist: (limit = 5): Promise<Result<ContentAssistEnhancedRequestSummary[]>> =>
+    client.get('/api/v1/content-assist/enhanced/recent', {
+      params: { limit: Math.max(1, Math.min(Math.trunc(limit) || 5, 10)) },
+    }),
+
+  getEnhancedAssistStatusByRequestId: async (
+    req: ContentAssistRequest,
+    requestId: string | number,
+  ): Promise<Result<ContentAssistEnhancedOutcome>> => {
+    const response = (await client.get(
+      `/api/v1/content-assist/enhanced/requests/${encodeURIComponent(String(requestId))}/status`,
+    )) as Result<ContentAssistEnhancedStatusPayload>
+    if (!response.data) {
+      throw new Error('content assist enhanced status response is empty')
+    }
+    return {
+      ...response,
+      data: enhancedOutcomeFromStatus(req, response.data),
     }
   },
 }

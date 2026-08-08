@@ -95,7 +95,11 @@ check(
   'OperationCandidateDTO should expose visibilityCheck or equivalent eligibility/blockReasons reference-only candidate metadata.',
 )
 
-has(filterTopicSnapshot, /PublicContentFilter\.isDistributablePost\(post\)/, 'Published topic snapshot must re-run public visibility and governance filtering.')
+check(
+  /isVisibleForViewer\(post, controls\)/.test(filterTopicSnapshot)
+    && /private boolean isVisibleForViewer\(PostBriefDTO post,[\s\S]*PublicContentFilter\.isDistributablePost\(post\)/.test(operationService),
+  'Published topic snapshot must re-run public visibility, governance, and viewer-control filtering.',
+)
 has(filterTopicSnapshot, /ITEM_ACTIVE\.equals\(section\.getStatus\(\)\)/, 'Published topic snapshot must include only active topic section items.')
 has(filterTopicSnapshot, /section\.setReasonText\((?:section\.getReasonText\(\) == null \? section\.getNote\(\) : section\.getReasonText\(\)|publicCurationReason\([^)]*section\.getReasonText\(\)[\s\S]*section\.getNote\(\)[\s\S]*\))\)/, 'Published topic snapshot must keep public reasonText from confirmed ops note.')
 has(filterTopicSnapshot, /section\.setNote\(null\)/, 'Published topic snapshot must remove internal section notes.')

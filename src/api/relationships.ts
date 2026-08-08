@@ -15,6 +15,12 @@ export type RelationshipSourceType = typeof RELATIONSHIP_SOURCE_TYPES[number]
 export type RelationshipMode = 'ALL' | 'ACTIVE' | 'MUTED'
 export type RelationshipDeliveryMode = 'IMMEDIATE' | 'DIGEST' | 'MUTED'
 
+export const DELIVERY_PREFERENCE_SUPPORTED_SOURCE_TYPES = [
+  'TOPIC',
+  'DISCUSSION',
+  'NEED',
+] as const satisfies readonly RelationshipSourceType[]
+
 export interface RelationshipListQuery {
   sourceType?: RelationshipSourceType
   mode?: RelationshipMode
@@ -22,12 +28,17 @@ export interface RelationshipListQuery {
   size?: number
 }
 
-export interface RelationshipPreference {
+export interface RelationshipDeliveryPreferenceCapability {
+  deliveryPreferenceSupported: boolean
+  deliveryPreferenceUnsupportedReason?: string
+}
+
+export interface RelationshipPreference extends RelationshipDeliveryPreferenceCapability {
   deliveryMode: RelationshipDeliveryMode
   expiresAt?: number
 }
 
-export interface RelationshipItem {
+export interface RelationshipItem extends RelationshipDeliveryPreferenceCapability {
   sourceType: RelationshipSourceType
   sourceId: ApiId
   title: string
@@ -56,6 +67,9 @@ const resourceId = (value: ApiId) => encodeURIComponent(String(value))
 
 const sourceTypes = new Set<string>(RELATIONSHIP_SOURCE_TYPES)
 const deliveryModes = new Set<RelationshipDeliveryMode>(['IMMEDIATE', 'DIGEST', 'MUTED'])
+const deliveryPreferenceSupportedSourceTypes = new Set<RelationshipSourceType>(
+  DELIVERY_PREFERENCE_SUPPORTED_SOURCE_TYPES,
+)
 const asObject = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? value as Record<string, unknown> : {}
 
@@ -81,6 +95,75 @@ const normalizeDeliveryMode = (value: unknown): RelationshipDeliveryMode => {
   return deliveryModes.has(normalized) ? normalized : 'IMMEDIATE'
 }
 
+export const deliveryPreferenceUnsupportedMessage = (
+  sourceType: RelationshipSourceType,
+  reason?: unknown,
+) => {
+  const serverReason = safeText(reason, 240)
+  if (serverReason && serverReason !== 'SOURCE_UPDATE_DELIVERY_NOT_AVAILABLE') return serverReason
+  if (sourceType === 'USER') return '用户关注暂不支持来源级更新接收设置。'
+  if (sourceType === 'SERIES') return '协作系列暂不支持来源级更新接收设置。'
+  return '该关系暂不支持来源级更新接收设置。'
+}
+
+export const isDeliveryPreferenceSupported = (
+  sourceType: RelationshipSourceType,
+  serverSupported?: boolean,
+) => (
+  deliveryPreferenceSupportedSourceTypes.has(sourceType)
+  && serverSupported === true
+)
+
+export class RelationshipDeliveryPreferenceUnsupportedError extends Error {
+  constructor(sourceType: RelationshipSourceType, reason?: unknown) {
+    super(deliveryPreferenceUnsupportedMessage(sourceType, reason))
+    this.name = 'RelationshipDeliveryPreferenceUnsupportedError'
+  }
+}
+
+const adaptDeliveryPreferenceCapability = (
+  sourceType: RelationshipSourceType,
+  supported: unknown,
+  unsupportedReason: unknown,
+): RelationshipDeliveryPreferenceCapability => {
+  const serverSupported = typeof supported === 'boolean' ? supported : undefined
+  const deliveryPreferenceSupported = isDeliveryPreferenceSupported(sourceType, serverSupported)
+  return {
+    deliveryPreferenceSupported,
+    deliveryPreferenceUnsupportedReason: deliveryPreferenceSupported
+      ? undefined
+      : deliveryPreferenceUnsupportedMessage(sourceType, unsupportedReason),
+  }
+}
+
+const assertDeliveryPreferenceSupported = (
+  sourceType: RelationshipSourceType,
+  capability?: Partial<RelationshipDeliveryPreferenceCapability>,
+) => {
+  if (!isDeliveryPreferenceSupported(sourceType, capability?.deliveryPreferenceSupported)) {
+    throw new RelationshipDeliveryPreferenceUnsupportedError(
+      sourceType,
+      capability?.deliveryPreferenceUnsupportedReason,
+    )
+  }
+}
+
+const adaptRelationshipPreference = (
+  raw: unknown,
+  sourceType: RelationshipSourceType,
+): RelationshipPreference => {
+  const source = asObject(raw)
+  return {
+    deliveryMode: normalizeDeliveryMode(source.deliveryMode),
+    expiresAt: source.expiresAt ? adaptTime(source.expiresAt) : undefined,
+    ...adaptDeliveryPreferenceCapability(
+      sourceType,
+      source.deliveryPreferenceSupported,
+      source.deliveryPreferenceUnsupportedReason,
+    ),
+  }
+}
+
 const adaptRelationship = (raw: unknown): RelationshipItem => {
   const source = asObject(raw)
   const preference = asObject(source.preference)
@@ -90,6 +173,11 @@ const adaptRelationship = (raw: unknown): RelationshipItem => {
   const updatedAt = source.updatedAt ?? source.updateTime ?? source.lastPublishedAt ?? source.createTime
   const expiresAt = source.expiresAt ?? preference.expiresAt
   return {
+    ...adaptDeliveryPreferenceCapability(
+      sourceType,
+      source.deliveryPreferenceSupported ?? preference.deliveryPreferenceSupported,
+      source.deliveryPreferenceUnsupportedReason ?? preference.deliveryPreferenceUnsupportedReason,
+    ),
     sourceType,
     sourceId,
     title: safeText(source.title ?? source.name ?? source.sourceTitle, 160) || '未命名关系',
@@ -157,15 +245,9 @@ export const relationshipsApi = {
     const res = await requestResult<unknown>(
       client.get(`/api/v1/users/me/relationships/${sourceType}/${resourceId(sourceId)}/preference`),
     )
-    const data = asObject(res.data)
     return {
       ...res,
-      data: res.data
-        ? {
-            deliveryMode: normalizeDeliveryMode(data.deliveryMode),
-            expiresAt: data.expiresAt ? adaptTime(data.expiresAt) : undefined,
-          }
-        : null,
+      data: res.data ? adaptRelationshipPreference(res.data, sourceType) : null,
     }
   },
 
@@ -173,27 +255,29 @@ export const relationshipsApi = {
     sourceType: RelationshipSourceType,
     sourceId: ApiId,
     preference: { deliveryMode: RelationshipDeliveryMode; expiresAt?: string | null },
+    capability?: Partial<RelationshipDeliveryPreferenceCapability>,
   ): Promise<Result<RelationshipPreference>> => {
+    assertDeliveryPreferenceSupported(sourceType, capability)
     const res = await requestResult<unknown>(
       client.put(
         `/api/v1/users/me/relationships/${sourceType}/${resourceId(sourceId)}/preference`,
         preference,
       ),
     )
-    const data = asObject(res.data)
     return {
       ...res,
-      data: res.data
-        ? {
-            deliveryMode: normalizeDeliveryMode(data.deliveryMode),
-            expiresAt: data.expiresAt ? adaptTime(data.expiresAt) : undefined,
-          }
-        : null,
+      data: res.data ? adaptRelationshipPreference(res.data, sourceType) : null,
     }
   },
 
-  deletePreference: (sourceType: RelationshipSourceType, sourceId: ApiId) =>
-    requestResult<void>(
+  deletePreference: async (
+    sourceType: RelationshipSourceType,
+    sourceId: ApiId,
+    capability?: Partial<RelationshipDeliveryPreferenceCapability>,
+  ) => {
+    assertDeliveryPreferenceSupported(sourceType, capability)
+    return requestResult<void>(
       client.delete(`/api/v1/users/me/relationships/${sourceType}/${resourceId(sourceId)}/preference`),
-    ),
+    )
+  },
 }

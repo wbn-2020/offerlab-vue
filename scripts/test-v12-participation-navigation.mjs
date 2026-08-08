@@ -154,6 +154,6 @@ assert.match(notificationsView, /route\.query\.view/)
 assert.match(notificationsView, /route\.query\.type/)
 assert.match(relationshipsView, /route\.query\.mode/)
 assert.match(reportsView, /route\.query\.filter/)
-assert.match(updateDigestPanel, /\^\[A-Za-z0-9\._:-\]\{1,80\}\$/, 'update digest focus IDs must use the consumer contract')
+assert.match(updateDigestPanel, /\^\[1-9\]\[0-9\]\{0,79\}\$/, 'update digest route IDs must use the canonical numeric identifier contract')
 
 console.log('V12 participation navigation guard passed.')

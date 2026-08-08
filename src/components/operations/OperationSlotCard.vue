@@ -9,6 +9,7 @@
     </div>
 
     <p class="operation-slot-explain">{{ explanationText }}</p>
+    <p v-if="slotUpdatedAt" class="operation-slot-meta">运营整理，不等同于自然排序 · 更新于 {{ slotUpdatedAt }}</p>
 
     <div v-if="isLoading" class="operation-slot-state">
       <RefreshCw class="h-4 w-4 animate-spin" />
@@ -74,6 +75,18 @@ const explanationText = computed(() => {
   if (loadError.value) return '运营位接口暂不可用，前台不会伪装成自然推荐；当前保留稳定空状态。'
   if (isUnavailable.value) return slot.value?.explanation || '后端运营位未接通时展示稳定空状态，不代表正式发布配置。'
   return slot.value?.explanation || '由社区运营从公开可见内容中整理，展示原因和自然推荐分开说明。'
+})
+const slotUpdatedAt = computed(() => {
+  const value = slot.value?.updatedAt
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 })
 const emptyText = computed(() => (
   loadError.value
@@ -145,6 +158,13 @@ watch(() => props.slotCode, loadSlot)
   font-size: 0.8rem;
   line-height: 1.55;
   color: rgb(71 85 105);
+}
+
+.operation-slot-meta {
+  margin-top: 0.35rem;
+  color: rgb(100 116 139);
+  font-size: 0.7rem;
+  line-height: 1.45;
 }
 
 .operation-slot-grid {
@@ -257,6 +277,7 @@ watch(() => props.slotCode, loadSlot)
 }
 
 .dark .operation-slot-explain,
+.dark .operation-slot-meta,
 .dark .operation-slot-state {
   color: rgb(203 213 225);
 }

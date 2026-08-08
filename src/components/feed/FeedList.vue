@@ -15,8 +15,7 @@
         :feed-feedback-error="feedFeedbackErrors[String(post.postId)]"
         @like="$emit('like', post.postId)"
         @favorite="$emit('favorite', post.postId)"
-        @not-interested="(postId, action, reason) => $emit('not-interested', postId, action, reason)"
-        @feed-feedback="(postId, action) => $emit('feed-feedback', postId, action)"
+        @feed-feedback="(postId, action, reasonCode) => $emit('feed-feedback', postId, action, reasonCode)"
         @follow-change="(authorUid, following) => $emit('follow-change', authorUid, following)"
       />
     </template>
@@ -48,7 +47,7 @@
 
 <script setup lang="ts">
 import type { Post } from '@/api/types'
-import type { FeedControlAction, FeedFeedbackAction } from '@/api/feed'
+import type { FeedbackReasonCode, FeedControlAction } from '@/api/feed'
 import PostCard from '@/components/post/PostCard.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -81,8 +80,7 @@ defineEmits<{
   'load-more': []
   like: [postId: Post['postId']]
   favorite: [postId: Post['postId']]
-  'not-interested': [postId: Post['postId'], action: FeedFeedbackAction, reason: string]
-  'feed-feedback': [postId: Post['postId'], action: FeedControlAction]
+  'feed-feedback': [postId: Post['postId'], action: FeedControlAction, reasonCode?: FeedbackReasonCode]
   'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
 </script>

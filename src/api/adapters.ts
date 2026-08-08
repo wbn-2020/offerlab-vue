@@ -1,7 +1,7 @@
 import type { ApiId, Comment, CommentReport, CommunityTopic, ContactRequest, ContactRequestSettings, ContactRequestStats, CreatorCurationFeedback, DisplayableCurationFeedbackSource, FavoriteFolder, FavoriteFolderVisibility, Notification, PaginatedResponse, Post, PostReport, PostVersionHistory, PublicPostUpdate, Tag, User, UserIntent, UserReportReceipt, UserReportSourceType, UserReportStatus } from './types'
 import { isKnownDomain, normalizeDomain } from '@/utils/domains'
 import { filterDistributionPosts, isPublicCollectionVisible, isPublicPostVisible, neutralizeHighRiskRecommendationReason, normalizeRecommendationReason } from '@/utils/recommendationGovernance'
-import { safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
+import { safeMarkdownText, safeVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 
 export function adaptId(value: any): string {
   if (value === null || value === undefined || value === '') return ''
@@ -11,7 +11,11 @@ export function adaptId(value: any): string {
 export function adaptTime(value: any): number {
   if (!value) return Date.now()
   if (typeof value === 'number') return value
-  const parsed = Date.parse(value)
+  const text = String(value).trim()
+  const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)
+  const looksLikeLocalDateTime = /^\d{4}-\d{2}-\d{2}T/.test(text)
+  const normalized = looksLikeLocalDateTime && !hasExplicitTimezone ? `${text}Z` : text
+  const parsed = Date.parse(normalized)
   return Number.isNaN(parsed) ? Date.now() : parsed
 }
 
@@ -426,7 +430,7 @@ export function adaptPost(raw: any): Post {
     domain,
     anonymous,
     title: safeVisibleText(stripSearchHighlight(rawTitle), '内容编码异常，已隐藏标题'),
-    content: safeVisibleText(stripSearchHighlight(rawContent), '内容编码异常，已隐藏原文'),
+    content: safeMarkdownText(stripSearchHighlight(rawContent), '内容编码异常，已隐藏原文'),
     summary: rawSummary ? sanitizeVisibleText(stripSearchHighlight(rawSummary), '内容编码异常，已隐藏摘要') : undefined,
     highlightTitle: source?.highlightTitle ?? (hasSearchHighlight(rawTitle) ? rawTitle : undefined),
     highlightSummary: source?.highlightSummary ?? (hasSearchHighlight(rawSummary) ? rawSummary : undefined),

@@ -557,6 +557,7 @@ export interface OperationTopicPublishCheckContract {
 
 export type EditorAssistContextSource =
   | 'creator_workbench'
+  | 'creator_challenge'
   | 'post_detail'
   | 'series_entry'
   | 'topic_candidate'
@@ -1045,6 +1046,33 @@ export interface CreatorTrustedContentTaskItem {
   createdAt?: number
   updatedAt?: number
   submittedAt?: number
+}
+
+export type CreatorContentImprovementState =
+  | 'REVIEW_RECOMMENDED'
+  | 'MAINTENANCE_EXISTS'
+  | 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK'
+
+export interface CreatorContentImprovementSignal {
+  postId: ApiId
+  postTitle: string
+  domain?: number
+  domainName: string
+  state: CreatorContentImprovementState
+  headline: string
+  detail: string
+  postHref: string
+  editHref?: string
+  workspaceHref?: string
+}
+
+export interface CreatorContentImprovementSignals {
+  periodDays: number
+  degraded: boolean
+  fallbackReason?: string
+  items: CreatorContentImprovementSignal[]
+  nextCursor?: string
+  hasMore: boolean
 }
 
 export interface CreatorGrowthWorkspace {

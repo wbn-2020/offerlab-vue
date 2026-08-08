@@ -3,6 +3,7 @@ import client, { apiBaseURL, BizException, Result } from './client'
 import type { SearchStatus } from './search'
 import type { ApiId, PaginatedResponse } from './types'
 import type { Question } from './question'
+import { authTokenStore } from '@/utils/authTokenStore'
 
 export const OPS_BATCH_RETRY_LIMIT = 50
 
@@ -79,6 +80,15 @@ export interface HealthComponentStatus {
 export interface ReadinessStatus {
   status: string
   components: Record<string, HealthComponentStatus>
+  serviceReady?: boolean
+  releaseReady?: boolean
+  releaseGates?: Record<string, ReleaseGate>
+  strictReadinessAvailable?: boolean
+}
+
+export interface ReleaseGate {
+  ready: boolean
+  status: string
 }
 
 export interface KafkaPathStatus {
@@ -614,13 +624,78 @@ const emptySearchAnalytics = (): SearchAnalytics => ({
   recommendClicks: [],
 })
 
+const normalizeReleaseGate = (raw: unknown): ReleaseGate | undefined => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const source = raw as { ready?: unknown; status?: unknown }
+  return {
+    ready: source.ready === true,
+    status: typeof source.status === 'string' && source.status.trim()
+      ? source.status.trim().toUpperCase()
+      : 'UNKNOWN',
+  }
+}
+
+const normalizeReleaseGates = (raw: unknown): Record<string, ReleaseGate> => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  return Object.entries(raw).reduce<Record<string, ReleaseGate>>((result, [key, value]) => {
+    const gate = normalizeReleaseGate(value)
+    if (gate) result[key] = gate
+    return result
+  }, {})
+}
+
+const normalizeReadinessStatus = (raw: unknown, strictReadinessAvailable: boolean): ReadinessStatus => {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? raw as {
+      status?: unknown
+      components?: unknown
+      serviceReady?: unknown
+      releaseReady?: unknown
+      releaseGates?: unknown
+    }
+    : {}
+  const components = source.components && typeof source.components === 'object' && !Array.isArray(source.components)
+    ? source.components as Record<string, HealthComponentStatus>
+    : {}
+  return {
+    status: typeof source.status === 'string' && source.status.trim() ? source.status.trim().toUpperCase() : 'UNKNOWN',
+    components,
+    serviceReady: source.serviceReady === true,
+    releaseReady: source.releaseReady === true,
+    releaseGates: normalizeReleaseGates(source.releaseGates),
+    strictReadinessAvailable,
+  }
+}
+
+export type ReleaseGatePresentationState = 'ready' | 'blocked' | 'degraded' | 'unknown'
+
+export const releaseGatePresentationState = (gate?: ReleaseGate): ReleaseGatePresentationState => {
+  if (!gate) return 'unknown'
+  if (gate.status === 'UNKNOWN') return 'unknown'
+  if (gate.status === 'DEGRADED') return 'degraded'
+  if (!gate.ready) return 'blocked'
+  return 'ready'
+}
+
 export const opsApi = {
   status: (): Promise<Result<OpsStatus>> =>
     client.get('/api/v1/ops/status'),
 
   readiness: async (): Promise<ReadinessStatus> => {
     const res = await rawClient.get('/api/v1/health/readiness')
-    return res.data as ReadinessStatus
+    return normalizeReadinessStatus(res.data, false)
+  },
+
+  strictReadiness: async (): Promise<ReadinessStatus> => {
+    const token = authTokenStore.get()
+    const res = await rawClient.get('/api/v1/health/readiness/strict', {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      validateStatus: () => true,
+    })
+    if ((res.status >= 200 && res.status < 300) || res.status === 503) {
+      return normalizeReadinessStatus(res.data, true)
+    }
+    return normalizeReadinessStatus(null, false)
   },
 
   getKafkaLocalCheck: (): Promise<Result<KafkaLocalCheck>> =>

@@ -545,14 +545,49 @@
               >
                 {{ isStageThreeAssistLoading ? '加载中...' : '刷新建议' }}
               </button>
+              <button
+                type="button"
+                class="assist-head-button assist-head-button-primary"
+                :disabled="!canRunExplicitAiEnhancement"
+                :title="explicitAiUnavailableReason"
+                @click="runExplicitAiEnhancement"
+              >
+                {{ explicitAiActionLabel }}
+              </button>
             </div>
+          </div>
+          <p class="stage3-quota-copy" aria-live="polite">{{ explicitAiHint }}</p>
+          <p class="stage3-quota-copy">
+            点击“AI 增强建议”会将当前标题、正文、标签和创作上下文发送至已配置的 AI 服务处理；请勿填写个人简历、职位 JD 或其他私人材料。
+          </p>
+          <p v-if="isExplicitAiResultStale" class="stage3-quota-copy stage3-quota-copy-warning">
+            当前内容已更新，AI 增强结果基于之前的草稿版本，请人工判断后再采纳。
+          </p>
+          <div v-if="enhancedAssistRecovery" class="stage3-assist-state stage3-assist-recovery">
+            <strong>{{ enhancedAssistRecoveryTitle }}</strong>
+            <p>{{ enhancedAssistRecoveryDetail }}</p>
+            <div
+              v-if="enhancedAssistRecovery.matchesCurrentDraft && (enhancedAssistRecovery.requestStatus === 'RUNNING' || enhancedAssistRecovery.usageStatus === 'RESERVED')"
+              class="stage3-actions"
+            >
+              <button
+                type="button"
+                :disabled="isEnhancedAssistRecoveryLoading"
+                @click="refreshRecoveredEnhancedAssist"
+              >
+                {{ isEnhancedAssistRecoveryLoading ? '查询中...' : '刷新履约状态' }}
+              </button>
+            </div>
+            <p v-if="enhancedAssistRecoveryError" class="stage3-quota-copy stage3-quota-copy-warning">
+              {{ enhancedAssistRecoveryError }}
+            </p>
           </div>
 
           <div v-if="!authStore.isLoggedIn" class="stage3-assist-state">
             <strong>未登录</strong>
             <p>登录后可获得写作助手、质量评分、标签/话题建议和合集归属建议。</p>
           </div>
-          <div v-else-if="!assistPanelEnabled" class="stage3-assist-state">
+          <div v-else-if="!assistPanelEnabled && !stageThreeAssist" class="stage3-assist-state">
             <strong>建议已关闭</strong>
             <p>发布建议默认关闭。当前仅保留发布检查、草稿保护和手动填写流程；显式开启后，如后端未配置建议服务将自动回退到规则建议。</p>
           </div>
@@ -795,7 +830,14 @@ import { EditorQualityChecklist } from '@/components/editor-quality'
 import MarkdownEditor from '@/components/post/MarkdownEditor.vue'
 import PostMeta from '@/components/post/PostMeta.vue'
 import { BizException, getErrorMessage, getResultMessage } from '@/api/client'
-import { contentAssistApi, type ContentAssistRequest } from '@/api/contentAssist'
+import {
+  contentAssistEnhancedFingerprintSource,
+  contentAssistApi,
+  type ContentAssistCapability,
+  type ContentAssistEnhancedOutcome,
+  type ContentAssistEnhancedRequestSummary,
+  type ContentAssistRequest,
+} from '@/api/contentAssist'
 import { contentSeriesApi, type ContentSeriesRecord } from '@/api/contentSeries'
 import { postApi, type PostDraft } from '@/api/post'
 import {
@@ -988,13 +1030,34 @@ const assistPanelEnabled = ref(false)
 const stageThreeAssist = ref<ContentAssistResult | null>(null)
 const isStageThreeAssistLoading = ref(false)
 const stageThreeAssistError = ref('')
+const explicitAiCapability = ref<ContentAssistCapability | null>(null)
+const explicitAiState = ref<'idle' | 'submitting' | 'reconciling' | 'confirmed' | 'released' | 'rejected' | 'stale'>('idle')
+const explicitAiError = ref('')
+const explicitAiRequest = ref<{
+  ownerUid: string
+  idempotencyKey?: string
+  requestId?: string | number
+  request: ContentAssistRequest
+  contentRevision: number
+} | null>(null)
+type EnhancedAssistRecovery = ContentAssistEnhancedRequestSummary & {
+  ownerUid: string
+  matchesCurrentDraft: boolean
+}
+const enhancedAssistRecovery = ref<EnhancedAssistRecovery | null>(null)
+const isEnhancedAssistRecoveryLoading = ref(false)
+const enhancedAssistRecoveryError = ref('')
+const editorContentRevision = ref(0)
 const draftOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
 const fallbackReturnPath = computed(() => authStore.isLoggedIn ? '/me' : '/')
 const stageThreeAssistPreferenceKey = computed(() => `editor_stage3_assist:${draftOwner.value}`)
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let stageThreeAssistTimer: ReturnType<typeof setTimeout> | null = null
 let stageThreeAssistRequestId = 0
+let explicitAiRequestId = 0
+let enhancedAssistRecoveryRequestId = 0
 let seriesRequestId = 0
+const isExplicitAiReconciliationLoading = ref(false)
 
 type QualityCheck = {
   key: string
@@ -1460,7 +1523,7 @@ const assistSeriesHints = computed(() => stageThreeAssist.value?.seriesHints || 
 const assistTopicCandidateHints = computed(() => stageThreeAssist.value?.topicCandidateHints || [])
 const stageThreeAssistStatus = computed(() => {
   if (!authStore.isLoggedIn) return 'unauthenticated'
-  if (!assistPanelEnabled.value) return 'disabled'
+  if (!assistPanelEnabled.value && !stageThreeAssist.value) return 'disabled'
   if (isStageThreeAssistLoading.value) return 'loading'
   if (stageThreeAssist.value?.status === 'degraded') return 'degraded'
   if (stageThreeAssist.value?.status === 'failed' || stageThreeAssistError.value) return 'failed'
@@ -1482,6 +1545,79 @@ const stageThreeAssistHeadline = computed(() => {
   if (stageThreeAssistStatus.value === 'failed') return stageThreeAssistError.value || '建议暂时不可用，你仍然可以继续发布。'
   if (!stageThreeAssist.value) return '发布建议已开启，会在标题、正文、标签或频道变化时自动刷新；也可以手动点击“刷新建议”。'
   return '围绕写作助手、质量评分、标签/话题建议和合集归属整理发布前动作。'
+})
+const canRunExplicitAiEnhancement = computed(() => Boolean(
+  authStore.isLoggedIn
+  && !isForbiddenEdit.value
+  && selectedDomain.value
+  && normalizedContent.value
+  && explicitAiState.value !== 'submitting'
+  && !(explicitAiState.value === 'reconciling' && isExplicitAiReconciliationLoading.value)
+  && (explicitAiState.value === 'reconciling'
+    ? explicitAiRequest.value
+    : explicitAiCapability.value?.available),
+))
+const explicitAiActionLabel = computed(() => {
+  if (explicitAiState.value === 'submitting') return 'AI 增强中...'
+  if (explicitAiState.value === 'reconciling') {
+    return isExplicitAiReconciliationLoading.value ? '确认使用结果...' : '重新确认使用结果'
+  }
+  if (explicitAiCapability.value?.available) return `AI 增强建议 · ${explicitAiCapability.value.remainingQuota} 次`
+  return 'AI 增强不可用'
+})
+const explicitAiUnavailableReason = computed(() => {
+  if (!authStore.isLoggedIn) return '登录后可使用 AI 创作增强'
+  if (!selectedDomain.value) return '请先选择频道'
+  if (!normalizedContent.value) return '请先补充正文'
+  if (explicitAiCapability.value?.unavailableReason === 'AI_ASSIST_QUOTA_INSUFFICIENT') return 'AI 增强额度不足'
+  return explicitAiCapability.value?.unavailableReason || ''
+})
+const explicitAiHint = computed(() => {
+  if (explicitAiState.value === 'reconciling') {
+    return isExplicitAiReconciliationLoading.value
+      ? '正在确认本次使用结果，确认期间不会重复提交。'
+      : '本次结果暂未确认。再次点击可继续确认，不会创建新的额度请求。'
+  }
+  if (explicitAiState.value === 'confirmed') return '本次 AI 增强已确认使用 1 次额度，结果仅供人工采纳。'
+  if (explicitAiState.value === 'released') return '本次增强已回退到免费规则建议，未扣除额度。'
+  if (explicitAiState.value === 'stale') return '当前草稿已变更。上一版增强不会覆盖新内容，可重新发起 AI 增强。'
+  if (explicitAiState.value === 'rejected') return explicitAiError.value || '当前无法使用 AI 创作增强，免费规则建议仍可使用。'
+  if (explicitAiCapability.value?.available) return `剩余 ${explicitAiCapability.value.remainingQuota} 次。本次使用 1 次，失败或规则降级不扣次数。`
+  if (explicitAiCapability.value?.unavailableReason === 'AI_ASSIST_QUOTA_INSUFFICIENT') return '额度不足不影响免费规则建议、草稿保存或发布。'
+  return 'AI 创作增强默认关闭，免费规则建议不受影响。'
+})
+const isExplicitAiResultStale = computed(() => (
+  explicitAiState.value === 'stale'
+  || (explicitAiState.value === 'confirmed'
+    && explicitAiRequest.value?.contentRevision !== editorContentRevision.value)
+))
+const enhancedAssistRecoveryTitle = computed(() => {
+  const recovery = enhancedAssistRecovery.value
+  if (!recovery) return ''
+  if (!recovery.matchesCurrentDraft) return '检测到其他草稿的 AI 增强记录'
+  if (recovery.requestStatus === 'RUNNING' || recovery.usageStatus === 'RESERVED') return '检测到可恢复的 AI 增强请求'
+  if (recovery.requestStatus === 'SUCCEEDED' && recovery.usageStatus === 'CONFIRMED') return '已恢复本草稿的 AI 增强结果'
+  if (recovery.requestStatus === 'FALLBACK' || recovery.usageStatus === 'RELEASED') return '已恢复本草稿的规则降级结果'
+  return '已恢复本草稿的 AI 增强状态'
+})
+const enhancedAssistRecoveryDetail = computed(() => {
+  const recovery = enhancedAssistRecovery.value
+  if (!recovery) return ''
+  if (!recovery.matchesCurrentDraft) {
+    return '该记录与当前表单指纹不一致，系统不会展示、覆盖或自动采纳其中的任何建议。'
+  }
+  if (recovery.requestStatus === 'RUNNING' || recovery.usageStatus === 'RESERVED') {
+    return '该请求仍在履约确认中。可按需刷新状态，系统不会重新提交或重复扣除额度。'
+  }
+  if (recovery.requestStatus === 'SUCCEEDED' && recovery.usageStatus === 'CONFIRMED') {
+    return '恢复结果仅供人工查看和逐项采纳，不会自动修改标题、正文、标签、话题或合集。'
+  }
+  if (recovery.requestStatus === 'FALLBACK' || recovery.usageStatus === 'RELEASED') {
+    return '本次增强已回退到免费规则建议，额度未扣除；建议仍需由你逐项采纳。'
+  }
+  return recovery.errorCode
+    ? `该请求未产生可恢复的建议：${recovery.errorCode}`
+    : '该请求未产生可恢复的建议，可继续编辑并按需重新发起增强。'
 })
 
 const clearFieldErrors = () => {
@@ -1525,6 +1661,102 @@ const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
   aiEnabled: assistPanelEnabled.value,
 })
 
+const sha256Hex = async (source: string) => {
+  if (!globalThis.crypto?.subtle) return ''
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(source))
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('')
+}
+
+const currentEnhancedAssistFingerprint = async (ownerUid: string, request: ContentAssistRequest) => (
+  sha256Hex(contentAssistEnhancedFingerprintSource(ownerUid, request))
+)
+
+const updateEnhancedAssistRecovery = (outcome: ContentAssistEnhancedOutcome) => {
+  const active = explicitAiRequest.value
+  const recovery = enhancedAssistRecovery.value
+  if (!active?.requestId || !recovery || String(recovery.requestId) !== String(active.requestId)) return
+  enhancedAssistRecovery.value = {
+    ...recovery,
+    requestStatus: outcome.requestStatus,
+    usageStatus: outcome.usageStatus,
+    quotaConsumed: outcome.quotaConsumed,
+  }
+}
+
+const refreshRecoveredEnhancedAssist = async () => {
+  const recovery = enhancedAssistRecovery.value
+  const active = explicitAiRequest.value
+  const ownerUid = String(authStore.user?.uid ?? '')
+  if (!recovery?.matchesCurrentDraft || !active?.requestId || active.ownerUid !== ownerUid) return
+
+  const requestId = ++explicitAiRequestId
+  explicitAiRequest.value = { ...active }
+  isEnhancedAssistRecoveryLoading.value = true
+  enhancedAssistRecoveryError.value = ''
+  try {
+    const response = await contentAssistApi.getEnhancedAssistStatusByRequestId(active.request, active.requestId)
+    if (!response.data) throw new Error('AI 增强状态为空')
+    await applyExplicitAiOutcome(requestId, ownerUid, response.data)
+  } catch (error) {
+    if (requestId !== explicitAiRequestId || String(authStore.user?.uid ?? '') !== ownerUid) return
+    enhancedAssistRecoveryError.value = getErrorMessage(error, '暂时无法查询该 AI 增强请求的状态。')
+  } finally {
+    if (requestId === explicitAiRequestId) isEnhancedAssistRecoveryLoading.value = false
+  }
+}
+
+const loadRecentEnhancedAssistRecovery = async () => {
+  const ownerUid = String(authStore.user?.uid ?? '')
+  const requestId = ++enhancedAssistRecoveryRequestId
+  enhancedAssistRecoveryError.value = ''
+  if (!authStore.isLoggedIn || !ownerUid) {
+    enhancedAssistRecovery.value = null
+    return
+  }
+
+  try {
+    const response = await contentAssistApi.listRecentEnhancedAssist()
+    if (requestId !== enhancedAssistRecoveryRequestId || String(authStore.user?.uid ?? '') !== ownerUid) return
+    const request = buildStageThreeAssistRequest()
+    const fingerprint = await currentEnhancedAssistFingerprint(ownerUid, request)
+    if (requestId !== enhancedAssistRecoveryRequestId || String(authStore.user?.uid ?? '') !== ownerUid) return
+    const records = response.data || []
+    const matched = fingerprint
+      ? records.find((item) => item.requestFingerprint === fingerprint)
+      : undefined
+    const candidate = matched
+      || records.find((item) => item.requestStatus === 'RUNNING' || item.usageStatus === 'RESERVED')
+      || records[0]
+    if (!candidate) {
+      enhancedAssistRecovery.value = null
+      return
+    }
+
+    enhancedAssistRecovery.value = {
+      ...candidate,
+      ownerUid,
+      matchesCurrentDraft: Boolean(matched && candidate.requestId === matched.requestId),
+    }
+    if (!matched) return
+
+    explicitAiRequest.value = {
+      ownerUid,
+      requestId: matched.requestId,
+      request,
+      contentRevision: editorContentRevision.value,
+    }
+    explicitAiError.value = ''
+    if (matched.requestStatus === 'RUNNING' || matched.usageStatus === 'RESERVED') {
+      explicitAiState.value = 'reconciling'
+      return
+    }
+    await refreshRecoveredEnhancedAssist()
+  } catch (_error) {
+    if (requestId !== enhancedAssistRecoveryRequestId || String(authStore.user?.uid ?? '') !== ownerUid) return
+    enhancedAssistRecovery.value = null
+  }
+}
+
 const loadSeriesWorkbench = async () => {
   const ownerUid = authStore.user?.uid
   const requestId = ++seriesRequestId
@@ -1564,9 +1796,158 @@ const clearStageThreeAssistTimer = () => {
 const clearStageThreeAssistState = () => {
   clearStageThreeAssistTimer()
   stageThreeAssistRequestId += 1
+  explicitAiRequestId += 1
+  enhancedAssistRecoveryRequestId += 1
   stageThreeAssist.value = null
   stageThreeAssistError.value = ''
   isStageThreeAssistLoading.value = false
+  explicitAiState.value = 'idle'
+  explicitAiError.value = ''
+  explicitAiRequest.value = null
+  isExplicitAiReconciliationLoading.value = false
+  enhancedAssistRecovery.value = null
+  isEnhancedAssistRecoveryLoading.value = false
+  enhancedAssistRecoveryError.value = ''
+}
+
+const loadExplicitAiCapability = async () => {
+  const ownerUid = String(authStore.user?.uid ?? '')
+  if (!authStore.isLoggedIn || !ownerUid) {
+    explicitAiCapability.value = null
+    return
+  }
+  try {
+    const response = await contentAssistApi.getEnhancedCapability()
+    if (String(authStore.user?.uid ?? '') !== ownerUid) return
+    explicitAiCapability.value = response.data || null
+  } catch (error) {
+    if (String(authStore.user?.uid ?? '') !== ownerUid) return
+    explicitAiCapability.value = null
+    explicitAiError.value = getErrorMessage(error, 'AI 增强能力暂不可用')
+  }
+}
+
+const applyExplicitAiOutcome = async (
+  requestId: number,
+  ownerUid: string,
+  outcome: ContentAssistEnhancedOutcome,
+) => {
+  if (requestId !== explicitAiRequestId || String(authStore.user?.uid ?? '') !== ownerUid) return
+  const currentRequest = explicitAiRequest.value
+  const appliesToCurrentDraft = currentRequest?.contentRevision === editorContentRevision.value
+  if (outcome.assist && appliesToCurrentDraft) stageThreeAssist.value = outcome.assist
+  updateEnhancedAssistRecovery(outcome)
+  if (outcome.requestStatus === 'SUCCEEDED' && outcome.usageStatus === 'CONFIRMED') {
+    explicitAiState.value = appliesToCurrentDraft ? 'confirmed' : 'stale'
+    toast.success(appliesToCurrentDraft
+      ? (outcome.replayed ? '已回放此前的 AI 增强结果' : 'AI 增强已完成，已使用 1 次额度')
+      : 'AI 增强已完成，但当前草稿已更新，结果不会覆盖新内容')
+  } else if (outcome.requestStatus === 'FALLBACK' || outcome.usageStatus === 'RELEASED') {
+    explicitAiState.value = appliesToCurrentDraft ? 'released' : 'stale'
+    toast.warning(appliesToCurrentDraft
+      ? '已回退到免费规则建议，本次未扣额度'
+      : '上一版草稿已回退到免费规则建议，当前草稿可继续编辑')
+  } else if (outcome.requestStatus === 'FAILED') {
+    explicitAiState.value = 'rejected'
+    explicitAiError.value = '本次增强未完成，请修改内容后使用新的请求重试。'
+  } else {
+    explicitAiState.value = 'reconciling'
+    return
+  }
+  await loadExplicitAiCapability()
+}
+
+const outcomeMayBeUnknown = (error: unknown) => {
+  if (error instanceof BizException) return false
+  const status = (error as { response?: { status?: number } })?.response?.status
+  return status == null || status >= 500
+}
+
+const reconcileExplicitAiEnhancement = async (requestId: number, ownerUid: string) => {
+  const active = explicitAiRequest.value
+  if (!active || active.ownerUid !== ownerUid || isExplicitAiReconciliationLoading.value) return
+  isExplicitAiReconciliationLoading.value = true
+  try {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (requestId !== explicitAiRequestId || String(authStore.user?.uid ?? '') !== ownerUid) return
+      try {
+        const response = active.requestId != null
+          ? await contentAssistApi.getEnhancedAssistStatusByRequestId(active.request, active.requestId)
+          : await contentAssistApi.getEnhancedAssistStatus(active.request, active.idempotencyKey || '')
+        if (!response.data) throw new Error('AI 增强状态为空')
+        await applyExplicitAiOutcome(requestId, ownerUid, response.data)
+        if (explicitAiState.value !== 'reconciling') return
+      } catch (error) {
+        if (requestId !== explicitAiRequestId) return
+        if (!outcomeMayBeUnknown(error)) {
+          explicitAiState.value = 'rejected'
+          explicitAiError.value = getErrorMessage(error, '本次 AI 增强未创建，可重新发起。')
+          return
+        }
+        explicitAiError.value = getErrorMessage(error, '正在确认使用结果')
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 600))
+    }
+  } finally {
+    isExplicitAiReconciliationLoading.value = false
+  }
+}
+
+const clientRequestToken = () => {
+  const cryptoApi = globalThis.crypto
+  if (typeof cryptoApi?.randomUUID === 'function') return cryptoApi.randomUUID()
+  if (typeof cryptoApi?.getRandomValues === 'function') {
+    const values = new Uint32Array(4)
+    cryptoApi.getRandomValues(values)
+    return [...values].map((value) => value.toString(16).padStart(8, '0')).join('')
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
+const runExplicitAiEnhancement = async () => {
+  if (explicitAiState.value === 'reconciling') {
+    const active = explicitAiRequest.value
+    if (active) await reconcileExplicitAiEnhancement(explicitAiRequestId, active.ownerUid)
+    return
+  }
+  if (!canRunExplicitAiEnhancement.value) {
+    if (explicitAiUnavailableReason.value) toast.info(explicitAiUnavailableReason.value)
+    return
+  }
+  clearStageThreeAssistTimer()
+  stageThreeAssistRequestId += 1
+  const ownerUid = String(authStore.user?.uid ?? '')
+  const requestId = ++explicitAiRequestId
+  const request = buildStageThreeAssistRequest()
+  const idempotencyKey = `content-assist:${clientRequestToken()}`
+  explicitAiRequest.value = {
+    ownerUid,
+    idempotencyKey,
+    request,
+    contentRevision: editorContentRevision.value,
+  }
+  explicitAiState.value = 'submitting'
+  explicitAiError.value = ''
+  try {
+    const response = await contentAssistApi.enhanceEditorAssist(request, idempotencyKey)
+    if (!response.data) throw new Error('AI 增强结果为空')
+    await applyExplicitAiOutcome(requestId, ownerUid, response.data)
+    await loadRecentEnhancedAssistRecovery()
+    if ((explicitAiState.value as string) === 'reconciling') {
+      await reconcileExplicitAiEnhancement(explicitAiRequestId, ownerUid)
+    }
+  } catch (error) {
+    if (requestId !== explicitAiRequestId || String(authStore.user?.uid ?? '') !== ownerUid) return
+    if (outcomeMayBeUnknown(error)) {
+      explicitAiState.value = 'reconciling'
+      explicitAiError.value = getErrorMessage(error, '正在确认使用结果')
+      await reconcileExplicitAiEnhancement(requestId, ownerUid)
+      return
+    }
+    explicitAiState.value = 'rejected'
+    explicitAiError.value = getErrorMessage(error, 'AI 增强暂不可用')
+    toast.error(explicitAiError.value)
+  }
 }
 
 const loadStageThreeAssist = async (manual = false) => {
@@ -1595,6 +1976,8 @@ const loadStageThreeAssist = async (manual = false) => {
     const res = await contentAssistApi.getEditorAssist(buildStageThreeAssistRequest())
     if (requestId !== stageThreeAssistRequestId) return
     if (!assistPanelEnabled.value || isForbiddenEdit.value) return
+    if (explicitAiState.value === 'confirmed'
+      && explicitAiRequest.value?.contentRevision === editorContentRevision.value) return
     stageThreeAssist.value = res.data
     if (res.data?.status === 'failed') {
       stageThreeAssistError.value = res.data.fallbackReason || '建议暂时不可用'
@@ -2236,13 +2619,15 @@ watch(draftOwner, async (nextOwner, prevOwner) => {
   seriesRequestId += 1
   if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
     safeStorage.clearSensitive(prevOwner)
+    clearStageThreeAssistState()
   }
   if (nextOwner === 'guest') {
     seriesRecords.value = []
     seriesSource.value = 'fallback'
     isSeriesLoading.value = false
   } else if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
-    await loadSeriesWorkbench()
+    await Promise.all([loadSeriesWorkbench(), loadExplicitAiCapability()])
+    await loadRecentEnhancedAssistRecovery()
   }
   if (nextOwner !== 'guest') {
     draftStorageWarningShown = false
@@ -2523,7 +2908,7 @@ const loadPostForEdit = async (postId: string) => {
 
 onMounted(async () => {
   assistPanelEnabled.value = safeStorage.get(stageThreeAssistPreferenceKey.value) === '1'
-  await Promise.all([loadEditorDomains(), loadSeriesWorkbench()])
+  await Promise.all([loadEditorDomains(), loadSeriesWorkbench(), loadExplicitAiCapability()])
   const postId = currentPostId()
   if (postId) {
     isEditing.value = true
@@ -2533,6 +2918,7 @@ onMounted(async () => {
     if (!restoredServerDraft) restoreLocalDraft()
     applyTrustedUpdateContext()
     clearStageThreeAssistState()
+    await loadRecentEnhancedAssistRecovery()
     return
   }
 
@@ -2543,10 +2929,11 @@ onMounted(async () => {
   }
 
   // 从 localStorage 恢复草稿
-  await loadServerDrafts()
-  const restoredLocalDraft = restoreLocalDraft(true)
-  if (!restoredLocalDraft) applyTopicIdeaQuery()
-  clearStageThreeAssistState()
+   await loadServerDrafts()
+   const restoredLocalDraft = restoreLocalDraft(true)
+   if (!restoredLocalDraft) applyTopicIdeaQuery()
+   clearStageThreeAssistState()
+   await loadRecentEnhancedAssistRecovery()
 })
 
 const addTag = () => {
@@ -2871,15 +3258,26 @@ watch([form, selectedTags, selectedDomain, anonymousCareerPost], scheduleAutoSav
 
 watch([normalizedTitle, normalizedContent, normalizedTags, selectedDomain], scheduleStageThreeAssist, { deep: true })
 
+watch([normalizedTitle, normalizedContent, normalizedTags, selectedDomain], () => {
+  editorContentRevision.value += 1
+  if (explicitAiRequest.value
+    && explicitAiRequest.value.contentRevision !== editorContentRevision.value
+    && ['confirmed', 'released'].includes(explicitAiState.value)) {
+    explicitAiState.value = 'stale'
+  }
+}, { deep: true })
+
 watch(() => authStore.isLoggedIn, async (loggedIn) => {
   if (!loggedIn) {
     seriesRequestId += 1
     seriesRecords.value = []
     clearStageThreeAssistState()
+    explicitAiCapability.value = null
     return
   }
-  await Promise.all([loadEditorDomains(), loadSeriesWorkbench()])
   clearStageThreeAssistState()
+  await Promise.all([loadEditorDomains(), loadSeriesWorkbench(), loadExplicitAiCapability()])
+  await loadRecentEnhancedAssistRecovery()
 })
 
 const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -3698,6 +4096,23 @@ onBeforeUnmount(() => {
   opacity: 0.65;
 }
 
+.assist-head-button-primary {
+  border-color: rgb(22 163 74);
+  background: rgb(22 163 74);
+  color: white;
+}
+
+.stage3-quota-copy {
+  margin-top: -0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgb(71 85 105);
+}
+
+.stage3-quota-copy-warning {
+  color: rgb(161 98 7);
+}
+
 .assist-status-ready {
   border-color: rgb(187 247 208);
   color: rgb(21 128 61);
@@ -4324,6 +4739,20 @@ onBeforeUnmount(() => {
 .dark .stage3-metric-row > span {
   background: rgb(30 41 59);
   color: rgb(191 219 254);
+}
+
+.dark .assist-head-button-primary {
+  border-color: rgb(22 163 74);
+  background: rgb(21 128 61);
+  color: white;
+}
+
+.dark .stage3-quota-copy {
+  color: rgb(148 163 184);
+}
+
+.dark .stage3-quota-copy-warning {
+  color: rgb(253 224 71);
 }
 
 .dark .stage3-chip {

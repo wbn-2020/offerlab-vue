@@ -268,6 +268,85 @@
           </button>
         </form>
       </section>
+
+      <section v-if="activeTab === 'feed-controls'" class="panel space-y-6" data-v29-feed-control-manager>
+        <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">信息流控制</h2>
+            <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              管理你暂时隐藏的内容、减少展示的频道和已屏蔽的作者。所有设置仅影响当前账号的信息流，不会通知其他用户。
+            </p>
+            <p class="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {{ feedControlCountText }}
+            </p>
+          </div>
+          <button type="button" class="secondary-button" :disabled="isFeedControlsLoading" @click="loadFeedControls()">
+            {{ isFeedControlsLoading ? '加载中...' : '重新加载' }}
+          </button>
+        </div>
+
+        <div class="feed-control-filter" role="tablist" aria-label="信息流控制分类">
+          <button
+            v-for="option in feedControlFilterOptions"
+            :key="option.value"
+            type="button"
+            :class="{ 'feed-control-filter-active': feedControlFilter === option.value }"
+            :aria-selected="feedControlFilter === option.value"
+            role="tab"
+            @click="feedControlFilter = option.value"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+
+        <div v-if="isFeedControlsLoading && feedControls.length === 0" class="feed-control-state" role="status">
+          正在读取个人信息流控制...
+        </div>
+        <div v-else-if="feedControlsError && feedControls.length === 0" class="feed-control-state feed-control-state-error" role="alert">
+          <span>{{ feedControlsError }}</span>
+          <button type="button" @click="loadFeedControls()">重试</button>
+        </div>
+        <div v-else-if="filteredFeedControls.length === 0" class="feed-control-state">
+          当前分类下没有已保存的信息流控制。
+        </div>
+        <div v-else class="feed-control-list">
+          <article v-for="control in filteredFeedControls" :key="control.id" class="feed-control-row">
+            <div class="feed-control-icon" aria-hidden="true">
+              <UserX v-if="control.controlType === 'AUTHOR'" class="h-4 w-4" />
+              <Layers3 v-else-if="control.controlType === 'DOMAIN'" class="h-4 w-4" />
+              <EyeOff v-else class="h-4 w-4" />
+            </div>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <h3>{{ control.targetLabel }}</h3>
+                <span class="feed-control-type">{{ feedControlTypeLabel(control.controlType) }}</span>
+              </div>
+              <p>{{ feedControlTimeLabel(control) }}</p>
+            </div>
+            <button
+              type="button"
+              class="feed-control-remove"
+              :disabled="feedControlRemovingIds.has(control.id)"
+              :aria-label="`移除${control.targetLabel}`"
+              :title="`移除${control.targetLabel}`"
+              @click="removeFeedControl(control.id)"
+            >
+              <Loader2 v-if="feedControlRemovingIds.has(control.id)" class="h-4 w-4 animate-spin" />
+              <Trash2 v-else class="h-4 w-4" />
+            </button>
+          </article>
+        </div>
+        <p v-if="feedControlsError && feedControls.length > 0" class="setting-help">{{ feedControlsError }}</p>
+        <button
+          v-if="feedControlsHasMore"
+          type="button"
+          class="secondary-button"
+          :disabled="isFeedControlsLoadingMore"
+          @click="loadFeedControls(true)"
+        >
+          {{ isFeedControlsLoadingMore ? '加载中...' : '加载更多' }}
+        </button>
+      </section>
     </div>
     </main>
   </div>
@@ -277,12 +356,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import { EyeOff, Layers3, Loader2, Trash2, UserX } from 'lucide-vue-next'
 import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { notificationApi } from '@/api/notification'
 import { userApi, type PrivacySetting } from '@/api/user'
+import { feedApi, type FeedControl, type FeedControlType } from '@/api/feed'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import IntentForm from '@/components/user/IntentForm.vue'
 import UserAvatar from '@/components/user/UserAvatar.vue'
@@ -300,6 +381,7 @@ const tabs = [
   { value: 'theme', label: '主题' },
   { value: 'notifications', label: '通知偏好' },
   { value: 'privacy', label: '隐私' },
+  { value: 'feed-controls', label: '信息流控制' },
 ]
 
 const validTabValues = new Set(tabs.map((tab) => tab.value))
@@ -374,6 +456,13 @@ const notificationPreferenceOptions: Array<{ key: InteractionNotificationKey, la
 
 const privacyForm = ref<PrivacySetting>(defaultPrivacySetting())
 const notificationForm = ref<NotificationPreference>(defaultNotificationPreference())
+const feedControls = ref<FeedControl[]>([])
+const feedControlFilter = ref<'ALL' | FeedControlType>('ALL')
+const feedControlsNextCursor = ref('')
+const feedControlsHasMore = ref(false)
+const feedControlsLoaded = ref(false)
+const feedControlsError = ref('')
+const feedControlRemovingIds = ref(new Set<string>())
 
 const isUpdatingProfile = ref(false)
 const isChangingPassword = ref(false)
@@ -382,12 +471,58 @@ const isPrivacyLoading = ref(false)
 const isUpdatingPrivacy = ref(false)
 const isNotificationLoading = ref(false)
 const isUpdatingNotifications = ref(false)
+const isFeedControlsLoading = ref(false)
+const isFeedControlsLoadingMore = ref(false)
 
 const canSubmitPassword = computed(() => Boolean(
   passwordForm.value.oldPassword
   && passwordForm.value.newPassword
   && passwordForm.value.confirmPassword,
 ))
+
+const feedControlFilterOptions: Array<{ value: 'ALL' | FeedControlType, label: string }> = [
+  { value: 'ALL', label: '全部' },
+  { value: 'POST', label: '内容' },
+  { value: 'DOMAIN', label: '频道' },
+  { value: 'AUTHOR', label: '作者' },
+]
+
+const filteredFeedControls = computed(() => (
+  feedControlFilter.value === 'ALL'
+    ? feedControls.value
+    : feedControls.value.filter((control) => control.controlType === feedControlFilter.value)
+))
+
+const feedControlCountText = computed(() => (
+  feedControlsHasMore.value
+    ? `已加载 ${feedControls.value.length} 项控制`
+    : `当前共 ${feedControls.value.length} 项控制`
+))
+
+const feedControlTypeLabel = (controlType: FeedControlType) => {
+  if (controlType === 'AUTHOR') return '作者'
+  if (controlType === 'DOMAIN') return '频道'
+  return '内容'
+}
+
+const formatFeedControlTime = (value: string | number | null | undefined) => {
+  if (!value) return ''
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(parsed)
+}
+
+const feedControlTimeLabel = (control: FeedControl) => {
+  const updatedAt = formatFeedControlTime(control.updatedAt || control.createdAt)
+  const expiresAt = formatFeedControlTime(control.expiresAt)
+  if (expiresAt) return `${updatedAt ? `更新于 ${updatedAt}，` : ''}有效至 ${expiresAt}`
+  return updatedAt ? `更新于 ${updatedAt}，持续生效` : '持续生效'
+}
 
 const loadPrivacy = async () => {
   isPrivacyLoading.value = true
@@ -429,6 +564,49 @@ const loadIntent = async () => {
   }
 }
 
+const loadFeedControls = async (append = false) => {
+  if (append && (!feedControlsHasMore.value || isFeedControlsLoadingMore.value)) return
+  if (append) isFeedControlsLoadingMore.value = true
+  else isFeedControlsLoading.value = true
+  feedControlsError.value = ''
+  try {
+    const res = await feedApi.listControls(append ? feedControlsNextCursor.value || undefined : undefined, 30)
+    const incoming = res.data?.items || []
+    const merged = append ? [...feedControls.value, ...incoming] : incoming
+    feedControls.value = Array.from(new Map(
+      merged
+        .filter((control) => Boolean(control.id))
+        .map((control) => [control.id, control]),
+    ).values())
+    feedControlsNextCursor.value = res.data?.nextCursor || ''
+    feedControlsHasMore.value = Boolean(res.data?.hasMore && feedControlsNextCursor.value)
+    feedControlsLoaded.value = true
+  } catch (error: unknown) {
+    feedControlsError.value = getErrorMessage(error, '信息流控制暂时无法读取。')
+  } finally {
+    isFeedControlsLoading.value = false
+    isFeedControlsLoadingMore.value = false
+  }
+}
+
+const removeFeedControl = async (controlId: string) => {
+  if (!controlId || feedControlRemovingIds.value.has(controlId)) return
+  const nextPending = new Set(feedControlRemovingIds.value)
+  nextPending.add(controlId)
+  feedControlRemovingIds.value = nextPending
+  try {
+    await feedApi.deleteControl(controlId)
+    feedControls.value = feedControls.value.filter((control) => control.id !== controlId)
+    toast.success('信息流控制已移除')
+  } catch (error: unknown) {
+    toast.error(getErrorMessage(error, '移除信息流控制失败'))
+  } finally {
+    const next = new Set(feedControlRemovingIds.value)
+    next.delete(controlId)
+    feedControlRemovingIds.value = next
+  }
+}
+
 onMounted(() => {
   if (user.value) {
     profileForm.value = {
@@ -440,6 +618,13 @@ onMounted(() => {
   loadPrivacy()
   loadNotificationPreferences()
   loadIntent()
+  if (activeTab.value === 'feed-controls') void loadFeedControls()
+})
+
+watch(activeTab, (tab) => {
+  if (tab === 'feed-controls' && !feedControlsLoaded.value) {
+    void loadFeedControls()
+  }
 })
 
 const updateProfile = async () => {
@@ -835,6 +1020,119 @@ const updateNotificationPreferences = async () => {
   font-size: 1.125rem;
 }
 
+.feed-control-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.feed-control-filter button {
+  min-height: 36px;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.4rem 0.75rem;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.feed-control-filter button:hover,
+.feed-control-filter-active {
+  border-color: rgb(129 140 248) !important;
+  background: rgb(238 242 255) !important;
+  color: rgb(67 56 202) !important;
+}
+
+.feed-control-state {
+  border: 1px dashed rgb(203 213 225);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  color: rgb(100 116 139);
+  font-size: 0.875rem;
+}
+
+.feed-control-state-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-color: rgb(253 186 116);
+  color: rgb(154 52 18);
+}
+
+.feed-control-state-error button {
+  color: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.feed-control-list {
+  border-top: 1px solid rgb(241 245 249);
+}
+
+.feed-control-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgb(241 245 249);
+  padding: 0.875rem 0;
+}
+
+.feed-control-icon {
+  display: grid;
+  height: 36px;
+  width: 36px;
+  place-items: center;
+  border-radius: 0.5rem;
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+}
+
+.feed-control-row h3 {
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.feed-control-row p {
+  margin-top: 0.25rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.feed-control-type {
+  border-radius: 999px;
+  background: rgb(241 245 249);
+  padding: 0.15rem 0.45rem;
+  color: rgb(71 85 105);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.feed-control-remove {
+  display: grid;
+  height: 36px;
+  width: 36px;
+  place-items: center;
+  border-radius: 0.5rem;
+  color: rgb(100 116 139);
+}
+
+.feed-control-remove:hover:not(:disabled) {
+  background: rgb(254 242 242);
+  color: rgb(185 28 28);
+}
+
+.feed-control-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .dark .panel,
 .dark .form-input,
 .dark .form-select,
@@ -850,6 +1148,59 @@ const updateNotificationPreferences = async () => {
 .dark .form-select,
 .dark .secondary-button {
   color: rgb(226 232 240);
+}
+
+.dark .feed-control-filter button {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .feed-control-filter-active {
+  background: rgb(49 46 129 / 0.45) !important;
+  color: rgb(199 210 254) !important;
+}
+
+.dark .feed-control-state {
+  border-color: rgb(51 65 85);
+  color: rgb(148 163 184);
+}
+
+.dark .feed-control-state-error {
+  border-color: rgb(154 52 18);
+  color: rgb(253 186 116);
+}
+
+.dark .feed-control-list,
+.dark .feed-control-row {
+  border-color: rgb(30 41 59);
+}
+
+.dark .feed-control-icon {
+  background: rgb(49 46 129 / 0.45);
+  color: rgb(199 210 254);
+}
+
+.dark .feed-control-row h3 {
+  color: rgb(241 245 249);
+}
+
+.dark .feed-control-row p {
+  color: rgb(148 163 184);
+}
+
+.dark .feed-control-type {
+  background: rgb(30 41 59);
+  color: rgb(203 213 225);
+}
+
+.dark .feed-control-remove {
+  color: rgb(148 163 184);
+}
+
+.dark .feed-control-remove:hover:not(:disabled) {
+  background: rgb(76 5 25 / 0.45);
+  color: rgb(253 164 175);
 }
 
 .dark .tab-button {

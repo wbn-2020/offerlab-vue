@@ -22,7 +22,7 @@
               <div class="title-line">
                 <h2>{{ item.domainName }}</h2>
                 <span :class="['status', item.healthStatus === 'STABLE' ? 'status-stable' : 'status-attention']">
-                  {{ item.healthStatus === 'STABLE' ? '稳定' : '需要关注' }}
+                  {{ item.healthStatus === 'STABLE' ? '稳定' : item.healthStatus === 'DEGRADED' ? '部分不可用' : '需要关注' }}
                 </span>
               </div>
               <p>{{ item.publicPostCount }} 篇公开内容 · {{ item.trustProfileCount }} 篇已补充经验背景</p>
@@ -35,17 +35,42 @@
             <div><span>待处理建议</span><strong>{{ item.pendingSuggestions }}</strong></div>
             <div><span>未闭环问题</span><strong>{{ item.unresolvedQuestions }}</strong></div>
             <div><span>开放内容需求</span><strong>{{ item.openContentNeeds }}</strong></div>
+            <div>
+              <span>内容改进线索</span>
+              <strong>{{ item.qualitySignalAvailable ? (item.qualityReviewPostCount ?? 0) : '—' }}</strong>
+              <small v-if="!item.qualitySignalAvailable">匿名质量信号暂不可用</small>
+            </div>
           </div>
           <p v-if="item.attentionReasons.length" class="reason">{{ item.attentionReasons.join('；') }}</p>
           <p v-else class="reason reason-stable">当前未发现需要集中协调的维护积压。</p>
-          <div v-if="item.healthStatus !== 'STABLE'" class="row-actions">
-            <RouterLink :to="maintenanceLink(item)" class="create-task-link">
-              创建维护任务
-            </RouterLink>
-          </div>
         </article>
         <div v-if="items.length === 0" class="state">当前治理范围没有可展示的频道数据。</div>
       </section>
+
+      <ChannelHealthCandidatePanel
+        :refresh-key="channelHealthRefreshKey"
+        :channels="items"
+        :can-create-globally="canCreateMaintenanceGlobally"
+        :moderated-domains="moderatedMaintenanceDomains"
+        @batch-created="handleBatchCreated"
+      />
+
+      <ChannelHealthRiskCaseWorkspace
+        :refresh-key="riskCaseRefreshKey"
+        :channels="items"
+        :can-create-globally="canCreateMaintenanceGlobally"
+        :moderated-domains="moderatedMaintenanceDomains"
+        @open-batch-coordination="handleOpenBatchCoordination"
+      />
+
+      <ChannelHealthReviewBatchPanel
+        ref="reviewBatchPanel"
+        :refresh-key="batchRefreshKey"
+        :channels="items"
+        :can-create-globally="canCreateMaintenanceGlobally"
+        :moderated-domains="moderatedMaintenanceDomains"
+        @batch-coordinated="handleBatchCoordinated"
+      />
 
       <section class="projection-workspace">
         <ProjectionHealthTable
@@ -76,8 +101,16 @@ import { getErrorMessage } from '@/api/client'
 import { channelHealthApi, type ChannelHealth } from '@/api/channelHealth'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import type { ProjectionHealth } from '@/api/projectionHealth'
+import type { ApiId } from '@/api/types'
 import ProjectionHealthTable from '@/components/health/ProjectionHealthTable.vue'
 import ReconciliationRunPanel from '@/components/health/ReconciliationRunPanel.vue'
+import ChannelHealthCandidatePanel from '@/components/health/ChannelHealthCandidatePanel.vue'
+import ChannelHealthRiskCaseWorkspace from '@/components/health/ChannelHealthRiskCaseWorkspace.vue'
+import ChannelHealthReviewBatchPanel from '@/components/health/ChannelHealthReviewBatchPanel.vue'
+
+type ChannelHealthReviewBatchPanelExposed = {
+  openBatch: (batchId: ApiId) => Promise<void>
+}
 
 const items = ref<ChannelHealth[]>([])
 const loading = ref(false)
@@ -87,6 +120,10 @@ const projectionPermissionLoading = ref(false)
 const projectionPermissionError = ref('')
 const selectedProjection = ref<ProjectionHealth | null>(null)
 const projectionRefreshKey = ref(0)
+const channelHealthRefreshKey = ref(0)
+const batchRefreshKey = ref(0)
+const riskCaseRefreshKey = ref(0)
+const reviewBatchPanel = ref<ChannelHealthReviewBatchPanelExposed | null>(null)
 const canInspectProjections = computed(() => Boolean(
   projectionPermissions.value?.admin
   || projectionPermissions.value?.ops
@@ -103,15 +140,18 @@ const moderatedMaintenanceDomains = computed(() => {
     .filter((domain) => Number.isInteger(domain) && domain >= 1 && domain <= 5)
 })
 
-const maintenanceLink = (item: ChannelHealth) => ({
-  path: '/admin/content-maintenance',
-  query: {
-    domain: String(item.domain),
-    sourceType: 'CHANNEL_HEALTH',
-    title: `${item.domainName}频道维护`,
-    detail: item.attentionReasons.join('；'),
-  },
-})
+const handleBatchCreated = () => {
+  batchRefreshKey.value += 1
+}
+
+const handleBatchCoordinated = () => {
+  batchRefreshKey.value += 1
+  riskCaseRefreshKey.value += 1
+}
+
+const handleOpenBatchCoordination = async (batchId: ApiId) => {
+  await reviewBatchPanel.value?.openBatch(batchId)
+}
 
 const load = async () => {
   loading.value = true
@@ -119,6 +159,9 @@ const load = async () => {
   try {
     const res = await channelHealthApi.list()
     items.value = res.data || []
+    channelHealthRefreshKey.value += 1
+    batchRefreshKey.value += 1
+    riskCaseRefreshKey.value += 1
   } catch (error) {
     errorText.value = getErrorMessage(error, '频道健康数据暂时无法读取')
   } finally {
@@ -162,10 +205,11 @@ onMounted(() => {
 .status { border-radius: 999px; padding: .2rem .55rem; font-size: .68rem; font-weight: 900; }
 .status-stable { background: rgb(220 252 231); color: rgb(21 128 61); }
 .status-attention { background: rgb(254 243 199); color: rgb(146 64 14); }
-.metric-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .65rem; margin-top: 1rem; }
+.metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin-top: 1rem; }
 .metric-grid div { min-width: 0; border: 1px solid rgb(226 232 240); border-radius: .5rem; background: rgb(248 250 252); padding: .7rem; }
 .metric-grid span { display: block; color: rgb(100 116 139); font-size: .7rem; font-weight: 700; }
 .metric-grid strong { display: block; margin-top: .3rem; color: rgb(15 23 42); font-size: 1.2rem; font-weight: 900; }
+.metric-grid small { display: block; margin-top: .25rem; color: rgb(100 116 139); font-size: .68rem; line-height: 1.35; }
 .reason { border-top: 1px solid rgb(241 245 249); padding-top: .75rem; }
 .reason-stable { color: rgb(21 128 61); }
 .row-actions { display: flex; justify-content: flex-end; margin-top: .75rem; }
@@ -176,7 +220,7 @@ onMounted(() => {
 @media (max-width: 800px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .dark .health-page { background: rgb(2 6 23); }
 .dark .page-header h1, .dark .title-line h2, .dark .metric-grid strong { color: rgb(248 250 252); }
-.dark .page-header span, .dark .row-title p, .dark .reason, .dark .metric-grid span { color: rgb(148 163 184); }
+.dark .page-header span, .dark .row-title p, .dark .reason, .dark .metric-grid span, .dark .metric-grid small { color: rgb(148 163 184); }
 .dark .icon-button, .dark .health-row, .dark .state { border-color: rgb(51 65 85); background: rgb(15 23 42); color: rgb(203 213 225); }
 .dark .metric-grid div { border-color: rgb(51 65 85); background: rgb(2 6 23 / .6); }
 .dark .reason { border-color: rgb(30 41 59); }

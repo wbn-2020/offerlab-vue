@@ -30,7 +30,7 @@ assert(files.explore.includes('channel-featured-direction'), 'ExploreView must r
 assert(files.explore.includes('精选方向'), 'ExploreView must label channel featured direction in user-facing copy.')
 assert(files.explore.includes('riskNote'), 'ExploreView channel direction must surface risk notes when available.')
 
-assert(files.postCard.includes('hotReasonLabel'), 'PostCard must expose an explainable hot/rising reason label.')
+assert(files.postCard.includes('recommendationReasonDetails'), 'PostCard must expose server-provided explanation details.')
 assert(files.postCard.includes('findHighRiskContentWarning'), 'PostCard must surface existing high-risk content warnings.')
 assert(files.governance.includes('findHighRiskContentWarning'), 'Recommendation governance must provide high-risk warning detection.')
 

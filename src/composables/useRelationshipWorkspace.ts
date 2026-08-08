@@ -67,13 +67,49 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
       )) || null
     : null
 
+  const preferenceFromItem = (item: RelationshipItem): RelationshipPreference => ({
+    deliveryMode: item.deliveryMode,
+    expiresAt: item.expiresAt,
+    deliveryPreferenceSupported: item.deliveryPreferenceSupported,
+    deliveryPreferenceUnsupportedReason: item.deliveryPreferenceUnsupportedReason,
+  })
+
+  const updateItemPreference = (
+    item: RelationshipItem,
+    preference: RelationshipPreference,
+  ): RelationshipItem => ({
+    ...item,
+    deliveryMode: preference.deliveryMode,
+    expiresAt: preference.expiresAt,
+    deliveryPreferenceSupported: preference.deliveryPreferenceSupported,
+    deliveryPreferenceUnsupportedReason: preference.deliveryPreferenceUnsupportedReason,
+  })
+
+  const updateItemsForPreference = (
+    item: RelationshipItem,
+    preference: RelationshipPreference,
+  ) => {
+    const updatedItem = updateItemPreference(item, preference)
+    selected.value = updatedItem
+    selectedPreference.value = preference
+    items.value = items.value.map((entry) => (
+      entry.sourceType === item.sourceType && String(entry.sourceId) === String(item.sourceId)
+    ) ? updatedItem : entry).filter((entry) => (
+      mode.value === 'ALL'
+      || (mode.value === 'MUTED' ? entry.deliveryMode === 'MUTED' : entry.deliveryMode !== 'MUTED')
+    ))
+  }
+
+  const preferenceExpiryTimestamp = (value?: string | null) => {
+    if (!value) return undefined
+    const timestamp = Date.parse(value)
+    return Number.isFinite(timestamp) ? timestamp : undefined
+  }
+
   const applyFocusedItem = () => {
     selected.value = focusedItem()
     if (selected.value) {
-      selectedPreference.value = {
-        deliveryMode: selected.value.deliveryMode,
-        expiresAt: selected.value.expiresAt,
-      }
+      selectedPreference.value = preferenceFromItem(selected.value)
     }
   }
 
@@ -173,7 +209,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
     selected.value = item
     focusedSourceId.value = item ? String(item.sourceId) : ''
     selectedPreference.value = item
-      ? { deliveryMode: item.deliveryMode, expiresAt: item.expiresAt }
+      ? preferenceFromItem(item)
       : null
     preferenceError.value = ''
     preferenceNotice.value = ''
@@ -189,6 +225,11 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
     isPreferenceLoading.value = true
     preferenceError.value = ''
     preferenceNotice.value = ''
+    if (!item.deliveryPreferenceSupported) {
+      selectedPreference.value = preferenceFromItem(item)
+      isPreferenceLoading.value = false
+      return
+    }
     try {
       const result = await relationshipsApi.getPreference(item.sourceType, item.sourceId)
       if (
@@ -198,10 +239,13 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
         || selected.value?.sourceType !== item.sourceType
         || String(selected.value?.sourceId) !== String(item.sourceId)
       ) return
-      selectedPreference.value = result.data || {
+      const preference = result.data || {
         deliveryMode: item.deliveryMode,
         expiresAt: item.expiresAt,
+        deliveryPreferenceSupported: item.deliveryPreferenceSupported,
+        deliveryPreferenceUnsupportedReason: item.deliveryPreferenceUnsupportedReason,
       }
+      updateItemsForPreference(item, preference)
     } catch (error) {
       if (
         currentGeneration !== generation.value
@@ -210,10 +254,7 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
         || selected.value?.sourceType !== item.sourceType
         || String(selected.value?.sourceId) !== String(item.sourceId)
       ) return
-      selectedPreference.value = {
-        deliveryMode: item.deliveryMode,
-        expiresAt: item.expiresAt,
-      }
+      selectedPreference.value = preferenceFromItem(item)
       preferenceError.value = getErrorMessage(error, '偏好暂时不可用，请稍后再试。')
     } finally {
       if (
@@ -231,6 +272,10 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
     const item = selected.value
     const uid = accountUid.value
     if (!uid || !item || isPreferenceSaving.value) return false
+    if (!item.deliveryPreferenceSupported) {
+      preferenceError.value = item.deliveryPreferenceUnsupportedReason || '当前关系暂不支持调整接收方式。'
+      return false
+    }
     const currentGeneration = generation.value
     preferenceRequestId += 1
     isPreferenceSaving.value = true
@@ -240,23 +285,21 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
       const result = await relationshipsApi.updatePreference(item.sourceType, item.sourceId, {
         deliveryMode,
         expiresAt: expiresAt || null,
-      })
+      }, item)
       if (
         currentGeneration !== generation.value
         || uid !== accountUid.value
         || selected.value?.sourceType !== item.sourceType
         || String(selected.value?.sourceId) !== String(item.sourceId)
       ) return false
-      selectedPreference.value = result.data || { deliveryMode }
-      items.value = items.value.map((entry) => (
-        entry.sourceType === item.sourceType && String(entry.sourceId) === String(item.sourceId)
-      )
-        ? { ...entry, deliveryMode, expiresAt: result.data?.expiresAt }
-        : entry).filter((entry) => (
-          mode.value === 'ALL'
-          || (mode.value === 'MUTED' ? entry.deliveryMode === 'MUTED' : entry.deliveryMode !== 'MUTED')
-        ))
-      preferenceNotice.value = '偏好已更新'
+      const preference = result.data || {
+        deliveryMode,
+        expiresAt: deliveryMode === 'MUTED' ? preferenceExpiryTimestamp(expiresAt) : undefined,
+        deliveryPreferenceSupported: item.deliveryPreferenceSupported,
+        deliveryPreferenceUnsupportedReason: item.deliveryPreferenceUnsupportedReason,
+      }
+      updateItemsForPreference(item, preference)
+      preferenceNotice.value = '偏好已更新，仅对后续更新生效。'
       void loadSummary()
       return true
     } catch (error) {
@@ -273,28 +316,28 @@ export const useRelationshipWorkspace = (accountUid: Ref<string>, initialQuery?:
     const item = selected.value
     const uid = accountUid.value
     if (!uid || !item || isPreferenceSaving.value) return false
+    if (!item.deliveryPreferenceSupported) {
+      preferenceError.value = item.deliveryPreferenceUnsupportedReason || '当前关系暂不支持调整接收方式。'
+      return false
+    }
     const currentGeneration = generation.value
     preferenceRequestId += 1
     isPreferenceSaving.value = true
     preferenceError.value = ''
     preferenceNotice.value = ''
     try {
-      await relationshipsApi.deletePreference(item.sourceType, item.sourceId)
+      await relationshipsApi.deletePreference(item.sourceType, item.sourceId, item)
       if (
         currentGeneration !== generation.value
         || uid !== accountUid.value
         || selected.value?.sourceType !== item.sourceType
         || String(selected.value?.sourceId) !== String(item.sourceId)
       ) return false
-      selectedPreference.value = { deliveryMode: 'IMMEDIATE' }
-      items.value = items.value.map<RelationshipItem>((entry) => (
-        entry.sourceType === item.sourceType && String(entry.sourceId) === String(item.sourceId)
-      )
-        ? { ...entry, deliveryMode: 'IMMEDIATE', expiresAt: undefined }
-        : entry).filter((entry) => (
-          mode.value === 'ALL'
-          || (mode.value === 'MUTED' ? entry.deliveryMode === 'MUTED' : entry.deliveryMode !== 'MUTED')
-        ))
+      updateItemsForPreference(item, {
+        deliveryMode: 'IMMEDIATE',
+        deliveryPreferenceSupported: item.deliveryPreferenceSupported,
+        deliveryPreferenceUnsupportedReason: item.deliveryPreferenceUnsupportedReason,
+      })
       preferenceNotice.value = '已恢复即时更新'
       void loadSummary()
       return true

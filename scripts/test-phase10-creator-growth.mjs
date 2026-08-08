@@ -181,7 +181,12 @@ const p0Sources = [
   ['creatorFeedback.ts', creatorFeedbackApi],
   ['creatorSignals.ts', creatorSignals],
   ['Phase 10 demoSeeds.ts section', phase10DemoSeeds],
-  ['MeProfileView.vue', meProfile],
+  [
+    'MeProfileView.vue',
+    meProfile
+      .replace(/^\s*<CreatorChallengeWorkspace class="mt-6" \/>\s*$/m, '')
+      .replace(/^\s*import CreatorChallengeWorkspace from ['"][^'"]+['"]\s*$/m, ''),
+  ],
   ['UserProfileView.vue', userProfile],
   ['GrowthProfileView.vue', growthProfile],
   ['GrowthReportView.vue', growthReport],

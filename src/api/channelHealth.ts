@@ -10,7 +10,10 @@ export interface ChannelHealth {
   pendingSuggestions: number
   unresolvedQuestions: number
   openContentNeeds: number
-  healthStatus: 'STABLE' | 'ATTENTION'
+  qualityReviewPostCount?: number
+  qualitySignalAvailable?: boolean
+  qualitySignalPeriodDays?: number
+  healthStatus: 'STABLE' | 'ATTENTION' | 'DEGRADED'
   attentionReasons: string[]
 }
 
@@ -29,7 +32,14 @@ const adapt = (raw: any): ChannelHealth => ({
   pendingSuggestions: count(raw?.pendingSuggestions),
   unresolvedQuestions: count(raw?.unresolvedQuestions),
   openContentNeeds: count(raw?.openContentNeeds),
-  healthStatus: raw?.healthStatus === 'STABLE' ? 'STABLE' : 'ATTENTION',
+  qualityReviewPostCount: raw?.qualityReviewPostCount == null ? undefined : count(raw.qualityReviewPostCount),
+  qualitySignalAvailable: raw?.qualitySignalAvailable === true,
+  qualitySignalPeriodDays: raw?.qualitySignalPeriodDays == null ? undefined : count(raw.qualitySignalPeriodDays),
+  healthStatus: raw?.healthStatus === 'STABLE'
+    ? 'STABLE'
+    : raw?.healthStatus === 'DEGRADED'
+      ? 'DEGRADED'
+      : 'ATTENTION',
   attentionReasons: Array.isArray(raw?.attentionReasons)
     ? raw.attentionReasons.map((item: unknown) => String(item)).filter(Boolean)
     : [],

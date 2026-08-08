@@ -215,6 +215,27 @@
         </article>
       </section>
 
+      <section v-if="canOps" v-show="isOpsSectionVisible('ops-health')" class="panel scroll-mt-24" data-v33-release-readiness="strict-gates-only">
+        <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">发布验收护栏</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              仅采用 strict readiness 的发布 gate；缺失、未知、阻断或降级均不能作为发布通过依据。
+            </p>
+          </div>
+          <span :class="['status-pill', releaseReadinessStatusClass]">{{ releaseReadinessBadge }}</span>
+        </div>
+        <div class="mt-5 grid gap-3 md:grid-cols-3">
+          <article v-for="gate in releaseGateCards" :key="gate.key" class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+            <div class="flex items-start justify-between gap-3">
+              <strong class="text-sm text-slate-900 dark:text-slate-100">{{ gate.label }}</strong>
+              <span :class="['status-pill', gate.className]">{{ gate.badge }}</span>
+            </div>
+            <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ gate.detail }}</p>
+          </article>
+        </div>
+      </section>
+
       <section v-if="canOps" v-show="isOpsSectionVisible('ops-health')" class="panel scroll-mt-24">
         <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -1575,7 +1596,7 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import RiskConfirmDialog from '@/components/admin/RiskConfirmDialog.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
-import { OPS_BATCH_RETRY_LIMIT, opsApi, type AdminUserRole, type AiExtractTask, type AiExtractTaskDetail, type AiTaskMetrics, type BatchActionPreview, type HealthComponentStatus, type KafkaLocalCheck, type MyAdminPermissions, type NotificationRetryTask, type OpsStatus, type OutboxMessage, type PostSearchDiagnostics, type QuestionIndexTask, type ReadinessStatus, type SearchAnalytics, type SearchAnalyticsItem, type SearchIndexRetryTask } from '@/api/ops'
+import { OPS_BATCH_RETRY_LIMIT, opsApi, releaseGatePresentationState, type AdminUserRole, type AiExtractTask, type AiExtractTaskDetail, type AiTaskMetrics, type BatchActionPreview, type HealthComponentStatus, type KafkaLocalCheck, type MyAdminPermissions, type NotificationRetryTask, type OpsStatus, type OutboxMessage, type PostSearchDiagnostics, type QuestionIndexTask, type ReadinessStatus, type SearchAnalytics, type SearchAnalyticsItem, type SearchIndexRetryTask } from '@/api/ops'
 import { searchApi, type SearchIndexTask } from '@/api/search'
 import { postApi } from '@/api/post'
 import { interactionApi } from '@/api/interaction'
@@ -1803,6 +1824,63 @@ const readinessStatusClass = computed(() => {
   if (readiness.value.status === 'UP') return 'status-ok'
   if (readiness.value.status === 'DISABLED' || readiness.value.status === 'UNKNOWN') return 'status-muted'
   if (readiness.value.status === 'DEGRADED') return 'status-warn'
+  return 'status-danger'
+})
+const releaseGateDefinitions = [
+  { key: 'revisionAwareQualityProjection', label: '修订感知质量投影' },
+  { key: 'kafka', label: 'Kafka 发布通道' },
+  { key: 'elasticsearch', label: '搜索索引发布通道' },
+] as const
+const releaseGateCards = computed(() => releaseGateDefinitions.map(({ key, label }) => {
+  const state = releaseGatePresentationState(readiness.value?.releaseGates?.[key])
+  if (state === 'ready') {
+    return {
+      key,
+      label,
+      badge: '已通过',
+      className: 'status-ok',
+      detail: '后端 strict readiness 已确认通过；此处不展示投影明细或用户数据。',
+    }
+  }
+  if (state === 'degraded') {
+    return {
+      key,
+      label,
+      badge: '降级',
+      className: 'status-warn',
+      detail: '后端将该 gate 标记为降级，不能作为发布通过依据。',
+    }
+  }
+  if (state === 'blocked') {
+    return {
+      key,
+      label,
+      badge: '已阻断',
+      className: 'status-danger',
+      detail: '后端尚未确认该 gate 通过，发布验收保持阻断。',
+    }
+  }
+  return {
+    key,
+    label,
+    badge: '不可用',
+    className: 'status-danger',
+    detail: 'strict readiness 未返回可识别的 gate，无法确认发布条件，验收保持阻断。',
+  }
+}))
+const releaseReadinessPassed = computed(() => Boolean(
+  readiness.value?.strictReadinessAvailable
+  && readiness.value?.releaseReady === true
+  && releaseGateCards.value.every((gate) => gate.badge === '已通过'),
+))
+const releaseReadinessBadge = computed(() => {
+  if (isReadinessLoading.value && !readiness.value) return '检测中'
+  if (!readiness.value?.strictReadinessAvailable) return '不可用'
+  return releaseReadinessPassed.value ? '可发布' : '已阻断'
+})
+const releaseReadinessStatusClass = computed(() => {
+  if (releaseReadinessPassed.value) return 'status-ok'
+  if (isReadinessLoading.value && !readiness.value) return 'status-warn'
   return 'status-danger'
 })
 const searchOnlineText = computed(() => {
@@ -2162,6 +2240,8 @@ const opsDiagnosticPack = computed(() => [
   '',
   '## 健康状态',
   `readiness：${readiness.value?.status || '未加载'}`,
+  `strict release：${releaseReadinessBadge.value}`,
+  ...releaseGateCards.value.map((gate) => `release gate ${gate.key}：${gate.badge}`),
   `搜索：${searchOnlineText.value} / ${searchStatusBadge.value}`,
   `数据库结构：${componentHeadline(schemaHealth.value)}`,
   `Redis：${componentHeadline(redisHealth.value)}`,
@@ -2594,10 +2674,10 @@ const loadReadiness = async () => {
   if (!canOps.value) return
   isReadinessLoading.value = true
   try {
-    readiness.value = await opsApi.readiness()
+    readiness.value = await opsApi.strictReadiness()
   } catch (error: any) {
     readiness.value = null
-    toast.error(getErrorMessage(error, 'readiness 状态接口暂不可用'))
+    toast.error(getErrorMessage(error, 'strict readiness 状态接口暂不可用'))
   } finally {
     isReadinessLoading.value = false
   }

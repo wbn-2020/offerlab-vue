@@ -21,11 +21,11 @@
         <Loader2 class="h-5 w-5 animate-spin" />
         正在核验后台权限...
       </section>
-      <section v-else-if="permissionState.error || !canWrite" class="notice notice-danger mb-4" role="alert">
+      <section v-else-if="permissionState.error || !canOperateWorkspace" class="notice notice-danger mb-4" role="alert">
         <ShieldAlert class="h-5 w-5 shrink-0" />
         <div>
           <strong>写操作已关闭</strong>
-          <p>{{ permissionState.error || '当前账号缺少系统管理员权限。服务端不会开放激励与角色治理数据或写操作。' }}</p>
+          <p>{{ permissionState.error || '当前账号缺少系统管理员或运营权限。服务端不会开放治理数据或写操作。' }}</p>
         </div>
       </section>
       <section v-else class="notice notice-ok mb-4">
@@ -45,7 +45,7 @@
             rows="2"
             maxlength="500"
             placeholder="所有写操作必填；说明依据、影响范围和预期结果"
-            :disabled="pendingAction !== '' || !canWrite"
+            :disabled="pendingAction !== '' || !canOperateWorkspace"
           />
         </label>
         <div class="reason-status">
@@ -489,6 +489,123 @@
 
       <AdminIncentiveGovernanceWorkspace v-else-if="activeTab === 'governance'" />
 
+      <CreatorChallengeAdminWorkspace
+        v-else-if="activeTab === 'creator-challenges'"
+        :can-operate="canOperateWorkspace"
+        :operation-reason="operationReason"
+        :pending="pendingAction !== ''"
+        @operation-completed="operationReason = ''"
+      />
+
+      <section v-else-if="activeTab === 'ai-fulfillment'" class="space-y-4">
+        <section v-if="!canManageAiFulfillment" class="notice notice-danger" role="alert">
+          <ShieldAlert class="h-5 w-5 shrink-0" />
+          <div>
+            <strong>AI 履约例外不可用</strong>
+            <p>该队列需要系统管理员或 OPS 角色；服务端会再次执行角色、配置、状态机和审计校验。</p>
+          </div>
+        </section>
+
+        <template v-else>
+          <div class="tool-grid split-columns">
+            <div class="tool-panel">
+              <div class="tool-heading">
+                <div>
+                  <h2><ClipboardCheck class="h-5 w-5" />履约例外队列</h2>
+                  <p>仅显示脱敏状态、额度状态、耗时与成本汇总，不展示草稿或模型输出。</p>
+                </div>
+                <button type="button" class="icon-button" title="刷新 AI 履约例外" :disabled="aiExceptionState.loading" @click="loadAiExceptions">
+                  <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': aiExceptionState.loading }" />
+                </button>
+              </div>
+              <ListState
+                :loading="aiExceptionState.loading"
+                :error="aiExceptionState.error"
+                :empty="aiExceptions.length === 0"
+                empty-title="暂无 AI 履约例外"
+                empty-description="待确认、超时或状态不一致的增强请求会在此处显示。"
+                @retry="loadAiExceptions"
+              />
+              <div v-if="!aiExceptionState.loading && !aiExceptionState.error && aiExceptions.length" class="dense-list">
+                <article v-for="issue in aiExceptions" :key="String(issue.requestId)" class="dense-row">
+                  <div class="min-w-0">
+                    <div class="row-title">
+                      <span :class="['status-pill', issue.recoverable ? 'status-warn' : 'status-muted']">
+                        {{ issue.recoverable ? '可恢复' : '仅诊断' }}
+                      </span>
+                      <strong>{{ aiIssueLabel(issue.issueType) }}</strong>
+                      <span class="meta-chip">请求 #{{ issue.requestId }}</span>
+                    </div>
+                    <p>
+                      请求 {{ statusLabel(issue.requestStatus) }}
+                      <template v-if="issue.usageStatus"> · 额度 {{ statusLabel(issue.usageStatus) }}</template>
+                      <template v-if="issue.errorCode"> · {{ issue.errorCode }}</template>
+                    </p>
+                    <small>
+                      指纹 {{ issue.fingerprintPrefix || '--' }} · {{ issue.provider || 'provider 未记录' }}
+                      · 已等待 {{ formatAge(issue.ageSeconds) }}
+                    </small>
+                    <small>
+                      {{ formatTime(issue.createTime) }} · 输入 {{ formatNumber(issue.promptTokens) }}
+                      · 输出 {{ formatNumber(issue.completionTokens) }} · 估算 {{ formatNumber(issue.estimatedCostMicros) }} 微单位
+                    </small>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <div class="action-stack">
+              <form class="tool-panel" @submit.prevent="runAiReconcileDryRun">
+                <div class="tool-heading compact-heading">
+                  <div>
+                    <h2><ScanSearch class="h-5 w-5" />预检恢复</h2>
+                    <p>只诊断可恢复的超时请求，不写额度状态。</p>
+                  </div>
+                </div>
+                <label class="field-label">
+                  扫描上限
+                  <input v-model.number="aiReconcileLimit" class="field-input" type="number" min="1" max="100">
+                </label>
+                <button type="submit" class="secondary-button" :disabled="!canRunAiDryRun">
+                  <Loader2 v-if="isActing('ai-reconcile-dry-run')" class="h-4 w-4 animate-spin" />
+                  <ScanSearch v-else class="h-4 w-4" />
+                  执行预检
+                </button>
+              </form>
+
+              <div v-if="aiDryRunResult" class="tool-panel">
+                <div class="tool-heading compact-heading">
+                  <div>
+                    <h2><ClipboardCheck class="h-5 w-5" />预检结果</h2>
+                    <p>{{ aiDryRunResult.replayed ? '已回放同一预检结果。' : '本次预检尚未更改请求或额度。' }}</p>
+                  </div>
+                </div>
+                <div class="numeric-grid">
+                  <div><span>扫描</span><strong>{{ formatNumber(aiDryRunResult.scanned) }}</strong></div>
+                  <div><span>可恢复</span><strong>{{ formatNumber(aiDryRunResult.eligible) }}</strong></div>
+                  <div><span>跳过</span><strong>{{ formatNumber(aiDryRunResult.skipped) }}</strong></div>
+                </div>
+                <p class="boundary-copy">仅当理由和扫描上限未变且预检发现可恢复项时，才允许执行一次实际恢复。</p>
+              </div>
+
+              <form class="tool-panel" @submit.prevent="runAiReconcile">
+                <div class="tool-heading compact-heading">
+                  <div>
+                    <h2><RotateCcw class="h-5 w-5" />执行恢复</h2>
+                    <p>仅触发现有超时释放路径，不直接确认、扣减或退款。</p>
+                  </div>
+                </div>
+                <button type="submit" class="danger-button" :disabled="!canRunAiReconcile">
+                  <Loader2 v-if="isActing('ai-reconcile')" class="h-4 w-4 animate-spin" />
+                  <RotateCcw v-else class="h-4 w-4" />
+                  确认执行恢复
+                </button>
+              </form>
+            </div>
+          </div>
+        </template>
+      </section>
+
       <section v-else class="space-y-4">
         <AdminRoleReviewContext
           :can-inspect="canWrite"
@@ -651,7 +768,7 @@
 
 <script setup lang="ts">
 /* eslint-disable vue/one-component-per-file */
-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
 import {
   AlertTriangle,
   BadgeCheck,
@@ -682,6 +799,7 @@ import {
   TimerOff,
   TimerReset,
   ToggleRight,
+  Trophy,
   Truck,
   Undo2,
   UserCheck,
@@ -690,9 +808,15 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import CreatorChallengeAdminWorkspace from '@/components/creator/CreatorChallengeAdminWorkspace.vue'
 import AdminIncentiveGovernanceWorkspace from '@/components/incentive/AdminIncentiveGovernanceWorkspace.vue'
 import AdminRoleReviewContext from '@/components/incentive/AdminRoleReviewContext.vue'
 import { getErrorMessage } from '@/api/client'
+import {
+  contentAssistOperationsApi,
+  type ContentAssistEnhancedException,
+  type ContentAssistEnhancedReconcileResult,
+} from '@/api/contentAssistOperations'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import {
   incentiveAdminApi,
@@ -804,6 +928,8 @@ const tabs = [
   { key: 'benefits', label: '权益订单', icon: Gift },
   { key: 'bounties', label: '平台悬赏', icon: Target },
   { key: 'governance', label: '申诉与风控', icon: ShieldAlert },
+  { key: 'creator-challenges', label: '创作挑战', icon: Trophy },
+  { key: 'ai-fulfillment', label: 'AI 履约例外', icon: ClipboardCheck },
   { key: 'roles', label: '社区角色', icon: BadgeCheck },
 ] as const
 
@@ -824,6 +950,7 @@ const ordersState = createDataState()
 const bountyState = createDataState()
 const roleApplicationsState = createDataState()
 const roleGrantsState = createDataState()
+const aiExceptionState = createDataState()
 
 const operationReason = ref('')
 const pendingAction = ref('')
@@ -833,6 +960,8 @@ const benefitOrders = ref<PageResult<BenefitOrder>>(emptyPage())
 const bountySubmissions = ref<PageResult<BountySubmission>>(emptyPage())
 const roleApplications = ref<PageResult<RoleApplication>>(emptyPage())
 const roleGrants = ref<PageResult<RoleGrant>>(emptyPage())
+const aiExceptions = ref<ContentAssistEnhancedException[]>([])
+const aiDryRunResult = ref<ContentAssistEnhancedReconcileResult | null>(null)
 
 const benefitCatalogPage = ref(1)
 const benefitOrderPage = ref(1)
@@ -850,6 +979,8 @@ const releaseFreezeId = ref('')
 const reverseLedgerId = ref('')
 const expireDueLimit = ref(100)
 const editingBenefitId = ref<string | null>(null)
+const aiReconcileLimit = ref(20)
+const aiReconcileArmed = ref(false)
 
 const rewardInboxForm = reactive({
   stableKey: '',
@@ -949,10 +1080,21 @@ const hasValidRuleWindow = computed(() => (
 ))
 
 const canWrite = computed(() => Boolean(permissions.value?.admin))
+const canOperateWorkspace = computed(() => Boolean(permissions.value?.admin || permissions.value?.ops))
+const canManageAiFulfillment = computed(() => Boolean(permissions.value?.admin || permissions.value?.ops))
 const reasonReady = computed(() => operationReason.value.trim().length >= 2)
 const canMutate = computed(() => canWrite.value && reasonReady.value && pendingAction.value === '')
+const canRunAiDryRun = computed(() => canManageAiFulfillment.value
+  && reasonReady.value
+  && pendingAction.value === ''
+  && aiReconcileLimit.value >= 1
+  && aiReconcileLimit.value <= 100)
+const canRunAiReconcile = computed(() => canRunAiDryRun.value
+  && aiReconcileArmed.value
+  && Boolean(aiDryRunResult.value?.eligible))
 const permissionLabel = computed(() => {
   if (permissions.value?.admin) return '系统管理员'
+  if (permissions.value?.ops) return '运营角色'
   return '无写权限'
 })
 const isLoading = computed(() => permissionState.loading || [
@@ -962,6 +1104,7 @@ const isLoading = computed(() => permissionState.loading || [
   bountyState,
   roleApplicationsState,
   roleGrantsState,
+  aiExceptionState,
 ].some((state) => state.loading) || pendingAction.value !== '')
 
 const canSubmitRewardInbox = computed(() => canMutate.value
@@ -1040,10 +1183,13 @@ const runDataLoad = async (state: DataState, task: () => Promise<void>, fallback
   }
 }
 
-const loadPermissions = () => runDataLoad(permissionState, async () => {
+const loadPermissions = async () => {
+  permissions.value = null
+  await runDataLoad(permissionState, async () => {
   const response = await opsApi.myPermissions()
   permissions.value = response.data
-}, '后台权限校验失败')
+  }, '后台权限校验失败')
+}
 
 const loadReconciliation = () => runDataLoad(reconciliationState, async () => {
   const response = await incentiveAdminApi.listReconciliationRuns(20)
@@ -1098,17 +1244,94 @@ const loadRoleGrants = (page = roleGrantPage.value) => runDataLoad(roleGrantsSta
   roleGrantPage.value = page
 }, '角色授权加载失败')
 
-const refreshAll = async () => {
-  await Promise.all([
-    loadPermissions(),
-    loadReconciliation(),
-    loadBenefitCatalog(),
-    loadBenefitOrders(),
-    loadBountySubmissions(),
-    loadRoleApplications(),
-    loadRoleGrants(),
-  ])
+const loadAiExceptions = async () => {
+  if (!canManageAiFulfillment.value) {
+    aiExceptions.value = []
+    aiExceptionState.error = ''
+    aiDryRunResult.value = null
+    aiReconcileArmed.value = false
+    return
+  }
+  await runDataLoad(aiExceptionState, async () => {
+    const response = await contentAssistOperationsApi.listEnhancedExceptions(20)
+    aiExceptions.value = response.data || []
+  }, 'AI 履约例外加载失败')
 }
+
+const refreshAll = async () => {
+  await loadPermissions()
+  const loads: Array<Promise<unknown>> = []
+  if (canWrite.value) {
+    loads.push(
+      loadReconciliation(),
+      loadBenefitCatalog(),
+      loadBenefitOrders(),
+      loadBountySubmissions(),
+      loadRoleApplications(),
+      loadRoleGrants(),
+    )
+  }
+  loads.push(loadAiExceptions())
+  await Promise.all(loads)
+}
+
+const aiReconcileIdempotencyKey = () => {
+  const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `ai-reconcile:${random}`.slice(0, 96)
+}
+
+const runAiReconcileDryRun = async () => {
+  if (!canRunAiDryRun.value) return
+  pendingAction.value = 'ai-reconcile-dry-run'
+  try {
+    const response = await contentAssistOperationsApi.reconcileEnhanced({
+      dryRun: true,
+      limit: aiReconcileLimit.value,
+      idempotencyKey: aiReconcileIdempotencyKey(),
+      reason: operationReason.value.trim(),
+    })
+    aiDryRunResult.value = response.data || null
+    aiReconcileArmed.value = Boolean(response.data?.eligible)
+    toast.success(response.data?.eligible
+      ? `预检完成：发现 ${response.data.eligible} 条可恢复请求`
+      : '预检完成：未发现可恢复请求')
+  } catch (error) {
+    aiReconcileArmed.value = false
+    toast.error(getErrorMessage(error, 'AI 履约预检失败'))
+  } finally {
+    pendingAction.value = ''
+  }
+}
+
+const runAiReconcile = async () => {
+  if (!canRunAiReconcile.value) return
+  pendingAction.value = 'ai-reconcile'
+  try {
+    const response = await contentAssistOperationsApi.reconcileEnhanced({
+      dryRun: false,
+      limit: aiReconcileLimit.value,
+      idempotencyKey: aiReconcileIdempotencyKey(),
+      reason: operationReason.value.trim(),
+    })
+    const result = response.data
+    toast.success(`AI 履约恢复已完成：恢复 ${result?.recovered || 0} 条，跳过 ${result?.skipped || 0} 条`)
+    operationReason.value = ''
+    aiDryRunResult.value = null
+    aiReconcileArmed.value = false
+    await loadAiExceptions()
+  } catch (error) {
+    toast.error(getErrorMessage(error, 'AI 履约恢复失败'))
+  } finally {
+    pendingAction.value = ''
+  }
+}
+
+watch([operationReason, aiReconcileLimit], () => {
+  aiDryRunResult.value = null
+  aiReconcileArmed.value = false
+})
 
 const runMutation = async (
   key: string,
@@ -1343,6 +1566,14 @@ const formatTime = (value?: string | null) => {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { hour12: false })
 }
+const formatAge = (value?: ApiLong | null) => {
+  const seconds = Number(value || 0)
+  if (!Number.isFinite(seconds) || seconds <= 0) return '--'
+  if (seconds < 60) return `${Math.floor(seconds)} 秒`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时`
+  return `${Math.floor(seconds / 86400)} 天`
+}
 
 const stockLabel = (benefit: Benefit) => benefit.totalStock == null
   ? '不限库存'
@@ -1362,10 +1593,20 @@ const statusLabel = (value: string) => ({
   REVOKED: '已撤销',
   EXPIRED: '已到期',
   RUNNING: '运行中',
+  SUCCEEDED: '已完成',
+  FALLBACK: '已降级',
+  CONFIRMED: '已确认',
+  RELEASED: '已释放',
   SUCCESS: '成功',
   FAILED: '失败',
   OPEN: '开放',
   CLOSED: '关闭',
+}[value] || value)
+const aiIssueLabel = (value: string) => ({
+  STALE_RUNNING_RESERVED: '超时待确认',
+  SOURCE_REFERENCE_MISMATCH: '来源引用不一致',
+  REQUEST_USAGE_STATUS_MISMATCH: '请求与额度状态不一致',
+  REQUEST_MISSING_USAGE: '缺少额度记录',
 }[value] || value)
 
 const statusClass = (value: string) => {
