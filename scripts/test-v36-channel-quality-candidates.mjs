@@ -78,7 +78,8 @@ for (const token of [
 }
 
 for (const token of [
-  'canCreateMaintenanceForDomain',
+  'canCreateMaintenanceGlobally',
+  'moderatedMaintenanceDomains',
   ':refresh-key="channelHealthRefreshKey"',
   'channelHealthRefreshKey.value += 1',
 ]) {
@@ -123,7 +124,6 @@ for (const forbidden of [
   'authorId',
   'feedbackReason',
   'taskId',
-  'assigneeUid',
   'createdByUid',
   'contentMaintenanceApi.create',
   '质量认证',

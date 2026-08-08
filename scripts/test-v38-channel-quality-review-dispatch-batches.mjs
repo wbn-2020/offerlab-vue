@@ -80,7 +80,7 @@ for (const token of [
   '批次派发',
   '交付回合',
   '维护执行治理',
-  '当前候选重新校验',
+  '选中候选重新校验',
   '不新增第二套维护任务主状态',
   '1-20',
   'VERIFIED_DELIVERY',
@@ -347,7 +347,7 @@ expect(
   v38Migration.version === '20260805.02'
     && v38Migration.resource
       === 'community-bootstrap/src/main/resources/db/flyway/core/V20260805.02__channel_quality_review_dispatch_batch.sql'
-    && manifest.streams.core.expectedMigrations === 80,
+    && manifest.streams.core.expectedMigrations === 87,
   'V38 Flyway manifest version, runtime resource and core count must be synchronized.',
 )
 expect(

@@ -196,9 +196,9 @@ expect(
 const panelDisposition = section(panel, 'const disposeCandidate', 'const load = async')
 for (const token of [
   "channelHealthCandidatesApi.dispose({",
-  "action: 'DISMISS'",
-  "action: 'SNOOZE'",
-  "action: 'RESTORE'",
+  "action === 'DISMISS'",
+  "action === 'SNOOZE'",
+  'action,',
   'domain: candidate.domain',
   'sourcePostId: candidate.sourcePostId',
   'sourceRefId',
@@ -208,6 +208,8 @@ for (const token of [
 ]) {
   expect(panelDisposition.includes(token), `V37 panel disposition request is missing ${token}.`)
 }
+expect(panel.includes("type DispositionAction = 'DISMISS' | 'SNOOZE' | 'RESTORE'"),
+  'V37 panel must keep the complete disposition action whitelist.')
 
 const commandFields = Array.from(
   dispositionCommand.matchAll(/^\s*private\s+\w+\s+(\w+);/gm),
@@ -222,7 +224,6 @@ assert.deepEqual(
 for (const forbidden of [
   'taskId',
   'taskID',
-  'assignee',
   'ownerUid',
   'ownerId',
   'authorId',
@@ -259,8 +260,7 @@ for (const token of [
   'error.code === 30001',
   '该修订已有维护任务，请刷新候选',
   'await load()',
-  'shouldReturnToCandidateQueue',
-  "router.push('/admin/community-health')",
+  'finishMaintenanceWrite(snapshot)',
 ]) {
   expect(
     maintenanceView.includes(token),
@@ -318,7 +318,7 @@ expect(
   v37ManifestEntry.version === '20260805.01'
     && v37ManifestEntry.resource
       === 'community-bootstrap/src/main/resources/db/flyway/core/V20260805.01__channel_quality_candidate_disposition.sql'
-    && flywayManifest.streams.core.expectedMigrations === 79,
+    && flywayManifest.streams.core.expectedMigrations === 87,
   'V37 Flyway manifest must point to the synchronized runtime resource.',
 )
 

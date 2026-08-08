@@ -46,20 +46,20 @@ for (const [name, source] of [
 
 missing(recommendationGovernance, /advertis(e|ing|ement)|adSlot|paidExposure|sponsor|membershipRecommendation|privacyProfile|mlFeature/i, 'recommendationGovernance.ts must not add ad, paid exposure, membership, privacy-profile, or ML feature surfaces.')
 
-has(postCard, /displayRecommendationReasons/, 'PostCard must render explainable recommendation reasons.')
+has(postCard, /feedExplanationDetails/, 'PostCard must render explainable recommendation reasons.')
 has(postCard, /normalizeRecommendationReason/, 'PostCard recommendation reasons must pass through the shared neutral reason normalizer.')
 has(postCard, /feedbackActions/, 'PostCard must expose recommendation feedback actions.')
-for (const action of ['not_interested', 'less_like_this', 'hide_author', 'more_like_this']) {
+for (const action of ['HIDE', 'LESS_LIKE_THIS', 'RESTORE', 'BLOCK_AUTHOR']) {
   has(postCard, new RegExp(action), `PostCard feedback menu must include ${action}.`)
 }
 has(postCard, /recommendationFeedbackSubmittedLabel|feedback-submitted-note/, 'PostCard must show a minimal local response after recommendation feedback.')
 
 has(feedApi, /recordFeedback/, 'Feed API must expose recommendation feedback recording.')
 has(feedApi, /action[^=]*=\s*'not_interested'/, 'Feed feedback must default to not_interested.')
-has(feedApi, /less_like_this[\s\S]*hide_author[\s\S]*more_like_this|more_like_this[\s\S]*hide_author[\s\S]*less_like_this/, 'Feed API contract must explicitly allow lightweight Phase 12 feedback actions without implying personalization is live.')
+has(feedApi, /FeedControlAction[\s\S]*HIDE[\s\S]*LESS_LIKE_THIS[\s\S]*RESTORE/, 'Feed API contract must explicitly expose the current lightweight feedback actions.')
 
 has(homeView, /locallyHiddenPostIds/, 'Home feed must hide current cards after negative recommendation feedback.')
-has(homeView, /handleRecommendFeedback/, 'Home feed must wire recommendation feedback handling.')
+has(homeView, /handleFeedControl/, 'Home feed must wire recommendation feedback handling.')
 has(homeView, /filterVisiblePosts/, 'Home feed and curation surfaces must pass through governance filtering.')
 has(homeView, /featuredPreview\s*=\s*computed\(\(\)\s*=>\s*cleanPosts\.value\.filter\(isFeaturedPost\)/, 'Home featured pool must derive from governed public posts.')
 

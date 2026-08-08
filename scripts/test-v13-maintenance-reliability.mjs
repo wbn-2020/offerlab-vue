@@ -44,7 +44,13 @@ const apiSandbox = {
   module: { exports: {} },
   Promise,
   require: (name) => {
-    if (name === './client') return { __esModule: true, default: apiClient }
+    if (name === './client') {
+      return {
+        __esModule: true,
+        default: apiClient,
+        withRemoteResultProvenance: result => ({ ...result, source: 'remote', degraded: false }),
+      }
+    }
     throw new Error(`Unexpected content maintenance dependency: ${name}`)
   },
 }
@@ -132,22 +138,22 @@ assert.match(queueViewSource, /snapshot\.requestedDomain === filterDomain\.value
 assert.match(queueViewSource, /snapshot\.requestedStatus === filterStatus\.value/)
 assert.match(queueViewSource, /contentMaintenanceApi\.queue\([\s\S]*?\},\s*\{\s*signal:\s*controller\.signal/)
 assert.match(queueViewSource, /clearMaintenanceQueueState\(true\)/)
-assert.match(queueViewSource, /clearRecord\(notes\)/)
+assert.match(queueViewSource, /clearRecord\(reviewDrafts\)/)
 assert.match(queueViewSource, /clearRecord\(reassignments\)/)
 assert.match(queueViewSource, /resetCreateForm\(\)/)
 assert.match(
   queueViewSource,
-  /interface MaintenanceWriteSnapshot \{\s*requestId: number\s*accountKey: string\s*accountGeneration: number\s*\}/,
+  /interface MaintenanceWriteSnapshot \{\s*requestId: number\s*actionKey: string\s*accountKey: string\s*accountGeneration: number\s*\}/,
   'governance writes must snapshot request and account ownership',
 )
 assert.match(queueViewSource, /let maintenanceWriteRequestId = 0/)
 assert.match(
   queueViewSource,
-  /const beginMaintenanceWrite = \(\): MaintenanceWriteSnapshot \| null => \{\s*if \(busy\.value \|\| !maintenanceAccountIsReady\(\)\) return null[\s\S]*requestId: \+\+maintenanceWriteRequestId[\s\S]*accountKey: currentMaintenanceAccountKey\(\)[\s\S]*accountGeneration: maintenanceAccountGeneration/,
+  /const beginMaintenanceWrite = \(actionKey: string\): MaintenanceWriteSnapshot \| null => \{[\s\S]*!maintenanceAccountIsReady\(\)[\s\S]*requestId: \+\+maintenanceWriteRequestId[\s\S]*accountKey: currentMaintenanceAccountKey\(\)[\s\S]*accountGeneration: maintenanceAccountGeneration/,
 )
 assert.match(
   queueViewSource,
-  /const maintenanceWriteIsCurrent = \(snapshot: MaintenanceWriteSnapshot\) => \([\s\S]*snapshot\.requestId === maintenanceWriteRequestId[\s\S]*snapshot\.accountGeneration === maintenanceAccountGeneration[\s\S]*snapshot\.accountKey === currentMaintenanceAccountKey\(\)[\s\S]*maintenanceAccountIsReady\(\)/,
+  /const maintenanceWriteIsCurrent = \(snapshot: MaintenanceWriteSnapshot\) => \([\s\S]*pendingActions\[snapshot\.actionKey\] === snapshot\.requestId[\s\S]*snapshot\.accountGeneration === maintenanceAccountGeneration[\s\S]*snapshot\.accountKey === currentMaintenanceAccountKey\(\)[\s\S]*maintenanceAccountIsReady\(\)/,
   'governance write responses must belong to the current account generation',
 )
 assert.match(
@@ -160,9 +166,9 @@ assert.match(
   /contentMaintenanceApi\.create\((?:\{|command\))/,
   'governance create must send either an inline command or a validated command object',
 )
-assert.match(queueViewSource, /contentMaintenanceApi\.review\(task\.id, \{ decision, note: note\(task\) \}\)/)
+assert.match(queueViewSource, /contentMaintenanceApi\.review\(task\.id, \{[\s\S]*decision:[\s\S]*note: draft\.note/)
 assert.match(queueViewSource, /contentMaintenanceApi\.reassign\(task\.id, \{/)
-assert.match(queueViewSource, /contentMaintenanceApi\.close\(task\.id, note\(task\)\)/)
+assert.match(queueViewSource, /contentMaintenanceApi\.close\(task\.id, \{[\s\S]*note: draft\.note/)
 
 const functionBlock = (source, name, nextName) => {
   const start = source.indexOf(`const ${name} = async`)
@@ -183,7 +189,7 @@ const assertOrdered = (source, label, snippets) => {
 const createBlock = functionBlock(queueViewSource, 'create', 'review')
 assert.match(createBlock, /const command = createCommand\.value/)
 assertOrdered(createBlock, 'create write', [
-  'const snapshot = beginMaintenanceWrite()',
+  "const snapshot = beginMaintenanceWrite('create')",
   'if (!snapshot) return',
   'await contentMaintenanceApi.create(',
   'if (!maintenanceWriteIsCurrent(snapshot)) return',
@@ -194,12 +200,12 @@ assertOrdered(createBlock, 'create write', [
   'if (!maintenanceWriteIsCurrent(snapshot)) return',
   "toast.error(getErrorMessage(error, '创建维护任务失败'))",
   '} finally {',
-  'if (maintenanceWriteIsCurrent(snapshot)) busy.value = false',
+  'finishMaintenanceWrite(snapshot)',
 ])
 
 const reviewBlock = functionBlock(queueViewSource, 'review', 'reassign')
 assertOrdered(reviewBlock, 'review write', [
-  'const snapshot = beginMaintenanceWrite()',
+  'const snapshot = beginMaintenanceWrite(taskActionKey(',
   'if (!snapshot) return',
   'await contentMaintenanceApi.review(',
   'if (!maintenanceWriteIsCurrent(snapshot)) return',
@@ -209,12 +215,12 @@ assertOrdered(reviewBlock, 'review write', [
   'if (!maintenanceWriteIsCurrent(snapshot)) return',
   "toast.error(getErrorMessage(error, '审核维护任务失败'))",
   '} finally {',
-  'if (maintenanceWriteIsCurrent(snapshot)) busy.value = false',
+  'finishMaintenanceWrite(snapshot)',
 ])
 
 const reassignBlock = functionBlock(queueViewSource, 'reassign', 'close')
 assertOrdered(reassignBlock, 'reassign write', [
-  'const snapshot = beginMaintenanceWrite()',
+  "const snapshot = beginMaintenanceWrite(taskActionKey(task, 'reassign'))",
   'if (!snapshot) return',
   'await contentMaintenanceApi.reassign(',
   'if (!maintenanceWriteIsCurrent(snapshot)) return',
@@ -225,12 +231,12 @@ assertOrdered(reassignBlock, 'reassign write', [
   'if (!maintenanceWriteIsCurrent(snapshot)) return',
   "toast.error(getErrorMessage(error, '转派维护任务失败'))",
   '} finally {',
-  'if (maintenanceWriteIsCurrent(snapshot)) busy.value = false',
+  'finishMaintenanceWrite(snapshot)',
 ])
 
 const closeBlock = functionBlock(queueViewSource, 'close', 'statusLabel')
 assertOrdered(closeBlock, 'close write', [
-  'const snapshot = beginMaintenanceWrite()',
+  "const snapshot = beginMaintenanceWrite(taskActionKey(task, 'close'))",
   'if (!snapshot) return',
   'await contentMaintenanceApi.close(',
   'if (!maintenanceWriteIsCurrent(snapshot)) return',
@@ -240,12 +246,12 @@ assertOrdered(closeBlock, 'close write', [
   'if (!maintenanceWriteIsCurrent(snapshot)) return',
   "toast.error(getErrorMessage(error, '关闭维护任务失败'))",
   '} finally {',
-  'if (maintenanceWriteIsCurrent(snapshot)) busy.value = false',
+  'finishMaintenanceWrite(snapshot)',
 ])
 
 assert.match(
   queueViewSource,
-  /onBeforeUnmount\(\(\) => \{\s*maintenanceQueueRequestId \+= 1\s*maintenanceWriteRequestId \+= 1\s*abortMaintenanceQueueLoad\(\)/,
+  /onBeforeUnmount\(\(\) => \{\s*clearMaintenanceQueueState\(\)/,
   'unmount must invalidate pending governance writes before they can commit UI effects',
 )
 

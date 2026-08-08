@@ -367,7 +367,11 @@ import { useLoginRedirect } from '@/composables/useLoginRedirect'
 import { getContentTypeShortLabel } from '@/utils/contentTypes'
 import { buildDomainCardSurface } from '@/utils/domainPostSurfaces'
 import { getDomainIcon, getDomainLabel, isKnownDomain } from '@/utils/domains'
-import { findHighRiskContentWarning } from '@/utils/recommendationGovernance'
+import {
+  findHighRiskContentWarning,
+  neutralizeHighRiskRecommendationReason,
+  normalizeRecommendationReason,
+} from '@/utils/recommendationGovernance'
 import { getPostUnavailableState, normalizeRiskNoticeForUsers } from '@/utils/governanceDisplay'
 import type { FeedbackReasonCode, FeedControlAction, FeedPost } from '@/api/feed'
 import PostSaveOrganizer from '@/components/post/PostSaveOrganizer.vue'
@@ -477,9 +481,16 @@ const normalizedDetailQuery = computed(() => Object.fromEntries(
 ))
 const isSearchContext = computed(() => normalizedDetailQuery.value.from === 'search')
 const feedPost = computed(() => props.post as FeedPost)
-const feedSourceLabel = computed(() => feedPost.value.sourceLabel || '')
+const normalizeFeedReason = (reason?: string | null) => (
+  neutralizeHighRiskRecommendationReason(normalizeRecommendationReason(reason), feedPost.value)
+)
+const feedSourceLabel = computed(() => normalizeFeedReason(feedPost.value.sourceLabel))
 const feedExplanationDetails = computed(() => (feedPost.value.recommendationReasonDetails || [])
-  .filter((detail) => Boolean(detail?.code && detail.text?.trim()))
+  .map((detail) => ({
+    ...detail,
+    text: normalizeFeedReason(detail?.text),
+  }))
+  .filter((detail) => Boolean(detail?.code && detail.text))
   .slice(0, 3))
 const feedExplanationVisible = computed(() => feedExplanationDetails.value.length > 0)
 const reasonPanelTitle = computed(() => (

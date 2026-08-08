@@ -337,7 +337,7 @@ const routes = [
     meta: {
       title: '频道健康度',
       requiresAuth: true,
-      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+      adminPermission: ['contentModerator', 'domainModerator', 'ops', 'admin'],
     },
   },
   {

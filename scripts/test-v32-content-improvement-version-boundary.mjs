@@ -66,7 +66,7 @@ expect(!channelHealthView.includes("item.qualitySignalAvailable ? (item.qualityR
   'V32 channel health must not coerce unavailable quality signals to zero.')
 
 const healthRoute = router.match(/path: '\/admin\/community-health',[\s\S]*?adminPermission: \[([^\]]+)\]/)
-expect(healthRoute && !healthRoute[1].includes("'ops'"),
-  'V32 channel-health route must not grant ops-only access when the API does not.')
+expect(healthRoute && healthRoute[1].includes("'ops'"),
+  'V32 channel-health route must grant ops access required by projection diagnostics.')
 
 console.log('V32 content improvement version-boundary guard passed.')
