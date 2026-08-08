@@ -882,10 +882,13 @@ const displaySignature = computed(() => sanitizePublicVisibleText(
 const userInitial = computed(() => displayNickname.value.charAt(0) || '?')
 const profileMetricText = <T,>(serverValue: unknown, state: ListState<T>) => {
   const numeric = Number(serverValue)
-  if (Number.isFinite(numeric) && numeric >= 0) return String(Math.trunc(numeric))
   if (!state.loaded) return '—'
   if (state.error) return '暂不可用'
-  return String(state.items.length)
+  const loadedCount = state.items.length
+  if (Number.isFinite(numeric) && numeric >= 0) {
+    return String(Math.max(Math.trunc(numeric), loadedCount))
+  }
+  return String(loadedCount)
 }
 const emptyContributionSummary: ContributionSummary = {
   ...buildContributionSummary([]),

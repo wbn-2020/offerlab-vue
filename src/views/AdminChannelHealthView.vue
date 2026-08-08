@@ -55,11 +55,21 @@
         @batch-created="handleBatchCreated"
       />
 
+      <ChannelHealthRiskCaseWorkspace
+        :refresh-key="riskCaseRefreshKey"
+        :channels="items"
+        :can-create-globally="canCreateMaintenanceGlobally"
+        :moderated-domains="moderatedMaintenanceDomains"
+        @open-batch-coordination="handleOpenBatchCoordination"
+      />
+
       <ChannelHealthReviewBatchPanel
+        ref="reviewBatchPanel"
         :refresh-key="batchRefreshKey"
         :channels="items"
         :can-create-globally="canCreateMaintenanceGlobally"
         :moderated-domains="moderatedMaintenanceDomains"
+        @batch-coordinated="handleBatchCoordinated"
       />
 
       <section class="projection-workspace">
@@ -91,10 +101,16 @@ import { getErrorMessage } from '@/api/client'
 import { channelHealthApi, type ChannelHealth } from '@/api/channelHealth'
 import { opsApi, type MyAdminPermissions } from '@/api/ops'
 import type { ProjectionHealth } from '@/api/projectionHealth'
+import type { ApiId } from '@/api/types'
 import ProjectionHealthTable from '@/components/health/ProjectionHealthTable.vue'
 import ReconciliationRunPanel from '@/components/health/ReconciliationRunPanel.vue'
 import ChannelHealthCandidatePanel from '@/components/health/ChannelHealthCandidatePanel.vue'
+import ChannelHealthRiskCaseWorkspace from '@/components/health/ChannelHealthRiskCaseWorkspace.vue'
 import ChannelHealthReviewBatchPanel from '@/components/health/ChannelHealthReviewBatchPanel.vue'
+
+type ChannelHealthReviewBatchPanelExposed = {
+  openBatch: (batchId: ApiId) => Promise<void>
+}
 
 const items = ref<ChannelHealth[]>([])
 const loading = ref(false)
@@ -106,6 +122,8 @@ const selectedProjection = ref<ProjectionHealth | null>(null)
 const projectionRefreshKey = ref(0)
 const channelHealthRefreshKey = ref(0)
 const batchRefreshKey = ref(0)
+const riskCaseRefreshKey = ref(0)
+const reviewBatchPanel = ref<ChannelHealthReviewBatchPanelExposed | null>(null)
 const canInspectProjections = computed(() => Boolean(
   projectionPermissions.value?.admin
   || projectionPermissions.value?.ops
@@ -126,6 +144,15 @@ const handleBatchCreated = () => {
   batchRefreshKey.value += 1
 }
 
+const handleBatchCoordinated = () => {
+  batchRefreshKey.value += 1
+  riskCaseRefreshKey.value += 1
+}
+
+const handleOpenBatchCoordination = async (batchId: ApiId) => {
+  await reviewBatchPanel.value?.openBatch(batchId)
+}
+
 const load = async () => {
   loading.value = true
   errorText.value = ''
@@ -134,6 +161,7 @@ const load = async () => {
     items.value = res.data || []
     channelHealthRefreshKey.value += 1
     batchRefreshKey.value += 1
+    riskCaseRefreshKey.value += 1
   } catch (error) {
     errorText.value = getErrorMessage(error, '频道健康数据暂时无法读取')
   } finally {

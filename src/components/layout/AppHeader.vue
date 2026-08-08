@@ -71,6 +71,7 @@
           type="search"
           placeholder="搜索经验、攻略、资源、话题或作者"
           aria-label="搜索经验、攻略、资源、话题或作者"
+          @keydown.enter.prevent="submitSearch"
         >
       </form>
 
@@ -152,6 +153,7 @@
               <RouterLink to="/me" class="community-header__menu-item" @click="showUserMenu = false">我的主页</RouterLink>
               <RouterLink to="/me/relationships" class="community-header__menu-item" @click="showUserMenu = false">关系与订阅中心</RouterLink>
               <RouterLink to="/me/collaboration" class="community-header__menu-item" @click="showUserMenu = false">协作行动中心</RouterLink>
+              <RouterLink to="/me/governance-todos" class="community-header__menu-item" @click="showUserMenu = false">我的治理待办</RouterLink>
               <RouterLink to="/me/notifications" class="community-header__menu-item" @click="showUserMenu = false">通知中心</RouterLink>
               <RouterLink to="/series/workbench" class="community-header__menu-item" @click="showUserMenu = false">内容合集</RouterLink>
               <div class="community-header__menu-divider" />
@@ -287,6 +289,7 @@ const adminLinks = computed(() => {
   if (value.admin) links.push({ to: '/admin/operations', label: '运营编排' })
   if (value.contentModerator || value.domainModerator || value.admin) links.push({ to: '/admin/collaboration', label: '公共共建治理' })
   if (value.contentModerator || value.domainModerator || value.admin) links.push({ to: '/admin/community-health', label: '频道健康度' })
+  if (value.contentModerator || value.domainModerator || value.admin) links.push({ to: '/admin/community-health/quality-governance-analytics', label: '频道质量治理分析' })
   if (value.contentModerator || value.domainModerator || value.admin) links.push({ to: '/admin/content-maintenance', label: '内容维护治理' })
   if (value.admin) links.push({ to: '/admin/community-growth', label: '激励与角色治理' })
   if (value.questionOperator || value.admin) {

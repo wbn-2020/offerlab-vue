@@ -1,10 +1,11 @@
-import client, { type Result } from './client'
+import client, { type Result, withRemoteResultProvenance } from './client'
 import type { ApiId } from './types'
 
 const BASE_PATH = '/api/v1/community-health/quality-review-batches'
 const MAX_SIGNED_LONG = 9_223_372_036_854_775_807n
 const MAX_PAGE_SIZE = 20
 const MAX_BATCH_CANDIDATES = 20
+const MAX_EVENT_PAGE_SIZE = 20
 const SOURCE_TYPE = 'CHANNEL_HEALTH' as const
 const PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const
 const TASK_STATUSES = ['OPEN', 'CLAIMED', 'SUBMITTED', 'COMPLETED', 'CLOSED'] as const
@@ -27,6 +28,25 @@ const MAINTENANCE_PHASES = [
   'CLOSED',
 ] as const
 const TERMINAL_OUTCOME_CODES = ['VERIFIED_DELIVERY'] as const
+const EXTEND_BY_DAYS_OPTIONS = [1, 3, 7, 14, 30] as const
+const RISK_CODES = [
+  'BLOCKER',
+  'CAPACITY_RISK',
+  'REVIEW_DELAY',
+  'OVERDUE_ESCALATION',
+] as const
+const WITHDRAW_REASON_CODES = [
+  'SCOPE_INVALID',
+  'DUPLICATE_SCOPE',
+  'PRIORITY_REPLACED',
+  'OTHER',
+] as const
+const COORDINATION_EVENT_TYPES = [
+  'DEADLINE_EXTENDED',
+  'ACTIVE_TASKS_REASSIGNED',
+  'RISK_NOTE_ADDED',
+  'OPEN_TASKS_WITHDRAWN',
+] as const
 
 export type ChannelHealthReviewBatchPriority = (typeof PRIORITIES)[number]
 export type ChannelHealthReviewBatchTaskStatus = (typeof TASK_STATUSES)[number]
@@ -35,6 +55,10 @@ export type ChannelHealthReviewBatchDueState = (typeof DUE_STATES)[number]
 export type ChannelHealthReviewBatchDueInDays = (typeof DUE_IN_DAYS_OPTIONS)[number]
 export type ChannelHealthReviewBatchMaintenancePhase = (typeof MAINTENANCE_PHASES)[number]
 export type ChannelHealthReviewBatchTerminalOutcomeCode = (typeof TERMINAL_OUTCOME_CODES)[number]
+export type ChannelHealthReviewBatchExtendByDays = (typeof EXTEND_BY_DAYS_OPTIONS)[number]
+export type ChannelHealthReviewBatchRiskCode = (typeof RISK_CODES)[number]
+export type ChannelHealthReviewBatchWithdrawReasonCode = (typeof WITHDRAW_REASON_CODES)[number]
+export type ChannelHealthReviewBatchCoordinationEventType = (typeof COORDINATION_EVENT_TYPES)[number]
 
 export type ChannelHealthReviewBatchStatusCounts = Record<ChannelHealthReviewBatchTaskStatus, number>
 
@@ -44,7 +68,7 @@ export interface ChannelHealthReviewBatchSummary {
   sourceType: typeof SOURCE_TYPE
   name: string
   priority: ChannelHealthReviewBatchPriority
-  dueAt: string
+  dueAt: string | null
   assigneeUid: ApiId
   createdByUid: ApiId
   candidateCount: number
@@ -69,6 +93,59 @@ export interface ChannelHealthReviewBatchDetail extends ChannelHealthReviewBatch
   tasks: ChannelHealthReviewBatchItem[]
 }
 
+export interface ChannelHealthReviewBatchCoordinationTask {
+  taskId: ApiId
+  title: string
+  status: ChannelHealthReviewBatchTaskStatus
+  maintenancePhase: ChannelHealthReviewBatchMaintenancePhase
+  assigneeUid: ApiId
+  dueAt: string | null
+  updateTime: string
+  canReassign: boolean
+  canWithdraw: boolean
+}
+
+export interface ChannelHealthReviewBatchCoordination {
+  batchId: ApiId
+  domain: number
+  name: string
+  dispatchAssigneeUid: ApiId
+  dueAt: string | null
+  effectiveDueAt: string | null
+  coordinationVersion: number
+  progressState: ChannelHealthReviewBatchProgressState
+  dueState: ChannelHealthReviewBatchDueState
+  openTaskCount: number
+  activeTaskCount: number
+  reassignableTaskCount: number
+  canExtendDueAt: boolean
+  canBulkReassign: boolean
+  canAddRiskNote: boolean
+  canWithdrawOpenTasks: boolean
+  taskStatusCounts: ChannelHealthReviewBatchStatusCounts
+  tasks: ChannelHealthReviewBatchCoordinationTask[]
+}
+
+export interface ChannelHealthReviewBatchEvent {
+  id: ApiId
+  eventType: ChannelHealthReviewBatchCoordinationEventType
+  previousDueAt: string | null
+  effectiveDueAt: string | null
+  previousAssigneeUid: ApiId | null
+  replacementAssigneeUid: ApiId | null
+  riskCode: ChannelHealthReviewBatchRiskCode | null
+  withdrawReasonCode: ChannelHealthReviewBatchWithdrawReasonCode | null
+  affectedTaskCount: number
+  note: string
+  coordinationVersion: number
+  createTime: string
+}
+
+export interface ChannelHealthReviewBatchEventPage {
+  nextCursor: ApiId | null
+  items: ChannelHealthReviewBatchEvent[]
+}
+
 export interface ChannelHealthReviewBatchPage {
   available: boolean
   nextCursor: ApiId | null
@@ -91,8 +168,39 @@ export interface ChannelHealthReviewBatchCreateCmd {
 
 export type ChannelHealthReviewBatchCreateRequest = ChannelHealthReviewBatchCreateCmd
 
+export interface ChannelHealthReviewBatchExtendDeadlineCmd {
+  expectedCoordinationVersion: number
+  extendByDays: ChannelHealthReviewBatchExtendByDays
+  note: string
+}
+
+export interface ChannelHealthReviewBatchReassignActiveTasksCmd {
+  expectedCoordinationVersion: number
+  replacementUid: ApiId
+  note: string
+}
+
+export interface ChannelHealthReviewBatchRiskNoteCmd {
+  expectedCoordinationVersion: number
+  riskCode: ChannelHealthReviewBatchRiskCode
+  note: string
+}
+
+export interface ChannelHealthReviewBatchWithdrawOpenTasksCmd {
+  expectedCoordinationVersion: number
+  expectedOpenTaskCount: number
+  expectedActiveTaskCount: number
+  reasonCode: ChannelHealthReviewBatchWithdrawReasonCode
+  note: string
+}
+
 export interface ChannelHealthReviewBatchListQuery {
   domain: number
+  cursor?: ApiId
+  size?: number
+}
+
+export interface ChannelHealthReviewBatchEventListQuery {
   cursor?: ApiId
   size?: number
 }
@@ -166,6 +274,26 @@ const isTerminalOutcomeCode = (
   typeof value === 'string' && (TERMINAL_OUTCOME_CODES as readonly string[]).includes(value)
 )
 
+const isExtendByDays = (value: unknown): value is ChannelHealthReviewBatchExtendByDays => (
+  typeof value === 'number'
+  && Number.isSafeInteger(value)
+  && (EXTEND_BY_DAYS_OPTIONS as readonly number[]).includes(value)
+)
+
+const isRiskCode = (value: unknown): value is ChannelHealthReviewBatchRiskCode => (
+  typeof value === 'string' && (RISK_CODES as readonly string[]).includes(value)
+)
+
+const isWithdrawReasonCode = (value: unknown): value is ChannelHealthReviewBatchWithdrawReasonCode => (
+  typeof value === 'string' && (WITHDRAW_REASON_CODES as readonly string[]).includes(value)
+)
+
+const isCoordinationEventType = (
+  value: unknown,
+): value is ChannelHealthReviewBatchCoordinationEventType => (
+  typeof value === 'string' && (COORDINATION_EVENT_TYPES as readonly string[]).includes(value)
+)
+
 export const isChannelHealthReviewBatchPriority = (
   value: unknown,
 ): value is ChannelHealthReviewBatchPriority => isPriority(value)
@@ -177,6 +305,10 @@ export const isChannelHealthReviewBatchDueInDays = (
   && Number.isSafeInteger(value)
   && (DUE_IN_DAYS_OPTIONS as readonly number[]).includes(value)
 )
+
+export const isChannelHealthReviewBatchExtendByDays = (
+  value: unknown,
+): value is ChannelHealthReviewBatchExtendByDays => isExtendByDays(value)
 
 const safeFutureOrHistoricalTimestamp = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
@@ -231,7 +363,7 @@ const adaptBatchSummary = (raw: unknown): ChannelHealthReviewBatchSummary | null
   const domain = safeDomain(value?.domain)
   const name = safeText(value?.name, 2, 120)
   const priority = value?.priority
-  const dueAt = safeFutureOrHistoricalTimestamp(value?.dueAt)
+  const dueAt = safeOptionalTimestamp(value?.dueAt)
   const assigneeUid = safePositiveLongId(value?.assigneeUid)
   const createdByUid = safePositiveLongId(value?.createdByUid)
   const candidateCount = safeNonNegativeInteger(value?.candidateCount)
@@ -250,7 +382,7 @@ const adaptBatchSummary = (raw: unknown): ChannelHealthReviewBatchSummary | null
     || domain == null
     || !name
     || !isPriority(priority)
-    || !dueAt
+    || dueAt === undefined
     || value.sourceType !== SOURCE_TYPE
     || !assigneeUid
     || !createdByUid
@@ -268,6 +400,7 @@ const adaptBatchSummary = (raw: unknown): ChannelHealthReviewBatchSummary | null
     )
     || (
       hasActiveTasks
+      && dueAt != null
       && dueState === 'NOT_APPLICABLE'
     )
   ) return null
@@ -348,6 +481,326 @@ const adaptBatchItem = (
     status,
     maintenancePhase,
     terminalOutcome,
+  }
+}
+
+const safeBoolean = (value: unknown): boolean | null => (
+  typeof value === 'boolean' ? value : null
+)
+
+const safeOptionalTimestamp = (value: unknown): string | null | undefined => {
+  if (value == null) return null
+  return safeFutureOrHistoricalTimestamp(value) ?? undefined
+}
+
+const safeOptionalPositiveLongId = (value: unknown): ApiId | null | undefined => {
+  if (value == null) return null
+  return safePositiveLongId(value) ?? undefined
+}
+
+const taskPhaseMatchesStatus = (
+  status: ChannelHealthReviewBatchTaskStatus,
+  maintenancePhase: ChannelHealthReviewBatchMaintenancePhase,
+): boolean => (
+  (status === 'OPEN' && maintenancePhase === 'OPEN')
+  || (
+    status === 'CLAIMED'
+    && (maintenancePhase === 'IN_PROGRESS' || maintenancePhase === 'REWORK')
+  )
+  || (status === 'SUBMITTED' && maintenancePhase === 'REVIEW_PENDING')
+  || (status === 'COMPLETED' && maintenancePhase === 'VERIFIED_DELIVERY')
+  || (status === 'CLOSED' && maintenancePhase === 'CLOSED')
+)
+
+const adaptCoordinationTask = (
+  raw: unknown,
+): ChannelHealthReviewBatchCoordinationTask | null => {
+  const value = asRecord(raw)
+  const taskId = safePositiveLongId(value?.taskId)
+  const title = safeText(value?.title, 2, 160)
+  const status = value?.status
+  const maintenancePhase = value?.maintenancePhase
+  const assigneeUid = safePositiveLongId(value?.assigneeUid)
+  const dueAt = safeOptionalTimestamp(value?.dueAt)
+  const updateTime = safeFutureOrHistoricalTimestamp(value?.updateTime)
+  const canReassign = safeBoolean(value?.canReassign)
+  const canWithdraw = safeBoolean(value?.canWithdraw)
+  if (
+    !value
+    || !taskId
+    || !title
+    || !isTaskStatus(status)
+    || !isMaintenancePhase(maintenancePhase)
+    || !assigneeUid
+    || dueAt === undefined
+    || !updateTime
+    || canReassign == null
+    || canWithdraw == null
+    || !taskPhaseMatchesStatus(status, maintenancePhase)
+    || canReassign !== (status === 'OPEN' || status === 'CLAIMED')
+    || canWithdraw !== (status === 'OPEN')
+  ) return null
+  return {
+    taskId,
+    title,
+    status,
+    maintenancePhase,
+    assigneeUid,
+    dueAt,
+    updateTime,
+    canReassign,
+    canWithdraw,
+  }
+}
+
+export const unavailableChannelHealthReviewBatchCoordination = (): ChannelHealthReviewBatchCoordination | null => null
+
+export const adaptChannelHealthReviewBatchCoordination = (
+  raw: unknown,
+): ChannelHealthReviewBatchCoordination | null => {
+  try {
+    const value = asRecord(raw)
+    const batchId = safePositiveLongId(value?.batchId)
+    const domain = safeDomain(value?.domain)
+    const name = safeText(value?.name, 2, 120)
+    const dispatchAssigneeUid = safePositiveLongId(value?.dispatchAssigneeUid)
+    const dueAt = safeOptionalTimestamp(value?.dueAt)
+    const effectiveDueAt = safeOptionalTimestamp(value?.effectiveDueAt)
+    const coordinationVersion = safeNonNegativeInteger(value?.coordinationVersion)
+    const progressState = value?.progressState
+    const dueState = value?.dueState
+    const openTaskCount = safeNonNegativeInteger(value?.openTaskCount)
+    const activeTaskCount = safeNonNegativeInteger(value?.activeTaskCount)
+    const reassignableTaskCount = safeNonNegativeInteger(value?.reassignableTaskCount)
+    const canExtendDueAt = safeBoolean(value?.canExtendDueAt)
+    const canBulkReassign = safeBoolean(value?.canBulkReassign)
+    const canAddRiskNote = safeBoolean(value?.canAddRiskNote)
+    const canWithdrawOpenTasks = safeBoolean(value?.canWithdrawOpenTasks)
+    if (
+      !value
+      || !batchId
+      || domain == null
+      || !name
+      || !dispatchAssigneeUid
+      || dueAt === undefined
+      || effectiveDueAt === undefined
+      || coordinationVersion == null
+      || !isProgressState(progressState)
+      || !isDueState(dueState)
+      || openTaskCount == null
+      || activeTaskCount == null
+      || reassignableTaskCount == null
+      || canExtendDueAt == null
+      || canBulkReassign == null
+      || canAddRiskNote == null
+      || canWithdrawOpenTasks == null
+      || !Array.isArray(value.tasks)
+      || value.tasks.length < 1
+      || value.tasks.length > MAX_BATCH_CANDIDATES
+    ) return unavailableChannelHealthReviewBatchCoordination()
+
+    const tasks = value.tasks.map(adaptCoordinationTask)
+    if (tasks.some((task) => task == null)) return unavailableChannelHealthReviewBatchCoordination()
+    const taskStatusCounts = adaptStatusCounts(value.taskStatusCounts, tasks.length)
+    if (!taskStatusCounts) return unavailableChannelHealthReviewBatchCoordination()
+
+    const observedCounts = {} as ChannelHealthReviewBatchStatusCounts
+    for (const status of TASK_STATUSES) observedCounts[status] = 0
+    const taskIds = new Set<string>()
+    for (const task of tasks as ChannelHealthReviewBatchCoordinationTask[]) {
+      if (taskIds.has(String(task.taskId))) return unavailableChannelHealthReviewBatchCoordination()
+      taskIds.add(String(task.taskId))
+      observedCounts[task.status] += 1
+    }
+    for (const status of TASK_STATUSES) {
+      if (observedCounts[status] !== taskStatusCounts[status]) {
+        return unavailableChannelHealthReviewBatchCoordination()
+      }
+    }
+
+    const expectedActiveTaskCount = taskStatusCounts.OPEN
+      + taskStatusCounts.CLAIMED
+      + taskStatusCounts.SUBMITTED
+    const expectedReassignableTaskCount = taskStatusCounts.OPEN + taskStatusCounts.CLAIMED
+    const hasConfiguredDeadline = dueAt != null && effectiveDueAt != null
+    if (
+      progressState !== expectedProgressState(taskStatusCounts)
+      || openTaskCount !== taskStatusCounts.OPEN
+      || activeTaskCount !== expectedActiveTaskCount
+      || reassignableTaskCount !== expectedReassignableTaskCount
+      || (dueAt == null) !== (effectiveDueAt == null)
+      || canExtendDueAt !== (hasConfiguredDeadline && expectedActiveTaskCount > 0)
+      || canBulkReassign !== (expectedReassignableTaskCount > 0)
+      || canWithdrawOpenTasks !== (taskStatusCounts.OPEN > 0)
+      || (
+        (!hasConfiguredDeadline || expectedActiveTaskCount === 0)
+        && dueState !== 'NOT_APPLICABLE'
+      )
+      || (
+        hasConfiguredDeadline
+        && expectedActiveTaskCount > 0
+        && dueState === 'NOT_APPLICABLE'
+      )
+    ) return unavailableChannelHealthReviewBatchCoordination()
+
+    return {
+      batchId,
+      domain,
+      name,
+      dispatchAssigneeUid,
+      dueAt,
+      effectiveDueAt,
+      coordinationVersion,
+      progressState,
+      dueState,
+      openTaskCount,
+      activeTaskCount,
+      reassignableTaskCount,
+      canExtendDueAt,
+      canBulkReassign,
+      canAddRiskNote,
+      canWithdrawOpenTasks,
+      taskStatusCounts,
+      tasks: tasks as ChannelHealthReviewBatchCoordinationTask[],
+    }
+  } catch {
+    return unavailableChannelHealthReviewBatchCoordination()
+  }
+}
+
+const timestampEpoch = (value: string): number => Date.parse(value)
+
+const adaptCoordinationEvent = (
+  raw: unknown,
+): ChannelHealthReviewBatchEvent | null => {
+  const value = asRecord(raw)
+  const id = safePositiveLongId(value?.id)
+  const eventType = value?.eventType
+  const previousDueAt = safeOptionalTimestamp(value?.previousDueAt)
+  const effectiveDueAt = safeOptionalTimestamp(value?.effectiveDueAt)
+  const previousAssigneeUid = safeOptionalPositiveLongId(value?.previousAssigneeUid)
+  const replacementAssigneeUid = safeOptionalPositiveLongId(value?.replacementAssigneeUid)
+  const riskCode = value?.riskCode == null ? null : (
+    isRiskCode(value.riskCode) ? value.riskCode : undefined
+  )
+  const withdrawReasonCode = value?.withdrawReasonCode == null ? null : (
+    isWithdrawReasonCode(value.withdrawReasonCode) ? value.withdrawReasonCode : undefined
+  )
+  const affectedTaskCount = safeNonNegativeInteger(value?.affectedTaskCount)
+  const note = safeText(value?.note, 2, 500)
+  const coordinationVersion = safeNonNegativeInteger(value?.coordinationVersion)
+  const createTime = safeFutureOrHistoricalTimestamp(value?.createTime)
+  if (
+    !value
+    || !id
+    || !isCoordinationEventType(eventType)
+    || previousDueAt === undefined
+    || effectiveDueAt === undefined
+    || previousAssigneeUid === undefined
+    || replacementAssigneeUid === undefined
+    || riskCode === undefined
+    || withdrawReasonCode === undefined
+    || affectedTaskCount == null
+    || affectedTaskCount > MAX_BATCH_CANDIDATES
+    || !note
+    || coordinationVersion == null
+    || coordinationVersion < 1
+    || !createTime
+  ) return null
+
+  const deadlineExtended = eventType === 'DEADLINE_EXTENDED'
+    && previousDueAt != null
+    && effectiveDueAt != null
+    && timestampEpoch(effectiveDueAt) > timestampEpoch(previousDueAt)
+    && previousAssigneeUid == null
+    && replacementAssigneeUid == null
+    && riskCode == null
+    && withdrawReasonCode == null
+    && affectedTaskCount > 0
+  const activeTasksReassigned = eventType === 'ACTIVE_TASKS_REASSIGNED'
+    && previousDueAt == null
+    && effectiveDueAt == null
+    && replacementAssigneeUid != null
+    && (previousAssigneeUid == null || previousAssigneeUid !== replacementAssigneeUid)
+    && riskCode == null
+    && withdrawReasonCode == null
+    && affectedTaskCount > 0
+  const riskNoteAdded = eventType === 'RISK_NOTE_ADDED'
+    && previousDueAt == null
+    && effectiveDueAt == null
+    && previousAssigneeUid == null
+    && replacementAssigneeUid == null
+    && riskCode != null
+    && withdrawReasonCode == null
+    && affectedTaskCount === 0
+  const openTasksWithdrawn = eventType === 'OPEN_TASKS_WITHDRAWN'
+    && previousDueAt == null
+    && effectiveDueAt == null
+    && previousAssigneeUid == null
+    && replacementAssigneeUid == null
+    && riskCode == null
+    && withdrawReasonCode != null
+    && affectedTaskCount > 0
+  if (!deadlineExtended && !activeTasksReassigned && !riskNoteAdded && !openTasksWithdrawn) return null
+
+  return {
+    id,
+    eventType,
+    previousDueAt,
+    effectiveDueAt,
+    previousAssigneeUid,
+    replacementAssigneeUid,
+    riskCode,
+    withdrawReasonCode,
+    affectedTaskCount,
+    note,
+    coordinationVersion,
+    createTime,
+  }
+}
+
+export const unavailableChannelHealthReviewBatchEventPage = (): ChannelHealthReviewBatchEventPage | null => null
+
+export const adaptChannelHealthReviewBatchEventPage = (
+  raw: unknown,
+  requestedSize = 10,
+): ChannelHealthReviewBatchEventPage | null => {
+  try {
+    const value = asRecord(raw)
+    if (
+      !value
+      || !Number.isInteger(requestedSize)
+      || requestedSize < 1
+      || requestedSize > MAX_EVENT_PAGE_SIZE
+      || !Array.isArray(value.items)
+      || value.items.length > requestedSize
+    ) return unavailableChannelHealthReviewBatchEventPage()
+    const items = value.items.map(adaptCoordinationEvent)
+    const nextCursor = value.nextCursor == null ? null : safePositiveLongId(value.nextCursor)
+    if (items.some((item) => item == null) || (value.nextCursor != null && !nextCursor)) {
+      return unavailableChannelHealthReviewBatchEventPage()
+    }
+    let previousId: bigint | null = null
+    const eventIds = new Set<string>()
+    for (const item of items as ChannelHealthReviewBatchEvent[]) {
+      const currentId = BigInt(String(item.id))
+      if (
+        eventIds.has(String(item.id))
+        || (previousId != null && currentId >= previousId)
+      ) return unavailableChannelHealthReviewBatchEventPage()
+      eventIds.add(String(item.id))
+      previousId = currentId
+    }
+    if (
+      nextCursor != null
+      && (previousId == null || BigInt(String(nextCursor)) !== previousId)
+    ) return unavailableChannelHealthReviewBatchEventPage()
+    return {
+      nextCursor,
+      items: items as ChannelHealthReviewBatchEvent[],
+    }
+  } catch {
+    return unavailableChannelHealthReviewBatchEventPage()
   }
 }
 
@@ -500,6 +953,121 @@ const normalizedCreateRequest = (
   }
 }
 
+const normalizedEventListQuery = (
+  query: ChannelHealthReviewBatchEventListQuery,
+): Record<string, string | number> | null => {
+  const cursor = query?.cursor == null ? null : safePositiveLongId(query.cursor)
+  const requestedSize = query?.size == null ? 10 : query.size
+  const size = Number.isInteger(requestedSize) && requestedSize >= 1 && requestedSize <= MAX_EVENT_PAGE_SIZE
+    ? requestedSize
+    : null
+  if ((query?.cursor != null && !cursor) || size == null) return null
+  return {
+    size,
+    ...(cursor ? { cursor: String(cursor) } : {}),
+  }
+}
+
+const normalizedCoordinationVersion = (value: unknown): number | null => {
+  const coordinationVersion = safeNonNegativeInteger(value)
+  return coordinationVersion == null ? null : coordinationVersion
+}
+
+const normalizedCoordinationNote = (value: unknown): string | null => safeText(value, 2, 500)
+
+type ChannelHealthReviewBatchExtendDeadlinePayload = {
+  expectedCoordinationVersion: number
+  extendByDays: ChannelHealthReviewBatchExtendByDays
+  note: string
+}
+
+const normalizedExtendDeadlineRequest = (
+  request: ChannelHealthReviewBatchExtendDeadlineCmd,
+): ChannelHealthReviewBatchExtendDeadlinePayload | null => {
+  const expectedCoordinationVersion = normalizedCoordinationVersion(request?.expectedCoordinationVersion)
+  const note = normalizedCoordinationNote(request?.note)
+  if (expectedCoordinationVersion == null || !isExtendByDays(request?.extendByDays) || !note) return null
+  return {
+    expectedCoordinationVersion,
+    extendByDays: request.extendByDays,
+    note,
+  }
+}
+
+type ChannelHealthReviewBatchReassignActiveTasksPayload = {
+  expectedCoordinationVersion: number
+  replacementUid: string
+  note: string
+}
+
+const normalizedReassignActiveTasksRequest = (
+  request: ChannelHealthReviewBatchReassignActiveTasksCmd,
+): ChannelHealthReviewBatchReassignActiveTasksPayload | null => {
+  const expectedCoordinationVersion = normalizedCoordinationVersion(request?.expectedCoordinationVersion)
+  const replacementUid = safePositiveLongId(request?.replacementUid)
+  const note = normalizedCoordinationNote(request?.note)
+  if (expectedCoordinationVersion == null || !replacementUid || !note) return null
+  return {
+    expectedCoordinationVersion,
+    replacementUid: String(replacementUid),
+    note,
+  }
+}
+
+type ChannelHealthReviewBatchRiskNotePayload = {
+  expectedCoordinationVersion: number
+  riskCode: ChannelHealthReviewBatchRiskCode
+  note: string
+}
+
+const normalizedRiskNoteRequest = (
+  request: ChannelHealthReviewBatchRiskNoteCmd,
+): ChannelHealthReviewBatchRiskNotePayload | null => {
+  const expectedCoordinationVersion = normalizedCoordinationVersion(request?.expectedCoordinationVersion)
+  const note = normalizedCoordinationNote(request?.note)
+  if (expectedCoordinationVersion == null || !isRiskCode(request?.riskCode) || !note) return null
+  return {
+    expectedCoordinationVersion,
+    riskCode: request.riskCode,
+    note,
+  }
+}
+
+type ChannelHealthReviewBatchWithdrawOpenTasksPayload = {
+  expectedCoordinationVersion: number
+  expectedOpenTaskCount: number
+  expectedActiveTaskCount: number
+  reasonCode: ChannelHealthReviewBatchWithdrawReasonCode
+  note: string
+}
+
+const normalizedWithdrawOpenTasksRequest = (
+  request: ChannelHealthReviewBatchWithdrawOpenTasksCmd,
+): ChannelHealthReviewBatchWithdrawOpenTasksPayload | null => {
+  const expectedCoordinationVersion = normalizedCoordinationVersion(request?.expectedCoordinationVersion)
+  const expectedOpenTaskCount = safeNonNegativeInteger(request?.expectedOpenTaskCount)
+  const expectedActiveTaskCount = safeNonNegativeInteger(request?.expectedActiveTaskCount)
+  const note = normalizedCoordinationNote(request?.note)
+  if (
+    expectedCoordinationVersion == null
+    || expectedOpenTaskCount == null
+    || expectedOpenTaskCount < 1
+    || expectedOpenTaskCount > MAX_BATCH_CANDIDATES
+    || expectedActiveTaskCount == null
+    || expectedActiveTaskCount < expectedOpenTaskCount
+    || expectedActiveTaskCount > MAX_BATCH_CANDIDATES
+    || !isWithdrawReasonCode(request?.reasonCode)
+    || !note
+  ) return null
+  return {
+    expectedCoordinationVersion,
+    expectedOpenTaskCount,
+    expectedActiveTaskCount,
+    reasonCode: request.reasonCode,
+    note,
+  }
+}
+
 const invalidBatchResult = (): Result<null> => ({
   code: 200,
   message: 'channel_health_review_batch_request_invalid',
@@ -511,6 +1079,56 @@ const invalidBatchPageResult = (): Result<ChannelHealthReviewBatchPage> => ({
   message: 'channel_health_review_batch_query_invalid',
   data: unavailableChannelHealthReviewBatchPage(),
 })
+
+const invalidCoordinationResult = (): Result<ChannelHealthReviewBatchCoordination | null> => ({
+  code: 200,
+  message: 'channel_health_review_batch_coordination_request_invalid',
+  data: unavailableChannelHealthReviewBatchCoordination(),
+})
+
+const invalidEventPageResult = (): Result<ChannelHealthReviewBatchEventPage | null> => ({
+  code: 200,
+  message: 'channel_health_review_batch_event_query_invalid',
+  data: unavailableChannelHealthReviewBatchEventPage(),
+})
+
+export class ChannelHealthReviewBatchCoordinationContractError extends Error {
+  constructor() {
+    super('频道质量批次协调数据不符合远端契约')
+    this.name = 'ChannelHealthReviewBatchCoordinationContractError'
+  }
+}
+
+const adaptStrictCoordinationResult = (
+  raw: Result<unknown>,
+): Result<ChannelHealthReviewBatchCoordination> => {
+  const result = withRemoteResultProvenance(raw)
+  if (result.code !== 0 || result.source !== 'remote' || result.degraded || result.data == null) {
+    throw new ChannelHealthReviewBatchCoordinationContractError()
+  }
+  const data = adaptChannelHealthReviewBatchCoordination(result.data)
+  if (!data) throw new ChannelHealthReviewBatchCoordinationContractError()
+  return {
+    ...result,
+    data,
+  }
+}
+
+const adaptStrictEventPageResult = (
+  raw: Result<unknown>,
+  requestedSize: number,
+): Result<ChannelHealthReviewBatchEventPage> => {
+  const result = withRemoteResultProvenance(raw)
+  if (result.code !== 0 || result.source !== 'remote' || result.degraded || result.data == null) {
+    throw new ChannelHealthReviewBatchCoordinationContractError()
+  }
+  const data = adaptChannelHealthReviewBatchEventPage(result.data, requestedSize)
+  if (!data) throw new ChannelHealthReviewBatchCoordinationContractError()
+  return {
+    ...result,
+    data,
+  }
+}
 
 const encodeId = (value: ApiId) => encodeURIComponent(String(value))
 
@@ -560,5 +1178,88 @@ export const channelHealthReviewBatchesApi = {
       ...response,
       data: adaptChannelHealthReviewBatchDetail(response.data),
     }
+  },
+  coordination: async (
+    batchId: ApiId,
+    options: ChannelHealthReviewBatchRequestOptions = {},
+  ): Promise<Result<ChannelHealthReviewBatchCoordination>> => {
+    const id = safePositiveLongId(batchId)
+    if (!id) return invalidCoordinationResult() as Result<ChannelHealthReviewBatchCoordination>
+    const raw = await client.get(`${BASE_PATH}/${encodeId(id)}/coordination`, {
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    }) as Result<unknown>
+    return adaptStrictCoordinationResult(raw)
+  },
+  extendDeadline: async (
+    batchId: ApiId,
+    request: ChannelHealthReviewBatchExtendDeadlineCmd,
+    options: ChannelHealthReviewBatchRequestOptions = {},
+  ): Promise<Result<ChannelHealthReviewBatchCoordination>> => {
+    const id = safePositiveLongId(batchId)
+    const payload = normalizedExtendDeadlineRequest(request)
+    if (!id || !payload) return invalidCoordinationResult() as Result<ChannelHealthReviewBatchCoordination>
+    const raw = await client.post(`${BASE_PATH}/${encodeId(id)}/extend-deadline`, payload, {
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    }) as Result<unknown>
+    return adaptStrictCoordinationResult(raw)
+  },
+  reassignActiveTasks: async (
+    batchId: ApiId,
+    request: ChannelHealthReviewBatchReassignActiveTasksCmd,
+    options: ChannelHealthReviewBatchRequestOptions = {},
+  ): Promise<Result<ChannelHealthReviewBatchCoordination>> => {
+    const id = safePositiveLongId(batchId)
+    const payload = normalizedReassignActiveTasksRequest(request)
+    if (!id || !payload) return invalidCoordinationResult() as Result<ChannelHealthReviewBatchCoordination>
+    const raw = await client.post(`${BASE_PATH}/${encodeId(id)}/reassign-active-tasks`, payload, {
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    }) as Result<unknown>
+    return adaptStrictCoordinationResult(raw)
+  },
+  addRiskNote: async (
+    batchId: ApiId,
+    request: ChannelHealthReviewBatchRiskNoteCmd,
+    options: ChannelHealthReviewBatchRequestOptions = {},
+  ): Promise<Result<ChannelHealthReviewBatchCoordination>> => {
+    const id = safePositiveLongId(batchId)
+    const payload = normalizedRiskNoteRequest(request)
+    if (!id || !payload) return invalidCoordinationResult() as Result<ChannelHealthReviewBatchCoordination>
+    const raw = await client.post(`${BASE_PATH}/${encodeId(id)}/risk-notes`, payload, {
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    }) as Result<unknown>
+    return adaptStrictCoordinationResult(raw)
+  },
+  withdrawOpenTasks: async (
+    batchId: ApiId,
+    request: ChannelHealthReviewBatchWithdrawOpenTasksCmd,
+    options: ChannelHealthReviewBatchRequestOptions = {},
+  ): Promise<Result<ChannelHealthReviewBatchCoordination>> => {
+    const id = safePositiveLongId(batchId)
+    const payload = normalizedWithdrawOpenTasksRequest(request)
+    if (!id || !payload) return invalidCoordinationResult() as Result<ChannelHealthReviewBatchCoordination>
+    const raw = await client.post(`${BASE_PATH}/${encodeId(id)}/withdraw-open-tasks`, payload, {
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    }) as Result<unknown>
+    return adaptStrictCoordinationResult(raw)
+  },
+  events: async (
+    batchId: ApiId,
+    query: ChannelHealthReviewBatchEventListQuery = {},
+    options: ChannelHealthReviewBatchRequestOptions = {},
+  ): Promise<Result<ChannelHealthReviewBatchEventPage>> => {
+    const id = safePositiveLongId(batchId)
+    const params = normalizedEventListQuery(query)
+    if (!id || !params) return invalidEventPageResult() as Result<ChannelHealthReviewBatchEventPage>
+    const raw = await client.get(`${BASE_PATH}/${encodeId(id)}/events`, {
+      params,
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    }) as Result<unknown>
+    return adaptStrictEventPageResult(raw, Number(params.size))
   },
 }

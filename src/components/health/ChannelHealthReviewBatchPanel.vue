@@ -58,7 +58,7 @@
                 {{ priorityLabel(batch.priority) }}优先级
               </span>
             </div>
-            <p>负责人 UID：{{ batch.assigneeUid }} · {{ batch.candidateCount }} 条任务 · 截止 {{ formatDueAt(batch.dueAt) }}</p>
+            <p>派发负责人 UID：{{ batch.assigneeUid }} · {{ batch.candidateCount }} 条任务 · 截止 {{ formatDueAt(batch.dueAt) }}</p>
             <div class="batch-meta">
               <span :class="['progress-state', `progress-${batch.progressState.toLowerCase()}`]">
                 {{ progressStateLabel(batch.progressState) }}
@@ -136,6 +136,10 @@
               <RouterLink :to="item.postHref" class="post-link">查看公开内容</RouterLink>
             </article>
           </div>
+          <ChannelHealthReviewBatchCoordinationWorkspace
+            :batch-id="detail.id"
+            @coordinated="handleCoordinationChanged"
+          />
         </template>
       </section>
     </template>
@@ -160,12 +164,17 @@ import {
 } from '@/api/channelHealthReviewBatches'
 import type { ApiId } from '@/api/types'
 import type { ChannelHealth } from '@/api/channelHealth'
+import ChannelHealthReviewBatchCoordinationWorkspace from './ChannelHealthReviewBatchCoordinationWorkspace.vue'
 
 const props = defineProps<{
   refreshKey?: number
   channels: ChannelHealth[]
   canCreateGlobally: boolean
   moderatedDomains: number[]
+}>()
+
+const emit = defineEmits<{
+  'batch-coordinated': [batchId: ApiId]
 }>()
 
 const selectedDomain = ref<number | null>(null)
@@ -263,7 +272,8 @@ const terminalOutcomeLabel = (outcome: ChannelHealthReviewBatchTerminalOutcomeCo
   outcome === 'VERIFIED_DELIVERY' ? '已验证交付' : outcome
 )
 
-const formatDueAt = (value: string) => {
+const formatDueAt = (value: string | null) => {
+  if (value == null) return '未设置'
   if (value.endsWith('Z')) {
     const date = new Date(value)
     if (!Number.isNaN(date.getTime())) return date.toLocaleString('zh-CN', { hour12: false })
@@ -367,6 +377,16 @@ const retryDetail = () => {
   void loadDetail(selectedBatchId.value)
 }
 
+const openBatch = async (batchId: ApiId) => {
+  if (detailLoading.value) return
+  await loadDetail(batchId)
+}
+
+const handleCoordinationChanged = (batchId: ApiId) => {
+  void Promise.all([loadDetail(batchId), load()])
+  emit('batch-coordinated', batchId)
+}
+
 watch(domains, () => {
   ensureSelectedDomain()
 }, { immediate: true })
@@ -386,6 +406,10 @@ watch(selectedDomain, (domain, previousDomain) => {
 watch(() => props.refreshKey, (value, previousValue) => {
   if (value == null || value === previousValue) return
   void load()
+})
+
+defineExpose({
+  openBatch,
 })
 </script>
 

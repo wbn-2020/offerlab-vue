@@ -259,3 +259,4 @@ onBeforeUnmount(() => {
 .dark .attempt-marker,.dark .attempt-card,.dark .retry-button,.dark .timeline-state { border-color: rgb(51 65 85); background: rgb(15 23 42); }
 .dark .attempt-head p,.dark .attempt-head span,.dark .attempt-head time,.dark .attempt-meta,.dark .attempt-note,.dark .decision p,.dark .decision small,.dark .timeline-state { color: rgb(148 163 184); }
 .dark .retry-button { color: rgb(203 213 225); }
+</style>

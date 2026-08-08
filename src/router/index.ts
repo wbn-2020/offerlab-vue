@@ -233,6 +233,12 @@ const routes = [
     meta: { title: '我的维护任务', requiresAuth: true },
   },
   {
+    path: '/me/governance-todos',
+    name: 'MyGovernanceTodos',
+    component: () => import('@/views/me/MyGovernanceTodosView.vue'),
+    meta: { title: '我的治理待办', requiresAuth: true },
+  },
+  {
     path: '/me/prep',
     name: 'MePrep',
     ...(enableLegacyTrainingRoutes
@@ -332,6 +338,26 @@ const routes = [
       title: '频道健康度',
       requiresAuth: true,
       adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+    },
+  },
+  {
+    path: '/admin/community-health/quality-governance-analytics',
+    name: 'ChannelQualityGovernanceAnalytics',
+    component: () => import('@/views/admin/ChannelQualityGovernanceAnalyticsView.vue'),
+    meta: {
+      title: '频道质量治理分析',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'admin'],
+    },
+  },
+  {
+    path: '/admin/community-health/playbooks',
+    name: 'ChannelQualityGovernancePlaybooks',
+    component: () => import('@/views/admin/ChannelQualityGovernancePlaybooksView.vue'),
+    meta: {
+      title: '频道质量治理剧本',
+      requiresAuth: true,
+      adminPermission: ['contentModerator', 'domainModerator', 'ops', 'admin'],
     },
   },
   {

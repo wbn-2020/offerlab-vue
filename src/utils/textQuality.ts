@@ -21,6 +21,13 @@ export const safeVisibleText = (value: unknown, fallback = '内容编码异常�
   return sanitizeVisibleText(value, fallback)
 }
 
+export const safeMarkdownText = (value: unknown, fallback = '内容编码异常，已隐藏原文') => {
+  const normalized = String(value ?? '').replace(/\r\n?/g, '\n').trim()
+  const qualitySample = normalized.replace(/[\n\t]+/g, ' ')
+  if (!qualitySample || isLowQualityVisibleText(qualitySample)) return fallback
+  return normalized
+}
+
 export const hasLowQualityVisibleText = (values: unknown[]) => {
   return values
     .map((value) => String(value ?? '').trim())

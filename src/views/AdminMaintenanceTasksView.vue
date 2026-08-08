@@ -114,7 +114,7 @@ import {
   type ContentMaintenanceApprovalReasonCode,
   type ContentMaintenanceCloseReasonCode,
   ContentMaintenanceContractError,
-  type ContentMaintenancePriority,
+  type MaintenancePriority,
   type ContentMaintenanceRejectionReasonCode,
   type ContentMaintenanceTask,
   type ContentMaintenanceTerminalOutcomeCode,
@@ -469,8 +469,8 @@ const close = async (task: ContentMaintenanceTask) => {
   }
 }
 const statusLabel = (value: MaintenanceStatus) => ({ OPEN: '待领取', CLAIMED: '处理中', SUBMITTED: '待审核', COMPLETED: '已完成', CLOSED: '已关闭' }[value])
-const priorityLabel = (value: ContentMaintenancePriority) => ({ LOW: '低优先级', MEDIUM: '中优先级', HIGH: '高优先级' }[value])
-const priorityClass = (value: ContentMaintenancePriority) => (
+const priorityLabel = (value: MaintenancePriority) => ({ LOW: '低优先级', MEDIUM: '中优先级', HIGH: '高优先级' }[value])
+const priorityClass = (value: MaintenancePriority) => (
   value === 'HIGH' ? 'priority-high' : value === 'LOW' ? 'priority-low' : 'priority-medium'
 )
 const phaseLabel = (value: MaintenancePhase) => ({
