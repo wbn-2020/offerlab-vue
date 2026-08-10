@@ -8,8 +8,8 @@ const scriptsDirectory = new URL('./', import.meta.url)
 assert.doesNotMatch(workflow, /\t/, 'frontend CI workflow must use YAML spaces rather than tabs')
 assert.match(
   workflow,
-  / {6}- name: Check out backend contract source\s+ {8}uses: actions\/checkout@v4\s+ {8}with:\s+ {10}repository: wbn-2020\/offerlab-java\s+ {10}ref: \$\{\{ vars\.OFFERLAB_BACKEND_REF \|\| \(github\.head_ref == 'main' \|\| github\.head_ref == 'dev-v2'\) && github\.head_ref \|\| \(github\.ref_name == 'main' \|\| github\.ref_name == 'dev-v2'\) && github\.ref_name \|\| github\.base_ref \|\| 'dev-v2' \}\}\s+ {10}path: offerlab-java/,
-  'backend checkout must prefer a matching stable PR head before the push branch, PR base, or fallback',
+  / {6}- name: Check out backend contract source\s+ {8}uses: actions\/checkout@v4\s+ {8}with:\s+ {10}repository: wbn-2020\/offerlab-java\s+ {10}ref: \$\{\{ \(github\.head_ref == 'main' \|\| github\.head_ref == 'dev-v2'\) && github\.head_ref \|\| \(github\.ref_name == 'main' \|\| github\.ref_name == 'dev-v2'\) && github\.ref_name \|\| github\.base_ref \|\| 'dev-v2' \}\}\s+ {10}path: offerlab-java/,
+  'backend checkout must always align stable frontend branches with the same backend branch before using the PR base or fallback',
 )
 assert.doesNotMatch(
   workflow,
