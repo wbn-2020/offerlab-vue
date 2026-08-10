@@ -96,6 +96,7 @@
     "test:notification-aggregation": "node scripts/test-notification-aggregation.mjs",
     "test:realtime-notifications": "node scripts/test-realtime-notifications.mjs",
     "test:keyboard-accessibility": "node scripts/test-keyboard-accessibility.mjs",
+    "test:ux-acceptance-shared": "node scripts/test-ux-acceptance-shared.mjs",
     "test:stage2-task-panel": "node scripts/test-stage2-task-panel.mjs",
     "test:stage2-explore-entry": "node scripts/test-stage2-explore-entry.mjs",
     "test:stage3-domain-source": "node scripts/test-stage3-domain-source.mjs",

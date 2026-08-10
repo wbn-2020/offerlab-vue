@@ -56,10 +56,15 @@
                     >
                       联系作者
                     </button>
-                    <span v-else class="contact-author-unavailable">作者暂未开放联系请求</span>
                   </template>
                 </div>
               </div>
+              <p
+                v-if="showContactAuthorEntry && !canStartContactRequest"
+                class="contact-author-unavailable"
+              >
+                作者暂未开放联系请求
+              </p>
             </section>
 
             <article class="post-detail-article mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
@@ -86,12 +91,11 @@
                 <span>{{ governanceUnavailableState.description }}</span>
               </div>
 
-              <div
+              <details
                 v-if="publishStatusItems.length"
-                class="publish-status-bar mb-6"
-                role="status"
-                aria-live="polite"
+                class="publish-status-bar publish-status-details mb-6"
               >
+                <summary>查看内容发布状态</summary>
                 <div class="publish-status-head">
                   <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">发布状态</span>
                   <span class="text-xs text-slate-500 dark:text-slate-400">{{ publishStatusSummary }}</span>
@@ -107,7 +111,7 @@
                     {{ item.label }}
                   </span>
                 </div>
-              </div>
+              </details>
 
               <div v-if="post.extension" class="mb-6 flex flex-wrap gap-3 border-b border-slate-200 pb-6 dark:border-slate-800">
                 <span v-for="stack in visibleTechStacks" :key="stack" class="meta-pill">技术栈：{{ stack }}</span>
@@ -340,12 +344,21 @@
                 </div>
               </section>
 
-              <section v-if="detailKnowledgeLoading || postKnowledgeAssets.length || postKnowledgePaths.length || postKnowledgeRelations.length" class="post-knowledge-assets mb-8" aria-label="相关公共知识资产">
+              <button
+                type="button"
+                class="post-secondary-toggle"
+                :aria-expanded="showBackgroundDetails"
+                @click="showBackgroundDetails = !showBackgroundDetails"
+              >
+                <span><strong>内容背景与演进</strong><small>来源、更新、结果与相关公共知识</small></span>
+                <span>{{ showBackgroundDetails ? '收起' : '展开' }}</span>
+              </button>
+              <section v-if="detailKnowledgeLoading || postKnowledgeAssets.length || postKnowledgePaths.length || postKnowledgeRelations.length" v-show="showBackgroundDetails" class="post-knowledge-assets mb-8" aria-label="相关公共知识资产">
                 <div class="post-knowledge-head">
                   <div>
                     <p>相关公共知识资产</p>
                     <h2>内容详情页的公共关系入口</h2>
-                    <span>只展示公开资产、来源解释和只读诊断；local-only/fallback/demo 不作为正式关系。</span>
+                    <span>只展示当前可见的公开内容关系；临时整理结果仅供阅读，不会写入正式关系。</span>
                   </div>
                   <RouterLink :to="{ path: '/knowledge/explore', query: { assetType: 'post', assetId: post.postId } }">知识探索</RouterLink>
                 </div>
@@ -378,7 +391,7 @@
                 </div>
               </section>
 
-              <div class="mb-8 grid gap-4">
+              <div v-show="showBackgroundDetails" class="mb-8 grid gap-4">
                 <ReadingThreadPanel v-if="post.domain === DOMAIN.READING" :post-id="String(post.postId)" />
                 <PostReferencePanel :post-id="String(post.postId)" :high-risk="post.domain === 5" />
                 <ContentEvolutionPanel :post-id="String(post.postId)" />
@@ -389,7 +402,7 @@
                 />
               </div>
 
-              <PostQuestionBlock v-if="showStageTwoDetailPanels" :post-id="post.postId" />
+              <PostQuestionBlock v-if="showStageTwoDetailPanels" v-show="showBackgroundDetails" :post-id="post.postId" />
 
               <div v-if="post.tags.length" class="mb-8 flex flex-wrap gap-2 border-b border-slate-200 pb-8 dark:border-slate-800">
                 <RouterLink
@@ -402,18 +415,20 @@
                 </RouterLink>
               </div>
 
-              <InteractionBar
-                :post="post"
-                :like-pending="isTogglingLike"
-                :favorite-pending="isTogglingFavorite"
-                :share-title="post.title"
-                :share-text="detailSeoDescription"
-                :share-canonical="`/post/${postId}`"
-                :share-disabled="!canSharePost"
-                :share-disabled-reason="shareDisabledReason"
-                @like="handleLike"
-                @favorite="handleFavorite"
-              />
+              <div>
+                <InteractionBar
+                  :post="post"
+                  :like-pending="isTogglingLike"
+                  :favorite-pending="isTogglingFavorite"
+                  :share-title="post.title"
+                  :share-text="detailSeoDescription"
+                  :share-canonical="`/post/${postId}`"
+                  :share-disabled="!canSharePost"
+                  :share-disabled-reason="shareDisabledReason"
+                  @like="handleLike"
+                  @favorite="handleFavorite"
+                />
+              </div>
               <div v-if="post.myInteraction?.favorited && !interactionFeedback" class="favorite-organizer-row">
                 <PostSaveOrganizer
                   :post-id="post.postId"
@@ -446,8 +461,24 @@
                   </RouterLink>
                 </div>
               </div>
+              <RouterLink
+                :to="{ path: `/post/${postId}`, hash: '#comments' }"
+                class="discussion-primary-link"
+              >
+                {{ post.counter.comment ? `查看并参与 ${post.counter.comment} 条讨论` : '成为第一个参与讨论的人' }}
+              </RouterLink>
 
+              <button
+                type="button"
+                class="post-secondary-toggle"
+                :aria-expanded="showTrustDetails"
+                @click="showTrustDetails = !showTrustDetails"
+              >
+                <span><strong>可信状态与补充建议</strong><small>时效、来源、公开更新与纠错入口</small></span>
+                <span>{{ showTrustDetails ? '收起' : '展开' }}</span>
+              </button>
               <section
+                v-show="showTrustDetails"
                 id="trusted-content"
                 class="trusted-content-loop"
                 data-trusted-content-loop
@@ -663,6 +694,7 @@
 
               <section
                 v-if="contentTrustSignals.length || publicSuggestionRecords.length"
+                v-show="showTrustDetails"
                 class="content-trust-panel"
                 data-phase15-content-trust
                 data-explainable-trust-signals
@@ -698,7 +730,7 @@
                 </div>
               </section>
 
-              <section v-if="publicUpdates.length" class="public-update-list" aria-labelledby="public-update-list-title">
+              <section v-if="publicUpdates.length" v-show="showTrustDetails" class="public-update-list" aria-labelledby="public-update-list-title">
                 <div class="public-update-list-head">
                   <div>
                     <p>更新记录</p>
@@ -717,6 +749,7 @@
               </section>
 
               <section
+                v-show="showTrustDetails"
                 id="content-suggestions"
                 class="content-suggestion-panel"
                 data-phase15-content-suggestion
@@ -1646,6 +1679,8 @@ const readPostSuggestionEntryOpen = (source?: Post | null) => {
 }
 
 const post = ref<Post | null>(null)
+const showBackgroundDetails = ref(false)
+const showTrustDetails = ref(false)
 const failedDetailImages = ref<string[]>([])
 const publishStatus = computed<PostPublishStatus | null>(() => publishStatusData.value?.data || null)
 const authorUid = computed(() => String(post.value?.author.uid ?? ''))
@@ -1683,12 +1718,12 @@ const authorBioText = computed(() => safeCreatorBio(post.value?.author.signature
 const authorFollowReason = computed(() => buildFollowReasons(post.value?.author, post.value ? [post.value] : [])[0])
 const safeSearchFallbackReason = (reason: string) => {
   const labels: Record<string, string> = {
-    elasticsearch_empty: '索引首屏无可见结果，已补充数据库结果',
-    elasticsearch_visibility_filtered: '索引结果经可见性过滤后不足，已补充数据库结果',
-    elasticsearch_unavailable: 'Elasticsearch 不可用',
-    mysql_fallback_continuation: '继续沿用数据库排序，避免切换排序序列',
-    hot_sort_mysql: '热门排序使用数据库热度',
-    search_api_error: '搜索请求失败',
+    elasticsearch_empty: '已补充更多可见结果',
+    elasticsearch_visibility_filtered: '已补充符合公开条件的结果',
+    elasticsearch_unavailable: '部分搜索结果暂未完整返回',
+    mysql_fallback_continuation: '后续结果沿用当前排序',
+    hot_sort_mysql: '当前按社区热度排序',
+    search_api_error: '部分搜索结果暂未返回',
   }
   return labels[reason] || ''
 }
@@ -1702,16 +1737,16 @@ const searchEntryNotice = computed(() => {
   const degraded = readQuery('degraded') === 'true'
   const fallbackReason = readQuery('fallbackReason')
   const sourceText = source === 'elasticsearch'
-    ? '来自实时搜索索引'
+    ? '来自搜索结果'
     : source === 'mysql'
-      ? '来自数据库兜底搜索'
+      ? '来自搜索结果'
       : source === 'client_fallback'
-        ? '来自客户端兜底入口'
+        ? '来自补充搜索结果'
         : '来自搜索结果'
   const parts = [sourceText]
-  if (degraded) parts.push('本次搜索处于降级链路')
+  if (degraded) parts.push('部分结果可能暂未完整展示')
   const reasonText = safeSearchFallbackReason(fallbackReason)
-  if (reasonText) parts.push(`原因：${reasonText}`)
+  if (reasonText) parts.push(reasonText)
   return parts.join('，')
 })
 const publishStatusItems = computed(() => {
@@ -6450,6 +6485,125 @@ onBeforeUnmount(() => {
   color: rgb(241 245 249);
 }
 
+.publish-status-details {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.publish-status-details {
+  padding: 0;
+}
+
+.publish-status-details > summary {
+  display: flex;
+  min-height: 3.25rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  color: var(--text-strong);
+}
+
+.publish-status-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.publish-status-details > summary::after {
+  content: '展开';
+  flex: 0 0 auto;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.publish-status-details[open] > summary::after {
+  content: '收起';
+}
+
+.post-secondary-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.8rem 0;
+  color: var(--text-strong);
+  text-align: left;
+}
+
+.post-secondary-toggle > span:first-child {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.post-secondary-toggle strong {
+  font-size: 0.875rem;
+}
+
+.post-secondary-toggle small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.post-secondary-toggle > span:last-child {
+  flex: 0 0 auto;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.post-secondary-toggle:hover {
+  background: var(--surface-2);
+}
+
+.publish-status-details .publish-status-head,
+.post-secondary-toggle + section,
+.post-secondary-toggle + div {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.discussion-primary-link {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--primary-700);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.discussion-primary-link:hover {
+  background: var(--surface-2);
+}
+
+.post-detail-author-card .contact-author-unavailable {
+  display: block;
+  min-height: 0;
+  width: auto;
+  margin: 0.55rem 0 0 3.75rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: left;
+}
+
 @media (max-width: 1023px) {
   .post-detail-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -6541,9 +6695,13 @@ onBeforeUnmount(() => {
 
   .discussion-follow-button,
   .discussion-follow-link,
-  .contact-author-button,
-  .contact-author-unavailable {
+  .contact-author-button {
     width: 100%;
+  }
+
+  .post-detail-author-card .contact-author-unavailable {
+    width: auto;
+    margin-left: 0;
   }
 
   .ai-knowledge-grid,

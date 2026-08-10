@@ -403,6 +403,16 @@ const requireStrictRemoteResult = <T>(
   return { ...result, data }
 }
 
+const requireReadableRemoteResult = (
+  raw: Result<unknown>,
+): Result<unknown> => {
+  const result = withRemoteResultProvenance(raw)
+  if (result.code !== 0 || result.source !== 'remote' || result.data == null) {
+    throw new ChannelQualityGovernanceTodoContractError()
+  }
+  return result
+}
+
 export const channelQualityGovernanceTodosApi = {
   mine: async (
     query: ChannelQualityGovernanceTodoListQuery = {},
@@ -418,5 +428,18 @@ export const channelQualityGovernanceTodosApi = {
     return requireStrictRemoteResult(raw, (data) => (
       adaptChannelQualityGovernanceTodoPage(data, params.size)
     ))
+  },
+  mineForDisplay: async (
+    query: ChannelQualityGovernanceTodoListQuery = {},
+    options: ChannelQualityGovernanceTodoRequestOptions = {},
+  ): Promise<Result<unknown>> => {
+    const params = normalizeQuery(query)
+    if (!params) throw new ChannelQualityGovernanceTodoContractError()
+    const raw = await client.get(BASE_PATH, {
+      params,
+      signal: options.signal,
+      skipAuthRedirect: options.skipAuthRedirect,
+    }) as Result<unknown>
+    return requireReadableRemoteResult(raw)
   },
 }

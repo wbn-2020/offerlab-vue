@@ -81,18 +81,24 @@
             <div v-else-if="loadError && !displayedItems.length" class="state-block state-block-error" data-relationship-state="error">
               <AlertCircle class="state-icon" />
               <div>
-                <strong>关系暂时无法读取</strong>
-                <p>{{ loadError }}</p>
+                <strong>{{ relationshipErrorTitle }}</strong>
+                <p>{{ relationshipErrorDescription }}</p>
               </div>
-              <button type="button" class="secondary-action" @click="reload">重新加载</button>
+              <div class="state-actions">
+                <RouterLink v-if="relationshipErrorKind === 'permission'" :to="switchAccountLocation" class="secondary-action">切换账号</RouterLink>
+                <button type="button" class="secondary-action" @click="reload">重新加载</button>
+              </div>
             </div>
             <div v-else-if="!displayedItems.length" class="state-block" data-relationship-state="empty">
               <Link2 class="state-icon" />
               <div>
-                <strong>当前没有匹配的关系</strong>
-                <p>去发现页关注用户、话题或共建资源后，它们会在这里集中出现。</p>
+                <strong>{{ relationshipEmptyTitle }}</strong>
+                <p>{{ relationshipEmptyDescription }}</p>
               </div>
-              <RouterLink to="/explore" class="primary-action">去发现</RouterLink>
+              <div class="state-actions">
+                <button v-if="hasRelationshipFilters" type="button" class="secondary-action" @click="clearRelationshipFilters">查看全部</button>
+                <RouterLink to="/explore" class="primary-action">去发现</RouterLink>
+              </div>
             </div>
             <div v-else class="relationship-list">
               <article
@@ -154,14 +160,22 @@
               </div>
               <Loader2 v-if="isSummaryLoading" class="control-icon animate-spin" aria-label="正在加载关系摘要" />
             </div>
-            <dl class="summary-list">
-              <div v-for="stat in summaryStats" :key="stat.key" class="summary-row">
+            <dl v-if="relationshipSummaryTotal > 0" class="summary-list">
+              <div v-for="stat in visibleSummaryStats" :key="stat.key" class="summary-row">
                 <dt>{{ stat.label }}</dt>
                 <dd v-if="!isSummaryLoading">{{ stat.value }}</dd>
                 <dd v-else><span class="summary-skeleton" aria-hidden="true" /></dd>
               </div>
             </dl>
-            <p v-if="summaryError" class="summary-error">{{ summaryError }}</p>
+            <div v-else-if="summary && !isSummaryLoading" class="summary-empty">
+              <strong>还没有可管理的关系</strong>
+              <p>去发现页关注用户、话题、讨论或共建资源后，可在这里调整更新接收方式。</p>
+              <RouterLink to="/explore" class="workspace-link">去发现</RouterLink>
+            </div>
+            <div v-if="summaryError" class="summary-error" role="alert">
+              <span>{{ relationshipSummaryErrorDescription }}</span>
+              <button type="button" class="text-button" @click="reload">重试摘要</button>
+            </div>
           </section>
 
           <section class="guidance-panel">
@@ -357,7 +371,46 @@ const summaryStats = computed(() => [
   { key: 'muted', label: '已静音', value: summary.value?.muted ?? 0 },
   { key: 'digest', label: '摘要更新', value: summary.value?.digest ?? 0 },
 ])
+const relationshipSummaryTotal = computed(() => {
+  const value = Number(summary.value?.total ?? 0)
+  return Number.isFinite(value) && value > 0 ? value : 0
+})
+const visibleSummaryStats = computed(() => (
+  summaryStats.value.filter((stat) => stat.key === 'total' || Number(stat.value) > 0)
+))
 const displayedItems = computed(() => items.value.filter((item) => validSourceTypes.has(item.sourceType)))
+const hasRelationshipFilters = computed(() => Boolean(sourceType.value || mode.value !== 'ALL'))
+const relationshipErrorKind = computed<'error' | 'permission'>(() => (
+  /没有权限|无权|未登录|登录已失效|403/.test(loadError.value) ? 'permission' : 'error'
+))
+const relationshipErrorTitle = computed(() => (
+  relationshipErrorKind.value === 'permission' ? '当前账号没有查看关系的权限' : '关系暂时无法读取'
+))
+const relationshipErrorDescription = computed(() => (
+  relationshipErrorKind.value === 'permission'
+    ? '服务端拒绝了当前账号的关系列表请求，请切换账号或稍后重试。'
+    : loadError.value
+))
+const relationshipSummaryErrorDescription = computed(() => (
+  /没有权限|无权|未登录|登录已失效|403/.test(summaryError.value)
+    ? '当前账号没有查看关系摘要的权限。'
+    : summaryError.value
+))
+const relationshipEmptyTitle = computed(() => (
+  hasRelationshipFilters.value ? '当前筛选没有匹配的关系' : '还没有可管理的关系'
+))
+const relationshipEmptyDescription = computed(() => (
+  hasRelationshipFilters.value
+    ? '清除关系类型或状态筛选，可以查看当前账号的其他关系。'
+    : '去发现页关注用户、话题、讨论或共建资源后，它们会在这里集中出现。'
+))
+const switchAccountLocation = computed(() => ({
+  path: '/login',
+  query: {
+    redirect: route.fullPath,
+    switchAccount: '1',
+  },
+}))
 
 const preferenceMode = ref<RelationshipDeliveryMode>('IMMEDIATE')
 const expiresAt = ref('')
@@ -479,6 +532,18 @@ const setSourceType = (event: Event) => {
   sourceType.value = nextSourceType
   void syncQuery({
     sourceType: nextSourceType,
+    sourceId: undefined,
+  })
+}
+
+const clearRelationshipFilters = () => {
+  focus(null)
+  focusedSourceId.value = ''
+  sourceType.value = undefined
+  mode.value = 'ALL'
+  void syncQuery({
+    sourceType: undefined,
+    mode: undefined,
     sourceId: undefined,
   })
 }

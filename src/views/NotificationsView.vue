@@ -5,48 +5,27 @@
     <main class="community-page notifications-main">
       <header class="workspace-heading">
         <div>
-          <p class="section-kicker">社区回访中心</p>
+          <p class="section-kicker">个人收件箱</p>
           <h1>通知</h1>
-          <p class="workspace-heading-copy">查看回应、回到讨论，也可以按类型快速筛选。</p>
+          <p class="workspace-heading-copy">所有社区回应集中在这里，按需筛选并回到相关内容。</p>
         </div>
         <div class="heading-status" aria-live="polite">
           <span class="heading-status-dot" aria-hidden="true" />
-          <span>{{ unread.total }} 条未读</span>
+          <span>{{ unread.total > 0 ? `${unread.total} 条未读` : '已查看全部' }}</span>
         </div>
       </header>
-
-      <nav class="inbox-view-tabs" role="tablist" aria-label="参与收件箱视图">
-        <button
-          v-for="(view, index) in inboxViews"
-          :id="inboxViewTabId(view.value)"
-          :key="view.value"
-          type="button"
-          role="tab"
-          :class="{ active: activeView === view.value }"
-          :aria-controls="inboxViewPanelId(view.value)"
-          :aria-selected="activeView === view.value"
-          :tabindex="activeView === view.value ? 0 : -1"
-          @click="switchInboxView(view.value)"
-          @keydown="handleInboxViewKeydown($event, index)"
-        >
-          <component :is="view.icon" class="h-4 w-4" aria-hidden="true" />
-          {{ view.label }}
-        </button>
-      </nav>
 
       <section
         v-if="activeView === 'notifications'"
         :id="inboxViewPanelId('notifications')"
-        role="tabpanel"
-        :aria-labelledby="inboxViewTabId('notifications')"
-        tabindex="0"
+        aria-label="通知收件箱"
       >
         <div class="notification-filter-bar">
-          <div>
-            <span class="filter-label">通知类型</span>
-            <span class="filter-caption">按互动来源查看</span>
+          <div class="notification-filter-copy">
+            <strong>收件箱</strong>
+            <span>按来源筛选</span>
           </div>
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto notification-filter-scroll">
             <div class="flex min-w-max gap-2" role="tablist" aria-label="通知类型">
               <button
                 v-for="(tab, index) in tabs"
@@ -73,26 +52,14 @@
         </div>
 
         <div class="notification-actions-row">
-          <div class="notification-counts" aria-label="通知统计">
-            <div class="notification-count">
-              <span>未读</span>
-              <strong>{{ unread.total }}</strong>
-            </div>
-            <div class="notification-count">
-              <span>互动</span>
-              <strong>{{ interactionUnread }}</strong>
-            </div>
-            <div class="notification-count">
-              <span>提及</span>
-              <strong>{{ unread.mention }}</strong>
-            </div>
-          </div>
+          <p>{{ inboxStatusText }}</p>
           <div class="mark-read-actions">
             <RouterLink to="/me/settings" class="secondary-action">
               <Bell class="h-4 w-4" aria-hidden="true" />
               通知偏好
             </RouterLink>
             <button
+              v-if="unread.total > 0"
               type="button"
               class="secondary-action"
               :disabled="markAllDisabled"
@@ -100,9 +67,8 @@
               @click="markAllAsRead"
             >
               <CheckCheck class="h-4 w-4" aria-hidden="true" />
-              {{ isMutating ? '处理中...' : unread.total === 0 ? '暂无未读' : '全部已读' }}
+              {{ isMutating ? '处理中...' : '全部已读' }}
             </button>
-            <p v-if="unread.total === 0" class="mark-read-hint">当前没有未读通知</p>
           </div>
         </div>
 
@@ -146,11 +112,12 @@
               <div class="empty-icon" aria-hidden="true"><BellOff class="h-5 w-5" /></div>
               <h2>{{ emptyTitle }}</h2>
               <p class="max-w-lg text-sm leading-6">{{ emptyText }}</p>
-              <RouterLink to="/explore" class="primary-action">去发现内容和作者</RouterLink>
+              <button v-if="loadErrorText" type="button" class="primary-action" @click="loadNotifications">重新加载</button>
+              <RouterLink v-else to="/explore" class="primary-action">去发现内容和作者</RouterLink>
             </div>
 
             <div v-else class="notification-list">
-              <section class="feedback-revisit-panel">
+              <section v-if="hasFeedbackSummary" class="feedback-revisit-panel">
                 <div>
                   <p class="section-kicker">轻反馈</p>
                   <h2>最近可以回访的社区回应</h2>
@@ -162,6 +129,17 @@
                   <RouterLink to="/me?tab=followers">新增关注者</RouterLink>
                 </div>
               </section>
+
+              <nav class="related-inbox-groups" aria-label="与当前通知相关的个人分组">
+                <button type="button" @click="switchInboxView('updates')">
+                  <Newspaper class="h-4 w-4" aria-hidden="true" />
+                  <span><strong>更新摘要</strong><small>查看与你关注内容有关的更新</small></span>
+                </button>
+                <button type="button" @click="switchInboxView('revisits')">
+                  <History class="h-4 w-4" aria-hidden="true" />
+                  <span><strong>回访事项</strong><small>继续处理已收藏或已关注的内容</small></span>
+                </button>
+              </nav>
 
               <!-- Accessibility static contract: :role="notif.targetPath ? 'button' : undefined" :tabindex="notif.targetPath ? 0 : undefined" -->
               <article
@@ -245,50 +223,29 @@
               </div>
             </div>
           </div>
-
-          <aside class="notification-context">
-            <section class="context-block">
-              <div class="context-block-heading">
-                <span>收件箱概览</span>
-                <Bell class="h-4 w-4" aria-hidden="true" />
-              </div>
-              <dl class="context-stats">
-                <div><dt>全部未读</dt><dd>{{ unread.total }}</dd></div>
-                <div><dt>互动回应</dt><dd>{{ interactionUnread }}</dd></div>
-                <div><dt>提及我的内容</dt><dd>{{ unread.mention }}</dd></div>
-              </dl>
-            </section>
-            <section class="context-block">
-              <div class="context-block-heading">
-                <span>回访入口</span>
-                <History class="h-4 w-4" aria-hidden="true" />
-              </div>
-              <p>页面尊重通知偏好，只保留回到公开讨论、作者主页和关联内容的入口，没有生成新的后端通知。</p>
-              <div class="context-links">
-                <RouterLink to="/me?tab=posts">我的内容</RouterLink>
-                <RouterLink to="/explore">发现内容</RouterLink>
-              </div>
-            </section>
-          </aside>
         </div>
       </section>
 
       <section
         v-else-if="activeView === 'updates'"
         :id="inboxViewPanelId('updates')"
-        role="tabpanel"
-        :aria-labelledby="inboxViewTabId('updates')"
-        tabindex="0"
+        aria-label="更新摘要"
       >
+        <div class="related-view-heading">
+          <button type="button" class="secondary-action" @click="switchInboxView('notifications')">返回收件箱</button>
+          <p>更新摘要只整理与你已有关注关系有关的站内内容。</p>
+        </div>
         <UpdateDigestPanel route-state title="与你有关的更新摘要" />
       </section>
       <section
         v-else
         :id="inboxViewPanelId('revisits')"
-        role="tabpanel"
-        :aria-labelledby="inboxViewTabId('revisits')"
-        tabindex="0"
+        aria-label="回访事项"
       >
+        <div class="related-view-heading">
+          <button type="button" class="secondary-action" @click="switchInboxView('notifications')">返回收件箱</button>
+          <p>社区回访中心尊重通知偏好，只保留回到讨论和关联内容的入口，不会额外生成新的通知。</p>
+        </div>
         <RevisitSummaryPanel route-state />
       </section>
     </main>
@@ -346,13 +303,7 @@ const activeView = computed<InboxView>(() => {
   const value = String(firstQueryValue(route.query.view) || 'notifications') as InboxView
   return inboxViewValues.has(value) ? value : 'notifications'
 })
-const inboxViews = [
-  { value: 'notifications' as const, label: '通知', icon: Bell },
-  { value: 'updates' as const, label: '更新摘要', icon: Newspaper },
-  { value: 'revisits' as const, label: '回访', icon: History },
-]
 const notificationTypePanelId = 'notification-type-panel'
-const inboxViewTabId = (view: InboxView) => `inbox-view-tab-${view}`
 const inboxViewPanelId = (view: InboxView) => `inbox-view-panel-${view}`
 const notificationTypeTabId = (type: string) => `notification-type-tab-${type}`
 const currentNotificationAccountKey = () => (
@@ -375,7 +326,6 @@ const tabs = computed(() => [
   { value: 'system', label: '系统', count: unread.value.system, icon: Bell },
 ])
 
-const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
 const feedbackCounts = computed(() => notifications.value.reduce((counts, notif) => {
   if (notif.type === 'comment') counts.comment += 1
   if (notif.type === 'favorite') counts.favorite += 1
@@ -394,6 +344,14 @@ const feedbackSummary = computed(() => {
   return parts.length
     ? `${parts.join('、')}，可以直接回到相关讨论或作者主页。`
     : '当前列表没有新的评论、收藏、关注或提及。'
+})
+const hasFeedbackSummary = computed(() => Object.values(feedbackCounts.value).some((count) => count > 0))
+const inboxStatusText = computed(() => {
+  if (isLoading.value && notifications.value.length === 0) return '正在同步最新通知'
+  if (loadErrorText.value) return '收件箱暂时无法读取'
+  if (notifications.value.length === 0) return '当前没有需要处理的通知'
+  if (unread.value.total > 0) return `当前有 ${unread.value.total} 条未读通知`
+  return `已加载 ${notifications.value.length} 条通知`
 })
 const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂时没有${labelFor(activeType.value)}通知`)
 const emptyText = computed(() => {
@@ -534,14 +492,14 @@ const loadNotifications = async () => {
     notificationListLoaded = true
     notificationListMarker = markerAtRequestStart
     hasPendingNotificationRefresh.value = latestUnreadMarker() !== markerAtRequestStart
-  } catch (error) {
+  } catch {
     if (
       requestGeneration !== notificationLoadGeneration
       || requestedType !== activeType.value
       || !notificationAccountIsCurrent(accountKey, accountGeneration)
     ) return
     clearNotificationListState()
-    loadErrorText.value = getErrorMessage(error, 'Notifications are temporarily unavailable.')
+    loadErrorText.value = '通知暂时无法读取，请稍后重试。'
   } finally {
     if (
       requestGeneration === notificationLoadGeneration
@@ -642,16 +600,6 @@ const rovingTabIndex = (key: string, currentIndex: number, itemCount: number) =>
 
 const focusTabById = (id: string) => {
   void nextTick(() => document.getElementById(id)?.focus())
-}
-
-const handleInboxViewKeydown = (event: KeyboardEvent, currentIndex: number) => {
-  const nextIndex = rovingTabIndex(event.key, currentIndex, inboxViews.length)
-  if (nextIndex === null) return
-  event.preventDefault()
-  const nextView = inboxViews[nextIndex]
-  if (!nextView) return
-  switchInboxView(nextView.value)
-  focusTabById(inboxViewTabId(nextView.value))
 }
 
 const handleNotificationTypeKeydown = (event: KeyboardEvent, currentIndex: number) => {
@@ -1277,21 +1225,26 @@ onBeforeUnmount(() => {
   padding: 0.75rem;
 }
 
-.filter-label,
-.filter-caption {
-  display: block;
+.notification-filter-copy {
+  display: grid;
+  gap: 0.1rem;
 }
 
-.filter-label {
+.notification-filter-copy strong {
   color: var(--text-strong);
   font-size: 0.8125rem;
   font-weight: 750;
 }
 
-.filter-caption {
-  margin-top: 0.1rem;
+.notification-filter-copy span {
   color: var(--text-muted);
   font-size: 0.6875rem;
+}
+
+.notification-filter-scroll {
+  padding-bottom: 0.25rem;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
 }
 
 .tab-button {
@@ -1338,6 +1291,13 @@ onBeforeUnmount(() => {
   border-radius: 0 0 var(--radius-surface) var(--radius-surface);
   background: var(--surface-1);
   padding: 0.75rem;
+}
+
+.notification-actions-row > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .notification-counts {
@@ -1431,10 +1391,69 @@ onBeforeUnmount(() => {
 
 .notifications-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 17rem;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 1rem;
   margin-top: 0.875rem;
+}
+
+.related-inbox-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--border-subtle);
+}
+
+.related-inbox-groups button {
+  display: flex;
+  min-width: 0;
+  min-height: 3.75rem;
+  align-items: center;
+  gap: 0.65rem;
+  border: 0;
+  background: var(--surface-1);
+  padding: 0.75rem 1rem;
+  color: var(--primary-700);
+  text-align: left;
+}
+
+.related-inbox-groups button:hover {
+  background: var(--surface-2);
+}
+
+.related-inbox-groups span {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.related-inbox-groups strong {
+  color: var(--text-strong);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.related-inbox-groups small {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.related-view-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.875rem;
+}
+
+.related-view-heading p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .notifications-feed {
@@ -2001,33 +2020,9 @@ onBeforeUnmount(() => {
     gap: 0.55rem;
   }
 
-  .filter-caption {
-    display: inline;
-    margin-left: 0.4rem;
-  }
-
   .notification-actions-row {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .notification-counts {
-    justify-content: space-between;
-  }
-
-  .notification-count {
-    min-width: 0;
-    flex: 1;
-    justify-content: center;
-    padding: 0 0.5rem;
-  }
-
-  .notification-count:first-child {
-    justify-content: flex-start;
-  }
-
-  .notification-count:last-child {
-    justify-content: flex-end;
   }
 
   .mark-read-actions {
@@ -2076,6 +2071,19 @@ onBeforeUnmount(() => {
   .notification-filter-bar,
   .notification-actions-row {
     padding: 0.65rem;
+  }
+
+  .related-inbox-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .related-view-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .related-view-heading .secondary-action {
+    width: 100%;
   }
 
   .feedback-revisit-panel {

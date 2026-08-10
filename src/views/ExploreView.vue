@@ -54,53 +54,12 @@
         </div>
       </section>
 
-      <section class="surface-card mb-8 explore-channel-plaza">
-        <article class="explore-shell explore-plaza-shell">
-          <header class="explore-section-heading">
-            <div>
-              <p class="eyebrow">按兴趣进入</p>
-              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">频道广场</h2>
-              <p>每个频道聚合对应的内容形式、代表话题和最新公开内容。</p>
-            </div>
-            <span v-if="channels.length" class="module-status">{{ channels.length }} 个公开入口</span>
-          </header>
-
-          <div class="explore-domain-grid" aria-label="社区频道">
-            <RouterLink
-              v-for="channel in communityChannels"
-              :key="channel.key"
-              :to="{ path: '/explore', query: { channel: channel.key } }"
-              class="explore-domain-card"
-              :class="{ 'explore-domain-card--active': activeChannel?.key === channel.key }"
-            >
-              <span class="explore-domain-card__icon">{{ channel.icon }}</span>
-              <span class="explore-domain-card__body">
-                <strong>{{ channel.name }}</strong>
-                <small>{{ channel.description }}</small>
-                <em v-if="channel.topics?.length">代表话题：{{ channel.topics.slice(0, 2).join(' / ') }}</em>
-              </span>
-              <ArrowRight class="h-4 w-4" aria-hidden="true" />
-            </RouterLink>
-          </div>
-
-          <div class="explore-form-row" aria-label="内容形式">
-            <span class="explore-form-row__label">按内容形式</span>
-            <RouterLink
-              v-for="form in contentForms"
-              :key="form.id"
-              :to="form.href"
-              class="explore-form-chip"
-              :class="{ 'explore-form-chip--active': activeContentForm?.key === form.id.replace('content-form:', '') }"
-            >
-              <span aria-hidden="true">{{ form.icon || '内' }}</span>
-              {{ form.title }}
-            </RouterLink>
-          </div>
-        </article>
-      </section>
-
       <section class="explore-channel-strip">
         <div class="explore-shell">
+          <div class="explore-channel-strip__label">
+            <strong>浏览内容</strong>
+            <span>选择一个频道或内容形式</span>
+          </div>
           <div class="explore-channel-strip__inner">
             <RouterLink to="/explore" class="explore-channel-strip__item" :class="{ 'explore-channel-strip__item--active': !activeChannel && !activeContentForm }">
               全部
@@ -129,62 +88,6 @@
 
       <section class="explore-browse-band">
         <div class="explore-shell explore-browse-layout">
-          <aside class="explore-browse-aside hidden lg:block">
-            <nav class="explore-side-nav" aria-label="发现频道">
-              <div class="explore-side-nav__heading">
-                <span>浏览频道</span>
-                <RouterLink to="/explore">重置</RouterLink>
-              </div>
-              <RouterLink
-                to="/explore"
-                class="explore-side-nav__item"
-                :class="{ 'explore-side-nav__item--active': !activeChannel && !activeContentForm }"
-              >
-                <span>全</span>
-                全部内容
-              </RouterLink>
-              <RouterLink
-                v-for="channel in communityChannels"
-                :key="channel.key"
-                :to="{ path: '/explore', query: { channel: channel.key } }"
-                class="explore-side-nav__item"
-                :class="{ 'explore-side-nav__item--active': activeChannel?.key === channel.key }"
-              >
-                <span>{{ channel.icon }}</span>
-                {{ channel.name }}
-              </RouterLink>
-              <div class="explore-side-nav__divider" />
-              <p class="explore-side-nav__label">内容形式</p>
-              <RouterLink
-                v-for="form in contentForms"
-                :key="form.id"
-                :to="form.href"
-                class="explore-side-nav__item explore-side-nav__item--form"
-                :class="{ 'explore-side-nav__item--active': activeContentForm?.key === form.id.replace('content-form:', '') }"
-              >
-                <span>{{ form.icon || '内' }}</span>
-                {{ form.title }}
-              </RouterLink>
-            </nav>
-          </aside>
-
-          <section class="explore-mobile-topics" aria-labelledby="explore-mobile-topics-title">
-            <div class="explore-rail-section__title">
-              <div>
-                <h2 id="explore-mobile-topics-title">活跃话题</h2>
-                <p class="explore-rail-intro">从本周正在讨论的主题进入公开内容。</p>
-              </div>
-              <Hash class="h-4 w-4" aria-hidden="true" />
-            </div>
-            <div v-if="activeTopics.length" class="explore-rail-list explore-topic-list">
-              <RouterLink v-for="item in activeTopics.slice(0, 6)" :key="`mobile-${item.id}`" :to="item.href">
-                <span><Hash class="h-3.5 w-3.5" aria-hidden="true" />{{ item.title }}</span>
-                <small>{{ item.reasonText || item.reason || '正在讨论' }}</small>
-              </RouterLink>
-            </div>
-            <ModuleEmpty v-else :module="moduleOf('activeTopics')" />
-          </section>
-
           <section class="explore-browse-content">
             <div v-if="error" class="state-banner state-banner-error">
               <AlertCircle class="h-5 w-5" aria-hidden="true" />
@@ -3324,6 +3227,68 @@ const SkeletonCard = defineComponent({
   .explore-feature-card,
   .channel-featured-direction {
     transition: none;
+  }
+}
+
+.explore-channel-strip .explore-shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.explore-channel-strip__label {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.1rem;
+  padding-right: 1rem;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.explore-channel-strip__label strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+}
+
+.explore-channel-strip__label span {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.explore-browse-layout {
+  grid-template-columns: minmax(0, 1fr) 18rem;
+}
+
+.explore-browse-content {
+  grid-column: 1;
+}
+
+.explore-browse-rail {
+  grid-column: 2;
+}
+
+@media (max-width: 900px) {
+  .explore-channel-strip .explore-shell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .explore-channel-strip__label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .explore-browse-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .explore-browse-content,
+  .explore-browse-rail {
+    grid-column: 1;
   }
 }
 </style>

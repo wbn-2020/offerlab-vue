@@ -4,7 +4,7 @@
     <main class="community-page community-home-main py-5 sm:py-6 lg:py-7">
       <div class="community-feed-layout">
         <aside class="community-feed-layout__left hidden lg:block">
-          <div class="sticky top-24 space-y-5">
+          <div class="home-left-rail space-y-5">
             <nav class="home-channel-nav" aria-label="首页频道">
               <div class="home-rail-heading">
                 <p class="home-rail-label">频道</p>
@@ -28,7 +28,7 @@
                 :class="{ 'home-channel-link--active': d.domain === activeDomain }"
               >
                 <span class="home-channel-link__icon">{{ d.icon }}</span>
-                <span class="truncate">{{ d.domainName }}</span>
+                <span class="truncate">{{ homeDomainName(d.domain) }}</span>
               </router-link>
               <RouterLink to="/explore" class="home-channel-link home-channel-link--discover">
                 <Compass class="h-4 w-4" />
@@ -83,22 +83,20 @@
               </template>
             </section>
 
-            <section
+            <details
               v-for="section in taskSections"
               :key="section.taskType"
-              class="home-task-panel"
+              class="home-task-disclosure"
             >
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <p class="task-section-label">
-                    {{ section.taskType === 'DAILY' ? '今日行动' : '新用户引导' }}
-                  </p>
-                  <h3 class="font-black text-slate-950 dark:text-white">{{ section.title }}</h3>
-                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
-                </div>
+              <summary>
+                <span>
+                  <small>{{ section.taskType === 'DAILY' ? '行动清单' : '开始使用' }}</small>
+                  <strong>{{ section.title }}</strong>
+                </span>
                 <span class="task-progress-pill">{{ taskProgressLabel(section) }}</span>
-              </div>
-              <div class="mt-4 space-y-3">
+              </summary>
+              <p class="home-task-disclosure__description">{{ section.subtitle }}</p>
+              <div class="mt-3 space-y-3">
                 <div
                   v-for="item in section.items"
                   :key="`${section.taskType}:${item.taskCode}`"
@@ -122,14 +120,14 @@
                   </button>
                 </div>
               </div>
-            </section>
+            </details>
 
             <section class="home-rail-section home-tag-panel">
               <div class="home-rail-section__title">
                 <h3>热门标签</h3>
                 <Tag class="h-4 w-4" />
               </div>
-              <div class="home-tag-list">
+              <div v-if="topTags.length" class="home-tag-list">
                 <RouterLink
                   v-for="tag in topTags"
                   :key="tag.id"
@@ -139,6 +137,9 @@
                   {{ tag.name }}
                 </RouterLink>
               </div>
+              <RouterLink v-else to="/explore" class="home-rail-section__empty-link">
+                标签正在更新，先去发现内容
+              </RouterLink>
             </section>
           </div>
         </aside>
@@ -146,80 +147,35 @@
         <section class="home-feed-column min-w-0">
           <section class="home-feed-intro">
             <div>
-              <p class="home-rail-label">{{ activeDomainMeta?.domainName || '综合频道' }}</p>
-              <h1>{{ activeDomainMeta?.domainName ? `${activeDomainMeta.domainName}的真实经验` : '发现真实经验，分享有用内容' }}</h1>
-              <p>{{ activeDomainMeta?.description || '从社区正在讨论的话题、可复用的攻略和不同频道的日常见闻里，找到下一条值得读的内容。' }}</p>
+              <p class="home-rail-label">{{ activeDomainDisplayName }}</p>
+              <h1>{{ activeDomain ? `${activeDomainDisplayName}频道` : '推荐阅读' }}</h1>
+              <p>{{ activeDomainMeta?.description || '浏览真实经验，关注值得持续阅读的作者。' }}</p>
             </div>
             <RouterLink to="/editor" class="home-feed-intro__publish">
               <PenLine class="h-4 w-4" />
               写一篇
             </RouterLink>
-            <div class="home-mobile-channels" aria-label="移动频道导航">
-              <router-link :to="homeDomainLocation()" :replace="false" :class="{ 'home-mobile-channels__item--active': activeDomain === undefined }">综合</router-link>
-              <router-link
-                v-for="d in homeDomainOptions"
-                :key="`mobile-${d.domain}`"
-                :to="homeDomainLocation(Number(d.domain))"
-                :replace="false"
-                :class="{ 'home-mobile-channels__item--active': d.domain === activeDomain }"
-              >
-                {{ d.icon }} {{ d.domainName }}
-              </router-link>
-            </div>
-            <div class="home-reading-pulse" aria-label="社区动态入口">
-              <button
-                v-for="entry in hotRisingEntries"
-                :key="entry.key"
-                type="button"
-                class="home-reading-pulse__item"
-                :class="`home-reading-pulse__item--${entry.tone}`"
-                @click="setHomeFeed(entry.feed)"
-              >
-                <component :is="entry.icon" class="h-3.5 w-3.5" />
-                <span>{{ entry.badge }}</span>
-                <strong>{{ entry.title }}</strong>
-              </button>
-            </div>
-          </section>
-
-          <section
-            v-for="section in taskSections"
-            :key="`mobile-${section.taskType}`"
-            class="home-task-panel home-task-panel--mobile lg:hidden"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="task-section-label">
-                  {{ section.taskType === 'DAILY' ? '今日行动' : '新用户引导' }}
-                </p>
-                <h3 class="font-black text-slate-950 dark:text-white">{{ section.title }}</h3>
-                <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ section.subtitle }}</p>
-              </div>
-              <span class="task-progress-pill">{{ taskProgressLabel(section) }}</span>
-            </div>
-            <div class="mt-4 space-y-3">
+            <div class="home-horizontal-scroll home-mobile-channels-shell">
               <div
-                v-for="item in section.items"
-                :key="`mobile-${section.taskType}:${item.taskCode}`"
-                class="task-item"
-                :class="{ 'task-item-complete': item.completed }"
+                class="home-mobile-channels"
+                aria-label="移动频道导航，可横向滚动"
+                role="region"
+                tabindex="0"
               >
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2">
-                    <span class="task-check">{{ item.completed ? '✓' : '·' }}</span>
-                    <h4 class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</h4>
-                  </div>
-                  <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ item.description }}</p>
-                </div>
-                <button
-                  type="button"
-                  class="task-action-button"
-                  :disabled="isTaskBusy(section.taskType, item.taskCode)"
-                  @click="handleTaskAction(section, item)"
+                <router-link :to="homeDomainLocation()" :replace="false" :class="{ 'home-mobile-channels__item--active': activeDomain === undefined }">综合</router-link>
+                <router-link
+                  v-for="d in homeDomainOptions"
+                  :key="`mobile-${d.domain}`"
+                  :to="homeDomainLocation(Number(d.domain))"
+                  :replace="false"
+                  :class="{ 'home-mobile-channels__item--active': d.domain === activeDomain }"
                 >
-                  {{ item.completed ? '已完成' : (item.actionText || '去完成') }}
-                </button>
+                  {{ d.icon }} {{ homeDomainName(d.domain) }}
+                </router-link>
               </div>
+              <span class="home-horizontal-scroll__cue" aria-hidden="true">
+                <ChevronRight class="h-4 w-4" />
+              </span>
             </div>
           </section>
 
@@ -244,44 +200,41 @@
                 <Sparkles class="h-3.5 w-3.5" />
                 内容频道
               </div>
-              <div class="home-content-types__list">
-                <button
-                  type="button"
-                  class="channel-chip"
-                  @click="router.push({ path: '/search', query: { mode: 'posts', sort: 'hot' } })"
+              <div class="home-horizontal-scroll home-content-types__scroll">
+                <div
+                  class="home-content-types__list"
+                  aria-label="内容类型筛选，可横向滚动"
+                  role="region"
+                  tabindex="0"
                 >
-                  全部
-                </button>
-                <RouterLink
-                  v-for="type in contentTypeChannels"
-                  :key="type.value"
-                  :to="contentTypeHref(type.value)"
-                  class="channel-chip"
-                >
-                  {{ type.shortLabel }}
-                </RouterLink>
+                  <button
+                    type="button"
+                    class="channel-chip"
+                    @click="router.push({ path: '/search', query: { mode: 'posts', sort: 'hot' } })"
+                  >
+                    全部
+                  </button>
+                  <RouterLink
+                    v-for="type in contentTypeChannels"
+                    :key="type.value"
+                    :to="contentTypeHref(type.value)"
+                    class="channel-chip"
+                  >
+                    {{ type.shortLabel }}
+                  </RouterLink>
+                </div>
+                <span class="home-horizontal-scroll__cue" aria-hidden="true">
+                  <ChevronRight class="h-4 w-4" />
+                </span>
               </div>
             </div>
           </div>
-
-          <section v-if="authStore.isLoggedIn" class="feed-control-manager" data-v30-feed-control-entry>
-            <header>
-              <div>
-                <p class="home-rail-label">个人设置</p>
-                <h2>信息流控制</h2>
-                <span>隐藏内容、减少频道内容和屏蔽作者都在同一个设置页管理。</span>
-              </div>
-              <RouterLink :to="{ path: '/me/settings', query: { tab: 'feed-controls' } }" class="secondary-action">
-                管理设置
-              </RouterLink>
-            </header>
-          </section>
 
           <section v-if="activeDomain" class="channel-hot-board" data-v30-channel-hot-board>
             <header class="channel-hot-board__head">
               <div>
                 <p class="home-rail-label">频道热榜</p>
-                <h2>{{ activeDomainMeta?.domainName || '当前频道' }}</h2>
+                <h2>{{ activeDomainDisplayName }}</h2>
               </div>
               <span>公开内容</span>
             </header>
@@ -313,20 +266,22 @@
 
           <div class="home-feed-list">
             <LoadingSkeleton v-if="isLoading" variant="feed" />
-            <div v-else-if="isError && !visiblePosts.length" class="surface-card feed-error-card p-6">
+            <div v-else-if="isError && !visiblePosts.length" class="surface-card feed-error-card p-6" role="alert">
               <div>
-                <h3 class="text-lg font-black text-slate-950 dark:text-slate-100">信息流加载失败</h3>
+                <h3 class="text-lg font-black text-slate-950 dark:text-slate-100">暂时没能更新内容</h3>
                 <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{{ feedErrorText }}</p>
                 <p class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-500">
-                  当前频道：{{ feedLabels[activeFeed] }}。可以换到热门、精选或问答继续浏览。
+                  正在浏览：{{ feedLabels[activeFeed] }}
                 </p>
               </div>
               <div class="feed-error-actions">
                 <button type="button" class="secondary-action px-5" @click="() => refetch()">重试</button>
-                <button type="button" class="secondary-action px-5" @click="switchFeedAfterError('hot')">热门</button>
-                <button type="button" class="secondary-action px-5" @click="switchFeedAfterError('featured')">精选</button>
-                <RouterLink to="/explore" class="secondary-action px-5">发现</RouterLink>
-                <RouterLink :to="{ path: '/questions', query: homeFallbackQuestionQuery }" class="secondary-action px-5">问答</RouterLink>
+                <button type="button" class="secondary-action px-5" @click="switchFeedAfterError('hot')">看热门</button>
+                <RouterLink to="/explore" class="secondary-action px-5">去发现</RouterLink>
+              </div>
+              <div class="feed-error-alternatives">
+                <button type="button" @click="switchFeedAfterError('featured')">浏览精选</button>
+                <RouterLink :to="{ path: '/questions', query: homeFallbackQuestionQuery }">进入问答</RouterLink>
               </div>
             </div>
             <template v-else-if="visiblePosts.length">
@@ -384,6 +339,63 @@
           </div>
 
           <OperationSlotCard class="home-operation-slot" slot-code="HOME_FEATURED" />
+
+          <details v-if="taskSections.length" class="home-mobile-secondary lg:hidden">
+            <summary>
+              <span>行动清单</span>
+              <small>{{ incompleteTaskCount }} 项待完成</small>
+            </summary>
+            <section
+              v-for="section in taskSections"
+              :key="`mobile-${section.taskType}`"
+              class="home-task-panel home-task-panel--mobile"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="font-bold text-slate-950 dark:text-white">{{ section.title }}</h3>
+                  <p class="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">{{ section.subtitle }}</p>
+                </div>
+                <span class="task-progress-pill">{{ taskProgressLabel(section) }}</span>
+              </div>
+              <div class="mt-4 space-y-3">
+                <div
+                  v-for="item in section.items"
+                  :key="`mobile-${section.taskType}:${item.taskCode}`"
+                  class="task-item"
+                  :class="{ 'task-item-complete': item.completed }"
+                >
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="task-check">{{ item.completed ? '✓' : '·' }}</span>
+                      <h4 class="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{{ item.title }}</h4>
+                    </div>
+                    <p class="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">{{ item.description }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="task-action-button"
+                    :disabled="isTaskBusy(section.taskType, item.taskCode)"
+                    @click="handleTaskAction(section, item)"
+                  >
+                    {{ item.completed ? '已完成' : (item.actionText || '去完成') }}
+                  </button>
+                </div>
+              </div>
+            </section>
+          </details>
+
+          <section v-if="authStore.isLoggedIn" class="feed-control-manager" data-v30-feed-control-entry>
+            <header>
+              <div>
+                <p class="home-rail-label">浏览偏好</p>
+                <h2>调整信息流</h2>
+                <span>管理隐藏内容、减少同类和屏蔽作者。</span>
+              </div>
+              <RouterLink :to="{ path: '/me/settings', query: { tab: 'feed-controls' } }" class="secondary-action">
+                管理
+              </RouterLink>
+            </header>
+          </section>
         </section>
 
         <aside class="community-feed-layout__right hidden lg:block">
@@ -405,7 +417,7 @@
                 </RouterLink>
               </div>
               <p v-else class="home-rail-section__empty">
-                切到精选信息流可查看运营标记的高质量内容。
+                精选内容还在整理，可以先浏览热门或最新。
               </p>
             </section>
 
@@ -414,7 +426,7 @@
                 <h3>热门话题</h3>
                 <Compass class="h-4 w-4" />
               </div>
-              <div class="home-topic-list">
+              <div v-if="topicItems.length" class="home-topic-list">
                 <RouterLink
                   v-for="topic in topicItems"
                   :key="topic.name"
@@ -425,6 +437,9 @@
                   <small>{{ topic.count }}</small>
                 </RouterLink>
               </div>
+              <RouterLink v-else to="/explore" class="home-rail-section__empty-link">
+                话题正在更新，去发现页看看
+              </RouterLink>
             </section>
 
             <section class="home-rail-section">
@@ -432,7 +447,7 @@
                 <h3>标签热度</h3>
                 <TrendingUp class="h-4 w-4" />
               </div>
-              <div class="home-trending-list">
+              <div v-if="trendingTags.length" class="home-trending-list">
                 <RouterLink
                   v-for="(tag, index) in trendingTags"
                   :key="tag.id"
@@ -444,6 +459,9 @@
                   <small>{{ tag.count ?? 0 }}</small>
                 </RouterLink>
               </div>
+              <RouterLink v-else to="/explore" class="home-rail-section__empty-link">
+                热度数据正在更新，先浏览内容
+              </RouterLink>
             </section>
 
             <section class="home-rail-section">
@@ -451,7 +469,7 @@
                 <h3>推荐作者</h3>
                 <Users class="h-4 w-4" />
               </div>
-              <div class="home-author-list">
+              <div v-if="recommendedUsers.length" class="home-author-list">
                 <div
                   v-for="user in recommendedUsers"
                   :key="user.uid"
@@ -480,6 +498,9 @@
                   </button>
                 </div>
               </div>
+              <RouterLink v-else to="/explore" class="home-rail-section__empty-link">
+                作者推荐正在更新，去发现更多内容
+              </RouterLink>
             </section>
           </div>
         </aside>
@@ -489,11 +510,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, type Component } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
-import { Compass, Library, Loader2, PenLine, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
+import { ChevronRight, Compass, Library, Loader2, PenLine, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
@@ -519,13 +540,10 @@ import FeedTabs from '@/components/feed/FeedTabs.vue'
 import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import type { CommunityTopic, Post, Tag as PostTag, User } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
+import { getDomainLabel } from '@/utils/domains'
 import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
-import {
-  findHighRiskContentWarning,
-  filterVisiblePosts,
-  normalizeRecommendationReason,
-} from '@/utils/recommendationGovernance'
+import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -546,23 +564,11 @@ const activeFeed = ref<FeedType>(parseFeedType(route.query.feed))
 const onboardingOverview = ref<UserTaskOverview | null>(null)
 const dailyOverview = ref<UserTaskOverview | null>(null)
 const { domains: homeDomainOptions, loadDomains: loadHomeDomains } = useDomainCatalog()
-const hotPreviewPosts = ref<Post[]>([])
-const latestPreviewPosts = ref<Post[]>([])
 const recommendPreviewPosts = ref<Post[]>([])
 const activeDomain = computed(() => {
   const q = Number(route.query.domain)
   return homeDomainOptions.value.some((item) => Number(item.domain) === q) ? q : undefined
 })
-interface HotRisingEntry {
-  key: string
-  title: string
-  badge: string
-  sampleTitle: string
-  reason: string
-  feed: FeedType
-  icon: Component
-  tone: 'hot' | 'rising' | 'featured'
-}
 const feedLabels: Record<FeedType, string> = {
   following: '关注',
   recommend: '推荐',
@@ -594,7 +600,7 @@ const feedUndo = ref<{ postId: string; title: string } | null>(null)
 const channelHotBoard = ref<ChannelHotBoard | null>(null)
 const isChannelHotBoardLoading = ref(false)
 const channelHotBoardError = ref('')
-const { posts, error: feedError, fetchNextPage, hasNextPage, isError, isFetching, isLoading, refetch } = useInfiniteFeed(activeFeed, activeDomain)
+const { posts, fetchNextPage, hasNextPage, isError, isFetching, isLoading, refetch } = useInfiniteFeed(activeFeed, activeDomain)
 const homeFeedTabs = computed(() => feedTabs.map((value) => ({
   value,
   label: feedLabels[value],
@@ -606,9 +612,13 @@ const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) 
 const topTags = computed(() => sortedTags.value.slice(0, 10))
 const trendingTags = computed(() => sortedTags.value.slice(0, 6))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
+const homeDomainName = (domain: number) => getDomainLabel(domain)
 const activeDomainMeta = computed(() => (
   homeDomainOptions.value.find((item) => Number(item.domain) === Number(activeDomain.value))
   ?? null
+))
+const activeDomainDisplayName = computed(() => (
+  activeDomain.value ? homeDomainName(activeDomain.value) : '综合'
 ))
 const topicItems = computed(() => {
   const remoteTopics = topics.value.slice(0, 6).map((topic) => ({
@@ -623,66 +633,20 @@ const topicItems = computed(() => {
   }))
 })
 const cleanPosts = computed(() => filterVisiblePosts(filterPublicContent(posts.value)))
-const featuredPreview = computed(() => cleanPosts.value.filter(isFeaturedPost).slice(0, 3))
+const featuredPreview = computed(() => {
+  const seen = new Set<string>()
+  return [...cleanPosts.value, ...recommendPreviewPosts.value]
+    .filter(isFeaturedPost)
+    .filter((post) => {
+      const id = String(post.postId)
+      if (seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+    .slice(0, 3)
+})
 const visiblePosts = computed(() => {
   return cleanPosts.value.filter((post) => !locallyHiddenPostIds.value.has(String(post.postId)))
-})
-const explainHotReason = (post: Post | undefined, fallback: string) => {
-  if (!post) return fallback
-  const riskWarning = findHighRiskContentWarning([
-    post.title,
-    post.summary,
-    post.content,
-    post.tags.map((tag) => tag.name).join(' '),
-  ].filter(Boolean).join(' '))
-  if (riskWarning) return riskWarning
-  const commentCount = Number(post.counter?.comment || 0)
-  const favoriteCount = Number(post.counter?.favorite || 0)
-  const likeCount = Number(post.counter?.like || 0)
-  const reasons = post.recommendationReasons || []
-  const normalizedReason = reasons.map(normalizeRecommendationReason).find(Boolean)
-  if (normalizedReason) return normalizedReason
-  if (commentCount > 0) return `近期有 ${commentCount} 条讨论`
-  if (favoriteCount > 0) return `同频道有 ${favoriteCount} 次收藏`
-  if (likeCount > 0) return `社区成员有 ${likeCount} 次认可`
-  return fallback
-}
-const hotRisingEntries = computed<HotRisingEntry[]>(() => {
-  const hot = hotPreviewPosts.value[0] || cleanPosts.value.find((post) => Number(post.counter?.comment || 0) > 0)
-  const rising = latestPreviewPosts.value[0] || cleanPosts.value[0]
-  const featured = (recommendPreviewPosts.value.find(isFeaturedPost) || featuredPreview.value[0] || recommendPreviewPosts.value[0])
-  return [
-    {
-      key: 'hot',
-      title: '热门讨论',
-      badge: '正在升温',
-      sampleTitle: hot?.title || '查看正在被讨论的公开内容',
-      reason: explainHotReason(hot, '按浏览、评论、收藏和发布时间综合排序'),
-      feed: 'hot',
-      icon: TrendingUp,
-      tone: 'hot',
-    },
-    {
-      key: 'rising',
-      title: '最新上升',
-      badge: '新发布',
-      sampleTitle: rising?.title || '先看最近发布且可参与的内容',
-      reason: explainHotReason(rising, '新发布内容会优先显示可读的公开信号'),
-      feed: 'latest',
-      icon: Sparkles,
-      tone: 'rising',
-    },
-    {
-      key: 'featured',
-      title: '频道精选',
-      badge: '精选方向',
-      sampleTitle: featured?.title || '从频道精选方向进入发现页',
-      reason: explainHotReason(featured, '优先复用运营精选、频道和公开标签信号'),
-      feed: 'featured',
-      icon: Compass,
-      tone: 'featured',
-    },
-  ]
 })
 const currentUserSignature = computed(() => {
   const signature = authStore.user?.signature?.trim()
@@ -701,7 +665,15 @@ const taskSections = computed(() => {
   }
   return sections
 })
-const feedErrorText = computed(() => getErrorMessage(feedError.value, '当前信息流暂时不可用，请稍后重试。'))
+const incompleteTaskCount = computed(() => taskSections.value.reduce(
+  (count, section) => count + section.items.filter((item) => !item.completed).length,
+  0,
+))
+const feedErrorText = computed(() => (
+  activeFeed.value === 'following'
+    ? '关注动态暂时没有更新成功，请稍后重试。'
+    : '内容暂时没有更新成功，可以重试或先浏览其他频道。'
+))
 const homeFallbackQuestionQuery = computed(() => {
   const keyword = topTags.value[0]?.name || ''
   return keyword ? { q: keyword } : {}
@@ -709,12 +681,14 @@ const homeFallbackQuestionQuery = computed(() => {
 const emptyFeedTitle = computed(() => {
   if (activeFeed.value === 'following') return '还没有关注动态'
   if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '最新暂时没有新内容'
+  if (activeDomain.value) return `${activeDomainDisplayName.value}暂时没有内容`
   return '暂时没有内容'
 })
 const emptyFeedDescription = computed(() => {
-  if (activeFeed.value === 'following') return '先从发现页关注几位分享真实经验、资源推荐和生活攻略的作者。'
-  if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '推荐和热门里还有可读内容，也可以去发现页看看频道广场和热门话题。'
-  return '可以先看推荐内容、逛发现页，或把最近一次经历、问题、清单写成一篇内容。'
+  if (activeFeed.value === 'following') return '关注作者后，他们发布的新内容会出现在这里。'
+  if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '推荐和热门里还有内容，也可以去发现页浏览其他频道。'
+  if (activeDomainMeta.value) return '可以切换到综合频道，或发布这个频道的第一篇内容。'
+  return '可以先看推荐或热门内容，也可以发布自己的第一篇内容。'
 })
 const emptyFeedActionText = computed(() => activeFeed.value === 'following' ? '去发现作者' : '去发现内容')
 const emptyFeedActionHref = computed(() => '/explore')
@@ -900,10 +874,10 @@ const loadFeedPreferences = async () => {
       .filter((item) => item.action === 'HIDE')
       .map((item) => String(item.postId)))
     feedPreferenceStatus.value = 'ready'
-  } catch (error: unknown) {
+  } catch {
     if (requestGeneration !== feedPreferenceRequestGeneration || accountKey !== currentFeedAccountKey()) return
     feedPreferenceStatus.value = 'error'
-    feedPreferenceError.value = getErrorMessage(error, '信息流设置同步失败，不影响继续浏览。')
+    feedPreferenceError.value = '个性化设置暂时无法同步，不影响继续浏览。'
   }
 }
 
@@ -1095,19 +1069,20 @@ const loadHomePreviewPosts = async () => {
     feedApi.getRecommend(undefined, 6, domainSnapshot),
   ])
   if (requestId !== homePreviewRequestId || activeDomain.value !== domainSnapshot) return
-  latestPreviewPosts.value = latestRes.status === 'fulfilled'
+  const latestItems = latestRes.status === 'fulfilled'
     ? filterVisiblePosts(filterPublicContent(latestRes.value.data?.items || []), 3)
     : []
-  hotPreviewPosts.value = hotRes.status === 'fulfilled'
+  const hotItems = hotRes.status === 'fulfilled'
     ? filterVisiblePosts(filterPublicContent(hotRes.value.data?.items || []), 3)
     : []
   recommendPreviewPosts.value = recommendRes.status === 'fulfilled'
     ? filterVisiblePosts(filterPublicContent(recommendRes.value.data?.items || []), 3)
     : []
-  const feedCounts = [latestRes, hotRes, recommendRes]
-    .filter((res): res is PromiseFulfilledResult<Awaited<ReturnType<typeof feedApi.getLatest>>> => res.status === 'fulfilled')
-    .map((res) => filterVisiblePosts(filterPublicContent(res.value.data?.items || [])).length)
-  sampledFeedContentCount.value = Math.max(0, ...feedCounts)
+  sampledFeedContentCount.value = Math.max(
+    latestItems.length,
+    hotItems.length,
+    recommendPreviewPosts.value.length,
+  )
 }
 
 onMounted(async () => {
@@ -1183,10 +1158,10 @@ const loadChannelHotBoard = async () => {
     const res = await feedApi.getChannelHotBoard(domain, 5)
     if (requestId !== channelHotBoardRequestId || activeDomain.value !== domain) return
     channelHotBoard.value = res.data
-  } catch (error: unknown) {
+  } catch {
     if (requestId !== channelHotBoardRequestId || activeDomain.value !== domain) return
     channelHotBoard.value = null
-    channelHotBoardError.value = getErrorMessage(error, '频道热榜暂时无法读取。')
+    channelHotBoardError.value = '热榜暂时不可用，不影响浏览下方内容。'
   } finally {
     if (requestId === channelHotBoardRequestId && activeDomain.value === domain) {
       isChannelHotBoardLoading.value = false
@@ -1702,6 +1677,20 @@ watch(
 
 .feed-error-actions > * {
   min-height: 2.5rem;
+}
+
+.feed-error-alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  color: var(--primary-600);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.feed-error-alternatives > *:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .feed-loadmore-error {
@@ -2292,7 +2281,22 @@ watch(
 }
 
 .community-feed-layout__left,
+.community-feed-layout__right {
+  align-self: stretch;
+}
+
+.home-left-rail,
+.home-right-rail {
+  position: sticky;
+  top: calc(var(--community-header-height, 64px) + 1rem);
+  max-height: calc(100vh - var(--community-header-height, 64px) - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.community-feed-layout__left,
 .community-feed-layout__right,
+.home-left-rail,
 .home-feed-column,
 .home-right-rail,
 .home-rail-section,
@@ -2484,6 +2488,69 @@ watch(
   margin-top: 0.9rem;
 }
 
+.home-task-disclosure {
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.75rem 0 0;
+}
+
+.home-task-disclosure summary,
+.home-mobile-secondary summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.home-task-disclosure summary::-webkit-details-marker,
+.home-mobile-secondary summary::-webkit-details-marker {
+  display: none;
+}
+
+.home-task-disclosure summary > span:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.home-task-disclosure summary small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.home-task-disclosure summary strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-task-disclosure summary::after,
+.home-mobile-secondary summary::after {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  content: '＋';
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.home-task-disclosure[open] summary::after,
+.home-mobile-secondary[open] summary::after {
+  content: '−';
+}
+
+.home-task-disclosure__description {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
 .home-task-panel {
   padding-bottom: 0.15rem;
 }
@@ -2524,8 +2591,8 @@ watch(
 .home-rail-section__title h3 {
   margin: 0;
   color: var(--text-strong);
-  font-size: 0.875rem;
-  font-weight: 800;
+  font-size: 0.9375rem;
+  font-weight: 700;
 }
 
 .home-rail-section__title svg {
@@ -2534,6 +2601,20 @@ watch(
 
 .home-tag-panel {
   padding-bottom: 0;
+}
+
+.home-rail-section__empty-link {
+  display: block;
+  margin-top: 0.7rem;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.home-rail-section__empty-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .home-tag-list {
@@ -2603,57 +2684,22 @@ watch(
   transform: translateY(-1px);
 }
 
-.home-reading-pulse {
-  display: flex;
-  grid-column: 1 / -1;
-  gap: 0.4rem;
-  overflow-x: auto;
-  padding-top: 0.1rem;
-  scrollbar-width: none;
+.home-horizontal-scroll {
+  position: relative;
+  min-width: 0;
 }
 
-.home-reading-pulse::-webkit-scrollbar {
+.home-mobile-channels-shell {
   display: none;
 }
 
-.home-reading-pulse__item {
-  display: inline-flex;
-  min-height: 2rem;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0 0.55rem;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: var(--surface-3);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 700;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+.home-content-types__scroll {
+  flex: 1 1 auto;
 }
 
-.home-reading-pulse__item strong {
-  color: var(--text-primary);
-  font-weight: 750;
-}
-
-.home-reading-pulse__item:hover {
-  background: var(--surface);
-  border-color: var(--border-subtle);
-  color: var(--primary-600);
-  transform: translateY(-1px);
-}
-
-.home-reading-pulse__item--hot svg {
-  color: #d92d20;
-}
-
-.home-reading-pulse__item--rising svg {
-  color: #0f9f8c;
-}
-
-.home-reading-pulse__item--featured svg {
-  color: #b54708;
+.home-horizontal-scroll__cue {
+  display: none;
+  pointer-events: none;
 }
 
 .home-feed-controls {
@@ -2726,6 +2772,7 @@ watch(
 
 .home-content-types__list {
   display: flex;
+  width: 100%;
   min-width: 0;
   gap: 0.35rem;
   overflow-x: auto;
@@ -2780,6 +2827,78 @@ watch(
 
 .home-right-rail .home-rail-section:first-child {
   padding-top: 1rem;
+}
+
+.home-rail-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.home-channel-link,
+.home-channel-publish {
+  font-weight: 600;
+}
+
+.home-tag-link {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.home-topic-row small,
+.home-trending-row small,
+.home-author-row :deep(.text-xs),
+.home-rail-section__empty,
+.home-rail-section__empty-link {
+  font-size: 0.75rem;
+}
+
+.home-feed-list :deep(.post-card__author-row .text-xs),
+.home-feed-list :deep(.post-card__footer) {
+  color: var(--text-muted) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+}
+
+.home-feed-list :deep(.post-trust-panel) {
+  display: none;
+}
+
+.home-feed-list :deep(.post-feed-explanation) {
+  margin: 0.35rem 0 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.home-feed-list :deep(.post-feed-explanation__trigger) {
+  min-height: 2rem;
+  padding: 0.25rem 0;
+  color: var(--text-muted);
+}
+
+.home-feed-list :deep(.post-feed-explanation__heading) {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.home-mobile-secondary {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.25rem;
+}
+
+.home-mobile-secondary summary {
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.home-mobile-secondary summary small {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .home-rail-section__empty {
@@ -2973,7 +3092,6 @@ watch(
 .dark .home-channel-link--active,
 .dark .home-feed-tabs button.home-feed-tab--active,
 .dark .home-feed-intro__publish,
-.dark .home-reading-pulse__item:hover,
 .dark .home-content-types .channel-chip:hover,
 .dark .home-tag-link:hover {
   background: rgb(30 58 138 / 0.36) !important;
@@ -2981,7 +3099,6 @@ watch(
 }
 
 .dark .home-channel-link__icon,
-.dark .home-reading-pulse__item,
 .dark .home-content-types .channel-chip,
 .dark .home-tag-link {
   background: rgb(39 39 42);
@@ -3027,8 +3144,7 @@ watch(
 .dark .home-featured-row h4,
 .dark .home-topic-row > span,
 .dark .home-trending-row strong,
-.dark .home-author-row :deep(.truncate),
-.dark .home-reading-pulse__item strong {
+.dark .home-author-row :deep(.truncate) {
   color: rgb(241 245 249);
 }
 
@@ -3043,13 +3159,39 @@ watch(
     display: block;
   }
 
+  .home-left-rail,
+  .home-right-rail {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
   .home-feed-column {
     width: min(720px, 100%);
     margin: 0 auto;
   }
 
-  .home-task-panel--mobile {
-    margin-top: 1rem;
+  .home-mobile-channels-shell {
+    display: block;
+    grid-column: 1 / -1;
+  }
+
+  .home-mobile-channels {
+    padding-right: 2.35rem;
+  }
+
+  .home-mobile-channels-shell .home-horizontal-scroll__cue {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    width: 2.5rem;
+    height: 2.25rem;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.15rem;
+    background: linear-gradient(90deg, transparent, var(--surface) 58%);
+    color: var(--primary-600);
   }
 }
 
@@ -3067,14 +3209,9 @@ watch(
     font-size: 1.25rem;
   }
 
-  .home-reading-pulse {
-    margin-right: -1rem;
-    padding-right: 1rem;
-  }
-
   .home-mobile-channels {
     margin-right: -1rem;
-    padding-right: 1rem;
+    padding-right: 3.25rem;
   }
 
   .home-content-types {
@@ -3083,10 +3220,27 @@ watch(
     gap: 0.45rem;
   }
 
-  .home-content-types__list {
+  .home-content-types__scroll {
     width: calc(100% + 1rem);
     margin-right: -1rem;
-    padding-right: 1rem;
+  }
+
+  .home-content-types__list {
+    padding-right: 3.25rem;
+  }
+
+  .home-content-types__scroll .home-horizontal-scroll__cue {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    width: 2.5rem;
+    height: 1.8rem;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.15rem;
+    background: linear-gradient(90deg, transparent, var(--surface) 58%);
+    color: var(--primary-600);
   }
 
   .home-feed-list {

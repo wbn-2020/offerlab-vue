@@ -25,7 +25,7 @@ assertIncludes('NotificationsView.vue', files.notifications, [
   '轻反馈',
   '回到讨论',
   '尊重通知偏好',
-  '没有生成新的后端通知',
+  '不会额外生成新的通知',
 ])
 
 assertIncludes('MeProfileView.vue', files.meProfile, [

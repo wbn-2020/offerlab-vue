@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const view = readFileSync(new URL('../src/views/PostDetailView.vue', import.meta.url), 'utf8')
+const interactionBar = readFileSync(new URL('../src/components/post/InteractionBar.vue', import.meta.url), 'utf8')
 
 assert.match(view, /error:\s*postError/, 'PostDetailView must keep post load errors')
 assert.match(view, /retry:\s*false/, 'PostDetailView must not retry 403 or 404 detail responses into a long loading state')
@@ -24,5 +25,16 @@ assert.match(view, /watch\(\[post,\s*postErrorCode,\s*postId\],/, 'PostDetailVie
 assert.match(view, /applyPageSeo\(\{/, 'PostDetailView must apply page SEO on detail state changes')
 assert.match(view, /canonical:\s*`\/post\/\$\{postId\.value\}`/, 'PostDetailView must publish a canonical path for public detail pages')
 assert.match(view, /summarizeSeoText\(/, 'PostDetailView must summarize detail text for Stage 1 SEO descriptions')
+assert.match(view, /contact-author-unavailable/, 'PostDetailView must keep unavailable contact as a secondary author hint')
+assert.match(view, /v-if="showContactAuthorEntry && !canStartContactRequest"/, 'Unavailable author contact must not occupy the primary action group')
+assert.match(view, /post-secondary-toggle/, 'Post detail secondary evidence and evolution modules must be progressively disclosed')
+assert.match(view, /:aria-expanded="showBackgroundDetails"/, 'Post detail background disclosure must expose expanded state')
+assert.match(view, /:aria-expanded="showTrustDetails"/, 'Post detail trust disclosure must expose expanded state')
+assert.match(view, /discussion-primary-link/, 'Post detail must expose a direct discussion entry after the article interaction bar')
+assert.doesNotMatch(view, /来自数据库兜底搜索|本次搜索处于降级链路|Elasticsearch 不可用/, 'Post detail must not expose search infrastructure terminology to readers')
+assert.match(view, /部分结果可能暂未完整展示/, 'Post detail must translate degraded search entry state into concise user-facing copy')
+assert.match(interactionBar, /aria-pressed="Boolean\(post\.myInteraction\?\.liked\)"/, 'Like control must expose its selected state')
+assert.match(interactionBar, /aria-pressed="Boolean\(post\.myInteraction\?\.favorited\)"/, 'Favorite control must expose its selected state')
+assert.doesNotMatch(view, /querySelectorAll\('button'\)|setAttribute\('aria-pressed'/, 'Post detail must not patch shared interaction semantics through DOM queries')
 
 console.log('post detail visibility guard passed')

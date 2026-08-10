@@ -36,6 +36,9 @@ const requiredRoutes = [
   '/me/knowledge',
   '/me/relationships',
   '/me/collaboration',
+  '/me/collaboration/needs/new',
+  '/me/collaboration/series/submit',
+  '/me/collaboration/activities/submit',
   '/me/collaboration/contributions',
   '/me/contact-requests',
   '/me/creator',
@@ -62,7 +65,7 @@ for (const route of requiredRoutes) {
   assert.ok(routePaths.includes(route), `visual snapshot route missing: ${route}`)
 }
 const disabledMockInterviewRoute = visualSnapshotRoutes.find((item) => item.path === '/mock-interview')
-assert.equal(disabledMockInterviewRoute?.expectedPath, '/questions', 'disabled mock-interview snapshots must expect the knowledge-library redirect')
+assert.equal(disabledMockInterviewRoute?.expectedPath, undefined, 'disabled mock-interview snapshots must stay on the migration explanation URL')
 const welcomeRoute = visualSnapshotRoutes.find((item) => item.path === '/welcome')
 assert.equal(welcomeRoute?.onboarding, true, 'welcome visual snapshot must seed the registration onboarding session marker')
 
@@ -79,6 +82,9 @@ for (const route of visualSnapshotRoutes.filter((item) => [
   '/me/knowledge',
   '/me/relationships',
   '/me/collaboration',
+  '/me/collaboration/needs/new',
+  '/me/collaboration/series/submit',
+  '/me/collaboration/activities/submit',
   '/me/collaboration/contributions',
   '/me/contact-requests',
   '/me/creator',

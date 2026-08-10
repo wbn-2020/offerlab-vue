@@ -184,7 +184,7 @@ const p0Sources = [
   [
     'MeProfileView.vue',
     meProfile
-      .replace(/^\s*<CreatorChallengeWorkspace class="mt-6" \/>\s*$/m, '')
+      .replace(/^\s*<CreatorChallengeWorkspace\b[^>]*\/>\s*$/m, '')
       .replace(/^\s*import CreatorChallengeWorkspace from ['"][^'"]+['"]\s*$/m, ''),
   ],
   ['UserProfileView.vue', userProfile],

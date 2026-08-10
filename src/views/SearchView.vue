@@ -70,9 +70,9 @@
 
       <div class="search-layout">
         <aside class="search-aside space-y-4">
-          <details class="filter-details" open>
+          <details class="filter-details">
             <summary class="filter-summary">
-              筛选与搜索记录
+              高级筛选与搜索记录
             </summary>
           <section class="side-panel search-related-panel">
             <div class="side-panel-heading">
@@ -353,17 +353,20 @@
               <PostCard
                 :post="post"
                 :like-pending="isActionPending('like', post.postId)"
-              :favorite-pending="isActionPending('favorite', post.postId)"
-              :detail-query="postDetailQuery"
-              show-reason-panel
-              @like="handleLike"
-              @favorite="handleFavorite"
-              @follow-change="handlePostAuthorFollowChange"
-            />
-              <div v-if="searchHitReasons(post).length" class="search-hit-reasons" aria-label="命中解释">
-                <span>命中解释</span>
+                :favorite-pending="isActionPending('favorite', post.postId)"
+                :detail-query="postDetailQuery"
+                @like="handleLike"
+                @favorite="handleFavorite"
+                @follow-change="handlePostAuthorFollowChange"
+              />
+              <details
+                v-if="searchHitReasons(post).length"
+                class="search-hit-reasons"
+                aria-label="命中解释"
+              >
+                <summary>为什么匹配</summary>
                 <small v-for="reason in searchHitReasons(post)" :key="reason">{{ reason }}</small>
-              </div>
+              </details>
             </div>
           </template>
 
@@ -674,14 +677,14 @@ const searchDiagnosticText = computed(() => {
     return '当前关键词像自动化回归记录，这类数据不会出现在公开搜索中。'
   }
   if (diagnostics.emptyReason === 'type_or_filter_no_match') {
-    return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、标签或频道。'
+    return '当前筛选条件没有匹配结果，可以先减少筛选项。'
   }
   const filtered = Number(diagnostics.syntheticFiltered || 0)
   if (filtered > 0) {
-    return `已隐藏 ${filtered} 条自动化回归记录，公开搜索只展示真实公开内容。`
+    return '部分不适合公开展示的记录已被隐藏。'
   }
   if (searchResultMeta.value?.scanLimit) {
-    return `本次搜索扫描上限 ${searchResultMeta.value.scanLimit} 条，结果受当前筛选条件影响。`
+    return '结果会受到当前筛选条件和可检索范围影响。'
   }
   return ''
 })
@@ -761,19 +764,16 @@ const userFacingSearchStatusMessage = (message?: string | null) => {
   return value
 }
 const searchStatusText = computed(() => {
-  if (searchStatusError.value && !searchStatus.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、社区问题求助和搜作者入口'
-  if (!searchStatus.value) return '公开搜索仅展示已发布、公开、可分发的社区内容；个人最近搜索和保存搜索不参与公共趋势、创作者建议、编辑器建议或专题候选'
+  if (searchStatusError.value && !searchStatus.value) return '暂时无法读取搜索状态，仍可浏览热门内容、作者和发现页。'
+  if (!searchStatus.value) return '公开搜索只展示已发布且可公开访问的内容。'
   if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、社区问题求助和搜作者入口'
-  if (searchStatus.value.publicSearchSource === 'mysql') {
-    const mode = searchStatus.value.fallbackMode === 'compat' ? '兼容模式' : '完整标签治理模式'
-    return `公开搜索当前由数据库兜底服务（${mode}），结果可能不完整，排序能力受限，不代表内容获得额外曝光或排名`
+  if (searchStatus.value.publicSearchSource === 'mysql') return '搜索仍可使用，但结果完整度和排序能力可能暂时受限。'
+  if (!searchStatus.value.enabled || !searchStatus.value.available || !searchStatus.value.indexExists) {
+    return '搜索仍可使用，但结果完整度可能暂时受限。'
   }
-  if (!searchStatus.value.enabled) return '搜索索引未启用，当前使用数据库搜索，结果可能不完整'
-  if (!searchStatus.value.available) return '搜索索引暂不可用，当前使用数据库兜底搜索，结果可能不完整'
-  if (!searchStatus.value.indexExists) return '搜索索引尚未创建，当前结果可能不完整'
   const backendMessage = userFacingSearchStatusMessage(searchStatus.value.message)
   if (backendMessage) return backendMessage
-  return '搜索索引已就绪；结果只按公开内容和当前筛选返回，不承诺曝光、精选或排名'
+  return '搜索状态正常，只返回公开且符合当前条件的内容。'
 })
 const searchErrorStatusText = computed(() => {
   if (!errorMessage.value) return searchStatusText.value
@@ -782,10 +782,10 @@ const searchErrorStatusText = computed(() => {
   return `本次搜索请求失败；下方状态仅表示当前后端诊断：${searchStatusText.value}`
 })
 const searchStatusBadge = computed(() => {
-  if (searchStatus.value?.publicSearchSource === 'elasticsearch') return '实时'
-  if (searchStatus.value?.publicSearchSource === 'mysql') return '兜底'
+  if (searchStatus.value?.publicSearchSource === 'elasticsearch') return '正常'
+  if (searchStatus.value?.publicSearchSource === 'mysql') return '受限'
   if (searchStatus.value?.publicSearchAvailable === false) return '不可用'
-  return searchStatus.value?.available ? '实时' : '公开'
+  return searchStatus.value?.available ? '正常' : '受限'
 })
 const searchStatusPillClass = computed(() => {
   if (searchStatus.value?.publicSearchSource === 'elasticsearch') return 'status-ok'
@@ -807,20 +807,17 @@ const communityQuestionQuery = computed(() => {
 const searchSourceTitle = computed(() => {
   const meta = searchResultMeta.value
   if (!meta) return ''
-  if (meta.source === 'elasticsearch' && !meta.degraded) return '本次结果来自实时搜索索引'
-  if (meta.source === 'mysql' && meta.degraded && isVisibilitySupplementReason(meta.fallbackReason)) return '本次补充了数据库可见结果'
-  if (meta.source === 'mysql' && meta.degraded) return '本次使用数据库兜底搜索'
-  if (meta.source === 'mysql') return '本次结果来自数据库搜索'
-  if (meta.source === 'client_fallback') return '本页客户端兜底建议'
-  return `本次搜索来源：${meta.source || '未知'}`
+  if (!meta.degraded) return '搜索结果'
+  if (isVisibilitySupplementReason(meta.fallbackReason)) return '已补充可见内容'
+  if (meta.source === 'client_fallback') return '可继续浏览'
+  return '结果可能不完整'
 })
 const searchSourceDescription = computed(() => {
   const meta = searchResultMeta.value
   if (!meta) return ''
-  const scan = meta.scanLimit ? `扫描上限 ${meta.scanLimit} 条。` : ''
-  if (!meta.degraded) return `索引可用，按当前筛选和排序返回，不代表曝光、精选或排名。${scan}`
-  if (isVisibilitySupplementReason(meta.fallbackReason)) return `${fallbackReasonText(meta.fallbackReason)}，搜索服务仍可用。${scan}`
-  return `${fallbackReasonText(meta.fallbackReason)}，结果可能不完整，排序能力受限，不代表曝光、精选或排名。${scan}`
+  if (!meta.degraded) return '按当前关键词、筛选和排序返回公开内容。'
+  if (isVisibilitySupplementReason(meta.fallbackReason)) return '已补充符合公开条件的内容，搜索仍可继续使用。'
+  return `${fallbackReasonText(meta.fallbackReason)}，你仍可调整关键词或筛选继续查找。`
 })
 const highRiskSearchWarning = computed(() => (
   findHighRiskContentWarning([filters.q, filters.company, filters.position].filter(Boolean).join(' '))
@@ -889,14 +886,14 @@ const isVisibilitySupplementReason = (reason?: string) => {
 
 const fallbackReasonText = (reason?: string) => {
   const labels: Record<string, string> = {
-    elasticsearch_empty: '索引没有召回可见结果，已补充数据库中的公开内容',
-    elasticsearch_visibility_filtered: '索引结果经过可见性过滤后不足，已补充数据库中的公开内容',
-    elasticsearch_unavailable: '搜索服务当前不可用，已使用数据库兜底',
-    mysql_fallback_continuation: '本页继续沿用首屏确定的数据库排序',
-    hot_sort_mysql: '热门排序使用数据库热度计算',
-    search_api_error: '搜索请求失败，已保留本页兜底入口',
+    elasticsearch_empty: '未找到直接匹配，已补充其他公开内容',
+    elasticsearch_visibility_filtered: '直接匹配较少，已补充其他公开内容',
+    elasticsearch_unavailable: '当前使用备用搜索方式',
+    mysql_fallback_continuation: '后续结果沿用当前排序',
+    hot_sort_mysql: '热门结果按社区互动排序',
+    search_api_error: '本次搜索失败，已保留其他浏览入口',
   }
-  return labels[reason || ''] || '本次使用兜底搜索链路'
+  return labels[reason || ''] || '当前使用备用搜索方式'
 }
 
 const analyticsKeyword = () => filters.q || filters.company || filters.position || (filters.type ? postTypeText(filters.type) : '') || 'empty-result'
@@ -1654,7 +1651,7 @@ onBeforeUnmount(() => {
 }
 
 .filter-summary {
-  display: none;
+  display: flex;
   min-height: 2.75rem;
   cursor: pointer;
   align-items: center;
@@ -2003,32 +2000,26 @@ onBeforeUnmount(() => {
 }
 
 .search-hit-reasons {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0 0.25rem 0.25rem;
+  border-top: 1px solid var(--surface-3);
+  padding: 0.65rem 1rem 0.75rem;
 }
 
-.search-hit-reasons span,
+.search-hit-reasons summary,
 .search-hit-reasons small {
-  display: inline-flex;
-  min-height: 1.75rem;
-  align-items: center;
-  border-radius: 999px;
   font-size: 0.75rem;
+}
+
+.search-hit-reasons summary {
+  cursor: pointer;
+  color: var(--text-muted);
   font-weight: 800;
 }
 
-.search-hit-reasons span {
-  color: rgb(71 85 105);
-}
-
 .search-hit-reasons small {
-  border: 1px solid rgb(219 234 254);
-  background: rgb(239 246 255);
-  padding: 0.25rem 0.6rem;
-  color: rgb(30 64 175);
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--text-primary);
+  line-height: 1.5;
 }
 
 .loading-panel,
@@ -2399,6 +2390,11 @@ onBeforeUnmount(() => {
 
 .search-results {
   grid-area: results;
+}
+
+.search-input::placeholder {
+  color: #64748b;
+  opacity: 1;
 }
 
 .search-aside {

@@ -15,6 +15,23 @@
           </div>
         </div>
         <div class="workspace-header-actions collaboration-hub-header-actions">
+          <RouterLink
+            v-if="authStore.isLoggedIn"
+            to="/me/collaboration"
+            class="secondary-action"
+          >
+            <ListChecks class="h-4 w-4" aria-hidden="true" />
+            我的行动
+          </RouterLink>
+          <button
+            v-if="isPublicBrowseTab && !contributionMode"
+            type="button"
+            class="primary-action"
+            @click="startNeedCreation"
+          >
+            <Plus class="h-4 w-4" aria-hidden="true" />
+            发起需求
+          </button>
           <label v-if="showGlobalSort" class="workspace-sort-control">
             <span>排序</span>
             <select v-model="hubSort" class="toolbar-select" aria-label="协作资源排序" @change="changeSort">
@@ -30,100 +47,26 @@
         </div>
       </header>
 
-      <section class="hub-participation-guide" aria-labelledby="hub-participation-title">
-        <div class="hub-guide-heading">
-          <div>
-            <p class="hub-guide-kicker">从公共问题开始</p>
-            <h2 id="hub-participation-title">找到你现在能参与的一步</h2>
-          </div>
-          <p>公开需求和协作资源会保留来源、权限与贡献记录，方便继续跟进。</p>
-        </div>
-        <div class="hub-guide-grid">
-          <button
-            type="button"
-            class="hub-guide-step"
-            :class="{ 'hub-guide-step-active': activeTab === 'needs' }"
-            :aria-pressed="activeTab === 'needs'"
-            @click="selectTab('needs')"
-          >
-            <span class="hub-guide-number">01</span>
-            <span class="hub-guide-step-copy">
-              <strong>看见缺口</strong>
-              <small>浏览公开需求，认领明确的交付任务。</small>
-            </span>
-            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            class="hub-guide-step"
-            :class="{ 'hub-guide-step-active': activeTab === 'series' }"
-            :aria-pressed="activeTab === 'series'"
-            @click="selectTab('series')"
-          >
-            <span class="hub-guide-number">02</span>
-            <span class="hub-guide-step-copy">
-              <strong>收拢内容</strong>
-              <small>加入协作合集，让分散经验形成主题。</small>
-            </span>
-            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            class="hub-guide-step"
-            :class="{ 'hub-guide-step-active': activeTab === 'activities' }"
-            :aria-pressed="activeTab === 'activities'"
-            @click="selectTab('activities')"
-          >
-            <span class="hub-guide-number">03</span>
-            <span class="hub-guide-step-copy">
-              <strong>一起产出</strong>
-              <small>参与共创活动，把经验交付给公共主题。</small>
-            </span>
-            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            class="hub-guide-step"
-            :class="{ 'hub-guide-step-active': activeTab === 'discussions' }"
-            :aria-pressed="activeTab === 'discussions'"
-            @click="selectTab('discussions')"
-          >
-            <span class="hub-guide-number">04</span>
-            <span class="hub-guide-step-copy">
-              <strong>共同判断</strong>
-              <small>参与结构化讨论，留下可复用的共识。</small>
-            </span>
-            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            class="hub-guide-step"
-            :class="{ 'hub-guide-step-active': activeTab === 'office-hours' }"
-            :aria-pressed="activeTab === 'office-hours'"
-            @click="selectTab('office-hours')"
-          >
-            <span class="hub-guide-number">05</span>
-            <span class="hub-guide-step-copy">
-              <strong>经验交流</strong>
-              <small>预约开放时段，和有经验的人面对面交流。</small>
-            </span>
-            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
-          </button>
-        </div>
-      </section>
-
-      <nav class="workspace-tabs" role="tablist" aria-label="协作工作台视图">
+      <nav
+        v-if="isPublicBrowseTab"
+        class="workspace-tabs"
+        role="tablist"
+        aria-label="公共共建浏览"
+      >
         <button
-          v-for="tab in tabs"
+          v-for="(tab, index) in publicTabs"
           :id="`collaboration-tab-${tab.key}`"
           :key="tab.key"
+          ref="publicTabRefs"
           type="button"
           role="tab"
           class="workspace-tab"
           :class="{ 'workspace-tab-active': activeTab === tab.key }"
           :aria-selected="activeTab === tab.key"
           :aria-controls="`collaboration-panel-${tab.key}`"
+          :tabindex="activeTab === tab.key ? 0 : -1"
           @click="selectTab(tab.key)"
+          @keydown="handlePublicTabKeydown($event, index)"
         >
           <component :is="tab.icon" class="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{{ tab.label }}</span>
@@ -131,15 +74,32 @@
       </nav>
 
       <section
+        v-else-if="personalWorkspaceMeta"
+        class="personal-workspace-context"
+        aria-labelledby="collaboration-personal-workspace-title"
+      >
+        <div>
+          <p>协作行动中心 / {{ personalWorkspaceMeta.group }}</p>
+          <h2 id="collaboration-personal-workspace-title">{{ personalWorkspaceMeta.label }}</h2>
+          <span>{{ personalWorkspaceMeta.description }}</span>
+        </div>
+        <RouterLink to="/me/collaboration" class="secondary-action">
+          <ListChecks class="h-4 w-4" aria-hidden="true" />
+          返回行动中心
+        </RouterLink>
+      </section>
+
+      <section
         v-if="activeTab === 'needs'"
         id="collaboration-panel-needs"
         class="workspace-layout"
+        :class="{ 'workspace-layout--browse': contributionMode !== 'need' }"
         role="tabpanel"
         aria-labelledby="collaboration-tab-needs"
         data-community-public-section="needs"
         :data-public-section-state="collectionDisplayState(needState)"
       >
-        <aside class="workspace-panel workspace-form-panel">
+        <aside v-if="contributionMode === 'need'" class="workspace-panel workspace-form-panel">
           <div class="panel-heading">
             <span class="panel-icon"><Plus class="h-4 w-4" aria-hidden="true" /></span>
             <div>
@@ -155,92 +115,95 @@
           </div>
 
           <form class="workspace-form" @submit.prevent="createNeed">
-            <div class="field-grid field-grid-three">
+            <fieldset class="workspace-form-fields" :disabled="!authStore.isLoggedIn">
+              <div class="field-grid field-grid-three">
+                <label class="field-group">
+                  <span>领域</span>
+                  <select v-model.number="needForm.domain" class="workspace-input">
+                    <option :value="0" disabled>请选择频道</option>
+                    <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
+                      {{ domain.domainName }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="field-group">
+                  <span>来源</span>
+                  <select v-model="needForm.sourceType" class="workspace-input">
+                    <option v-for="item in needSourceOptions" :key="item.value" :value="item.value">
+                      {{ item.label }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="field-group">
+                  <span>形式</span>
+                  <select v-model="needForm.contentFormat" class="workspace-input">
+                    <option v-for="item in needFormatOptions" :key="item.value" :value="item.value">
+                      {{ item.label }}
+                    </option>
+                  </select>
+                </label>
+              </div>
+
               <label class="field-group">
-                <span>领域</span>
-                <select v-model.number="needForm.domain" class="workspace-input">
-                  <option :value="0" disabled>请选择频道</option>
-                  <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
-                    {{ domain.domainName }}
-                  </option>
-                </select>
+                <span>需求标题</span>
+                <input
+                  ref="needTitleInput"
+                  v-model.trim="needForm.title"
+                  class="workspace-input"
+                  type="text"
+                  maxlength="120"
+                  placeholder="例如：补充一份前端性能排查清单"
+                  required
+                >
               </label>
 
               <label class="field-group">
-                <span>来源</span>
-                <select v-model="needForm.sourceType" class="workspace-input">
-                  <option v-for="item in needSourceOptions" :key="item.value" :value="item.value">
-                    {{ item.label }}
-                  </option>
-                </select>
+                <span>需求说明</span>
+                <textarea
+                  v-model.trim="needForm.description"
+                  class="workspace-textarea"
+                  rows="5"
+                  maxlength="2000"
+                  placeholder="说明背景、缺口与预期读者。"
+                  required
+                />
               </label>
 
               <label class="field-group">
-                <span>形式</span>
-                <select v-model="needForm.contentFormat" class="workspace-input">
-                  <option v-for="item in needFormatOptions" :key="item.value" :value="item.value">
-                    {{ item.label }}
-                  </option>
-                </select>
+                <span>验收条件</span>
+                <textarea
+                  v-model.trim="needForm.acceptanceCriteria"
+                  class="workspace-textarea workspace-textarea-compact"
+                  rows="3"
+                  maxlength="1000"
+                  placeholder="列出完成后应满足的关键条件。"
+                />
               </label>
-            </div>
 
-            <label class="field-group">
-              <span>需求标题</span>
-              <input
-                v-model.trim="needForm.title"
-                class="workspace-input"
-                type="text"
-                maxlength="120"
-                placeholder="例如：补充一份前端性能排查清单"
-                required
-              />
-            </label>
+              <label class="field-group">
+                <span>来源资源 ID（可选）</span>
+                <input
+                  v-model.trim="needForm.sourceRefId"
+                  class="workspace-input"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="帖子、话题或活动 ID"
+                >
+              </label>
 
-            <label class="field-group">
-              <span>需求说明</span>
-              <textarea
-                v-model.trim="needForm.description"
-                class="workspace-textarea"
-                rows="5"
-                maxlength="2000"
-                placeholder="说明背景、缺口与预期读者。"
-                required
-              />
-            </label>
+              <label v-if="isHighRiskDomain(needForm.domain)" class="risk-confirmation">
+                <input v-model="needForm.riskAcknowledged" type="checkbox">
+                <span>我已阅读该领域的风险提示，并确认本次提交边界清晰。</span>
+              </label>
 
-            <label class="field-group">
-              <span>验收条件</span>
-              <textarea
-                v-model.trim="needForm.acceptanceCriteria"
-                class="workspace-textarea workspace-textarea-compact"
-                rows="3"
-                maxlength="1000"
-                placeholder="列出完成后应满足的关键条件。"
-              />
-            </label>
-
-            <label class="field-group">
-              <span>来源资源 ID（可选）</span>
-              <input
-                v-model.trim="needForm.sourceRefId"
-                class="workspace-input"
-                type="text"
-                inputmode="numeric"
-                placeholder="帖子、话题或活动 ID"
-              />
-            </label>
-
-            <label v-if="isHighRiskDomain(needForm.domain)" class="risk-confirmation">
-              <input v-model="needForm.riskAcknowledged" type="checkbox" />
-              <span>我已阅读该领域的风险提示，并确认本次提交边界清晰。</span>
-            </label>
-
-            <button type="submit" class="primary-action w-full" :disabled="creatingNeed">
-              <Loader2 v-if="creatingNeed" class="h-4 w-4 animate-spin" aria-hidden="true" />
-              <Plus v-else class="h-4 w-4" aria-hidden="true" />
-              {{ creatingNeed ? '正在发布' : '发布需求' }}
-            </button>
+              <button type="submit" class="primary-action w-full" :disabled="creatingNeed">
+                <Loader2 v-if="creatingNeed" class="h-4 w-4 animate-spin" aria-hidden="true" />
+                <Plus v-else class="h-4 w-4" aria-hidden="true" />
+                {{ creatingNeed ? '正在发布' : '发布需求' }}
+              </button>
+            </fieldset>
           </form>
         </aside>
 
@@ -291,8 +254,12 @@
           <div v-else-if="!needState.items.length" class="state-message">
             <Inbox class="h-6 w-6" aria-hidden="true" />
             <div>
-              <strong>当前筛选下暂无需求</strong>
-              <p>可以调整筛选，或发布一个边界清晰的新需求。</p>
+              <strong>{{ hasActiveNeedFilters ? '当前筛选下暂无需求' : '暂时还没有公开需求' }}</strong>
+              <p>{{ hasActiveNeedFilters ? '清除筛选可查看全部需求。' : '可以发起一个目标明确、可验收的新需求。' }}</p>
+              <div class="empty-state-actions">
+                <button v-if="hasActiveNeedFilters" type="button" @click="clearNeedFilters">清除筛选</button>
+                <button type="button" @click="startNeedCreation">发起需求</button>
+              </div>
             </div>
           </div>
 
@@ -347,7 +314,7 @@
                       type="checkbox"
                       :checked="Boolean(riskAcknowledgements[needRiskKey(need)])"
                       @change="setRiskAcknowledgement(needRiskKey(need), $event)"
-                    />
+                    >
                     <span>确认风险提示</span>
                   </label>
                   <button
@@ -393,7 +360,7 @@
         v-else-if="activeTab === 'my-collaborations'"
         id="collaboration-panel-my-collaborations"
         role="tabpanel"
-        aria-labelledby="collaboration-tab-my-collaborations"
+        aria-labelledby="collaboration-personal-workspace-title"
         data-community-participation-section="my-collaborations"
       >
         <MyCollaborationsWorkspace
@@ -406,12 +373,13 @@
         v-else-if="activeTab === 'series'"
         id="collaboration-panel-series"
         class="workspace-layout"
+        :class="{ 'workspace-layout--browse': contributionMode !== 'series' }"
         role="tabpanel"
         aria-labelledby="collaboration-tab-series"
         data-community-public-section="series"
         :data-public-section-state="collectionDisplayState(seriesState)"
       >
-        <aside class="workspace-panel workspace-form-panel">
+        <aside v-if="contributionMode === 'series'" class="workspace-panel workspace-form-panel">
           <div class="panel-heading">
             <span class="panel-icon"><Send class="h-4 w-4" aria-hidden="true" /></span>
             <div>
@@ -427,50 +395,52 @@
           </div>
 
           <form class="workspace-form" @submit.prevent="submitSeriesPost">
-            <label class="field-group">
-              <span>目标合集</span>
-              <select v-model="seriesSubmission.seriesId" class="workspace-input" required>
-                <option value="">选择已加入的开放合集</option>
-                <option v-for="series in eligibleSeries" :key="series.id" :value="String(series.id)">
-                  {{ series.title }} · {{ seriesRoleLabel(series.currentUserRole) }}
-                </option>
-              </select>
-            </label>
+            <fieldset class="workspace-form-fields" :disabled="!authStore.isLoggedIn">
+              <label class="field-group">
+                <span>目标合集</span>
+                <select v-model="seriesSubmission.seriesId" class="workspace-input" required>
+                  <option value="">选择已加入的开放合集</option>
+                  <option v-for="series in eligibleSeries" :key="series.id" :value="String(series.id)">
+                    {{ series.title }} · {{ seriesRoleLabel(series.currentUserRole) }}
+                  </option>
+                </select>
+              </label>
 
-            <label class="field-group">
-              <span>公开帖子 ID</span>
-              <input
-                ref="seriesPostInput"
-                v-model.trim="seriesSubmission.postId"
-                class="workspace-input"
-                type="text"
-                inputmode="numeric"
-                placeholder="输入本人公开帖子 ID"
-                required
-              />
-            </label>
+              <label class="field-group">
+                <span>公开帖子 ID</span>
+                <input
+                  ref="seriesPostInput"
+                  v-model.trim="seriesSubmission.postId"
+                  class="workspace-input"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="输入本人公开帖子 ID"
+                  required
+                >
+              </label>
 
-            <label class="field-group">
-              <span>投稿说明</span>
-              <textarea
-                v-model.trim="seriesSubmission.note"
-                class="workspace-textarea workspace-textarea-compact"
-                rows="4"
-                maxlength="1000"
-                placeholder="说明内容与合集主题的关系。"
-              />
-            </label>
+              <label class="field-group">
+                <span>投稿说明</span>
+                <textarea
+                  v-model.trim="seriesSubmission.note"
+                  class="workspace-textarea workspace-textarea-compact"
+                  rows="4"
+                  maxlength="1000"
+                  placeholder="说明内容与合集主题的关系。"
+                />
+              </label>
 
-            <label v-if="selectedSeries && isHighRiskDomain(selectedSeries.domain)" class="risk-confirmation">
-              <input v-model="seriesSubmission.riskAcknowledged" type="checkbox" />
-              <span>我已阅读该领域的风险提示，并确认投稿内容边界清晰。</span>
-            </label>
+              <label v-if="selectedSeries && isHighRiskDomain(selectedSeries.domain)" class="risk-confirmation">
+                <input v-model="seriesSubmission.riskAcknowledged" type="checkbox">
+                <span>我已阅读该领域的风险提示，并确认投稿内容边界清晰。</span>
+              </label>
 
-            <button type="submit" class="primary-action w-full" :disabled="submittingSeries">
-              <Loader2 v-if="submittingSeries" class="h-4 w-4 animate-spin" aria-hidden="true" />
-              <Send v-else class="h-4 w-4" aria-hidden="true" />
-              {{ submittingSeries ? '正在提交' : '提交到合集' }}
-            </button>
+              <button type="submit" class="primary-action w-full" :disabled="submittingSeries">
+                <Loader2 v-if="submittingSeries" class="h-4 w-4 animate-spin" aria-hidden="true" />
+                <Send v-else class="h-4 w-4" aria-hidden="true" />
+                {{ submittingSeries ? '正在提交' : '提交到合集' }}
+              </button>
+            </fieldset>
           </form>
 
           <p v-if="seriesState.initialized && !eligibleSeries.length" class="form-footnote">
@@ -529,8 +499,12 @@
           <div v-else-if="!seriesState.items.length" class="state-message">
             <Inbox class="h-6 w-6" aria-hidden="true" />
             <div>
-              <strong>当前筛选下暂无合集</strong>
-              <p>调整领域或状态后再查看。</p>
+              <strong>{{ hasActiveSeriesFilters ? '当前筛选下暂无合集' : '暂时还没有协作合集' }}</strong>
+              <p>{{ hasActiveSeriesFilters ? '查看全部领域和状态，避免遗漏已结束的合集。' : '先从公开需求参与协作，后续可由负责人组织为合集。' }}</p>
+              <div class="empty-state-actions">
+                <button v-if="hasActiveSeriesFilters" type="button" @click="clearSeriesFilters">查看全部合集</button>
+                <button type="button" @click="selectTab('needs')">浏览需求</button>
+              </div>
             </div>
           </div>
 
@@ -603,12 +577,13 @@
         v-else-if="activeTab === 'activities'"
         id="collaboration-panel-activities"
         class="workspace-layout"
+        :class="{ 'workspace-layout--browse': contributionMode !== 'activity' }"
         role="tabpanel"
         aria-labelledby="collaboration-tab-activities"
         data-community-public-section="activities"
         :data-public-section-state="collectionDisplayState(activityState)"
       >
-        <aside class="workspace-panel workspace-form-panel">
+        <aside v-if="contributionMode === 'activity'" class="workspace-panel workspace-form-panel">
           <div class="panel-heading">
             <span class="panel-icon"><Upload class="h-4 w-4" aria-hidden="true" /></span>
             <div>
@@ -624,50 +599,52 @@
           </div>
 
           <form class="workspace-form" @submit.prevent="submitActivityPost">
-            <label class="field-group">
-              <span>目标活动</span>
-              <select v-model="activitySubmission.activityId" class="workspace-input" required>
-                <option value="">选择开放中的活动</option>
-                <option v-for="activity in eligibleActivities" :key="activity.id" :value="String(activity.id)">
-                  {{ activity.title }}
-                </option>
-              </select>
-            </label>
+            <fieldset class="workspace-form-fields" :disabled="!authStore.isLoggedIn">
+              <label class="field-group">
+                <span>目标活动</span>
+                <select v-model="activitySubmission.activityId" class="workspace-input" required>
+                  <option value="">选择开放中的活动</option>
+                  <option v-for="activity in eligibleActivities" :key="activity.id" :value="String(activity.id)">
+                    {{ activity.title }}
+                  </option>
+                </select>
+              </label>
 
-            <label class="field-group">
-              <span>公开帖子 ID</span>
-              <input
-                ref="activityPostInput"
-                v-model.trim="activitySubmission.postId"
-                class="workspace-input"
-                type="text"
-                inputmode="numeric"
-                placeholder="输入本人公开帖子 ID"
-                required
-              />
-            </label>
+              <label class="field-group">
+                <span>公开帖子 ID</span>
+                <input
+                  ref="activityPostInput"
+                  v-model.trim="activitySubmission.postId"
+                  class="workspace-input"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="输入本人公开帖子 ID"
+                  required
+                >
+              </label>
 
-            <label class="field-group">
-              <span>投稿说明</span>
-              <textarea
-                v-model.trim="activitySubmission.note"
-                class="workspace-textarea workspace-textarea-compact"
-                rows="4"
-                maxlength="1000"
-                placeholder="说明内容与活动目标的关系。"
-              />
-            </label>
+              <label class="field-group">
+                <span>投稿说明</span>
+                <textarea
+                  v-model.trim="activitySubmission.note"
+                  class="workspace-textarea workspace-textarea-compact"
+                  rows="4"
+                  maxlength="1000"
+                  placeholder="说明内容与活动目标的关系。"
+                />
+              </label>
 
-            <label v-if="selectedActivity && isHighRiskDomain(selectedActivity.domain)" class="risk-confirmation">
-              <input v-model="activitySubmission.riskAcknowledged" type="checkbox" />
-              <span>我已阅读该领域的风险提示，并确认投稿内容边界清晰。</span>
-            </label>
+              <label v-if="selectedActivity && isHighRiskDomain(selectedActivity.domain)" class="risk-confirmation">
+                <input v-model="activitySubmission.riskAcknowledged" type="checkbox">
+                <span>我已阅读该领域的风险提示，并确认投稿内容边界清晰。</span>
+              </label>
 
-            <button type="submit" class="primary-action w-full" :disabled="submittingActivity">
-              <Loader2 v-if="submittingActivity" class="h-4 w-4 animate-spin" aria-hidden="true" />
-              <Upload v-else class="h-4 w-4" aria-hidden="true" />
-              {{ submittingActivity ? '正在提交' : '提交到活动' }}
-            </button>
+              <button type="submit" class="primary-action w-full" :disabled="submittingActivity">
+                <Loader2 v-if="submittingActivity" class="h-4 w-4 animate-spin" aria-hidden="true" />
+                <Upload v-else class="h-4 w-4" aria-hidden="true" />
+                {{ submittingActivity ? '正在提交' : '提交到活动' }}
+              </button>
+            </fieldset>
           </form>
         </aside>
 
@@ -723,8 +700,12 @@
           <div v-else-if="!activityState.items.length" class="state-message">
             <Inbox class="h-6 w-6" aria-hidden="true" />
             <div>
-              <strong>当前筛选下暂无活动</strong>
-              <p>调整领域或状态后再查看。</p>
+              <strong>{{ hasActiveActivityFilters ? '当前筛选下暂无活动' : '暂时没有共创活动' }}</strong>
+              <p>{{ hasActiveActivityFilters ? '查看全部领域和状态，可回顾已结束活动。' : '活动开放后会在这里公布投稿要求和截止时间。' }}</p>
+              <div class="empty-state-actions">
+                <button v-if="hasActiveActivityFilters" type="button" @click="clearActivityFilters">查看全部活动</button>
+                <button type="button" @click="selectTab('needs')">先参与需求</button>
+              </div>
             </div>
           </div>
 
@@ -802,7 +783,7 @@
         id="collaboration-panel-curation"
         class="workspace-layout"
         role="tabpanel"
-        aria-labelledby="collaboration-tab-curation"
+        aria-labelledby="collaboration-personal-workspace-title"
         data-community-participation-section="curation"
         :data-participation-section-state="collectionDisplayState(curationState)"
       >
@@ -822,62 +803,64 @@
           </div>
 
           <form class="workspace-form" @submit.prevent="submitCuration">
-            <div class="field-grid">
+            <fieldset class="workspace-form-fields" :disabled="!authStore.isLoggedIn">
+              <div class="field-grid">
+                <label class="field-group">
+                  <span>话题 ID</span>
+                  <input
+                    v-model.trim="curationForm.topicId"
+                    class="workspace-input"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="目标公开话题 ID"
+                    required
+                  >
+                </label>
+                <label class="field-group">
+                  <span>帖子 ID</span>
+                  <input
+                    v-model.trim="curationForm.postId"
+                    class="workspace-input"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="推荐的公开帖子 ID"
+                    required
+                  >
+                </label>
+              </div>
+
               <label class="field-group">
-                <span>话题 ID</span>
-                <input
-                  v-model.trim="curationForm.topicId"
-                  class="workspace-input"
-                  type="text"
-                  inputmode="numeric"
-                  placeholder="目标公开话题 ID"
+                <span>建议类型</span>
+                <select v-model="curationForm.suggestionType" class="workspace-input">
+                  <option v-for="item in curationTypeOptions" :key="item.value" :value="item.value">
+                    {{ item.label }}
+                  </option>
+                </select>
+              </label>
+
+              <label class="field-group">
+                <span>推荐理由</span>
+                <textarea
+                  v-model.trim="curationForm.rationale"
+                  class="workspace-textarea"
+                  rows="5"
+                  maxlength="1000"
+                  placeholder="说明内容质量、匹配关系与公开价值。"
                   required
                 />
               </label>
-              <label class="field-group">
-                <span>帖子 ID</span>
-                <input
-                  v-model.trim="curationForm.postId"
-                  class="workspace-input"
-                  type="text"
-                  inputmode="numeric"
-                  placeholder="推荐的公开帖子 ID"
-                  required
-                />
+
+              <label class="risk-confirmation">
+                <input v-model="curationForm.riskAcknowledged" type="checkbox">
+                <span>若内容属于高风险领域，我已阅读并确认相关提示。</span>
               </label>
-            </div>
 
-            <label class="field-group">
-              <span>建议类型</span>
-              <select v-model="curationForm.suggestionType" class="workspace-input">
-                <option v-for="item in curationTypeOptions" :key="item.value" :value="item.value">
-                  {{ item.label }}
-                </option>
-              </select>
-            </label>
-
-            <label class="field-group">
-              <span>推荐理由</span>
-              <textarea
-                v-model.trim="curationForm.rationale"
-                class="workspace-textarea"
-                rows="5"
-                maxlength="1000"
-                placeholder="说明内容质量、匹配关系与公开价值。"
-                required
-              />
-            </label>
-
-            <label class="risk-confirmation">
-              <input v-model="curationForm.riskAcknowledged" type="checkbox" />
-              <span>若内容属于高风险领域，我已阅读并确认相关提示。</span>
-            </label>
-
-            <button type="submit" class="primary-action w-full" :disabled="submittingCuration">
-              <Loader2 v-if="submittingCuration" class="h-4 w-4 animate-spin" aria-hidden="true" />
-              <ListPlus v-else class="h-4 w-4" aria-hidden="true" />
-              {{ submittingCuration ? '正在提交' : '提交策展建议' }}
-            </button>
+              <button type="submit" class="primary-action w-full" :disabled="submittingCuration">
+                <Loader2 v-if="submittingCuration" class="h-4 w-4 animate-spin" aria-hidden="true" />
+                <ListPlus v-else class="h-4 w-4" aria-hidden="true" />
+                {{ submittingCuration ? '正在提交' : '提交策展建议' }}
+              </button>
+            </fieldset>
           </form>
         </aside>
 
@@ -1046,8 +1029,12 @@
         <div v-else-if="!discussionState.items.length" class="state-message">
           <Inbox class="h-6 w-6" aria-hidden="true" />
           <div>
-            <strong>当前筛选下暂无讨论</strong>
-            <p>调整领域或状态后再查看。</p>
+            <strong>{{ hasActiveDiscussionFilters ? '当前筛选下暂无讨论' : '暂时没有结构化讨论' }}</strong>
+            <p>{{ hasActiveDiscussionFilters ? '查看全部领域和状态，可找到已总结的讨论。' : '讨论会从真实的公开内容分歧中发起，并保留投票与总结。' }}</p>
+            <div class="empty-state-actions">
+              <button v-if="hasActiveDiscussionFilters" type="button" @click="clearDiscussionFilters">查看全部讨论</button>
+              <button type="button" @click="selectTab('needs')">浏览需求</button>
+            </div>
           </div>
         </div>
 
@@ -1080,7 +1067,7 @@
                 type="checkbox"
                 :checked="Boolean(riskAcknowledgements[discussionRiskKey(discussion)])"
                 @change="setRiskAcknowledgement(discussionRiskKey(discussion), $event)"
-              />
+              >
               <span>我已阅读该领域风险提示</span>
             </label>
 
@@ -1141,7 +1128,7 @@
         v-else-if="activeTab === 'office-hours'"
         id="collaboration-panel-office-hours"
         role="tabpanel"
-        aria-labelledby="collaboration-tab-office-hours"
+        aria-labelledby="collaboration-personal-workspace-title"
       >
         <div
           :data-linked-office-hour="linkedOfficeHourId || undefined"
@@ -1157,7 +1144,7 @@
         v-else-if="activeTab === 'manage'"
         id="collaboration-panel-manage"
         role="tabpanel"
-        aria-labelledby="collaboration-tab-manage"
+        aria-labelledby="collaboration-personal-workspace-title"
       >
         <CollaborationManagementWorkspace />
       </section>
@@ -1166,7 +1153,7 @@
         v-else
         id="collaboration-panel-cases"
         role="tabpanel"
-        aria-labelledby="collaboration-tab-cases"
+        aria-labelledby="collaboration-personal-workspace-title"
       >
         <CollaborationCasesWorkspace />
       </section>
@@ -1201,8 +1188,6 @@ import {
   RefreshCw,
   Scale,
   Send,
-  Settings2,
-  ShieldAlert,
   Target,
   Upload,
   Users,
@@ -1245,6 +1230,7 @@ import {
   type CollaborationHubSort,
 } from '@/utils/collaborationRoutes'
 import { labelNeedMatchReason } from '@/utils/collaborationNeedPresentation'
+import { nextRovingTabValue } from '@/utils/participationNavigation'
 
 type TabKey = 'needs'
   | 'my-collaborations'
@@ -1255,6 +1241,9 @@ type TabKey = 'needs'
   | 'office-hours'
   | 'manage'
   | 'cases'
+type PublicTabKey = Extract<TabKey, 'needs' | 'series' | 'activities' | 'discussions'>
+type PersonalTabKey = Exclude<TabKey, PublicTabKey>
+type ContributionMode = 'need' | 'series' | 'activity'
 
 interface CollectionState<T> {
   items: T[]
@@ -1286,20 +1275,60 @@ const {
   queryState: hubQueryState,
   replaceQuery: replaceHubQuery,
 } = useCollaborationHubQuery()
+const contributionMode = computed<ContributionMode | null>(() => {
+  if (route.name === 'CollaborationNeedComposer') return 'need'
+  if (route.name === 'CollaborationSeriesSubmission') return 'series'
+  if (route.name === 'CollaborationActivitySubmission') return 'activity'
+  return null
+})
+const contributionTab = computed<PublicTabKey | null>(() => {
+  if (contributionMode.value === 'need') return 'needs'
+  if (contributionMode.value === 'series') return 'series'
+  if (contributionMode.value === 'activity') return 'activities'
+  return null
+})
 
-const tabs = [
+const publicTabs = [
   { key: 'needs', label: '需求', icon: Target },
-  { key: 'my-collaborations', label: '我的共建', icon: Hand },
-  { key: 'series', label: '协作合集', icon: Layers3 },
-  { key: 'activities', label: '共创活动', icon: CalendarDays },
-  { key: 'curation', label: '频道策展', icon: ListPlus },
-  { key: 'discussions', label: '结构化讨论', icon: Scale },
-  { key: 'office-hours', label: '经验交流', icon: CalendarClock },
-  { key: 'manage', label: '我的管理', icon: Settings2 },
-  { key: 'cases', label: '举报申诉', icon: ShieldAlert },
+  { key: 'series', label: '合集', icon: Layers3 },
+  { key: 'activities', label: '活动', icon: CalendarDays },
+  { key: 'discussions', label: '讨论', icon: Scale },
 ] as const
+const publicTabKeys = publicTabs.map((tab) => tab.key)
+const personalWorkspaceDefinitions: Record<PersonalTabKey, {
+  label: string
+  group: string
+  description: string
+}> = {
+  'my-collaborations': {
+    label: '我的共建',
+    group: '参与与跟进',
+    description: '查看已认领、已投稿和等待反馈的个人协作记录。',
+  },
+  curation: {
+    label: '频道策展',
+    group: '参与与跟进',
+    description: '提交公开内容建议，并跟进仅对本人可见的审核结果。',
+  },
+  'office-hours': {
+    label: '经验交流',
+    group: '参与与跟进',
+    description: '管理预约、评审和后续确认，不与公共资源浏览混在一起。',
+  },
+  manage: {
+    label: '我的管理',
+    group: '管理与权益',
+    description: '处理你负责的合集、活动和讨论管理事项。',
+  },
+  cases: {
+    label: '报告与申诉',
+    group: '管理与权益',
+    description: '查看报告处理进度，并在需要时提交申诉或补充说明。',
+  },
+}
 
-const activeTab = ref<TabKey>(hubQueryState.tab)
+const activeTab = ref<TabKey>(contributionTab.value || hubQueryState.tab)
+const publicTabRefs = ref<HTMLButtonElement[]>([])
 const hubSort = ref<CollaborationHubSort | ''>(hubQueryState.sort)
 const discoveryQuery = useCollaborationDiscoveryQuery({
   enabled: computed(() => activeTab.value === 'needs'),
@@ -1416,6 +1445,7 @@ const discussionPendingIds = ref(new Set<string>())
 const riskAcknowledgements = reactive<Record<string, boolean>>({})
 const seriesPostInput = ref<HTMLInputElement | null>(null)
 const activityPostInput = ref<HTMLInputElement | null>(null)
+const needTitleInput = ref<HTMLInputElement | null>(null)
 const myCollaborationsRef = ref<{ refresh: () => Promise<void> | void } | null>(null)
 
 const needSourceOptions: Array<{ value: NeedSourceType; label: string }> = [
@@ -1472,9 +1502,26 @@ const collectionDisplayState = (state: { items: unknown[]; loading: boolean; err
   return state.items.length ? 'ready' : 'empty'
 }
 const isPublicBrowseTab = computed(() => (
-  ['needs', 'series', 'activities', 'curation', 'discussions'] as TabKey[]
-).includes(activeTab.value))
+  publicTabKeys.includes(activeTab.value as PublicTabKey)
+))
+const personalWorkspaceMeta = computed(() => (
+  isPublicBrowseTab.value
+    ? null
+    : personalWorkspaceDefinitions[activeTab.value as PersonalTabKey]
+))
 const showGlobalSort = computed(() => isPublicBrowseTab.value && activeTab.value !== 'needs')
+const hasActiveNeedFilters = computed(() => (
+  Boolean(
+    needFilters.domain
+    || needFilters.status
+    || needFilters.keyword.trim()
+    || needFilters.contentFormat
+    || needFilters.sourceType,
+  )
+))
+const hasActiveSeriesFilters = computed(() => Boolean(seriesFilters.domain || seriesFilters.status))
+const hasActiveActivityFilters = computed(() => Boolean(activityFilters.domain || activityFilters.status))
+const hasActiveDiscussionFilters = computed(() => Boolean(discussionFilters.domain || discussionFilters.status))
 
 const eligibleSeries = computed(() => (
   seriesState.items.filter((series) => series.status === 'OPEN' && Boolean(series.currentUserRole))
@@ -1680,6 +1727,22 @@ const selectTab = async (tab: TabKey) => {
   })
 }
 
+const handlePublicTabKeydown = async (event: KeyboardEvent, index: number) => {
+  const currentTab = publicTabs[index]?.key
+  if (!currentTab) return
+  const nextTab = nextRovingTabValue(publicTabKeys, currentTab, event.key)
+  if (!nextTab) return
+  event.preventDefault()
+  await selectTab(nextTab)
+  await nextTick()
+  publicTabRefs.value[publicTabKeys.indexOf(nextTab)]?.focus()
+}
+
+const startNeedCreation = async () => {
+  if (!await ensureLoggedIn()) return
+  await router.push('/me/collaboration')
+}
+
 const changeSort = async () => {
   if (activeTab.value === 'needs') return
   await replaceHubQuery({ sort: hubSort.value })
@@ -1702,6 +1765,12 @@ const resetNeedDiscoveryFilters = () => {
   discoveryQuery.resetFilters()
 }
 
+const clearNeedFilters = async () => {
+  resetNeedDiscoveryFilters()
+  await changeNeedFilters()
+  await discoveryQuery.refresh()
+}
+
 const submitNeedDiscoveryFilters = () => {
   void discoveryQuery.refresh()
 }
@@ -1715,6 +1784,12 @@ const changeSeriesFilters = async () => {
   })
 }
 
+const clearSeriesFilters = async () => {
+  seriesFilters.domain = ''
+  seriesFilters.status = ''
+  await changeSeriesFilters()
+}
+
 const changeActivityFilters = async () => {
   await replaceHubQuery({
     tab: 'activities',
@@ -1724,6 +1799,12 @@ const changeActivityFilters = async () => {
   })
 }
 
+const clearActivityFilters = async () => {
+  activityFilters.domain = ''
+  activityFilters.status = ''
+  await changeActivityFilters()
+}
+
 const changeDiscussionFilters = async () => {
   await replaceHubQuery({
     tab: 'discussions',
@@ -1731,6 +1812,12 @@ const changeDiscussionFilters = async () => {
     status: discussionFilters.status || 'ALL',
     discussionId: linkedDiscussionId.value,
   })
+}
+
+const clearDiscussionFilters = async () => {
+  discussionFilters.domain = ''
+  discussionFilters.status = ''
+  await changeDiscussionFilters()
 }
 
 const changeCurationFilters = async () => {
@@ -1781,6 +1868,9 @@ const loadSeries = async (append = false) => {
       seriesSubmission.seriesId = ''
     }
     if (linkedId) {
+      if (contributionMode.value === 'series' && eligibleSeries.value.some((item) => String(item.id) === linkedId)) {
+        seriesSubmission.seriesId = linkedId
+      }
       await nextTick()
       document.getElementById(`collaboration-series-${linkedId}`)?.scrollIntoView({
         behavior: 'smooth',
@@ -1810,6 +1900,10 @@ const loadActivities = async (append = false) => {
     })
     if (!request.isCurrent()) return
     applyPage(activityState, res.data, append)
+    const linkedId = append ? '' : linkedActivityId.value
+    if (contributionMode.value === 'activity' && linkedId && eligibleActivities.value.some((item) => String(item.id) === linkedId)) {
+      activitySubmission.activityId = linkedId
+    }
     if (activitySubmission.activityId && !eligibleActivities.value.some((item) => String(item.id) === activitySubmission.activityId)) {
       activitySubmission.activityId = ''
     }
@@ -1976,10 +2070,11 @@ const focusSeriesSubmission = async (series: CollaborationSeries) => {
     toast.info('当前账号尚未加入该合集')
     return
   }
-  seriesSubmission.seriesId = String(series.id)
-  await nextTick()
-  seriesPostInput.value?.focus()
-  seriesPostInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (!await ensureLoggedIn()) return
+  await router.push({
+    name: 'CollaborationSeriesSubmission',
+    query: { seriesId: String(series.id) },
+  })
 }
 
 const submitSeriesPost = async () => {
@@ -2017,10 +2112,11 @@ const submitSeriesPost = async () => {
 }
 
 const focusActivitySubmission = async (activity: CollaborationActivity) => {
-  activitySubmission.activityId = String(activity.id)
-  await nextTick()
-  activityPostInput.value?.focus()
-  activityPostInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (!await ensureLoggedIn()) return
+  await router.push({
+    name: 'CollaborationActivitySubmission',
+    query: { activityId: String(activity.id) },
+  })
 }
 
 const submitActivityPost = async () => {
@@ -2116,7 +2212,7 @@ const voteDiscussion = async (discussion: StructuredDiscussion, optionId: ApiId)
 }
 
 const applyHubQueryState = () => {
-  activeTab.value = hubQueryState.tab
+  activeTab.value = contributionTab.value || hubQueryState.tab
   hubSort.value = hubQueryState.sort
   const domain = hubQueryState.domain
   const status = hubQueryState.status
@@ -2129,19 +2225,19 @@ const applyHubQueryState = () => {
     return status ? fallback : fallback
   }
 
-  if (hubQueryState.tab === 'needs') {
+  if (activeTab.value === 'needs') {
     if (needFilters.domain !== domain) needFilters.domain = domain
     const nextStatus = statusOr(needStatusOptions.map((item) => item.value), '') as NeedStatus | ''
     if (needFilters.status !== nextStatus) needFilters.status = nextStatus
-  } else if (hubQueryState.tab === 'series') {
+  } else if (activeTab.value === 'series') {
     seriesFilters.domain = domain
     seriesFilters.status = statusOr(['OPEN', 'CLOSED'] as const, 'OPEN')
-  } else if (hubQueryState.tab === 'activities') {
+  } else if (activeTab.value === 'activities') {
     activityFilters.domain = domain
     activityFilters.status = statusOr(activityStatusOptions.map((item) => item.value), 'OPEN') as CollaborationActivityStatus | ''
-  } else if (hubQueryState.tab === 'curation') {
+  } else if (activeTab.value === 'curation') {
     curationFilters.status = statusOr(['PENDING', 'APPROVED', 'REJECTED'] as const, '') as SubmissionReviewStatus | ''
-  } else if (hubQueryState.tab === 'discussions') {
+  } else if (activeTab.value === 'discussions') {
     discussionFilters.domain = domain
     discussionFilters.status = statusOr(['OPEN', 'SUMMARIZED', 'CLOSED'] as const, 'OPEN')
   }
@@ -2150,6 +2246,7 @@ const applyHubQueryState = () => {
 let lastHubQuerySignature = ''
 watch(
   () => JSON.stringify([
+    route.name,
     hubQueryState.tab,
     hubQueryState.domain,
     hubQueryState.status,
@@ -2326,6 +2423,7 @@ onMounted(() => {
 }
 
 .workspace-list-panel {
+  container-type: inline-size;
   min-height: 28rem;
 }
 
@@ -3318,8 +3416,12 @@ onMounted(() => {
 }
 
 .collaboration-hub-header-actions {
+  display: flex;
   flex: none;
   align-items: flex-end;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .workspace-sort-control {
@@ -3329,112 +3431,6 @@ onMounted(() => {
   color: var(--hub-muted);
   font-size: 0.75rem;
   font-weight: 700;
-}
-
-.hub-participation-guide {
-  border-top: 1px solid var(--hub-border);
-  border-bottom: 1px solid var(--hub-border);
-  padding: 1.1rem 0 1.25rem;
-}
-
-.hub-guide-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.85rem;
-}
-
-.hub-guide-kicker {
-  margin: 0 0 0.2rem;
-  color: var(--hub-primary);
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-
-.hub-guide-heading h2 {
-  margin: 0;
-  color: var(--hub-ink);
-  font-size: 1rem;
-  font-weight: 850;
-  text-wrap: balance;
-}
-
-.hub-guide-heading > p {
-  max-width: 42ch;
-  margin: 0;
-  color: var(--hub-muted);
-  font-size: 0.75rem;
-  line-height: 1.6;
-  text-align: right;
-}
-
-.hub-guide-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.hub-guide-step {
-  display: grid;
-  min-width: 0;
-  min-height: 6.8rem;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 0.65rem;
-  border: 1px solid var(--hub-border);
-  border-radius: 0.7rem;
-  background: var(--hub-surface);
-  padding: 0.8rem;
-  color: var(--hub-ink);
-  text-align: left;
-  transition: border-color 160ms ease, background-color 160ms ease;
-}
-
-.hub-guide-step:hover,
-.hub-guide-step-active {
-  border-color: #93c5fd;
-  background: var(--hub-primary-soft);
-}
-
-.hub-guide-step:focus-visible {
-  outline: 2px solid rgb(37 99 235 / 0.55);
-  outline-offset: 2px;
-}
-
-.hub-guide-number {
-  color: var(--hub-primary);
-  font-size: 0.6875rem;
-  font-weight: 850;
-  line-height: 1.4;
-}
-
-.hub-guide-step-copy {
-  display: grid;
-  min-width: 0;
-  gap: 0.25rem;
-}
-
-.hub-guide-step-copy strong {
-  overflow-wrap: anywhere;
-  font-size: 0.8125rem;
-  font-weight: 800;
-  line-height: 1.35;
-}
-
-.hub-guide-step-copy small {
-  overflow-wrap: anywhere;
-  color: var(--hub-muted);
-  font-size: 0.6875rem;
-  line-height: 1.5;
-}
-
-.hub-guide-arrow {
-  width: 0.9rem;
-  height: 0.9rem;
-  flex: none;
-  color: #94a3b8;
 }
 
 .workspace-tabs {
@@ -3478,9 +3474,57 @@ onMounted(() => {
   box-shadow: none;
 }
 
+.personal-workspace-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.15rem 0 1.25rem;
+  border-top: 1px solid var(--hub-border);
+  border-bottom: 1px solid var(--hub-border);
+  padding: 1rem 0;
+}
+
+.personal-workspace-context > div {
+  min-width: 0;
+}
+
+.personal-workspace-context p,
+.personal-workspace-context h2,
+.personal-workspace-context span {
+  margin: 0;
+}
+
+.personal-workspace-context p {
+  color: var(--hub-primary);
+  font-size: 0.6875rem;
+  font-weight: 800;
+}
+
+.personal-workspace-context h2 {
+  margin-top: 0.15rem;
+  color: var(--hub-ink);
+  font-size: 1rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.personal-workspace-context span {
+  display: block;
+  max-width: 68ch;
+  margin-top: 0.25rem;
+  color: var(--hub-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
 .workspace-layout {
   grid-template-columns: minmax(19rem, 21.5rem) minmax(0, 1fr);
   gap: 1.35rem;
+}
+
+.workspace-layout--browse {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .workspace-panel {
@@ -3517,6 +3561,43 @@ onMounted(() => {
 .toolbar-select:focus {
   border-color: #93c5fd;
   box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+}
+
+.workspace-form-fields {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.workspace-form-fields[disabled] {
+  opacity: 0.58;
+}
+
+.workspace-form-fields[disabled] :is(input, select, textarea, button) {
+  cursor: not-allowed;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.state-message .empty-state-actions button {
+  min-height: 2.25rem;
+  border: 1px solid var(--hub-border-strong);
+  border-radius: 0.45rem;
+  background: var(--hub-surface);
+  padding: 0.45rem 0.7rem;
+}
+
+.state-message .empty-state-actions button:hover {
+  border-color: #93c5fd;
+  background: var(--hub-primary-soft);
 }
 
 .primary-action,
@@ -3575,8 +3656,12 @@ onMounted(() => {
 }
 
 @media (max-width: 1024px) {
-  .hub-guide-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .workspace-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-form-panel {
+    position: static;
   }
 }
 
@@ -3587,24 +3672,16 @@ onMounted(() => {
 
   .collaboration-hub-header-actions {
     align-items: stretch;
-  }
-
-  .hub-guide-heading {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .hub-guide-heading > p {
-    max-width: 58ch;
-    text-align: left;
-  }
-
-  .hub-guide-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: flex-start;
   }
 
   .workspace-tabs {
     margin-top: 1rem;
+  }
+
+  .personal-workspace-context {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
@@ -3647,18 +3724,12 @@ onMounted(() => {
     flex: 1;
   }
 
-  .hub-participation-guide {
-    padding-top: 1rem;
+  .collaboration-hub-header-actions > :is(a, button, label) {
+    width: 100%;
   }
 
-  .hub-guide-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .hub-guide-step {
-    min-height: 0;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    padding: 0.75rem;
+  .collaboration-hub-header-actions > :is(a, button) {
+    justify-content: center;
   }
 
   .workspace-tabs {
@@ -3675,12 +3746,6 @@ onMounted(() => {
 
   .workspace-panel {
     border-radius: 0.65rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hub-guide-step {
-    transition: none;
   }
 }
 
@@ -3702,8 +3767,6 @@ onMounted(() => {
   color: #eff6ff;
 }
 
-.dark .hub-guide-step:hover,
-.dark .hub-guide-step-active,
 .dark .workspace-tab-active {
   background: var(--hub-primary-soft);
 }

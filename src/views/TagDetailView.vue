@@ -27,41 +27,44 @@
               <h2 id="tag-content-title">标签内容</h2>
               <p>{{ typeSummary }}</p>
             </div>
-            <div class="filter-scroll" role="group" aria-label="标签内容筛选">
-              <button
-                type="button"
-                :class="['filter-chip', !activeType ? 'filter-chip-active' : '']"
-                :aria-pressed="!activeType"
-                @click="setType(undefined)"
-              >
-                全部
-              </button>
-              <button
-                type="button"
-                :class="['filter-chip', activeType === POST_TYPE.QUESTION ? 'filter-chip-active' : '']"
-                :aria-pressed="activeType === POST_TYPE.QUESTION"
-                @click="setType(POST_TYPE.QUESTION)"
-              >
-                问题求助
-              </button>
-              <button
-                v-for="type in contentTypeChannels"
-                :key="type.value"
-                type="button"
-                :class="['filter-chip', activeType === type.value ? 'filter-chip-active' : '']"
-                :aria-pressed="activeType === type.value"
-                @click="setType(type.value)"
-              >
-                {{ type.shortLabel }}
-              </button>
-              <button
-                type="button"
-                :class="['filter-chip', featuredOnly ? 'filter-chip-active' : '']"
-                :aria-pressed="featuredOnly"
-                @click="toggleFeatured"
-              >
-                精选
-              </button>
+            <div class="filter-scroll-shell">
+              <span class="filter-scroll-hint" aria-hidden="true">左右滑动</span>
+              <div class="filter-scroll" role="group" aria-label="标签内容筛选">
+                <button
+                  type="button"
+                  :class="['filter-chip', !activeType ? 'filter-chip-active' : '']"
+                  :aria-pressed="!activeType"
+                  @click="setType(undefined)"
+                >
+                  全部
+                </button>
+                <button
+                  type="button"
+                  :class="['filter-chip', activeType === POST_TYPE.QUESTION ? 'filter-chip-active' : '']"
+                  :aria-pressed="activeType === POST_TYPE.QUESTION"
+                  @click="setType(POST_TYPE.QUESTION)"
+                >
+                  问题求助
+                </button>
+                <button
+                  v-for="type in contentTypeChannels"
+                  :key="type.value"
+                  type="button"
+                  :class="['filter-chip', activeType === type.value ? 'filter-chip-active' : '']"
+                  :aria-pressed="activeType === type.value"
+                  @click="setType(type.value)"
+                >
+                  {{ type.shortLabel }}
+                </button>
+                <button
+                  type="button"
+                  :class="['filter-chip', featuredOnly ? 'filter-chip-active' : '']"
+                  :aria-pressed="featuredOnly"
+                  @click="toggleFeatured"
+                >
+                  精选
+                </button>
+              </div>
             </div>
           </section>
 
@@ -474,6 +477,15 @@ onUnmounted(() => {
   display: none;
 }
 
+.filter-scroll-shell {
+  position: relative;
+  min-width: 0;
+}
+
+.filter-scroll-hint {
+  display: none;
+}
+
 .filter-chip {
   min-height: 2rem;
   flex: 0 0 auto;
@@ -881,6 +893,28 @@ onUnmounted(() => {
   .filter-scroll {
     margin-right: -1rem;
     padding-right: 1rem;
+  }
+
+  .filter-scroll-shell::after {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 2.75rem;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--surface) 75%);
+    content: '';
+  }
+
+  .filter-scroll-hint {
+    display: block;
+    position: absolute;
+    z-index: 1;
+    top: -1.35rem;
+    right: 0;
+    color: var(--text-muted);
+    font-size: 0.6875rem;
+    font-weight: 700;
   }
 
   .post-list {

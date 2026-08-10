@@ -225,14 +225,15 @@
         <button
           type="button"
           class="card-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-55"
-          :aria-label="likePending ? '点赞处理中' : '点赞帖子'"
-          :title="likePending ? '点赞处理中' : '点赞帖子'"
+          :aria-label="likePending ? '点赞处理中' : post.myInteraction?.liked ? '取消点赞' : '点赞帖子'"
+          :title="likePending ? '点赞处理中' : post.myInteraction?.liked ? '取消点赞' : '点赞帖子'"
+          :aria-pressed="Boolean(post.myInteraction?.liked)"
           :aria-busy="likePending"
           :disabled="likePending"
           @click.prevent="handleLike"
         >
           <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-rose-600' : ''" />
-          <span class="action-label">点赞</span>
+          <span class="action-label">{{ post.myInteraction?.liked ? '已点赞' : '点赞' }}</span>
           {{ formatNumber(post.counter.like) }}
         </button>
         <span class="card-action" title="评论数">
@@ -243,14 +244,15 @@
         <button
           type="button"
           class="card-action hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-55"
-          :aria-label="favoritePending ? '收藏处理中' : '收藏帖子'"
-          :title="favoritePending ? '收藏处理中' : '收藏帖子'"
+          :aria-label="favoritePending ? '收藏处理中' : post.myInteraction?.favorited ? '取消收藏' : '收藏帖子'"
+          :title="favoritePending ? '收藏处理中' : post.myInteraction?.favorited ? '取消收藏' : '收藏帖子'"
+          :aria-pressed="Boolean(post.myInteraction?.favorited)"
           :aria-busy="favoritePending"
           :disabled="favoritePending"
           @click.prevent="handleFavorite"
         >
           <Star class="h-4 w-4" :class="post.myInteraction?.favorited ? 'fill-current text-amber-500' : ''" />
-          <span class="action-label">收藏</span>
+          <span class="action-label">{{ post.myInteraction?.favorited ? '已收藏' : '收藏' }}</span>
           {{ formatNumber(post.counter.favorite) }}
         </button>
         <PostSaveOrganizer

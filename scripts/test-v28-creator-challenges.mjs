@@ -28,7 +28,7 @@ for (const endpoint of [
   expect(api.includes(endpoint), `V28 creator challenge API is missing ${endpoint}`)
 }
 
-expect(profile.includes('<CreatorChallengeWorkspace class="mt-6" />'), 'V28 user challenge workspace is missing from the creator profile')
+expect(profile.includes('<CreatorChallengeWorkspace class="profile-workspace-content" />'), 'V28 user challenge workspace is missing from the creator profile')
 expect(adminView.includes("key: 'creator-challenges'"), 'V28 challenge operations tab is missing')
 expect(adminView.includes('<CreatorChallengeAdminWorkspace'), 'V28 admin challenge workspace is missing')
 expect(userWorkspace.includes('creatorChallengesApi.getWorkspace()'), 'user workspace must load the server-owned challenge workspace')

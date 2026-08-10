@@ -60,8 +60,8 @@ assert.match(composable, /const requestIsCurrent[\s\S]*accountKey === currentAcc
 assert.match(composable, /const invalidateRequests[\s\S]*abortSource\(source\)[\s\S]*clearSource\(source\)/, 'logout or account changes must clear old source state')
 
 assert.match(profile, /import ParticipationHub from '@\/components\/me\/ParticipationHub\.vue'/)
-assert.match(profile, /<ParticipationHub class="mt-6" \/>/, 'profile must mount the V11 participation hub as a separate component')
-assert.match(header, /to="\/me\/relationships"[\s\S]*关系与订阅中心/, 'header user menu must include relationship workspace')
+assert.match(profile, /<ParticipationHub class="profile-workspace-content" \/>/, 'profile must mount the V11 participation hub as a separate component')
+assert.match(header, /to="\/me\/collaboration"[\s\S]*协作行动中心/, 'header user menu must include collaboration workspace')
 
 assert.match(knowledgeApi, /\| 'MAINTENANCE_TASK'/, 'knowledge action API must retain the maintenance task type')
 assert.match(

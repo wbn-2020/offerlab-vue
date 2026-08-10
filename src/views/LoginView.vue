@@ -1,100 +1,103 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-    <div class="w-full max-w-md">
-      <!-- Card -->
-      <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-        <div class="auth-nav-row mb-6">
-          <RouterLink to="/" class="auth-nav-link text-sm font-semibold text-slate-500 transition-colors hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-300">
-            返回首页
-          </RouterLink>
-          <AuthThemeToggle />
-        </div>
-        <!-- Header -->
-        <div class="text-center mb-8">
-          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">登录 {{ siteBrand.displayName }}</h1>
-          <p class="text-sm text-slate-600 dark:text-slate-400">{{ siteBrand.description }}</p>
-        </div>
-
-        <section v-if="recoveryState" class="auth-recovery mb-6" :data-auth-recovery="recoveryState">
-          <div>
-            <strong>{{ recoveryTitle }}</strong>
-            <p>{{ recoveryText }}</p>
+  <div class="auth-page min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="auth-page__main community-page">
+      <div class="w-full max-w-md">
+        <!-- Card -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+          <div class="auth-nav-row mb-6">
+            <RouterLink to="/" class="auth-nav-link text-sm font-semibold text-slate-500 transition-colors hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-300">
+              返回首页
+            </RouterLink>
+            <AuthThemeToggle />
           </div>
-          <button
-            v-if="recoveryState === 'hydrate_failed' && authStore.token"
-            type="button"
-            :disabled="isRetryingSession"
-            @click="retrySession"
-          >
-            {{ isRetryingSession ? '重试中...' : '重试当前会话' }}
-          </button>
-        </section>
+          <!-- Header -->
+          <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">登录 {{ siteBrand.displayName }}</h1>
+            <p class="text-sm text-slate-600 dark:text-slate-400">{{ siteBrand.description }}</p>
+          </div>
 
-        <!-- Form -->
-        <form @submit.prevent="handleSubmit" class="space-y-4">
-          <!-- Account Field -->
-          <div>
-            <label for="login-account" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">账号或邮箱</label>
-            <input
-              id="login-account"
-              v-model="form.email"
-              type="text"
-              name="account"
-              autocomplete="username"
-              aria-label="账号或邮箱"
-              placeholder="输入账号或邮箱"
-              class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+          <section v-if="recoveryState" class="auth-recovery mb-6" :data-auth-recovery="recoveryState">
+            <div>
+              <strong>{{ recoveryTitle }}</strong>
+              <p>{{ recoveryText }}</p>
+            </div>
+            <button
+              v-if="recoveryState === 'hydrate_failed' && authStore.token"
+              type="button"
+              :disabled="isRetryingSession"
+              @click="retrySession"
+            >
+              {{ isRetryingSession ? '重试中...' : '重试当前会话' }}
+            </button>
+          </section>
+
+          <!-- Form -->
+          <form class="space-y-4" @submit.prevent="handleSubmit">
+            <!-- Account Field -->
+            <div>
+              <label for="login-account" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">账号或邮箱</label>
+              <input
+                id="login-account"
+                v-model="form.email"
+                type="text"
+                name="account"
+                autocomplete="username"
+                aria-label="账号或邮箱"
+                placeholder="输入账号或邮箱"
+                class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                :disabled="isLoading"
+              >
+              <p v-if="errors.email" class="text-xs text-danger mt-1">{{ errors.email }}</p>
+            </div>
+
+            <!-- Password Field -->
+            <div>
+              <label for="login-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">密码</label>
+              <input
+                id="login-password"
+                v-model="form.password"
+                type="password"
+                name="password"
+                autocomplete="current-password"
+                aria-label="密码"
+                placeholder="至少 6 位"
+                class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                :disabled="isLoading"
+              >
+              <p v-if="errors.password" class="text-xs text-danger mt-1">{{ errors.password }}</p>
+            </div>
+
+            <!-- Submit Button -->
+            <button
+              type="submit"
               :disabled="isLoading"
-            />
-            <p v-if="errors.email" class="text-xs text-danger mt-1">{{ errors.email }}</p>
-          </div>
+              class="auth-submit w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            >
+              {{ isLoading ? '登录中...' : '登录' }}
+            </button>
+          </form>
 
-          <!-- Password Field -->
-          <div>
-            <label for="login-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">密码</label>
-            <input
-              id="login-password"
-              v-model="form.password"
-              type="password"
-              name="password"
-              autocomplete="current-password"
-              aria-label="密码"
-              placeholder="至少 6 位"
-              class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
-              :disabled="isLoading"
-            />
-            <p v-if="errors.password" class="text-xs text-danger mt-1">{{ errors.password }}</p>
-          </div>
+          <!-- Divider -->
+          <div class="my-6 border-t border-slate-200 dark:border-slate-800" />
 
-          <!-- Submit Button -->
-          <button
-            type="submit"
-            :disabled="isLoading"
-            class="auth-submit w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-          >
-            {{ isLoading ? '登录中...' : '登录' }}
-          </button>
-        </form>
+          <!-- Register Link -->
+          <p class="text-center text-sm text-slate-600 dark:text-slate-400">
+            还没有账号？
+            <RouterLink :to="{ path: '/register', query: redirectQuery(route.query.redirect) }" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
+              立即注册
+            </RouterLink>
+          </p>
+        </div>
 
-        <!-- Divider -->
-        <div class="my-6 border-t border-slate-200 dark:border-slate-800" />
-
-        <!-- Register Link -->
-        <p class="text-center text-sm text-slate-600 dark:text-slate-400">
-          还没有账号？
-          <RouterLink :to="{ path: '/register', query: redirectQuery(route.query.redirect) }" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
-            立即注册
-          </RouterLink>
-        </p>
+        <!-- Demo Hint -->
+        <div v-if="showDemoAccounts" class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p class="text-xs text-blue-700 dark:text-blue-300">
+            <strong>演示账号：</strong> admin / 123456，user1 / 123456
+          </p>
+        </div>
       </div>
-
-      <!-- Demo Hint -->
-      <div v-if="showDemoAccounts" class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-        <p class="text-xs text-blue-700 dark:text-blue-300">
-          <strong>演示账号：</strong> admin / 123456，user1 / 123456
-        </p>
-      </div>
-    </div>
+    </main>
   </div>
 </template>
 
@@ -107,6 +110,7 @@ import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/api/client'
 import { redirectQuery, safeRedirect } from '@/utils/navigation'
 import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import { siteBrand } from '@/utils/brand'
 import { z } from 'zod'
 
@@ -217,6 +221,15 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.auth-page__main {
+  display: flex;
+  min-height: calc(100vh - var(--community-header-height));
+  align-items: center;
+  justify-content: center;
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+
 .auth-nav-link,
 .auth-inline-link {
   min-height: 44px;
@@ -281,5 +294,14 @@ onMounted(async () => {
   border-color: rgb(146 64 14);
   background: rgb(69 26 3 / 0.45);
   color: rgb(253 230 138);
+}
+
+@media (max-width: 720px) {
+  .auth-page__main {
+    min-height: auto;
+    align-items: flex-start;
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+  }
 }
 </style>

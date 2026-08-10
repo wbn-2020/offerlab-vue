@@ -237,16 +237,15 @@ for (const snippet of [
   'creatorFeedbackApi.getCurationFeedbackSummary',
   'recentCurationFeedbackItems',
   '最近入选反馈',
-  '暂无公开内容入选反馈',
   '收录位置',
   '收录理由',
 ]) {
   hasText(creatorDataSurface, snippet, `Growth creator data surface must include ${snippet}.`)
 }
-missing(
-  creatorDataSurface,
-  /暂无公开内容入选反馈[\s\S]{0,120}(训练|私教|模拟面试|投递|简历|JD|CodeCoachAI)/i,
-  'creator curation feedback empty state must not route users into private training.',
+has(
+  growthProfileView,
+  /<section v-if="recentCurationFeedbackItems\.length"[^>]*id="curation-feedback"/,
+  'GrowthProfileView must hide the curation feedback section when no public feedback is available.',
 )
 
 const p0Surface = `${creatorCurationApiSurface}\n${notificationCurationSurface}\n${notificationsView}\n${creatorDataSurface}`

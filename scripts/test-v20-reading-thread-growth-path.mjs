@@ -22,6 +22,7 @@ const excludes = (text, fragment, label) => {
 const [
   growth,
   profileView,
+  reportView,
   threadPanel,
   relationsApi,
   postDetail,
@@ -33,6 +34,7 @@ const [
 ] = await Promise.all([
   read('src/utils/growthPath.ts'),
   read('src/views/GrowthProfileView.vue'),
+  read('src/views/GrowthReportView.vue'),
   read('src/components/post/ReadingThreadPanel.vue'),
   read('src/api/knowledgeRelations.ts'),
   read('src/views/PostDetailView.vue'),
@@ -150,11 +152,20 @@ const pathFinallyEnd = profileView.indexOf('const trustedProfilePathSource', pat
 const pathFinally = profileView.slice(pathFinallyStart, pathFinallyEnd)
 includes(pathFinally, 'sessionOwnerIsCurrent(owner, growthPathRequestId)', 'growth path loading close ownership')
 const growthPathMarkupIndex = profileView.indexOf('id="growth-path"')
-const profileOnlyTailIndex = profileView.indexOf('<template v-if="profile && profile.domains.length">')
+const profileOnlyTailIndex = profileView.indexOf('<template v-if="hasReliableGrowthProfile">')
 assert(
   growthPathMarkupIndex >= 0 && profileOnlyTailIndex > growthPathMarkupIndex,
-  'growth path must render independently before profile-only curation/domain content',
+  'growth path must render before profile-only curation/domain content',
 )
+includes(profileView, 'v-if="pathLoading || hasGrowthPathEvidence"', 'growth path reliable-evidence gate')
+includes(profileView, "growthPathSteps.value.filter((step) => step.state === 'active')", 'growth path active-evidence filter')
+includes(profileView, '不会用全零指标代替你的真实进展', 'growth profile truthful empty state')
+includes(profileView, '!profile.value?.degraded', 'growth profile degraded-payload rejection')
+excludes(profileView, '{{ error }}', 'growth profile internal error suppression')
+includes(reportView, 'hasReliableReport', 'growth report reliable-evidence gate')
+includes(reportView, 'reportStats.value.length > 0', 'growth report non-zero evidence')
+includes(reportView, '不会把读取失败解释成零成长', 'growth report truthful error state')
+excludes(reportView, '{{ error }}', 'growth report internal error suppression')
 const dayWatchStart = profileView.indexOf('watch(days')
 const sessionWatchStart = profileView.indexOf('watch(', dayWatchStart + 1)
 const dayWatch = profileView.slice(dayWatchStart, sessionWatchStart)

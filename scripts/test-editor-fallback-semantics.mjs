@@ -32,6 +32,12 @@ assert.match(editorPreviewDetails, /copy\.coverLoadFailed/, 'preview details mus
 assert.match(editorView, /const formCoverFailedUrl = ref\(''\)/, 'editor form cover preview must track failed cover URLs')
 assert.match(editorView, /@error="handleFormCoverError"/, 'editor form cover image must degrade when loading fails')
 assert.match(editorView, /formCoverFallbackText/, 'editor form cover preview must render a text fallback when the image fails')
+assert.match(editorView, /<details class="editor-advanced-disclosure">/, 'editor governance, evidence, preview, and assist controls must be collapsed behind advanced options by default')
+assert.match(editorView, /高级选项[\s\S]*不影响先完成标题、正文和频道/, 'editor advanced disclosure must keep the initial publishing prompt neutral and focused on core fields')
+assert.match(editorView, /<summary class="editor-advanced-summary">/, 'editor advanced controls must use a native keyboard-accessible disclosure')
+assert.match(editorView, /const isInitialComposeState = computed/, 'editor must distinguish an untouched draft from actionable validation errors')
+assert.match(editorView, /先写标题和正文，再选择频道即可发布/, 'editor must guide untouched drafts with neutral next-step copy')
+assert.doesNotMatch(editorView, /return 'AI 增强不可用'/, 'editor must not present optional AI assistance as a permanent failure state')
 
 assert.match(qualityChecklist, /const paragraphCount = meaningfulParagraphCount\(plainText\)/, 'editor quality checklist must count paragraphs from normalized plain text')
 assert.doesNotMatch(qualityChecklist, /meaningfulParagraphCount\(content\)/, 'editor quality checklist must not count paragraphs from raw markdown content')

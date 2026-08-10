@@ -10,6 +10,7 @@ const postDetail = read('src/views/PostDetailView.vue')
 const postCard = read('src/components/post/PostCard.vue')
 const postApi = read('src/api/post.ts')
 const interactionApi = read('src/api/interaction.ts')
+const myReports = read('src/views/MyReportsView.vue')
 const helperPath = new URL('../src/utils/governanceDisplay.ts', import.meta.url)
 
 assert.equal(
@@ -73,6 +74,11 @@ const submitReportBlock = postDetail.slice(submitReportStart, submitReportEnd)
 missing(submitReportBlock, /catch\s*\([^)]*\)\s*\{[\s\S]*toast\.success/, 'Report catch block must not show success feedback.')
 
 has(postCard, /reportTo/, 'PostCard must expose a user-side report entry that routes to the shared detail dialog.')
+has(myReports, /normalizeReportReceipt/, 'MyReportsView must normalize report records before rendering.')
+has(myReports, /normalizeReportPage/, 'MyReportsView must reject malformed report pages.')
+has(myReports, /safeTargetPath/, 'MyReportsView must restrict report target links to safe same-site paths.')
+missing(myReports, /\{\{\s*(?:loadError|detailError)\s*\}\}[\s\S]*(?:data does not conform|contract|schema)/i, 'MyReportsView must not expose internal contract errors.')
+missing(myReports, /getErrorMessage/, 'MyReportsView must use stable user-facing read errors instead of raw backend messages.')
 
 has(postDetail, /\.report-dialog-panel[\s\S]*max-height:\s*min\(calc\(100vh - 2rem\),\s*720px\)[\s\S]*overflow-y:\s*auto/, 'Report dialog must be constrained and scrollable on mobile.')
 has(postDetail, /\.governance-unavailable-state[\s\S]*overflow-wrap:\s*anywhere/, 'Unavailable state must avoid mobile overflow.')

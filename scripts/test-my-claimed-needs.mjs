@@ -15,7 +15,8 @@ assert.match(
 )
 assert.doesNotMatch(api, /claimedByMe/, 'the current slice must keep using claimedByUid instead of expanding the backend DTO.')
 
-assert.match(hub, /\{ key: 'needs', label: '需求'[\s\S]*\{ key: 'my-collaborations', label: '我的共建'/, 'my collaborations must sit beside the needs tab.')
+assert.match(hub, /const publicTabs = \[[\s\S]*\{ key: 'needs', label: '需求'/, 'public collaboration tabs must expose the needs entry.')
+assert.match(hub, /const personalWorkspaceDefinitions[\s\S]*'my-collaborations': \{[\s\S]*label: '我的共建'/, 'the personal collaboration workspace must expose claimed needs.')
 assert.match(hub, /activeTab === 'my-collaborations'[\s\S]*<MyCollaborationsWorkspace/, 'the hub must render the claimed-needs workspace.')
 assert.match(hub, /tab === 'my-collaborations' && !await ensureLoggedIn\(\)/, 'entering my collaborations must reuse the existing action-level login gate.')
 assert.match(hub, /myCollaborationsRef\.value\?\.refresh\(\)/, 'the hub refresh action must reach the claimed-needs workspace.')

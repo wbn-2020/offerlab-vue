@@ -63,10 +63,10 @@ for (const [path, viewFile] of [
 }
 
 assert.match(header, /to="\/growth\/profile"/, 'AppHeader must expose the growth profile entry')
-assert.match(header, /to="\/growth\/report"/, 'AppHeader must expose the growth report entry')
 assert.match(header, /to="\/knowledge\/explore"/, 'AppHeader must expose the knowledge explore entry')
-assert.match(header, /to="\/certification\/apply"/, 'AppHeader must expose the certification entry')
 assert.match(header, /to="\/series\/workbench"/, 'AppHeader must keep the series workbench entry')
+assert.match(growthProfile, /to="\/growth\/report"/, 'growth profile must expose the growth report entry')
+assert.match(knowledge, /to="\/certification\/apply"/, 'knowledge workspace must expose the certification entry')
 
 assert.match(explore, /recommendationsApi/, 'ExploreView must import the cross-domain recommendation API')
 assert.match(explore, /stage4-cross-domain-panel/, 'ExploreView must render the stage4 recommendation panel')

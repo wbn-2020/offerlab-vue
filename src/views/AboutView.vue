@@ -11,35 +11,62 @@
 
         <div class="about-content">
           <section class="about-section">
-            <h2>项目介绍</h2>
+            <h2>这里适合分享什么</h2>
             <p>
-              {{ siteBrand.displayName }}是围绕真实经验、有用见闻、公共讨论和长期内容沉淀的综合内容社区。科技数码、学习成长、职场经验、生活方式和投资理财是并列频道。
+              {{ siteBrand.displayName }}是一个以真实经验和公共讨论为中心的内容社区。你可以从科技数码、学习成长、职场经验、生活方式和投资理财等频道进入，也可以沿着话题和作者继续阅读。
             </p>
             <p>
-              我们希望它成为一个成长型社区。在这里，你可以：
+              在这里，你可以：
             </p>
             <ul>
-              <li>发布科技数码、学习成长、职场经验、生活方式和投资理财等多领域内容</li>
-              <li>跨领域浏览真实经验，找到可复用的思路与参考路径</li>
-              <li>围绕话题、频道、合集和作者持续讨论与交流</li>
-              <li>收藏高质量内容，形成自己的长期成长资料库</li>
-              <li>查看趋势看板，了解不同频道正在关注的内容方向</li>
+              <li>发布经验、问题、攻略、资源、观点和复盘</li>
+              <li>通过搜索、发现页、话题和标签找到值得参考的内容</li>
+              <li>点赞、收藏、评论和关注，参与持续讨论</li>
+              <li>提交补充或纠错建议，帮助作者完善内容</li>
             </ul>
           </section>
 
           <section class="about-section">
-            <h2>核心能力</h2>
+            <h2>社区边界</h2>
+            <p>
+              这里的内容来自社区成员，不代表平台的事实结论、专业意见或任何形式的承诺。涉及投资、医疗、法律、求职和其他高风险场景时，请结合可靠来源和专业人士意见独立判断。
+            </p>
+            <ul>
+              <li>尊重他人隐私，不发布未经授权的个人信息、内部资料或侵权内容</li>
+              <li>讨论具体问题和经验，避免骚扰、人身攻击、虚假承诺和误导性营销</li>
+              <li>发现问题时优先使用举报、评论或内容建议入口反馈</li>
+            </ul>
+          </section>
+
+          <section class="about-section">
+            <h2>参与入口</h2>
+            <div class="about-capabilities">
+              <router-link to="/explore">
+                <h3>先浏览</h3>
+                <p>从频道、活跃话题和精选内容开始。</p>
+              </router-link>
+              <router-link to="/editor">
+                <h3>发布内容</h3>
+                <p>分享一段真实经历、问题或可复用方法。</p>
+              </router-link>
+              <router-link to="/search?sort=hot">
+                <h3>寻找答案</h3>
+                <p>搜索公开内容、作者、话题和标签。</p>
+              </router-link>
+              <router-link to="/collaboration">
+                <h3>参与共建</h3>
+                <p>浏览公开需求，留下可验证的贡献。</p>
+              </router-link>
+            </div>
+          </section>
+
+          <section class="about-section">
+            <h2>内容与互动</h2>
             <div class="about-capabilities">
               <div>
                 <h3>经验发布</h3>
                 <p>
                   支持经验、问题、攻略、资源、观点、复盘和图文笔记
-                </p>
-              </div>
-              <div>
-                <h3>趋势看板</h3>
-                <p>
-                  按频道展示发布趋势、热门主题、高频标签和活跃作者
                 </p>
               </div>
               <div>
@@ -49,21 +76,12 @@
                 </p>
               </div>
               <div>
-                <h3>知识沉淀</h3>
+                <h3>长期回看</h3>
                 <p>
-                  通过摘要、标签、FAQ 和知识卡，把长内容转成可检索资产
+                  收藏内容、关注讨论，之后回到个人空间继续整理
                 </p>
               </div>
             </div>
-          </section>
-
-          <section class="about-section">
-            <h2>技术与运行</h2>
-            <dl class="about-facts">
-              <div><dt>前端</dt><dd>Vue 3、TypeScript、Vite、TailwindCSS</dd></div>
-              <div><dt>后端</dt><dd>Spring Boot、MySQL、Redis、Elasticsearch</dd></div>
-              <div><dt>消息通知</dt><dd>定时轮询，近实时更新</dd></div>
-            </dl>
           </section>
 
           <section class="about-section">
@@ -199,10 +217,21 @@ import { siteBrand } from '@/utils/brand'
   border-left: 1px solid var(--border-subtle);
 }
 
-.about-capabilities > div {
+.about-capabilities > div,
+.about-capabilities > a {
   padding: 1rem;
   border-right: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.about-capabilities > a {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.about-capabilities > a:hover {
+  background: var(--surface-2);
 }
 
 .about-capabilities p {

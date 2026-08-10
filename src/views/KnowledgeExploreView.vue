@@ -40,7 +40,7 @@
               <span class="section-icon"><SlidersHorizontal class="h-4 w-4" aria-hidden="true" /></span>
               <div>
                 <h2>选择探索起点</h2>
-                <p>从领域或公开对象开始。</p>
+                <p>先选感兴趣的领域，需要精确定位时再展开高级选项。</p>
               </div>
             </div>
             <button type="button" class="icon-action" title="重置筛选" aria-label="重置筛选" @click="resetFilters">
@@ -70,7 +70,7 @@
 
             <details class="advanced-filter">
               <summary>
-                <span>按公开对象精确筛选</span>
+                <span>高级：按内容编号精确定位</span>
                 <ChevronDown class="h-4 w-4" aria-hidden="true" />
               </summary>
               <div class="advanced-filter__fields">
@@ -83,24 +83,24 @@
                   </select>
                 </label>
                 <label class="field-group">
-                  <span>对象 ID</span>
+                  <span>对象编号</span>
                   <input
                     v-model.trim="filters.assetId"
                     class="filter-input"
                     :disabled="!filters.assetType"
-                    :placeholder="filters.assetType ? '输入公开对象 ID' : '请先选择对象类型'"
+                    :placeholder="filters.assetType ? '输入公开对象编号' : '请先选择对象类型'"
                   >
                 </label>
                 <label class="field-group">
-                  <span>内容 ID</span>
+                  <span>内容编号</span>
                   <input v-model.trim="filters.postId" class="filter-input" placeholder="可选">
                 </label>
                 <label class="field-group">
-                  <span>标签 ID</span>
+                  <span>标签编号</span>
                   <input v-model.trim="filters.tagId" class="filter-input" placeholder="可选">
                 </label>
                 <label class="field-group">
-                  <span>话题 ID</span>
+                  <span>话题编号</span>
                   <input v-model.trim="filters.topicId" class="filter-input" placeholder="可选">
                 </label>
               </div>
@@ -167,7 +167,7 @@
             <section v-if="graph.displayState !== 'normal' || graph.previewSource !== 'remote' || graph.excludedReason" class="knowledge-state-banner">
               <AlertCircle class="h-5 w-5" aria-hidden="true" />
               <div>
-                <strong>{{ graph.displayState === 'degraded' ? '降级展示' : '响应状态' }}</strong>
+                <strong>部分内容暂未完整展示</strong>
                 <span>{{ responseStateCopy }}</span>
               </div>
             </section>
@@ -209,15 +209,19 @@
                   </div>
                 </div>
 
-                <div v-if="confirmedRelations.length || dynamicSuggestions.length" class="relation-evidence">
-                  <h3>关系来源解释 Relation Evidence</h3>
+                <details v-if="confirmedRelations.length || dynamicSuggestions.length" class="relation-evidence advanced-filter">
+                  <summary>
+                    <span>高级：查看关系依据</span>
+                    <ChevronDown class="h-4 w-4" aria-hidden="true" />
+                  </summary>
+                  <div class="relation-evidence__body">
                   <div v-if="confirmedRelations.length" class="relation-group">
                     <div class="relation-group__heading">
                       <div>
                         <strong>已确认关系</strong>
                         <p>仅展示来源明确、审核通过且公开可见的关系。</p>
                       </div>
-                      <span class="relation-status relation-status--confirmed">CONFIRMED</span>
+                      <span class="relation-status relation-status--confirmed">已核对</span>
                     </div>
                     <div v-for="relation in confirmedRelations" :key="relation.relationId" class="edge-row">
                       <div>
@@ -236,7 +240,7 @@
                         <strong>请求时关系建议</strong>
                         <p>只读建议，不作为已经确认的关系事实。</p>
                       </div>
-                      <span class="relation-status relation-status--suggested">SUGGESTED</span>
+                      <span class="relation-status relation-status--suggested">建议</span>
                     </div>
                     <div v-for="relation in suggestedDynamicRelations" :key="relation.relationId" class="edge-row">
                       <div>
@@ -254,7 +258,7 @@
                         <strong>关系投影降级</strong>
                         <p>来源或审核依据不足，因此不会被视为确认事实。</p>
                       </div>
-                      <span class="relation-status relation-status--degraded">DEGRADED</span>
+                      <span class="relation-status relation-status--degraded">依据不足</span>
                     </div>
                     <div v-for="relation in degradedRelations" :key="relation.relationId" class="edge-row">
                       <div>
@@ -265,7 +269,8 @@
                       <p>{{ relation.degradedReason || relation.reasonText }}</p>
                     </div>
                   </div>
-                </div>
+                  </div>
+                </details>
               </div>
             </section>
 
@@ -274,8 +279,8 @@
                 <div>
                   <span class="section-icon"><BookOpen class="h-4 w-4" aria-hidden="true" /></span>
                   <div>
-                    <h2>公共知识资产 Public Assets</h2>
-                    <p>状态和来源只描述本次公开投影，当前系统尚未持久化知识资产生命周期。</p>
+                    <h2>相关公开内容</h2>
+                    <p>从当前可见内容中整理出的阅读入口。</p>
                   </div>
                 </div>
                 <span class="module-count">{{ graph.assets.length }} 项</span>
@@ -285,17 +290,9 @@
                   <div class="knowledge-asset-row__main">
                     <div class="asset-meta">
                       <span class="asset-type-chip">{{ assetTypeLabel(asset.assetType) }}</span>
-                      <span :class="['asset-state-chip', asset.assetStatus === 'archived' ? 'asset-state-archived' : '']">
-                        {{ asset.assetStatus === 'active' ? 'current public projection' : 'public projection status' }}
-                      </span>
-                      <span v-if="asset.previewSource !== 'remote'" class="asset-readonly-chip">
-                        {{ previewSourceLabel(asset.previewSource) }} read-only
-                      </span>
                     </div>
                     <h3>{{ asset.title }}</h3>
                     <p>{{ asset.summary || asset.sourceNote }}</p>
-                    <small>sourceNote: {{ asset.sourceNote }}</small>
-                    <small v-if="asset.excludedReason">excludedReason: {{ asset.excludedReason }}</small>
                   </div>
                   <RouterLink
                     v-if="asset.targetHref && asset.visibilityState !== 'excluded'"
@@ -315,8 +312,8 @@
                   <div>
                     <span class="section-icon"><Route class="h-4 w-4" aria-hidden="true" /></span>
                     <div>
-                      <h2>知识路径 Knowledge Paths</h2>
-                      <p>公开阅读建议中的 OFFLINE 与 DEGRADED 不是生命周期状态，fallback、demo 和 local-only 节点始终只读。</p>
+                      <h2>推荐阅读顺序</h2>
+                      <p>按内容关联整理的只读建议，可从任一步开始阅读。</p>
                     </div>
                   </div>
                 </header>
@@ -324,7 +321,6 @@
                   <article v-for="path in graph.paths" :key="path.pathId" class="knowledge-path-row">
                     <div class="knowledge-path-row__heading">
                       <strong>{{ path.title }}</strong>
-                      <span class="asset-state-chip">{{ path.pathStatus }} / {{ path.displayState }}</span>
                     </div>
                     <p>{{ path.summary }}</p>
                     <ol>
@@ -333,9 +329,6 @@
                         <div>
                           <RouterLink v-if="step.targetHref" :to="step.targetHref">{{ step.title }}</RouterLink>
                           <span v-else>{{ step.title }}</span>
-                          <small v-if="step.previewSource && step.previewSource !== 'remote'">
-                            {{ previewSourceLabel(step.previewSource) }} read-only
-                          </small>
                         </div>
                       </li>
                     </ol>
@@ -348,7 +341,7 @@
                   <div>
                     <span class="section-icon"><CircleDashed class="h-4 w-4" aria-hidden="true" /></span>
                     <div>
-                      <h2>公共缺口 Knowledge Gaps</h2>
+                      <h2>待补充主题</h2>
                       <p>仅表达聚合后的公开内容覆盖需求，不展示单个用户行为。</p>
                     </div>
                   </div>
@@ -357,7 +350,6 @@
                   <article v-for="gap in visibleGaps" :key="gap.gapId" class="knowledge-gap-row">
                     <strong>{{ gap.title }}</strong>
                     <p>{{ gap.reasonText }}</p>
-                    <small>{{ gap.source }} / {{ gap.reviewStatus }}</small>
                   </article>
                 </div>
               </section>
@@ -368,8 +360,8 @@
                 <div>
                   <span class="section-icon"><Clock3 class="h-4 w-4" aria-hidden="true" /></span>
                   <div>
-                    <h2>请求时公开投影</h2>
-                    <p>这些对象按当前公开数据即时生成，不代表已保存的资产历史；时间字段仅表示本次响应时间。</p>
+                    <h2>本次整理结果</h2>
+                    <p>根据当前可见公开内容即时整理，仅用于帮助继续阅读。</p>
                   </div>
                 </div>
               </header>
@@ -379,7 +371,6 @@
                     <strong>{{ snapshot.title }}</strong>
                     <p>{{ snapshot.summary || snapshot.sourceNote }}</p>
                   </div>
-                  <small>responseTime: {{ snapshot.archivedAt || 'not provided' }}</small>
                 </article>
               </div>
             </section>
@@ -457,13 +448,13 @@ const loading = ref(false)
 const error = ref('')
 
 const groupLabelMap: Record<string, string> = {
-  domain: 'Domain',
-  post: 'Post',
-  tag: 'Tag',
-  topic: 'Topic',
-  series: 'Series',
-  collection: 'Collection',
-  search_entry: 'Search entry',
+  domain: '领域',
+  post: '内容',
+  tag: '标签',
+  topic: '话题',
+  series: '合集',
+  collection: '收藏',
+  search_entry: '搜索结果',
 }
 
 const assetTypeLabel = (type: KnowledgeAssetType) => groupLabelMap[type] || type
@@ -532,22 +523,20 @@ const degradedRelations = computed(() => dynamicSuggestions.value.filter((relati
 const visibleGaps = computed(() => (graph.value?.gaps || []).filter((gap: KnowledgeGap) => isDispatchableKnowledgeGap(gap)))
 const responseStateCopy = computed(() => {
   if (!graph.value) return ''
-  if (graph.value.previewSource !== 'remote') {
-    return `${previewSourceLabel(graph.value.previewSource)} data is read-only diagnostic display and will not be written to formal assets, relations, paths, or gaps.`
-  }
-  if (graph.value.excludedReason) return graph.value.excludedReason
-  return graph.value.sourceNote || 'Partial response display does not write DEGRADED into lifecycle state.'
+  if (graph.value.previewSource !== 'remote') return '当前仍可浏览已有结果，稍后刷新可获取更完整的关联内容。'
+  if (graph.value.excludedReason) return '部分关联内容暂不可见，已自动隐藏不完整结果。'
+  return '部分关联内容暂未返回，不影响继续阅读当前结果。'
 })
 
 const activeSeedSummary = computed(() => {
   const items = [
-    filters.assetId && `asset:${filters.assetType || '*'}:${filters.assetId}`,
-    filters.postId && `post:${filters.postId}`,
-    filters.tagId && `tag:${filters.tagId}`,
-    filters.topicId && `topic:${filters.topicId}`,
+    filters.assetId && `精确内容：${filters.assetId}`,
+    filters.postId && `内容：${filters.postId}`,
+    filters.tagId && `标签：${filters.tagId}`,
+    filters.topicId && `话题：${filters.topicId}`,
     filters.domain ? getDomainLabel(filters.domain) : '',
   ].filter(Boolean)
-  return items.length ? items.join(' / ') : 'default domain'
+  return items.length ? items.join(' / ') : '全部公开内容'
 })
 
 const normalizePositiveInt = (value: unknown, fallback = 0) => {
@@ -598,7 +587,7 @@ const loadGraph = async () => {
     graph.value = res.data
   } catch (err) {
     graph.value = null
-    error.value = getErrorMessage(err, 'Knowledge asset service is temporarily unavailable.')
+    error.value = getErrorMessage(err, '知识关系暂时无法加载，请稍后重试。')
   } finally {
     loading.value = false
   }

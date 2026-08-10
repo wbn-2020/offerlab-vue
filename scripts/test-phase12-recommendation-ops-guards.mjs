@@ -61,7 +61,7 @@ has(feedApi, /FeedControlAction[\s\S]*HIDE[\s\S]*LESS_LIKE_THIS[\s\S]*RESTORE/, 
 has(homeView, /locallyHiddenPostIds/, 'Home feed must hide current cards after negative recommendation feedback.')
 has(homeView, /handleFeedControl/, 'Home feed must wire recommendation feedback handling.')
 has(homeView, /filterVisiblePosts/, 'Home feed and curation surfaces must pass through governance filtering.')
-has(homeView, /featuredPreview\s*=\s*computed\(\(\)\s*=>\s*cleanPosts\.value\.filter\(isFeaturedPost\)/, 'Home featured pool must derive from governed public posts.')
+has(homeView, /featuredPreview\s*=\s*computed\(\(\)\s*=>\s*\{[\s\S]*\[\.\.\.cleanPosts\.value,\s*\.\.\.recommendPreviewPosts\.value\][\s\S]*\.filter\(isFeaturedPost\)/, 'Home featured pool must derive from governed public posts.')
 
 has(exploreView, /filterVisiblePosts/, 'Explore recommendations, rankings, and featured surfaces must pass through governance filtering.')
 has(exploreView, /crossDomainRecommendations[\s\S]*filterVisiblePosts/, 'Explore cross-domain recommendations must be filtered before display.')

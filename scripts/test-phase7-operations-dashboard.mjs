@@ -64,7 +64,7 @@ assert.match(
 )
 assert.match(
   trendView,
-  /class="domain-comparison-board/,
+  /class="[^"]*domain-comparison-board/,
   'TrendDashboardView must render a dedicated domain comparison board section.',
 )
 assert.match(

@@ -113,7 +113,7 @@ const assertCommonListReliability = (source, label) => {
   assert.match(source, /candidate\?\.name === 'AbortError'/)
   assert.match(source, /candidate\?\.name === 'CanceledError'/)
   assert.match(source, /candidate\?\.code === 'ERR_CANCELED'/)
-  assert.match(source, /if \(append\) loadMoreErrorText\.value = message\s*else errorText\.value = message/)
+  assert.match(source, /if \(append\) loadMoreErrorText\.value = message\s*else (?:\{\s*)?errorText\.value = message/)
   assert.match(source, /items\.value = append \? \[\.\.\.items\.value, \.\.\.incoming\] : incoming/)
   assert.match(source, /@click="load\(true\)">重试加载更多</)
 }
@@ -125,6 +125,15 @@ assert.match(mineViewSource, /contentMaintenanceApi\.mine\([\s\S]*?\},\s*\{\s*si
 assert.match(mineViewSource, /clearMaintenanceState\(\)/)
 assert.match(mineViewSource, /for \(const key of Object\.keys\(drafts\)\) delete drafts\[key\]/)
 assert.match(mineViewSource, /contentMaintenanceApi\.claim\(task\.id\)/)
+assert.match(mineViewSource, /postApi\.list\(\{ authorId: uid, size: 12 \}\)/, 'maintenance candidates must prefer the current user public posts')
+assert.match(mineViewSource, /postApi\.getMyFavorites\(undefined, 12\)/, 'maintenance candidates must include bounded favorite references')
+assert.match(mineViewSource, /Promise\.allSettled\(\[/, 'candidate sources must fail independently')
+assert.match(mineViewSource, /origin === 'owned'/, 'candidate ownership must remain explicit')
+assert.match(mineViewSource, /收藏内容属于其他作者，只能作为参考/, 'favorites must never be presented as directly eligible delivery')
+assert.match(mineViewSource, /create-action-label="新建公开内容"/, 'empty candidate paths must expose content creation')
+assert.match(mineViewSource, /<summary>高级：使用精确资源 ID<\/summary>/, 'precise resource IDs must stay in an advanced disclosure')
+assert.doesNotMatch(mineViewSource, /<details class="manual-delivery-fallback"[^>]*:open=/, 'the precise-ID fallback must not open by default')
+assert.match(mineViewSource, /maintenanceErrorKind\.value = isPermissionError\(error\) \? 'permission' : 'error'/, 'permission failures must stay distinct from read failures')
 assert.match(
   mineViewSource,
   /contentMaintenanceApi\.submit\(task\.id,\s*\{\s*deliveryType:[\s\S]*deliveryRefId:[\s\S]*deliveryPostId:[\s\S]*note:/,

@@ -54,6 +54,26 @@ has(hubQuery, /parseCollaborationHubQuery\(route\.query\)/, 'Hub state must be h
 has(hub, /useCollaborationHubQuery/, 'the Hub view must use the shared query composable.')
 has(hub, /focus-office-hour-id[\s\S]*focus-reservation-id/, 'The Office Hour workspace must receive action focus ids from URL state.')
 has(hub, /replaceHubQuery/, 'the Hub view must write tab and filter changes to the URL.')
+has(hub, /const publicTabs = \[[\s\S]*key: 'needs'[\s\S]*key: 'series'[\s\S]*key: 'activities'[\s\S]*key: 'discussions'[\s\S]*\] as const/, 'Public Hub navigation must focus on needs, series, activities, and discussions.')
+missing(hub.match(/const publicTabs = \[([\s\S]*?)\] as const/)?.[1] || '', /my-collaborations|curation|office-hours|manage|cases/, 'Personal workspaces must not remain in the public tab list.')
+has(hub, /role="tablist"[\s\S]*aria-label="公共共建浏览"/, 'Public collaboration resources must expose a named tablist.')
+has(hub, /:tabindex="activeTab === tab\.key \? 0 : -1"/, 'Public collaboration tabs must use a roving tabindex.')
+has(hub, /@keydown="handlePublicTabKeydown\(\$event, index\)"/, 'Public collaboration tabs must support keyboard navigation.')
+has(hub, /nextRovingTabValue\(publicTabKeys, currentTab, event\.key\)/, 'Arrow, Home, and End behavior must use the shared tab navigation contract.')
+has(hub, /:aria-controls="`collaboration-panel-\$\{tab\.key\}`"/, 'Each public tab must retain an explicit tabpanel relationship.')
+has(hub, /personalWorkspaceDefinitions[\s\S]*'my-collaborations'[\s\S]*curation[\s\S]*'office-hours'[\s\S]*manage[\s\S]*cases/, 'Personal collaboration capabilities must remain available behind the action-center hierarchy.')
+has(hub, /aria-labelledby="collaboration-personal-workspace-title"/, 'Legacy personal workspace panels must have a valid accessible label outside the public tablist.')
+missing(hub.match(/<template>([\s\S]*?)<\/template>/)?.[1] || '', /hub-participation-guide|找到你现在能参与的一步/, 'The duplicated five-step guide must not remain in the Hub template.')
+assert.equal((hub.match(/<fieldset class="workspace-form-fields" :disabled="!authStore\.isLoggedIn">/g) || []).length, 4, 'All four inline authoring forms must block anonymous input before content can be entered.')
+for (const mode of ['need', 'series', 'activity']) {
+  has(hub, new RegExp(`<aside v-if="contributionMode === '${mode}'"`), `The ${mode} authoring form must stay out of the default public browse surface.`)
+}
+has(hub, /const startNeedCreation = async[\s\S]*ensureLoggedIn\(\)[\s\S]*router\.push\('\/me\/collaboration'\)/, 'The public creation CTA must authenticate and hand off to the personal action center.')
+has(hub, /name:\s*'CollaborationSeriesSubmission'/, 'Series submission actions must move into the protected personal contribution route.')
+has(hub, /name:\s*'CollaborationActivitySubmission'/, 'Activity submission actions must move into the protected personal contribution route.')
+for (const emptyAction of ['clearNeedFilters', 'clearSeriesFilters', 'clearActivityFilters', 'clearDiscussionFilters']) {
+  has(hub, new RegExp(`@click="${emptyAction}"[\\s\\S]*const ${emptyAction}\\s*=`), `${emptyAction} must provide an actionable public empty state.`)
+}
 for (const handler of ['changeNeedFilters', 'changeSeriesFilters', 'changeActivityFilters', 'changeCurationFilters', 'changeDiscussionFilters', 'changeSort']) {
   has(hub, new RegExp(`const ${handler}\\s*=`), `${handler} must be present for bidirectional URL state.`)
 }

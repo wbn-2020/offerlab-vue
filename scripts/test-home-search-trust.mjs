@@ -14,11 +14,15 @@ assert.match(homeView, /sampledFeedContentCount\s*=\s*ref\(0\)/, 'HomeView must 
 assert.match(homeView, /feedApi\.getLatest\(undefined,\s*6,\s*(?:activeDomain\.value|domainSnapshot)\)/, 'HomeView must sample latest feed for content metric')
 assert.match(homeView, /feedApi\.getHot\(undefined,\s*6,\s*(?:activeDomain\.value|domainSnapshot)\)/, 'HomeView must sample hot feed for content metric')
 assert.match(homeView, /feedApi\.getRecommend\(undefined,\s*6,\s*(?:activeDomain\.value|domainSnapshot)\)/, 'HomeView must sample recommendation feed for content metric')
-assert.match(homeView, /sampledFeedContentCount\.value\s*=\s*Math\.max\(0,\s*\.\.\.feedCounts\)/, 'HomeView must derive the sampled count only from visible public feed results')
+assert.match(
+  homeView,
+  /sampledFeedContentCount\.value\s*=\s*Math\.max\(\s*latestItems\.length,\s*hotItems\.length,\s*recommendPreviewPosts\.value\.length,\s*\)/,
+  'HomeView must derive the sampled count only from visible public feed results',
+)
 assert.match(homeView, /emptyFeedTitle\s*=\s*computed/, 'HomeView must expose an honest empty-feed title')
 assert.match(homeView, /activeFeed\.value\s*===\s*'latest'\s*&&\s*sampledFeedContentCount\.value\s*>\s*0/, 'latest empty state must distinguish an empty latest feed from an empty community')
 assert.match(homeView, /emptyFeedDescription\s*=\s*computed/, 'HomeView must expose a recovery description for empty feeds')
-assert.match(homeView, /\u53ef\u4ee5\u5148\u770b\u63a8\u8350\u5185\u5bb9\u3001\u901b\u53d1\u73b0\u9875/, 'empty feeds must route users toward real recommendation and discovery surfaces')
+assert.match(homeView, /\u53ef\u4ee5\u5148\u770b\u63a8\u8350\u6216\u70ed\u95e8\u5185\u5bb9/, 'empty feeds must route users toward real recommendation and discovery surfaces')
 assert.match(homeView, /taskSections\s*=\s*computed/, 'HomeView must render server-backed onboarding and daily task sections')
 assert.match(homeView, /sections\.push\(onboardingOverview\.value\)/, 'HomeView must include active server onboarding tasks')
 assert.match(homeView, /sections\.push\(dailyOverview\.value\)/, 'HomeView must include server daily tasks')
@@ -27,14 +31,18 @@ assert.match(homeView, /to="\/editor" class="home-channel-publish"/, 'HomeView m
 assert.match(homeView, /useDomainCatalog\(\)/, 'HomeView must source filters from the shared public domain catalog')
 assert.match(homeView, /v-for="d in homeDomainOptions"/, 'HomeView must only render real domain filters from the shared catalog')
 assert.match(homeView, /feed-error-actions/, 'HomeView feed load failure must expose fallback actions beyond retry')
-assert.match(homeView, /\u5f53\u524d\u9891\u9053\uff1a\{\{ feedLabels\[activeFeed\] \}\}/, 'HomeView feed errors must show the current feed label')
+assert.match(homeView, /\u6b63\u5728\u6d4f\u89c8\uff1a\{\{ feedLabels\[activeFeed\] \}\}/, 'HomeView feed errors must show the current feed label')
 assert.match(homeView, /switchFeedAfterError\('hot'\)/, 'HomeView feed errors must let users switch to hot feed')
 assert.match(homeView, /switchFeedAfterError\('featured'\)/, 'HomeView feed errors must let users switch to featured feed')
 assert.match(homeView, /to="\/explore"/, 'HomeView feed errors must route users to discovery')
 assert.match(homeView, /path: '\/questions'/, 'HomeView feed errors must route users to questions')
 assert.match(homeView, /homeFallbackQuestionQuery/, 'HomeView feed errors must preserve a useful keyword when routing to questions')
 
-assert.match(searchView, /\u7ed3\u679c\u53ef\u80fd\u4e0d\u5b8c\u6574\uff0c\u6392\u5e8f\u80fd\u529b\u53d7\u9650/, 'SearchView degraded search copy must explain result completeness and ranking limits')
+assert.match(
+  searchView,
+  /搜索仍可使用，但结果完整度和排序能力可能暂时受限/,
+  'SearchView degraded search copy must explain result completeness and ranking limits without infrastructure terms',
+)
 
 const sourceRegion = (source, startMarker, endMarker) => {
   const start = source.indexOf(startMarker)

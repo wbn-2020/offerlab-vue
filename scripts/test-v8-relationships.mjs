@@ -56,6 +56,11 @@ assert.match(view, /targetPath/, 'relationship view must use server-provided can
 assert.match(view, /不\.?会替代原资源页面上的关注/, 'relationship view must not replace domain-specific follow actions')
 assert.match(view, /filterChanged[\s\S]*void reload\(\)/, 'same-filter deep-link changes must retry bounded pagination')
 assert.match(view, /isSameRelationship/, 'relationship focus must use composite source identity')
+assert.match(view, /hasRelationshipFilters/, 'relationship empty states must distinguish filters from an empty account')
+assert.match(view, /clearRelationshipFilters/, 'filtered empty states must expose a clear action')
+assert.match(view, /relationshipErrorKind/, 'permission failures must stay distinct from ordinary read failures')
+assert.match(view, /visibleSummaryStats[\s\S]*stat\.key === 'total' \|\| Number\(stat\.value\) > 0/, 'relationship summary must hide zero-only secondary metrics')
+assert.match(view, /还没有可管理的关系/, 'an account with no relationships must receive an actionable empty state')
 
 const routeStart = router.indexOf("path: '/me/relationships'")
 assert.notEqual(routeStart, -1, 'relationship workspace route must be registered')

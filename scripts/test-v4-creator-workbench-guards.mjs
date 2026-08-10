@@ -27,7 +27,7 @@ const growthProfile = read('src/views/GrowthProfileView.vue')
 const postDetail = read('src/views/PostDetailView.vue')
 const editor = read('src/views/EditorView.vue')
 
-const meCreatorSurface = between(meProfile, 'id="creator-workbench"', '<section class="creator-center-grid mt-6">', 'MeProfile creator workbench surface')
+const meCreatorSurface = between(meProfile, 'id="creator-workbench"', '<CreatorChallengeWorkspace', 'MeProfile creator workbench surface')
 const growthCurationSurface = between(growthProfile, '最近入选反馈', '<section class="grid gap-4', 'GrowthProfile curation feedback surface')
 const postDetailCreatorSurface = between(postDetail, '<div v-if="isOwnPost" class="creator-feedback-box">', '<section class="rounded-xl', 'PostDetail creator feedback surface')
 const demoCreatorSurface = between(demoSeeds, 'export const demoCreatorFeedbackSummary', 'export const demoProfileContribution', 'creator demo seed surface')
@@ -194,7 +194,7 @@ has(creatorFeedbackApi, /source:\s*CREATOR_WORKBENCH_EDITOR_SOURCE/, 'creator wo
 
 hasText(editorTopicIdeaSurface, 'creator_workbench', 'Editor must keep creator_workbench as an allowed source for V4 workbench handoff.')
 hasText(meCreatorSurface, 'searchGaps', 'MeProfile creator workbench must render aggregated search gaps.')
-hasText(meCreatorSurface, 'EditorSearchGapContext', 'MeProfile creator workbench must label search gap handoff context.')
+has(meProfile, /const mapSearchGap[\s\S]*to:\s*gap\.editorHref/, 'MeProfile creator workbench must preserve the typed search gap editor handoff.')
 hasText(meCreatorSurface, '聚合需求', 'MeProfile creator workbench must explain search gaps as aggregated demand.')
 missing(meCreatorSurface, /用户搜索记录|userSearch|queryLog|searchRecord|rawQuery|uid|userId/i, 'MeProfile search gap surface must not expose user search records.')
 has(editorTopicIdeaSurface, /topicIdeaQueryText\(topicIdeaQueryValue\('title'\),\s*96\)/, 'Editor must bound title query length for creator workbench handoff.')

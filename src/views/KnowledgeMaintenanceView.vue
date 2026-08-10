@@ -63,7 +63,8 @@
             <p>{{ queueSummaryText }}</p>
           </div>
           <div class="summary-metrics" aria-label="维护概览">
-            <span v-if="summary" class="metric-chip"><strong>{{ summary.total }}</strong>项待维护</span>
+            <span v-if="summary && summaryTotal > 0" class="metric-chip"><strong>{{ summaryTotal }}</strong>项待维护</span>
+            <span v-else-if="summary" class="summary-status">目前无需处理</span>
             <span v-if="hasActiveFilters" class="metric-chip metric-chip-active">已启用筛选</span>
             <span v-if="summary?.generatedAt" class="summary-updated">
               更新于 {{ formatDateTime(summary.generatedAt) }}
@@ -91,7 +92,8 @@
 
         <div v-if="summaryError" class="workspace-notice workspace-notice-error" role="status">
           <AlertCircle class="h-4 w-4" aria-hidden="true" />
-          <span>类型摘要暂时无法读取：{{ summaryError }}</span>
+          <span>{{ summaryErrorTitle }}：{{ summaryErrorDescription }}</span>
+          <RouterLink v-if="summaryErrorKind === 'permission'" :to="switchAccountLocation" class="workspace-notice-action">切换账号</RouterLink>
           <button type="button" :disabled="summaryLoading" @click="loadSummary()">重试摘要</button>
         </div>
 
@@ -127,8 +129,8 @@
             </div>
           </div>
 
-          <div v-else-if="summary" class="summary-list">
-            <button v-for="item in actionTypeOptions" :key="item.value" type="button" class="summary-row" @click="openTypeQueue(item.value)">
+          <div v-else-if="summary && summaryTotal > 0" class="summary-list">
+            <button v-for="item in visibleActionTypeOptions" :key="item.value" type="button" class="summary-row" @click="openTypeQueue(item.value)">
               <span class="summary-row-icon" aria-hidden="true">
                 <component :is="item.icon" class="h-4 w-4" />
               </span>
@@ -141,12 +143,21 @@
             </button>
           </div>
 
+          <div v-else-if="summary && summaryTotal === 0" class="panel-state panel-state-empty">
+            <CheckCircle2 class="h-5 w-5" aria-hidden="true" />
+            <div>
+              <strong>当前无需处理知识事项</strong>
+              <p>新的建议、来源复核、关系审核或实践回访到期后，会在这里出现。</p>
+            </div>
+            <RouterLink to="/explore" class="primary-action">去发现公开内容</RouterLink>
+          </div>
           <div v-else class="panel-state panel-state-error" role="alert">
             <AlertCircle class="h-5 w-5" aria-hidden="true" />
             <div>
-              <strong>维护概览暂时不可用</strong>
-              <p>{{ summaryError || '服务没有返回可用摘要。' }}</p>
+              <strong>{{ summaryErrorTitle }}</strong>
+              <p>{{ summaryErrorDescription }}</p>
             </div>
+            <RouterLink v-if="summaryErrorKind === 'permission'" :to="switchAccountLocation" class="secondary-action">切换账号</RouterLink>
             <button type="button" class="secondary-action" @click="loadSummary()">重试</button>
           </div>
         </section>
@@ -198,7 +209,8 @@
 
           <div v-else-if="listError && items.length === 0" class="panel-state panel-state-error" role="alert">
             <AlertCircle class="h-5 w-5" aria-hidden="true" />
-            <div><strong>知识维护事项暂时无法读取</strong><p>{{ listError }}</p></div>
+            <div><strong>{{ listErrorTitle }}</strong><p>{{ listErrorDescription }}</p></div>
+            <RouterLink v-if="listErrorKind === 'permission'" :to="switchAccountLocation" class="secondary-action">切换账号</RouterLink>
             <button type="button" class="secondary-action" @click="retryList">重试</button>
           </div>
 
@@ -208,7 +220,10 @@
               <strong>{{ hasActiveFilters ? '没有符合筛选条件的事项' : '当前维护队列已清空' }}</strong>
               <p>{{ emptyStateText }}</p>
             </div>
-            <button v-if="hasActiveFilters" type="button" class="secondary-action" @click="clearFilters">查看全部</button>
+            <div class="panel-state-actions">
+              <button v-if="hasActiveFilters" type="button" class="secondary-action" @click="clearFilters">查看全部</button>
+              <RouterLink v-else to="/explore" class="primary-action">去发现公开内容</RouterLink>
+            </div>
           </div>
 
           <div v-else class="action-list">
@@ -284,7 +299,7 @@ import {
 } from 'lucide-vue-next'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
-import { getErrorMessage } from '@/api/client'
+import { BizException, getErrorMessage } from '@/api/client'
 import {
   knowledgeMaintenanceApi,
   type KnowledgeActionItem,
@@ -359,6 +374,8 @@ const listLoading = ref(false)
 const listLoadingMore = ref(false)
 const summaryError = ref('')
 const listError = ref('')
+const summaryErrorKind = ref<'error' | 'permission'>('error')
+const listErrorKind = ref<'error' | 'permission'>('error')
 const loadMoreError = ref('')
 const pageSourceErrors = ref<string[]>([])
 const nextCursor = ref('')
@@ -397,6 +414,13 @@ const accountKey = computed(() => `${String(authStore.user?.uid ?? '')}:${String
 const filterKey = computed(() => `${activeTab.value}:${typeFilter.value || 'ALL'}:${statusFilter.value || 'ALL'}`)
 const hasActiveFilters = computed(() => Boolean(typeFilter.value || statusFilter.value))
 const refreshing = computed(() => summaryLoading.value || listLoading.value || listLoadingMore.value)
+const summaryTotal = computed(() => {
+  const value = Number(summary.value?.total ?? 0)
+  return Number.isFinite(value) && value > 0 ? value : 0
+})
+const visibleActionTypeOptions = computed(() => (
+  actionTypeOptions.filter((item) => Number(summary.value?.counts[item.value] ?? 0) > 0)
+))
 const workspaceState = computed(() => {
   if (!authStore.ready) return 'auth-loading'
   if (!authStore.isLoggedIn) return authStore.sessionExpired ? 'session-expired' : 'anonymous'
@@ -417,7 +441,7 @@ const queueSummaryText = computed(() => {
 const emptyStateText = computed(() => {
   if (pageSourceErrors.value.length) return '当前可用来源没有返回事项，另有部分来源暂时不可用。'
   if (hasActiveFilters.value) return '尝试清除类型或状态筛选，查看其他维护事项。'
-  return '新的建议、来源复核、关系审核或回访到期后会出现在这里。'
+  return '新的建议、来源复核、关系审核或回访到期后会出现在这里；当前可以先去发现页继续参与。'
 })
 const partialSourceErrors = computed(() => {
   const values = [
@@ -441,6 +465,32 @@ const switchAccountLocation = computed(() => ({
   },
 }))
 
+const isPermissionError = (error: unknown) => {
+  const status = Number((error as { response?: { status?: unknown } } | null)?.response?.status)
+  const code = error instanceof BizException ? error.code : Number((error as { code?: unknown } | null)?.code)
+  return status === 401 || status === 403 || code === 10401 || code === 10403
+}
+
+const summaryErrorTitle = computed(() => (
+  summaryErrorKind.value === 'permission' ? '当前账号没有查看维护概览的权限' : '类型摘要暂时无法读取'
+))
+
+const summaryErrorDescription = computed(() => (
+  summaryErrorKind.value === 'permission'
+    ? '服务端拒绝了当前账号的摘要请求，请切换账号或稍后重试。'
+    : (summaryError.value || '服务没有返回可用摘要。')
+))
+
+const listErrorTitle = computed(() => (
+  listErrorKind.value === 'permission' ? '当前账号没有查看维护事项的权限' : '知识维护事项暂时无法读取'
+))
+
+const listErrorDescription = computed(() => (
+  listErrorKind.value === 'permission'
+    ? '服务端拒绝了当前账号的队列请求，请切换账号或稍后重试。'
+    : listError.value
+))
+
 const currentUid = () => String(authStore.user?.uid ?? '')
 const currentToken = () => String(authStore.token ?? '')
 const requestIsCurrent = (
@@ -462,6 +512,7 @@ const resetSummary = () => {
   summary.value = null
   summaryLoading.value = false
   summaryError.value = ''
+  summaryErrorKind.value = 'error'
 }
 
 const resetList = () => {
@@ -469,6 +520,7 @@ const resetList = () => {
   listLoading.value = false
   listLoadingMore.value = false
   listError.value = ''
+  listErrorKind.value = 'error'
   loadMoreError.value = ''
   pageSourceErrors.value = []
   nextCursor.value = ''
@@ -535,6 +587,7 @@ const loadSummary = async (
     if (!requestIsCurrent(generation, uid, token, requestId, summaryRequestId) || controller.signal.aborted) return
     summary.value = null
     summaryError.value = getErrorMessage(cause, '知识维护摘要暂时不可用。')
+    summaryErrorKind.value = isPermissionError(cause) ? 'permission' : 'error'
   } finally {
     if (requestIsCurrent(generation, uid, token, requestId, summaryRequestId)) {
       summaryLoading.value = false
@@ -589,6 +642,7 @@ const loadList = async (
       lastFailedCursor = cursor
     } else {
       listError.value = message
+      listErrorKind.value = isPermissionError(cause) ? 'permission' : 'error'
       items.value = []
       nextCursor.value = ''
       hasMore.value = false

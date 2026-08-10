@@ -188,8 +188,32 @@ expect(
   'V42 Vue API must not call the governance queue endpoint from the personal surface.',
 )
 expect(
-  todosView.includes('channelQualityGovernanceTodosApi.mine('),
-  'V42 personal view must load governance todos through the personal read API.',
+  todosView.includes('channelQualityGovernanceTodosApi.mineForDisplay('),
+  'V42 personal view must load governance todos through the tolerant personal display API.',
+)
+expect(
+  todosApi.includes('mineForDisplay: async'),
+  'V42 Vue API must expose a display-safe read that lets the view normalize compatible remote records.',
+)
+expect(
+  todosApi.includes('requireReadableRemoteResult'),
+  'V42 display reads must still reject failed or non-remote envelopes before tolerant record normalization.',
+)
+expect(
+  todosView.includes('normalizeGovernancePage'),
+  'V42 personal view must defensively normalize governance todo pages.',
+)
+expect(
+  todosView.includes('normalizeGovernanceTodo'),
+  'V42 personal view must defensively normalize governance todo records.',
+)
+expect(
+  !todosView.includes('getErrorMessage'),
+  'V42 personal view must not expose raw remote contract errors.',
+)
+expect(
+  todosView.includes('治理待办暂时无法读取，请稍后重试。'),
+  'V42 personal view must show a stable actionable read error.',
 )
 expect(
   !/quality-review-risk-cases|\/admin\/community-health\/risk-cases/.test(todosView),

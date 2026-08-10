@@ -256,10 +256,10 @@
 
             <div class="preference-notes">
               <p data-phase14-retention-preference-note data-existing-notification-preferences>
-                复访摘要只作为站内入口展示；讨论回访沿用互动通知偏好，关注作者和话题更新沿用系统通知偏好，这里不新增无法持久化的独立复访开关。
+                讨论回访会跟随互动通知设置，关注作者和话题的更新会跟随系统通知设置。
               </p>
               <p data-phase15-suggestion-preference-note data-existing-notification-preferences>
-                内容补充和纠错建议沿用现有互动通知或系统通知偏好；当前没有后端持久化字段，因此不展示独立建议开关。
+                内容补充和纠错建议会按对应通知类型提醒；关闭提醒后，仍可在个人页面主动查看。
               </p>
             </div>
 

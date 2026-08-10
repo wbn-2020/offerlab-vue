@@ -65,7 +65,7 @@
       </div>
       <div v-else-if="items.length === 0" class="state surface-panel">
         <strong>当前没有符合筛选条件的治理待办</strong>
-        <p>待办由服务端治理流程生成，状态和可执行性不会在本页被本地推断。</p>
+        <p>可以调整筛选条件，或稍后刷新查看新分配的事项。</p>
       </div>
 
       <section v-else class="todo-list" aria-label="治理待办列表">
@@ -119,7 +119,6 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RefreshCw } from 'lucide-vue-next'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
-import { getErrorMessage } from '@/api/client'
 import {
   channelQualityGovernanceTodosApi,
   type ChannelQualityGovernanceTodo,
@@ -131,6 +130,7 @@ import {
   type ChannelQualityGovernanceTodoStatus,
   type ChannelQualityGovernanceTodoTaskType,
 } from '@/api/channelQualityGovernanceTodos'
+import type { ApiId } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 
 const PAGE_SIZE = 20
@@ -145,6 +145,13 @@ const taskTypes: ChannelQualityGovernanceTodoTaskType[] = [
   'COMPLETE_RETROSPECTIVE',
 ]
 const queryDueStates: ChannelQualityGovernanceTodoQueryDueState[] = ['ON_TRACK', 'DUE_SOON', 'OVERDUE']
+const dueStates: ChannelQualityGovernanceTodoDueState[] = ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'NOT_APPLICABLE']
+const escalationLevels: ChannelQualityGovernanceTodoEscalationLevel[] = ['NONE', 'CHANNEL_ATTENTION', 'GOVERNANCE_ATTENTION']
+const actionabilityStates: ChannelQualityGovernanceTodoActionability[] = ['ACTIONABLE', 'ASSIGNEE_INELIGIBLE', 'SOURCE_STALE', 'SOURCE_TERMINAL']
+const dependencyStatuses: ChannelQualityGovernanceTodoDependencyStatus[] = ['READY', 'READ_ONLY_STALE', 'DELIVERY_DEGRADED', 'BLOCKED']
+const slaOutcomes = new Set(['ON_TIME', 'OVERDUE_COMPLETED', 'EXCLUDED_REASSIGNED', 'EXCLUDED_SOURCE_TERMINATED', 'EXCLUDED_RECONCILIATION'])
+const completionReasons = new Set(['OWNER_ACKNOWLEDGED', 'PLAN_RECORDED', 'RETROSPECTIVE_COMPLETED'])
+const closeReasons = new Set(['ASSIGNEE_CHANGED', 'SOURCE_TERMINATED', 'RECONCILIATION_OBSOLETE'])
 const taskTypeLabels: Record<ChannelQualityGovernanceTodoTaskType, string> = {
   ACKNOWLEDGE_CASE: '确认接手风险处置',
   RECORD_PLAN: '记录风险处置计划',
@@ -186,6 +193,97 @@ const loadMoreErrorText = ref('')
 let accountGeneration = 0
 let loadRequestId = 0
 let loadController: AbortController | null = null
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+)
+const normalizeApiId = (value: unknown): ApiId | null => {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return value
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  return null
+}
+const normalizeTime = (value: unknown) => (
+  typeof value === 'string' && value.trim() && Number.isFinite(Date.parse(value))
+    ? value.trim()
+    : null
+)
+const normalizeActionPath = (value: unknown) => (
+  typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
+    ? value
+    : null
+)
+const optionalEnum = <T extends string>(value: unknown, allowed: Set<string>): T | null => (
+  value == null || value === '' ? null : allowed.has(String(value)) ? String(value) as T : null
+)
+const normalizeGovernanceTodo = (raw: unknown): ChannelQualityGovernanceTodo | null => {
+  if (!isRecord(raw)) return null
+  const todoId = normalizeApiId(raw.todoId)
+  const caseId = normalizeApiId(raw.caseId)
+  const retrospectiveId = raw.retrospectiveId == null ? null : normalizeApiId(raw.retrospectiveId)
+  const domain = Number(raw.domain)
+  const taskType = String(raw.taskType || '') as ChannelQualityGovernanceTodoTaskType
+  const todoStatus = String(raw.status || '') as ChannelQualityGovernanceTodoStatus
+  const todoDueState = String(raw.dueState || '') as ChannelQualityGovernanceTodoDueState
+  const escalationLevel = String(raw.escalationLevel || '') as ChannelQualityGovernanceTodoEscalationLevel
+  const actionability = String(raw.actionability || '') as ChannelQualityGovernanceTodoActionability
+  const anchorAt = normalizeTime(raw.anchorAt)
+  const dueAt = normalizeTime(raw.dueAt)
+  if (
+    todoId === null
+    || caseId === null
+    || (raw.retrospectiveId != null && retrospectiveId === null)
+    || !Number.isSafeInteger(domain)
+    || !taskTypes.includes(taskType)
+    || !statuses.includes(todoStatus)
+    || !dueStates.includes(todoDueState)
+    || !escalationLevels.includes(escalationLevel)
+    || !actionabilityStates.includes(actionability)
+    || !anchorAt
+    || !dueAt
+  ) return null
+  const actionPath = normalizeActionPath(raw.actionPath)
+  return {
+    todoId,
+    caseId,
+    retrospectiveId,
+    domain,
+    taskType,
+    status: todoStatus,
+    anchorAt,
+    dueAt,
+    dueState: todoDueState,
+    isOverdue: raw.isOverdue === true,
+    slaOutcome: optionalEnum<ChannelQualityGovernanceTodo['slaOutcome'] & string>(raw.slaOutcome, slaOutcomes),
+    completionReason: optionalEnum<ChannelQualityGovernanceTodo['completionReason'] & string>(raw.completionReason, completionReasons),
+    closeReason: optionalEnum<ChannelQualityGovernanceTodo['closeReason'] & string>(raw.closeReason, closeReasons),
+    escalationLevel,
+    actionability,
+    canOpenSource: raw.canOpenSource === true && Boolean(actionPath),
+    actionPath,
+    todoVersion: Number.isSafeInteger(Number(raw.todoVersion)) ? Number(raw.todoVersion) : 0,
+  }
+}
+const normalizeGovernancePage = (raw: unknown) => {
+  if (!isRecord(raw) || !Array.isArray(raw.items)) return null
+  const dependencyStatus = String(raw.dependencyStatus || '') as ChannelQualityGovernanceTodoDependencyStatus
+  const evaluationTime = normalizeTime(raw.evaluationTime)
+  const freshThrough = normalizeTime(raw.freshThrough)
+  if (!dependencyStatuses.includes(dependencyStatus) || !evaluationTime || !freshThrough) return null
+  const normalizedItems = raw.items
+    .map(normalizeGovernanceTodo)
+    .filter((item): item is ChannelQualityGovernanceTodo => item !== null)
+  if (raw.items.length > 0 && normalizedItems.length === 0) return null
+  const normalizedCursor = typeof raw.nextCursor === 'string' && raw.nextCursor.trim()
+    ? raw.nextCursor.trim()
+    : null
+  return {
+    dependencyStatus,
+    evaluationTime,
+    freshThrough,
+    nextCursor: normalizedCursor,
+    items: normalizedItems,
+  }
+}
 
 const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
 const routeValue = (name: 'status' | 'taskType' | 'dueState') => String(firstQueryValue(route.query[name]) || '').toUpperCase()
@@ -266,7 +364,7 @@ const load = async (append = false) => {
   }
 
   try {
-    const response = await channelQualityGovernanceTodosApi.mine({
+    const response = await channelQualityGovernanceTodosApi.mineForDisplay({
       status: status.value || undefined,
       taskType: taskType.value || undefined,
       dueState: dueState.value || undefined,
@@ -274,8 +372,8 @@ const load = async (append = false) => {
       size: PAGE_SIZE,
     }, { signal: controller.signal })
     if (!requestIsCurrent(requestId, requestAccountGeneration, requestAccountKey, filterKey, controller)) return
-    const data = response.data
-    if (!data) throw new Error('治理待办响应为空')
+    const data = normalizeGovernancePage(response.data)
+    if (!data) throw new Error('invalid-governance-page')
     items.value = append ? [...items.value, ...data.items] : data.items
     page.value = {
       dependencyStatus: data.dependencyStatus,
@@ -287,7 +385,9 @@ const load = async (append = false) => {
   } catch (error) {
     if (!requestIsCurrent(requestId, requestAccountGeneration, requestAccountKey, filterKey, controller)) return
     if (isCanceledRequest(error, controller.signal)) return
-    const message = getErrorMessage(error, append ? '加载更多治理待办失败' : '治理待办暂时无法读取')
+    const message = append
+      ? '后续治理待办暂时无法读取，请稍后重试。'
+      : '治理待办暂时无法读取，请稍后重试。'
     if (append) loadMoreErrorText.value = message
     else errorText.value = message
   } finally {
@@ -356,9 +456,9 @@ const dependencyStatusLabel = (value: ChannelQualityGovernanceTodoDependencyStat
 }[value])
 
 const dependencyStatusDescription = (value: ChannelQualityGovernanceTodoDependencyStatus) => ({
-  READY: '当前列表依据服务端评估结果展示。',
+  READY: '当前列表依据最新评估结果展示。',
   READ_ONLY_STALE: '保留已投影的待办供查看，新的来源事实暂未推进。',
-  DELIVERY_DEGRADED: '待办状态仍以服务端为准，提醒投递会在依赖恢复后继续处理。',
+  DELIVERY_DEGRADED: '待办状态仍以系统记录为准，提醒投递会在依赖恢复后继续处理。',
   BLOCKED: '当前不能据此推断待办已完成或无需处理。',
 }[value])
 

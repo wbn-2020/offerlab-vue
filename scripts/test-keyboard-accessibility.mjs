@@ -87,6 +87,9 @@ assert(appHeader.includes('.community-header__avatar'), 'user menu avatar button
 assert(appHeader.includes('min-height: 44px'), 'header navigation actions must keep a 44px touch target')
 assert(/\.community-header__icon-button\s*\{[\s\S]*?width:\s*44px/.test(appHeader), 'header icon actions must keep a 44px width')
 assert(/\.community-header__avatar\s*\{[\s\S]*?width:\s*44px/.test(appHeader), 'user menu avatar button must keep a 44px width')
+assert(appHeader.includes("event.key !== 'Escape'"), 'header menus must support Escape dismissal')
+assert(appHeader.includes('userMenuButton.value?.focus()'), 'user menu must restore focus to its trigger after Escape')
+assert(appHeader.includes('domainMenuButton.value?.focus()'), 'channel menu must restore focus to its trigger after Escape')
 
 const questionDetailView = read('src/views/QuestionDetailView.vue')
 assert(questionDetailView.includes('.pill') && questionDetailView.includes('min-height: 44px'), 'question detail pills must keep a 44px mobile touch target')

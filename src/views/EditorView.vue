@@ -46,7 +46,7 @@
             <p
               v-if="publishDisabledReason && !isPublishing"
               id="publish-disabled-reason"
-              class="publish-hint"
+              :class="['publish-hint', { 'publish-hint--neutral': isInitialComposeState }]"
               role="status"
               aria-live="polite"
             >
@@ -321,7 +321,15 @@
           </aside>
         </div>
 
-        <div class="editor-advanced-stack">
+        <details class="editor-advanced-disclosure">
+          <summary class="editor-advanced-summary">
+            <div>
+              <strong>高级选项</strong>
+              <span>需要时再补充内容结构、来源、公开预览、写作建议与合集归属；不影响先完成标题、正文和频道。</span>
+            </div>
+            <span class="editor-advanced-summary__action">展开</span>
+          </summary>
+          <div class="editor-advanced-stack">
         <!-- 内容元数据 -->
         <div class="px-4">
           <PostMeta v-model="form.extension" :type="form.postType" />
@@ -833,7 +841,8 @@
             <RouterLink to="/me">查看我的草稿</RouterLink>
           </div>
         </section>
-        </div>
+          </div>
+        </details>
       </div>
     </main>
   </div>
@@ -1383,8 +1392,16 @@ const qualityChecks = computed<QualityCheck[]>(() => [
 ])
 const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) => item.required && !item.passed))
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
+const isInitialComposeState = computed(() => (
+  !normalizedTitle.value
+  && !normalizedContent.value
+  && !selectedDomain.value
+  && selectedTags.value.length === 0
+  && !form.value.coverUrl.trim()
+))
 const publishDisabledReason = computed(() => {
   if (isLoadingPost.value) return '帖子内容加载完成后才能发布'
+  if (isInitialComposeState.value) return '先写标题和正文，再选择频道即可发布'
   if (!selectedDomain.value) return '请选择频道后再发布'
   if (blockingQualityIssues.value.length === 0) return ''
   return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
@@ -1581,7 +1598,7 @@ const explicitAiActionLabel = computed(() => {
     return isExplicitAiReconciliationLoading.value ? '确认使用结果...' : '重新确认使用结果'
   }
   if (explicitAiCapability.value?.available) return `AI 增强建议 · ${explicitAiCapability.value.remainingQuota} 次`
-  return 'AI 增强不可用'
+  return 'AI 增强（可选）'
 })
 const explicitAiUnavailableReason = computed(() => {
   if (!authStore.isLoggedIn) return '登录后可使用 AI 创作增强'
@@ -3405,6 +3422,11 @@ onBeforeUnmount(() => {
   color: rgb(180 83 9);
 }
 
+.publish-hint--neutral {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 .publish-diagnostic {
   display: grid;
   gap: 1rem;
@@ -4542,6 +4564,10 @@ onBeforeUnmount(() => {
   color: rgb(251 191 36);
 }
 
+.dark .publish-hint--neutral {
+  color: var(--text-muted);
+}
+
 .dark .publish-diagnostic {
   border-color: rgb(127 29 29);
   background: rgb(69 10 10 / 0.55);
@@ -5554,6 +5580,75 @@ onBeforeUnmount(() => {
 .editor-advanced-stack {
   display: grid;
   gap: 1rem;
+}
+
+.editor-advanced-disclosure {
+  margin: 0 1rem 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: rgb(248 250 252 / 0.72);
+}
+
+.editor-advanced-summary {
+  display: flex;
+  min-height: 4.5rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.editor-advanced-summary::-webkit-details-marker {
+  display: none;
+}
+
+.editor-advanced-summary > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.editor-advanced-summary strong {
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+}
+
+.editor-advanced-summary span {
+  color: rgb(100 116 139);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.editor-advanced-summary__action {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.editor-advanced-disclosure[open] .editor-advanced-summary__action {
+  font-size: 0;
+}
+
+.editor-advanced-disclosure[open] .editor-advanced-summary__action::after {
+  content: "收起";
+  font-size: 0.8rem;
+}
+
+.editor-advanced-disclosure[open] .editor-advanced-stack {
+  padding-bottom: 1rem;
+}
+
+.dark .editor-advanced-disclosure {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42 / 0.5);
+}
+
+.dark .editor-advanced-summary strong {
+  color: rgb(241 245 249);
+}
+
+.dark .editor-advanced-summary span {
+  color: rgb(148 163 184);
 }
 
 .editor-advanced-stack > .mx-4 {

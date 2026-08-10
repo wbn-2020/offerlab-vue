@@ -59,9 +59,9 @@ has(publicCollectionVisibleBody, /isUntreatedHighRiskContent\(collection\)/, 'Pu
 
 has(homeView, /filterVisiblePosts/, 'Home recommendation, hot, and featured feeds must reuse the shared public post governance filter.')
 has(homeView, /cleanPosts\s*=\s*computed\(\(\)\s*=>\s*filterVisiblePosts/, 'Home feed rendering must be based on governed public posts.')
-has(homeView, /hotPreviewPosts\.value\s*=\s*hotRes\.status\s*===\s*'fulfilled'[\s\S]*?\?\s*filterVisiblePosts\(filterPublicContent\(/, 'Home hot preview must be filtered before entering the strong exposure card.')
+has(homeView, /const hotItems\s*=\s*hotRes\.status\s*===\s*'fulfilled'[\s\S]*?\?\s*filterVisiblePosts\(filterPublicContent\(/, 'Home hot preview sampling must be filtered before it affects feed state.')
 has(homeView, /recommendPreviewPosts\.value\s*=\s*recommendRes\.status\s*===\s*'fulfilled'[\s\S]*?\?\s*filterVisiblePosts\(filterPublicContent\(/, 'Home recommendation preview must be filtered before entering the strong exposure card.')
-has(homeView, /featuredPreview\s*=\s*computed\(\(\)\s*=>\s*cleanPosts\.value\.filter\(isFeaturedPost\)/, 'Home featured preview must derive from governed public posts.')
+has(homeView, /featuredPreview\s*=\s*computed\(\(\)\s*=>\s*\{[\s\S]*\[\.\.\.cleanPosts\.value,\s*\.\.\.recommendPreviewPosts\.value\][\s\S]*\.filter\(isFeaturedPost\)/, 'Home featured preview must derive from governed public posts.')
 
 has(exploreView, /filterVisiblePosts/, 'Explore recommendations and featured content must reuse the shared public post governance filter.')
 has(exploreView, /cleanLatestPosts\s*=\s*computed\(\(\)\s*=>\s*filterVisiblePosts/, 'Explore featured content must derive from governed public posts.')

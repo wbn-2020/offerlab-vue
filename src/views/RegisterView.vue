@@ -1,124 +1,127 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-    <div class="w-full max-w-md">
-      <!-- Card -->
-      <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-        <div class="auth-nav-row mb-6">
-          <RouterLink to="/" class="auth-nav-link text-sm font-semibold text-slate-500 transition-colors hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-300">
-            返回首页
-          </RouterLink>
-          <div class="auth-nav-actions">
-            <RouterLink :to="{ path: '/login', query: redirectQuery(route.query.redirect) }" class="auth-nav-link text-sm font-semibold text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200">
-              登录
+  <div class="auth-page min-h-screen bg-slate-50 dark:bg-slate-950">
+    <AppHeader />
+    <main class="auth-page__main community-page">
+      <div class="w-full max-w-md">
+        <!-- Card -->
+        <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+          <div class="auth-nav-row mb-6">
+            <RouterLink to="/" class="auth-nav-link text-sm font-semibold text-slate-500 transition-colors hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-300">
+              返回首页
             </RouterLink>
-            <AuthThemeToggle />
-          </div>
-        </div>
-        <!-- Header -->
-        <div class="text-center mb-8">
-          <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">加入 {{ siteBrand.displayName }}</h1>
-          <p class="text-sm text-slate-600 dark:text-slate-400">创建账号，分享见闻、参与讨论、收藏有用参考</p>
-        </div>
-
-        <!-- Form -->
-        <form @submit.prevent="handleSubmit" class="space-y-4">
-          <!-- Nickname Field -->
-          <div>
-            <label for="register-nickname" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">昵称</label>
-            <input
-              id="register-nickname"
-              v-model="form.nickname"
-              type="text"
-              name="nickname"
-              autocomplete="nickname"
-              placeholder="2-32 个字符"
-              class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
-              :disabled="isLoading"
-            />
-            <p v-if="errors.nickname" class="text-xs text-danger mt-1">{{ errors.nickname }}</p>
-          </div>
-
-          <!-- Email Field -->
-          <div>
-            <label for="register-email" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">邮箱</label>
-            <input
-              id="register-email"
-              v-model="form.email"
-              type="email"
-              name="email"
-              autocomplete="email"
-              placeholder="your@email.com"
-              class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
-              :disabled="isLoading"
-            />
-            <p v-if="errors.email" class="text-xs text-danger mt-1">{{ errors.email }}</p>
-          </div>
-
-          <!-- Password Field -->
-          <div>
-            <label for="register-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">密码</label>
-            <input
-              id="register-password"
-              v-model="form.password"
-              type="password"
-              name="new-password"
-              autocomplete="new-password"
-              placeholder="至少 6 位"
-              class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
-              :disabled="isLoading"
-            />
-            <div v-if="form.password" class="mt-2">
-              <div class="flex gap-1" aria-hidden="true">
-                <span
-                  v-for="level in 3"
-                  :key="level"
-                  class="h-1.5 flex-1 rounded-full transition-colors"
-                  :class="level <= passwordStrength.score ? passwordStrength.barClass : 'bg-slate-200 dark:bg-slate-700'"
-                />
-              </div>
-              <p class="mt-1 text-xs" :class="passwordStrength.textClass">密码强度：{{ passwordStrength.label }}</p>
+            <div class="auth-nav-actions">
+              <RouterLink :to="{ path: '/login', query: redirectQuery(route.query.redirect) }" class="auth-nav-link text-sm font-semibold text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200">
+                登录
+              </RouterLink>
+              <AuthThemeToggle />
             </div>
-            <p v-if="errors.password" class="text-xs text-danger mt-1">{{ errors.password }}</p>
+          </div>
+          <!-- Header -->
+          <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">加入 {{ siteBrand.displayName }}</h1>
+            <p class="text-sm text-slate-600 dark:text-slate-400">创建账号，分享见闻、参与讨论、收藏有用参考</p>
           </div>
 
-          <!-- Confirm Password Field -->
-          <div>
-            <label for="register-confirm-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">确认密码</label>
-            <input
-              id="register-confirm-password"
-              v-model="form.confirmPassword"
-              type="password"
-              name="confirm-password"
-              autocomplete="new-password"
-              placeholder="再次输入密码"
-              class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+          <!-- Form -->
+          <form class="space-y-4" @submit.prevent="handleSubmit">
+            <!-- Nickname Field -->
+            <div>
+              <label for="register-nickname" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">昵称</label>
+              <input
+                id="register-nickname"
+                v-model="form.nickname"
+                type="text"
+                name="nickname"
+                autocomplete="nickname"
+                placeholder="2-32 个字符"
+                class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                :disabled="isLoading"
+              >
+              <p v-if="errors.nickname" class="text-xs text-danger mt-1">{{ errors.nickname }}</p>
+            </div>
+
+            <!-- Email Field -->
+            <div>
+              <label for="register-email" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">邮箱</label>
+              <input
+                id="register-email"
+                v-model="form.email"
+                type="email"
+                name="email"
+                autocomplete="email"
+                placeholder="your@email.com"
+                class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                :disabled="isLoading"
+              >
+              <p v-if="errors.email" class="text-xs text-danger mt-1">{{ errors.email }}</p>
+            </div>
+
+            <!-- Password Field -->
+            <div>
+              <label for="register-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">密码</label>
+              <input
+                id="register-password"
+                v-model="form.password"
+                type="password"
+                name="new-password"
+                autocomplete="new-password"
+                placeholder="至少 6 位"
+                class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                :disabled="isLoading"
+              >
+              <div v-if="form.password" class="mt-2">
+                <div class="flex gap-1" aria-hidden="true">
+                  <span
+                    v-for="level in 3"
+                    :key="level"
+                    class="h-1.5 flex-1 rounded-full transition-colors"
+                    :class="level <= passwordStrength.score ? passwordStrength.barClass : 'bg-slate-200 dark:bg-slate-700'"
+                  />
+                </div>
+                <p class="mt-1 text-xs" :class="passwordStrength.textClass">密码强度：{{ passwordStrength.label }}</p>
+              </div>
+              <p v-if="errors.password" class="text-xs text-danger mt-1">{{ errors.password }}</p>
+            </div>
+
+            <!-- Confirm Password Field -->
+            <div>
+              <label for="register-confirm-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">确认密码</label>
+              <input
+                id="register-confirm-password"
+                v-model="form.confirmPassword"
+                type="password"
+                name="confirm-password"
+                autocomplete="new-password"
+                placeholder="再次输入密码"
+                class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                :disabled="isLoading"
+              >
+              <p v-if="errors.confirmPassword" class="text-xs text-danger mt-1">{{ errors.confirmPassword }}</p>
+            </div>
+
+            <!-- Submit Button -->
+            <button
+              type="submit"
               :disabled="isLoading"
-            />
-            <p v-if="errors.confirmPassword" class="text-xs text-danger mt-1">{{ errors.confirmPassword }}</p>
-          </div>
+              class="auth-submit w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            >
+              {{ isLoading ? '注册中...' : '注册' }}
+            </button>
+          </form>
 
-          <!-- Submit Button -->
-          <button
-            type="submit"
-            :disabled="isLoading"
-            class="auth-submit w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-          >
-            {{ isLoading ? '注册中...' : '注册' }}
-          </button>
-        </form>
+          <!-- Divider -->
+          <div class="my-6 border-t border-slate-200 dark:border-slate-800" />
 
-        <!-- Divider -->
-        <div class="my-6 border-t border-slate-200 dark:border-slate-800" />
-
-        <!-- Login Link -->
-        <p class="text-center text-sm text-slate-600 dark:text-slate-400">
-          已有账号？
-          <RouterLink :to="{ path: '/login', query: redirectQuery(route.query.redirect) }" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
-            立即登录
-          </RouterLink>
-        </p>
+          <!-- Login Link -->
+          <p class="text-center text-sm text-slate-600 dark:text-slate-400">
+            已有账号？
+            <RouterLink :to="{ path: '/login', query: redirectQuery(route.query.redirect) }" class="auth-inline-link text-primary-600 hover:text-primary-700 font-medium">
+              立即登录
+            </RouterLink>
+          </p>
+        </div>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
@@ -132,6 +135,7 @@ import { getErrorMessage } from '@/api/client'
 import { redirectQuery, safeRedirect } from '@/utils/navigation'
 import { beginWelcomeOnboarding } from '@/utils/welcomeOnboarding'
 import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
+import AppHeader from '@/components/layout/AppHeader.vue'
 import { siteBrand } from '@/utils/brand'
 import { z } from 'zod'
 
@@ -227,6 +231,15 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped>
+.auth-page__main {
+  display: flex;
+  min-height: calc(100vh - var(--community-header-height));
+  align-items: center;
+  justify-content: center;
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+
 .auth-nav-row {
   display: flex;
   align-items: center;
@@ -255,5 +268,14 @@ const handleSubmit = async () => {
 
 .auth-submit {
   min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .auth-page__main {
+    min-height: auto;
+    align-items: flex-start;
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+  }
 }
 </style>

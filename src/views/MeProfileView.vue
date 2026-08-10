@@ -44,19 +44,46 @@
           </div>
 
           <div class="profile-actions">
-            <RouterLink to="/me/settings" class="secondary-button">
-              <Settings class="h-4 w-4" />
-              编辑资料
-            </RouterLink>
-            <RouterLink to="/editor" class="primary-button">
+            <RouterLink :to="profileNextAction.href" class="primary-button">
               <FileText class="h-4 w-4" />
-              发布内容
+              {{ profileNextAction.action }}
             </RouterLink>
           </div>
         </div>
       </section>
 
-      <section class="community-growth-panel">
+      <section class="profile-focus-panel" aria-labelledby="profile-next-action-title">
+        <div class="profile-next-action">
+          <div>
+            <p class="section-kicker">下一步</p>
+            <h2 id="profile-next-action-title">{{ profileNextAction.title }}</h2>
+            <p>{{ profileNextAction.description }}</p>
+          </div>
+          <RouterLink :to="profileNextAction.href" class="primary-button">
+            {{ profileNextAction.action }}
+          </RouterLink>
+        </div>
+        <div class="profile-recent-assets">
+          <div class="profile-recent-assets__heading">
+            <div>
+              <p class="section-kicker">近期资产</p>
+              <h2>继续回看和整理</h2>
+            </div>
+            <RouterLink to="/series/workbench">管理合集</RouterLink>
+          </div>
+          <div v-if="recentAssetLinks.length" class="profile-recent-assets__list">
+            <RouterLink v-for="asset in recentAssetLinks" :key="asset.label" :to="asset.href">
+              <span>{{ asset.label }}</span>
+              <strong>{{ asset.value }}</strong>
+            </RouterLink>
+          </div>
+          <p v-else class="profile-recent-assets__empty">
+            暂无可回看的个人资产。发布或收藏内容后，这里会出现快捷入口。
+          </p>
+        </div>
+      </section>
+
+      <section v-if="hasMeaningfulPublicImpact" class="community-growth-panel">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p class="section-kicker">公开参与</p>
@@ -191,7 +218,7 @@
                 </div>
                 <div v-if="canBatchMoveFavorites" class="favorite-batch-toolbar">
                   <label>
-                    <input type="checkbox" :checked="allVisibleFavoritesSelected" @change="toggleSelectVisibleFavorites" />
+                    <input type="checkbox" :checked="allVisibleFavoritesSelected" @change="toggleSelectVisibleFavorites">
                     <span>选择当前页</span>
                   </label>
                   <span>{{ selectedFavoritePostIds.length }} 条已选</span>
@@ -279,345 +306,376 @@
         </div>
       </section>
 
-      <ParticipationHub class="mt-6" />
+      <details class="profile-workspace-group">
+        <summary>
+          <span>
+            <strong>参与与协作</strong>
+            <small>查看个人参与记录和需要继续处理的协作事项</small>
+          </span>
+          <span aria-hidden="true">展开</span>
+        </summary>
+        <ParticipationHub class="profile-workspace-content" />
+      </details>
 
-      <section id="creator-workbench" class="creator-feedback-panel mt-6">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div class="creator-workbench-title-row">
-              <p class="text-xs font-black text-primary-600 dark:text-primary-300">创作者轻反馈 · 创作者工作台</p>
-              <span class="workspace-source-pill">{{ creatorWorkspaceStateLabel }}</span>
-            </div>
-            <h2>公开内容反馈、维护入口和下一篇方向</h2>
-            <span>只聚合公开内容信号，只展示公开内容互动，覆盖近 7 天/30 天，不承诺曝光效果；回复、更新和选题入口会带上创作者工作台来源上下文。</span>
-            <span>{{ creatorWorkspaceNotice }}</span>
-          </div>
-          <div class="creator-feedback-actions">
-            <RouterLink to="/me/notifications" class="secondary-button">查看通知中心</RouterLink>
-            <RouterLink :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'template', contextType: 'template', returnHref: '/me#creator-workbench' } }" class="primary-button">开始写一篇</RouterLink>
-          </div>
-        </div>
-        <p v-if="creatorWorkspaceError" class="creator-empty-copy mt-3">{{ creatorWorkspaceError }}</p>
-        <div class="feedback-window-grid">
-          <article v-for="item in feedbackWindows" :key="item.label" class="feedback-window-card">
+      <details class="profile-workspace-group">
+        <summary>
+          <span>
+            <strong>创作者运营</strong>
+            <small>公开反馈、内容维护、挑战和作者主页经营</small>
+          </span>
+          <span aria-hidden="true">展开</span>
+        </summary>
+        <section id="creator-workbench" class="creator-feedback-panel profile-workspace-content">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.description }}</span>
-            </div>
-            <div class="feedback-window-metrics">
-              <span>{{ item.posts }} 篇内容</span>
-              <span>{{ item.comments }} 条评论</span>
-              <span>{{ item.favorites }} 次收藏</span>
-              <span>{{ item.likes }} 次点赞</span>
-            </div>
-          </article>
-        </div>
-        <div
-          class="trusted-content-workbench"
-          aria-labelledby="trusted-content-workbench-title"
-          data-trusted-content-items="pendingSuggestionItems freshnessItems profileConfirmationItems pendingQuestionItems"
-        >
-          <div class="trusted-content-workbench-head">
-            <div>
-              <div class="trusted-content-title-row">
-                <strong id="trusted-content-workbench-title">可信内容待办</strong>
-                <span v-if="creatorTrustedContentPending" class="trusted-content-status">加载中</span>
-                <span v-else-if="creatorTrustedContentDegraded" class="trusted-content-status">暂不可用</span>
+              <div class="creator-workbench-title-row">
+                <p class="text-xs font-black text-primary-600 dark:text-primary-300">创作者轻反馈 · 创作者工作台</p>
+                <span class="workspace-source-pill">{{ creatorWorkspaceStateLabel }}</span>
               </div>
-              <span>优先处理问题闭环、读者补充和内容时效；这些数据不会换算成积分或公开排名。</span>
+              <h2>公开内容反馈、维护入口和下一篇方向</h2>
+              <span>只聚合公开内容信号，只展示公开内容互动，覆盖近 7 天/30 天，不承诺曝光效果；回复、更新和选题入口会带上创作者工作台来源上下文。</span>
+              <span>{{ creatorWorkspaceNotice }}</span>
             </div>
-            <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
-          </div>
-          <div class="trusted-content-task-list">
-            <RouterLink id="trusted-content-task-suggestions" :to="{ path: '/me', query: { tab: 'posts', focus: 'suggestions' }, hash: '#creator-workbench' }">
-              <span>待处理补充 / 纠错</span>
-              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.pendingSuggestions) }}</strong>
-            </RouterLink>
-            <RouterLink id="trusted-content-task-freshness" :to="{ path: '/me', query: { tab: 'posts', focus: 'freshness' }, hash: '#creator-workbench' }">
-              <span>待确认时效内容</span>
-              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.freshnessAwaitingConfirmation) }}</strong>
-            </RouterLink>
-            <RouterLink id="trusted-content-task-profile" :to="{ path: '/me', query: { tab: 'posts', focus: 'trust-profile' }, hash: '#creator-workbench' }">
-              <span>待确认经验背景</span>
-              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.profileConfirmationDue) }}</strong>
-            </RouterLink>
-            <RouterLink id="trusted-content-task-questions" :to="{ path: '/me', query: { tab: 'posts', focus: 'questions' }, hash: '#creator-workbench' }">
-              <span>尚未闭环的问题</span>
-              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.unresolvedQuestions) }}</strong>
-            </RouterLink>
-          </div>
-          <div v-for="task in trustedContentTaskGroups" :key="task.key" :id="`trusted-content-task-items-${task.key}`" :data-trusted-content-source="task.sourceField" class="trusted-content-task-items">
-            <div class="trusted-content-task-items-head">
-              <span>{{ task.label }}</span>
-              <small>{{ task.items.length }} 条待处理</small>
-            </div>
-            <div v-if="task.items.length" class="trusted-content-item-list">
-              <RouterLink
-                v-for="item in task.items"
-                :key="`${task.key}-${item.id}`"
-                :to="trustedContentTaskHref(item, task.key)"
-                class="trusted-content-item"
-              >
-                <span class="trusted-content-item-title">{{ item.postTitle }}</span>
-                <small>{{ item.statusLabel }}<template v-if="item.timeLabel"> · {{ item.timeLabel }}</template></small>
-              </RouterLink>
-            </div>
-            <p v-else class="trusted-content-task-items-empty">暂无具体待处理内容</p>
-          </div>
-          <div class="trusted-content-window-list">
-            <div>
-              <span>近 7 天</span>
-              <strong>
-                {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback7Days) }}
-                <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
-              </strong>
-              <small>
-                {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads7Days) }}
-                <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
-              </small>
-            </div>
-            <div>
-              <span>近 30 天</span>
-              <strong>
-                {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback30Days) }}
-                <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
-              </strong>
-              <small>
-                {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads30Days) }}
-                <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
-              </small>
+            <div class="creator-feedback-actions">
+              <RouterLink to="/me/notifications" class="secondary-button">查看通知中心</RouterLink>
+              <RouterLink :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'template', contextType: 'template', returnHref: '/me#creator-workbench' } }" class="primary-button">开始写一篇</RouterLink>
             </div>
           </div>
-        </div>
-        <section
-          class="content-improvement-workbench"
-          aria-labelledby="content-improvement-workbench-title"
-          data-content-improvement-source="server-aggregate-only"
-        >
-          <div class="content-improvement-workbench-head">
-            <div>
-              <div class="trusted-content-title-row">
-                <strong id="content-improvement-workbench-title">内容改进线索</strong>
-                <span v-if="contentImprovementSignalsLoading" class="trusted-content-status">加载中</span>
-                <span v-else-if="contentImprovementSignals?.degraded || contentImprovementSignalsError" class="trusted-content-status">暂不可用</span>
+          <p v-if="creatorWorkspaceError" class="creator-empty-copy mt-3">{{ creatorWorkspaceError }}</p>
+          <div v-if="meaningfulFeedbackWindows.length" class="feedback-window-grid">
+            <article v-for="item in meaningfulFeedbackWindows" :key="item.label" class="feedback-window-card">
+              <div>
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.description }}</span>
               </div>
-              <span>仅在达到匿名聚合条件时提示复核，不展示读者、反馈数量或个人分发偏好。</span>
-            </div>
-            <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
-          </div>
-          <p v-if="contentImprovementSignalsError" class="creator-empty-copy">{{ contentImprovementSignalsError }}</p>
-          <div v-else-if="contentImprovementSignalsLoading" class="content-improvement-state" role="status">正在读取匿名质量信号</div>
-          <div v-else-if="contentImprovementSignals?.degraded" class="content-improvement-state">内容改进线索暂不可用，当前不会把它解释为没有需要复核的内容。</div>
-          <div v-else-if="contentImprovementSignals?.items.length" class="content-improvement-list">
-            <article
-              v-for="item in contentImprovementSignals.items"
-              :key="item.postId"
-              :class="['content-improvement-item', { 'is-awaiting-feedback': item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' }]"
-            >
-              <div class="content-improvement-item-copy">
-                <span class="content-improvement-item-domain">{{ item.domainName }}</span>
-                <RouterLink :to="item.postHref" class="content-improvement-item-title">{{ item.postTitle }}</RouterLink>
-                <strong>{{ item.headline }}</strong>
-                <p>{{ item.detail }}</p>
+              <div class="feedback-window-metrics">
+                <span>{{ item.posts }} 篇内容</span>
+                <span>{{ item.comments }} 条评论</span>
+                <span>{{ item.favorites }} 次收藏</span>
+                <span>{{ item.likes }} 次点赞</span>
               </div>
-              <RouterLink
-                v-if="item.state === 'MAINTENANCE_EXISTS' && item.workspaceHref"
-                :to="item.workspaceHref"
-                class="secondary-button content-improvement-edit"
-              >
-                打开维护工作区
-              </RouterLink>
-              <RouterLink v-else-if="item.editHref" :to="item.editHref" class="secondary-button content-improvement-edit">
-                {{ item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' ? '查看当前版本' : '查看并更新' }}
-              </RouterLink>
             </article>
           </div>
           <div
-            v-if="contentImprovementSignals?.hasMore && contentImprovementSignals.nextCursor"
-            class="content-improvement-more"
+            class="trusted-content-workbench"
+            aria-labelledby="trusted-content-workbench-title"
+            data-trusted-content-items="pendingSuggestionItems freshnessItems profileConfirmationItems pendingQuestionItems"
           >
-            <button
-              type="button"
-              class="secondary-button"
-              :disabled="contentImprovementSignalsLoadingMore"
-              @click="loadMoreContentImprovementSignals"
+            <div class="trusted-content-workbench-head">
+              <div>
+                <div class="trusted-content-title-row">
+                  <strong id="trusted-content-workbench-title">可信内容待办</strong>
+                  <span v-if="creatorTrustedContentPending" class="trusted-content-status">加载中</span>
+                  <span v-else-if="creatorTrustedContentDegraded" class="trusted-content-status">暂不可用</span>
+                </div>
+                <span>优先处理问题闭环、读者补充和内容时效；这些数据不会换算成积分或公开排名。</span>
+              </div>
+              <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
+            </div>
+            <div v-if="trustedContentTodoCount > 0" class="trusted-content-task-list">
+              <RouterLink id="trusted-content-task-suggestions" :to="{ path: '/me', query: { tab: 'posts', focus: 'suggestions' }, hash: '#creator-workbench' }">
+                <span>待处理补充 / 纠错</span>
+                <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.pendingSuggestions) }}</strong>
+              </RouterLink>
+              <RouterLink id="trusted-content-task-freshness" :to="{ path: '/me', query: { tab: 'posts', focus: 'freshness' }, hash: '#creator-workbench' }">
+                <span>待确认时效内容</span>
+                <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.freshnessAwaitingConfirmation) }}</strong>
+              </RouterLink>
+              <RouterLink id="trusted-content-task-profile" :to="{ path: '/me', query: { tab: 'posts', focus: 'trust-profile' }, hash: '#creator-workbench' }">
+                <span>待确认经验背景</span>
+                <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.profileConfirmationDue) }}</strong>
+              </RouterLink>
+              <RouterLink id="trusted-content-task-questions" :to="{ path: '/me', query: { tab: 'posts', focus: 'questions' }, hash: '#creator-workbench' }">
+                <span>尚未闭环的问题</span>
+                <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.unresolvedQuestions) }}</strong>
+              </RouterLink>
+            </div>
+            <div v-for="task in trustedContentTaskGroups.filter((item) => item.items.length)" :id="`trusted-content-task-items-${task.key}`" :key="task.key" :data-trusted-content-source="task.sourceField" class="trusted-content-task-items">
+              <div class="trusted-content-task-items-head">
+                <span>{{ task.label }}</span>
+                <small>{{ task.items.length }} 条待处理</small>
+              </div>
+              <div v-if="task.items.length" class="trusted-content-item-list">
+                <RouterLink
+                  v-for="item in task.items"
+                  :key="`${task.key}-${item.id}`"
+                  :to="trustedContentTaskHref(item, task.key)"
+                  class="trusted-content-item"
+                >
+                  <span class="trusted-content-item-title">{{ item.postTitle }}</span>
+                  <small>{{ item.statusLabel }}<template v-if="item.timeLabel"> · {{ item.timeLabel }}</template></small>
+                </RouterLink>
+              </div>
+              <p v-else class="trusted-content-task-items-empty">暂无具体待处理内容</p>
+            </div>
+            <div v-if="hasTrustedContentActivity" class="trusted-content-window-list">
+              <div>
+                <span>近 7 天</span>
+                <strong>
+                  {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback7Days) }}
+                  <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
+                </strong>
+                <small>
+                  {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads7Days) }}
+                  <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
+                </small>
+              </div>
+              <div>
+                <span>近 30 天</span>
+                <strong>
+                  {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback30Days) }}
+                  <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
+                </strong>
+                <small>
+                  {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads30Days) }}
+                  <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
+                </small>
+              </div>
+            </div>
+          </div>
+          <section
+            class="content-improvement-workbench"
+            aria-labelledby="content-improvement-workbench-title"
+            data-content-improvement-source="server-aggregate-only"
+          >
+            <div class="content-improvement-workbench-head">
+              <div>
+                <div class="trusted-content-title-row">
+                  <strong id="content-improvement-workbench-title">内容改进线索</strong>
+                  <span v-if="contentImprovementSignalsLoading" class="trusted-content-status">加载中</span>
+                  <span v-else-if="contentImprovementSignals?.degraded || contentImprovementSignalsError" class="trusted-content-status">暂不可用</span>
+                </div>
+                <span>仅在达到匿名聚合条件时提示复核，不展示读者、反馈数量或个人分发偏好。</span>
+              </div>
+              <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
+            </div>
+            <p v-if="contentImprovementSignalsError" class="creator-empty-copy">{{ contentImprovementSignalsError }}</p>
+            <div v-else-if="contentImprovementSignalsLoading" class="content-improvement-state" role="status">正在读取匿名质量信号</div>
+            <div v-else-if="contentImprovementSignals?.degraded" class="content-improvement-state">内容改进线索暂不可用，当前不会把它解释为没有需要复核的内容。</div>
+            <div v-else-if="contentImprovementSignals?.items.length" class="content-improvement-list">
+              <article
+                v-for="item in contentImprovementSignals.items"
+                :key="item.postId"
+                :class="['content-improvement-item', { 'is-awaiting-feedback': item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' }]"
+              >
+                <div class="content-improvement-item-copy">
+                  <span class="content-improvement-item-domain">{{ item.domainName }}</span>
+                  <RouterLink :to="item.postHref" class="content-improvement-item-title">{{ item.postTitle }}</RouterLink>
+                  <strong>{{ item.headline }}</strong>
+                  <p>{{ item.detail }}</p>
+                </div>
+                <RouterLink
+                  v-if="item.state === 'MAINTENANCE_EXISTS' && item.workspaceHref"
+                  :to="item.workspaceHref"
+                  class="secondary-button content-improvement-edit"
+                >
+                  打开维护工作区
+                </RouterLink>
+                <RouterLink v-else-if="item.editHref" :to="item.editHref" class="secondary-button content-improvement-edit">
+                  {{ item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' ? '查看当前版本' : '查看并更新' }}
+                </RouterLink>
+              </article>
+            </div>
+            <div
+              v-if="contentImprovementSignals?.hasMore && contentImprovementSignals.nextCursor"
+              class="content-improvement-more"
             >
-              {{ contentImprovementSignalsLoadingMore ? '加载中' : '加载更多' }}
-            </button>
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="contentImprovementSignalsLoadingMore"
+                @click="loadMoreContentImprovementSignals"
+              >
+                {{ contentImprovementSignalsLoadingMore ? '加载中' : '加载更多' }}
+              </button>
+            </div>
+            <p v-else-if="!contentImprovementSignals?.items.length" class="content-improvement-state">近 {{ contentImprovementSignals?.periodDays || 30 }} 天暂无可展示的匿名质量复核线索；这不代表所有读者都满意。</p>
+          </section>
+          <div v-if="hasCreatorFeedbackStats" class="creator-feedback-stat-grid">
+            <RouterLink v-if="publicImpactStats.recentComments > 0" to="/me?tab=posts" class="feedback-stat">
+              <MessageCircle class="h-4 w-4 text-primary-600" />
+              <strong>{{ publicImpactStats.recentComments }}</strong>
+              <span>近期评论</span>
+              <small>公开讨论里的可回应线索</small>
+            </RouterLink>
+            <RouterLink v-if="publicImpactStats.recentFavorites > 0" to="/me?tab=favorites" class="feedback-stat">
+              <Bookmark class="h-4 w-4 text-primary-600" />
+              <strong>{{ publicImpactStats.recentFavorites }}</strong>
+              <span>近期收藏</span>
+              <small>适合沉淀成清单或合集</small>
+            </RouterLink>
+            <RouterLink v-if="publicImpactStats.curationCount > 0" :to="{ path: '/growth/profile', hash: '#curation-feedback' }" class="feedback-stat">
+              <Globe2 class="h-4 w-4 text-primary-600" />
+              <strong>{{ publicImpactStats.curationCount }}</strong>
+              <span>收录 / 精选</span>
+              <small>查看公开内容被收录记录</small>
+            </RouterLink>
+            <RouterLink v-if="topFeedbackScore > 0" :to="topFeedbackPost ? topFeedbackPost.to : '/me?tab=posts'" class="feedback-stat">
+              <Heart class="h-4 w-4 text-primary-600" />
+              <strong>{{ topFeedbackScore }}</strong>
+              <span>近期表现较好内容</span>
+              <small>{{ topFeedbackPost ? '打开内容查看公共反馈' : '发布后会出现' }}</small>
+            </RouterLink>
           </div>
-          <p v-else-if="!contentImprovementSignals?.items.length" class="content-improvement-state">近 {{ contentImprovementSignals?.periodDays || 30 }} 天暂无可展示的匿名质量复核线索；这不代表所有读者都满意。</p>
+          <div class="creator-workbench-grid">
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>近期表现较好内容</strong>
+                <RouterLink to="/me?tab=posts">管理内容</RouterLink>
+              </div>
+              <div v-if="topFeedbackPosts.length" class="creator-link-list">
+                <RouterLink v-for="post in topFeedbackPosts" :key="post.id" :to="post.to" class="creator-link-main">
+                  <span>{{ post.title }}</span>
+                  <small>{{ post.meta }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="creator-empty-copy">发布公开内容后，这里会按评论、收藏和点赞展示可继续经营的内容。</p>
+            </article>
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>收录 / 精选记录</strong>
+                <RouterLink :to="{ path: '/growth/profile', hash: '#curation-feedback' }">查看详情</RouterLink>
+              </div>
+              <div v-if="curationFeedbackItems.length" class="creator-link-list">
+                <RouterLink v-for="item in curationFeedbackItems" :key="item.id" :to="item.to" class="creator-link-main">
+                  <span>{{ item.title }}</span>
+                  <small>{{ item.meta }}</small>
+                  <small v-if="item.badge">{{ item.badge }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="creator-empty-copy">暂无公开内容收录记录；后续被专题或精选收录时会在这里展示理由。</p>
+            </article>
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>回复机会</strong>
+                <RouterLink to="/me?tab=posts">回到内容讨论</RouterLink>
+              </div>
+              <div v-if="replyOpportunities.length" class="creator-link-list">
+                <RouterLink v-for="item in replyOpportunities" :key="item.id" :to="item.to" class="creator-link-main">
+                  <span>{{ item.title }}</span>
+                  <small>{{ item.meta }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="creator-empty-copy">暂时没有需要集中回应的讨论；可以先整理代表作或公开合集。</p>
+            </article>
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>选题灵感</strong>
+                <RouterLink :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'template', contextType: 'template', returnHref: '/me#creator-workbench' } }">空白发布</RouterLink>
+              </div>
+              <div class="creator-link-list">
+                <RouterLink v-for="idea in topicIdeas" :key="idea.id" :to="{ path: '/editor', query: idea.query }" class="creator-link-main">
+                  <span>{{ idea.title }}</span>
+                  <small>{{ idea.reason }}</small>
+                </RouterLink>
+              </div>
+            </article>
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>聚合搜索缺口</strong>
+                <RouterLink to="/search">查看发现</RouterLink>
+              </div>
+              <div v-if="searchGaps.length" class="creator-link-list">
+                <RouterLink v-for="gap in searchGaps" :key="gap.id" :to="gap.to" class="creator-link-main">
+                  <span>{{ gap.title }}</span>
+                  <small>{{ gap.reason }}</small>
+                  <small v-if="gap.badge">{{ gap.badge }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="creator-empty-copy">暂无可展示的聚合需求；有新的匿名需求时，会在这里提供选题入口。</p>
+            </article>
+          </div>
         </section>
-        <div class="mt-5 grid gap-3 sm:grid-cols-5">
-          <RouterLink to="/me?tab=posts" class="feedback-stat">
-            <MessageCircle class="h-4 w-4 text-primary-600" />
-            <strong>{{ publicImpactStats.recentComments }}</strong>
-            <span>近期评论</span>
-            <small>公开讨论里的可回应线索</small>
-          </RouterLink>
-          <RouterLink to="/me?tab=favorites" class="feedback-stat">
-            <Bookmark class="h-4 w-4 text-primary-600" />
-            <strong>{{ publicImpactStats.recentFavorites }}</strong>
-            <span>近期收藏</span>
-            <small>适合沉淀成清单或合集</small>
-          </RouterLink>
-          <RouterLink :to="{ path: '/growth/profile', hash: '#curation-feedback' }" class="feedback-stat">
-            <Globe2 class="h-4 w-4 text-primary-600" />
-            <strong>{{ publicImpactStats.curationCount }}</strong>
-            <span>收录 / 精选</span>
-            <small>查看公开内容被收录记录</small>
-          </RouterLink>
-          <RouterLink :to="topFeedbackPost ? topFeedbackPost.to : '/me?tab=posts'" class="feedback-stat">
-            <Heart class="h-4 w-4 text-primary-600" />
-            <strong>{{ topFeedbackScore }}</strong>
-            <span>近期表现较好内容</span>
-            <small>{{ topFeedbackPost ? '打开内容查看公共反馈' : '发布后会出现' }}</small>
-          </RouterLink>
-        </div>
-        <div class="creator-workbench-grid">
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>近期表现较好内容</strong>
-              <RouterLink to="/me?tab=posts">管理内容</RouterLink>
-            </div>
-            <div v-if="topFeedbackPosts.length" class="creator-link-list">
-              <RouterLink v-for="post in topFeedbackPosts" :key="post.id" :to="post.to" class="creator-link-main">
-                <span>{{ post.title }}</span>
-                <small>{{ post.meta }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="creator-empty-copy">发布公开内容后，这里会按评论、收藏和点赞展示可继续经营的内容。</p>
-          </article>
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>收录 / 精选记录</strong>
-              <RouterLink :to="{ path: '/growth/profile', hash: '#curation-feedback' }">查看详情</RouterLink>
-            </div>
-            <div v-if="curationFeedbackItems.length" class="creator-link-list">
-              <RouterLink v-for="item in curationFeedbackItems" :key="item.id" :to="item.to" class="creator-link-main">
-                <span>{{ item.title }}</span>
-                <small>{{ item.meta }}</small>
-                <small v-if="item.badge">{{ item.badge }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="creator-empty-copy">暂无公开内容收录记录；后续被专题或精选收录时会在这里展示理由。</p>
-          </article>
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>回复机会</strong>
-              <RouterLink to="/me?tab=posts">回到内容讨论</RouterLink>
-            </div>
-            <div v-if="replyOpportunities.length" class="creator-link-list">
-              <RouterLink v-for="item in replyOpportunities" :key="item.id" :to="item.to" class="creator-link-main">
-                <span>{{ item.title }}</span>
-                <small>{{ item.meta }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="creator-empty-copy">暂时没有需要集中回应的讨论；可以先整理代表作或公开合集。</p>
-          </article>
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>选题灵感</strong>
-              <RouterLink :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'template', contextType: 'template', returnHref: '/me#creator-workbench' } }">空白发布</RouterLink>
-            </div>
-            <div class="creator-link-list">
-              <RouterLink v-for="idea in topicIdeas" :key="idea.id" :to="{ path: '/editor', query: idea.query }" class="creator-link-main">
-                <span>{{ idea.title }}</span>
-                <small>{{ idea.reason }}</small>
-              </RouterLink>
-            </div>
-          </article>
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>聚合搜索缺口</strong>
-              <RouterLink to="/search">查看发现</RouterLink>
-            </div>
-            <div v-if="searchGaps.length" class="creator-link-list">
-              <RouterLink v-for="gap in searchGaps" :key="gap.id" :to="gap.to" class="creator-link-main">
-                <span>{{ gap.title }}</span>
-                <small>{{ gap.reason }}</small>
-                <small v-if="gap.badge">{{ gap.badge }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="creator-empty-copy">暂无可展示的聚合需求；这里只展示匿名化聚合需求，并在后端返回聚合缺口时提供 EditorSearchGapContext 辅助入口。</p>
-          </article>
-        </div>
-      </section>
 
-      <section class="profile-secondary-tools" aria-labelledby="profile-secondary-tools-title">
-        <div class="profile-secondary-tools__heading">
-          <div>
-            <p class="section-kicker">个人工具</p>
-            <h2 id="profile-secondary-tools-title">维护与账号管理</h2>
-            <p>这些入口保留完整能力，但不占用作者主页的主要阅读顺序。</p>
-          </div>
-        </div>
-        <div class="profile-secondary-tools__grid">
-          <RouterLink to="/me/contact-requests" class="profile-tool-link">
-            <Mail class="h-4 w-4" />
-            <span><strong>联系请求</strong><small>查看站内联系与处理状态</small></span>
-          </RouterLink>
-          <RouterLink to="/me/relationships" class="profile-tool-link">
-            <Users class="h-4 w-4" />
-            <span><strong>关系管理</strong><small>管理关注、静音和通知偏好</small></span>
-          </RouterLink>
-          <RouterLink to="/me/maintenance" class="profile-tool-link">
-            <ListChecks class="h-4 w-4" />
-            <span><strong>维护任务</strong><small>处理分配给你的内容维护事项</small></span>
-          </RouterLink>
-          <RouterLink to="/me/knowledge" class="profile-tool-link">
-            <BookmarkCheck class="h-4 w-4" />
-            <span><strong>知识维护</strong><small>回应建议、时效和来源问题</small></span>
-          </RouterLink>
-          <RouterLink to="/me/reports" class="profile-tool-link">
-            <Flag class="h-4 w-4" />
-            <span><strong>我的举报</strong><small>查看举报回执与处理进度</small></span>
-          </RouterLink>
-          <RouterLink to="/me/settings" class="profile-tool-link">
-            <Settings class="h-4 w-4" />
-            <span><strong>账号设置</strong><small>编辑资料和个人偏好</small></span>
-          </RouterLink>
-        </div>
-      </section>
+        <CreatorChallengeWorkspace class="profile-workspace-content" />
 
-      <CreatorChallengeWorkspace class="mt-6" />
+        <section class="creator-center-grid profile-workspace-content">
+          <article class="creator-action-panel">
+            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p class="text-xs font-black text-primary-600 dark:text-primary-300">下一步行动</p>
+                <h2>创作者中心</h2>
+              </div>
+              <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
+            </div>
+            <div class="creator-action-list">
+              <RouterLink to="/me?tab=followers" class="creator-action-card">
+                <strong>新增关注者</strong>
+                <span>{{ user?.followerCount ?? followers.items.length }} 位作者主页回访线索，只展示公开内容互动。</span>
+              </RouterLink>
+              <RouterLink v-for="item in creatorActions" :key="item.href" :to="item.href" class="creator-action-card">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.description }}</span>
+              </RouterLink>
+            </div>
+          </article>
 
-      <section class="creator-center-grid mt-6">
-        <article class="creator-action-panel">
-          <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <article class="creator-cert-panel">
+            <p class="text-xs font-black text-primary-600 dark:text-primary-300">作者主页经营</p>
+            <h2>社区身份、代表作和公开合集</h2>
+            <p>
+              先用公开内容和公开合集经营主页；代表内容会根据公开状态和可见性展示。
+            </p>
+            <span v-if="publicCollectionCount" class="creator-cert-meta">当前公开合集 {{ publicCollectionCount }} 个</span>
+            <div class="creator-cert-actions">
+              <RouterLink to="/me?tab=posts" class="primary-button">选择代表内容</RouterLink>
+              <RouterLink to="/certification/apply" class="secondary-button">认证作者申请</RouterLink>
+              <RouterLink to="/me/settings" class="secondary-button">完善作者资料</RouterLink>
+            </div>
+          </article>
+        </section>
+      </details>
+
+      <details class="profile-workspace-group">
+        <summary>
+          <span>
+            <strong>维护、治理与账号</strong>
+            <small>低频管理入口集中放置，不打断个人内容浏览</small>
+          </span>
+          <span aria-hidden="true">展开</span>
+        </summary>
+        <section class="profile-secondary-tools profile-workspace-content" aria-labelledby="profile-secondary-tools-title">
+          <div class="profile-secondary-tools__heading">
             <div>
-              <p class="text-xs font-black text-primary-600 dark:text-primary-300">下一步行动</p>
-              <h2>创作者中心</h2>
+              <p class="section-kicker">个人工具</p>
+              <h2 id="profile-secondary-tools-title">维护与账号管理</h2>
+              <p>这些入口保留完整能力，但不占用作者主页的主要阅读顺序。</p>
             </div>
-            <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
           </div>
-          <div class="creator-action-list">
-            <RouterLink to="/me?tab=followers" class="creator-action-card">
-              <strong>新增关注者</strong>
-              <span>{{ user?.followerCount ?? followers.items.length }} 位作者主页回访线索，只展示公开内容互动。</span>
+          <div class="profile-secondary-tools__grid">
+            <RouterLink to="/me/contact-requests" class="profile-tool-link">
+              <Mail class="h-4 w-4" />
+              <span><strong>联系请求</strong><small>查看站内联系与处理状态</small></span>
             </RouterLink>
-            <RouterLink v-for="item in creatorActions" :key="item.href" :to="item.href" class="creator-action-card">
-              <strong>{{ item.title }}</strong>
-              <span>{{ item.description }}</span>
+            <RouterLink to="/me/relationships" class="profile-tool-link">
+              <Users class="h-4 w-4" />
+              <span><strong>关系管理</strong><small>管理关注、静音和通知偏好</small></span>
+            </RouterLink>
+            <RouterLink to="/me/maintenance" class="profile-tool-link">
+              <ListChecks class="h-4 w-4" />
+              <span><strong>维护任务</strong><small>处理分配给你的内容维护事项</small></span>
+            </RouterLink>
+            <RouterLink to="/me/knowledge" class="profile-tool-link">
+              <BookmarkCheck class="h-4 w-4" />
+              <span><strong>知识维护</strong><small>回应建议、时效和来源问题</small></span>
+            </RouterLink>
+            <RouterLink to="/me/reports" class="profile-tool-link">
+              <Flag class="h-4 w-4" />
+              <span><strong>我的举报</strong><small>查看举报回执与处理进度</small></span>
+            </RouterLink>
+            <RouterLink to="/me/governance-todos" class="profile-tool-link">
+              <ListChecks class="h-4 w-4" />
+              <span><strong>治理待办</strong><small>查看分配给你的只读治理事项</small></span>
+            </RouterLink>
+            <RouterLink to="/me/settings" class="profile-tool-link">
+              <Settings class="h-4 w-4" />
+              <span><strong>账号设置</strong><small>编辑资料和个人偏好</small></span>
             </RouterLink>
           </div>
-        </article>
+        </section>
+      </details>
 
-        <article class="creator-cert-panel">
-          <p class="text-xs font-black text-primary-600 dark:text-primary-300">作者主页经营</p>
-          <h2>社区身份、代表作和公开合集</h2>
-          <p>
-            P0 先用公开内容和公开合集经营主页；正式手动代表作设置需要后续 adapter 校验作者、内容状态和可见性。
-          </p>
-          <span class="creator-cert-meta">当前公开合集 {{ publicCollectionCount }} 个</span>
-          <div class="creator-cert-actions">
-            <RouterLink to="/me?tab=posts" class="primary-button">选择代表内容</RouterLink>
-            <RouterLink to="/certification/apply" class="secondary-button">认证作者申请</RouterLink>
-            <RouterLink to="/me/settings" class="secondary-button">完善作者资料</RouterLink>
-          </div>
-        </article>
-      </section>
-
-      <section class="profile-panel mt-6">
+      <section v-if="hasAnyAssets" class="profile-panel mt-6">
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p class="text-xs font-black text-primary-600 dark:text-primary-300">内容资产</p>
@@ -656,7 +714,7 @@
         </div>
       </section>
 
-      <section class="profile-panel mt-6">
+      <section v-if="representativePosts.length || representativePostsPending" class="profile-panel mt-6">
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">代表内容</h2>
@@ -939,8 +997,8 @@ const localContribution = computed(() => {
 })
 const contribution = computed(() => backendContribution.value || localContribution.value)
 const contributionSourceText = computed(() => (
-  contribution.value.source === 'backend_aggregate'
-    ? '由后端按公开内容、精选和互动数据汇总'
+    contribution.value.source === 'backend_aggregate'
+    ? '按公开内容、精选和互动反馈汇总'
     : contribution.value.source === 'local_demo_seed'
       ? '当前为本地作者数据样例'
     : contribution.value.source === 'empty_profile'
@@ -979,7 +1037,7 @@ const normalizeFavoriteFolder = (raw: any): FavoriteFolderView => {
   return {
     id: id || (isDefault ? 'default' : isUnorganized ? 'unorganized' : `folder-${Date.now()}`),
     name: String(raw?.name ?? raw?.title ?? (isUnorganized ? '未整理收藏' : isDefault ? '默认收藏夹' : '收藏夹')),
-    description: String(raw?.description ?? raw?.summary ?? (isUnorganized ? '后端可区分时展示未整理内容' : isDefault ? '一键收藏默认进入这里' : '自定义收藏夹')),
+    description: String(raw?.description ?? raw?.summary ?? (isUnorganized ? '集中查看尚未整理的收藏' : isDefault ? '一键收藏默认进入这里' : '自定义收藏夹')),
     count: Number(raw?.count ?? raw?.postCount ?? raw?.favoriteCount ?? raw?.totalCount ?? 0),
     kind: isUnorganized ? 'unorganized' : isDefault ? 'default' : 'custom',
     isPublic,
@@ -1005,7 +1063,7 @@ const fallbackFavoriteFolders = computed<FavoriteFolderView[]>(() => [
   {
     id: 'unorganized',
     name: '未整理收藏',
-    description: '后端可区分时展示未整理内容',
+    description: '集中查看尚未整理的收藏',
     count: unorganizedFavoriteCount.value,
     kind: 'unorganized',
     isPublic: false,
@@ -1045,7 +1103,7 @@ const activeFavoriteFolderTitle = computed(() => activeFavoriteFolder.value?.nam
 const activeFavoriteFolderDescription = computed(() => {
   const folder = activeFavoriteFolder.value
   if (!folder || folder.id === 'all') return '查看你保存过的经验、问题、攻略和资源，也可以按收藏夹继续整理。'
-  if (folder.kind === 'unorganized') return '后端可区分未整理收藏时，这里只展示尚未放入自定义收藏夹的内容。'
+  if (folder.kind === 'unorganized') return '这里集中展示尚未放入自定义收藏夹的内容。'
   return folder.description || (folder.isPublic ? '公开收藏夹只对外展示其中公开可见的内容。' : '私密收藏夹只在你的个人空间可见。')
 })
 const activeFavoriteFolderMeta = computed(() => {
@@ -1261,6 +1319,9 @@ const feedbackWindows = computed(() => {
   const windows = workspaceFeedbackSummary.value?.windows || []
   return windows.length ? windows.slice(0, 2).map(mapFeedbackWindow) : [summarizeWindow(7), summarizeWindow(30)]
 })
+const meaningfulFeedbackWindows = computed(() => feedbackWindows.value.filter((item) => (
+  [item.posts, item.comments, item.favorites, item.likes].some((value) => Number(value) > 0)
+)))
 const publicImpactStats = computed(() => ({
   publicPosts: workspaceSummary.value?.publicPostCount ?? contribution.value.postCount,
   recentFavorites: workspaceSummary.value?.favoriteCount ?? bestFeedbackWindow.value?.favoriteCount ?? contribution.value.favoriteCount,
@@ -1425,6 +1486,89 @@ const representativePostsPending = computed(() => (
   creatorWorkspaceLoading.value
   || (!creatorWorkspace.value && !posts.loaded)
 ))
+const trustedContentTodoCount = computed(() => [
+  creatorTrustedContent.value.pendingSuggestions,
+  creatorTrustedContent.value.freshnessAwaitingConfirmation,
+  creatorTrustedContent.value.profileConfirmationDue,
+  creatorTrustedContent.value.unresolvedQuestions,
+].reduce((total, value) => total + (Number.isFinite(Number(value)) ? Number(value) : 0), 0))
+const hasTrustedContentActivity = computed(() => [
+  creatorTrustedContent.value.usefulFeedback7Days,
+  creatorTrustedContent.value.effectiveReads7Days,
+  creatorTrustedContent.value.usefulFeedback30Days,
+  creatorTrustedContent.value.effectiveReads30Days,
+].some((value) => Number(value) > 0))
+const profileNextAction = computed(() => {
+  if (trustedContentTodoCount.value > 0) {
+    return {
+      title: '处理公开内容待办',
+      description: `有 ${trustedContentTodoCount.value} 项内容维护线索需要确认，处理后再继续发布。`,
+      action: '查看待办',
+      href: { path: '/me', query: { tab: 'posts', focus: 'suggestions' }, hash: '#creator-workbench' },
+    }
+  }
+  const reply = replyOpportunities.value[0]
+  if (reply) {
+    return {
+      title: '回到最近的讨论',
+      description: reply.meta,
+      action: '继续回应',
+      href: reply.to,
+    }
+  }
+  if (unorganizedFavoriteCount.value > 0) {
+    return {
+      title: '整理最近收藏',
+      description: `还有 ${unorganizedFavoriteCount.value} 条收藏未整理，可以先放入合适的收藏夹或合集。`,
+      action: '整理收藏',
+      href: '/me?tab=favorites',
+    }
+  }
+  if (authorPublicPosts.value.length === 0) {
+    return {
+      title: '发布第一篇公开内容',
+      description: '从一个真实问题、经验或资源开始，建立可被回访的个人主页。',
+      action: '开始发布',
+      href: '/editor',
+    }
+  }
+  return {
+    title: '继续完善你的公开主页',
+    description: '补充一篇近期经验，或把已有内容整理成更容易回看的系列。',
+    action: '继续发布',
+    href: '/editor',
+  }
+})
+const recentAssetLinks = computed(() => [
+  authorPublicPosts.value.length > 0
+    ? { label: '公开内容', value: `${authorPublicPosts.value.length} 篇`, href: '/me?tab=posts' }
+    : null,
+  representativePosts.value.length > 0
+    ? { label: '代表内容', value: `${representativePosts.value.length} 篇`, href: '/me?tab=posts' }
+    : null,
+  unorganizedFavoriteCount.value > 0
+    ? { label: '待整理收藏', value: `${unorganizedFavoriteCount.value} 条`, href: '/me?tab=favorites' }
+    : null,
+  publicCollectionCount.value > 0
+    ? { label: '公开合集', value: `${publicCollectionCount.value} 个`, href: '/series/workbench' }
+    : null,
+].filter((item): item is { label: string; value: string; href: string } => item !== null))
+const hasMeaningfulPublicImpact = computed(() => (
+  typeDistribution.value.length > 0
+  || Object.values(publicImpactStats.value).some((value) => Number(value) > 0)
+  || Boolean(profileDemoNotice.value)
+))
+const hasCreatorFeedbackStats = computed(() => (
+  publicImpactStats.value.recentComments > 0
+  || publicImpactStats.value.recentFavorites > 0
+  || publicImpactStats.value.curationCount > 0
+  || topFeedbackScore.value > 0
+))
+const hasAnyAssets = computed(() => (
+  unorganizedFavoriteCount.value > 0
+  || publicCollectionCount.value > 0
+  || privateCollectionCount.value > 0
+))
 const firstTopicName = (post?: Post | null) => post?.tags?.[0]?.name || ''
 const mapTopicIdea = (idea: CreatorTopicIdea): WorkbenchTopicIdeaItem => ({
   id: String(idea.id),
@@ -1535,7 +1679,7 @@ const buildCreatorActions = () => [
     href: '/me?tab=posts',
     title: '代表作管理入口',
     description: representativePosts.value.length
-      ? '当前先展示系统挑选的公开内容候选；手动保存需等待代表作 adapter。'
+      ? '当前先展示系统挑选的公开内容候选；确认后即可作为主页代表内容。'
       : '发布公开内容后，可从这里挑选作者主页展示候选。',
   },
   {
@@ -2580,6 +2724,150 @@ watch(
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
 }
 
+.profile-focus-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+  gap: 1px;
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--border-subtle);
+}
+
+.profile-next-action,
+.profile-recent-assets {
+  min-width: 0;
+  background: var(--surface-1);
+  padding: 1.1rem;
+}
+
+.profile-next-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.profile-next-action h2,
+.profile-recent-assets h2 {
+  margin: 0.2rem 0 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.profile-next-action p:last-child,
+.profile-recent-assets__empty {
+  max-width: 62ch;
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.profile-recent-assets__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.profile-recent-assets__heading > a {
+  flex: none;
+  color: var(--primary-700);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.profile-recent-assets__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.profile-recent-assets__list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.35rem 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.profile-recent-assets__list strong {
+  color: var(--text-strong);
+  font-weight: 800;
+}
+
+.profile-workspace-group {
+  margin-top: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+}
+
+.profile-workspace-group > summary {
+  display: flex;
+  min-height: 4rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.profile-workspace-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-workspace-group > summary > span:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.profile-workspace-group > summary strong {
+  color: var(--text-strong);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.profile-workspace-group > summary small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.profile-workspace-group > summary > span:last-child {
+  flex: none;
+  color: var(--primary-700);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.profile-workspace-group[open] > summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.profile-workspace-group[open] > summary > span:last-child {
+  font-size: 0;
+}
+
+.profile-workspace-group[open] > summary > span:last-child::after {
+  content: '收起';
+  font-size: 0.76rem;
+}
+
+.profile-workspace-content {
+  margin: 1rem;
+}
+
 .profile-hero-layout {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -3075,6 +3363,13 @@ watch(
 .trusted-content-window-list small {
   color: rgb(100 116 139);
   font-size: 0.75rem;
+}
+
+.creator-feedback-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.1rem;
 }
 
 .content-improvement-workbench {
@@ -4094,6 +4389,10 @@ html.dark .growth-stat {
 }
 
 @media (max-width: 900px) {
+  .profile-focus-panel {
+    grid-template-columns: 1fr;
+  }
+
   .profile-hero-layout {
     grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
@@ -4147,8 +4446,25 @@ html.dark .growth-stat {
 
   .profile-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     width: 100%;
+  }
+
+  .profile-next-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .profile-next-action .primary-button {
+    width: 100%;
+  }
+
+  .profile-workspace-group > summary {
+    align-items: flex-start;
+  }
+
+  .profile-workspace-content {
+    margin: 0.75rem;
   }
 
   .profile-stats {

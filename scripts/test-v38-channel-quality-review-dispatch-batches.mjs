@@ -13,7 +13,7 @@ const normalize = (value) => value.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\
 
 const packageJson = JSON.parse(read('package.json'))
 const document = readRepo(
-  '文档/V38/OfferLab-V38-频道质量候选批次派发与维护执行治理详细方案-2026-08-05.md',
+  '文档/拓展/V38/OfferLab-V38-频道质量候选批次派发与维护执行治理详细方案-2026-08-05.md',
 )
 const candidateApi = read('src/api/channelHealthCandidates.ts')
 const batchApi = read('src/api/channelHealthReviewBatches.ts')

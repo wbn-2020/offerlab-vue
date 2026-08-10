@@ -29,13 +29,14 @@ const scriptRegion = (source, marker) => {
 }
 
 const headerCore = firstRegion(header, '<header', '</header>')
+const headerNavigation = scriptRegion(header, 'const navItems = [')
 const homeHero = firstRegion(home, '<section class="home-feed-intro"')
 const exploreHero = firstRegion(explore, '<div class="mb-8', '</div>')
-const editorToolbar = firstRegion(editor, '<div class="bg-white', '</div>')
+const editorToolbar = firstRegion(editor, '<div class="editor-toolbar-shell', '</div>')
 const editorTemplates = scriptRegion(editor, 'const COMMUNITY_PUBLISH_TEMPLATES')
 const searchShell = firstRegion(search, '<section class="search-shell')
 const userProfileMain = firstRegion(userProfile, '<section v-if="isLoading"')
-const meProfileMain = firstRegion(meProfile, '<section class="profile-panel"')
+const meProfileMain = firstRegion(meProfile, '<section class="profile-panel profile-hero-panel"')
 
 const mojibakeMarkers = /�|Ã|Â|鏃|鏂|鐭|绀|鍙|鍦|閫|闂|棣|鎼|鍏|缂|鑱|鎶|闈|鍛|妗|涓|撳|玨|\?{3,}/
 const oldPositioning = /靠近 Offer|备考行动|求职训练|技术经验社区|技术社区|发布复盘|技术文章模板|技术标签|阶段\s*[234]?|试点|FEAT-/
@@ -69,14 +70,14 @@ for (const [name, source] of [
 }
 
 assert.match(headerCore, /真实经验与有用内容社区/, 'header brand subtitle must describe a general content community')
-assert.match(header, /label:\s*'首页'[\s\S]*label:\s*'发现'[\s\S]*label:\s*'发布'/, 'primary navigation must expose Home, Explore, and Publish')
-assert.doesNotMatch(header, /\{\s*to:\s*'\/questions',\s*label:\s*'知识库'/, 'legacy knowledge tools must not remain in primary navigation')
-assert.doesNotMatch(headerCore, /成长档案|成长周报月报|模拟面试|题库/, 'header core must not expose old tools as top-level actions')
+assert.match(headerNavigation, /label:\s*'首页'[\s\S]*label:\s*'发现'[\s\S]*label:\s*'知识库'[\s\S]*label:\s*'共建'/, 'primary navigation must expose Home, Explore, Knowledge, and Collaboration')
+assert.match(headerCore, /to="\/editor"[\s\S]*<span>发布<\/span>/, 'header must expose a dedicated publish action')
+assert.doesNotMatch(headerNavigation, /成长档案|成长周报月报|模拟面试|题库/, 'primary navigation must not expose old job-prep tools')
 assert.match(headerCore, /搜索经验、攻略、资源、话题或作者/, 'header search placeholder must support general community search')
 
-assert.match(homeHero, /综合频道/, 'home hero must expose the general community channel')
+assert.match(homeHero, /推荐阅读|综合/, 'home hero must expose the general community feed')
 assert.match(home, /recommend:\s*'推荐'[\s\S]*hot:\s*'热门'/, 'home feed controls must surface recommendations and hot topics')
-assert.match(homeHero, /发现真实经验，分享有用内容/, 'home hero headline must express general community positioning')
+assert.match(homeHero, /浏览真实经验，关注值得持续阅读的作者/, 'home hero must express general community positioning')
 assert.match(homeHero, /写一篇|发布内容/, 'home hero must include a general publish CTA')
 
 assert.match(exploreHero, /频道广场|话题广场/, 'explore hero must introduce channel and topic discovery')

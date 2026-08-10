@@ -33,7 +33,7 @@ assert.match(postCard, /const detailTo = computed/, 'PostCard must build detail 
 
 assert.match(postDetail, /searchEntryNotice\s*=\s*computed/, 'PostDetailView must render a search-entry diagnostic strip')
 assert.match(postDetail, /safeSearchFallbackReason/, 'PostDetailView must whitelist fallback reason display')
-assert.match(postDetail, /mysql_fallback_continuation: '继续沿用数据库排序，避免切换排序序列'/, 'PostDetailView must explain stable MySQL continuation without exposing raw diagnostics')
+assert.match(postDetail, /mysql_fallback_continuation: '后续结果沿用当前排序'/, 'PostDetailView must explain stable fallback continuation without exposing raw diagnostics')
 assert.match(postDetail, /readQuery\('source'\)[\s\S]*readQuery\('degraded'\) === 'true'[\s\S]*readQuery\('fallbackReason'\)/, 'PostDetailView must read the same whitelisted search diagnostic query contract')
 assert.match(postDetail, /publishStatusItems\s*=\s*computed/, 'PostDetailView must render publish pipeline status items')
 assert.doesNotMatch(postDetail, /retryTask\?\.lastError/, 'PostDetailView public publish status must not render internal retry errors')

@@ -35,7 +35,7 @@
     <div class="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
       <div class="flex min-w-0 flex-wrap gap-2">
         <span class="signal-chip signal-strong">{{ frequencyText }}</span>
-        <span class="signal-chip">质量 {{ question.qualityScore || 0 }}</span>
+        <span v-if="hasMeaningfulQuality" class="signal-chip">内容完整度 {{ question.qualityScore }}</span>
         <span v-if="question.canonicalId && String(question.canonicalId) !== String(question.id)" class="signal-chip">同题组</span>
       </div>
       <span v-if="question.mistakeReason" class="shrink-0 text-rose-600">{{ mistakeReasonText(question.mistakeReason) }}</span>
@@ -80,6 +80,7 @@ watch(() => props.question.id, () => {
 })
 
 const effectiveProgressStatus = computed(() => localProgressStatus.value || props.question.progressStatus)
+const hasMeaningfulQuality = computed(() => Number(props.question.qualityScore || 0) > 0)
 const isReviewQueued = computed(() => effectiveProgressStatus.value === 'review')
 const displayQuestionText = computed(() => renderSearchHighlight(props.question.highlightQuestionText, props.question.questionText))
 const displayAnswerHint = computed(() => renderSearchHighlight(props.question.highlightAnswerHint, props.question.answerHint || ''))

@@ -289,8 +289,8 @@ has(knowledgeView, /(assets|knowledgeAssets|publicAssets)/, 'KnowledgeExploreVie
 has(knowledgeView, /(paths|knowledgePaths)/, 'KnowledgeExploreView must render public knowledge paths.')
 has(knowledgeView, /(previewSource|sourceNote|来源)/, 'KnowledgeExploreView must display source explanation and preview source.')
 has(knowledgeView, /(归档|archived)/, 'KnowledgeExploreView must display archived state for revisits.')
-has(knowledgeView, /请求时公开投影/, 'KnowledgeExploreView must label snapshot-shaped response data as a request-time projection.')
-has(knowledgeView, /不代表已保存的资产历史/, 'KnowledgeExploreView must disclose that request-time projections are not persisted asset history.')
+has(knowledgeView, /(请求时公开投影|即时生成的只读知识投影)/, 'KnowledgeExploreView must label snapshot-shaped response data as a request-time projection.')
+has(knowledgeView, /(不代表已保存的资产历史|不是持久化知识库)/, 'KnowledgeExploreView must disclose that request-time projections are not persisted asset history.')
 missing(knowledgeView, /归档快照 Archived Snapshots/, 'KnowledgeExploreView must not claim that request-time projections are persisted archived snapshots.')
 has(
   knowledgeView,

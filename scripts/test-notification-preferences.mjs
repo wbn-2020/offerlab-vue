@@ -46,6 +46,7 @@ assert.match(settings, /await notificationApi\.getPreferences\(\)/, 'settings no
 assert.match(settings, /await notificationApi\.updatePreferences\(notificationForm\.value\)/, 'settings notification tab must save notification preferences through notificationApi')
 assert.match(settings, /保存通知偏好/, 'settings notification tab must not save notifications under privacy wording')
 assert.match(settings, /事件仍会发生，只是不再提醒/, 'settings must explain that disabled notification types do not stop the underlying event')
+assert.doesNotMatch(settings, /后端持久化字段|无法持久化|没有后端/, 'settings copy must describe observable behavior instead of backend persistence details')
 
 for (const label of ['点赞', '评论', '关注', '收藏', '提及']) {
   assert.match(settings, new RegExp(`label: '${label}'`), `settings must label granular option ${label}`)

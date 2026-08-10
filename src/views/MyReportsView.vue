@@ -152,9 +152,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ExternalLink, FileText, Flag, Inbox, MessageCircle, RefreshCw, X } from 'lucide-vue-next'
-import { getErrorMessage } from '@/api/client'
 import { interactionApi, type UserReportListParams } from '@/api/interaction'
-import type { UserReportReceipt, UserReportSourceType } from '@/api/types'
+import type { ApiId, UserReportReceipt, UserReportSourceType, UserReportStatus } from '@/api/types'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -175,6 +174,8 @@ const filters = [
 ] as const
 
 const filterValues = new Set<FilterValue>(filters.map(item => item.value))
+const reportSourceTypes = new Set<UserReportSourceType>(['POST_REPORT', 'COMMENT_REPORT', 'CONTACT_REQUEST_REPORT'])
+const reportStatuses = new Set<UserReportStatus>(['PROCESSING', 'ACTION_TAKEN', 'NOT_ACCEPTED', 'CLOSED'])
 const firstQueryValue = (value: unknown) => Array.isArray(value) ? value[0] : value
 const readRouteFilter = (): FilterValue => {
   const value = String(firstQueryValue(route.query.filter) || '').toLowerCase()
@@ -194,6 +195,61 @@ const hasMore = ref(false)
 let reportListRequestId = 0
 let reportDetailRequestId = 0
 let reportAccountGeneration = 0
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+)
+const normalizeApiId = (value: unknown): ApiId | null => {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return value
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  return null
+}
+const optionalText = (value: unknown, maxLength = 500) => (
+  typeof value === 'string' && value.trim() ? value.trim().slice(0, maxLength) : undefined
+)
+const safeTargetPath = (value: unknown) => {
+  const path = optionalText(value, 500)
+  return path?.startsWith('/') && !path.startsWith('//') ? path : undefined
+}
+const normalizeReportReceipt = (raw: unknown): UserReportReceipt | null => {
+  if (!isRecord(raw)) return null
+  const reportId = normalizeApiId(raw.reportId)
+  const targetId = normalizeApiId(raw.targetId)
+  const sourceType = String(raw.sourceType || '').toUpperCase() as UserReportSourceType
+  const userStatus = String(raw.userStatus || '').toUpperCase() as UserReportStatus
+  if (reportId === null || targetId === null || !reportSourceTypes.has(sourceType) || !reportStatuses.has(userStatus)) return null
+  const createdAt = Number(raw.createdAt)
+  const reviewedAt = raw.reviewedAt == null ? undefined : Number(raw.reviewedAt)
+  return {
+    reportId,
+    sourceType,
+    targetId,
+    postId: normalizeApiId(raw.postId) ?? undefined,
+    targetTitle: optionalText(raw.targetTitle, 200),
+    targetSummary: optionalText(raw.targetSummary),
+    reason: optionalText(raw.reason, 200) || '已提交举报',
+    detail: optionalText(raw.detail, 2000),
+    userStatus,
+    resultText: optionalText(raw.resultText, 1000) || '',
+    targetPath: safeTargetPath(raw.targetPath),
+    createTime: optionalText(raw.createTime, 80),
+    reviewTime: optionalText(raw.reviewTime, 80),
+    createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+    reviewedAt: reviewedAt != null && Number.isFinite(reviewedAt) ? reviewedAt : undefined,
+    targetAvailable: raw.targetAvailable === true,
+  }
+}
+const normalizeReportPage = (raw: unknown) => {
+  if (!isRecord(raw) || !Array.isArray(raw.items)) return null
+  const items = raw.items.map(normalizeReportReceipt).filter((item): item is UserReportReceipt => item !== null)
+  if (raw.items.length > 0 && items.length === 0) return null
+  const nextCursor = optionalText(raw.nextCursor, 500)
+  return {
+    items,
+    nextCursor,
+    hasMore: raw.hasMore === true && Boolean(nextCursor),
+  }
+}
 
 const currentReportAccountKey = () => (
   `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
@@ -267,18 +323,19 @@ const loadReports = async (append = false) => {
       || requestedFilter !== activeFilter.value
       || !reportAccountIsCurrent(accountKey, accountGeneration)
     ) return
-    const data = res.data
-    reports.value = append ? [...reports.value, ...(data?.items || [])] : (data?.items || [])
-    nextCursor.value = data?.nextCursor
-    hasMore.value = Boolean(data?.hasMore)
-  } catch (error) {
+    const data = normalizeReportPage(res.data)
+    if (!data) throw new Error('invalid-report-page')
+    reports.value = append ? [...reports.value, ...data.items] : data.items
+    nextCursor.value = data.nextCursor
+    hasMore.value = data.hasMore
+  } catch {
     if (
       requestId !== reportListRequestId
       || requestedFilter !== activeFilter.value
       || !reportAccountIsCurrent(accountKey, accountGeneration)
     ) return
     if (!append) reports.value = []
-    loadError.value = getErrorMessage(error, '举报记录暂时不可用，请稍后再试。')
+    loadError.value = '举报记录暂时无法读取，请稍后重试。'
   } finally {
     if (
       requestId === reportListRequestId
@@ -325,13 +382,15 @@ const openRouteReport = async () => {
       requestId !== reportDetailRequestId
       || !reportAccountIsCurrent(accountKey, accountGeneration)
     ) return
-    if (res.data) selectedReport.value = res.data
-  } catch (error) {
+    const detail = normalizeReportReceipt(res.data)
+    if (!detail) throw new Error('invalid-report-detail')
+    selectedReport.value = detail
+  } catch {
     if (
       requestId !== reportDetailRequestId
       || !reportAccountIsCurrent(accountKey, accountGeneration)
     ) return
-    detailError.value = getErrorMessage(error, '详情暂时不可用，请稍后再试。')
+    detailError.value = '举报详情暂时无法读取，请稍后重试。'
   } finally {
     if (
       requestId === reportDetailRequestId
@@ -362,13 +421,15 @@ const openReport = async (report: UserReportReceipt) => {
       requestId !== reportDetailRequestId
       || !reportAccountIsCurrent(accountKey, accountGeneration)
     ) return
-    if (res.data) selectedReport.value = res.data
-  } catch (error) {
+    const detail = normalizeReportReceipt(res.data)
+    if (!detail) throw new Error('invalid-report-detail')
+    selectedReport.value = detail
+  } catch {
     if (
       requestId !== reportDetailRequestId
       || !reportAccountIsCurrent(accountKey, accountGeneration)
     ) return
-    detailError.value = getErrorMessage(error, '详情暂时不可用，请稍后再试。')
+    detailError.value = '举报详情暂时无法读取，请稍后重试。'
   } finally {
     if (
       requestId === reportDetailRequestId

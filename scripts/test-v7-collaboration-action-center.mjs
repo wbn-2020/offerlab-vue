@@ -46,8 +46,30 @@ has(presentation, /actionType.*sourceType.*sourceId[\s\S]*`\$\{item\.actionType\
 has(presentation, /NEED_READY_FOR_SUBMISSION[\s\S]*OFFICE_HOUR_RESERVATION_AWAITS_REVIEW/, 'Known backend action reason codes must have human-readable projections.')
 has(presentation, /actionSourceStatusLabels[\s\S]*PENDING:\s*'待处理'[\s\S]*labelCollaborationActionSourceStatus/, 'Known backend source statuses must have human-readable projections.')
 has(view, /AppHeader[\s\S]*CollaborationActionCenter/, 'The action-center view must mount the header and action-center component.')
+has(view, /<h1>协作行动中心<\/h1>[\s\S]*浏览公共共建/, 'The action center must clearly separate personal work from public browsing.')
+has(view, /<h2 id="collaboration-workspace-directory-title">个人工作区<\/h2>/, 'The action center must expose a named personal workspace directory.')
+has(view, /参与与跟进[\s\S]*管理与权益/, 'Frequent participation work and lower-frequency management work must be visibly separated.')
+for (const path of [
+  '/me/collaboration/needs/new',
+  '/me/collaboration/series/submit',
+  '/me/collaboration/activities/submit',
+]) {
+  has(view, new RegExp(`to="${path}"`), `The action center must expose protected authoring entry ${path}.`)
+}
+for (const tab of ['my-collaborations', 'curation', 'office-hours', 'manage', 'cases']) {
+  has(view, new RegExp(`to="\\/collaboration\\?tab=${tab}"`), `The action center must retain the ${tab} workspace entry.`)
+}
+has(view, /to="\/collaboration\?tab=needs"/, 'The action center must provide a clear return to public need browsing.')
+has(view, /:deep\(\.action-center-links\) \{[\s\S]*display: none;/, 'The legacy duplicate action-center links must be visually replaced by the grouped directory.')
 has(header, /to="\/me\/collaboration"/, 'The header must expose the independent action-center entry.')
 has(router, /path:\s*['"]\/me\/collaboration['"][\s\S]*name:\s*['"]CollaborationActionCenter['"]/, 'The action-center route must be mounted behind the auth guard.')
+for (const [path, name] of [
+  ['/me/collaboration/needs/new', 'CollaborationNeedComposer'],
+  ['/me/collaboration/series/submit', 'CollaborationSeriesSubmission'],
+  ['/me/collaboration/activities/submit', 'CollaborationActivitySubmission'],
+]) {
+  has(router, new RegExp(`path:\\s*['"]${path}['"][\\s\\S]*name:\\s*['"]${name}['"][\\s\\S]*requiresAuth:\\s*true`), `${name} must be mounted as an authenticated personal route.`)
+}
 missing(view, /router\/index|CollaborationHubView|CollaborationNeedDetailView|EditorView/, 'This slice must not wire router or protected neighboring views.')
 
 console.log('V7 collaboration action center guard passed')

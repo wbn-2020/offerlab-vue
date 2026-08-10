@@ -54,7 +54,9 @@
           <AlertTriangle class="h-5 w-5" />
           <div>
             <h2 class="text-lg font-black text-slate-950 dark:text-white">成长报告暂时不可用</h2>
-            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ error }}</p>
+            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              当前无法确认本周期记录，请稍后重试。页面不会把读取失败解释成零成长。
+            </p>
             <button type="button" class="primary-action mt-4" @click="loadReport">
               <RefreshCw class="h-4 w-4" />
               重新加载
@@ -63,41 +65,19 @@
         </div>
 
         <EmptyState
-          v-else-if="!report"
+          v-else-if="!hasReliableReport"
           title="还没有可生成的成长报告"
-          description="先发几篇内容、整理系列或参与互动，周期报告就会逐步完整。"
+          description="先发布内容、整理系列或参与真实互动。形成可靠记录后，这里才会展示周期变化。"
           action-text="去发布"
           action-href="/editor"
         />
 
-        <div v-else class="space-y-6">
-          <div v-if="report.degraded" class="fallback-banner">
-            <strong>{{ reportDemoNotice ? '当前展示本地样例报告' : '当前报告采用降级聚合' }}</strong>
-            <p>
-              {{ reportDemoNotice || report.degradationReasons.join(' / ') || '部分依赖未就绪，当前只展示规则汇总结果。' }}
-            </p>
-          </div>
-
-          <section class="surface-panel report-stat-strip">
-            <article class="stat-card">
-              <span class="stat-label">发布内容</span>
-              <strong>{{ report.publishedPostCount }}</strong>
-              <p>{{ report.days }} 天内新增公开内容</p>
-            </article>
-            <article class="stat-card">
-              <span class="stat-label">互动反馈</span>
-              <strong>{{ report.interactionCount }}</strong>
-              <p>点赞、评论、收藏等反馈总和</p>
-            </article>
-            <article class="stat-card">
-              <span class="stat-label">优质内容</span>
-              <strong>{{ report.featuredPostCount }}</strong>
-              <p>被标记精选或重点推荐的内容</p>
-            </article>
-            <article class="stat-card">
-              <span class="stat-label">系列沉淀</span>
-              <strong>{{ report.seriesContributionCount }}</strong>
-              <p>本周期被纳入系列的内容数量</p>
+        <div v-else-if="report" class="space-y-6">
+          <section v-if="reportStats.length" class="surface-panel report-stat-strip">
+            <article v-for="item in reportStats" :key="item.label" class="stat-card">
+              <span class="stat-label">{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <p>{{ item.description }}</p>
             </article>
           </section>
 
@@ -132,7 +112,7 @@
               </div>
               <p
                 v-else
-                class="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                class="report-inline-empty"
               >
                 当前周期还没有形成明显的领域变化，继续稳定输出后会更容易看出趋势。
               </p>
@@ -147,7 +127,7 @@
               </div>
               <p
                 v-else
-                class="mt-4 rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                class="report-inline-empty mt-4"
               >
                 暂时没有生成下一步建议，可以继续先积累公开内容和系列样本。
               </p>
@@ -210,6 +190,7 @@ import { growthApi } from '@/api/growth'
 import { useAuthStore } from '@/stores/auth'
 import type { GrowthReport } from '@/api/types'
 import { getDomainLabelSafe, isKnownDomain } from '@/utils/domains'
+import { isTrustedGrowthResult } from '@/utils/growthPath'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -223,6 +204,7 @@ const period = ref<'weekly' | 'monthly'>('weekly')
 const loading = ref(false)
 const error = ref('')
 const report = ref<GrowthReport | null>(null)
+const reportPayloadTrusted = ref(false)
 const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 const highlightDomainLabel = (post: GrowthReport['highlightPosts'][number]) => (
   isKnownDomain(post.domain)
@@ -234,10 +216,24 @@ const domainChangeLabel = (change: GrowthReport['domainChanges'][number]) => (
     ? change.domainName || getDomainLabelSafe(change.domain)
     : getDomainLabelSafe(change.domain)
 )
-const reportDemoNotice = computed(() => report.value?.degradationReasons?.includes('local_demo_seed')
-  ? '这些内容是本地样例，用来说明周期报告会如何汇总公开内容，不代表你的真实发布、互动或精选数据。'
-  : ''
-)
+const reportStats = computed(() => {
+  const current = report.value
+  if (!current) return []
+  return [
+    { label: '发布内容', value: current.publishedPostCount, description: `${current.days} 天内新增公开内容` },
+    { label: '互动反馈', value: current.interactionCount, description: '点赞、评论、收藏等公开反馈' },
+    { label: '优质内容', value: current.featuredPostCount, description: '被标记精选或重点推荐的内容' },
+    { label: '系列沉淀', value: current.seriesContributionCount, description: '本周期被纳入系列的内容' },
+  ].filter((item) => Number(item.value) > 0)
+})
+const hasReliableReport = computed(() => {
+  const current = report.value
+  if (!current || !reportPayloadTrusted.value || current.degraded || current.degradationReasons.length > 0) return false
+  return reportStats.value.length > 0
+    || current.domainChanges.length > 0
+    || current.nextActions.length > 0
+    || current.highlightPosts.length > 0
+})
 
 const trendLabel = (trend?: string) => {
   switch ((trend || '').toLowerCase()) {
@@ -264,6 +260,7 @@ const trendClass = (trend?: string) => {
 const loadReport = async () => {
   if (!authStore.isLoggedIn) {
     report.value = null
+    reportPayloadTrusted.value = false
     error.value = ''
     return
   }
@@ -272,8 +269,10 @@ const loadReport = async () => {
   try {
     const res = await growthApi.getReport(period.value)
     report.value = res.data
+    reportPayloadTrusted.value = isTrustedGrowthResult(res)
   } catch (err) {
     report.value = null
+    reportPayloadTrusted.value = false
     error.value = getErrorMessage(err, '加载成长报告失败')
   } finally {
     loading.value = false
@@ -362,6 +361,15 @@ onMounted(async () => {
 
 .report-panel {
   padding: 1rem;
+}
+
+.report-inline-empty {
+  margin-bottom: 0;
+  background: var(--surface-2);
+  padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
 }
 
 .report-inline-link {

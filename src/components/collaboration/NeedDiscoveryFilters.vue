@@ -263,6 +263,22 @@ const update = <K extends keyof CollaborationNeedDiscoveryFilters>(
   }
 }
 
+@container (max-width: 980px) {
+  .need-discovery-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .keyword-field {
+    grid-column: 1 / -1;
+  }
+}
+
+@container (max-width: 560px) {
+  .need-discovery-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   .need-discovery-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));

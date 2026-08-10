@@ -55,7 +55,9 @@
             <AlertTriangle class="h-5 w-5" />
             <div>
               <h2 class="text-lg font-black text-slate-950 dark:text-white">成长档案暂时不可用</h2>
-              <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ error }}</p>
+              <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                当前无法确认你的成长记录，请稍后重试。已有内容和个人数据不会因此改变。
+              </p>
               <button type="button" class="primary-action mt-4" @click="loadProfile">
                 <RefreshCw class="h-4 w-4" />
                 重新加载
@@ -64,22 +66,22 @@
           </div>
 
           <EmptyState
-            v-else-if="!profile || !profile.domains.length"
+            v-else-if="!hasReliableGrowthProfile"
             title="还没有足够的成长数据"
-            description="公开内容档案尚未形成；下方成长路径仍会独立展示可读取的共建、贡献、权益和角色记录。"
+            description="先发布一篇公开内容，或参与一次真实讨论。记录足够后，这里才会生成成长档案，不会用全零指标代替你的真实进展。"
             action-text="去发布"
             action-href="/editor"
           />
 
-          <section v-else class="growth-overview-layout">
+          <section v-else-if="profile" class="growth-overview-layout">
             <article class="surface-panel growth-summary-panel">
               <div class="growth-summary-grid">
                 <div class="summary-card">
                   <span class="summary-label">最强领域</span>
                   <strong>{{ strongestDomain }}</strong>
-                  <p>{{ primaryDomain?.postCount ?? 0 }} 篇公开内容</p>
+                  <p>{{ primaryDomain?.postCount }} 篇公开内容</p>
                 </div>
-                <div class="summary-card">
+                <div v-if="profile?.emergingDomain" class="summary-card">
                   <span class="summary-label">新兴方向</span>
                   <strong>{{ emergingDomain }}</strong>
                   <p>{{ profile.days }} 天内正在抬头的领域</p>
@@ -100,16 +102,10 @@
                   <p>{{ item.detail }}</p>
                 </div>
               </div>
-              <div v-if="profile.degraded" class="fallback-banner mt-4">
-                <strong>{{ profileDemoNotice ? '当前展示本地样例档案' : '当前为降级视图' }}</strong>
-                <p>
-                  {{ profileDemoNotice || profile.degradationReasons.join(' / ') || '部分服务未就绪，当前只展示规则聚合结果。' }}
-                </p>
-              </div>
             </article>
           </section>
 
-          <section id="growth-path" class="surface-panel growth-path-panel">
+          <section v-if="pathLoading || hasGrowthPathEvidence" id="growth-path" class="surface-panel growth-path-panel">
             <div class="mb-4">
               <h2 class="text-lg font-black text-slate-950 dark:text-white">成长路径</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -118,8 +114,8 @@
             </div>
             <p v-if="pathLoading" class="growth-path-loading">正在读取你的记录…</p>
             <ol v-else class="growth-path-list">
-              <li v-for="(step, index) in growthPathSteps" :key="step.key" class="growth-path-step">
-                <span :class="['growth-path-marker', `growth-path-marker--${step.state}`]">{{ index + 1 }}</span>
+              <li v-for="step in visibleGrowthPathSteps" :key="step.key" class="growth-path-step">
+                <span :class="['growth-path-marker', `growth-path-marker--${step.state}`]" aria-hidden="true">✓</span>
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
                     <h3 class="growth-path-title">{{ step.title }}</h3>
@@ -134,8 +130,8 @@
             </ol>
           </section>
 
-          <template v-if="profile && profile.domains.length">
-            <section id="curation-feedback" class="surface-panel curation-panel">
+          <template v-if="hasReliableGrowthProfile">
+            <section v-if="recentCurationFeedbackItems.length" id="curation-feedback" class="surface-panel curation-panel">
               <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 class="text-lg font-black text-slate-950 dark:text-white">最近入选反馈</h2>
@@ -158,12 +154,11 @@
                   <small>{{ curationFeedbackStatusLabel(item) }} · {{ formatTime(item.includedAt || item.triggeredAt) }}</small>
                 </RouterLink>
               </div>
-              <p v-else class="curation-empty">暂无公开内容入选反馈</p>
             </section>
 
             <section class="grid gap-4 domain-grid">
               <article
-                v-for="domain in profile.domains"
+                v-for="domain in meaningfulDomains"
                 :key="domain.domain"
                 class="surface-panel domain-card"
               >
@@ -173,23 +168,23 @@
                       <span v-if="isKnownDomain(domain.domain)" class="domain-icon">{{ getDomainIcon(domain.domain) }}</span>
                       <div>
                         <h2 class="text-lg font-black text-slate-950 dark:text-white">{{ profileDomainLabel(domain) }}</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                        <p v-if="totalScore(domain) > 0" class="text-xs text-slate-500 dark:text-slate-400">
                           综合得分 {{ totalScore(domain) }} / 400
                         </p>
                       </div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      <span class="meta-pill">发布 {{ domain.postCount }}</span>
-                      <span class="meta-pill">系列 {{ domain.seriesCount }}</span>
-                      <span class="meta-pill">活跃日 {{ domain.activeDays }}</span>
-                      <span class="meta-pill">互动 {{ domain.interactionCount }}</span>
-                      <span class="meta-pill">浏览 {{ domain.viewCount }}</span>
+                      <span v-if="domain.postCount > 0" class="meta-pill">发布 {{ domain.postCount }}</span>
+                      <span v-if="domain.seriesCount > 0" class="meta-pill">系列 {{ domain.seriesCount }}</span>
+                      <span v-if="domain.activeDays > 0" class="meta-pill">活跃日 {{ domain.activeDays }}</span>
+                      <span v-if="domain.interactionCount > 0" class="meta-pill">互动 {{ domain.interactionCount }}</span>
+                      <span v-if="domain.viewCount > 0" class="meta-pill">浏览 {{ domain.viewCount }}</span>
                     </div>
                   </div>
                 </div>
 
                 <div class="mt-5 space-y-3">
-                  <div v-for="dimension in domain.dimensions" :key="dimension.key">
+                  <div v-for="dimension in meaningfulDimensions(domain)" :key="dimension.key">
                     <div class="mb-1 flex items-center justify-between gap-3 text-sm">
                       <strong class="text-slate-900 dark:text-slate-100">{{ dimension.label }}</strong>
                       <span class="text-slate-500 dark:text-slate-400">{{ dimension.score }}</span>
@@ -230,7 +225,7 @@
                   </div>
                   <p
                     v-else
-                    class="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                    class="domain-empty-state"
                   >
                     这个领域还在积累样本，继续发布或整理系列后会形成更稳定的代表内容。
                   </p>
@@ -302,10 +297,6 @@ const representativePostDomainLabel = (
   postDomain?: number | null,
   fallbackDomain?: number | null,
 ) => getDomainLabelSafe(postDomain == null ? fallbackDomain : postDomain)
-const profileDemoNotice = computed(() => profile.value?.degradationReasons?.includes('local_demo_seed')
-  ? '这些内容是本地样例，用来说明成长档案会如何组织公开内容，不代表你的真实成长画像。'
-  : ''
-)
 const recentCurationFeedbackItems = computed(() => (
   curationFeedbackSummary.value?.recentItems.filter((item): item is CreatorCurationFeedback & { href: string } => Boolean(item.href)) ?? []
 ))
@@ -326,6 +317,28 @@ const curationFeedbackLocation = (item: CreatorCurationFeedback) => {
 const totalScore = (domain: GrowthProfileDomain) => (
   domain.dimensions.reduce((sum, item) => sum + Number(item.score || 0), 0)
 )
+const meaningfulDimensions = (domain: GrowthProfileDomain) => (
+  domain.dimensions.filter((dimension) => Number(dimension.score) > 0)
+)
+const domainHasEvidence = (domain: GrowthProfileDomain) => (
+  [
+    domain.postCount,
+    domain.seriesCount,
+    domain.activeDays,
+    domain.interactionCount,
+    domain.viewCount,
+  ].some((value) => Number(value) > 0)
+  || meaningfulDimensions(domain).length > 0
+  || domain.representativePosts.length > 0
+)
+const meaningfulDomains = computed(() => profile.value?.domains.filter(domainHasEvidence) ?? [])
+const hasReliableGrowthProfile = computed(() => (
+  Boolean(profile.value)
+  && profilePathPayloadTrusted.value
+  && !profile.value?.degraded
+  && !profile.value?.degradationReasons.length
+  && meaningfulDomains.value.length > 0
+))
 
 // ---- 成长路径（六步，仅自见）----
 // 每个来源独立降级：读不到就是 null，由 growthPath 纯函数映射成「暂无法读取」，
@@ -511,6 +524,10 @@ const growthPathSteps = computed(() => summarizeGrowthPath({
   perks: pathSources.value?.perks ?? null,
   roles: pathSources.value?.roles ?? null,
 }))
+const visibleGrowthPathSteps = computed(() => growthPathSteps.value.filter((step) => step.state === 'active'))
+const hasGrowthPathEvidence = computed(() => (
+  hasReliableGrowthProfile.value && visibleGrowthPathSteps.value.length > 0
+))
 
 const growthPathStateLabel = (state: GrowthPathState) => {
   if (state === 'active') return '有记录'
@@ -1009,6 +1026,15 @@ onBeforeUnmount(invalidateSessionLoads)
 .dark .day-chip {
   background: transparent;
   color: var(--text-muted);
+}
+
+.domain-empty-state {
+  margin: 0;
+  background: var(--surface-2);
+  padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
 }
 
 .dark .day-chip-active {

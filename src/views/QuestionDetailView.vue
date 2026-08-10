@@ -67,9 +67,9 @@
                 <strong>{{ sourcePostCount }} 篇</strong>
                 <small>公开内容中的出现次数</small>
               </div>
-              <div class="insight-tile">
+              <div v-if="Number(question.qualityScore || 0) > 0" class="insight-tile">
                 <span>质量分</span>
-                <strong>{{ question.qualityScore || 0 }}</strong>
+                <strong>{{ question.qualityScore }}</strong>
                 <small>结构完整度提示</small>
               </div>
               <div class="insight-tile">

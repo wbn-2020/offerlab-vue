@@ -6,7 +6,7 @@
         <div>
           <span class="page-context">公共知识问答</span>
           <h1>知识库</h1>
-          <p>从公开经验与讨论中整理出的结构化问题。先搜索主题，再按来源方向、应用场景和难度收窄结果。</p>
+          <p>从公开经验与讨论中整理出的结构化问题。先搜索主题，再按领域、应用场景和难度收窄结果。</p>
         </div>
         <div class="header-actions">
           <RouterLink to="/search" class="secondary-action">
@@ -68,8 +68,8 @@
             :class="['question-filter-advanced', showMobileFilters ? 'question-filter-advanced-open' : '']"
           >
             <label class="filter-field">
-              <span>来源方向</span>
-              <input v-model.trim="filters.company" class="filter-input" aria-label="知识库技术栈筛选" placeholder="例如：前端、理财、学习方法">
+              <span>主题或领域</span>
+              <input v-model.trim="filters.company" class="filter-input" aria-label="知识库技术栈筛选" placeholder="例如：前端开发、理财、学习方法">
             </label>
             <label class="filter-field">
               <span>应用场景</span>
@@ -168,7 +168,7 @@
             <h3>{{ hasActiveFilters ? '没有匹配的题目' : '当前还没有可见题目' }}</h3>
             <p>
               {{ hasActiveFilters
-                ? '当前筛选条件没有命中题目，可以清空筛选或换一个来源方向、场景关键词。'
+                ? '当前筛选条件没有命中问题。可以清空筛选，或换一个主题、领域或场景关键词。'
                 : '知识卡来自公开内容中的问题与结构化整理；当前为空时，可以先发布经验、问题或资源，也可以去发现页浏览社区内容。' }}
             </p>
             <div class="state-actions">
@@ -199,8 +199,8 @@
                 <dd>同一问题在多篇公开内容中出现时，会合并为同题组信号。</dd>
               </div>
               <div>
-                <dt>质量分</dt>
-                <dd>用于提示结构完整度，不代表标准答案或专业认证。</dd>
+                <dt>内容完整度</dt>
+                <dd>有足够信息时才会展示，用于辅助判断结构是否完整，不代表标准答案或专业认证。</dd>
               </div>
               <div>
                 <dt>参考内容</dt>
@@ -278,10 +278,9 @@ const hasActiveFilters = computed(() => Boolean(
     || (filters.sort && filters.sort !== 'latest'),
 ))
 const demoSeedNotice = computed(() => listSource.value === 'local_demo_seed'
-  ? '当前展示本地 demo 知识库：包含技术经验帖、面试复盘和结构化知识卡样例；连接真实服务后会自动切换到你的数据。'
+  ? '当前展示示例知识卡，方便了解页面结构；连接正式内容后会自动切换。'
   : ''
 )
-
 const syncFromRoute = () => {
   filters.keyword = String(route.query.keyword ?? route.query.q ?? '')
   filters.company = String(route.query.company ?? '')
@@ -651,7 +650,7 @@ onMounted(() => {
 }
 
 .quick-filter {
-  min-height: 2.25rem;
+  min-height: 44px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   background: var(--surface-1);
