@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell editor-page">
     <AppHeader />
     <!-- 编辑工具条 -->
-    <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
-      <div class="editor-toolbar-inner max-w-6xl mx-auto flex items-center justify-between">
+    <div class="editor-toolbar-shell bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+      <div class="community-page editor-toolbar-inner flex items-center justify-between">
         <div class="editor-toolbar-title flex items-center gap-4">
           <button
             @click="goBack"
@@ -58,7 +58,7 @@
     </div>
 
     <!-- 主体内容 -->
-    <main v-if="isForbiddenEdit" class="mx-auto flex min-h-[calc(100vh-160px)] max-w-4xl items-center px-4 py-10">
+    <main v-if="isForbiddenEdit" class="community-page flex min-h-[calc(100vh-160px)] items-center py-10">
       <section class="w-full rounded-xl border border-amber-200 bg-white p-8 text-center shadow-sm dark:border-amber-900/60 dark:bg-slate-900">
         <p class="text-sm font-semibold text-amber-600 dark:text-amber-400">无法编辑该帖子</p>
         <h2 class="mt-3 text-2xl font-bold text-slate-950 dark:text-slate-50">只能编辑本人发布的内容</h2>
@@ -73,8 +73,10 @@
       </section>
     </main>
 
-    <div v-else class="editor-main-shell max-w-6xl mx-auto p-6">
-      <div class="space-y-6">
+    <main v-else class="community-page editor-main-shell">
+      <div class="editor-workspace">
+        <div class="editor-compose-layout">
+          <section class="editor-compose-main">
         <!-- 标题输入 -->
         <div class="flex flex-col gap-2">
           <input
@@ -212,8 +214,15 @@
           </div>
         </section>
 
+        <section class="editor-writing-body" data-field="content">
+          <MarkdownEditor v-model="form.content" :max-length="CONTENT_MAX_LENGTH" />
+          <p v-if="fieldErrors.content" class="field-error mt-2">{{ fieldErrors.content }}</p>
+        </section>
+          </section>
+
+          <aside class="editor-compose-rail">
         <!-- 领域选择 -->
-        <div class="px-4 flex flex-col gap-2">
+        <section class="editor-rail-section editor-domain-field flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-700 dark:text-slate-300">频道</label>
           <select
             v-model="selectedDomain"
@@ -230,9 +239,9 @@
             <span v-else>选择最贴近内容主题的频道，方便其他人发现和参与讨论。</span>
           </p>
           <p v-if="fieldErrors.domain" class="field-error">{{ fieldErrors.domain }}</p>
-        </div>
+        </section>
 
-        <section v-if="selectedDomain === DOMAIN.CAREER" class="anonymous-career-toggle mx-4">
+        <section v-if="selectedDomain === DOMAIN.CAREER" class="editor-rail-section anonymous-career-toggle">
           <div>
             <p>匿名发布</p>
             <span>适合不便公开身份的职场内容，作者信息由服务端按权限处理。</span>
@@ -243,6 +252,76 @@
           </label>
         </section>
 
+        <section class="editor-rail-section editor-tag-section">
+          <label class="editor-rail-label">标签</label>
+          <div class="tag-entry-row flex gap-2">
+            <input
+              v-model="tagInput"
+              type="text"
+              :placeholder="tagInputPlaceholder"
+              @keydown.enter="addTag"
+              class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              data-field="tags"
+            />
+            <button
+              type="button"
+              class="editor-tag-add"
+              @click="addTag"
+            >
+              添加
+            </button>
+          </div>
+          <div v-if="selectedTags.length" class="editor-selected-tags">
+            <span v-for="(tag, idx) in selectedTags" :key="idx">
+              {{ tag }}
+              <button type="button" :aria-label="`移除标签 ${tag}`" @click="removeTag(idx)">×</button>
+            </span>
+          </div>
+          <p v-else class="editor-rail-note">最多添加 5 个与正文直接相关的标签。</p>
+          <p v-if="fieldErrors.tags" class="field-error">{{ fieldErrors.tags }}</p>
+        </section>
+
+        <section class="editor-rail-section editor-cover-section">
+          <label class="editor-rail-label">封面图 <span>可选</span></label>
+          <input
+            v-model="form.coverUrl"
+            type="url"
+            placeholder="输入图片 URL"
+            class="editor-cover-input"
+          />
+          <div v-if="form.coverUrl && !formCoverHasFailed" class="editor-cover-preview">
+            <img :src="form.coverUrl" :alt="form.title" @error="handleFormCoverError" />
+          </div>
+          <p v-else-if="form.coverUrl" class="editor-cover-fallback" role="status">
+            {{ formCoverFallbackText }}
+          </p>
+        </section>
+
+        <section class="editor-rail-section editor-rail-checklist">
+          <div class="editor-rail-checklist__head">
+            <div>
+              <p>发布前检查</p>
+              <strong>{{ passedQualityCount }}/{{ qualityChecks.length }} 已通过</strong>
+            </div>
+            <span :class="blockingQualityIssues.length ? 'is-warning' : 'is-ready'">
+              {{ blockingQualityIssues.length ? `${blockingQualityIssues.length} 项待处理` : '可以发布' }}
+            </span>
+          </div>
+          <div class="editor-rail-checklist__items">
+            <div
+              v-for="item in qualityChecks.slice(0, 5)"
+              :key="`rail-${item.key}`"
+              :class="{ 'is-passed': item.passed }"
+            >
+              <span>{{ item.passed ? '✓' : '·' }}</span>
+              <p>{{ item.title }}</p>
+            </div>
+          </div>
+        </section>
+          </aside>
+        </div>
+
+        <div class="editor-advanced-stack">
         <!-- 内容元数据 -->
         <div class="px-4">
           <PostMeta v-model="form.extension" :type="form.postType" />
@@ -738,51 +817,6 @@
           </div>
         </section>
 
-        <!-- 标签输入 -->
-        <div class="px-4 flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">标签</label>
-          <div class="tag-entry-row flex gap-2 mb-2">
-            <input
-              v-model="tagInput"
-              type="text"
-              :placeholder="tagInputPlaceholder"
-              @keydown.enter="addTag"
-              class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              data-field="tags"
-            />
-            <button
-              type="button"
-              @click="addTag"
-              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
-            >
-              添加
-            </button>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <div
-              v-for="(tag, idx) in selectedTags"
-              :key="idx"
-              class="flex items-center gap-2 px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-full text-sm"
-            >
-              {{ tag }}
-              <button
-                type="button"
-                @click="removeTag(idx)"
-                class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-          <p v-if="fieldErrors.tags" class="field-error">{{ fieldErrors.tags }}</p>
-        </div>
-
-        <!-- Markdown 编辑器 -->
-        <div class="px-4" data-field="content">
-          <MarkdownEditor v-model="form.content" :max-length="CONTENT_MAX_LENGTH" />
-          <p v-if="fieldErrors.content" class="field-error mt-2">{{ fieldErrors.content }}</p>
-        </div>
-
         <section v-if="publishFailure" class="publish-diagnostic mx-4" role="alert">
           <div>
             <p class="publish-diagnostic-kicker">发布未完成，草稿已保护</p>
@@ -799,25 +833,9 @@
             <RouterLink to="/me">查看我的草稿</RouterLink>
           </div>
         </section>
-
-        <!-- 封面图 -->
-        <div class="px-4 flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">封面图（可选）</label>
-          <input
-            v-model="form.coverUrl"
-            type="url"
-            placeholder="输入图片 URL..."
-            class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <div v-if="form.coverUrl && !formCoverHasFailed" class="mt-2 rounded-lg overflow-hidden max-h-64">
-            <img :src="form.coverUrl" :alt="form.title" class="w-full h-auto object-cover" @error="handleFormCoverError" />
-          </div>
-          <div v-else-if="form.coverUrl" class="mt-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400" role="status">
-            {{ formCoverFallbackText }}
-          </div>
         </div>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
@@ -5027,6 +5045,676 @@ onBeforeUnmount(() => {
   .forbidden-secondary-action {
     min-height: 44px;
     width: 100%;
+  }
+}
+
+/* Writing-first editor layout aligned with the community prototype. */
+.editor-page {
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+.editor-toolbar-shell {
+  position: sticky;
+  top: var(--community-header-height);
+  z-index: 30;
+  padding: 0.65rem 0;
+  background: rgb(255 255 255 / 0.96) !important;
+  backdrop-filter: blur(10px);
+}
+
+.editor-toolbar-inner {
+  min-height: 2.75rem;
+  gap: 1rem;
+}
+
+.editor-toolbar-title {
+  gap: 0.75rem !important;
+}
+
+.editor-heading {
+  color: var(--text-strong) !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+}
+
+.editor-back-button {
+  min-height: 2.25rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control) !important;
+  padding: 0 0.7rem !important;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.editor-back-button:hover {
+  border-color: var(--primary-100);
+  background: var(--primary-50) !important;
+  color: var(--primary-600);
+}
+
+.editor-toolbar-actions {
+  gap: 0.6rem !important;
+}
+
+.editor-toolbar-actions > button,
+.publish-action-group > button {
+  min-height: 2.35rem;
+  border-radius: var(--radius-control) !important;
+  padding: 0 0.85rem !important;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.editor-toolbar-actions > button {
+  border-color: var(--border-subtle) !important;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.publish-action-group > button {
+  background: var(--primary-600) !important;
+}
+
+.draft-select {
+  min-height: 2.35rem;
+  width: min(14rem, 34vw);
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-control);
+  font-size: 0.75rem;
+}
+
+.publish-hint {
+  max-width: 18rem;
+  font-size: 0.6875rem;
+}
+
+.editor-main-shell {
+  padding-top: 1.35rem;
+  padding-bottom: 3rem;
+}
+
+.editor-workspace {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.editor-compose-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 286px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.editor-compose-main {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  padding: 1.25rem;
+}
+
+.editor-compose-main > .mx-4 {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.editor-compose-main > div:first-child {
+  gap: 0.2rem;
+}
+
+.editor-title-input {
+  min-height: 3.25rem;
+  padding: 0.35rem 0 !important;
+  color: var(--text-strong) !important;
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  line-height: 1.35;
+}
+
+.editor-title-input::placeholder {
+  color: #98a2b3 !important;
+}
+
+.editor-compose-main > div:first-child > div:last-child {
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  font-size: 0.6875rem;
+}
+
+.content-type-tabs {
+  gap: 0.3rem !important;
+  margin: 0;
+  border: 0 !important;
+  padding: 0 0 0.15rem !important;
+  scrollbar-width: none;
+}
+
+.content-type-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.content-type-tab {
+  min-height: 2.1rem;
+  border: 1px solid transparent !important;
+  border-radius: 5px;
+  padding: 0 0.65rem !important;
+  background: var(--surface-3);
+  color: var(--text-muted) !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+}
+
+.content-type-tab:hover:not(:disabled) {
+  background: var(--primary-50);
+  color: var(--primary-600) !important;
+}
+
+.content-type-tab.text-primary-600 {
+  border-color: var(--primary-100) !important;
+  background: var(--primary-50);
+  color: var(--primary-600) !important;
+}
+
+.template-helper {
+  align-items: flex-start;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.85rem 0;
+}
+
+.template-helper > div:first-child {
+  min-width: 0;
+}
+
+.template-helper p {
+  color: var(--primary-600);
+  font-size: 0.6875rem;
+}
+
+.template-helper strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+}
+
+.template-helper span,
+.template-helper small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.template-chip-row {
+  margin-top: 0.5rem;
+  gap: 0.3rem;
+}
+
+.template-helper .template-chip {
+  min-height: 1.7rem;
+  border-color: var(--border-subtle);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 0.2rem 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.template-control-group {
+  max-width: 15rem;
+  gap: 0.35rem;
+}
+
+.template-select,
+.template-helper .template-control-group button {
+  min-height: 2rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  padding: 0 0.55rem;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.template-helper .template-control-group button {
+  background: var(--primary-600);
+  color: white;
+}
+
+.template-helper .template-control-group button:disabled {
+  border-color: var(--border-subtle);
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.editor-writing-body {
+  min-width: 0;
+}
+
+.editor-writing-body :deep(.markdown-editor-shell) {
+  gap: 0.75rem;
+}
+
+.editor-writing-body :deep(.markdown-editor-toolbar) {
+  padding-bottom: 0.55rem;
+}
+
+.editor-writing-body :deep(.markdown-tabs) {
+  width: 10.5rem;
+  border-color: var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.editor-writing-body :deep(.markdown-tab-button) {
+  min-height: 2rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.editor-writing-body :deep(.markdown-textarea) {
+  min-height: 31rem;
+  height: 56vh;
+  max-height: 44rem;
+  border-color: var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+  color: var(--text-primary);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.8;
+}
+
+.editor-writing-body :deep(.markdown-textarea::placeholder) {
+  color: #667085;
+}
+
+.editor-compose-rail {
+  position: sticky;
+  top: calc(var(--community-header-height) + 4.65rem);
+  display: grid;
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.editor-rail-section {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  padding: 0.9rem;
+}
+
+.editor-rail-label,
+.editor-domain-field > label {
+  color: var(--text-strong) !important;
+  font-size: 0.75rem !important;
+  font-weight: 800 !important;
+}
+
+.editor-rail-label span {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.editor-domain-field select,
+.editor-tag-section input,
+.editor-cover-input {
+  min-height: 2.4rem;
+  width: 100%;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 6px !important;
+  background: var(--surface-2) !important;
+  padding: 0 0.65rem !important;
+  color: var(--text-primary) !important;
+  font-size: 0.75rem !important;
+}
+
+.editor-domain-field select {
+  text-overflow: ellipsis;
+}
+
+.domain-source-note,
+.editor-rail-note {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.55;
+}
+
+.anonymous-career-toggle {
+  margin: 0;
+}
+
+.editor-tag-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.editor-tag-section .tag-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+}
+
+.editor-tag-add {
+  min-height: 2.4rem;
+  border-radius: 6px;
+  background: var(--primary-600);
+  padding: 0 0.7rem;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.editor-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.editor-selected-tags > span {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 4px;
+  background: var(--primary-50);
+  padding: 0.2rem 0.45rem;
+  color: var(--primary-700);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.editor-selected-tags button {
+  color: inherit;
+}
+
+.editor-cover-section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.editor-cover-preview {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+
+.editor-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.editor-cover-fallback {
+  border: 1px dashed var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.editor-rail-checklist {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.editor-rail-checklist__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.editor-rail-checklist__head p {
+  color: var(--text-strong);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.editor-rail-checklist__head strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.editor-rail-checklist__head > span {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.625rem;
+  font-weight: 750;
+}
+
+.editor-rail-checklist__head > .is-ready {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.editor-rail-checklist__head > .is-warning {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.editor-rail-checklist__items {
+  display: grid;
+}
+
+.editor-rail-checklist__items > div {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2rem;
+  border-top: 1px solid var(--surface-3);
+}
+
+.editor-rail-checklist__items > div > span {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+.editor-rail-checklist__items > div > p {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-rail-checklist__items > .is-passed > span {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.editor-rail-checklist__items > .is-passed > p {
+  color: var(--text-primary);
+}
+
+.editor-advanced-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.editor-advanced-stack > .mx-4 {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.editor-advanced-stack > .px-4 {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.dark .editor-toolbar-shell {
+  background: rgb(15 17 21 / 0.96) !important;
+}
+
+.dark .editor-compose-main,
+.dark .editor-rail-section {
+  border-color: rgb(63 63 70);
+  background: rgb(24 26 32);
+}
+
+.dark .editor-title-input::placeholder,
+.dark .editor-writing-body :deep(.markdown-textarea::placeholder) {
+  color: rgb(148 163 184) !important;
+}
+
+.dark .content-type-tab {
+  background: rgb(39 39 42);
+  color: rgb(161 161 170) !important;
+}
+
+.dark .content-type-tab.text-primary-600,
+.dark .content-type-tab:hover:not(:disabled) {
+  border-color: rgb(30 64 175) !important;
+  background: rgb(30 58 138 / 0.38);
+  color: rgb(147 197 253) !important;
+}
+
+.dark .template-helper {
+  border-color: rgb(63 63 70);
+  background: transparent;
+}
+
+.dark .editor-domain-field select,
+.dark .editor-tag-section input,
+.dark .editor-cover-input,
+.dark .template-select {
+  border-color: rgb(63 63 70) !important;
+  background: rgb(15 17 21) !important;
+  color: rgb(228 228 231) !important;
+}
+
+.dark .editor-selected-tags > span {
+  background: rgb(30 58 138 / 0.4);
+  color: rgb(191 219 254);
+}
+
+.dark .editor-rail-checklist__items > div {
+  border-color: rgb(39 39 42);
+}
+
+@media (max-width: 1023px) {
+  .editor-compose-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-compose-rail {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .editor-domain-field,
+  .editor-rail-checklist {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .editor-toolbar-shell {
+    position: static;
+    padding: 0.6rem 0;
+    backdrop-filter: none;
+  }
+
+  .editor-toolbar-inner {
+    gap: 0.65rem;
+  }
+
+  .editor-toolbar-title {
+    justify-content: flex-start;
+  }
+
+  .editor-toolbar-actions {
+    gap: 0.5rem !important;
+  }
+
+  .draft-select {
+    min-height: 2.5rem;
+  }
+
+  .editor-main-shell {
+    padding: 0.85rem 1rem 2rem;
+  }
+
+  .editor-compose-main {
+    gap: 0.85rem;
+    padding: 1rem;
+  }
+
+  .editor-title-input {
+    min-height: 2.75rem;
+    font-size: 1.35rem !important;
+  }
+
+  .content-type-tabs {
+    margin-right: -1rem;
+    margin-left: -1rem;
+    padding-right: 1rem !important;
+    padding-left: 1rem !important;
+  }
+
+  .template-helper {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .template-control-group {
+    display: grid;
+    width: 100%;
+    max-width: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .template-control-group > * {
+    min-height: 2.5rem !important;
+    max-width: none;
+  }
+
+  .template-select {
+    grid-column: 1 / -1;
+  }
+
+  .editor-writing-body :deep(.markdown-textarea) {
+    min-height: 25rem;
+    height: 58dvh;
+    max-height: 38rem;
+    padding: 0.9rem;
+    font-size: 16px;
+  }
+
+  .editor-compose-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-rail-section {
+    padding: 0.85rem;
+  }
+
+  .editor-advanced-stack {
+    gap: 0.85rem;
   }
 }
 </style>

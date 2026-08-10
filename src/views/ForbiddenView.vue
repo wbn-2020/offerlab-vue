@@ -1,32 +1,32 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell status-page">
     <AppHeader />
-    <main class="mx-auto flex min-h-[calc(100vh-76px)] max-w-5xl items-center px-4 py-10">
-      <section class="w-full rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="text-sm font-semibold text-amber-600 dark:text-amber-400">{{ statusLabel }}</p>
-        <h1 class="mt-3 text-3xl font-bold text-slate-950 dark:text-slate-50">{{ pageTitle }}</h1>
-        <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+    <main class="community-page status-main">
+      <section class="status-surface">
+        <div class="status-code">{{ statusLabel }}</div>
+        <h1>{{ pageTitle }}</h1>
+        <p class="status-copy">
           {{ pageText }}
         </p>
 
-        <div class="mt-6 grid gap-3 rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-950 sm:grid-cols-2">
+        <dl class="status-facts">
           <div>
-            <span class="block text-xs font-bold uppercase tracking-wide text-slate-400">访问路径</span>
-            <strong class="mt-1 block break-all font-mono text-slate-800 dark:text-slate-100">{{ fromPath }}</strong>
+            <dt>访问路径</dt>
+            <dd class="break-all font-mono">{{ fromPath }}</dd>
           </div>
           <div>
-            <span class="block text-xs font-bold uppercase tracking-wide text-slate-400">需要角色</span>
-            <strong class="mt-1 block text-slate-800 dark:text-slate-100">{{ roleText }}</strong>
+            <dt>需要角色</dt>
+            <dd>{{ roleText }}</dd>
           </div>
-        </div>
+        </dl>
 
-        <div class="mt-7 flex flex-wrap gap-3">
-          <RouterLink :to="fromPath" class="primary-button">{{ permissionUnavailable ? '重试权限检查' : '返回来源页' }}</RouterLink>
-          <RouterLink to="/" class="secondary-button">返回首页</RouterLink>
-          <RouterLink v-if="!authStore.isLoggedIn" :to="{ path: '/login', query: { redirect: fromPath } }" class="secondary-button">去登录</RouterLink>
-          <RouterLink v-else :to="{ path: '/login', query: { redirect: fromPath, switchAccount: '1' } }" class="secondary-button">切换账号</RouterLink>
-          <RouterLink v-if="authStore.isLoggedIn" :to="adminRecoveryPath" class="secondary-button">去可访问后台</RouterLink>
-          <RouterLink v-if="authStore.isLoggedIn" to="/me" class="secondary-button">查看我的主页</RouterLink>
+        <div class="status-actions">
+          <RouterLink :to="fromPath" class="primary-action">{{ permissionUnavailable ? '重试权限检查' : '返回来源页' }}</RouterLink>
+          <RouterLink to="/" class="secondary-action">返回首页</RouterLink>
+          <RouterLink v-if="!authStore.isLoggedIn" :to="{ path: '/login', query: { redirect: fromPath } }" class="secondary-action">去登录</RouterLink>
+          <RouterLink v-else :to="{ path: '/login', query: { redirect: fromPath, switchAccount: '1' } }" class="secondary-action">切换账号</RouterLink>
+          <RouterLink v-if="authStore.isLoggedIn" :to="adminRecoveryPath" class="secondary-action">去可访问后台</RouterLink>
+          <RouterLink v-if="authStore.isLoggedIn" to="/me" class="secondary-action">查看我的主页</RouterLink>
         </div>
       </section>
     </main>
@@ -70,32 +70,99 @@ const pageText = computed(() => authStore.isLoggedIn
 </script>
 
 <style scoped>
-.primary-button,
-.secondary-button {
-  display: inline-flex;
-  min-height: 40px;
+.status-page {
+  background: var(--surface-2);
+}
+
+.status-main {
+  display: flex;
+  min-height: calc(100dvh - var(--community-header-height));
   align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  padding: 0.625rem 1rem;
-  font-size: 0.875rem;
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.status-surface {
+  width: min(46rem, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  padding: 2rem;
+}
+
+.status-code {
+  color: var(--warning);
+  font-size: 0.8125rem;
   font-weight: 800;
 }
 
-.primary-button {
-  background: rgb(37 99 235);
-  color: white;
+.status-surface h1 {
+  margin: 0.4rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 900;
+  text-wrap: balance;
 }
 
-.secondary-button {
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  color: rgb(51 65 85);
+.status-copy {
+  max-width: 68ch;
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.7;
 }
 
-.dark .secondary-button {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+.status-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1.5rem 0 0;
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.status-facts > div {
+  padding: 0.9rem 1rem;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.status-facts dt {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 750;
+}
+
+.status-facts dd {
+  margin: 0.25rem 0 0;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .status-main {
+    align-items: flex-start;
+    padding-top: 1rem;
+  }
+
+  .status-surface {
+    padding: 1.25rem 1rem;
+  }
+
+  .status-surface h1 {
+    font-size: 1.4rem;
+  }
+
+  .status-facts {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

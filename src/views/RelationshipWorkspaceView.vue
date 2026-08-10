@@ -1,48 +1,56 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell relationship-page">
     <AppHeader />
-    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <header class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p class="text-sm font-semibold uppercase text-sky-600 dark:text-sky-400">我的关系</p>
-          <h1 class="mt-2 text-3xl font-bold text-slate-950 dark:text-slate-50">关系与订阅中心</h1>
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+    <main class="community-page relationship-main">
+      <header class="workspace-header">
+        <div class="workspace-heading">
+          <p class="workspace-kicker">个人工作台 · 关系</p>
+          <h1>关系与订阅中心</h1>
+          <p>
             集中查看你关注的用户、话题、讨论和共建资源，并调整更新接收方式。
           </p>
         </div>
-        <button
-          type="button"
-          class="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
-          :disabled="isLoading || isSummaryLoading"
-          @click="reload"
-        >
-          <RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': isLoading || isSummaryLoading }" />
-          刷新
-        </button>
+        <div class="workspace-header-actions">
+          <RouterLink to="/me/notifications?view=updates" class="secondary-action">更新收件箱</RouterLink>
+          <button
+            type="button"
+            class="secondary-action"
+            :disabled="isLoading || isSummaryLoading"
+            @click="reload"
+          >
+            <RefreshCw class="control-icon" :class="{ 'animate-spin': isLoading || isSummaryLoading }" />
+            刷新
+          </button>
+        </div>
       </header>
 
-      <section class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="关系摘要">
-        <article v-for="stat in summaryStats" :key="stat.key" class="summary-card">
-          <span>{{ stat.label }}</span>
-          <strong v-if="!isSummaryLoading">{{ stat.value }}</strong>
-          <span v-else class="summary-skeleton" aria-label="正在加载" />
-        </article>
-      </section>
-      <p v-if="summaryError" class="mb-5 text-sm text-amber-700 dark:text-amber-300">{{ summaryError }}</p>
+      <div class="relationship-layout">
+        <section class="workspace-panel" aria-labelledby="relationship-list-title">
+          <div class="workspace-toolbar">
+            <div class="toolbar-heading">
+              <h2 id="relationship-list-title">关系列表</h2>
+              <span>{{ displayedItems.length ? `当前已加载 ${displayedItems.length} 项` : '按状态和类型筛选' }}</span>
+            </div>
+            <label class="filter-field">
+              <span>关系类型</span>
+              <select :value="sourceType ?? ''" class="filter-select" aria-label="按关系类型筛选" @change="setSourceType">
+                <option value="">全部类型</option>
+                <option v-for="option in sourceTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </label>
+          </div>
 
-      <section class="workspace-panel">
-        <div class="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
-          <div class="flex flex-wrap gap-2" role="tablist" aria-label="关系状态">
+          <div class="mode-tabs" role="tablist" aria-label="关系状态">
             <button
               v-for="(tab, index) in modeTabs"
-              :key="tab.value"
               :id="relationshipModeTabId(tab.value)"
+              :key="tab.value"
               type="button"
               role="tab"
               :aria-controls="relationshipModePanelId"
               :aria-selected="mode === tab.value"
               :tabindex="mode === tab.value ? 0 : -1"
-              class="filter-button"
+              class="mode-tab"
               :class="{ active: mode === tab.value }"
               @click="setMode(tab.value)"
               @keydown="handleModeTabKeydown($event, index)"
@@ -50,89 +58,120 @@
               {{ tab.label }}
             </button>
           </div>
-          <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-            <span class="sr-only">关系类型</span>
-            <select :value="sourceType ?? ''" class="filter-select" aria-label="按关系类型筛选" @change="setSourceType">
-              <option value="">全部类型</option>
-              <option v-for="option in sourceTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-            </select>
-          </label>
-        </div>
-        <div
-          :id="relationshipModePanelId"
-          role="tabpanel"
-          :aria-labelledby="relationshipModeTabId(mode)"
-          tabindex="0"
-          :aria-busy="isLoading"
-        >
-        <p v-if="focusNotice" class="partial-error" data-relationship-state="focus-unavailable">
-          {{ focusNotice }}
-        </p>
 
-        <div v-if="isLoading && !displayedItems.length" class="state-block" data-relationship-state="loading">
-          <Loader2 class="mx-auto h-6 w-6 animate-spin text-sky-600" />
-          <p>正在加载你的关系...</p>
-        </div>
-        <div v-else-if="loadError && !displayedItems.length" class="state-block" data-relationship-state="error">
-          <AlertCircle class="mx-auto h-6 w-6 text-rose-500" />
-          <p class="font-semibold text-slate-900 dark:text-slate-100">{{ loadError }}</p>
-          <button type="button" class="text-button" @click="reload">重新加载</button>
-        </div>
-        <div v-else-if="!displayedItems.length" class="state-block" data-relationship-state="empty">
-          <Link2 class="mx-auto h-7 w-7 text-slate-400" />
-          <p class="font-semibold text-slate-900 dark:text-slate-100">当前没有匹配的关系</p>
-          <p class="max-w-md text-sm text-slate-500 dark:text-slate-400">去发现页关注用户、话题或共建资源后，它们会在这里集中出现。</p>
-          <RouterLink to="/explore" class="primary-link">去发现</RouterLink>
-        </div>
-        <div v-else class="divide-y divide-slate-200 dark:divide-slate-800">
-          <article
-            v-for="item in displayedItems"
-            :id="relationshipDomId(item)"
-            :key="relationshipKey(item)"
-            class="relationship-row"
-            :class="{ focused: isSameRelationship(selected, item) }"
+          <div
+            :id="relationshipModePanelId"
+            role="tabpanel"
+            :aria-labelledby="relationshipModeTabId(mode)"
+            tabindex="0"
+            :aria-busy="isLoading"
           >
-            <div class="min-w-0 flex-1">
-              <div class="mb-2 flex flex-wrap items-center gap-2">
-                <span class="source-pill">{{ sourceTypeLabel(item.sourceType) }}</span>
-                <span class="status-pill" :class="statusClass(item)">{{ deliveryModeLabel(item.deliveryMode) }}</span>
-                <span v-if="item.unreadCount" class="unread-pill">{{ item.unreadCount > 99 ? '99+' : item.unreadCount }} 条更新</span>
-              </div>
-              <h2 class="truncate text-base font-semibold text-slate-950 dark:text-slate-50">{{ item.title }}</h2>
-              <p v-if="item.summary" class="mt-1 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{{ item.summary }}</p>
-              <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">最近更新 {{ formatTime(item.updatedAt) }}</p>
-            </div>
-            <div class="relationship-actions">
-              <RouterLink v-if="item.sourceVisible" :to="item.targetPath" class="row-link">查看</RouterLink>
-              <span v-else class="unavailable-label">来源不可见</span>
-              <button
-                :id="relationshipPreferenceTriggerId(item)"
-                type="button"
-                class="row-button"
-                @click="openPreference(item)"
-              >
-                {{ item.deliveryPreferenceSupported ? '订阅设置' : '接收方式不可用' }}
-              </button>
-            </div>
-          </article>
-        </div>
+            <p v-if="focusNotice" class="partial-error" data-relationship-state="focus-unavailable">
+              <AlertCircle class="control-icon" />
+              <span>{{ focusNotice }}</span>
+            </p>
 
-        <div v-if="loadError && displayedItems.length" class="partial-error" data-relationship-state="partial-error">
-          {{ loadError }}
-          <button type="button" class="text-button" @click="reload">重试</button>
-        </div>
-        <button
-          v-if="hasMore"
-          type="button"
-          class="load-more"
-          :disabled="isLoading"
-          @click="loadMore"
-        >
-          <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" />
-          {{ isLoading ? '正在加载...' : '加载更多' }}
-        </button>
-        </div>
-      </section>
+            <div v-if="isLoading && !displayedItems.length" class="state-block" data-relationship-state="loading">
+              <Loader2 class="state-icon animate-spin" />
+              <div>
+                <strong>正在加载你的关系</strong>
+                <p>正在同步关注状态和更新接收方式。</p>
+              </div>
+            </div>
+            <div v-else-if="loadError && !displayedItems.length" class="state-block state-block-error" data-relationship-state="error">
+              <AlertCircle class="state-icon" />
+              <div>
+                <strong>关系暂时无法读取</strong>
+                <p>{{ loadError }}</p>
+              </div>
+              <button type="button" class="secondary-action" @click="reload">重新加载</button>
+            </div>
+            <div v-else-if="!displayedItems.length" class="state-block" data-relationship-state="empty">
+              <Link2 class="state-icon" />
+              <div>
+                <strong>当前没有匹配的关系</strong>
+                <p>去发现页关注用户、话题或共建资源后，它们会在这里集中出现。</p>
+              </div>
+              <RouterLink to="/explore" class="primary-action">去发现</RouterLink>
+            </div>
+            <div v-else class="relationship-list">
+              <article
+                v-for="item in displayedItems"
+                :id="relationshipDomId(item)"
+                :key="relationshipKey(item)"
+                class="relationship-row"
+                :class="{ focused: isSameRelationship(selected, item) }"
+              >
+                <div class="relationship-content">
+                  <div class="relationship-meta">
+                    <span class="source-pill">{{ sourceTypeLabel(item.sourceType) }}</span>
+                    <span class="status-pill" :class="statusClass(item)">{{ deliveryModeLabel(item.deliveryMode) }}</span>
+                    <span v-if="item.unreadCount" class="unread-pill">{{ item.unreadCount > 99 ? '99+' : item.unreadCount }} 条更新</span>
+                    <span class="updated-time">更新于 {{ formatTime(item.updatedAt) }}</span>
+                  </div>
+                  <h3>{{ item.title }}</h3>
+                  <p v-if="item.summary" class="relationship-summary">{{ item.summary }}</p>
+                </div>
+                <div class="relationship-actions">
+                  <RouterLink v-if="item.sourceVisible" :to="item.targetPath" class="secondary-action">查看来源</RouterLink>
+                  <span v-else class="unavailable-label">来源不可见</span>
+                  <button
+                    :id="relationshipPreferenceTriggerId(item)"
+                    type="button"
+                    class="primary-action"
+                    @click="openPreference(item)"
+                  >
+                    {{ item.deliveryPreferenceSupported ? '订阅设置' : '查看接收状态' }}
+                  </button>
+                </div>
+              </article>
+            </div>
+
+            <div v-if="loadError && displayedItems.length" class="partial-error" data-relationship-state="partial-error">
+              <AlertCircle class="control-icon" />
+              <span>{{ loadError }}</span>
+              <button type="button" class="text-button" @click="reload">重试</button>
+            </div>
+            <button
+              v-if="hasMore"
+              type="button"
+              class="load-more"
+              :disabled="isLoading"
+              @click="loadMore"
+            >
+              <Loader2 v-if="isLoading" class="control-icon animate-spin" />
+              {{ isLoading ? '正在加载...' : '加载更多' }}
+            </button>
+          </div>
+        </section>
+
+        <aside class="relationship-sidebar" aria-label="关系摘要与说明">
+          <section class="summary-panel" aria-labelledby="relationship-summary-title">
+            <div class="side-heading">
+              <div>
+                <p>关系概览</p>
+                <h2 id="relationship-summary-title">接收状态</h2>
+              </div>
+              <Loader2 v-if="isSummaryLoading" class="control-icon animate-spin" aria-label="正在加载关系摘要" />
+            </div>
+            <dl class="summary-list">
+              <div v-for="stat in summaryStats" :key="stat.key" class="summary-row">
+                <dt>{{ stat.label }}</dt>
+                <dd v-if="!isSummaryLoading">{{ stat.value }}</dd>
+                <dd v-else><span class="summary-skeleton" aria-hidden="true" /></dd>
+              </div>
+            </dl>
+            <p v-if="summaryError" class="summary-error">{{ summaryError }}</p>
+          </section>
+
+          <section class="guidance-panel">
+            <p class="guidance-kicker">接收规则</p>
+            <h2>关系和通知各自独立</h2>
+            <p>这里管理来源级更新，不影响直接回复、@ 提及和与你提交事项相关的结果通知。</p>
+            <RouterLink to="/me/notifications" class="workspace-link">管理通知</RouterLink>
+          </section>
+        </aside>
+      </div>
     </main>
 
     <div v-if="selected" class="modal-backdrop" @click.self="closePreference">
@@ -145,21 +184,20 @@
         aria-describedby="relationship-preference-description"
         tabindex="-1"
       >
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
+        <div class="modal-heading">
+          <div class="modal-title">
             <span class="source-pill">{{ sourceTypeLabel(selected.sourceType) }}</span>
             <h2
               id="relationship-preference-title"
               ref="preferenceDialogTitle"
               tabindex="-1"
-              class="mt-3 text-xl font-bold text-slate-950 dark:text-slate-50"
             >
               {{ selected.title }}
             </h2>
-            <p id="relationship-preference-description" class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+            <p id="relationship-preference-description">
               只调整后续来源更新的接收方式，不会替代原资源页面上的关注或取消关注动作。
             </p>
-            <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            <p class="modal-note">
               不影响直接回复、@ 提及及与你提交事项相关的结果通知。
             </p>
           </div>
@@ -168,10 +206,10 @@
           </button>
         </div>
 
-        <div v-if="isPreferenceLoading" class="state-inline">
+        <div v-if="isPreferenceLoading" class="state-inline" aria-live="polite">
           <Loader2 class="h-4 w-4 animate-spin" /> 正在读取偏好...
         </div>
-        <div v-else class="mt-6 space-y-5">
+        <div v-else class="preference-content">
           <template v-if="selected.deliveryPreferenceSupported">
             <fieldset class="preference-fieldset">
               <legend class="field-label">更新接收方式</legend>
@@ -199,11 +237,11 @@
             <div v-if="preferenceMode === 'MUTED'">
               <label for="preference-expires-at" class="field-label">静音至（可选）</label>
               <input id="preference-expires-at" v-model="expiresAt" type="datetime-local" class="field-input">
-              <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">留空表示持续静音。</p>
+              <p class="field-help">留空表示持续静音。</p>
             </div>
-            <p v-if="preferenceError" class="text-sm text-rose-600 dark:text-rose-300">{{ preferenceError }}</p>
-            <p v-if="preferenceNotice" class="text-sm text-emerald-700 dark:text-emerald-300">{{ preferenceNotice }}</p>
-            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <p v-if="preferenceError" class="form-message form-message-error">{{ preferenceError }}</p>
+            <p v-if="preferenceNotice" class="form-message form-message-success">{{ preferenceNotice }}</p>
+            <div class="modal-actions">
               <button type="button" class="secondary-action" :disabled="isPreferenceSaving" @click="clearPreference">恢复即时更新</button>
               <button type="button" class="primary-action" :disabled="isPreferenceSaving" @click="savePreference">
                 {{ isPreferenceSaving ? '保存中...' : '保存偏好' }}
@@ -571,194 +609,430 @@ watch([items, focusedSourceId], () => {
 </script>
 
 <style scoped>
-.summary-card,
-.workspace-panel {
-  border: 1px solid rgb(226 232 240);
-  background: rgb(255 255 255);
+.relationship-page {
+  background: var(--surface-2);
 }
 
-.summary-card {
-  min-height: 6.5rem;
-  border-radius: 0.5rem;
+.relationship-main {
+  padding-top: 1.5rem;
+  padding-bottom: 4rem;
+}
+
+.workspace-header,
+.workspace-header-actions,
+.workspace-toolbar,
+.toolbar-heading,
+.mode-tabs,
+.relationship-meta,
+.relationship-actions,
+.side-heading,
+.partial-error,
+.state-inline,
+.modal-heading,
+.modal-actions,
+.preference-unsupported {
+  display: flex;
+  align-items: center;
+}
+
+.workspace-header {
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.25rem 0 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.workspace-heading {
+  min-width: 0;
+}
+
+.workspace-kicker,
+.side-heading p,
+.guidance-kicker {
+  margin: 0 0 0.25rem;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.workspace-heading h1 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 850;
+}
+
+.workspace-heading > p:last-child {
+  max-width: 64ch;
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.workspace-header-actions {
+  flex: none;
+  gap: 0.5rem;
+}
+
+.secondary-action,
+.primary-action,
+.icon-button,
+.load-more,
+.mode-tab,
+.filter-select {
+  min-height: 2.75rem;
+  border-radius: var(--radius-control);
+}
+
+.control-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.relationship-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16.5rem;
+  gap: 1.25rem;
+  align-items: start;
+  padding-top: 1.25rem;
+}
+
+.workspace-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+}
+
+.workspace-toolbar {
+  justify-content: space-between;
+  gap: 1rem;
   padding: 1rem 1.1rem;
 }
 
-.summary-card span:first-child {
-  display: block;
-  color: rgb(100 116 139);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.summary-card strong {
-  display: block;
-  margin-top: 0.65rem;
-  color: rgb(15 23 42);
-  font-size: 1.65rem;
-  line-height: 1;
-}
-
-.summary-skeleton {
-  width: 2.5rem;
-  height: 1.45rem;
-  margin-top: 0.65rem;
-  border-radius: 0.25rem;
-  background: rgb(226 232 240);
-}
-
-.workspace-panel {
-  overflow: hidden;
-  border-radius: 0.5rem;
-}
-
-.filter-button,
-.filter-select,
-.row-button,
-.row-link,
-.primary-link,
-.text-button,
-.load-more,
-.primary-action,
-.secondary-action {
-  min-height: 2.75rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-}
-
-.row-button,
-.row-link {
-  min-height: 2.75rem;
-}
-
-.filter-button {
-  padding: 0.55rem 0.8rem;
-  color: rgb(71 85 105);
-}
-
-.filter-button.active {
-  background: rgb(224 242 254);
-  color: rgb(3 105 161);
-}
-
-.filter-select,
-.field-select,
-.field-input {
-  border: 1px solid rgb(203 213 225);
-  background: rgb(255 255 255);
-  padding: 0.55rem 0.7rem;
-  color: rgb(30 41 59);
-}
-
-.relationship-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.1rem 1.25rem;
-  scroll-margin-top: 5rem;
-}
-
-.relationship-row.focused {
-  background: rgb(240 249 255);
-  box-shadow: inset 3px 0 0 rgb(14 165 233);
-}
-
-.relationship-actions {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
+.toolbar-heading {
+  min-width: 0;
+  align-items: baseline;
   gap: 0.75rem;
 }
 
-.row-link,
-.primary-link,
-.primary-action {
-  display: inline-flex;
+.toolbar-heading h2,
+.side-heading h2,
+.guidance-panel h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.toolbar-heading span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.filter-field {
+  display: flex;
+  flex: none;
   align-items: center;
-  justify-content: center;
-  background: rgb(2 132 199);
-  padding: 0.55rem 0.85rem;
-  color: white;
+  gap: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
 }
 
-.row-button,
-.secondary-action {
-  border: 1px solid rgb(203 213 225);
-  padding: 0.55rem 0.85rem;
-  color: rgb(51 65 85);
+.filter-select,
+.field-input {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: var(--text-primary);
 }
 
-.unavailable-label {
-  color: rgb(100 116 139);
+.filter-select {
+  min-width: 8rem;
+  padding: 0.55rem 2rem 0.55rem 0.7rem;
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: 650;
+}
+
+.mode-tabs {
+  gap: 1.25rem;
+  overflow-x: auto;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 1.1rem;
+  scrollbar-width: none;
+}
+
+.mode-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.mode-tab {
+  flex: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0.1rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.mode-tab:hover,
+.mode-tab.active {
+  border-bottom-color: var(--primary-600);
+  color: var(--primary-700);
+}
+
+.relationship-list {
+  min-width: 0;
+}
+
+.relationship-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  scroll-margin-top: 5rem;
+}
+
+.relationship-row:last-child {
+  border-bottom: 0;
+}
+
+.relationship-row.focused {
+  background: var(--primary-50);
+  box-shadow: inset 3px 0 0 var(--primary-600);
+}
+
+.relationship-content {
+  min-width: 0;
+}
+
+.relationship-meta {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.relationship-content h3 {
+  margin: 0.55rem 0 0;
+  color: var(--text-strong);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.relationship-summary {
+  display: -webkit-box;
+  margin: 0.3rem 0 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.updated-time {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.relationship-actions {
+  flex: none;
+  gap: 0.5rem;
+}
+
+.relationship-actions .secondary-action,
+.relationship-actions .primary-action {
+  min-width: 5.5rem;
+  padding-right: 0.75rem;
+  padding-left: 0.75rem;
+  font-size: 0.78rem;
 }
 
 .source-pill,
 .status-pill,
 .unread-pill {
   display: inline-flex;
-  align-items: center;
   min-height: 1.5rem;
-  border-radius: 999px;
+  align-items: center;
+  border-radius: var(--radius-pill);
   padding: 0.2rem 0.55rem;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 800;
 }
 
-.source-pill {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+.source-pill,
+.status-pill.muted {
+  background: var(--surface-3);
+  color: var(--text-muted);
 }
 
 .status-pill.active {
-  background: rgb(220 252 231);
-  color: rgb(21 128 61);
-}
-
-.status-pill.muted {
-  background: rgb(241 245 249);
-  color: rgb(100 116 139);
+  background: color-mix(in srgb, var(--success) 12%, var(--surface));
+  color: var(--success);
 }
 
 .unread-pill {
-  background: rgb(254 249 195);
-  color: rgb(133 77 14);
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  color: var(--warning);
 }
 
-.state-block {
+.unavailable-label {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.relationship-sidebar {
   display: grid;
-  justify-items: center;
-  gap: 0.7rem;
-  padding: 4.5rem 1.5rem;
-  text-align: center;
-  color: rgb(100 116 139);
+  gap: 1.25rem;
 }
 
-.state-inline {
+.summary-panel,
+.guidance-panel {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
+.side-heading {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.summary-list {
+  margin: 0.8rem 0 0;
+}
+
+.summary-row {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-top: 1.5rem;
-  color: rgb(100 116 139);
-  font-size: 0.875rem;
-}
-
-.text-button {
-  color: rgb(2 132 199);
-  text-decoration: underline;
-}
-
-.partial-error {
-  display: flex;
+  min-height: 2.6rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid rgb(254 215 170);
-  background: rgb(255 251 235);
-  padding: 0.8rem 1.25rem;
-  color: rgb(146 64 14);
-  font-size: 0.875rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.summary-row:last-child {
+  border-bottom: 0;
+}
+
+.summary-row dt {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.summary-row dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  font-weight: 850;
+}
+
+.summary-skeleton {
+  display: block;
+  width: 2rem;
+  height: 0.8rem;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+
+.summary-error,
+.guidance-panel > p:last-of-type {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.summary-error {
+  margin: 0.75rem 0 0;
+  color: var(--warning);
+}
+
+.guidance-panel > p:last-of-type {
+  margin: 0.5rem 0 0;
+}
+
+.workspace-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  color: var(--primary-700);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.state-block {
+  display: flex;
+  min-height: 15rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 2rem;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.state-block strong {
+  display: block;
+  color: var(--text-strong);
+  font-size: 0.9rem;
+}
+
+.state-block p {
+  max-width: 34rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.state-block .primary-action,
+.state-block .secondary-action {
+  flex: none;
+}
+
+.state-block-error .state-icon {
+  color: var(--danger);
+}
+
+.state-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: none;
+  color: var(--primary-600);
+}
+
+.partial-error {
+  justify-content: flex-start;
+  gap: 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--warning) 7%, var(--surface));
+  padding: 0.75rem 1.1rem;
+  color: var(--warning);
+  font-size: 0.78rem;
+}
+
+.partial-error span {
+  min-width: 0;
+  flex: 1;
+}
+
+.text-button {
+  min-height: 2.75rem;
+  flex: none;
+  color: var(--primary-700);
+  font-size: 0.78rem;
+  font-weight: 750;
 }
 
 .load-more {
@@ -766,8 +1040,14 @@ watch([items, focusedSourceId], () => {
   width: 100%;
   align-items: center;
   justify-content: center;
-  border-top: 1px solid rgb(226 232 240);
-  color: rgb(2 132 199);
+  gap: 0.45rem;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--primary-700);
+  font-size: 0.8rem;
+  font-weight: 750;
 }
 
 .modal-backdrop {
@@ -776,42 +1056,91 @@ watch([items, focusedSourceId], () => {
   z-index: 40;
   display: grid;
   place-items: center;
-  background: rgb(15 23 42 / 0.5);
   padding: 1rem;
+  background: rgb(16 24 40 / 0.54);
 }
 
 .preference-modal {
   width: min(100%, 34rem);
   max-height: min(90vh, 44rem);
   overflow-y: auto;
-  border-radius: 0.5rem;
-  background: white;
-  padding: 1.5rem;
-  box-shadow: 0 20px 50px rgb(15 23 42 / 0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  padding: 1.25rem;
+  box-shadow: 0 20px 50px rgb(16 24 40 / 0.2);
+}
+
+.modal-heading {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.modal-title {
+  min-width: 0;
+}
+
+.modal-title h2 {
+  margin: 0.65rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.2rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.modal-title > p {
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.modal-title .modal-note {
+  font-size: 0.72rem;
 }
 
 .icon-button {
   display: inline-grid;
-  min-height: 2.75rem;
   min-width: 2.75rem;
+  flex: none;
   place-items: center;
-  border-radius: 0.375rem;
-  color: rgb(71 85 105);
+  border: 1px solid transparent;
+  color: var(--text-muted);
+}
+
+.preference-content {
+  display: grid;
+  gap: 1.1rem;
+  margin-top: 1.25rem;
+}
+
+.state-inline {
+  gap: 0.5rem;
+  padding-top: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
 }
 
 .field-label {
   display: block;
   margin-bottom: 0.5rem;
-  color: rgb(51 65 85);
-  font-size: 0.875rem;
-  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 750;
 }
 
-.field-select,
 .field-input {
   width: 100%;
   min-height: 2.75rem;
-  border-radius: 0.375rem;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.8125rem;
+}
+
+.field-help {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
 }
 
 .preference-fieldset {
@@ -820,31 +1149,31 @@ watch([items, focusedSourceId], () => {
 
 .delivery-mode-group {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 .delivery-mode-option {
   display: flex;
-  min-height: 4.25rem;
+  min-height: 4rem;
   cursor: pointer;
   align-items: flex-start;
   gap: 0.7rem;
-  border: 1px solid rgb(203 213 225);
-  border-radius: 0.375rem;
-  padding: 0.75rem;
-  color: rgb(51 65 85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding: 0.7rem;
+  color: var(--text-primary);
 }
 
 .delivery-mode-option.active {
-  border-color: rgb(14 165 233);
-  background: rgb(240 249 255);
+  border-color: var(--primary-500);
+  background: var(--primary-50);
 }
 
 .delivery-mode-option input {
   width: 1rem;
   height: 1rem;
   margin-top: 0.1rem;
-  accent-color: rgb(2 132 199);
+  accent-color: var(--primary-600);
 }
 
 .delivery-mode-option span {
@@ -854,111 +1183,171 @@ watch([items, focusedSourceId], () => {
 }
 
 .delivery-mode-option strong {
-  color: rgb(15 23 42);
-  font-size: 0.875rem;
+  color: var(--text-strong);
+  font-size: 0.8125rem;
 }
 
 .delivery-mode-option small {
-  color: rgb(100 116 139);
-  font-size: 0.75rem;
-  line-height: 1.4;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.form-message {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.form-message-error {
+  color: var(--danger);
+}
+
+.form-message-success {
+  color: var(--success);
+}
+
+.modal-actions {
+  justify-content: flex-end;
+  gap: 0.6rem;
 }
 
 .preference-unsupported {
-  display: flex;
   align-items: flex-start;
   gap: 0.7rem;
-  border: 1px solid rgb(254 215 170);
-  border-radius: 0.375rem;
-  background: rgb(255 251 235);
-  padding: 0.9rem;
-  color: rgb(146 64 14);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border-subtle));
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--warning) 7%, var(--surface));
+  padding: 0.85rem;
+  color: var(--warning);
 }
 
 .preference-unsupported h3 {
-  color: rgb(120 53 15);
-  font-size: 0.875rem;
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.8125rem;
   font-weight: 800;
 }
 
 .preference-unsupported p {
-  margin-top: 0.25rem;
-  font-size: 0.8125rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
-.dark .summary-card,
-.dark .workspace-panel,
-.dark .preference-modal {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+:global(.dark .relationship-row.focused),
+:global(.dark .delivery-mode-option.active) {
+  background: color-mix(in srgb, var(--primary-600) 13%, var(--surface));
 }
 
-.dark .summary-card span:first-child,
-.dark .field-label,
-.dark .row-button,
-.dark .secondary-action {
-  color: rgb(203 213 225);
-}
+@media (max-width: 900px) {
+  .relationship-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.dark .summary-card strong,
-.dark .field-select,
-.dark .field-input {
-  color: rgb(241 245 249);
-}
-
-.dark .filter-select,
-.dark .field-select,
-.dark .field-input,
-.dark .row-button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-}
-
-.dark .delivery-mode-option {
-  border-color: rgb(51 65 85);
-  color: rgb(203 213 225);
-}
-
-.dark .delivery-mode-option.active {
-  border-color: rgb(14 116 144);
-  background: rgb(8 47 73 / 0.45);
-}
-
-.dark .delivery-mode-option strong {
-  color: rgb(241 245 249);
-}
-
-.dark .delivery-mode-option small {
-  color: rgb(148 163 184);
-}
-
-.dark .preference-unsupported {
-  border-color: rgb(120 53 15);
-  background: rgb(69 26 3);
-  color: rgb(253 186 116);
-}
-
-.dark .preference-unsupported h3 {
-  color: rgb(254 215 170);
-}
-
-.dark .relationship-row.focused {
-  background: rgb(8 47 73 / 0.45);
+  .relationship-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
-  .relationship-row {
+  .relationship-main {
+    padding-top: 1rem;
+  }
+
+  .workspace-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .workspace-heading h1 {
+    font-size: 1.45rem;
+  }
+
+  .workspace-header-actions,
+  .workspace-header-actions > * {
+    width: 100%;
+  }
+
+  .workspace-toolbar {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .relationship-actions {
+  .toolbar-heading {
+    display: block;
+  }
+
+  .toolbar-heading span {
+    display: block;
+    margin-top: 0.25rem;
+  }
+
+  .filter-field {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .filter-select {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mode-tabs {
+    gap: 1rem;
+    margin-right: calc(var(--community-page-gutter) * -1);
+    margin-left: calc(var(--community-page-gutter) * -1);
+    padding-right: var(--community-page-gutter);
+    padding-left: var(--community-page-gutter);
+  }
+
+  .relationship-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .updated-time {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .relationship-actions,
+  .relationship-actions > * {
     width: 100%;
   }
 
-  .relationship-actions > * {
-    flex: 1;
+  .relationship-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .state-block {
+    min-height: 13rem;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 1.25rem;
+  }
+
+  .state-block .primary-action,
+  .state-block .secondary-action {
+    width: 100%;
+  }
+
+  .partial-error {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .partial-error .text-button {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .modal-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions > * {
+    width: 100%;
   }
 }
 </style>

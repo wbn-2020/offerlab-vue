@@ -26,6 +26,7 @@ assert.match(source, /filterVisibleTexts/, 'SearchView must reuse the shared vis
 assert.match(source, /isLowQualityVisibleText/, 'SearchView must reuse the shared visible-text mojibake detector')
 assert.match(source, /suggestions\.value = filterVisibleSearchTerms\(res\.data\)/, 'Search suggestions must filter low-quality visible terms')
 assert.match(source, /hotWords\.value = filterVisibleSearchTerms\(res\.data\)/, 'Hot search terms must filter low-quality visible terms')
+assert.match(source, /typeof value === 'object' && 'text' in value/, 'Search term filtering must extract text from structured suggestion items')
 assert.match(source, /if \(hasMore\.value\) return `已加载 \$\{resultCount\.value\} 条内容，继续加载可查看更多`/, 'SearchView must tell users when more post results can be loaded')
 assert.match(source, /@click="runSearch\(true\)"/, 'SearchView must expose a load-more action for post results')
 assert.match(source, /cursor: append \? cursor\.value : undefined,[\s\S]*size: 20/, 'SearchView must request additional pages with a cursor and bounded page size')

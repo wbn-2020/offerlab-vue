@@ -1,27 +1,28 @@
 ﻿<template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell contact-page">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
+    <main class="community-page contact-main">
       <section class="page-heading">
         <div>
-          <p class="text-sm font-semibold text-primary-600 dark:text-primary-300">Contact Requests</p>
+          <p class="page-kicker">个人工作台 · 联系</p>
           <h1>联系请求</h1>
-          <p>管理收到和发出的低打扰联系请求。</p>
+          <p>处理收到的请求，跟踪已发出的状态，并控制谁可以向你发起联系。</p>
         </div>
-        <button type="button" class="secondary-button" :disabled="activeList.loading" @click="reloadActiveList">
-          <RefreshCw class="h-4 w-4" />
-          {{ activeList.loading ? '刷新中...' : '刷新' }}
+        <button type="button" class="secondary-action" :disabled="activeList.loading" @click="reloadActiveList">
+          <RefreshCw class="control-icon" :class="{ 'animate-spin': activeList.loading }" />
+          {{ activeList.loading ? '刷新中...' : '刷新当前列表' }}
         </button>
       </section>
 
-      <section class="settings-panel mt-6">
+      <section class="settings-panel">
         <div class="settings-copy">
           <div class="settings-title-row">
-            <ShieldCheck class="h-5 w-5 text-primary-600" />
+            <ShieldCheck class="settings-icon" />
             <div>
-              <h2>接收设置</h2>
-              <p>控制是否接收联系请求，以及哪些登录用户可以联系你。</p>
+              <p class="panel-kicker">接收策略</p>
+              <h2>联系权限</h2>
+              <p>控制是否接收请求，以及允许发起联系的用户范围。</p>
             </div>
           </div>
           <p v-if="settingsError" class="notice-error mt-4">{{ settingsError }}</p>
@@ -40,7 +41,7 @@
               class="switch-input"
               :disabled="settingsSaving"
               @change="syncAcceptPolicy"
-            />
+            >
           </label>
 
           <label class="setting-field">
@@ -58,17 +59,17 @@
           </label>
 
           <div class="settings-actions">
-            <button type="button" class="secondary-button" :disabled="settingsLoading || settingsSaving" @click="loadSettings">
+            <button type="button" class="secondary-action" :disabled="settingsLoading || settingsSaving" @click="loadSettings">
               {{ settingsLoading ? '加载中...' : '重新加载' }}
             </button>
-            <button type="submit" class="primary-button" :disabled="settingsSaving">
+            <button type="submit" class="primary-action" :disabled="settingsSaving">
               {{ settingsSaving ? '保存中...' : '保存设置' }}
             </button>
           </div>
         </form>
       </section>
 
-      <section class="request-panel mt-6">
+      <section class="request-panel">
         <div class="tab-bar">
           <button
             v-for="tab in tabs"
@@ -77,7 +78,7 @@
             :class="['tab-button', activeTab === tab.value ? 'tab-active' : '']"
             @click="setActiveTab(tab.value)"
           >
-            <component :is="tab.icon" class="h-4 w-4" />
+            <component :is="tab.icon" class="control-icon" />
             {{ tab.label }}
             <span>{{ tab.value === 'inbox' ? inbox.items.length : outbox.items.length }}</span>
           </button>
@@ -125,16 +126,16 @@
                 <p class="request-message">{{ request.messagePreview || '对方未填写说明。' }}</p>
               </div>
               <div class="request-actions">
-                <button type="button" class="primary-button" :disabled="isActionDisabled(request)" @click="handleRequestAction(request, 'accept')">
+                <button type="button" class="primary-action" :disabled="isActionDisabled(request)" @click="handleRequestAction(request, 'accept')">
                   {{ actionButtonLabel(request, 'accept', '同意') }}
                 </button>
-                <button type="button" class="secondary-button" :disabled="isActionDisabled(request)" @click="handleRequestAction(request, 'reject')">
+                <button type="button" class="secondary-action" :disabled="isActionDisabled(request)" @click="handleRequestAction(request, 'reject')">
                   {{ actionButtonLabel(request, 'reject', '拒绝') }}
                 </button>
-                <button type="button" class="secondary-button" :disabled="isActionDisabled(request)" @click="handleRequestAction(request, 'ignore')">
+                <button type="button" class="secondary-action" :disabled="isActionDisabled(request)" @click="handleRequestAction(request, 'ignore')">
                   {{ actionButtonLabel(request, 'ignore', '忽略') }}
                 </button>
-                <button type="button" class="danger-button" :disabled="isActionDisabled(request)" @click="handleRequestAction(request, 'report')">
+                <button type="button" class="danger-action" :disabled="isActionDisabled(request)" @click="handleRequestAction(request, 'report')">
                   {{ actionButtonLabel(request, 'report', '举报') }}
                 </button>
               </div>
@@ -188,7 +189,7 @@
       <div v-if="reportDialog.open" class="modal-backdrop" @click.self="closeReportDialog">
         <form class="report-dialog" @submit.prevent="submitReportDialog">
           <div>
-            <p class="text-sm font-semibold text-primary-600 dark:text-primary-300">举报联系请求</p>
+            <p class="panel-kicker">治理反馈</p>
             <h2>选择举报原因</h2>
             <p>举报会进入治理队列，处理后该请求状态会同步更新。</p>
           </div>
@@ -214,8 +215,8 @@
           </label>
           <p v-if="reportDialog.error" class="notice-error">{{ reportDialog.error }}</p>
           <div class="settings-actions">
-            <button type="button" class="secondary-button" :disabled="Boolean(reportDialog.loading)" @click="closeReportDialog">取消</button>
-            <button type="submit" class="danger-button" :disabled="Boolean(reportDialog.loading)">
+            <button type="button" class="secondary-action" :disabled="Boolean(reportDialog.loading)" @click="closeReportDialog">取消</button>
+            <button type="submit" class="danger-action" :disabled="Boolean(reportDialog.loading)">
               {{ reportDialog.loading ? '提交中...' : '提交举报' }}
             </button>
           </div>
@@ -233,7 +234,7 @@ import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { getErrorMessage } from '@/api/client'
 import { interactionApi } from '@/api/interaction'
-import type { ApiId, ContactRequest, ContactRequestSettings, ContactRequestStatus, PaginatedResponse } from '@/api/types'
+import type { ApiId, ContactRequest, ContactRequestSettings, PaginatedResponse } from '@/api/types'
 
 type TabValue = 'inbox' | 'outbox'
 type RequestAction = 'accept' | 'reject' | 'ignore' | 'report'
@@ -280,13 +281,6 @@ const sourceLabels: Record<string, string> = {
   profile: '作者主页',
   post: '帖子',
   comment: '评论',
-}
-
-const actionStatusMap: Record<RequestAction, ContactRequestStatus> = {
-  accept: 'ACCEPTED',
-  reject: 'REJECTED',
-  ignore: 'IGNORED',
-  report: 'REPORTED',
 }
 
 const actionSuccessCopy: Record<RequestAction, string> = {
@@ -580,7 +574,7 @@ const StateBlock = defineComponent({
       h('h2', props.title),
       props.description ? h('p', props.description) : null,
       props.actionLabel
-        ? h('button', { type: 'button', class: 'secondary-button', onClick: () => emit('action') }, props.actionLabel)
+        ? h('button', { type: 'button', class: 'secondary-action', onClick: () => emit('action') }, props.actionLabel)
         : null,
     ])
   },
@@ -596,7 +590,7 @@ const LoadMoreButton = defineComponent({
       ? h('div', { class: 'load-more-row' }, [
           h('button', {
             type: 'button',
-            class: 'secondary-button',
+            class: 'secondary-action',
             disabled: props.state.loadingMore,
             onClick: () => emit('load-more'),
           }, props.state.loadingMore ? '加载中...' : '加载更多'),
@@ -1055,6 +1049,625 @@ watch(() => route.query.tab, (tab) => {
 
   .form-select {
     width: 100%;
+  }
+}
+</style>
+
+<style scoped>
+.contact-page {
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+.contact-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  align-items: start;
+  gap: 1.25rem;
+  padding-top: 1.5rem;
+  padding-bottom: 4rem;
+}
+
+.contact-page .page-heading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0 1.25rem;
+}
+
+.page-kicker,
+.panel-kicker {
+  margin: 0 0 0.3rem;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.contact-page .page-heading h1 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.8rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.contact-page .page-heading p:last-child {
+  max-width: 64ch;
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.control-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.settings-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex: none;
+  color: var(--primary-600);
+}
+
+.contact-page .request-panel {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+}
+
+.contact-page .settings-panel {
+  position: sticky;
+  top: 5.5rem;
+  grid-column: 2;
+  grid-row: 2;
+  display: block;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  padding: 1rem;
+}
+
+.contact-page .settings-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.contact-page .settings-panel h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.contact-page .settings-panel p,
+.contact-page .settings-loading {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.contact-page .settings-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.contact-page .switch-row,
+.contact-page .setting-field {
+  display: flex;
+  min-height: 0;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.8rem;
+}
+
+.contact-page .switch-row {
+  align-items: center;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.contact-page .switch-row strong,
+.contact-page .setting-field > span {
+  color: var(--text-strong);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.contact-page .switch-row small {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.contact-page .switch-input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  accent-color: var(--primary-600);
+}
+
+.contact-page .form-select,
+.contact-page .form-textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  padding: 0.55rem 0.7rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.contact-page .form-textarea {
+  min-height: 7rem;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.contact-page .form-select:focus,
+.contact-page .form-textarea:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-500) 14%, transparent);
+}
+
+.contact-page .settings-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.contact-page .settings-actions > * {
+  width: 100%;
+}
+
+.contact-page .tab-bar {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 1.1rem;
+  scrollbar-width: none;
+}
+
+.contact-page .tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.contact-page .tab-button {
+  display: inline-flex;
+  min-height: 3rem;
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0.1rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.contact-page .tab-button span {
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  padding: 0.12rem 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.contact-page .tab-button:hover,
+.contact-page .tab-active {
+  border-bottom-color: var(--primary-600);
+  color: var(--primary-700);
+}
+
+.contact-page .request-list {
+  display: grid;
+  gap: 0;
+  padding: 0;
+}
+
+.contact-page .request-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+}
+
+.contact-page .request-card:last-of-type {
+  border-bottom: 0;
+}
+
+.contact-page .outbox-card {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.contact-page .request-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.contact-page .request-title-row h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.contact-page .request-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.contact-page .outbox-card .request-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.contact-page .request-meta dt {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.contact-page .request-meta dd {
+  margin: 0.2rem 0 0;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.contact-page .request-message {
+  margin: 0.85rem 0 0;
+  border-left: 2px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.1rem 0 0.1rem 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.contact-page .request-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(5.25rem, 1fr));
+  align-content: flex-start;
+  gap: 0.5rem;
+  min-width: 11rem;
+}
+
+.contact-page .primary-action,
+.contact-page .secondary-action,
+.contact-page .danger-action {
+  min-height: 2.75rem;
+}
+
+.contact-page .request-actions > * {
+  min-width: 0;
+  padding-right: 0.75rem;
+  padding-left: 0.75rem;
+  font-size: 0.78rem;
+}
+
+.danger-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border-subtle));
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  padding: 0.5rem 0.85rem;
+  color: var(--danger);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.danger-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 13%, var(--surface));
+}
+
+.contact-page .primary-action:disabled,
+.contact-page .secondary-action:disabled,
+.contact-page .danger-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.contact-page .status-badge {
+  display: inline-flex;
+  min-height: 1.5rem;
+  flex: none;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.contact-page .status-pending {
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  color: var(--warning);
+}
+
+.contact-page .status-accepted {
+  background: color-mix(in srgb, var(--success) 12%, var(--surface));
+  color: var(--success);
+}
+
+.contact-page .status-danger {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--danger);
+}
+
+.contact-page .status-muted {
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.contact-page .state-block {
+  display: flex;
+  min-height: 15rem;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  padding: 2rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.contact-page .state-block h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  font-weight: 850;
+}
+
+.contact-page .state-block p {
+  max-width: 34rem;
+  margin: 0.4rem auto 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.contact-page .state-block button {
+  margin-top: 1rem;
+}
+
+.contact-page .notice-error {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border-subtle));
+  border-radius: 0;
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+  padding: 0.8rem 1.1rem;
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.contact-page .settings-panel .notice-error {
+  margin-top: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border-subtle));
+  border-radius: var(--radius-control);
+  padding: 0.7rem;
+}
+
+.contact-page .load-more-row {
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.85rem;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(16 24 40 / 0.56);
+}
+
+.report-dialog {
+  display: grid;
+  width: min(100%, 32rem);
+  max-height: min(90vh, 44rem);
+  overflow-y: auto;
+  gap: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  padding: 1.25rem;
+  box-shadow: 0 20px 50px rgb(16 24 40 / 0.2);
+}
+
+.report-dialog h2 {
+  margin: 0.2rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.2rem;
+  font-weight: 850;
+}
+
+.report-dialog > div:first-child > p:last-child {
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.report-dialog .setting-field {
+  display: grid;
+  gap: 0.45rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.report-dialog .setting-field > span {
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.report-dialog .notice-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border-subtle));
+  border-radius: var(--radius-control);
+  padding: 0.7rem;
+}
+
+.report-dialog .settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+@media (max-width: 900px) {
+  .contact-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contact-page .request-panel,
+  .contact-page .settings-panel {
+    grid-column: 1;
+  }
+
+  .contact-page .settings-panel {
+    position: static;
+    grid-row: 3;
+  }
+
+  .contact-page .settings-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contact-page .settings-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .contact-main {
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+
+  .contact-page .page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .contact-page .page-heading h1 {
+    font-size: 1.5rem;
+  }
+
+  .contact-page .page-heading .secondary-action {
+    width: 100%;
+  }
+
+  .contact-page .tab-bar {
+    margin-right: calc(var(--community-page-gutter) * -1);
+    margin-left: calc(var(--community-page-gutter) * -1);
+    padding-right: var(--community-page-gutter);
+    padding-left: var(--community-page-gutter);
+  }
+
+  .contact-page .request-card {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1rem;
+  }
+
+  .contact-page .request-meta,
+  .contact-page .outbox-card .request-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contact-page .request-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+  }
+
+  .contact-page .settings-form,
+  .contact-page .settings-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contact-page .state-block {
+    min-height: 13rem;
+    padding: 1.25rem;
+  }
+
+  .report-dialog .settings-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .report-dialog .settings-actions > * {
+    width: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .contact-page .request-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-page *,
+  .report-dialog * {
+    scroll-behavior: auto;
   }
 }
 </style>

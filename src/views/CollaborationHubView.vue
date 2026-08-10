@@ -2,20 +2,20 @@
   <div class="app-shell">
     <AppHeader />
 
-    <main class="collaboration-page mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
-      <header class="workspace-header">
-        <div class="workspace-title-group">
-          <span class="workspace-mark" aria-hidden="true">
+    <main class="collaboration-page community-page collaboration-hub-page mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
+      <header class="workspace-header collaboration-hub-hero">
+        <div class="workspace-title-group collaboration-hub-hero-copy">
+          <span class="workspace-mark collaboration-hub-mark" aria-hidden="true">
             <Users class="h-6 w-6" />
           </span>
           <div class="min-w-0">
-            <p class="workspace-kicker">公共共建</p>
-            <h1>协作工作台</h1>
-            <p>围绕公开内容组织需求、合集投稿、共创活动、频道策展与结构化决策。</p>
+            <p class="workspace-kicker">闻野 / 公共共建</p>
+            <h1>公共共建中心</h1>
+            <p>从正在发生的内容需求进入，参与合集、活动、讨论和经验交流，把一次分享变成社区可以继续使用的公共资产。</p>
           </div>
         </div>
-        <div class="workspace-header-actions">
-           <label v-if="showGlobalSort" class="workspace-sort-control">
+        <div class="workspace-header-actions collaboration-hub-header-actions">
+          <label v-if="showGlobalSort" class="workspace-sort-control">
             <span>排序</span>
             <select v-model="hubSort" class="toolbar-select" aria-label="协作资源排序" @change="changeSort">
               <option value="">默认</option>
@@ -29,6 +29,88 @@
           </button>
         </div>
       </header>
+
+      <section class="hub-participation-guide" aria-labelledby="hub-participation-title">
+        <div class="hub-guide-heading">
+          <div>
+            <p class="hub-guide-kicker">从公共问题开始</p>
+            <h2 id="hub-participation-title">找到你现在能参与的一步</h2>
+          </div>
+          <p>公开需求和协作资源会保留来源、权限与贡献记录，方便继续跟进。</p>
+        </div>
+        <div class="hub-guide-grid">
+          <button
+            type="button"
+            class="hub-guide-step"
+            :class="{ 'hub-guide-step-active': activeTab === 'needs' }"
+            :aria-pressed="activeTab === 'needs'"
+            @click="selectTab('needs')"
+          >
+            <span class="hub-guide-number">01</span>
+            <span class="hub-guide-step-copy">
+              <strong>看见缺口</strong>
+              <small>浏览公开需求，认领明确的交付任务。</small>
+            </span>
+            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="hub-guide-step"
+            :class="{ 'hub-guide-step-active': activeTab === 'series' }"
+            :aria-pressed="activeTab === 'series'"
+            @click="selectTab('series')"
+          >
+            <span class="hub-guide-number">02</span>
+            <span class="hub-guide-step-copy">
+              <strong>收拢内容</strong>
+              <small>加入协作合集，让分散经验形成主题。</small>
+            </span>
+            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="hub-guide-step"
+            :class="{ 'hub-guide-step-active': activeTab === 'activities' }"
+            :aria-pressed="activeTab === 'activities'"
+            @click="selectTab('activities')"
+          >
+            <span class="hub-guide-number">03</span>
+            <span class="hub-guide-step-copy">
+              <strong>一起产出</strong>
+              <small>参与共创活动，把经验交付给公共主题。</small>
+            </span>
+            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="hub-guide-step"
+            :class="{ 'hub-guide-step-active': activeTab === 'discussions' }"
+            :aria-pressed="activeTab === 'discussions'"
+            @click="selectTab('discussions')"
+          >
+            <span class="hub-guide-number">04</span>
+            <span class="hub-guide-step-copy">
+              <strong>共同判断</strong>
+              <small>参与结构化讨论，留下可复用的共识。</small>
+            </span>
+            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="hub-guide-step"
+            :class="{ 'hub-guide-step-active': activeTab === 'office-hours' }"
+            :aria-pressed="activeTab === 'office-hours'"
+            @click="selectTab('office-hours')"
+          >
+            <span class="hub-guide-number">05</span>
+            <span class="hub-guide-step-copy">
+              <strong>经验交流</strong>
+              <small>预约开放时段，和有经验的人面对面交流。</small>
+            </span>
+            <ArrowRight class="hub-guide-arrow" aria-hidden="true" />
+          </button>
+        </div>
+      </section>
 
       <nav class="workspace-tabs" role="tablist" aria-label="协作工作台视图">
         <button
@@ -3181,5 +3263,464 @@ onMounted(() => {
   .skeleton-line {
     animation: none;
   }
+}
+
+/* Public discovery layout: the hub is a community surface first, then a workbench. */
+.collaboration-hub-page {
+  --hub-bg: #f6f7f9;
+  --hub-surface: #ffffff;
+  --hub-surface-muted: #f8fafc;
+  --hub-ink: #0f172a;
+  --hub-copy: #475569;
+  --hub-muted: #64748b;
+  --hub-border: #e8edf3;
+  --hub-border-strong: #d7dee8;
+  --hub-primary: #2563eb;
+  --hub-primary-soft: #eff6ff;
+  --hub-primary-hover: #1d4ed8;
+  max-width: 1180px;
+  padding-top: 1.25rem;
+  padding-bottom: 5rem;
+}
+
+.collaboration-hub-hero {
+  align-items: flex-end;
+  gap: 2rem;
+  padding: 0.5rem 0 1.25rem;
+}
+
+.collaboration-hub-hero-copy {
+  gap: 0.85rem;
+}
+
+.collaboration-hub-mark {
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 0.7rem;
+  background: var(--hub-primary);
+  color: white;
+}
+
+.workspace-kicker {
+  color: var(--hub-primary);
+  letter-spacing: 0.02em;
+}
+
+.workspace-header h1 {
+  color: var(--hub-ink);
+  font-size: 1.75rem;
+  letter-spacing: 0;
+}
+
+.workspace-header p:last-child {
+  max-width: 66ch;
+  color: var(--hub-copy);
+}
+
+.collaboration-hub-header-actions {
+  flex: none;
+  align-items: flex-end;
+}
+
+.workspace-sort-control {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--hub-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.hub-participation-guide {
+  border-top: 1px solid var(--hub-border);
+  border-bottom: 1px solid var(--hub-border);
+  padding: 1.1rem 0 1.25rem;
+}
+
+.hub-guide-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.hub-guide-kicker {
+  margin: 0 0 0.2rem;
+  color: var(--hub-primary);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.hub-guide-heading h2 {
+  margin: 0;
+  color: var(--hub-ink);
+  font-size: 1rem;
+  font-weight: 850;
+  text-wrap: balance;
+}
+
+.hub-guide-heading > p {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--hub-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  text-align: right;
+}
+
+.hub-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.hub-guide-step {
+  display: grid;
+  min-width: 0;
+  min-height: 6.8rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.65rem;
+  border: 1px solid var(--hub-border);
+  border-radius: 0.7rem;
+  background: var(--hub-surface);
+  padding: 0.8rem;
+  color: var(--hub-ink);
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.hub-guide-step:hover,
+.hub-guide-step-active {
+  border-color: #93c5fd;
+  background: var(--hub-primary-soft);
+}
+
+.hub-guide-step:focus-visible {
+  outline: 2px solid rgb(37 99 235 / 0.55);
+  outline-offset: 2px;
+}
+
+.hub-guide-number {
+  color: var(--hub-primary);
+  font-size: 0.6875rem;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.hub-guide-step-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.hub-guide-step-copy strong {
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.hub-guide-step-copy small {
+  overflow-wrap: anywhere;
+  color: var(--hub-muted);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.hub-guide-arrow {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: none;
+  color: #94a3b8;
+}
+
+.workspace-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: 1.15rem 0 1.25rem;
+  overflow-x: auto;
+  border: 0;
+  border-bottom: 1px solid var(--hub-border);
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.workspace-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.workspace-tab {
+  min-height: 2.9rem;
+  flex: 1 0 auto;
+  gap: 0.45rem;
+  border-bottom: 2px solid transparent;
+  border-radius: 0.35rem 0.35rem 0 0;
+  padding: 0.7rem 0.85rem;
+  color: var(--hub-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.workspace-tab:hover {
+  background: var(--hub-surface-muted);
+  color: var(--hub-ink);
+}
+
+.workspace-tab-active {
+  border-bottom-color: var(--hub-primary);
+  background: var(--hub-primary-soft);
+  color: var(--hub-primary);
+  box-shadow: none;
+}
+
+.workspace-layout {
+  grid-template-columns: minmax(19rem, 21.5rem) minmax(0, 1fr);
+  gap: 1.35rem;
+}
+
+.workspace-panel {
+  border-color: var(--hub-border);
+  border-radius: 0.75rem;
+  background: var(--hub-surface);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
+}
+
+.workspace-form-panel {
+  top: 5rem;
+  border-top: 2px solid var(--hub-primary);
+}
+
+.panel-heading h2,
+.list-toolbar h2,
+.row-title h3 {
+  color: var(--hub-ink);
+}
+
+.panel-heading p,
+.list-toolbar p {
+  color: var(--hub-muted);
+}
+
+.workspace-input,
+.workspace-textarea,
+.toolbar-select {
+  border-color: var(--hub-border-strong);
+}
+
+.workspace-input:focus,
+.workspace-textarea:focus,
+.toolbar-select:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+}
+
+.primary-action,
+.row-action-primary {
+  background: var(--hub-primary);
+}
+
+.primary-action:hover:not(:disabled),
+.row-action-primary:hover:not(:disabled) {
+  background: var(--hub-primary-hover);
+}
+
+.row-action-primary {
+  border-color: var(--hub-primary);
+}
+
+.row-action-primary:hover:not(:disabled) {
+  border-color: var(--hub-primary-hover);
+}
+
+.login-notice {
+  background: var(--hub-primary-soft);
+  color: #1d4ed8;
+}
+
+.login-notice button,
+.state-message button {
+  color: var(--hub-primary);
+}
+
+.icon-action:hover:not(:disabled),
+.row-action:hover:not(:disabled),
+.load-more:hover:not(:disabled),
+.vote-option:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background: var(--hub-primary-soft);
+  color: var(--hub-primary-hover);
+}
+
+.row-detail,
+.row-summary,
+.discussion-summary {
+  border: 1px solid var(--hub-border);
+  background: var(--hub-surface-muted);
+}
+
+.load-more {
+  border-color: var(--hub-border-strong);
+  background: var(--hub-surface-muted);
+}
+
+.vote-option-selected {
+  border-color: #60a5fa;
+  background: var(--hub-primary-soft);
+  color: #1d4ed8;
+}
+
+@media (max-width: 1024px) {
+  .hub-guide-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .collaboration-hub-hero {
+    align-items: flex-start;
+  }
+
+  .collaboration-hub-header-actions {
+    align-items: stretch;
+  }
+
+  .hub-guide-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hub-guide-heading > p {
+    max-width: 58ch;
+    text-align: left;
+  }
+
+  .hub-guide-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-tabs {
+    margin-top: 1rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .collaboration-hub-page {
+    padding-top: 1rem;
+    padding-bottom: 4.75rem;
+  }
+
+  .collaboration-hub-hero {
+    gap: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .collaboration-hub-hero-copy {
+    gap: 0.7rem;
+  }
+
+  .collaboration-hub-mark {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .workspace-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .workspace-header p:last-child {
+    font-size: 0.8125rem;
+    line-height: 1.65;
+  }
+
+  .workspace-sort-control {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .workspace-sort-control .toolbar-select {
+    width: auto;
+    flex: 1;
+  }
+
+  .hub-participation-guide {
+    padding-top: 1rem;
+  }
+
+  .hub-guide-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hub-guide-step {
+    min-height: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 0.75rem;
+  }
+
+  .workspace-tabs {
+    margin-right: -0.75rem;
+    margin-left: -0.75rem;
+    padding: 0 0.75rem;
+  }
+
+  .workspace-tab {
+    min-height: 2.75rem;
+    padding-right: 0.7rem;
+    padding-left: 0.7rem;
+  }
+
+  .workspace-panel {
+    border-radius: 0.65rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-guide-step {
+    transition: none;
+  }
+}
+
+.dark .collaboration-hub-page {
+  --hub-surface: rgb(15 23 42 / 0.92);
+  --hub-surface-muted: rgb(2 6 23 / 0.58);
+  --hub-ink: #f1f5f9;
+  --hub-copy: #cbd5e1;
+  --hub-muted: #94a3b8;
+  --hub-border: #334155;
+  --hub-border-strong: #475569;
+  --hub-primary: #60a5fa;
+  --hub-primary-soft: rgb(30 64 175 / 0.26);
+  --hub-primary-hover: #93c5fd;
+}
+
+.dark .collaboration-hub-mark {
+  background: #1d4ed8;
+  color: #eff6ff;
+}
+
+.dark .hub-guide-step:hover,
+.dark .hub-guide-step-active,
+.dark .workspace-tab-active {
+  background: var(--hub-primary-soft);
+}
+
+.dark .workspace-panel {
+  box-shadow: none;
+}
+
+.dark .login-notice {
+  color: #bfdbfe;
+}
+
+.dark .row-detail,
+.dark .row-summary,
+.dark .discussion-summary,
+.dark .load-more {
+  border-color: var(--hub-border);
+  background: var(--hub-surface-muted);
 }
 </style>

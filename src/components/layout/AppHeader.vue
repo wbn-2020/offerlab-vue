@@ -204,9 +204,9 @@
         <PenLine class="h-5 w-5" />
         <span>发布</span>
       </RouterLink>
-      <RouterLink to="/collaboration" :class="{ 'community-mobile-dock__item--active': isNavActive('/collaboration') }">
-        <HeartHandshake class="h-5 w-5" />
-        <span>共建</span>
+      <RouterLink to="/search" :class="{ 'community-mobile-dock__item--active': isNavActive('/search') }">
+        <Search class="h-5 w-5" />
+        <span>搜索</span>
       </RouterLink>
       <RouterLink :to="authStore.isLoggedIn ? '/me' : '/login'" :class="{ 'community-mobile-dock__item--active': isNavActive('/me') }">
         <User class="h-5 w-5" />
@@ -401,13 +401,13 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__inner {
   display: grid;
-  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+  grid-template-columns: auto auto minmax(220px, 360px) auto;
   align-items: center;
-  gap: 1.15rem;
-  width: min(1320px, 100%);
-  min-height: 68px;
+  gap: 1rem;
+  width: min(var(--community-page-max), 100%);
+  min-height: var(--community-header-height);
   margin: 0 auto;
-  padding: 0.75rem 1.5rem;
+  padding: 0 1.25rem;
 }
 
 .community-header__brand {
@@ -420,10 +420,10 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__brand-mark {
   display: grid;
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 2.125rem;
+  height: 2.125rem;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--primary-600);
   color: white;
   font-size: 1rem;
@@ -464,11 +464,11 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .community-header__avatar,
 .community-header__publish {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 40px;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-muted);
   font-size: 0.875rem;
@@ -478,7 +478,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__nav-link {
   position: relative;
-  padding: 0 0.65rem;
+  padding: 0 0.75rem;
 }
 
 .community-header__nav-link:hover,
@@ -488,19 +488,9 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .community-header__nav-link--active {
+  background: var(--primary-50);
   color: var(--primary-600);
   font-weight: 750;
-}
-
-.community-header__nav-link--active::after {
-  position: absolute;
-  right: 0.65rem;
-  bottom: 0.15rem;
-  left: 0.65rem;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--primary-600);
-  content: "";
 }
 
 .community-header__channel-trigger {
@@ -518,8 +508,8 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   width: 100%;
   height: 2.5rem;
   padding: 0 0.85rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
   color: var(--text-muted);
   transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
@@ -552,6 +542,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .community-header__publish {
   gap: 0.35rem;
   padding: 0 0.85rem;
+  border-radius: var(--radius-pill);
   background: var(--primary-600);
   color: white;
   font-weight: 750;
@@ -564,7 +555,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__icon-button {
   position: relative;
-  width: 44px;
+  width: 40px;
   cursor: pointer;
 }
 
@@ -589,7 +580,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__avatar {
   position: relative;
-  width: 44px;
+  width: 40px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   background: var(--surface-3);
@@ -859,14 +850,14 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 @media (max-width: 720px) {
   .community-header__inner {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    min-height: 58px;
+    min-height: var(--community-header-height);
     gap: 0.6rem;
-    padding: 0.6rem 0.9rem;
+    padding: 0 0.9rem;
   }
 
   .community-header__brand-mark {
-    width: 1.8rem;
-    height: 1.8rem;
+    width: 2rem;
+    height: 2rem;
   }
 
   .community-header__brand-copy {
@@ -919,7 +910,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
     place-items: center;
     align-content: center;
     gap: 0.15rem;
-    border-radius: var(--radius-control);
+    border-radius: 10px;
     color: var(--text-muted);
     font-size: 0.625rem;
     font-weight: 700;

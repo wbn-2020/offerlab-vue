@@ -55,7 +55,7 @@
       </section>
 
       <template v-else>
-        <section class="detail-header">
+        <section class="detail-header reading-header">
           <div class="eyebrow-row">
             <span class="status-badge" :data-status="need.status">
               <component :is="statusIcon(need.status)" class="icon-small" aria-hidden="true" />
@@ -113,8 +113,8 @@
             <section class="content-section">
               <div class="section-heading">
                 <div>
-                  <span class="section-kicker">DELIVERY BRIEF</span>
-                  <h2>交付说明</h2>
+                  <span class="section-kicker">先看这里</span>
+                  <h2>这项需求要解决什么</h2>
                 </div>
                 <FileText class="section-icon" aria-hidden="true" />
               </div>
@@ -145,7 +145,7 @@
             <section class="content-section">
               <div class="section-heading">
                 <div>
-                  <span class="section-kicker">PUBLIC DELIVERY</span>
+                  <span class="section-kicker">共建结果</span>
                   <h2>公开交付</h2>
                 </div>
                 <ExternalLink class="section-icon" aria-hidden="true" />
@@ -183,7 +183,7 @@
             <section v-if="canViewParticipantDetails && (need.claimedAt || need.lastProgressAt || need.submittedAt || need.submissionResolutionId || need.submissionNote || need.rejectReason || need.closedReason)" class="content-section">
               <div class="section-heading">
                 <div>
-                  <span class="section-kicker">PARTICIPANT VIEW</span>
+                  <span class="section-kicker">仅参与者可见</span>
                   <h2>协作状态</h2>
                 </div>
                 <Clock3 class="section-icon" aria-hidden="true" />
@@ -237,7 +237,7 @@
             >
               <div class="section-heading">
                 <div>
-                  <span class="section-kicker">CLAIM HISTORY</span>
+                  <span class="section-kicker">提交记录</span>
                   <h2>认领周期与提交轮次</h2>
                 </div>
                 <History class="section-icon" aria-hidden="true" />
@@ -293,7 +293,7 @@
             <section class="timeline-section">
               <div class="section-heading">
                 <div>
-                  <span class="section-kicker">COLLABORATION LOG</span>
+                  <span class="section-kicker">治理记录</span>
                   <h2>协作时间线</h2>
                 </div>
                 <History class="section-icon" aria-hidden="true" />
@@ -357,10 +357,25 @@
           </div>
 
           <aside class="side-column">
+            <section class="participation-section">
+              <div class="section-heading compact">
+                <div>
+                  <span class="section-kicker">参与状态</span>
+                  <h2>{{ statusLabel(need.status) }}</h2>
+                </div>
+                <component :is="statusIcon(need.status)" class="section-icon" aria-hidden="true" />
+              </div>
+              <p v-if="canClaim" class="participation-copy">当前可认领。确认验收标准后，可在页面顶部发起认领。</p>
+              <p v-else-if="canSubmit" class="participation-copy">你已认领这项需求，可选择已有公开内容并提交交付。</p>
+              <p v-else-if="canWithdraw" class="participation-copy">交付正在等待验收，你可以查看产出或撤回本次提交。</p>
+              <p v-else-if="canReviewSubmission" class="participation-copy">已有公开产出等待你审核，请先检查内容再决定通过或退回。</p>
+              <p v-else class="participation-copy">当前状态没有需要你在此页处理的动作，仍可阅读公开交付与协作记录。</p>
+            </section>
+
             <section v-if="canActOnClaimedNeed || canReviewSubmission" class="action-section">
               <div class="section-heading compact">
                 <div>
-                  <span class="section-kicker">NEXT ACTION</span>
+                  <span class="section-kicker">下一步</span>
                   <h2>处理这项需求</h2>
                 </div>
                 <Settings2 class="section-icon" aria-hidden="true" />
@@ -1824,5 +1839,310 @@ onMounted(() => {
 .dark .error-panel {
   border-color: rgb(127 29 29);
   background: rgb(69 10 10 / 0.45);
+}
+
+/* Community reading layout */
+.need-detail-page {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.need-detail-shell {
+  width: min(1080px, calc(100% - 2.5rem));
+  padding: 1.25rem 0 4.5rem;
+}
+
+.page-toolbar {
+  margin-bottom: 1.5rem;
+}
+
+.back-link {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.back-link:hover {
+  color: var(--primary-600);
+  text-decoration: none;
+}
+
+.icon-button,
+.primary-button,
+.secondary-button,
+.danger-button {
+  min-height: 2.5rem;
+  border-radius: var(--radius-control);
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.icon-button {
+  border-color: var(--border-subtle);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.icon-button:hover:not(:disabled),
+.secondary-button:hover {
+  border-color: color-mix(in srgb, var(--primary-500) 45%, var(--border-subtle));
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.primary-button {
+  background: var(--primary-600);
+}
+
+.primary-button:hover {
+  background: var(--primary-700);
+}
+
+.detail-header {
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 1rem 0 2rem;
+}
+
+.detail-header h1 {
+  max-width: 24ch;
+  margin-top: 0.85rem;
+  color: var(--text-strong);
+  font-size: 2.35rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.description {
+  max-width: 72ch;
+  margin-top: 1rem;
+  color: var(--text-primary);
+  font-size: 1.06rem;
+  line-height: 1.85;
+  text-wrap: pretty;
+}
+
+.detail-meta {
+  margin-top: 1.25rem;
+  color: var(--text-muted);
+  row-gap: 0.5rem;
+}
+
+.status-badge,
+.meta-label {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.status-badge {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
+  color: color-mix(in srgb, var(--success) 72%, var(--text-strong));
+}
+
+.content-grid {
+  grid-template-columns: minmax(0, 1fr) 292px;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.main-column {
+  gap: 0;
+}
+
+.content-section,
+.action-section,
+.participation-section {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.content-section {
+  margin-bottom: 1rem;
+  padding: 1.5rem;
+}
+
+.side-column {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.participation-section,
+.action-section {
+  padding: 1.15rem;
+}
+
+.participation-section {
+  border-color: color-mix(in srgb, var(--primary-500) 24%, var(--border-subtle));
+}
+
+.participation-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
+.action-section {
+  position: sticky;
+  top: calc(var(--community-header-height) + 1rem);
+}
+
+.section-heading {
+  margin-bottom: 1rem;
+}
+
+.section-heading h2 {
+  margin-top: 0.18rem;
+  color: var(--text-strong);
+  font-size: 1.12rem;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.section-kicker {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.section-icon {
+  color: var(--primary-500);
+}
+
+.brief-block h3 {
+  color: var(--text-strong);
+}
+
+.brief-block p,
+.delivery-row span,
+.empty-inline,
+.event-note,
+.event-actor,
+.timeline-topline time,
+.status-transition {
+  color: var(--text-primary);
+}
+
+.detail-list > div {
+  border-color: var(--border-subtle);
+}
+
+.detail-list dt {
+  color: var(--text-muted);
+}
+
+.detail-list dd {
+  color: var(--text-strong);
+}
+
+.readonly-note {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.state-panel,
+.loading-panel {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.timeline-section {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1.5rem;
+}
+
+.timeline-section .section-kicker {
+  color: var(--text-muted);
+}
+
+@media (max-width: 820px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .side-column {
+    order: -1;
+  }
+
+  .action-section {
+    position: static;
+  }
+}
+
+@media (max-width: 600px) {
+  .need-detail-shell {
+    width: min(100% - 1.25rem, 1080px);
+    padding-top: 0.75rem;
+  }
+
+  .page-toolbar {
+    margin-bottom: 0.75rem;
+  }
+
+  .detail-header {
+    padding: 0.75rem 0 1.5rem;
+  }
+
+  .detail-header h1 {
+    max-width: none;
+    font-size: 1.8rem;
+    line-height: 1.25;
+  }
+
+  .description {
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  .detail-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .content-section,
+  .action-section,
+  .participation-section {
+    padding: 1rem;
+  }
+
+  .action-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .action-bar > .primary-button,
+  .action-bar > .secondary-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button,
+  .primary-button,
+  .secondary-button,
+  .danger-button {
+    transition: none;
+  }
+
+  .spin,
+  .skeleton {
+    animation: none;
+  }
 }
 </style>

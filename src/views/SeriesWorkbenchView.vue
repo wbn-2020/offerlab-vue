@@ -1,39 +1,42 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell series-workbench-page">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
-      <section class="surface-card p-6 sm:p-7">
+    <main class="community-page series-workbench-main">
+      <header class="series-page-heading">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div class="max-w-3xl">
-            <p class="series-kicker">收藏与内容沉淀</p>
-            <h1 class="text-2xl font-black tracking-normal text-slate-950 dark:text-white sm:text-3xl">合集工作台</h1>
-            <p class="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+            <p class="series-context">创作管理</p>
+            <h1>合集工作台</h1>
+            <p class="series-page-description">
               把同一主题下的草稿、已发布内容和公开内容整理到一个合集里，便于自己回看，也方便对外分享一组经验。
             </p>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span class="muted-pill">{{ seriesSourceSummary }}</span>
-              <span class="muted-pill">{{ workbenchProgressSummary }}</span>
+            <div class="series-page-meta">
+              <span>{{ seriesSourceSummary }}</span>
+              <span>{{ workbenchProgressSummary }}</span>
             </div>
           </div>
-          <div class="flex flex-wrap gap-3">
+          <div class="series-heading-actions">
             <RouterLink to="/editor" class="secondary-action">
+              <PenLine class="h-4 w-4" />
               去发布页
             </RouterLink>
             <button type="button" class="primary-action" @click="startCreateSeries">
+              <Plus class="h-4 w-4" />
               创建合集
             </button>
           </div>
         </div>
-      </section>
+      </header>
 
-      <div class="mt-6 grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <section class="surface-card p-5">
+      <div class="series-workspace-layout">
+        <section class="surface-panel series-editor-panel">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="text-lg font-black text-slate-950 dark:text-white">
+              <p class="series-panel-label">合集设置</p>
+              <h2 class="series-panel-title">
                 {{ editingSeriesId ? '编辑合集' : '创建合集' }}
               </h2>
-              <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+              <p class="series-panel-description">
                 先定义主题、可见性和内容目标，后续发布内容可以直接归入该合集。
               </p>
             </div>
@@ -43,6 +46,7 @@
               class="series-text-button"
               @click="resetSeriesDraft"
             >
+              <X class="h-4 w-4" />
               取消编辑
             </button>
           </div>
@@ -56,7 +60,7 @@
                 maxlength="40"
                 class="series-input"
                 placeholder="例如：AI 工具实测与效率方法"
-              />
+              >
             </label>
 
             <label class="block">
@@ -70,7 +74,7 @@
               />
             </label>
 
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <label class="block">
                 <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">领域</span>
                 <select v-model="seriesDraft.domain" class="series-input">
@@ -93,17 +97,18 @@
                   min="1"
                   max="20"
                   class="series-input"
-                />
+                >
               </label>
             </div>
 
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <label class="block">
                 <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">阶段状态</span>
                 <select v-model="seriesDraft.status" class="series-input">
-                <option value="active">进行中</option>
-                <option value="paused">暂停更新</option>
-                <option value="completed">已完结</option>
-              </select>
+                  <option value="active">进行中</option>
+                  <option value="paused">暂停更新</option>
+                  <option value="completed">已完结</option>
+                </select>
               </label>
 
               <label class="block">
@@ -113,23 +118,28 @@
                   <option value="public">公开展示</option>
                 </select>
               </label>
+            </div>
 
-            <div class="flex flex-wrap gap-3 pt-2">
+            <div class="series-form-actions">
               <button type="button" class="secondary-action" @click="resetSeriesDraft">
+                <RotateCcw class="h-4 w-4" />
                 重置表单
               </button>
               <button type="submit" class="primary-action" :disabled="isSavingSeries">
+                <Loader2 v-if="isSavingSeries" class="h-4 w-4 animate-spin" />
+                <Save v-else class="h-4 w-4" />
                 {{ isSavingSeries ? '保存中...' : (editingSeriesId ? '保存合集' : '创建合集') }}
               </button>
             </div>
           </form>
         </section>
 
-        <section class="space-y-4">
-          <div class="surface-card flex flex-wrap items-center justify-between gap-3 p-5">
+        <section class="series-list-column">
+          <div class="series-list-heading">
             <div>
-              <h2 class="text-lg font-black text-slate-950 dark:text-white">我的合集</h2>
-              <p class="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+              <p class="series-panel-label">内容目录</p>
+              <h2 class="series-panel-title">我的合集</h2>
+              <p class="series-panel-description">
                 优先读取远端合集接口；如仅本地 fallback，会明确提示，避免误当成真实公开数据。
               </p>
             </div>
@@ -139,28 +149,33 @@
               :disabled="isLoadingSeries"
               @click="loadSeriesWorkbench"
             >
+              <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoadingSeries }" />
               {{ isLoadingSeries ? '加载中...' : '刷新列表' }}
             </button>
           </div>
 
-          <div v-if="isLoadingSeries" class="surface-card p-6 text-sm text-slate-500 dark:text-slate-400">
-            加载中...
+          <div v-if="isLoadingSeries" class="surface-panel series-loading-state" aria-label="正在加载合集">
+            <div v-for="item in 3" :key="item" class="series-skeleton-row" />
           </div>
 
-          <div v-else-if="!seriesRecords.length" class="surface-card p-6">
-            <h3 class="text-base font-black text-slate-950 dark:text-white">还没有合集</h3>
-            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              先创建一个合集，把相关内容整理成可回看、可分享的一组主题内容。
-            </p>
-            <button type="button" class="primary-action mt-4" @click="startCreateSeries">
-              创建合集
-            </button>
+          <div v-else-if="!seriesRecords.length" class="surface-panel series-empty-state">
+            <Library class="h-6 w-6" />
+            <div>
+              <h3>还没有合集</h3>
+              <p>
+                先创建一个合集，把相关内容整理成可回看、可分享的一组主题内容。
+              </p>
+              <button type="button" class="primary-action mt-4" @click="startCreateSeries">
+                <Plus class="h-4 w-4" />
+                创建合集
+              </button>
+            </div>
           </div>
 
           <article
             v-for="record in seriesRecords"
             :key="record.id"
-            class="surface-card series-card p-5"
+            class="surface-panel series-card"
             :class="{ 'series-card-active': activeSeriesId === record.id }"
             @click="activeSeriesId = record.id"
           >
@@ -180,6 +195,7 @@
                 class="series-text-button shrink-0"
                 @click.stop="startEditSeries(record)"
               >
+                <Pencil class="h-4 w-4" />
                 编辑合集
               </button>
             </div>
@@ -202,6 +218,7 @@
                 v-if="record.visibility === 'public' && record.knowledgeProjectionState !== 'DEGRADED'"
                 :to="{ path: '/knowledge/explore', query: { assetType: 'series', assetId: record.id } }"
               >
+                <ExternalLink class="h-3.5 w-3.5" />
                 查看关系投影
               </RouterLink>
             </div>
@@ -258,6 +275,18 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
+import {
+  ExternalLink,
+  Library,
+  Loader2,
+  PenLine,
+  Pencil,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  X,
+} from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { getErrorMessage } from '@/api/client'
 import { contentSeriesApi, type ContentSeriesDraftPayload, type ContentSeriesRecord } from '@/api/contentSeries'
@@ -464,25 +493,123 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.series-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  border-radius: 999px;
-  background: rgb(239 246 255);
-  padding: 0.35rem 0.75rem;
+.series-workbench-page {
+  background: var(--surface-2);
+}
+
+.series-workbench-main {
+  padding-top: 1.5rem;
+  padding-bottom: 6rem;
+}
+
+.series-page-heading {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.35rem 0 1.5rem;
+}
+
+.series-context,
+.series-panel-label {
+  color: var(--primary-600);
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+}
+
+.series-page-heading h1 {
+  margin-top: 0.3rem;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.series-page-description {
+  max-width: 68ch;
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+
+.series-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-top: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.series-page-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.series-page-meta span::before {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--primary-500);
+  content: '';
+}
+
+.series-heading-actions,
+.series-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.series-workspace-layout {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.series-editor-panel {
+  align-self: start;
+  padding: 1.1rem;
+}
+
+.series-list-column {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.85rem;
+}
+
+.series-list-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.25rem 0 0.9rem;
+}
+
+.series-panel-title {
+  margin-top: 0.2rem;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.series-panel-description {
+  max-width: 65ch;
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
 }
 
 .series-input,
 .series-textarea {
   width: 100%;
-  border-radius: 0.9rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--text-primary);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
@@ -500,24 +627,25 @@ onMounted(async () => {
 .series-input:focus,
 .series-textarea:focus {
   outline: none;
-  border-color: rgb(96 165 250);
-  box-shadow: 0 0 0 4px rgb(219 234 254);
-  background: white;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgb(47 111 235 / 0.12);
+  background: var(--surface-1);
 }
 
 .series-card {
   cursor: pointer;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  padding: 1rem;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
 }
 
 .series-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 18px 36px rgb(15 23 42 / 0.06);
+  border-color: #cbd5e1;
+  background: var(--surface-1);
 }
 
 .series-card-active {
-  border-color: rgb(147 197 253);
-  box-shadow: 0 0 0 1px rgb(191 219 254), 0 18px 36px rgb(37 99 235 / 0.08);
+  border-color: #93c5fd;
+  box-shadow: inset 3px 0 0 var(--primary-600);
 }
 
 .series-status-badge,
@@ -525,7 +653,7 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-3);
   padding: 0.35rem 0.7rem;
   font-size: 0.75rem;
   font-weight: 700;
@@ -534,16 +662,16 @@ onMounted(async () => {
 
 .series-progress-bar {
   overflow: hidden;
-  height: 10px;
+  height: 8px;
   border-radius: 999px;
-  background: rgb(226 232 240);
+  background: var(--surface-muted);
 }
 
 .series-progress-bar > span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgb(37 99 235), rgb(14 165 233));
+  background: var(--primary-600);
   transition: width 0.2s ease;
 }
 
@@ -552,18 +680,20 @@ onMounted(async () => {
   min-height: 56px;
   align-items: center;
   gap: 0.75rem;
-  border-radius: 0.9rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border-top: 1px solid var(--border-subtle);
   padding: 0.85rem 0.95rem;
+}
+
+.series-item-row:first-child {
+  border-top: 0;
 }
 
 .series-knowledge-projection {
   display: grid;
   gap: 0.35rem;
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.75rem;
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
   padding: 0.85rem 0.95rem;
 }
 
@@ -580,6 +710,9 @@ onMounted(async () => {
 }
 
 .series-knowledge-projection a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   justify-self: start;
   color: rgb(37 99 235);
   font-size: 0.8125rem;
@@ -597,9 +730,12 @@ onMounted(async () => {
 }
 
 .series-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border: 0;
   background: transparent;
-  padding: 0;
+  padding: 0.25rem;
   font-size: 0.875rem;
   font-weight: 700;
   color: rgb(37 99 235);
@@ -609,59 +745,106 @@ onMounted(async () => {
   color: rgb(29 78 216);
 }
 
-.dark .series-kicker {
-  background: rgb(30 41 59);
-  color: rgb(147 197 253);
+.series-empty-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem;
+  color: var(--text-muted);
+}
+
+.series-empty-state h3 {
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.series-empty-state p {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.series-loading-state {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.series-skeleton-row {
+  height: 5rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  animation: series-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes series-pulse {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
+
+@media (min-width: 1024px) {
+  .series-workspace-layout {
+    grid-template-columns: 20rem minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  .series-editor-panel {
+    position: sticky;
+    top: calc(var(--community-header-height) + 1.5rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .series-workbench-main {
+    padding-top: 1rem;
+  }
+
+  .series-page-heading h1 {
+    font-size: 1.5rem;
+  }
+
+  .series-heading-actions,
+  .series-form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .series-list-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .series-list-heading .secondary-action {
+    width: 100%;
+  }
+
+  .series-card {
+    padding: 0.9rem;
+  }
+
+  .series-input,
+  .series-textarea {
+    font-size: 16px;
+  }
 }
 
 .dark .series-input,
 .dark .series-textarea,
-.dark .series-item-row,
 .dark .series-knowledge-projection {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(226 232 240);
-}
-
-.dark .series-knowledge-projection strong {
-  color: rgb(241 245 249);
-}
-
-.dark .series-knowledge-projection p {
-  color: rgb(148 163 184);
-}
-
-.dark .series-input:focus,
-.dark .series-textarea:focus {
-  border-color: rgb(96 165 250);
-  box-shadow: 0 0 0 4px rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .series-card-active {
-  border-color: rgb(30 64 175);
-  box-shadow: 0 0 0 1px rgb(37 99 235 / 0.4), 0 18px 36px rgb(2 6 23 / 0.55);
+  border-color: #1d4ed8;
 }
 
-.dark .series-status-badge,
-.dark .series-meta-pill {
-  background: rgb(15 23 42);
-  color: rgb(148 163 184);
-}
-
-.dark .series-progress-bar {
-  background: rgb(30 41 59);
-}
-
-.dark .series-item-status {
-  background: rgb(12 74 110);
-  color: rgb(186 230 253);
-}
-
-@media (max-width: 640px) {
-  .series-input,
-  .series-textarea {
-    font-size: 16px;
+@media (prefers-reduced-motion: reduce) {
+  .series-skeleton-row {
+    animation: none;
   }
 }
 </style>

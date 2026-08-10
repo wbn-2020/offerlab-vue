@@ -1,17 +1,17 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell post-detail-page">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-8">
+    <main class="community-page post-detail-main py-5 sm:py-6 lg:py-7">
       <button type="button" class="detail-back" @click="goBack">
         <ArrowLeft class="h-4 w-4" />
         返回
       </button>
-      <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div class="lg:col-span-2">
+      <div class="post-detail-layout">
+        <div class="post-detail-content">
           <LoadingSkeleton v-if="isLoading" />
 
           <template v-else-if="post">
-            <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+            <section class="post-detail-author-card mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <div class="flex items-center justify-between gap-4">
                 <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex min-w-0 items-center gap-3">
                   <UserAvatar
@@ -62,7 +62,7 @@
               </div>
             </section>
 
-            <article class="mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+            <article class="post-detail-article mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
               <div class="mb-4 flex flex-wrap items-center gap-3">
                 <span class="content-type-pill">{{ contentTypeLabel }}</span>
                 <span v-if="isKnownDomain(post.domain)" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
@@ -956,7 +956,7 @@
               </div>
             </article>
 
-            <section id="comments" class="rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+            <section id="comments" class="post-detail-comments rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
               <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">{{ discussionSectionTitle }}</h2>
                 <div class="inline-flex w-full rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800 sm:w-auto" aria-label="评论排序">
@@ -1078,8 +1078,8 @@
           <EmptyState v-else :title="postUnavailableTitle" :description="postUnavailableDescription" actionText="返回首页" actionHref="/" />
         </div>
 
-        <aside class="hidden lg:block">
-          <div class="sticky top-24 space-y-6">
+        <aside class="post-detail-rail hidden lg:block">
+          <div class="post-detail-rail__inner sticky top-24 space-y-6">
             <section v-if="post" class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">作者名片</h3>
               <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex flex-col items-center text-center">
@@ -6249,7 +6249,245 @@ onBeforeUnmount(() => {
   color: rgb(147 197 253);
 }
 
+/* The reading surface follows the community shell: one focused column and a compact context rail. */
+.post-detail-page {
+  min-height: 100vh;
+  background: var(--page-bg);
+}
+
+.post-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.post-detail-content {
+  min-width: 0;
+}
+
+.post-detail-author-card {
+  margin-bottom: 0 !important;
+  border-color: var(--border-subtle) !important;
+  border-bottom: 0 !important;
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0 !important;
+  padding: 1.15rem 1.4rem !important;
+  background: var(--surface) !important;
+}
+
+.post-detail-author-card h3 {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.post-detail-author-card p {
+  color: var(--text-muted);
+}
+
+.post-detail-author-card button {
+  min-height: 2rem;
+  border-radius: 5px !important;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.post-detail-article {
+  margin-bottom: 1.25rem !important;
+  border-color: var(--border-subtle) !important;
+  border-radius: 0 0 var(--radius-surface) var(--radius-surface) !important;
+  padding: 1.45rem 1.9rem 1.8rem !important;
+  background: var(--surface) !important;
+}
+
+.post-detail-article h1 {
+  max-width: 46rem;
+  margin-bottom: 0.9rem !important;
+  color: var(--text-strong) !important;
+  font-size: clamp(1.55rem, 2.8vw, 2rem) !important;
+  font-weight: 800 !important;
+  line-height: 1.36 !important;
+  letter-spacing: 0;
+}
+
+.post-detail-article :deep(.prose) {
+  max-width: 43rem;
+  margin-bottom: 1.8rem !important;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.85;
+}
+
+.post-detail-article :deep(.prose h2) {
+  margin-top: 2rem;
+  color: var(--text-strong);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.post-detail-article :deep(.prose p),
+.post-detail-article :deep(.prose li) {
+  color: var(--text-primary);
+}
+
+.post-detail-article :deep(.prose blockquote) {
+  border-left-color: var(--primary-300);
+  color: var(--text-muted);
+}
+
+.post-detail-article :deep(.prose pre) {
+  border-radius: 6px;
+}
+
+.post-detail-article :deep(.prose a) {
+  color: var(--primary-600);
+}
+
+.post-detail-article .content-type-pill,
+.post-detail-article .meta-pill {
+  border-radius: 5px;
+  font-size: 0.7rem;
+}
+
+.post-detail-article .meta-pill {
+  padding: 0.3rem 0.5rem;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.post-detail-comments {
+  border-color: var(--border-subtle) !important;
+  border-radius: var(--radius-surface) !important;
+  padding: 1.4rem 1.9rem 1.7rem !important;
+  background: var(--surface) !important;
+}
+
+.post-detail-comments h2 {
+  color: var(--text-strong) !important;
+  font-size: 1.1rem !important;
+  font-weight: 800 !important;
+}
+
+.post-detail-comments textarea {
+  border-radius: 6px !important;
+  background: var(--surface-2) !important;
+}
+
+.post-detail-rail__inner {
+  display: grid;
+  gap: 1rem !important;
+}
+
+.post-detail-rail section {
+  border-color: var(--border-subtle) !important;
+  border-radius: var(--radius-surface) !important;
+  padding: 1rem !important;
+  background: var(--surface) !important;
+  box-shadow: none;
+}
+
+.post-detail-rail h3 {
+  margin-bottom: 0.75rem !important;
+  color: var(--text-strong) !important;
+  font-size: 0.875rem !important;
+  font-weight: 800 !important;
+}
+
+.post-detail-rail section:nth-child(2) {
+  counter-reset: related-post;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block) {
+  position: relative;
+  padding: 0.65rem 0 0.65rem 2rem !important;
+  border-bottom: 1px solid var(--surface-3);
+  border-radius: 0 !important;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block:last-child) {
+  border-bottom: 0;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block::before) {
+  position: absolute;
+  top: 0.7rem;
+  left: 0;
+  content: counter(related-post, decimal-leading-zero);
+  counter-increment: related-post;
+  color: var(--primary-600);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block > div:first-child) {
+  color: var(--text-primary) !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  line-height: 1.55;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block > div:last-child) {
+  color: var(--text-muted) !important;
+  font-size: 0.6875rem !important;
+}
+
+.dark .post-detail-author-card,
+.dark .post-detail-article,
+.dark .post-detail-comments,
+.dark .post-detail-rail section {
+  border-color: rgb(63 63 70) !important;
+  background: rgb(24 26 32) !important;
+}
+
+.dark .post-detail-article :deep(.prose),
+.dark .post-detail-article :deep(.prose p),
+.dark .post-detail-article :deep(.prose li) {
+  color: rgb(203 213 225);
+}
+
+.dark .post-detail-article :deep(.prose h2) {
+  color: rgb(241 245 249);
+}
+
+@media (max-width: 1023px) {
+  .post-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .post-detail-main {
+    padding-bottom: 5.75rem;
+  }
+}
+
 @media (max-width: 640px) {
+  .post-detail-main {
+    padding-top: 1rem;
+  }
+
+  .detail-back {
+    margin-bottom: 0.7rem;
+  }
+
+  .post-detail-author-card {
+    padding: 1rem !important;
+  }
+
+  .post-detail-article,
+  .post-detail-comments {
+    padding: 1.15rem 1rem 1.35rem !important;
+  }
+
+  .post-detail-article h1 {
+    font-size: 1.45rem !important;
+  }
+
+  .post-detail-article :deep(.prose) {
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
+
   .ai-knowledge-head {
     flex-direction: column;
   }

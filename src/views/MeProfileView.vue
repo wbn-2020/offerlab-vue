@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell me-profile-page">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <section class="profile-panel">
-        <div class="flex flex-col gap-6 md:flex-row md:items-start">
+    <main class="community-page me-profile-main">
+      <section class="profile-panel profile-hero-panel">
+        <div class="profile-hero-layout">
           <UserAvatar
             class="avatar"
             :src="user?.avatar"
@@ -13,70 +13,54 @@
             :fallback="userInitial"
           />
 
-          <div class="min-w-0 flex-1">
-            <p class="mb-2 text-xs font-black text-primary-600 dark:text-primary-300">我的作者主页</p>
-            <div class="flex flex-wrap items-center gap-3">
-              <h1 class="truncate text-2xl font-bold text-slate-950 dark:text-slate-50">
+          <div class="profile-identity">
+            <p class="profile-context">我的作者主页</p>
+            <div class="profile-name-row">
+              <h1>
                 {{ displayNickname }}
               </h1>
-              <span v-if="user?.isBigV" class="rounded bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              <span v-if="user?.isBigV" class="profile-author-badge">
                 公开作者
               </span>
             </div>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <p class="profile-signature">
               {{ displaySignature }}
             </p>
 
-            <div class="mt-5 grid gap-3 sm:grid-cols-3">
-              <div class="metric-card">
-                <FileText class="h-4 w-4 text-primary-600" />
-                <span>内容</span>
+            <div class="profile-stats" aria-label="作者主页数据">
+              <RouterLink to="/me?tab=posts" class="metric-card">
                 <strong>{{ profileMetricText(user?.postCount, posts) }}</strong>
-              </div>
-              <div class="metric-card">
-                <Users class="h-4 w-4 text-primary-600" />
-                <span>关注</span>
-                <strong>{{ profileMetricText(user?.followingCount, following) }}</strong>
-              </div>
-              <div class="metric-card">
-                <UserRoundCheck class="h-4 w-4 text-primary-600" />
-                <span>粉丝</span>
+                <span>公开内容</span>
+              </RouterLink>
+              <RouterLink to="/me?tab=followers" class="metric-card">
                 <strong>{{ profileMetricText(user?.followerCount, followers) }}</strong>
-              </div>
+                <span>关注者</span>
+              </RouterLink>
+              <RouterLink to="/me?tab=following" class="metric-card">
+                <strong>{{ profileMetricText(user?.followingCount, following) }}</strong>
+                <span>正在关注</span>
+              </RouterLink>
             </div>
           </div>
 
           <div class="profile-actions">
-            <RouterLink to="/me/contact-requests" class="secondary-button shrink-0">
-              <Mail class="h-4 w-4" />
-              联系请求
-            </RouterLink>
-            <RouterLink to="/me/reports" class="secondary-button shrink-0">
-              <Flag class="h-4 w-4" />
-              我的举报
-            </RouterLink>
-            <RouterLink to="/me/maintenance" class="secondary-button shrink-0">
-              <ListChecks class="h-4 w-4" />
-              维护任务
-            </RouterLink>
-            <RouterLink to="/me/knowledge" class="secondary-button shrink-0">
-              <ListChecks class="h-4 w-4" />
-              知识维护
-            </RouterLink>
-            <RouterLink to="/me/settings" class="secondary-button shrink-0">
+            <RouterLink to="/me/settings" class="secondary-button">
               <Settings class="h-4 w-4" />
               编辑资料
+            </RouterLink>
+            <RouterLink to="/editor" class="primary-button">
+              <FileText class="h-4 w-4" />
+              发布内容
             </RouterLink>
           </div>
         </div>
       </section>
 
-      <ParticipationHub class="mt-6" />
-
       <section class="community-growth-panel">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">我的作者主页</h2>
+            <p class="section-kicker">公开参与</p>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">公开影响与参与反馈</h2>
             <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
               {{ contributionSourceText }}。这里展示的是公开内容的可解释反馈，不使用分数或等级表达。
             </p>
@@ -89,7 +73,7 @@
             <span>近期反馈窗口</span>
           </div>
         </div>
-        <div class="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div class="public-impact-grid">
           <div v-for="item in publicImpactOverview" :key="item.label" class="growth-stat">
             <strong>{{ item.value }}</strong>
             <span>{{ item.label }}</span>
@@ -99,6 +83,203 @@
           <span v-for="item in typeDistribution" :key="item.name" class="type-chip">{{ item.name }} {{ item.count }}</span>
         </div>
       </section>
+
+      <section class="profile-content-section">
+        <div class="profile-content-heading">
+          <div>
+            <p class="section-kicker">公开内容与关系</p>
+            <h2>继续经营你的内容主页</h2>
+            <p>公开发布优先展示，收藏、关注和讨论记录仍可通过上方分类按需查看。</p>
+          </div>
+          <RouterLink to="/editor" class="secondary-button">继续发布</RouterLink>
+        </div>
+
+        <div class="tab-bar max-w-full overflow-x-auto" role="tablist" aria-label="个人内容与关系">
+          <button
+            v-for="(tab, index) in tabs"
+            :id="profileTabId(tab.value)"
+            :key="tab.value"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.value"
+            :aria-controls="profileTabPanelId(tab.value)"
+            :tabindex="activeTab === tab.value ? 0 : -1"
+            :class="['tab-button shrink-0 whitespace-nowrap', activeTab === tab.value ? 'tab-active' : '']"
+            @click="setActiveTab(tab.value)"
+            @keydown="handleProfileTabKeydown($event, index)"
+          >
+            <component :is="tab.icon" class="h-4 w-4" />
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <div
+          :id="profileTabPanelId(activeTab)"
+          class="profile-tab-panel"
+          role="tabpanel"
+          :aria-labelledby="profileTabId(activeTab)"
+          tabindex="0"
+        >
+          <section v-if="activeTab === 'posts'" class="space-y-4">
+            <PostList
+              :state="posts"
+              empty-title="还没有发布内容"
+              empty-description="发布第一篇经验、问题、攻略或资源，让主页先有一个代表内容。"
+              empty-action-text="去发布"
+              empty-action-href="/editor"
+              @load-more="loadPosts(true)"
+              @like="handleLike"
+              @favorite="handleFavorite"
+              @follow-change="handlePostAuthorFollowChange"
+            />
+          </section>
+
+          <section v-else-if="activeTab === 'favorites'" class="space-y-4">
+            <div class="favorite-revisit-panel">
+              <div>
+                <p class="text-xs font-black text-primary-600 dark:text-primary-300">收藏回看</p>
+                <h2>{{ activeFavoriteFolderTitle }}</h2>
+                <span>{{ activeFavoriteFolderDescription }}</span>
+              </div>
+              <div class="favorite-revisit-actions">
+                <button type="button" @click="handleCreateFavoriteFolder">新建收藏夹</button>
+                <RouterLink to="/explore">去发现</RouterLink>
+                <RouterLink to="/search">搜索内容</RouterLink>
+              </div>
+            </div>
+            <div v-if="favoriteFolders.error" class="notice-error">{{ favoriteFolders.error }}</div>
+            <div class="favorite-manager">
+              <aside class="favorite-folder-panel">
+                <div class="favorite-folder-panel-head">
+                  <strong>收藏夹</strong>
+                  <span v-if="favoriteFolders.loading">加载中...</span>
+                </div>
+                <div v-if="favoriteFolders.loading && !favoriteFolderOptions.length" class="favorite-folder-loading">正在加载收藏夹...</div>
+                <button
+                  v-for="folder in favoriteFolderOptions"
+                  :key="folder.id"
+                  type="button"
+                  :class="['favorite-folder-item', selectedFavoriteFolderId === folder.id ? 'favorite-folder-active' : '']"
+                  @click="selectFavoriteFolder(folder.id)"
+                >
+                  <span>
+                    <strong>{{ folder.name }}</strong>
+                    <small>{{ folder.description }}</small>
+                  </span>
+                  <em>{{ folder.count }}</em>
+                </button>
+                <div v-if="!favoriteFolders.loading && !customFavoriteFolders.length" class="favorite-folder-empty">
+                  还没有自定义收藏夹。
+                </div>
+              </aside>
+
+              <div class="favorite-content-panel">
+                <div class="favorite-folder-toolbar">
+                  <div>
+                    <strong>{{ activeFavoriteFolderTitle }}</strong>
+                    <span>{{ activeFavoriteFolderMeta }}</span>
+                  </div>
+                  <div v-if="activeFavoriteFolder && activeFavoriteFolder.id !== 'all'" class="favorite-folder-actions">
+                    <button v-if="canSortActiveFavoriteFolder" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading || !canMoveActiveFavoriteFolderUp" @click="handleSortFavoriteFolder('up')">上移</button>
+                    <button v-if="canSortActiveFavoriteFolder" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading || !canMoveActiveFavoriteFolderDown" @click="handleSortFavoriteFolder('down')">下移</button>
+                    <button v-if="activeFavoriteFolder.canRename" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="handleRenameFavoriteFolder">重命名</button>
+                    <button type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="handleToggleFavoriteFolderPublic">
+                      {{ activeFavoriteFolder.isPublic ? '设为私密' : '设为公开' }}
+                    </button>
+                    <button v-if="activeFavoriteFolder.canDelete" type="button" class="secondary-button danger-button" :disabled="favoriteFolderActionLoading" @click="handleDeleteFavoriteFolder">删除</button>
+                  </div>
+                </div>
+                <div v-if="canBatchMoveFavorites" class="favorite-batch-toolbar">
+                  <label>
+                    <input type="checkbox" :checked="allVisibleFavoritesSelected" @change="toggleSelectVisibleFavorites" />
+                    <span>选择当前页</span>
+                  </label>
+                  <span>{{ selectedFavoritePostIds.length }} 条已选</span>
+                  <select v-model="favoriteBatchTargetFolderId" :disabled="favoriteFolderActionLoading">
+                    <option value="">选择移动目标</option>
+                    <option v-for="folder in favoriteMoveTargetFolders" :key="folder.id" :value="folder.id">
+                      {{ folder.name }}
+                    </option>
+                  </select>
+                  <button type="button" class="secondary-button" :disabled="favoriteBatchMoveDisabled" @click="handleBatchMoveFavorites">
+                    批量移动
+                  </button>
+                  <button v-if="selectedFavoritePostIds.length" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="clearSelectedFavoritePosts">
+                    清空选择
+                  </button>
+                </div>
+                <PostList
+                  :state="activeFavoritePostState"
+                  :empty-title="favoriteEmptyTitle"
+                  :empty-description="favoriteEmptyDescription"
+                  :selectable="activeTab === 'favorites'"
+                  :selected-post-ids="selectedFavoritePostIds"
+                  @load-more="loadActiveFavoritePosts(true)"
+                  @like="handleLike"
+                  @favorite="handleFavorite"
+                  @follow-change="handlePostAuthorFollowChange"
+                  @toggle-select="toggleFavoritePostSelection"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section v-else-if="activeTab === 'liked'" class="space-y-4">
+            <PostList
+              :state="likedPosts"
+              empty-title="还没有点赞内容"
+              empty-description="点赞过的帖子会汇总到这里，方便回访和继续互动。"
+              @load-more="loadLikedPosts(true)"
+              @like="handleLike"
+              @favorite="handleFavorite"
+              @follow-change="handlePostAuthorFollowChange"
+            />
+          </section>
+
+          <section v-else-if="activeTab === 'following'">
+            <UserList
+              :state="following"
+              empty-title="还没有关注用户"
+              empty-description="在发现页或帖子作者卡片里关注感兴趣的人。"
+              @load-more="loadFollowing(true)"
+              @follow-change="handleFollowingUserChange"
+            />
+          </section>
+
+          <section v-else-if="activeTab === 'topics'">
+            <TopicList
+              :state="topics"
+              empty-title="还没有关注专题"
+              empty-description="在话题详情页关注感兴趣的话题，后续可以从这里快速回访。"
+              @load-more="loadFollowingTopics(true)"
+            />
+          </section>
+
+          <section v-else-if="activeTab === 'discussion-follows'" class="space-y-4">
+            <PostList
+              :state="discussionFollows"
+              empty-title="还没有关注讨论"
+              empty-description="在帖子详情页关注讨论后，有新回复的内容会汇总到这里。"
+              @load-more="loadDiscussionFollows(true)"
+              @like="handleLike"
+              @favorite="handleFavorite"
+              @follow-change="handlePostAuthorFollowChange"
+            />
+          </section>
+
+          <section v-else>
+            <UserList
+              :state="followers"
+              empty-title="还没有粉丝"
+              empty-description="持续发布有用内容，会更容易被同路人关注。"
+              @load-more="loadFollowers(true)"
+              @follow-change="handleFollowerUserChange"
+            />
+          </section>
+        </div>
+      </section>
+
+      <ParticipationHub class="mt-6" />
 
       <section id="creator-workbench" class="creator-feedback-panel mt-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -362,6 +543,42 @@
         </div>
       </section>
 
+      <section class="profile-secondary-tools" aria-labelledby="profile-secondary-tools-title">
+        <div class="profile-secondary-tools__heading">
+          <div>
+            <p class="section-kicker">个人工具</p>
+            <h2 id="profile-secondary-tools-title">维护与账号管理</h2>
+            <p>这些入口保留完整能力，但不占用作者主页的主要阅读顺序。</p>
+          </div>
+        </div>
+        <div class="profile-secondary-tools__grid">
+          <RouterLink to="/me/contact-requests" class="profile-tool-link">
+            <Mail class="h-4 w-4" />
+            <span><strong>联系请求</strong><small>查看站内联系与处理状态</small></span>
+          </RouterLink>
+          <RouterLink to="/me/relationships" class="profile-tool-link">
+            <Users class="h-4 w-4" />
+            <span><strong>关系管理</strong><small>管理关注、静音和通知偏好</small></span>
+          </RouterLink>
+          <RouterLink to="/me/maintenance" class="profile-tool-link">
+            <ListChecks class="h-4 w-4" />
+            <span><strong>维护任务</strong><small>处理分配给你的内容维护事项</small></span>
+          </RouterLink>
+          <RouterLink to="/me/knowledge" class="profile-tool-link">
+            <BookmarkCheck class="h-4 w-4" />
+            <span><strong>知识维护</strong><small>回应建议、时效和来源问题</small></span>
+          </RouterLink>
+          <RouterLink to="/me/reports" class="profile-tool-link">
+            <Flag class="h-4 w-4" />
+            <span><strong>我的举报</strong><small>查看举报回执与处理进度</small></span>
+          </RouterLink>
+          <RouterLink to="/me/settings" class="profile-tool-link">
+            <Settings class="h-4 w-4" />
+            <span><strong>账号设置</strong><small>编辑资料和个人偏好</small></span>
+          </RouterLink>
+        </div>
+      </section>
+
       <CreatorChallengeWorkspace class="mt-6" />
 
       <section class="creator-center-grid mt-6">
@@ -460,192 +677,6 @@
         </div>
         <div v-else class="empty-inline">
           发布第一篇公开内容后，这里会形成你的作者主页代表内容。
-        </div>
-      </section>
-
-      <section class="mt-6">
-        <div class="tab-bar max-w-full overflow-x-auto" role="tablist" aria-label="个人内容与关系">
-          <button
-            v-for="(tab, index) in tabs"
-            :key="tab.value"
-            :id="profileTabId(tab.value)"
-            type="button"
-            role="tab"
-            :aria-selected="activeTab === tab.value"
-            :aria-controls="profileTabPanelId(tab.value)"
-            :tabindex="activeTab === tab.value ? 0 : -1"
-            :class="['tab-button shrink-0 whitespace-nowrap', activeTab === tab.value ? 'tab-active' : '']"
-            @click="setActiveTab(tab.value)"
-            @keydown="handleProfileTabKeydown($event, index)"
-          >
-            <component :is="tab.icon" class="h-4 w-4" />
-            {{ tab.label }}
-          </button>
-        </div>
-
-        <div
-          :id="profileTabPanelId(activeTab)"
-          class="mt-5"
-          role="tabpanel"
-          :aria-labelledby="profileTabId(activeTab)"
-          tabindex="0"
-        >
-          <section v-if="activeTab === 'posts'" class="space-y-4">
-            <PostList
-              :state="posts"
-              empty-title="还没有发布内容"
-              empty-description="发布第一篇经验、问题、攻略或资源，让主页先有一个代表内容。"
-              empty-action-text="去发布"
-              empty-action-href="/editor"
-              @load-more="loadPosts(true)"
-              @like="handleLike"
-              @favorite="handleFavorite"
-              @follow-change="handlePostAuthorFollowChange"
-            />
-          </section>
-
-          <section v-else-if="activeTab === 'favorites'" class="space-y-4">
-            <div class="favorite-revisit-panel">
-              <div>
-                <p class="text-xs font-black text-primary-600 dark:text-primary-300">收藏回看</p>
-                <h2>{{ activeFavoriteFolderTitle }}</h2>
-                <span>{{ activeFavoriteFolderDescription }}</span>
-              </div>
-              <div class="favorite-revisit-actions">
-                <button type="button" @click="handleCreateFavoriteFolder">新建收藏夹</button>
-                <RouterLink to="/explore">去发现</RouterLink>
-                <RouterLink to="/search">搜索内容</RouterLink>
-              </div>
-            </div>
-            <div v-if="favoriteFolders.error" class="notice-error">{{ favoriteFolders.error }}</div>
-            <div class="favorite-manager">
-              <aside class="favorite-folder-panel">
-                <div class="favorite-folder-panel-head">
-                  <strong>收藏夹</strong>
-                  <span v-if="favoriteFolders.loading">加载中...</span>
-                </div>
-                <div v-if="favoriteFolders.loading && !favoriteFolderOptions.length" class="favorite-folder-loading">正在加载收藏夹...</div>
-                <button
-                  v-for="folder in favoriteFolderOptions"
-                  :key="folder.id"
-                  type="button"
-                  :class="['favorite-folder-item', selectedFavoriteFolderId === folder.id ? 'favorite-folder-active' : '']"
-                  @click="selectFavoriteFolder(folder.id)"
-                >
-                  <span>
-                    <strong>{{ folder.name }}</strong>
-                    <small>{{ folder.description }}</small>
-                  </span>
-                  <em>{{ folder.count }}</em>
-                </button>
-                <div v-if="!favoriteFolders.loading && !customFavoriteFolders.length" class="favorite-folder-empty">
-                  还没有自定义收藏夹。
-                </div>
-              </aside>
-
-              <div class="favorite-content-panel">
-                <div class="favorite-folder-toolbar">
-                  <div>
-                    <strong>{{ activeFavoriteFolderTitle }}</strong>
-                    <span>{{ activeFavoriteFolderMeta }}</span>
-                  </div>
-                  <div v-if="activeFavoriteFolder && activeFavoriteFolder.id !== 'all'" class="favorite-folder-actions">
-                    <button v-if="canSortActiveFavoriteFolder" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading || !canMoveActiveFavoriteFolderUp" @click="handleSortFavoriteFolder('up')">上移</button>
-                    <button v-if="canSortActiveFavoriteFolder" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading || !canMoveActiveFavoriteFolderDown" @click="handleSortFavoriteFolder('down')">下移</button>
-                    <button v-if="activeFavoriteFolder.canRename" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="handleRenameFavoriteFolder">重命名</button>
-                    <button type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="handleToggleFavoriteFolderPublic">
-                      {{ activeFavoriteFolder.isPublic ? '设为私密' : '设为公开' }}
-                    </button>
-                    <button v-if="activeFavoriteFolder.canDelete" type="button" class="secondary-button danger-button" :disabled="favoriteFolderActionLoading" @click="handleDeleteFavoriteFolder">删除</button>
-                  </div>
-                </div>
-                <div v-if="canBatchMoveFavorites" class="favorite-batch-toolbar">
-                  <label>
-                    <input type="checkbox" :checked="allVisibleFavoritesSelected" @change="toggleSelectVisibleFavorites" />
-                    <span>选择当前页</span>
-                  </label>
-                  <span>{{ selectedFavoritePostIds.length }} 条已选</span>
-                  <select v-model="favoriteBatchTargetFolderId" :disabled="favoriteFolderActionLoading">
-                    <option value="">选择移动目标</option>
-                    <option v-for="folder in favoriteMoveTargetFolders" :key="folder.id" :value="folder.id">
-                      {{ folder.name }}
-                    </option>
-                  </select>
-                  <button type="button" class="secondary-button" :disabled="favoriteBatchMoveDisabled" @click="handleBatchMoveFavorites">
-                    批量移动
-                  </button>
-                  <button v-if="selectedFavoritePostIds.length" type="button" class="secondary-button" :disabled="favoriteFolderActionLoading" @click="clearSelectedFavoritePosts">
-                    清空选择
-                  </button>
-                </div>
-                <PostList
-                  :state="activeFavoritePostState"
-                  :empty-title="favoriteEmptyTitle"
-                  :empty-description="favoriteEmptyDescription"
-                  :selectable="activeTab === 'favorites'"
-                  :selected-post-ids="selectedFavoritePostIds"
-                  @load-more="loadActiveFavoritePosts(true)"
-                  @like="handleLike"
-                  @favorite="handleFavorite"
-                  @follow-change="handlePostAuthorFollowChange"
-                  @toggle-select="toggleFavoritePostSelection"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section v-else-if="activeTab === 'liked'" class="space-y-4">
-            <PostList
-              :state="likedPosts"
-              empty-title="还没有点赞内容"
-              empty-description="点赞过的帖子会汇总到这里，方便回访和继续互动。"
-              @load-more="loadLikedPosts(true)"
-              @like="handleLike"
-              @favorite="handleFavorite"
-              @follow-change="handlePostAuthorFollowChange"
-            />
-          </section>
-
-          <section v-else-if="activeTab === 'following'">
-            <UserList
-              :state="following"
-              empty-title="还没有关注用户"
-              empty-description="在发现页或帖子作者卡片里关注感兴趣的人。"
-              @load-more="loadFollowing(true)"
-              @follow-change="handleFollowingUserChange"
-            />
-          </section>
-
-          <section v-else-if="activeTab === 'topics'">
-            <TopicList
-              :state="topics"
-              empty-title="还没有关注专题"
-              empty-description="在话题详情页关注感兴趣的话题，后续可以从这里快速回访。"
-              @load-more="loadFollowingTopics(true)"
-            />
-          </section>
-
-          <section v-else-if="activeTab === 'discussion-follows'" class="space-y-4">
-            <PostList
-              :state="discussionFollows"
-              empty-title="还没有关注讨论"
-              empty-description="在帖子详情页关注讨论后，有新回复的内容会汇总到这里。"
-              @load-more="loadDiscussionFollows(true)"
-              @like="handleLike"
-              @favorite="handleFavorite"
-              @follow-change="handlePostAuthorFollowChange"
-            />
-          </section>
-
-          <section v-else>
-            <UserList
-              :state="followers"
-              empty-title="还没有粉丝"
-              empty-description="持续发布有用内容，会更容易被同路人关注。"
-              @load-more="loadFollowers(true)"
-              @follow-change="handleFollowerUserChange"
-            />
-          </section>
         </div>
       </section>
     </main>
@@ -2528,26 +2559,97 @@ watch(
 </script>
 
 <style scoped>
+.me-profile-page {
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+.me-profile-main {
+  padding-top: 1.5rem;
+  padding-bottom: 6rem;
+}
+
 .profile-panel {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.75rem;
-  background: white;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
   padding: 1.5rem;
+}
+
+.profile-hero-panel {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.profile-hero-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.25rem;
 }
 
 .avatar {
   display: flex;
-  height: 6rem;
-  width: 6rem;
+  height: 5.25rem;
+  width: 5.25rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   border-radius: 999px;
-  background: rgb(37 99 235);
-  font-size: 2rem;
+  background: var(--primary-600);
+  font-size: 1.75rem;
   font-weight: 800;
   color: white;
+}
+
+.profile-identity {
+  min-width: 0;
+}
+
+.profile-context,
+.section-kicker {
+  margin: 0;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.profile-name-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.2rem;
+}
+
+.profile-name-row h1 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  font-size: 1.5rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.profile-author-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--primary-50);
+  padding: 0.25rem 0.6rem;
+  color: var(--primary-700);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.profile-signature {
+  max-width: 68ch;
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  text-wrap: pretty;
 }
 
 .profile-actions {
@@ -2558,35 +2660,142 @@ watch(
   justify-content: flex-end;
 }
 
+.profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin-top: 1rem;
+}
+
 .metric-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.25rem 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.625rem;
-  background: rgb(248 250 252);
-  padding: 0.85rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  transition: color 0.18s ease;
+}
+
+.metric-card:hover {
+  color: var(--primary-600);
 }
 
 .metric-card span {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 650;
 }
 
 .metric-card strong {
-  grid-column: 1 / -1;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 850;
 }
 
 .community-growth-panel {
   margin-top: 1.5rem;
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.75rem;
-  background: white;
-  padding: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1.35rem 0;
+}
+
+.public-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.profile-content-section {
+  margin-top: 1.5rem;
+}
+
+.profile-content-heading,
+.profile-secondary-tools__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.profile-content-heading h2,
+.profile-secondary-tools__heading h2 {
+  margin-top: 0.2rem;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.profile-content-heading p:not(.section-kicker),
+.profile-secondary-tools__heading p:not(.section-kicker) {
+  max-width: 64ch;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.profile-tab-panel {
+  margin-top: 0.85rem;
+  outline: none;
+}
+
+.profile-tab-panel:focus-visible {
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.14);
+}
+
+.profile-secondary-tools {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1.25rem;
+}
+
+.profile-secondary-tools__grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-tool-link {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.65rem;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.8rem;
+  color: var(--text-muted);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.profile-tool-link:hover {
+  background: var(--surface-3);
+  color: var(--primary-600);
+}
+
+.profile-tool-link > svg {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+}
+
+.profile-tool-link span,
+.profile-tool-link strong,
+.profile-tool-link small {
+  display: block;
+  min-width: 0;
+}
+
+.profile-tool-link strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.profile-tool-link small {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
 }
 
 .creator-feedback-panel {
@@ -3178,9 +3387,9 @@ watch(
 
 .score-card,
 .growth-stat {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-2);
   padding: 0.85rem;
 }
 
@@ -3193,7 +3402,7 @@ watch(
 .growth-stat strong {
   display: block;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: var(--primary-600);
 }
 
 .score-card strong {
@@ -3210,7 +3419,7 @@ watch(
   margin-top: 0.2rem;
   font-size: 0.78rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .type-chip {
@@ -3224,27 +3433,40 @@ watch(
 
 .tab-bar {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   overflow-x: auto;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
+  scrollbar-width: thin;
 }
 
 .tab-button {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2.875rem;
   flex-shrink: 0;
   align-items: center;
   gap: 0.45rem;
   border-bottom: 2px solid transparent;
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
+  padding: 0 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.tab-button:hover {
+  background: var(--surface-3);
+  color: var(--text-strong);
+}
+
+.tab-button:focus-visible {
+  border-radius: 6px 6px 0 0;
+  outline: 3px solid rgb(37 99 235 / 0.16);
+  outline-offset: -3px;
 }
 
 .tab-active {
-  border-color: rgb(37 99 235);
-  color: rgb(37 99 235);
+  border-color: var(--primary-600);
+  color: var(--primary-600);
 }
 
 .primary-button,
@@ -3254,21 +3476,40 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-control);
   padding: 0.5rem 0.9rem;
   font-size: 0.875rem;
   font-weight: 700;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .primary-button {
-  background: rgb(37 99 235);
+  background: var(--primary-600);
   color: white;
 }
 
+.primary-button:hover {
+  background: var(--primary-700);
+}
+
 .secondary-button {
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  color: rgb(51 65 85);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.secondary-button:hover {
+  border-color: rgb(191 219 254);
+  background: var(--surface-2);
+  color: var(--primary-600);
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.profile-tool-link:focus-visible,
+.metric-card:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 0.16);
+  outline-offset: 2px;
 }
 
 .secondary-button:disabled {
@@ -3553,11 +3794,6 @@ watch(
   color: rgb(203 213 225);
 }
 
-.dark .metric-card {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
-}
-
 .dark .asset-card {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
@@ -3760,7 +3996,11 @@ watch(
   color: rgb(199 210 254);
 }
 
-html.dark .community-growth-panel,
+html.dark .community-growth-panel {
+  border-color: rgb(30 41 59);
+  background: transparent;
+}
+
 html.dark .score-card,
 html.dark .growth-stat {
   border-color: rgb(30 41 59);
@@ -3775,6 +4015,11 @@ html.dark .growth-stat {
 .dark .metric-card strong,
 .dark .empty-panel h3 {
   color: rgb(248 250 252);
+}
+
+.dark .profile-author-badge {
+  background: rgb(30 64 175 / 0.28);
+  color: rgb(191 219 254);
 }
 
 .dark .tab-bar {
@@ -3848,7 +4093,122 @@ html.dark .growth-stat {
   color: rgb(147 197 253);
 }
 
+@media (max-width: 900px) {
+  .profile-hero-layout {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .profile-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .public-impact-grid,
+  .profile-secondary-tools__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
+  .me-profile-main {
+    padding-top: 1rem;
+    padding-bottom: 6.5rem;
+  }
+
+  .profile-panel {
+    padding: 1rem;
+  }
+
+  .profile-hero-layout {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.9rem;
+  }
+
+  .avatar {
+    width: 4rem;
+    height: 4rem;
+    font-size: 1.35rem;
+  }
+
+  .profile-name-row h1 {
+    font-size: 1.25rem;
+  }
+
+  .profile-signature,
+  .profile-stats,
+  .profile-actions {
+    grid-column: 1 / -1;
+  }
+
+  .profile-signature {
+    margin-top: 0.6rem;
+  }
+
+  .profile-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .profile-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    width: 100%;
+    margin-top: 0.85rem;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 0.85rem;
+  }
+
+  .metric-card {
+    display: grid;
+    gap: 0.1rem;
+    text-align: center;
+  }
+
+  .metric-card + .metric-card {
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .metric-card strong {
+    font-size: 0.9375rem;
+  }
+
+  .profile-content-heading,
+  .profile-secondary-tools__heading {
+    flex-direction: column;
+  }
+
+  .profile-content-heading .secondary-button {
+    width: 100%;
+  }
+
+  .public-impact-grid,
+  .profile-secondary-tools__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .score-card {
+    width: 100%;
+  }
+
+  .tab-bar {
+    margin-right: calc(var(--community-page-gutter) * -1);
+    margin-left: calc(var(--community-page-gutter) * -1);
+    padding: 0 var(--community-page-gutter);
+  }
+
+  .tab-button {
+    min-height: 2.75rem;
+    padding: 0 0.7rem;
+    font-size: 0.78rem;
+  }
+
+  .profile-tool-link {
+    border: 1px solid var(--border-subtle);
+  }
+
   .feedback-window-grid,
   .creator-workbench-grid,
   .trusted-content-task-list,

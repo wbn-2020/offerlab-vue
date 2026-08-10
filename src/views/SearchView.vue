@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell search-page">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <section class="search-shell">
-        <div class="flex flex-col gap-3 lg:flex-row">
+    <main class="community-page search-main">
+      <section class="search-shell search-command-bar">
+        <div class="search-form-row">
           <div class="relative flex-1">
             <Search class="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
             <input
@@ -34,7 +34,7 @@
           </button>
         </div>
 
-        <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="search-control-row">
           <div class="segmented">
             <button type="button" :class="['segment-button', searchMode === 'posts' ? 'segment-active' : '']" @click="setMode('posts')">
               <FileText class="h-4 w-4" />
@@ -54,7 +54,7 @@
             </button>
           </div>
 
-          <div v-if="searchMode === 'posts'" class="flex flex-wrap gap-2">
+          <div v-if="searchMode === 'posts'" class="search-sort-options">
             <button
               v-for="option in sortOptions"
               :key="option.value"
@@ -68,13 +68,30 @@
         </div>
       </section>
 
-      <div class="search-layout mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
+      <div class="search-layout">
         <aside class="search-aside space-y-4">
           <details class="filter-details" open>
             <summary class="filter-summary">
-              筛选、热门词和搜索记录
+              筛选与搜索记录
             </summary>
-          <section v-if="searchMode === 'posts'" class="side-panel">
+          <section class="side-panel search-related-panel">
+            <div class="side-panel-heading">
+              <h2 class="side-title">相关发现</h2>
+              <RouterLink to="/explore">查看全部</RouterLink>
+            </div>
+            <div class="search-side-list">
+              <RouterLink
+                v-for="topic in recommendedTopics.slice(0, 4)"
+                :key="topic"
+                :to="`/topics/${encodeURIComponent(topic)}`"
+              >
+                <span># {{ topic }}</span>
+                <small>话题</small>
+              </RouterLink>
+            </div>
+          </section>
+
+          <section v-if="searchMode === 'posts'" class="side-panel filter-panel">
             <h2 class="side-title">筛选</h2>
             <div class="space-y-3">
               <label class="field-label">
@@ -143,7 +160,7 @@
             </div>
           </section>
 
-          <section class="side-panel">
+          <section class="side-panel hot-panel">
             <h2 class="side-title">热门搜索</h2>
             <div class="flex flex-wrap gap-2">
               <button v-for="word in hotWords" :key="word" type="button" class="tag-button" @click="useHotWord(word)">
@@ -152,7 +169,7 @@
             </div>
           </section>
 
-          <section v-if="savedSearches.length || recentSearches.length" class="side-panel space-y-4">
+          <section v-if="savedSearches.length || recentSearches.length" class="side-panel history-panel space-y-4">
             <div v-if="savedSearches.length" class="space-y-2">
               <div class="flex items-center justify-between gap-2">
                 <h2 class="side-title">保存的搜索</h2>
@@ -231,7 +248,7 @@
             </div>
           </section>
 
-          <section class="side-panel">
+          <section class="side-panel service-panel">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <h2 class="side-title">搜索服务</h2>
@@ -814,7 +831,14 @@ const isLowQualitySearchTerm = (value: string) => {
 }
 
 const filterVisibleSearchTerms = (values: unknown) => {
-  return filterSearchSuggestionTerms(filterVisibleTexts(values, 12).filter((value) => !isSyntheticVisibleText(value)), 12)
+  const normalizedValues = Array.isArray(values)
+    ? values.map((value) => {
+        if (typeof value === 'string') return value
+        if (value && typeof value === 'object' && 'text' in value) return String(value.text || '')
+        return ''
+      })
+    : values
+  return filterSearchSuggestionTerms(filterVisibleTexts(normalizedValues, 12).filter((value) => !isSyntheticVisibleText(value)), 12)
 }
 
 const stripHighlightTags = (value?: string) => String(value || '').replace(/<\/?em>/g, '')
@@ -2275,5 +2299,368 @@ onBeforeUnmount(() => {
   border-color: rgb(153 27 27);
   background: rgb(15 23 42);
   color: rgb(254 202 202);
+}
+
+/* Community search layout */
+.search-page {
+  background: var(--surface-2);
+}
+
+.search-main {
+  padding-top: 1.5rem;
+  padding-bottom: 4rem;
+}
+
+.search-command-bar {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  padding: 0.9rem;
+  box-shadow: var(--shadow-card);
+}
+
+.search-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: start;
+  gap: 0.625rem;
+}
+
+.search-input {
+  min-height: 2.875rem;
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+.search-input:focus,
+.field-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+}
+
+.search-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.85rem;
+}
+
+.segmented {
+  gap: 0.2rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 0.2rem;
+  background: var(--surface-3);
+}
+
+.segment-button {
+  min-height: 2.125rem;
+  border-radius: 5px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8125rem;
+}
+
+.segment-active {
+  background: var(--surface);
+  color: var(--primary-700);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.06);
+}
+
+.search-sort-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.chip-button {
+  min-height: 2.125rem;
+  border-radius: var(--radius-control);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8125rem;
+}
+
+.chip-active {
+  border-color: #93c5fd;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.search-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 286px;
+  grid-template-areas: "results rail";
+  align-items: start;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.search-results {
+  grid-area: results;
+}
+
+.search-aside {
+  grid-area: rail;
+}
+
+.filter-details {
+  gap: 0.75rem;
+}
+
+.search-aside .side-panel {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  padding: 0.9rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.search-aside .search-related-panel {
+  order: 1;
+}
+
+.search-aside .hot-panel {
+  order: 2;
+}
+
+.search-aside .filter-panel {
+  order: 3;
+}
+
+.search-aside .history-panel {
+  order: 4;
+}
+
+.search-aside .service-panel {
+  order: 5;
+}
+
+.side-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.side-panel-heading a {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary-600);
+}
+
+.search-side-list {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.search-side-list a {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 6px;
+  padding: 0.45rem 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.search-side-list a:hover {
+  background: var(--surface-3);
+  color: var(--primary-700);
+}
+
+.search-side-list small {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.result-summary {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0.15rem 0.1rem;
+  color: var(--text-muted);
+}
+
+.search-source-notice {
+  border-radius: var(--radius-surface);
+}
+
+.search-result-item {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.search-result-item :deep(.post-card) {
+  border-bottom: 0;
+}
+
+.search-hit-reasons {
+  border-top: 1px solid var(--surface-3);
+  padding: 0.65rem 1rem 0.75rem;
+}
+
+.loading-panel,
+.empty-panel,
+.user-row {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.empty-panel {
+  padding: 2.5rem 1.5rem;
+}
+
+.empty-panel h2 {
+  font-size: 1.0625rem;
+}
+
+.empty-panel > p {
+  max-width: 42rem;
+  margin-right: auto;
+  margin-left: auto;
+  line-height: 1.65;
+}
+
+.recommend-chip {
+  border-radius: var(--radius-pill);
+}
+
+.primary-button,
+.secondary-button {
+  border-radius: var(--radius-control);
+}
+
+.dark .search-page {
+  background: #0f1115;
+}
+
+.dark .search-command-bar,
+.dark .search-result-item {
+  border-color: rgb(39 39 42);
+  background: rgb(24 26 32);
+}
+
+.dark .segmented {
+  background: rgb(39 39 42);
+}
+
+.dark .segment-active {
+  background: rgb(24 26 32);
+  color: rgb(147 197 253);
+}
+
+.dark .search-side-list a {
+  color: rgb(226 232 240);
+}
+
+.dark .search-side-list a:hover {
+  background: rgb(39 39 42);
+  color: rgb(147 197 253);
+}
+
+@media (min-width: 1024px) {
+  .search-aside {
+    position: sticky;
+    top: calc(var(--community-header-height) + 1.25rem);
+  }
+}
+
+@media (max-width: 1023px) {
+  .search-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .search-results {
+    order: 1;
+    width: 100%;
+  }
+
+  .search-aside {
+    order: 2;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .search-main {
+    padding-top: 0.75rem;
+    padding-bottom: 2rem;
+  }
+
+  .search-command-bar {
+    padding: 0.75rem;
+  }
+
+  .search-form-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .search-form-row > .relative {
+    grid-column: 1 / -1;
+  }
+
+  .search-form-row > .primary-button,
+  .search-form-row > .secondary-button {
+    width: 100%;
+  }
+
+  .search-control-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
+  }
+
+  .segmented {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .segment-button {
+    min-width: 0;
+    gap: 0.3rem;
+    padding-right: 0.35rem;
+    padding-left: 0.35rem;
+    white-space: nowrap;
+  }
+
+  .search-sort-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .chip-button {
+    min-width: 0;
+    padding-right: 0.3rem;
+    padding-left: 0.3rem;
+    white-space: nowrap;
+  }
+
+  .search-layout {
+    margin-top: 0.75rem;
+  }
+
+  .empty-panel {
+    padding: 2rem 1rem;
+  }
+
+  .search-related-panel {
+    display: none;
+  }
 }
 </style>

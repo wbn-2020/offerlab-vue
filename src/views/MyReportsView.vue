@@ -1,59 +1,66 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell reports-page">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <section class="reports-hero">
+    <main class="community-page reports-main">
+      <header class="reports-hero">
         <div>
-          <p class="text-xs font-black text-primary-600 dark:text-primary-300">社区反馈</p>
+          <p class="page-kicker">社区反馈</p>
           <h1>我的举报</h1>
-          <span>查看你提交过的帖子、评论和联系请求举报，以及平台公开给你的处理进度。</span>
+          <span>查看帖子、评论和联系请求举报，以及平台向你公开的处理进度与结果。</span>
         </div>
-        <RouterLink to="/me" class="secondary-button">返回我的页面</RouterLink>
-      </section>
+        <RouterLink to="/me" class="secondary-action secondary-button">返回我的页面</RouterLink>
+      </header>
 
-      <section class="reports-panel mt-6">
+      <section class="reports-panel surface-panel">
         <div class="reports-toolbar">
-          <div class="reports-filters" aria-label="举报筛选">
-            <button
-              v-for="filter in filters"
-              :key="filter.value"
-              type="button"
-              :class="['filter-button', activeFilter === filter.value ? 'filter-button-active' : '']"
-              @click="setFilter(filter.value)"
-            >
-              <component :is="filter.icon" class="h-4 w-4" />
-              <span>{{ filter.label }}</span>
-            </button>
+          <div>
+            <strong>举报记录</strong>
+            <span>当前已加载 {{ reports.length }} 条，点击记录查看完整回执。</span>
           </div>
-          <button type="button" class="secondary-button" :disabled="isLoading" @click="reloadReports">
-            <RefreshCw class="h-4 w-4" />
+          <button type="button" class="secondary-action secondary-button" :disabled="isLoading" @click="reloadReports">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" aria-hidden="true" />
             刷新
           </button>
         </div>
 
-        <div v-if="loadError" class="notice-error">
-          <strong>暂时无法加载举报记录</strong>
-          <span>{{ loadError }}</span>
-          <button type="button" class="secondary-button" @click="reloadReports">重试</button>
+        <div class="reports-filters" role="tablist" aria-label="举报筛选">
+          <button
+            v-for="filter in filters"
+            :key="filter.value"
+            type="button"
+            role="tab"
+            :aria-selected="activeFilter === filter.value"
+            :class="['filter-button', activeFilter === filter.value ? 'filter-button-active' : '']"
+            @click="setFilter(filter.value)"
+          >
+            <component :is="filter.icon" class="h-4 w-4" aria-hidden="true" />
+            <span>{{ filter.label }}</span>
+          </button>
         </div>
 
-        <div v-else-if="isLoading && reports.length === 0" class="loading-panel">
-          正在加载举报记录...
+        <div v-if="loadError" class="notice-error" role="alert">
+          <div><strong>暂时无法加载举报记录</strong><span>{{ loadError }}</span></div>
+          <button type="button" class="secondary-action secondary-button" @click="reloadReports">重试</button>
+        </div>
+
+        <div v-else-if="isLoading && reports.length === 0" class="loading-panel" role="status">
+          <strong>正在加载举报记录</strong>
+          <span>正在同步当前账号可见的举报回执。</span>
         </div>
 
         <div v-else-if="reports.length === 0" class="empty-panel">
-          <div class="empty-icon"><Inbox class="h-6 w-6" /></div>
+          <div class="empty-icon"><Inbox class="h-6 w-6" aria-hidden="true" /></div>
           <h2>{{ emptyTitle }}</h2>
           <p>{{ emptyText }}</p>
-          <RouterLink to="/explore" class="primary-button">浏览社区内容</RouterLink>
+          <RouterLink to="/explore" class="primary-action primary-button">浏览社区内容</RouterLink>
         </div>
 
         <div v-else class="reports-list">
           <article v-for="report in reports" :key="report.reportId" class="report-card">
             <button type="button" class="report-card-main" @click="openReport(report)">
               <div class="report-card-head">
-                <div class="min-w-0">
+                <div class="report-title">
                   <p class="report-object-type">{{ sourceTypeLabel(report.sourceType) }}</p>
                   <h2>{{ reportTitle(report) }}</h2>
                 </div>
@@ -61,25 +68,19 @@
               </div>
               <p class="report-summary">{{ report.targetSummary || invisibleCopy(report) }}</p>
               <dl class="report-facts">
-                <div>
-                  <dt>举报类型</dt>
-                  <dd>{{ report.reason }}</dd>
-                </div>
-                <div>
-                  <dt>提交时间</dt>
-                  <dd>{{ formatReportTime(report.createTime) }}</dd>
-                </div>
-                <div>
-                  <dt>处理时间</dt>
-                  <dd>{{ formatReportTime(report.reviewTime) }}</dd>
-                </div>
+                <div><dt>举报类型</dt><dd>{{ report.reason }}</dd></div>
+                <div><dt>提交时间</dt><dd>{{ formatReportTime(report.createTime) }}</dd></div>
+                <div><dt>处理时间</dt><dd>{{ formatReportTime(report.reviewTime) }}</dd></div>
               </dl>
-              <p class="result-summary">{{ report.resultText || publicResultFallback(report) }}</p>
+              <div class="result-summary">
+                <strong>公开结果</strong>
+                <p>{{ report.resultText || publicResultFallback(report) }}</p>
+              </div>
             </button>
           </article>
 
           <div v-if="hasMore" class="load-more-row">
-            <button type="button" class="secondary-button" :disabled="isLoading" @click="loadMore">
+            <button type="button" class="secondary-action secondary-button" :disabled="isLoading" @click="loadMore">
               {{ isLoading ? '加载中...' : '加载更多' }}
             </button>
           </div>
@@ -91,43 +92,30 @@
       <aside class="report-drawer" role="dialog" aria-modal="true" aria-labelledby="report-detail-title">
         <header class="drawer-head">
           <div>
-            <p class="text-xs font-black text-primary-600 dark:text-primary-300">举报详情</p>
+            <p class="page-kicker">举报详情</p>
             <h2 id="report-detail-title">{{ selectedReport ? reportTitle(selectedReport) : '举报详情' }}</h2>
           </div>
-          <button type="button" class="icon-button" aria-label="关闭详情" @click="closeDrawer">
-            <X class="h-5 w-5" />
+          <button type="button" class="icon-button" aria-label="关闭详情" title="关闭详情" @click="closeDrawer">
+            <X class="h-5 w-5" aria-hidden="true" />
           </button>
         </header>
 
-        <div v-if="detailLoading" class="loading-panel compact">正在加载详情...</div>
-        <div v-else-if="detailError" class="notice-error compact">
-          <strong>详情加载失败</strong>
-          <span>{{ detailError }}</span>
+        <div v-if="detailLoading" class="loading-panel compact" role="status">正在加载详情...</div>
+        <div v-else-if="detailError" class="notice-error compact" role="alert">
+          <div><strong>详情加载失败</strong><span>{{ detailError }}</span></div>
         </div>
 
         <template v-if="selectedReport">
-          <section class="detail-section">
+          <section class="detail-section detail-overview">
             <div class="detail-title-row">
               <span :class="['status-chip', statusChipClass(selectedReport)]">{{ statusLabel(selectedReport) }}</span>
               <span>{{ sourceTypeLabel(selectedReport.sourceType) }}</span>
             </div>
             <dl class="detail-grid">
-              <div>
-                <dt>举报原因</dt>
-                <dd>{{ selectedReport.reason }}</dd>
-              </div>
-              <div>
-                <dt>提交时间</dt>
-                <dd>{{ formatReportTime(selectedReport.createTime) }}</dd>
-              </div>
-              <div>
-                <dt>处理时间</dt>
-                <dd>{{ formatReportTime(selectedReport.reviewTime) }}</dd>
-              </div>
-              <div>
-                <dt>当前状态</dt>
-                <dd>{{ statusLabel(selectedReport) }}</dd>
-              </div>
+              <div><dt>举报原因</dt><dd>{{ selectedReport.reason }}</dd></div>
+              <div><dt>提交时间</dt><dd>{{ formatReportTime(selectedReport.createTime) }}</dd></div>
+              <div><dt>处理时间</dt><dd>{{ formatReportTime(selectedReport.reviewTime) }}</dd></div>
+              <div><dt>当前状态</dt><dd>{{ statusLabel(selectedReport) }}</dd></div>
             </dl>
           </section>
 
@@ -147,9 +135,9 @@
             <RouterLink
               v-if="selectedReport.targetAvailable && selectedReport.targetPath"
               :to="selectedReport.targetPath"
-              class="primary-button mt-3"
+              class="primary-action primary-button detail-link"
             >
-              <ExternalLink class="h-4 w-4" />
+              <ExternalLink class="h-4 w-4" aria-hidden="true" />
               查看原内容
             </RouterLink>
             <p v-else class="unavailable-copy">内容已不可见或已被处理</p>
@@ -891,6 +879,540 @@ onMounted(() => {
 
   .report-drawer {
     width: 100%;
+  }
+}
+
+/* Current community workspace baseline. */
+.reports-page {
+  min-width: 0;
+}
+
+.reports-main {
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.reports-hero {
+  align-items: flex-start;
+  margin: 0 0 1.25rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.page-kicker {
+  margin: 0;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.reports-hero h1 {
+  margin: 0.2rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.reports-hero > div > span {
+  max-width: 68ch;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.reports-panel {
+  margin: 0;
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+  padding: 0;
+}
+
+.reports-toolbar {
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1rem;
+}
+
+.reports-toolbar > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.reports-toolbar strong {
+  color: var(--text-strong);
+  font-size: 0.92rem;
+}
+
+.reports-toolbar span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.reports-filters {
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 1rem;
+}
+
+.filter-button {
+  flex: none;
+  min-height: 2.85rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.filter-button:hover,
+.filter-button-active {
+  border-color: var(--primary-600);
+  background: transparent;
+  color: var(--primary-700);
+}
+
+.reports-list {
+  margin: 0;
+  gap: 0;
+}
+
+.report-card {
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+
+.report-card:last-of-type {
+  border-bottom: 0;
+}
+
+.report-card-main {
+  padding: 1rem;
+  transition: background-color 180ms ease;
+}
+
+.report-card-main:hover {
+  background: var(--surface-2);
+}
+
+.report-title {
+  min-width: 0;
+}
+
+.report-object-type {
+  margin: 0;
+  color: var(--primary-700);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.report-card h2 {
+  max-width: 52rem;
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.status-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-height: 1.6rem;
+  border-radius: var(--radius-pill);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.status-chip-warn {
+  background: #fffaeb;
+  color: #93370d;
+}
+
+.status-chip-ok {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.status-chip-muted {
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.report-summary {
+  max-width: 72ch;
+  margin-top: 0.55rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.report-facts {
+  grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 0.8rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+.report-facts div {
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+}
+
+.report-facts div + div {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.report-facts dt,
+.detail-grid dt {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.report-facts dd,
+.detail-grid dd {
+  margin: 0.18rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.result-summary {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: 0.7rem;
+  margin-top: 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.65rem 0.75rem;
+}
+
+.result-summary strong {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.result-summary p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.empty-panel,
+.loading-panel,
+.notice-error {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 2rem 1.25rem;
+}
+
+.loading-panel {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.loading-panel strong {
+  color: var(--text-strong);
+  font-size: 0.9rem;
+}
+
+.loading-panel span {
+  font-size: 0.78rem;
+}
+
+.empty-icon {
+  border-radius: var(--radius-surface);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.empty-panel h2 {
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.empty-panel p {
+  max-width: 54ch;
+  margin-right: auto;
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.notice-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #fecdca;
+  background: #fffbfa;
+  color: #b42318;
+  text-align: left;
+}
+
+.notice-error > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.notice-error span {
+  font-size: 0.8rem;
+}
+
+.load-more-row {
+  border-top: 1px solid var(--border-subtle);
+  padding: 1rem;
+}
+
+.drawer-backdrop {
+  z-index: 60;
+  background: rgba(16, 24, 40, 0.48);
+}
+
+.report-drawer {
+  width: min(100%, 34rem);
+  gap: 0;
+  background: var(--surface-1);
+  padding: 0;
+  box-shadow: -8px 0 8px rgba(16, 24, 40, 0.08);
+}
+
+.drawer-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  padding: 1rem 1.1rem;
+}
+
+.drawer-head h2 {
+  max-width: 26rem;
+  margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.icon-button {
+  width: 2.35rem;
+  height: 2.35rem;
+  min-height: 0;
+  flex: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.icon-button:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
+}
+
+.report-drawer > .loading-panel,
+.report-drawer > .notice-error,
+.report-drawer > .detail-section {
+  margin: 0 1.1rem;
+}
+
+.report-drawer > .loading-panel,
+.report-drawer > .notice-error {
+  margin-top: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+}
+
+.detail-section {
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  padding: 1rem 0;
+}
+
+.detail-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 2rem;
+}
+
+.detail-section h3 {
+  margin: 0 0 0.4rem;
+  color: var(--text-strong);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.detail-section p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.detail-title-row {
+  margin-bottom: 0.8rem;
+}
+
+.detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+.detail-grid div {
+  min-width: 0;
+  padding: 0.7rem;
+}
+
+.detail-grid div:nth-child(even) {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.detail-grid div:nth-child(n + 3) {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.detail-link {
+  margin-top: 0.8rem;
+}
+
+.unavailable-copy {
+  margin-top: 0.75rem !important;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.65rem 0.75rem;
+  color: var(--text-muted) !important;
+  font-weight: 700;
+}
+
+:global(html.dark) .filter-button-active {
+  border-color: #60a5fa;
+  background: transparent;
+  color: #bfdbfe;
+}
+
+:global(html.dark) .status-chip-warn {
+  background: rgba(120, 53, 15, 0.34);
+  color: #fdba74;
+}
+
+:global(html.dark) .status-chip-ok {
+  background: rgba(6, 78, 59, 0.42);
+  color: #a7f3d0;
+}
+
+:global(html.dark) .notice-error {
+  border-color: #7f1d1d;
+  background: rgba(69, 10, 10, 0.28);
+  color: #fecaca;
+}
+
+@media (max-width: 700px) {
+  .reports-main {
+    padding-top: 1.25rem;
+  }
+
+  .reports-hero,
+  .reports-toolbar,
+  .notice-error,
+  .report-card-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reports-hero .secondary-action,
+  .reports-toolbar .secondary-action,
+  .notice-error .secondary-action {
+    width: 100%;
+  }
+
+  .reports-filters {
+    padding: 0 0.75rem;
+  }
+
+  .report-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .report-facts div + div {
+    border-top: 1px solid var(--border-subtle);
+    border-left: 0;
+  }
+
+  .result-summary {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  .report-drawer {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-grid div:nth-child(even) {
+    border-left: 0;
+  }
+
+  .detail-grid div:nth-child(n + 2) {
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-card-main,
+  .filter-button {
+    transition: none;
+  }
+
+  .animate-spin {
+    animation: none;
   }
 }
 </style>

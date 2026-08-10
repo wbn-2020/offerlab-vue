@@ -1,109 +1,117 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell">
     <AppHeader />
-    <main class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
-      <section class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Community Insights</p>
-          <h1 class="mt-2 text-2xl font-bold text-slate-950 dark:text-slate-50">综合社区趋势</h1>
-          <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            按综合社区或具体领域查看公开帖子、标签和热门内容变化，发现不同领域趋势。
-          </p>
+    <main class="community-page trend-page">
+      <header class="trend-header">
+        <div class="trend-heading">
+          <span class="trend-context">社区公开数据</span>
+          <h1>趋势观察</h1>
+          <p>比较内容供给、领域活跃度与发现行为，快速识别正在增长的方向和仍需补充的内容。</p>
         </div>
-        <div class="flex flex-col gap-3 md:items-end">
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="period in periods"
-              :key="period.value"
-              type="button"
-              @click="setRange(period.value)"
-              :class="[
-                'rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
-                activeRange === period.value
-                  ? 'bg-primary-600 text-white'
-                  : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-              ]"
-            >
-              {{ period.label }}
-            </button>
+
+        <div class="trend-controls" aria-label="趋势范围筛选">
+          <div class="control-group">
+            <span class="control-label">时间范围</span>
+            <div class="segmented-control">
+              <button
+                v-for="period in periods"
+                :key="period.value"
+                type="button"
+                :class="{ active: activeRange === period.value }"
+                :aria-pressed="activeRange === period.value"
+                @click="setRange(period.value)"
+              >
+                {{ period.label }}
+              </button>
+            </div>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <button
-              type="button"
-              @click="setDomain(undefined)"
-              :class="[
-                'rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
-                activeDomain == null
-                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950'
-                  : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-              ]"
-            >
-              综合
-            </button>
-            <button
-              v-for="domain in DOMAIN_OPTIONS"
-              :key="domain.value"
-              type="button"
-              @click="setDomain(domain.value)"
-              :class="[
-                'rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
-                activeDomain === domain.value
-                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950'
-                  : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-              ]"
-            >
-              {{ domain.icon }} {{ domain.label }}
-            </button>
+
+          <div class="control-group">
+            <span class="control-label">内容领域</span>
+            <div class="domain-filter" role="group" aria-label="内容领域">
+              <button
+                type="button"
+                :class="{ active: activeDomain == null }"
+                :aria-pressed="activeDomain == null"
+                @click="setDomain(undefined)"
+              >
+                综合
+              </button>
+              <button
+                v-for="domain in DOMAIN_OPTIONS"
+                :key="domain.value"
+                type="button"
+                :class="{ active: activeDomain === domain.value }"
+                :aria-pressed="activeDomain === domain.value"
+                @click="setDomain(domain.value)"
+              >
+                <span aria-hidden="true">{{ domain.icon }}</span>
+                {{ domain.label }}
+              </button>
+            </div>
           </div>
         </div>
+      </header>
+
+      <section v-if="errorText" class="status-notice status-notice--warning" role="alert">
+        <strong>部分趋势数据暂不可用</strong>
+        <span>{{ errorText }}</span>
+        <button type="button" class="secondary-action" @click="loadDashboard">重新加载</button>
       </section>
 
-      <section v-if="errorText" class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-        {{ errorText }}
-      </section>
-
-      <section class="grid gap-4 md:grid-cols-4">
-        <article class="metric-card">
+      <section class="metric-strip" aria-label="趋势摘要">
+        <article class="metric-card metric-card--primary">
           <span>公开帖子</span>
           <strong>{{ dashboard?.totalPosts ?? '--' }}</strong>
-        </article>
-        <article class="metric-card">
-          <span>热门方向</span>
-          <strong>{{ dashboard?.topCompanies.length ?? '--' }}</strong>
-        </article>
-        <article class="metric-card">
-          <span>高频标签</span>
-          <strong>{{ dashboard?.topTags.length ?? '--' }}</strong>
-        </article>
-        <article class="metric-card">
-          <span>精选内容</span>
-          <strong>{{ dashboard?.featuredPosts ?? '--' }}</strong>
+          <small>{{ activeRangeLabel }}内可见内容</small>
         </article>
         <article class="metric-card">
           <span>活跃作者</span>
           <strong>{{ dashboard?.activeAuthors ?? '--' }}</strong>
+          <small>持续产生公开内容</small>
+        </article>
+        <article class="metric-card">
+          <span>精选内容</span>
+          <strong>{{ dashboard?.featuredPosts ?? '--' }}</strong>
+          <small>通过精选进入发现链路</small>
+        </article>
+        <article class="metric-card">
+          <span>热门方向</span>
+          <strong>{{ dashboard?.topCompanies.length ?? '--' }}</strong>
+          <small>进入当前榜单的方向</small>
+        </article>
+        <article class="metric-card">
+          <span>高频标签</span>
+          <strong>{{ dashboard?.topTags.length ?? '--' }}</strong>
+          <small>形成稳定讨论的标签</small>
         </article>
       </section>
 
-      <section v-if="isLoading" class="panel py-16 text-center text-sm text-slate-500 dark:text-slate-400">
-        正在加载趋势数据...
+      <section v-if="isLoading" class="trend-loading" aria-live="polite">
+        <div class="loading-line loading-line--wide" />
+        <div class="loading-line" />
+        <div class="loading-grid">
+          <div v-for="item in 5" :key="item" class="loading-block" />
+        </div>
+        <span>正在整理趋势数据...</span>
       </section>
 
       <template v-else>
-        <section class="domain-comparison-board panel">
-          <div class="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <section class="panel domain-comparison-board">
+          <div class="section-heading">
             <div>
-              <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">Operations Board</p>
-              <h2 class="mt-1 text-xl font-bold text-slate-950 dark:text-slate-50">领域横向对比</h2>
-              <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                将各领域放在同一视图里比较内容占比、发布量和当前热点，便于运营快速识别需要加热或补给的领域。
-              </p>
+              <h2>领域横向对比</h2>
+              <p>统一比较发布量、内容占比和当前热点，辅助判断哪些领域需要继续加热或补充供给。</p>
             </div>
-            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+            <span class="view-status">
               {{ activeRangeLabel }} · {{ activeDomain == null ? '综合视图' : `${getDomainLabel(activeDomain)}视图` }}
             </span>
           </div>
-          <div v-if="domainComparisonRows.length === 0" class="empty-state">暂无领域对比数据</div>
+
+          <div v-if="domainComparisonRows.length === 0" class="empty-state">
+            <strong>暂无领域对比数据</strong>
+            <span>切换时间范围后再试，或等待公开内容形成可比较样本。</span>
+          </div>
           <div v-else class="domain-comparison-grid">
             <button
               v-for="row in domainComparisonRows"
@@ -111,152 +119,136 @@
               type="button"
               class="domain-comparison-row"
               :class="{ 'domain-comparison-row--active': row.isActive }"
+              :aria-pressed="row.isActive"
               @click="setDomain(row.value)"
             >
-              <div class="flex min-w-0 items-start justify-between gap-3">
-                <div class="flex min-w-0 items-start gap-3">
-                  <span class="domain-icon">{{ row.icon }}</span>
-                  <div class="min-w-0 text-left">
-                    <h3 class="truncate text-base font-bold text-slate-950 dark:text-slate-50">{{ row.label }}</h3>
-                    <p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ row.description }}</p>
-                  </div>
+              <div class="domain-row-heading">
+                <span class="domain-icon" aria-hidden="true">{{ row.icon }}</span>
+                <div>
+                  <h3>{{ row.label }}</h3>
+                  <p>{{ row.description }}</p>
                 </div>
                 <span class="status-pill" :class="`status-pill--${row.statusTone}`">{{ row.statusLabel }}</span>
               </div>
 
-              <div class="mt-4 grid grid-cols-2 gap-3">
-                <div class="comparison-stat">
-                  <span>发布量</span>
-                  <strong>{{ row.count }}</strong>
-                </div>
-                <div class="comparison-stat">
-                  <span>占比</span>
-                  <strong>{{ row.shareLabel }}</strong>
-                </div>
+              <div class="comparison-values">
+                <span><small>发布量</small><strong>{{ row.count }}</strong></span>
+                <span><small>占比</small><strong>{{ row.shareLabel }}</strong></span>
               </div>
 
-              <div class="mt-4">
-                <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div class="h-full rounded-full bg-primary-600" :style="{ width: row.barWidth }" />
-                </div>
-                <p class="mt-3 truncate text-left text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  热点：{{ row.topContent }}
-                </p>
+              <div class="comparison-bar" aria-hidden="true">
+                <span :style="{ width: row.barWidth }" />
               </div>
+              <p class="domain-hotline">热点：{{ row.topContent }}</p>
             </button>
           </div>
         </section>
 
-        <section class="grid gap-6 lg:grid-cols-2">
-          <RankPanel title="热门方向 Top 10" unit="篇" :items="dashboard?.topCompanies || []" color="primary" />
-          <RankPanel title="高频标签 Top 10" unit="次" :items="dashboard?.topTags || []" color="blue" />
-        </section>
+        <section class="analytics-layout">
+          <div class="analytics-main">
+            <section class="rank-grid">
+              <RankPanel title="热门方向 Top 10" unit="篇" :items="dashboard?.topCompanies || []" color="primary" />
+              <RankPanel title="高频标签 Top 10" unit="次" :items="dashboard?.topTags || []" color="blue" />
+              <RankPanel title="领域分布" unit="篇" :items="dashboard?.domainDistribution || []" color="blue" show-percentage />
+              <RankPanel :title="domainHotContentTitle" unit="互动" :items="dashboard?.domainHotContent || []" color="primary" />
+              <RankPanel title="内容类型分布" unit="篇" :items="dashboard?.contentTypeDistribution || []" color="green" show-percentage />
+              <RankPanel title="精选内容互动 Top 8" unit="互动" :items="dashboard?.featuredContent || []" color="amber" />
+            </section>
 
-        <section class="grid gap-6 lg:grid-cols-2">
-          <RankPanel title="领域分布" unit="篇" :items="dashboard?.domainDistribution || []" color="blue" show-percentage />
-          <RankPanel :title="domainHotContentTitle" unit="互动" :items="dashboard?.domainHotContent || []" color="primary" />
-        </section>
+            <section class="panel publish-panel">
+              <div class="section-heading">
+                <div>
+                  <h2>发布趋势</h2>
+                  <p>按自然日统计公开帖子发布量，观察内容供给节奏。</p>
+                </div>
+              </div>
+              <div v-if="publishTrend.length === 0" class="empty-state">
+                <strong>暂无发布数据</strong>
+                <span>当前范围内还没有形成可展示的发布趋势。</span>
+              </div>
+              <div v-else class="trend-chart" aria-label="公开帖子发布趋势">
+                <div v-for="point in publishTrend" :key="point.label" class="trend-point">
+                  <span class="trend-value">{{ point.count }}</span>
+                  <div
+                    class="trend-bar"
+                    :style="{ height: barHeight(point.count) }"
+                    :title="`${point.label}: ${point.count}`"
+                  />
+                  <span class="trend-date">{{ shortDate(point.label) }}</span>
+                </div>
+              </div>
+            </section>
 
-        <section class="grid gap-6 lg:grid-cols-2">
-          <RankPanel title="内容类型分布" unit="篇" :items="dashboard?.contentTypeDistribution || []" color="green" show-percentage />
-          <RankPanel title="精选内容互动 Top 8" unit="互动" :items="dashboard?.featuredContent || []" color="amber" />
-        </section>
-
-        <section class="panel">
-          <div class="mb-5 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">Distribution Ops</p>
-              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">推荐与搜索运营摘要</h2>
-              <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                汇总热门搜索、无结果词和搜索页推荐动作点击，仅用于内容组织和发现体验观察。
-              </p>
-            </div>
-            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
-              {{ opsSummaryStatusLabel }}
-            </span>
+            <section class="rank-grid">
+              <RankPanel title="场景分布" unit="篇" :items="dashboard?.positionDistribution || []" color="green" show-percentage />
+              <RankPanel title="历史内容反馈分布" unit="篇" :items="dashboard?.resultDistribution || []" color="amber" />
+            </section>
           </div>
 
-          <div
-            v-if="opsSummaryMessage"
-            :class="['ops-summary-notice', `ops-summary-notice--${opsSummaryState}`]"
-            role="status"
-          >
-            {{ opsSummaryMessage }}
-          </div>
-
-          <div v-if="opsSummaryState === 'available' || opsSummaryState === 'degraded'" class="grid gap-4 lg:grid-cols-3">
-            <div class="ops-summary-column">
-              <h3>热门搜索</h3>
-              <button
-                v-for="item in hotSearchRows"
-                :key="`hot:${item.name}`"
-                type="button"
-                class="ops-summary-row"
-                @click="openSearchTerm(item.name)"
-              >
-                <span>{{ item.name }}</span>
-                <strong>{{ item.count }}</strong>
-              </button>
-              <div v-if="!hotSearchRows.length" class="ops-summary-empty">暂无可展示热词</div>
+          <aside class="panel ops-summary-panel">
+            <div class="section-heading section-heading--stacked">
+              <div>
+                <h2>发现链路摘要</h2>
+                <p>查看热门搜索、无结果词和推荐动作点击，用于优化内容组织与搜索体验。</p>
+              </div>
+              <span class="view-status" :class="`view-status--${opsSummaryState}`">{{ opsSummaryStatusLabel }}</span>
             </div>
 
-            <div class="ops-summary-column">
-              <h3>搜索页推荐动作点击</h3>
-              <button
-                v-for="item in recommendClickRows"
-                :key="`recommend:${item.name}`"
-                type="button"
-                class="ops-summary-row"
-                @click="openSearchTerm(item.name)"
-              >
-                <span>{{ item.name }}</span>
-                <strong>{{ item.count }}</strong>
-              </button>
-              <div v-if="!recommendClickRows.length" class="ops-summary-empty">暂无搜索页推荐动作点击数据</div>
+            <div
+              v-if="opsSummaryMessage"
+              :class="['ops-summary-notice', `ops-summary-notice--${opsSummaryState}`]"
+              role="status"
+            >
+              {{ opsSummaryMessage }}
             </div>
 
-            <div class="ops-summary-column">
-              <h3>无结果词</h3>
-              <button
-                v-for="item in noResultRows"
-                :key="`empty:${item.name}`"
-                type="button"
-                class="ops-summary-row"
-                @click="openSearchTerm(item.name)"
-              >
-                <span>{{ item.name }}</span>
-                <strong>{{ item.count }}</strong>
-              </button>
-              <div v-if="!noResultRows.length" class="ops-summary-empty">暂无无结果词</div>
-            </div>
-          </div>
-        </section>
+            <div v-if="opsSummaryState === 'available' || opsSummaryState === 'degraded'" class="ops-summary-list">
+              <section class="ops-summary-column">
+                <h3>热门搜索</h3>
+                <button
+                  v-for="item in hotSearchRows"
+                  :key="`hot:${item.name}`"
+                  type="button"
+                  class="ops-summary-row"
+                  @click="openSearchTerm(item.name)"
+                >
+                  <span>{{ item.name }}</span>
+                  <strong>{{ item.count }}</strong>
+                </button>
+                <div v-if="!hotSearchRows.length" class="ops-summary-empty">暂无可展示热词</div>
+              </section>
 
-        <section class="panel">
-          <div class="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">发布趋势</h2>
-              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">按自然日统计公开帖子发布量。</p>
-            </div>
-          </div>
-          <div v-if="publishTrend.length === 0" class="empty-state">暂无发布数据</div>
-          <div v-else class="flex h-64 items-end gap-2">
-            <div v-for="point in publishTrend" :key="point.label" class="flex min-w-0 flex-1 flex-col items-center gap-2">
-              <div
-                class="w-full rounded-t bg-primary-600 transition-all hover:bg-primary-700"
-                :style="{ height: barHeight(point.count) }"
-                :title="`${point.label}: ${point.count}`"
-              />
-              <span class="w-full truncate text-center text-[11px] text-slate-500 dark:text-slate-400">
-                {{ shortDate(point.label) }}
-              </span>
-            </div>
-          </div>
-        </section>
+              <section class="ops-summary-column">
+                <h3>推荐动作点击</h3>
+                <button
+                  v-for="item in recommendClickRows"
+                  :key="`recommend:${item.name}`"
+                  type="button"
+                  class="ops-summary-row"
+                  @click="openSearchTerm(item.name)"
+                >
+                  <span>{{ item.name }}</span>
+                  <strong>{{ item.count }}</strong>
+                </button>
+                <div v-if="!recommendClickRows.length" class="ops-summary-empty">暂无推荐动作点击数据</div>
+              </section>
 
-        <section class="grid gap-6 lg:grid-cols-2">
-          <RankPanel title="场景分布" unit="篇" :items="dashboard?.positionDistribution || []" color="green" show-percentage />
-          <RankPanel title="历史内容反馈分布" unit="篇" :items="dashboard?.resultDistribution || []" color="amber" />
+              <section class="ops-summary-column">
+                <h3>无结果词</h3>
+                <button
+                  v-for="item in noResultRows"
+                  :key="`empty:${item.name}`"
+                  type="button"
+                  class="ops-summary-row"
+                  @click="openSearchTerm(item.name)"
+                >
+                  <span>{{ item.name }}</span>
+                  <strong>{{ item.count }}</strong>
+                </button>
+                <div v-if="!noResultRows.length" class="ops-summary-empty">暂无无结果词</div>
+              </section>
+            </div>
+          </aside>
         </section>
       </template>
     </main>
@@ -501,191 +493,473 @@ watch([activeRange, activeDomain], loadDashboard)
 </script>
 
 <style scoped>
-.metric-card,
-.panel {
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  padding: 1.25rem;
+.trend-page {
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.trend-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(32rem, 0.9fr);
+  gap: 2rem;
+  align-items: end;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.trend-heading {
+  min-width: 0;
+}
+
+.trend-context,
+.control-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.trend-heading h1 {
+  margin-top: 0.35rem;
+  color: var(--text-strong);
+  font-size: 2rem;
+  font-weight: 760;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.trend-heading p {
+  max-width: 44rem;
+  margin-top: 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+.trend-controls {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: end;
+}
+
+.control-group {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: end;
+  min-width: 0;
+}
+
+.segmented-control,
+.domain-filter {
+  display: flex;
+  max-width: 100%;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+}
+
+.segmented-control button,
+.domain-filter button {
+  min-height: 2.25rem;
+  border-radius: 5px;
+  padding: 0.4rem 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.segmented-control button:hover,
+.domain-filter button:hover {
+  color: var(--text-strong);
+  background: var(--surface-2);
+}
+
+.segmented-control button.active,
+.domain-filter button.active {
+  color: white;
+  background: var(--primary-600);
+}
+
+.metric-strip {
+  display: grid;
+  grid-template-columns: 1.25fr repeat(4, minmax(0, 1fr));
+  margin-top: 1.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.metric-card {
+  min-width: 0;
+  min-height: 8rem;
+  padding: 1.05rem 1.15rem;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.metric-card:last-child {
+  border-right: 0;
+}
+
+.metric-card span,
+.metric-card small {
+  display: block;
+  color: var(--text-muted);
 }
 
 .metric-card span {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: rgb(100 116 139);
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .metric-card strong {
-  margin-top: 0.5rem;
   display: block;
+  margin-top: 0.35rem;
+  color: var(--text-strong);
   font-size: 1.75rem;
-  font-weight: 800;
-  color: rgb(15 23 42);
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
 }
 
-.empty-state {
-  border-radius: 0.5rem;
-  border: 1px dashed rgb(203 213 225);
-  padding: 2.5rem 1rem;
-  text-align: center;
-  font-size: 0.875rem;
-  color: rgb(100 116 139);
+.metric-card small {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
 }
 
-.domain-comparison-board {
-  overflow: hidden;
+.metric-card--primary {
+  background: var(--primary-50);
+}
+
+.metric-card--primary strong {
+  color: var(--primary-700);
+}
+
+.status-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1.25rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  font-size: 0.8125rem;
+}
+
+.status-notice--warning {
+  border-color: #f4d08b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.trend-loading,
+.panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+}
+
+.trend-loading {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.loading-line,
+.loading-block {
+  background: var(--surface-muted);
+  animation: trend-pulse 1.4s ease-in-out infinite;
+}
+
+.loading-line {
+  width: 36%;
+  height: 0.75rem;
+  border-radius: 4px;
+}
+
+.loading-line--wide {
+  width: 58%;
+  height: 1rem;
+}
+
+.loading-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.loading-block {
+  height: 7rem;
+  border-radius: var(--radius-surface);
+}
+
+.panel {
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.domain-comparison-board,
+.analytics-layout {
+  margin-top: 1.5rem;
+}
+
+.section-heading {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.1rem;
+}
+
+.section-heading--stacked {
+  display: grid;
+}
+
+.section-heading h2 {
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 720;
+}
+
+.section-heading p {
+  max-width: 52rem;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.view-status {
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  padding: 0.35rem 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.view-status--degraded {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.view-status--restricted,
+.view-status--unavailable {
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .domain-comparison-grid {
   display: grid;
-  gap: 0.875rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
 }
 
 .domain-comparison-row {
-  display: block;
   width: 100%;
   min-width: 0;
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252 / 0.72);
-  padding: 1rem;
-  text-align: inherit;
-  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  padding: 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-2);
+  text-align: left;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
 }
 
 .domain-comparison-row:hover {
-  border-color: rgb(199 210 254);
-  background: rgb(238 242 255 / 0.52);
-  transform: translateY(-1px);
+  border-color: #b8c7e8;
+  background: var(--surface-1);
 }
 
 .domain-comparison-row--active {
-  border-color: rgb(79 70 229);
-  background: rgb(238 242 255 / 0.78);
-  box-shadow: 0 12px 30px rgb(79 70 229 / 0.12);
+  border-color: var(--primary-500);
+  background: var(--primary-50);
+}
+
+.domain-row-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.domain-row-heading > div {
+  min-width: 0;
+}
+
+.domain-row-heading h3 {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.domain-row-heading p {
+  display: -webkit-box;
+  margin-top: 0.25rem;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .domain-icon {
   display: inline-flex;
-  height: 2.25rem;
-  width: 2.25rem;
-  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
   align-items: center;
   justify-content: center;
-  border-radius: 0.75rem;
-  background: white;
-  font-size: 1.2rem;
-  box-shadow: inset 0 0 0 1px rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface-1);
+  font-size: 1rem;
 }
 
 .status-pill {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  padding: 0.22rem 0.55rem;
-  font-size: 0.7rem;
-  font-weight: 900;
-  line-height: 1.2;
+  grid-column: 1 / -1;
+  justify-self: start;
+  border-radius: var(--radius-pill);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
 .status-pill--hot {
-  background: rgb(254 243 199);
-  color: rgb(146 64 14);
+  background: #fff4d6;
+  color: #8a4b08;
 }
 
 .status-pill--steady {
-  background: rgb(220 252 231);
-  color: rgb(22 101 52);
+  background: #dcfae6;
+  color: #087443;
 }
 
 .status-pill--watch {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-3);
+  color: var(--text-muted);
 }
 
-.comparison-stat {
-  min-width: 0;
-  border-radius: 0.625rem;
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  padding: 0.65rem;
+.comparison-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.85rem;
 }
 
-.comparison-stat span {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: rgb(100 116 139);
+.comparison-values span {
+  display: grid;
+  gap: 0.1rem;
 }
 
-.comparison-stat strong {
-  margin-top: 0.25rem;
-  display: block;
+.comparison-values small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.comparison-values strong {
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+}
+
+.comparison-bar {
+  height: 0.35rem;
+  margin-top: 0.75rem;
   overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+}
+
+.comparison-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-600);
+}
+
+.domain-hotline {
+  margin-top: 0.65rem;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 1.05rem;
-  font-weight: 900;
-  color: rgb(15 23 42);
 }
 
-.ops-summary-notice {
-  margin-bottom: 1rem;
-  border: 1px solid rgb(203 213 225);
-  border-radius: 0.5rem;
-  background: rgb(248 250 252);
-  padding: 0.8rem 0.9rem;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  color: rgb(51 65 85);
+.analytics-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 1rem;
+  align-items: start;
 }
 
-.ops-summary-notice--degraded {
-  border-color: rgb(253 230 138);
-  background: rgb(255 251 235);
-  color: rgb(146 64 14);
-}
-
-.ops-summary-notice--restricted,
-.ops-summary-notice--unavailable {
-  border-color: rgb(254 202 202);
-  background: rgb(254 242 242);
-  color: rgb(153 27 27);
-}
-
-.ops-summary-column {
+.analytics-main {
+  display: grid;
+  gap: 1rem;
   min-width: 0;
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252 / 0.72);
-  padding: 1rem;
+}
+
+.rank-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.ops-summary-panel {
+  position: sticky;
+  top: calc(var(--community-header-height) + 1rem);
+}
+
+.ops-summary-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.ops-summary-column + .ops-summary-column {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .ops-summary-column h3 {
-  margin-bottom: 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 800;
-  color: rgb(15 23 42);
+  margin-bottom: 0.45rem;
+  color: var(--text-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .ops-summary-row {
   display: flex;
   width: 100%;
-  min-height: 2.6rem;
+  min-height: 2.25rem;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-radius: 0.6rem;
-  padding: 0.5rem 0.65rem;
+  border-radius: 5px;
+  padding: 0.35rem 0.45rem;
+  color: var(--text-primary);
+  font-size: 0.78rem;
   text-align: left;
-  font-size: 0.82rem;
-  color: rgb(51 65 85);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 .ops-summary-row:hover {
-  background: white;
-  color: rgb(37 99 235);
+  background: var(--primary-50);
+  color: var(--primary-700);
 }
 
 .ops-summary-row span {
@@ -696,132 +970,271 @@ watch([activeRange, activeDomain], loadDashboard)
 }
 
 .ops-summary-row strong {
-  flex-shrink: 0;
-  font-size: 0.78rem;
-  color: rgb(100 116 139);
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ops-summary-notice,
+.ops-summary-empty {
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.ops-summary-notice {
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.75rem;
+}
+
+.ops-summary-notice--degraded {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.ops-summary-notice--restricted,
+.ops-summary-notice--unavailable {
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .ops-summary-empty {
-  border-radius: 0.6rem;
-  border: 1px dashed rgb(203 213 225);
-  padding: 0.8rem;
-  font-size: 0.82rem;
-  color: rgb(100 116 139);
+  padding: 0.6rem;
 }
 
-@media (min-width: 640px) {
+.trend-chart {
+  display: flex;
+  height: 16rem;
+  gap: 0.45rem;
+  align-items: end;
+  padding-top: 1.5rem;
+  overflow-x: auto;
+}
+
+.trend-point {
+  display: grid;
+  grid-template-rows: 1.25rem minmax(0, 1fr) 1.25rem;
+  flex: 1 0 2.25rem;
+  height: 100%;
+  gap: 0.35rem;
+  align-items: end;
+  justify-items: center;
+}
+
+.trend-value,
+.trend-date {
+  width: 100%;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trend-bar {
+  width: min(100%, 1.6rem);
+  min-height: 0.4rem;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--primary-600);
+  transition: background-color 0.18s ease;
+}
+
+.trend-bar:hover {
+  background: var(--primary-700);
+}
+
+.empty-state {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  padding: 2.25rem 1rem;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-surface);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.empty-state strong {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.empty-state span {
+  max-width: 34rem;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+@keyframes trend-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1100px) {
+  .trend-header {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-controls,
+  .control-group {
+    justify-items: start;
+    width: 100%;
+  }
+
+  .domain-filter {
+    width: 100%;
+    overflow-x: auto;
+  }
+
   .domain-comparison-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .analytics-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ops-summary-panel {
+    position: static;
+  }
+
+  .ops-summary-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ops-summary-column + .ops-summary-column {
+    padding-top: 0;
+    padding-left: 1rem;
+    border-top: 0;
+    border-left: 1px solid var(--border-subtle);
+  }
+}
+
+@media (max-width: 760px) {
+  .trend-page {
+    padding-top: 1.25rem;
+  }
+
+  .trend-heading h1 {
+    font-size: 1.65rem;
+  }
+
+  .metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric-card {
+    min-height: 7.5rem;
+    border-right: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .metric-card:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .metric-card:last-child {
+    grid-column: 1 / -1;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  .domain-comparison-grid,
+  .rank-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-summary-list {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-summary-column + .ops-summary-column {
+    padding-top: 1rem;
+    padding-left: 0;
+    border-top: 1px solid var(--border-subtle);
+    border-left: 0;
+  }
+
+  .loading-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1024px) {
-  .domain-comparison-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+@media (max-width: 440px) {
+  .trend-header {
+    gap: 1.25rem;
+  }
+
+  .segmented-control,
+  .domain-filter {
+    width: 100%;
+  }
+
+  .segmented-control button {
+    flex: 1 1 0;
+    padding-inline: 0.45rem;
+  }
+
+  .panel {
+    padding: 1rem;
+  }
+
+  .section-heading {
+    display: grid;
+  }
+
+  .view-status {
+    justify-self: start;
+  }
+
+  .status-notice {
+    grid-template-columns: 1fr;
   }
 }
 
-.dark .metric-card,
-.dark .panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+:global(html.dark) .metric-card--primary,
+:global(html.dark) .domain-comparison-row--active,
+:global(html.dark) .ops-summary-row:hover {
+  background: rgba(21, 94, 239, 0.14);
 }
 
-.dark .metric-card span {
-  color: rgb(148 163 184);
+:global(html.dark) .segmented-control button.active,
+:global(html.dark) .domain-filter button.active {
+  color: white;
 }
 
-.dark .metric-card strong {
-  color: rgb(248 250 252);
+:global(html.dark) .status-notice--warning,
+:global(html.dark) .view-status--degraded,
+:global(html.dark) .ops-summary-notice--degraded {
+  background: rgba(120, 53, 15, 0.3);
+  color: #fde68a;
 }
 
-.dark .empty-state {
-  border-color: rgb(51 65 85);
-  color: rgb(148 163 184);
+:global(html.dark) .view-status--restricted,
+:global(html.dark) .view-status--unavailable,
+:global(html.dark) .ops-summary-notice--restricted,
+:global(html.dark) .ops-summary-notice--unavailable {
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
 }
 
-.dark .ops-summary-notice {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.42);
-  color: rgb(203 213 225);
+:global(html.dark) .status-pill--hot {
+  background: rgba(146, 64, 14, 0.34);
+  color: #fde68a;
 }
 
-.dark .ops-summary-notice--degraded {
-  border-color: rgb(180 83 9);
-  background: rgb(120 53 15 / 0.24);
-  color: rgb(253 230 138);
-}
-
-.dark .ops-summary-notice--restricted,
-.dark .ops-summary-notice--unavailable {
-  border-color: rgb(153 27 27);
-  background: rgb(127 29 29 / 0.22);
-  color: rgb(254 202 202);
-}
-
-.dark .domain-comparison-row {
-  border-color: rgb(51 65 85 / 0.86);
-  background: rgb(2 6 23 / 0.32);
-}
-
-.dark .domain-comparison-row:hover {
-  border-color: rgb(99 102 241 / 0.72);
-  background: rgb(30 41 59 / 0.58);
-}
-
-.dark .domain-comparison-row--active {
-  border-color: rgb(129 140 248);
-  background: rgb(49 46 129 / 0.35);
-  box-shadow: 0 12px 30px rgb(15 23 42 / 0.28);
-}
-
-.dark .domain-icon,
-.dark .comparison-stat,
-.dark .ops-summary-column {
-  border-color: rgb(51 65 85 / 0.86);
-  background: rgb(15 23 42 / 0.78);
-  box-shadow: none;
-}
-
-.dark .ops-summary-column h3,
-.dark .ops-summary-row {
-  color: rgb(226 232 240);
-}
-
-.dark .ops-summary-row:hover {
-  background: rgb(30 41 59);
-  color: rgb(147 197 253);
-}
-
-.dark .ops-summary-row strong,
-.dark .ops-summary-empty {
-  color: rgb(148 163 184);
-}
-
-.dark .ops-summary-empty {
-  border-color: rgb(51 65 85);
-}
-
-.dark .status-pill--hot {
-  background: rgb(120 53 15 / 0.42);
-  color: rgb(253 230 138);
-}
-
-.dark .status-pill--steady {
-  background: rgb(20 83 45 / 0.42);
-  color: rgb(187 247 208);
-}
-
-.dark .status-pill--watch {
-  background: rgb(51 65 85 / 0.72);
-  color: rgb(203 213 225);
-}
-
-.dark .comparison-stat span {
-  color: rgb(148 163 184);
-}
-
-.dark .comparison-stat strong {
-  color: rgb(248 250 252);
+:global(html.dark) .status-pill--steady {
+  background: rgba(6, 95, 70, 0.34);
+  color: #a7f3d0;
 }
 </style>

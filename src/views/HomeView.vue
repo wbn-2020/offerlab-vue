@@ -1,7 +1,7 @@
 <template>
   <div class="app-shell community-home">
     <AppHeader />
-    <main class="community-home-main mx-auto max-w-[1280px] px-4 py-5 sm:px-6 lg:py-7">
+    <main class="community-page community-home-main py-5 sm:py-6 lg:py-7">
       <div class="community-feed-layout">
         <aside class="community-feed-layout__left hidden lg:block">
           <div class="sticky top-24 space-y-5">
@@ -223,8 +223,6 @@
             </div>
           </section>
 
-          <OperationSlotCard class="home-operation-slot" slot-code="HOME_FEATURED" />
-
           <div class="home-feed-controls">
             <FeedTabs
               class="home-feed-tabs"
@@ -384,6 +382,8 @@
           <div v-if="isFetching" class="mt-6">
             <LoadingSkeleton variant="feed" />
           </div>
+
+          <OperationSlotCard class="home-operation-slot" slot-code="HOME_FEATURED" />
         </section>
 
         <aside class="community-feed-layout__right hidden lg:block">
@@ -2280,14 +2280,13 @@ watch(
 
 /* Editorial community stream: wide enough for reading, compact enough for repeat visits. */
 .community-home-main {
-  width: min(1320px, 100%);
-  min-height: calc(100vh - 68px);
+  min-height: calc(100vh - var(--community-header-height));
 }
 
 .community-feed-layout {
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr) minmax(0, 284px);
-  gap: 2rem;
+  grid-template-columns: 200px minmax(0, 1fr) 280px;
+  gap: 1.375rem;
   align-items: start;
   justify-content: center;
 }
@@ -2306,7 +2305,11 @@ watch(
 
 .home-channel-nav {
   gap: 0.2rem;
-  padding: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .home-rail-heading,
@@ -2390,6 +2393,14 @@ watch(
 .home-task-panel {
   border-top: 1px solid var(--border-subtle);
   padding: 1rem 0 0;
+}
+
+.home-profile-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  padding: 1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .home-profile-avatar,
@@ -2502,8 +2513,12 @@ watch(
 }
 
 .home-rail-section {
-  padding: 1rem 0;
-  border-top: 1px solid var(--border-subtle);
+  margin-bottom: 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  padding: 1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .home-rail-section__title h3 {
@@ -2549,8 +2564,11 @@ watch(
 .home-feed-intro {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.9rem 1rem;
-  padding: 0.15rem 0 1.35rem;
-  border-bottom-color: var(--border-subtle);
+  padding: 1.15rem 1.25rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .home-feed-intro h1 {
@@ -2639,9 +2657,8 @@ watch(
 }
 
 .home-feed-controls {
-  margin: 0;
-  padding: 0.75rem 0 1rem;
-  border-bottom-color: var(--border-subtle);
+  margin: 0.85rem 0 0;
+  padding: 0.75rem 0;
 }
 
 .home-operation-slot {
@@ -2736,9 +2753,10 @@ watch(
 }
 
 .home-feed-list {
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface);
+  display: grid;
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
 }
 
 .home-feed-list :deep(.post-card) {
@@ -2750,20 +2768,18 @@ watch(
 }
 
 .home-feed-list :deep(.surface-card) {
-  border-right: 0;
-  border-left: 0;
-  border-radius: 0;
+  border-radius: var(--radius-surface);
 }
 
 .home-right-rail {
   display: grid;
   width: 100%;
   grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .home-right-rail .home-rail-section:first-child {
-  padding-top: 0.1rem;
-  border-top: 0;
+  padding-top: 1rem;
 }
 
 .home-rail-section__empty {

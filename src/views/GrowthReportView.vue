@@ -1,40 +1,45 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell growth-report-page">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <section class="surface-card p-6">
+    <main class="community-page growth-report-main">
+      <header class="report-page-heading">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="report-kicker">成长复盘</span>
-            <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
+            <span class="report-kicker">创作复盘</span>
+            <h1>
               周报 / 月报
             </h1>
-            <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+            <p class="report-page-description">
               把最近一个周期的内容贡献、领域变化和下一步建议整理成可回顾的成长复盘。
             </p>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="option in periodOptions"
-              :key="option.value"
-              type="button"
-              :class="['period-chip', period === option.value ? 'period-chip-active' : '']"
-              @click="period = option.value"
-            >
-              {{ option.label }}
-            </button>
+          <div class="report-heading-actions">
+            <div class="period-segment" aria-label="成长报告周期">
+              <button
+                v-for="option in periodOptions"
+                :key="option.value"
+                type="button"
+                :class="['period-chip', period === option.value ? 'period-chip-active' : '']"
+                :aria-pressed="period === option.value"
+                @click="period = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
             <RouterLink to="/growth/profile" class="secondary-action">
+              <Activity class="h-4 w-4" />
               成长档案
             </RouterLink>
             <RouterLink to="/certification/apply" class="secondary-action">
+              <BadgeCheck class="h-4 w-4" />
               认证作者
             </RouterLink>
           </div>
         </div>
-      </section>
+      </header>
 
-      <section class="mt-6">
+      <section class="report-content">
         <EmptyState
           v-if="!authStore.isLoggedIn"
           title="登录后查看个人成长报告"
@@ -45,12 +50,16 @@
 
         <LoadingSkeleton v-else-if="loading" />
 
-        <div v-else-if="error" class="surface-card p-6">
-          <h2 class="text-lg font-black text-slate-950 dark:text-white">成长报告暂时不可用</h2>
-          <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ error }}</p>
-          <button type="button" class="primary-action mt-4" @click="loadReport">
-            重新加载
-          </button>
+        <div v-else-if="error" class="surface-panel report-error-state">
+          <AlertTriangle class="h-5 w-5" />
+          <div>
+            <h2 class="text-lg font-black text-slate-950 dark:text-white">成长报告暂时不可用</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ error }}</p>
+            <button type="button" class="primary-action mt-4" @click="loadReport">
+              <RefreshCw class="h-4 w-4" />
+              重新加载
+            </button>
+          </div>
         </div>
 
         <EmptyState
@@ -69,31 +78,31 @@
             </p>
           </div>
 
-          <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article class="surface-card stat-card p-5">
+          <section class="surface-panel report-stat-strip">
+            <article class="stat-card">
               <span class="stat-label">发布内容</span>
               <strong>{{ report.publishedPostCount }}</strong>
               <p>{{ report.days }} 天内新增公开内容</p>
             </article>
-            <article class="surface-card stat-card p-5">
+            <article class="stat-card">
               <span class="stat-label">互动反馈</span>
               <strong>{{ report.interactionCount }}</strong>
               <p>点赞、评论、收藏等反馈总和</p>
             </article>
-            <article class="surface-card stat-card p-5">
+            <article class="stat-card">
               <span class="stat-label">优质内容</span>
               <strong>{{ report.featuredPostCount }}</strong>
               <p>被标记精选或重点推荐的内容</p>
             </article>
-            <article class="surface-card stat-card p-5">
+            <article class="stat-card">
               <span class="stat-label">系列沉淀</span>
               <strong>{{ report.seriesContributionCount }}</strong>
               <p>本周期被纳入系列的内容数量</p>
             </article>
           </section>
 
-          <section class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-            <article class="surface-card p-6">
+          <section class="report-detail-grid">
+            <article class="surface-panel report-panel">
               <div class="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <h2 class="text-lg font-black text-slate-950 dark:text-white">领域变化</h2>
@@ -129,7 +138,7 @@
               </p>
             </article>
 
-            <article class="surface-card p-6">
+            <article class="surface-panel report-panel">
               <h2 class="text-lg font-black text-slate-950 dark:text-white">下期建议</h2>
               <div v-if="report.nextActions.length" class="mt-4 flex flex-wrap gap-2">
                 <span v-for="item in report.nextActions" :key="item" class="next-action-chip">
@@ -145,7 +154,7 @@
             </article>
           </section>
 
-          <section class="surface-card p-6">
+          <section class="surface-panel report-panel">
             <div class="mb-5 flex items-center justify-between gap-3">
               <div>
                 <h2 class="text-lg font-black text-slate-950 dark:text-white">本期亮点内容</h2>
@@ -153,7 +162,8 @@
                   结合互动反馈和精选标记，优先展示本周期更值得复盘的内容。
                 </p>
               </div>
-              <RouterLink to="/series/workbench" class="text-sm font-semibold text-primary-600 hover:text-primary-700">
+              <RouterLink to="/series/workbench" class="report-inline-link">
+                <Library class="h-4 w-4" />
                 去合集工作台
               </RouterLink>
             </div>
@@ -191,6 +201,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { Activity, AlertTriangle, BadgeCheck, Library, RefreshCw } from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -283,15 +294,91 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.report-kicker {
+.growth-report-page {
+  background: var(--surface-2);
+}
+
+.growth-report-main {
+  padding-top: 1.5rem;
+  padding-bottom: 6rem;
+}
+
+.report-page-heading {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.35rem 0 1.5rem;
+}
+
+.report-page-heading h1 {
+  margin-top: 0.3rem;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.report-page-description {
+  max-width: 68ch;
+  margin-top: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+
+.report-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.period-segment {
   display: inline-flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0.2rem;
+}
+
+.report-content {
+  margin-top: 1.25rem;
+}
+
+.report-error-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: var(--danger);
+}
+
+.report-stat-strip {
+  display: grid;
+  overflow: hidden;
+}
+
+.report-detail-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.report-panel {
+  padding: 1rem;
+}
+
+.report-inline-link {
+  display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  border-radius: 999px;
-  background: rgb(224 242 254);
-  padding: 0.35rem 0.75rem;
+  gap: 0.4rem;
+  color: var(--primary-600);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.report-kicker {
+  display: block;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(3 105 161);
+  color: var(--primary-600);
 }
 
 .period-chip,
@@ -305,25 +392,26 @@ onMounted(async () => {
 }
 
 .period-chip {
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  padding: 0.55rem 0.9rem;
+  min-height: 34px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 0.4rem 0.8rem;
   font-size: 0.8125rem;
-  color: rgb(71 85 105);
+  color: var(--text-muted);
 }
 
 .period-chip-active {
-  border-color: rgb(59 130 246);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: var(--primary-50);
+  color: var(--primary-700);
 }
 
 .fallback-banner,
 .change-row,
 .highlight-card {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 1rem;
-  background: rgb(255 255 255 / 0.82);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
 }
 
 .fallback-banner {
@@ -348,25 +436,33 @@ onMounted(async () => {
 
 .stat-card strong {
   display: block;
-  margin-top: 0.65rem;
-  font-size: 1.9rem;
+  margin-top: 0.45rem;
+  font-size: 1.65rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .stat-card p {
   margin-top: 0.5rem;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
+}
+
+.stat-card {
+  min-width: 0;
+  border-top: 1px solid var(--border-subtle);
+  padding: 1rem;
+}
+
+.stat-card:first-child {
+  border-top: 0;
 }
 
 .stat-label {
-  display: inline-flex;
-  background: rgb(241 245 249);
-  padding: 0.3rem 0.65rem;
+  display: block;
   font-size: 0.75rem;
-  color: rgb(71 85 105);
+  color: var(--text-muted);
 }
 
 .change-row,
@@ -375,10 +471,11 @@ onMounted(async () => {
 }
 
 .next-action-chip {
-  background: rgb(239 246 255);
-  padding: 0.55rem 0.85rem;
+  border: 1px solid #bfdbfe;
+  background: var(--primary-50);
+  padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
-  color: rgb(29 78 216);
+  color: var(--primary-700);
 }
 
 .trend-pill,
@@ -414,29 +511,22 @@ onMounted(async () => {
 }
 
 .highlight-card {
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .highlight-card:hover {
   border-color: rgb(191 219 254);
-  transform: translateY(-1px);
-}
-
-.dark .report-kicker {
-  background: rgb(8 47 73);
-  color: rgb(125 211 252);
+  background: var(--primary-50);
 }
 
 .dark .period-chip {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  background: transparent;
+  color: var(--text-muted);
 }
 
 .dark .period-chip-active {
-  border-color: rgb(59 130 246);
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-3);
+  color: #bfdbfe;
 }
 
 .dark .fallback-banner,
@@ -479,5 +569,66 @@ onMounted(async () => {
 .dark .highlight-flag {
   background: rgb(120 53 15);
   color: rgb(253 224 71);
+}
+
+@media (min-width: 640px) {
+  .report-stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-card:nth-child(2) {
+    border-top: 0;
+  }
+
+  .stat-card:nth-child(even) {
+    border-left: 1px solid var(--border-subtle);
+  }
+}
+
+@media (min-width: 1024px) {
+  .report-stat-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .stat-card {
+    border-top: 0;
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .stat-card:first-child {
+    border-left: 0;
+  }
+
+  .report-detail-grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .growth-report-main {
+    padding-top: 1rem;
+  }
+
+  .report-page-heading h1 {
+    font-size: 1.5rem;
+  }
+
+  .report-heading-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .period-segment {
+    grid-column: 1 / -1;
+  }
+
+  .period-chip {
+    flex: 1;
+  }
+
+  .report-panel {
+    padding: 0.9rem;
+  }
 }
 </style>
