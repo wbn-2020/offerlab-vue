@@ -257,7 +257,8 @@ const resolveTag = (tags: TagWithMetadata[], value: string): TagWithMetadata | u
   if (exactId) return exactId
   const exactSlug = tags.find((tag) => tag.slug === value)
   if (exactSlug) return exactSlug
-  const sameName = tags.filter((tag) => tag.name === value)
+  const normalizedValue = value.trim().toLocaleLowerCase()
+  const sameName = tags.filter((tag) => tag.name.trim().toLocaleLowerCase() === normalizedValue)
   return sameName.sort((left, right) => (
     Number(Boolean(right.official)) - Number(Boolean(left.official))
     || Number(Boolean(right.recommended)) - Number(Boolean(left.recommended))

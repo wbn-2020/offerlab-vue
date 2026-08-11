@@ -33,6 +33,7 @@ const commentTree = readVue('src/components/post/CommentTree.vue')
 const postDetail = readVue('src/views/PostDetailView.vue')
 const certificationApply = readVue('src/views/CertificationApplyView.vue')
 const loginView = readVue('src/views/LoginView.vue')
+const meProfile = readVue('src/views/MeProfileView.vue')
 
 assert.equal(
   packageJson.scripts['test:acceptance-experience-recovery'],
@@ -62,6 +63,10 @@ expect(
 expect(
   tagDetail.includes('Number(Boolean(right.official)) - Number(Boolean(left.official))'),
   'Legacy duplicate tag names must prefer the official tag before usage ordering.',
+)
+expect(
+  tagDetail.includes('tag.name.trim().toLocaleLowerCase() === normalizedValue'),
+  'Legacy tag-name routes must resolve case-insensitively.',
 )
 expect(
   !textQuality.includes('OfferLab\\s+demo'),
@@ -113,6 +118,12 @@ expect(
 expect(
   loginView.includes("loginFeedbackState.value = 'waiting'"),
   'Login must explain the wait before a timeout is returned.',
+)
+expect(
+  meProfile.includes('v-if="hasPublishedContent" class="profile-actions"')
+    && meProfile.includes('v-if="hasPublishedContent" to="/editor" class="secondary-button"')
+    && !meProfile.includes('empty-action-text="去发布"'),
+  'Profiles without public posts must expose only the focused primary publishing action.',
 )
 
 console.log('Acceptance experience recovery guard passed.')

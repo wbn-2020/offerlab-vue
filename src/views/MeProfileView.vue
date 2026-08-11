@@ -43,7 +43,7 @@
             </div>
           </div>
 
-          <div v-if="!isEmptyProfile" class="profile-actions">
+          <div v-if="hasPublishedContent" class="profile-actions">
             <RouterLink :to="profileNextAction.href" class="primary-button">
               <FileText class="h-4 w-4" />
               {{ profileNextAction.action }}
@@ -121,7 +121,7 @@
             <h2>继续经营你的内容主页</h2>
             <p>公开发布优先展示，收藏、关注和讨论记录仍可通过上方分类按需查看。</p>
           </div>
-          <RouterLink to="/editor" class="secondary-button">继续发布</RouterLink>
+          <RouterLink v-if="hasPublishedContent" to="/editor" class="secondary-button">继续发布</RouterLink>
         </div>
 
         <div class="tab-bar max-w-full overflow-x-auto" role="tablist" aria-label="个人内容与关系">
@@ -155,8 +155,6 @@
               :state="posts"
               empty-title="还没有发布内容"
               empty-description="发布第一篇经验、问题、攻略或资源，让主页先有一个代表内容。"
-              empty-action-text="去发布"
-              empty-action-href="/editor"
               @load-more="loadPosts(true)"
               @like="handleLike"
               @favorite="handleFavorite"
@@ -1501,6 +1499,10 @@ const hasTrustedContentActivity = computed(() => [
   creatorTrustedContent.value.usefulFeedback30Days,
   creatorTrustedContent.value.effectiveReads30Days,
 ].some((value) => Number(value) > 0))
+const hasPublishedContent = computed(() => (
+  authorPublicPosts.value.length > 0
+  || Number(user.value?.postCount ?? 0) > 0
+))
 const isEmptyProfile = computed(() => (
   authorPublicPosts.value.length === 0
   && unorganizedFavoriteCount.value === 0
