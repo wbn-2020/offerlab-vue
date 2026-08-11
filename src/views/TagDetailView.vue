@@ -227,7 +227,7 @@ const loadTag = async () => {
     const tagsRes = await postApi.getTags()
     if (!isCurrentTagLoad(targetGeneration, slug)) return
     const tags = tagsRes.data || []
-    const currentTag = tags.find((tag: Tag) => tag.slug === slug || String(tag.id) === slug || tag.name === slug)
+    const currentTag = resolveTag(tags, slug)
     if (!currentTag) return
 
     tagId.value = currentTag.id
@@ -244,6 +244,26 @@ const loadTag = async () => {
       isLoading.value = false
     }
   }
+}
+
+type TagWithMetadata = Tag & {
+  official?: boolean
+  recommended?: boolean
+  count?: number
+}
+
+const resolveTag = (tags: TagWithMetadata[], value: string): TagWithMetadata | undefined => {
+  const exactId = tags.find((tag) => String(tag.id) === value)
+  if (exactId) return exactId
+  const exactSlug = tags.find((tag) => tag.slug === value)
+  if (exactSlug) return exactSlug
+  const sameName = tags.filter((tag) => tag.name === value)
+  return sameName.sort((left, right) => (
+    Number(Boolean(right.official)) - Number(Boolean(left.official))
+    || Number(Boolean(right.recommended)) - Number(Boolean(left.recommended))
+    || Number(right.count || 0) - Number(left.count || 0)
+    || String(left.id).localeCompare(String(right.id))
+  ))[0]
 }
 
 const loadPosts = async (append = false, targetTagGeneration = tagLoadGeneration) => {

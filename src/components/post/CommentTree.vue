@@ -1,6 +1,22 @@
 <template>
   <div class="space-y-5">
-    <section v-if="featuredComments.length" class="discussion-signal-panel" aria-label="评论互动信号">
+    <section v-if="loading" class="comment-state-panel" aria-busy="true" aria-live="polite">
+      <span class="sr-only">正在加载评论</span>
+      <div v-for="index in 3" :key="index" class="comment-skeleton-row" aria-hidden="true">
+        <span class="comment-skeleton-avatar" />
+        <span class="comment-skeleton-copy">
+          <i />
+          <i />
+        </span>
+      </div>
+    </section>
+
+    <section v-else-if="errorMessage" class="comment-state-panel comment-state-panel--error" role="alert">
+      <p>{{ errorMessage }}</p>
+      <button type="button" class="comment-state-retry" @click="emit('retry')">重试</button>
+    </section>
+
+    <section v-else-if="featuredComments.length" class="discussion-signal-panel" aria-label="评论互动信号">
       <div class="discussion-signal-head">
         <span>讨论现场</span>
         <p>来自后端评论质量字段，优先展示热门评论、作者回应和质量参考评论。</p>
@@ -25,7 +41,7 @@
       </div>
     </section>
 
-    <template v-if="comments.length">
+    <template v-if="!loading && !errorMessage && comments.length">
       <article
         v-for="comment in comments"
         :key="comment.commentId"
@@ -340,7 +356,12 @@
       </article>
     </template>
 
-    <div v-else class="rounded-lg border border-dashed border-slate-300 py-10 text-center dark:border-slate-700">
+    <section v-else-if="!errorMessage && expectedCount > 0" class="comment-state-panel" role="status" aria-live="polite">
+      <p>已有 {{ expectedCount }} 条讨论，评论正在同步。</p>
+      <button type="button" class="comment-state-retry" @click="emit('retry')">重新加载</button>
+    </section>
+
+    <div v-else-if="!errorMessage" class="rounded-lg border border-dashed border-slate-300 py-10 text-center dark:border-slate-700">
       <p class="text-sm text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
     </div>
   </div>
@@ -386,6 +407,9 @@ const props = withDefaults(defineProps<{
   acceptAnswerPending?: boolean
   postAuthorUid?: string | number
   loadingReplyRootIds?: Array<string | number>
+  loading?: boolean
+  errorMessage?: string
+  expectedCount?: number
   emptyText?: string
   replyActionLabel?: string
   replyPlaceholder?: string
@@ -399,6 +423,9 @@ const props = withDefaults(defineProps<{
   canModerateComments: false,
   canAcceptAnswer: false,
   acceptAnswerPending: false,
+  loading: false,
+  errorMessage: '',
+  expectedCount: 0,
   emptyText: '还没有评论，来抢沙发吧',
   replyActionLabel: '回复',
   replyPlaceholder: '写下回复...',
@@ -423,6 +450,7 @@ const emit = defineEmits<{
   'load-more-replies': [rootId: Comment['commentId']]
   'delete-comment': [commentId: Comment['commentId']]
   'report-comment': [commentId: Comment['commentId']]
+  'retry': []
 }>()
 
 const replyingTo = ref<Comment | null>(null)
@@ -703,6 +731,76 @@ void props.postId
   transition: color 0.15s ease;
 }
 
+.comment-state-panel {
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 1rem;
+  color: rgb(71 85 105);
+  text-align: center;
+}
+
+.comment-state-panel--error {
+  border-color: rgb(253 230 138);
+  background: rgb(255 251 235);
+  color: rgb(146 64 14);
+}
+
+.comment-state-retry {
+  justify-self: center;
+  min-height: 2.25rem;
+  border: 1px solid currentColor;
+  border-radius: 0.375rem;
+  padding: 0 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.comment-skeleton-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+}
+
+.comment-skeleton-avatar,
+.comment-skeleton-copy i {
+  display: block;
+  animation: comment-skeleton-pulse 1.35s ease-in-out infinite;
+  border-radius: 999px;
+  background: rgb(226 232 240);
+}
+
+.comment-skeleton-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+}
+
+.comment-skeleton-copy {
+  display: grid;
+  width: 100%;
+  gap: 0.55rem;
+  padding-top: 0.35rem;
+}
+
+.comment-skeleton-copy i {
+  width: 32%;
+  height: 0.6rem;
+}
+
+.comment-skeleton-copy i + i {
+  width: 78%;
+}
+
+@keyframes comment-skeleton-pulse {
+  50% {
+    opacity: 0.52;
+  }
+}
+
 .comment-branch {
   border: 1px solid rgb(226 232 240);
   border-radius: 0.5rem;
@@ -898,6 +996,23 @@ void props.postId
 
 .dark .comment-action {
   color: rgb(148 163 184);
+}
+
+.dark .comment-state-panel {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+  color: rgb(203 213 225);
+}
+
+.dark .comment-state-panel--error {
+  border-color: rgb(146 64 14);
+  background: rgb(69 26 3 / 0.32);
+  color: rgb(253 230 138);
+}
+
+.dark .comment-skeleton-avatar,
+.dark .comment-skeleton-copy i {
+  background: rgb(51 65 85);
 }
 
 .dark .comment-branch {

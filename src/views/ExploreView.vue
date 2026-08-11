@@ -36,15 +36,15 @@
             <aside class="explore-hero-guide" aria-label="发现页内容概览" aria-live="polite">
               <div>
                 <span>公开频道</span>
-                <strong>{{ communityChannels.length }}</strong>
+                <strong>{{ loading ? '加载中' : communityChannels.length }}</strong>
               </div>
               <div>
                 <span>活跃话题</span>
-                <strong>{{ activeTopics.length }}</strong>
+                <strong>{{ loading ? '加载中' : activeTopics.length }}</strong>
               </div>
               <div>
                 <span>内容形式</span>
-                <strong>{{ contentForms.length }}</strong>
+                <strong>{{ loading ? '加载中' : contentForms.length }}</strong>
               </div>
               <p v-if="loading">正在更新公共内容地图</p>
               <p v-else-if="degraded">部分内容暂不可用，现有入口仍可继续浏览</p>

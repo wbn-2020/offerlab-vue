@@ -48,7 +48,7 @@ export const filterVisibleTexts = (values: unknown, limit = 12) => {
     .slice(0, limit)
 }
 
-const SYNTHETIC_VISIBLE_TEXT = /(E2E|SMOKE|CODEX|TESTDATA|NoSuchOfferLabKeyword|AuroraIndexerProbe|OfferLab\s+review|OfferLab\s+demo|backend\s+probe|synthetic|mock-data|fixture|demo\s+account|demo\s+user|NebulaTech|测试数据|示例数据|编码异常)/i
+const SYNTHETIC_VISIBLE_TEXT = /(E2E|SMOKE|CODEX|TESTDATA|NoSuchOfferLabKeyword|AuroraIndexerProbe|OfferLab\s+review|backend\s+probe|synthetic|mock-data|fixture|NebulaTech|测试数据|示例数据|编码异常)/i
 const GENERATED_ID_TITLE = /\b(?:review|probe|keyword|topic|post)\s*[-_#:]?\s*(?:17\d{10,}|\d{12,})\b/i
 const SYNTHETIC_PROBE_VISIBLE_TEXT = /(RealCheck|ReviewActor|OrionInterview|qingce)/i
 const SYNTHETIC_CHINESE_TEST_TEXT = /(\u94FE\u8DEF\u6D4B\u8BD5|\u6D4B\u8BD5\u516C\u5F00|\u516C\u5F00\u7528\u6237\u8D44\u6599|\u672A\u547D\u540D\u6807\u7B7E)/i

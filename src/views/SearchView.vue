@@ -70,10 +70,6 @@
 
       <div class="search-layout">
         <aside class="search-aside space-y-4">
-          <details class="filter-details">
-            <summary class="filter-summary">
-              高级筛选与搜索记录
-            </summary>
           <section class="side-panel search-related-panel">
             <div class="side-panel-heading">
               <h2 class="side-title">相关发现</h2>
@@ -104,56 +100,61 @@
                 </select>
               </label>
               <label class="field-label">
-                高级筛选：标签 / 实体
-                <input v-model.trim="filters.company" class="field-input" placeholder="例如 AI 工具 / 租房 / 读书" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
-              </label>
-              <label class="field-label">
-                高级筛选：场景 / 岗位
-                <input v-model.trim="filters.position" class="field-input" placeholder="例如 转行 / 租房 / 产品经理" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
-              </label>
-              <label class="field-label">
                 内容类型
                 <select v-model.number="filters.type" class="field-input" @change="scheduleDebouncedSearch">
                   <option :value="undefined">全部类型</option>
                   <option v-for="item in searchContentTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
               </label>
-              <label class="field-label">
-                经验护照
-                <select v-model="filters.trustProfile" class="field-input" @change="scheduleDebouncedSearch">
-                  <option value="">全部</option>
-                  <option value="true">已补充</option>
-                  <option value="false">未补充</option>
-                </select>
-              </label>
-              <label class="field-label">
-                内容时效
-                <select v-model="filters.freshnessStatus" class="field-input" @change="scheduleDebouncedSearch">
-                  <option value="">全部状态</option>
-                  <option value="CURRENT">当前有效</option>
-                  <option value="POSSIBLY_STALE">可能已过时</option>
-                  <option value="AWAITING_AUTHOR_CONFIRMATION">等待作者确认</option>
-                  <option value="UPDATED">已更新</option>
-                  <option value="SUPERSEDED">已有后续内容</option>
-                </select>
-              </label>
-              <label class="field-label">
-                讨论结果
-                <select v-model="filters.resolved" class="field-input" @change="scheduleDebouncedSearch">
-                  <option value="">全部</option>
-                  <option value="true">已有结果</option>
-                  <option value="false">仍待补充</option>
-                </select>
-              </label>
-              <label class="field-label">
-                来源说明
-                <select v-model="filters.sourceComplete" class="field-input" @change="scheduleDebouncedSearch">
-                  <option value="">全部</option>
-                  <option value="true">来源完整</option>
-                  <option value="false">来源待补充</option>
-                </select>
-              </label>
             </div>
+            <details class="filter-details" :open="hasAdvancedFilters">
+              <summary class="filter-summary">高级筛选</summary>
+              <div class="filter-details__body space-y-3">
+                <label class="field-label">
+                  标签 / 实体
+                  <input v-model.trim="filters.company" class="field-input" placeholder="例如 AI 工具 / 租房 / 读书" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                </label>
+                <label class="field-label">
+                  场景 / 岗位
+                  <input v-model.trim="filters.position" class="field-input" placeholder="例如 转行 / 租房 / 产品经理" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                </label>
+                <label class="field-label">
+                  经验护照
+                  <select v-model="filters.trustProfile" class="field-input" @change="scheduleDebouncedSearch">
+                    <option value="">全部</option>
+                    <option value="true">已补充</option>
+                    <option value="false">未补充</option>
+                  </select>
+                </label>
+                <label class="field-label">
+                  内容时效
+                  <select v-model="filters.freshnessStatus" class="field-input" @change="scheduleDebouncedSearch">
+                    <option value="">全部状态</option>
+                    <option value="CURRENT">当前有效</option>
+                    <option value="POSSIBLY_STALE">可能已过时</option>
+                    <option value="AWAITING_AUTHOR_CONFIRMATION">等待作者确认</option>
+                    <option value="UPDATED">已更新</option>
+                    <option value="SUPERSEDED">已有后续内容</option>
+                  </select>
+                </label>
+                <label class="field-label">
+                  讨论结果
+                  <select v-model="filters.resolved" class="field-input" @change="scheduleDebouncedSearch">
+                    <option value="">全部</option>
+                    <option value="true">已有结果</option>
+                    <option value="false">仍待补充</option>
+                  </select>
+                </label>
+                <label class="field-label">
+                  来源说明
+                  <select v-model="filters.sourceComplete" class="field-input" @change="scheduleDebouncedSearch">
+                    <option value="">全部</option>
+                    <option value="true">来源完整</option>
+                    <option value="false">来源待补充</option>
+                  </select>
+                </label>
+              </div>
+            </details>
             <div class="mt-4 grid grid-cols-2 gap-2">
               <button type="button" class="secondary-button" @click="resetFilters">清空</button>
               <button type="button" class="secondary-button" @click="runSearch(false)">应用</button>
@@ -259,7 +260,6 @@
               </span>
             </div>
           </section>
-          </details>
         </aside>
 
         <section class="search-results min-w-0 space-y-4">
@@ -649,6 +649,14 @@ const hasQuery = computed(() => {
     || filters.sourceComplete,
   )
 })
+const hasAdvancedFilters = computed(() => Boolean(
+  filters.company
+  || filters.position
+  || filters.trustProfile
+  || filters.freshnessStatus
+  || filters.resolved
+  || filters.sourceComplete,
+))
 const shouldAutoRunSearch = computed(() => (
   hasQuery.value
   || searchMode.value === 'users'
@@ -1647,7 +1655,8 @@ onBeforeUnmount(() => {
 
 .filter-details {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 .filter-summary {
@@ -1674,6 +1683,10 @@ onBeforeUnmount(() => {
 
 .filter-details[open] > .filter-summary::after {
   content: '收起';
+}
+
+.filter-details__body {
+  padding-top: 0.15rem;
 }
 
 .primary-button,
@@ -2098,11 +2111,6 @@ onBeforeUnmount(() => {
 
   .filter-summary {
     display: flex;
-  }
-
-  .filter-details:not([open]) > .side-panel,
-  .filter-details:not([open]) > .undo-panel {
-    display: none;
   }
 
   .primary-button,

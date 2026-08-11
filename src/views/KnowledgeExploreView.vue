@@ -180,14 +180,14 @@
                 <div>
                   <span class="section-icon"><Network class="h-4 w-4" aria-hidden="true" /></span>
                   <div>
-                    <h2>关系浏览</h2>
-                    <p>先查看公开对象之间的连接，再进入具体内容继续阅读。</p>
+                    <h2>{{ graph.nodes.length ? '关系浏览' : '关系投影' }}</h2>
+                    <p>{{ graph.nodes.length ? '先查看公开对象之间的连接，再进入具体内容继续阅读。' : '当前没有可独立浏览的公开节点，以下仅展示本次投影的关系依据，不构成知识层级。' }}</p>
                   </div>
                 </div>
-                <span class="module-count">{{ graph.nodes.length }} 个节点</span>
+                <span class="module-count">{{ graph.nodes.length ? `${graph.nodes.length} 个节点` : '无可浏览节点' }}</span>
               </header>
 
-              <div class="knowledge-relation-layout">
+              <div :class="['knowledge-relation-layout', { 'knowledge-relation-layout--evidence-only': !groupedNodes.length }]">
                 <div v-if="groupedNodes.length" class="node-browser">
                   <h3>可浏览节点</h3>
                   <div class="node-groups">
@@ -1030,6 +1030,10 @@ watch(() => route.fullPath, async () => {
 .knowledge-relation-layout {
   display: grid;
   grid-template-columns: minmax(13rem, 0.8fr) minmax(0, 1.2fr);
+}
+
+.knowledge-relation-layout--evidence-only {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .node-browser,

@@ -402,12 +402,12 @@
           <div class="home-right-rail sticky top-24">
             <section class="home-rail-section home-rail-section--featured">
               <div class="home-rail-section__title">
-                <h3>精选内容</h3>
+                <h3>继续阅读</h3>
                 <Sparkles class="h-4 w-4" />
               </div>
-              <div v-if="featuredPreview.length" class="home-featured-list">
+              <div v-if="continuedReadingPosts.length" class="home-featured-list">
                 <RouterLink
-                  v-for="(post, index) in featuredPreview"
+                  v-for="(post, index) in continuedReadingPosts"
                   :key="post.postId"
                   :to="`/post/${post.postId}`"
                   class="home-featured-row"
@@ -417,7 +417,7 @@
                 </RouterLink>
               </div>
               <p v-else class="home-rail-section__empty">
-                精选内容还在整理，可以先浏览热门或最新。
+                正在补充下一批内容，先从当前信息流继续读下去。
               </p>
             </section>
 
@@ -439,28 +439,6 @@
               </div>
               <RouterLink v-else to="/explore" class="home-rail-section__empty-link">
                 话题正在更新，去发现页看看
-              </RouterLink>
-            </section>
-
-            <section class="home-rail-section">
-              <div class="home-rail-section__title">
-                <h3>标签热度</h3>
-                <TrendingUp class="h-4 w-4" />
-              </div>
-              <div v-if="trendingTags.length" class="home-trending-list">
-                <RouterLink
-                  v-for="(tag, index) in trendingTags"
-                  :key="tag.id"
-                  :to="`/tag/${tag.slug || tag.id}`"
-                  class="home-trending-row"
-                >
-                  <span>{{ String(index + 1).padStart(2, '0') }}</span>
-                  <strong>{{ tag.name }}</strong>
-                  <small>{{ tag.count ?? 0 }}</small>
-                </RouterLink>
-              </div>
-              <RouterLink v-else to="/explore" class="home-rail-section__empty-link">
-                热度数据正在更新，先浏览内容
               </RouterLink>
             </section>
 
@@ -514,7 +492,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
-import { ChevronRight, Compass, Library, Loader2, PenLine, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
+import { ChevronRight, Compass, Library, Loader2, PenLine, Sparkles, Tag, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
@@ -541,7 +519,7 @@ import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import type { CommunityTopic, Post, Tag as PostTag, User } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES } from '@/utils/contentTypes'
 import { getDomainLabel } from '@/utils/domains'
-import { buildTopicItems, isFeaturedPost } from '@/utils/communityMetrics'
+import { buildTopicItems } from '@/utils/communityMetrics'
 import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality'
 import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 
@@ -610,7 +588,6 @@ const homeFeedTabs = computed(() => feedTabs.map((value) => ({
 
 const sortedTags = computed(() => [...tags.value].sort((a, b) => (b.count ?? 0) - (a.count ?? 0)))
 const topTags = computed(() => sortedTags.value.slice(0, 10))
-const trendingTags = computed(() => sortedTags.value.slice(0, 6))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
 const homeDomainName = (domain: number) => getDomainLabel(domain)
 const activeDomainMeta = computed(() => (
@@ -633,13 +610,13 @@ const topicItems = computed(() => {
   }))
 })
 const cleanPosts = computed(() => filterVisiblePosts(filterPublicContent(posts.value)))
-const featuredPreview = computed(() => {
+const continuedReadingPosts = computed(() => {
+  const visiblePostIds = new Set(visiblePosts.value.map((post) => String(post.postId)))
   const seen = new Set<string>()
-  return [...cleanPosts.value, ...recommendPreviewPosts.value]
-    .filter(isFeaturedPost)
+  return recommendPreviewPosts.value
     .filter((post) => {
       const id = String(post.postId)
-      if (seen.has(id)) return false
+      if (visiblePostIds.has(id) || seen.has(id)) return false
       seen.add(id)
       return true
     })
@@ -1075,9 +1052,9 @@ const loadHomePreviewPosts = async () => {
   const hotItems = hotRes.status === 'fulfilled'
     ? filterVisiblePosts(filterPublicContent(hotRes.value.data?.items || []), 3)
     : []
-  recommendPreviewPosts.value = recommendRes.status === 'fulfilled'
-    ? filterVisiblePosts(filterPublicContent(recommendRes.value.data?.items || []), 3)
-    : []
+  recommendPreviewPosts.value = [latestItems, hotItems, recommendRes.status === 'fulfilled'
+    ? filterVisiblePosts(filterPublicContent(recommendRes.value.data?.items || []), 6)
+    : []].flat()
   sampledFeedContentCount.value = Math.max(
     latestItems.length,
     hotItems.length,
@@ -2274,8 +2251,10 @@ watch(
 
 .community-feed-layout {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr) 280px;
+  width: min(100%, 80rem);
+  grid-template-columns: 208px minmax(0, 44rem) minmax(15.5rem, 17.5rem);
   gap: 1.375rem;
+  margin: 0 auto;
   align-items: start;
   justify-content: center;
 }
@@ -2292,6 +2271,12 @@ watch(
   max-height: calc(100vh - var(--community-header-height, 64px) - 2rem);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.home-channel-nav {
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .community-feed-layout__left,
@@ -3192,6 +3177,17 @@ watch(
     padding-right: 0.15rem;
     background: linear-gradient(90deg, transparent, var(--surface) 58%);
     color: var(--primary-600);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .community-feed-layout {
+    width: min(100%, 60rem);
+    grid-template-columns: 208px minmax(0, 44rem);
+  }
+
+  .community-feed-layout__right {
+    display: none !important;
   }
 }
 

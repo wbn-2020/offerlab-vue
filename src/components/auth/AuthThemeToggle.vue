@@ -3,8 +3,8 @@
     type="button"
     class="auth-theme-toggle"
     data-theme-toggle
-    :title="isEffectiveDark ? 'Switch to light mode' : 'Switch to dark mode'"
-    :aria-label="isEffectiveDark ? 'Switch to light mode' : 'Switch to dark mode'"
+    :title="isEffectiveDark ? '切换为亮色模式' : '切换为深色模式'"
+    :aria-label="isEffectiveDark ? '切换为亮色模式' : '切换为深色模式'"
     @click="themeStore.toggleExplicitMode()"
   >
     <Sun v-if="isEffectiveDark" class="h-5 w-5" />

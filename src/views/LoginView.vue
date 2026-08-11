@@ -32,6 +32,14 @@
             </button>
           </section>
 
+          <section v-if="loginFeedback" class="auth-feedback mb-6" role="status" aria-live="polite">
+            <div>
+              <strong>{{ loginFeedbackTitle }}</strong>
+              <p>{{ loginFeedback }}</p>
+            </div>
+            <button v-if="loginFeedbackState === 'timeout'" type="button" :disabled="isLoading" @click="handleSubmit">重试登录</button>
+          </section>
+
           <!-- Form -->
           <form class="space-y-4" @submit.prevent="handleSubmit">
             <!-- Account Field -->
@@ -102,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, reactive } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, reactive } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
@@ -121,6 +129,9 @@ const authStore = useAuthStore()
 
 const isLoading = ref(false)
 const isRetryingSession = ref(false)
+const loginFeedback = ref('')
+const loginFeedbackState = ref<'waiting' | 'timeout' | ''>('')
+let loginFeedbackTimer: ReturnType<typeof setTimeout> | undefined
 const showDemoAccounts = import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true'
 const form = reactive({
   email: '',
@@ -144,6 +155,15 @@ const recoveryTitle = computed(() => recoveryState.value === 'session_expired'
 const recoveryText = computed(() => recoveryState.value === 'session_expired'
   ? '请重新登录，完成后会返回刚才访问的页面。'
   : authStore.hydrationError || '账号服务暂时没有返回可信结果。你可以重试当前会话，或使用其他账号登录。')
+const loginFeedbackTitle = computed(() => loginFeedbackState.value === 'waiting'
+  ? '正在确认账号信息'
+  : '登录请求超时')
+
+const clearLoginFeedbackTimer = () => {
+  if (!loginFeedbackTimer) return
+  clearTimeout(loginFeedbackTimer)
+  loginFeedbackTimer = undefined
+}
 
 // Validation schema
 const loginSchema = z.object({
@@ -174,16 +194,36 @@ const handleSubmit = async () => {
   if (!validateForm()) return
 
   isLoading.value = true
+  loginFeedback.value = ''
+  loginFeedbackState.value = ''
+  clearLoginFeedbackTimer()
+  loginFeedbackTimer = setTimeout(() => {
+    if (!isLoading.value) return
+    loginFeedbackState.value = 'waiting'
+    loginFeedback.value = '登录请求仍在处理中，请保持当前页面。'
+  }, 3_000)
   try {
     await login(form.email, form.password)
     await router.replace(safeRedirect(route.query.redirect))
     toast.success('登录成功')
   } catch (error: any) {
+    if (isLoginTimeout(error)) {
+      loginFeedbackState.value = 'timeout'
+      loginFeedback.value = '本次登录未完成，账号和密码尚未被确认。请检查网络后重试。'
+    }
     const message = getErrorMessage(error, '登录失败，请检查账号和密码')
     toast.error(message)
   } finally {
+    clearLoginFeedbackTimer()
     isLoading.value = false
   }
+}
+
+const isLoginTimeout = (error: unknown) => {
+  const requestError = error as { code?: string, message?: string, response?: unknown }
+  if (requestError.response) return false
+  if (['ECONNABORTED', 'ETIMEDOUT'].includes(String(requestError.code || '').toUpperCase())) return true
+  return /timeout|timed out|超时/i.test(String(requestError.message || ''))
 }
 
 const retrySession = async () => {
@@ -217,6 +257,10 @@ onMounted(async () => {
   if (authStore.isLoggedIn) {
     await router.replace(safeRedirect(route.query.redirect))
   }
+})
+
+onBeforeUnmount(() => {
+  clearLoginFeedbackTimer()
 })
 </script>
 
@@ -290,10 +334,50 @@ onMounted(async () => {
   font-weight: 800;
 }
 
+.auth-feedback {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.5rem;
+  background: rgb(239 246 255);
+  padding: 0.8rem;
+  color: rgb(30 64 175);
+}
+
+.auth-feedback strong,
+.auth-feedback p {
+  display: block;
+}
+
+.auth-feedback p {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.auth-feedback button {
+  flex: none;
+  min-height: 2.25rem;
+  border-radius: 0.375rem;
+  background: rgb(30 64 175);
+  padding: 0 0.75rem;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
 .dark .auth-recovery {
   border-color: rgb(146 64 14);
   background: rgb(69 26 3 / 0.45);
   color: rgb(253 230 138);
+}
+
+.dark .auth-feedback {
+  border-color: rgb(30 64 175);
+  background: rgb(30 58 138 / 0.35);
+  color: rgb(191 219 254);
 }
 
 @media (max-width: 720px) {
@@ -302,6 +386,11 @@ onMounted(async () => {
     align-items: flex-start;
     padding-top: 1rem;
     padding-bottom: 2rem;
+  }
+
+  .auth-recovery,
+  .auth-feedback {
+    flex-direction: column;
   }
 }
 </style>

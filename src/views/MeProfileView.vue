@@ -43,7 +43,7 @@
             </div>
           </div>
 
-          <div class="profile-actions">
+          <div v-if="!isEmptyProfile" class="profile-actions">
             <RouterLink :to="profileNextAction.href" class="primary-button">
               <FileText class="h-4 w-4" />
               {{ profileNextAction.action }}
@@ -52,7 +52,10 @@
         </div>
       </section>
 
-      <section class="profile-focus-panel" aria-labelledby="profile-next-action-title">
+      <section
+        :class="['profile-focus-panel', { 'profile-focus-panel--single': isEmptyProfile }]"
+        aria-labelledby="profile-next-action-title"
+      >
         <div class="profile-next-action">
           <div>
             <p class="section-kicker">下一步</p>
@@ -63,7 +66,7 @@
             {{ profileNextAction.action }}
           </RouterLink>
         </div>
-        <div class="profile-recent-assets">
+        <div v-if="!isEmptyProfile" class="profile-recent-assets">
           <div class="profile-recent-assets__heading">
             <div>
               <p class="section-kicker">近期资产</p>
@@ -320,8 +323,8 @@
       <details class="profile-workspace-group">
         <summary>
           <span>
-            <strong>创作者运营</strong>
-            <small>公开反馈、内容维护、挑战和作者主页经营</small>
+            <strong>内容管理</strong>
+            <small>创作者反馈、内容维护和公开主页经营</small>
           </span>
           <span aria-hidden="true">展开</span>
         </summary>
@@ -629,7 +632,7 @@
       <details class="profile-workspace-group">
         <summary>
           <span>
-            <strong>维护、治理与账号</strong>
+            <strong>账号与治理</strong>
             <small>低频管理入口集中放置，不打断个人内容浏览</small>
           </span>
           <span aria-hidden="true">展开</span>
@@ -1498,7 +1501,24 @@ const hasTrustedContentActivity = computed(() => [
   creatorTrustedContent.value.usefulFeedback30Days,
   creatorTrustedContent.value.effectiveReads30Days,
 ].some((value) => Number(value) > 0))
+const isEmptyProfile = computed(() => (
+  authorPublicPosts.value.length === 0
+  && unorganizedFavoriteCount.value === 0
+  && publicCollectionCount.value === 0
+  && privateCollectionCount.value === 0
+  && Number(user.value?.followingCount ?? 0) === 0
+  && Number(user.value?.followerCount ?? 0) === 0
+  && trustedContentTodoCount.value === 0
+))
 const profileNextAction = computed(() => {
+  if (isEmptyProfile.value) {
+    return {
+      title: '发布第一篇公开内容',
+      description: '从一个真实问题、经验或资源开始，建立可被回访的个人主页。',
+      action: '开始发布',
+      href: '/editor',
+    }
+  }
   if (trustedContentTodoCount.value > 0) {
     return {
       title: '处理公开内容待办',
@@ -2733,6 +2753,10 @@ watch(
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
   background: var(--border-subtle);
+}
+
+.profile-focus-panel--single {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .profile-next-action,

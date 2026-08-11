@@ -472,14 +472,15 @@
                 type="button"
                 class="post-secondary-toggle"
                 :aria-expanded="showTrustDetails"
+                aria-controls="post-governance-details"
                 @click="showTrustDetails = !showTrustDetails"
               >
-                <span><strong>可信状态与补充建议</strong><small>时效、来源、公开更新与纠错入口</small></span>
+                <span><strong>内容维护与治理</strong><small>时效、来源、公开更新、纠错与处理入口</small></span>
                 <span>{{ showTrustDetails ? '收起' : '展开' }}</span>
               </button>
               <section
                 v-show="showTrustDetails"
-                id="trusted-content"
+                id="post-governance-details"
                 class="trusted-content-loop"
                 data-trusted-content-loop
                 :data-trusted-content-state="trustedContentLoadState"
@@ -941,8 +942,10 @@
                 </div>
               </section>
 
-              <div v-if="authStore.isLoggedIn" class="mt-4 flex justify-end gap-3">
-                <template v-if="isOwnPost">
+              <details v-if="authStore.isLoggedIn" class="post-management-disclosure">
+                <summary>管理与举报</summary>
+                <div class="post-management-disclosure__actions">
+                  <template v-if="isOwnPost">
                   <button
                     v-if="canViewVersionHistory"
                     type="button"
@@ -985,8 +988,9 @@
                   >
                     举报帖子
                   </button>
-                </template>
-              </div>
+                  </template>
+                </div>
+              </details>
             </article>
 
             <section id="comments" class="post-detail-comments rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
@@ -1031,20 +1035,13 @@
                 </div>
               </div>
 
-              <div v-if="isLoadingComments" class="rounded-lg border border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                正在加载评论...
-              </div>
-              <div v-else-if="commentsErrorMessage" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-200">
-                <p class="font-semibold">{{ commentsErrorMessage }}</p>
-                <button type="button" class="mt-4 rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100 dark:hover:bg-amber-900/40" @click="loadComments(true)">
-                  重试
-                </button>
-              </div>
               <CommentTree
                 ref="commentTreeRef"
-                v-else
                 :post-id="postId"
                 :comments="comments"
+                :loading="isLoadingComments"
+                :error-message="commentsErrorMessage"
+                :expected-count="Number(post.counter.comment || 0)"
                 :post-author-uid="canOpenAuthorProfile ? post.author.uid : undefined"
                 :can-like-comments="authStore.isLoggedIn"
                 :can-report-comments="true"
@@ -1076,6 +1073,7 @@
                 @load-more-replies="handleLoadMoreReplies"
                 @delete-comment="handleDeleteComment"
                 @report-comment="openCommentReportDialog"
+                @retry="loadComments(true)"
               />
               <div v-if="hasMoreComments" class="mt-6 text-center">
                 <button
@@ -4568,6 +4566,46 @@ onBeforeUnmount(() => {
   padding: 1.2rem 0;
 }
 
+.post-management-disclosure {
+  margin-top: 1rem;
+  border-top: 1px solid rgb(226 232 240);
+  padding-top: 0.75rem;
+}
+
+.post-management-disclosure > summary {
+  display: flex;
+  min-height: 2.5rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.post-management-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.post-management-disclosure > summary::after {
+  color: rgb(37 99 235);
+  content: '展开';
+  font-size: 0.75rem;
+}
+
+.post-management-disclosure[open] > summary::after {
+  content: '收起';
+}
+
+.post-management-disclosure__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
 .trusted-content-loop-head,
 .public-update-list-head {
   display: flex;
@@ -5269,6 +5307,14 @@ onBeforeUnmount(() => {
 .dark .content-trust-panel,
 .dark .content-suggestion-panel {
   border-color: rgb(51 65 85);
+}
+
+.dark .post-management-disclosure {
+  border-color: rgb(51 65 85);
+}
+
+.dark .post-management-disclosure > summary {
+  color: rgb(203 213 225);
 }
 
 .dark .trusted-content-loop-head h2,

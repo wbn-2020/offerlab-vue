@@ -125,6 +125,16 @@
                   </div>
                 </div>
 
+                <div v-if="eligibilityGaps.length" class="eligibility-gap-banner" role="status">
+                  <AlertCircle class="h-4 w-4" aria-hidden="true" />
+                  <div>
+                    <strong>当前还差</strong>
+                    <ul>
+                      <li v-for="gap in eligibilityGaps" :key="gap">{{ gap }}</li>
+                    </ul>
+                  </div>
+                </div>
+
                 <div v-if="safeCertificationRiskWarning(eligibility.riskWarning)" class="risk-banner">
                   <AlertTriangle class="h-4 w-4" aria-hidden="true" />
                   <div>
@@ -202,8 +212,19 @@
                 <span>{{ submitError }}</span>
               </div>
 
+              <div v-if="submissionBlockedReason" id="certification-submit-reason" class="form-blocker" role="status">
+                <AlertCircle class="h-4 w-4" aria-hidden="true" />
+                <span>{{ submissionBlockedReason }}</span>
+              </div>
+
               <div class="form-actions">
-                <button type="submit" class="primary-action" :disabled="!canSubmit || submitting">
+                <button
+                  type="submit"
+                  class="primary-action"
+                  :disabled="!canSubmit || submitting"
+                  :title="submissionBlockedReason || '提交认证申请'"
+                  :aria-describedby="submissionBlockedReason ? 'certification-submit-reason' : undefined"
+                >
                   <Send class="h-4 w-4" aria-hidden="true" />
                   {{ submitting ? '提交中...' : '提交申请' }}
                 </button>
@@ -395,6 +416,39 @@ const canSubmit = computed(() => {
   if (hasInvalidEvidenceLinks.value) return false
   if (eligibility.value.riskAcknowledgementRequired && !form.riskAcknowledged) return false
   return true
+})
+
+const certificationCheckGap = (check: ExpertCertificationEligibility['checks'][number]) => {
+  const copy = safeCertificationCheck(check)
+  if (check.code === 'published_posts') {
+    const match = String(check.detail || '').match(/(\d+)\s*\/\s*(\d+)/)
+    const current = Number(match?.[1] || 0)
+    const required = Number(match?.[2] || 3)
+    const remaining = Math.max(0, required - current)
+    return remaining ? `同领域公开内容还差 ${remaining} 篇（当前 ${current}/${required}）。` : ''
+  }
+  if (check.code === 'recent_activity') return '还需要在 90 天内完成至少一次公开更新。'
+  return `${copy.label}尚未满足。`
+}
+
+const eligibilityGaps = computed(() => (eligibility.value?.checks || [])
+  .filter((check) => !check.passed)
+  .map(certificationCheckGap)
+  .filter(Boolean))
+
+const submissionBlockedReason = computed(() => {
+  if (loadingEligibility.value) return '正在核对当前领域的申请资格。'
+  if (eligibilityError.value) return '资格检查暂不可用，暂不能提交申请。'
+  if (!eligibility.value) return '请先完成资格检查后再提交申请。'
+  if (!eligibility.value.eligible) {
+    return eligibilityGaps.value.length
+      ? `尚未达到申请条件：${eligibilityGaps.value.join(' ')}`
+      : '尚未达到当前领域的申请条件，暂不能提交申请。'
+  }
+  if (!form.evidenceSummary.trim()) return '请先填写证据摘要。'
+  if (hasInvalidEvidenceLinks.value) return '请修正不符合要求的证据链接。'
+  if (eligibility.value.riskAcknowledgementRequired && !form.riskAcknowledged) return '请先确认风险边界。'
+  return ''
 })
 
 const isSafeEvidenceLink = (value: string) => {
@@ -1004,6 +1058,42 @@ onMounted(async () => {
   padding-top: 0.2rem;
 }
 
+.eligibility-gap-banner,
+.form-blocker {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-control);
+  background: #fff7ed;
+  padding: 0.8rem;
+  color: #9a3412;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.eligibility-gap-banner svg,
+.form-blocker svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.eligibility-gap-banner strong {
+  display: block;
+  font-weight: 800;
+}
+
+.eligibility-gap-banner ul {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.form-blocker {
+  margin-top: 0.25rem;
+}
+
 .eligibility-result__summary {
   display: flex;
   align-items: flex-start;
@@ -1368,6 +1458,13 @@ onMounted(async () => {
 :global(.dark .acknowledgement-row) {
   border-color: #9a3412;
   background: rgba(124, 45, 18, 0.28);
+}
+
+:global(.dark .eligibility-gap-banner),
+:global(.dark .form-blocker) {
+  border-color: #9a3412;
+  background: rgba(124, 45, 18, 0.28);
+  color: #fdba74;
 }
 
 :global(.dark .feedback-banner--error) {

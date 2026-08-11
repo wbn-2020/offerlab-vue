@@ -156,6 +156,7 @@
     "test:v14": "npm run test:v14-knowledge-pagination",
     "test:v15": "node scripts/test-v15-diagnosis-to-maintenance.mjs",
     "test:review-fixes": "node scripts/test-review-fixes.mjs",
+    "test:acceptance-experience-recovery": "node scripts/test-acceptance-experience-recovery.mjs",
     "test:v16-truthful-delivery": "node scripts/test-v16-truthful-delivery.mjs",
     "test:v17-reference-health": "node scripts/test-v17-reference-health.mjs",
     "test:v20-reading-thread-growth-path": "node scripts/test-v20-reading-thread-growth-path.mjs",

@@ -57,7 +57,10 @@
 
       <div v-if="errorText && items.length === 0" class="state state-error surface-panel" role="alert">
         <div><strong>治理待办暂时无法读取</strong><p>{{ errorText }}</p></div>
-        <button type="button" class="secondary-action secondary-button" :disabled="loading" @click="load()">重试</button>
+        <div class="state-actions">
+          <button type="button" class="secondary-action secondary-button" :disabled="loading" @click="load()">重试</button>
+          <RouterLink to="/me" class="secondary-action secondary-button">返回个人空间</RouterLink>
+        </div>
       </div>
       <div v-else-if="loading" class="state surface-panel" role="status">
         <strong>正在读取治理待办</strong>
@@ -843,6 +846,13 @@ onBeforeUnmount(() => {
   text-align: left;
 }
 
+.state-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
 .state strong {
   color: var(--text-strong);
   font-size: 0.9rem;
@@ -932,6 +942,10 @@ onBeforeUnmount(() => {
   .page-header .secondary-action,
   .todo-head .primary-action,
   .state .secondary-action {
+    width: 100%;
+  }
+
+  .state-actions {
     width: 100%;
   }
 

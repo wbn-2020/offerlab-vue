@@ -288,7 +288,7 @@ const routes = [
     path: '/me/reports/:sourceType/:reportId',
     name: 'MyReportDetail',
     component: () => import('@/views/MyReportsView.vue'),
-    meta: { title: 'Report Detail', requiresAuth: true },
+    meta: { title: '举报详情', requiresAuth: true },
   },
   {
     path: '/me/settings',
