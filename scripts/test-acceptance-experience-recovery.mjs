@@ -34,6 +34,30 @@ const postDetail = readVue('src/views/PostDetailView.vue')
 const certificationApply = readVue('src/views/CertificationApplyView.vue')
 const loginView = readVue('src/views/LoginView.vue')
 const meProfile = readVue('src/views/MeProfileView.vue')
+const operationSlotCard = readVue('src/components/operations/OperationSlotCard.vue')
+const operationsService = readJava(
+  'community-domain-post/src/main/java/com/offerlab/community/post/application/OperationCurationService.java',
+)
+const healthController = readJava(
+  'community-bootstrap/src/main/java/com/offerlab/community/HealthController.java',
+)
+const commentMapper = readJava(
+  'community-domain-interaction/src/main/java/com/offerlab/community/interaction/infrastructure/persistence/mapper/CommentMapper.java',
+)
+const interactionFacade = readJava(
+  'community-domain-interaction/src/main/java/com/offerlab/community/interaction/application/InteractionFacadeImpl.java',
+)
+const editorView = readVue('src/views/EditorView.vue')
+const appHeader = readVue('src/components/layout/AppHeader.vue')
+const searchView = readVue('src/views/SearchView.vue')
+const exploreView = readVue('src/views/ExploreView.vue')
+const homeView = readVue('src/views/HomeView.vue')
+const publicActorLink = readVue('src/components/user/PublicActorLink.vue')
+const userAvatar = readVue('src/components/user/UserAvatar.vue')
+const avatarRequestState = readVue('src/components/user/useAvatarRequestState.ts')
+const demoCommentCounterMigration = readJava(
+  'community-bootstrap/src/main/resources/db/flyway/demo/V20260811.03__reconcile_demo_comment_counters.sql',
+)
 
 assert.equal(
   packageJson.scripts['test:acceptance-experience-recovery'],
@@ -124,6 +148,64 @@ expect(
     && meProfile.includes('v-if="hasPublishedContent" to="/editor" class="secondary-button"')
     && !meProfile.includes('empty-action-text="去发布"'),
   'Profiles without public posts must expose only the focused primary publishing action.',
+)
+expect(
+  commentMapper.includes('long countVisibleComments')
+    && interactionFacade.includes('page.setTotal(total)')
+    && interactionFacade.includes('评论数据暂时无法读取，请稍后重试'),
+  'Comment pages must expose the real total and reject a contradictory non-zero empty first page.',
+)
+expect(
+  demoCommentCounterMigration.includes('SELECT COUNT(*)')
+    && demoCommentCounterMigration.includes('t_int_comment')
+    && !demoCommentCounterMigration.includes('INSERT INTO t_int_comment'),
+  'Demo comment counters must be reconciled from real comments without inventing discussion rows.',
+)
+expect(
+  operationsService.includes('.status("EMPTY")')
+    && operationSlotCard.includes('isSuccessfulEmpty')
+    && operationSlotCard.includes('当前暂无运营精选'),
+  'HOME_FEATURED must distinguish a successful empty configuration from an API failure.',
+)
+expect(
+  healthController.includes('SERVICE_COMPONENTS')
+    && healthController.includes('coreSchemaHealth()')
+    && healthController.includes('publicReadinessIssues'),
+  'Public readiness must use core dependencies and return safe diagnostic codes.',
+)
+expect(
+  editorView.includes('maxlength="200"')
+    && editorView.includes('标题最多 200 个字符')
+    && editorView.includes('封面链接必须是完整的 http 或 https 地址')
+    && editorView.includes('最多添加 5 个标签'),
+  'Editor validation must cover title, link, content and tag boundaries before publish.',
+)
+expect(
+  appHeader.includes('community-skip-link')
+    && appHeader.includes('切换亮色模式')
+    && searchView.includes('aria-label="搜索内容、话题、作者或标签"'),
+  'Global navigation and search must expose visible keyboard focus and stable Chinese accessible names.',
+)
+expect(
+  exploreView.includes('error && !hasItems')
+    && exploreView.includes('个别入口会在对应区域提示状态'),
+  'Explore must localize partial failures instead of showing a global unavailable state beside successful content.',
+)
+expect(
+  homeView.includes('@media (min-width: 1440px)')
+    && homeView.includes('max-width: 96rem')
+    && homeView.includes('grid-template-columns: 224px minmax(0, 1fr) 304px'),
+  'Home must expand its information density on 1440-1920px viewports.',
+)
+expect(
+  publicActorLink.includes('userApi.getProfile')
+    && publicActorLink.includes('社区成员'),
+  'Public collaboration pages must resolve public actor identity without exposing raw UIDs.',
+)
+expect(
+  userAvatar.includes(':style="fallbackStyle"')
+    && avatarRequestState.includes('export const resolveAvatarTone'),
+  'Fallback avatars must remain stable and visually distinguishable by display name.',
 )
 
 console.log('Acceptance experience recovery guard passed.')

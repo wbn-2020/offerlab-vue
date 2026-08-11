@@ -3191,6 +3191,19 @@ watch(
   }
 }
 
+@media (min-width: 1440px) {
+  .community-home-main {
+    width: min(100%, 96rem);
+    max-width: 96rem;
+  }
+
+  .community-feed-layout {
+    width: 100%;
+    grid-template-columns: 224px minmax(0, 1fr) 304px;
+    gap: 1.5rem;
+  }
+}
+
 @media (max-width: 640px) {
   .community-home-main {
     min-height: calc(100vh - 58px);

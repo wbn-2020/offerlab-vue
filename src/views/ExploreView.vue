@@ -47,7 +47,7 @@
                 <strong>{{ loading ? '加载中' : contentForms.length }}</strong>
               </div>
               <p v-if="loading">正在更新公共内容地图</p>
-              <p v-else-if="degraded">部分内容暂不可用，现有入口仍可继续浏览</p>
+              <p v-else-if="degraded">当前可见内容可正常浏览，个别入口会在对应区域提示状态</p>
               <p v-else>{{ activeDomainOption?.label ? `正在浏览 ${activeDomainOption.label}` : '从感兴趣的频道开始探索' }}</p>
             </aside>
           </div>
@@ -89,7 +89,7 @@
       <section class="explore-browse-band">
         <div class="explore-shell explore-browse-layout">
           <section class="explore-browse-content">
-            <div v-if="error" class="state-banner state-banner-error">
+            <div v-if="error && !hasItems" class="state-banner state-banner-error">
               <AlertCircle class="h-5 w-5" aria-hidden="true" />
               <span>{{ error }}</span>
               <button type="button" @click="reload">

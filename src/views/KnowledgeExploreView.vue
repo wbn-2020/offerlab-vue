@@ -459,7 +459,7 @@ const groupLabelMap: Record<string, string> = {
 
 const assetTypeLabel = (type: KnowledgeAssetType) => groupLabelMap[type] || type
 const previewSourceLabel = (source?: KnowledgePreviewSource) => {
-  if (source === 'local') return 'local-only'
+  if (source === 'local') return '本地只读推导'
   if (source === 'fallback') return 'fallback'
   if (source === 'demo') return 'demo'
   return 'remote'
@@ -468,9 +468,9 @@ const previewSourceLabel = (source?: KnowledgePreviewSource) => {
 const relationLabel = (relation: string) => {
   switch (relation) {
     case 'domain_post':
-      return 'domain to post'
+      return '频道关联内容'
     case 'post_tag':
-      return 'post to tag'
+      return '内容关联标签'
     case 'topic_tag':
       return 'topic to tag'
     case 'belongs_to':

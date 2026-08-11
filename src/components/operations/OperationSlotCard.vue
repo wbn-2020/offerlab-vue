@@ -70,10 +70,12 @@ const visibleItems = computed(() => (slot.value?.items || [])
   .filter((item) => isOpsOrchestrationCopyAllowed(`${item.title} ${item.summary || ''} ${item.reasonText || item.reason || ''}`))
   .slice(0, 4))
 const isUnavailable = computed(() => Boolean(slot.value?.degraded || loadError.value))
-const labelText = computed(() => isUnavailable.value ? '暂不可用' : (slot.value?.displayLabel || '运营整理'))
+const isSuccessfulEmpty = computed(() => !isUnavailable.value && slot.value?.source === 'remote' && slot.value?.status === 'EMPTY')
+const labelText = computed(() => isUnavailable.value ? '暂不可用' : isSuccessfulEmpty.value ? '暂无配置' : (slot.value?.displayLabel || '运营整理'))
 const explanationText = computed(() => {
   if (loadError.value) return '运营位接口暂不可用，前台不会伪装成自然推荐；当前保留稳定空状态。'
   if (isUnavailable.value) return slot.value?.explanation || '后端运营位未接通时展示稳定空状态，不代表正式发布配置。'
+  if (isSuccessfulEmpty.value) return '运营位接口已正常返回，当前没有已发布且可见的精选内容。'
   return slot.value?.explanation || '由社区运营从公开可见内容中整理，展示原因和自然推荐分开说明。'
 })
 const slotUpdatedAt = computed(() => {
@@ -91,7 +93,9 @@ const slotUpdatedAt = computed(() => {
 const emptyText = computed(() => (
   loadError.value
     ? '运营位暂不可用，已降级为空状态'
-    : '当前没有可展示的运营整理入口'
+    : isSuccessfulEmpty.value
+      ? '当前暂无运营精选'
+      : '当前没有可展示的运营整理入口'
 ))
 
 const loadSlot = async () => {

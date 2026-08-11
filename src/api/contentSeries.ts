@@ -115,6 +115,12 @@ const clampRate = (value: number) => Math.max(0, Math.min(100, Math.round(value)
 const normalizeVisibility = (value: unknown): ContentSeriesRecord['visibility'] => (
   value === 2 || value === '2' || value === 'private' || value === 'PRIVATE' ? 'private' : 'public'
 )
+const publicSourceNote = (value: unknown, fallback: string) => {
+  const text = safeText(value)
+  return text && !/(local-only|fallback|elasticsearch|mysql|database|数据库|内部)/i.test(text)
+    ? text
+    : fallback
+}
 const normalizePreviewSource = (raw: any): NonNullable<ContentSeriesRecord['previewSource']> => {
   const value = safeText(raw?.previewSource).toLowerCase()
   if (value === 'fallback' || raw?.source === 'fallback' || raw?.fallback) return 'fallback'
@@ -201,7 +207,10 @@ const adaptSeriesRecord = (raw: any): ContentSeriesRecord => {
     status: raw?.status === 'paused' || raw?.status === 'completed' ? raw.status : 'active',
     previewSource,
     ...normalizeKnowledgeProjection(raw, previewSource),
-    sourceNote: safeText(raw?.sourceNote) || '公开系列可参与请求时关系投影；local-only/fallback 仅作降级展示。',
+    sourceNote: publicSourceNote(
+      raw?.sourceNote,
+      '公开系列可参与请求时关系投影；当前关系信息仅作阅读参考。',
+    ),
     targetHref: safeText(raw?.targetHref ?? raw?.href) || undefined,
     deleted: raw?.deleted ?? raw?.isDeleted,
     restricted: raw?.restricted ?? raw?.isRestricted,
@@ -406,7 +415,7 @@ export const contentSeriesApi = {
       previewSource: 'local',
       knowledgeProjectionState: 'DEGRADED',
       knowledgeProjectionReason: 'Local-only series has no remote relation evidence.',
-      sourceNote: 'local-only 系列仅保存在本地，不参与正式知识关系。',
+      sourceNote: '当前内容仅保存在本机，未同步为公开合集，也不会参与正式知识关系。',
       targetHref: undefined,
       items: [],
       createdAt: Date.now(),
@@ -420,7 +429,7 @@ export const contentSeriesApi = {
       return { ...res, data, status: 'remote' }
     } catch (error) {
       upsertLocalRecord(ownerId, localRecord)
-      return throwLocalOnlyWriteError(error, 'Content series was saved locally only. Remote save failed; it is not public or synced.')
+      return throwLocalOnlyWriteError(error, '合集已暂存到本机，但远程保存失败；当前不会公开或跨设备同步。')
     }
   },
 
@@ -441,7 +450,7 @@ export const contentSeriesApi = {
       previewSource: 'local',
       knowledgeProjectionState: 'DEGRADED',
       knowledgeProjectionReason: 'Local update has no confirmed remote relation evidence.',
-      sourceNote: 'local-only 系列更新仅保存在本地，不参与正式知识关系。',
+      sourceNote: '本次更新仅保存在本机，未同步为公开合集，也不会参与正式知识关系。',
       targetHref: current?.targetHref,
       items: current?.items || [],
       createdAt: current?.createdAt || Date.now(),
@@ -455,7 +464,7 @@ export const contentSeriesApi = {
       return { ...res, data, status: 'remote' }
     } catch (error) {
       upsertLocalRecord(ownerId, localRecord)
-      return throwLocalOnlyWriteError(error, 'Content series was saved locally only. Remote update failed; public data was not changed.')
+      return throwLocalOnlyWriteError(error, '合集更新已暂存到本机，但远程保存失败；公开内容未发生变化。')
     }
   },
 

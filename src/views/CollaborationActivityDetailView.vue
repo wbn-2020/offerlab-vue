@@ -60,7 +60,7 @@
           <p class="description">{{ activity.description }}</p>
 
           <div class="detail-meta">
-            <span><UserRound class="icon-small" aria-hidden="true" />负责人 UID {{ activity.ownerUid }}</span>
+            <PublicActorLink :uid="activity.ownerUid" role-label="负责人" />
             <span><CalendarDays class="icon-small" aria-hidden="true" />更新于 {{ formatDate(activity.updateTime) }}</span>
             <span><FileText class="icon-small" aria-hidden="true" />{{ activity.submissionCount }} 份投稿</span>
             <span v-if="activity.endsAt"><Clock3 class="icon-small" aria-hidden="true" />截止 {{ formatDate(activity.endsAt) }}</span>
@@ -183,7 +183,6 @@ import {
   RefreshCw,
   Settings2,
   Upload,
-  UserRound,
 } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import {
@@ -194,6 +193,7 @@ import {
 } from '@/api/collaboration'
 import { localDomainConfigs } from '@/api/domains'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicActorLink from '@/components/user/PublicActorLink.vue'
 import {
   collaborationHubLocation,
   collaborationResourcePath,

@@ -12,6 +12,7 @@
               type="search"
               list="search-suggestions"
               class="search-input pl-10"
+              aria-label="搜索内容、话题、作者或标签"
               placeholder="搜索内容、话题、作者、标签或有用经验"
               @input="handleSearchInput"
               @keyup.enter="runSearch(false)"
@@ -36,19 +37,19 @@
 
         <div class="search-control-row">
           <div class="segmented">
-            <button type="button" :class="['segment-button', searchMode === 'posts' ? 'segment-active' : '']" @click="setMode('posts')">
+            <button type="button" :class="['segment-button', searchMode === 'posts' ? 'segment-active' : '']" :aria-pressed="searchMode === 'posts'" @click="setMode('posts')">
               <FileText class="h-4 w-4" />
               内容
             </button>
-            <button type="button" :class="['segment-button', searchMode === 'users' ? 'segment-active' : '']" @click="setMode('users')">
+            <button type="button" :class="['segment-button', searchMode === 'users' ? 'segment-active' : '']" :aria-pressed="searchMode === 'users'" @click="setMode('users')">
               <Users class="h-4 w-4" />
               作者
             </button>
-            <button type="button" :class="['segment-button', searchMode === 'topics' ? 'segment-active' : '']" @click="setMode('topics')">
+            <button type="button" :class="['segment-button', searchMode === 'topics' ? 'segment-active' : '']" :aria-pressed="searchMode === 'topics'" @click="setMode('topics')">
               <Hash class="h-4 w-4" />
               话题
             </button>
-            <button type="button" :class="['segment-button', searchMode === 'tags' ? 'segment-active' : '']" @click="setMode('tags')">
+            <button type="button" :class="['segment-button', searchMode === 'tags' ? 'segment-active' : '']" :aria-pressed="searchMode === 'tags'" @click="setMode('tags')">
               <Hash class="h-4 w-4" />
               标签
             </button>
@@ -60,6 +61,7 @@
               :key="option.value"
               type="button"
               :class="['chip-button', filters.sort === option.value ? 'chip-active' : '']"
+              :aria-pressed="filters.sort === option.value"
               @click="setSort(option.value)"
             >
               {{ option.label }}
@@ -176,7 +178,7 @@
                 <h2 class="side-title">保存的搜索</h2>
                 <div class="flex items-center gap-2">
                   <span class="mini-count">{{ savedSearches.length }}/8</span>
-                  <button type="button" class="mini-icon-button" title="清空保存搜索" @click="clearSavedSearches">
+                  <button type="button" class="mini-icon-button" title="清空保存搜索" aria-label="清空保存搜索" @click="clearSavedSearches">
                     <Eraser class="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -192,10 +194,10 @@
                     @keyup.esc="cancelRenameSavedSearch"
                   />
                   <div class="saved-search-actions">
-                    <button type="button" class="mini-icon-button" title="保存名称" @click="confirmRenameSavedSearch(item)">
+                    <button type="button" class="mini-icon-button" title="保存名称" aria-label="保存搜索名称" @click="confirmRenameSavedSearch(item)">
                       <Check class="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" class="mini-icon-button" title="取消重命名" @click="cancelRenameSavedSearch">
+                    <button type="button" class="mini-icon-button" title="取消重命名" aria-label="取消重命名搜索" @click="cancelRenameSavedSearch">
                       <X class="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -206,10 +208,10 @@
                     <span class="saved-search-meta">{{ searchSnapshotMeta(item) }}</span>
                   </button>
                   <div class="saved-search-actions">
-                    <button type="button" class="mini-icon-button" title="重命名保存搜索" @click="startRenameSavedSearch(item)">
+                    <button type="button" class="mini-icon-button" title="重命名保存搜索" aria-label="重命名保存搜索" @click="startRenameSavedSearch(item)">
                       <Pencil class="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" class="mini-icon-button" title="删除保存搜索" @click="deleteSavedSearch(item.id)">
+                    <button type="button" class="mini-icon-button" title="删除保存搜索" aria-label="删除保存搜索" @click="deleteSavedSearch(item.id)">
                       <Trash2 class="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -222,7 +224,7 @@
                 <h2 class="side-title">最近搜索</h2>
                 <div class="flex items-center gap-2">
                   <span class="mini-count">{{ recentSearches.length }}/8</span>
-                  <button type="button" class="mini-icon-button" title="清空最近搜索" @click="clearRecentSearches">
+                  <button type="button" class="mini-icon-button" title="清空最近搜索" aria-label="清空最近搜索" @click="clearRecentSearches">
                     <Eraser class="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -233,7 +235,7 @@
                   <span class="saved-search-meta">{{ searchSnapshotMeta(item) }}</span>
                 </button>
                 <div class="saved-search-actions">
-                  <button type="button" class="mini-icon-button" title="删除最近搜索" @click="deleteRecentSearch(item.id)">
+                  <button type="button" class="mini-icon-button" title="删除最近搜索" aria-label="删除最近搜索" @click="deleteRecentSearch(item.id)">
                     <Trash2 class="h-3.5 w-3.5" />
                   </button>
                 </div>

@@ -1,5 +1,8 @@
 <template>
   <header class="community-header">
+    <button type="button" class="community-skip-link" @click="focusMainContent">
+      跳到主要内容
+    </button>
     <div class="community-header__inner">
       <RouterLink
         to="/"
@@ -363,6 +366,13 @@ const toggleTheme = () => {
   themeStore.toggleExplicitMode()
 }
 
+const focusMainContent = () => {
+  const main = document.querySelector<HTMLElement>('main')
+  if (!main) return
+  if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1')
+  main.focus()
+}
+
 const toggleDomainMenu = () => {
   showDomainMenu.value = !showDomainMenu.value
   if (showDomainMenu.value) showUserMenu.value = false
@@ -531,6 +541,25 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   background: var(--primary-50);
   color: var(--primary-600);
   font-weight: 750;
+}
+
+.community-skip-link {
+  position: fixed;
+  z-index: 60;
+  top: 0.5rem;
+  left: 0.5rem;
+  transform: translateY(-150%);
+  border-radius: var(--radius-control);
+  background: var(--primary-700);
+  padding: 0.55rem 0.8rem;
+  color: white;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  transition: transform 0.15s ease;
+}
+
+.community-skip-link:focus-visible {
+  transform: translateY(0);
 }
 
 .community-header__channel-trigger {
@@ -961,7 +990,6 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   }
 
   .community-header__publish,
-  .community-header__theme-button,
   .community-header__auth-link,
   .community-header__register-link {
     display: none;

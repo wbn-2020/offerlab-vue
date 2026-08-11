@@ -57,7 +57,7 @@
           <p class="description">{{ discussion.prompt }}</p>
 
           <div class="detail-meta">
-            <span><UserRound class="icon-small" aria-hidden="true" />发起者 UID {{ discussion.creatorUid }}</span>
+            <PublicActorLink :uid="discussion.creatorUid" role-label="发起者" />
             <span><CalendarDays class="icon-small" aria-hidden="true" />更新于 {{ formatDate(discussion.updateTime) }}</span>
             <span><ListChecks class="icon-small" aria-hidden="true" />{{ discussion.voteCount }} 票</span>
           </div>
@@ -175,7 +175,6 @@ import {
   LockKeyhole,
   RefreshCw,
   Scale,
-  UserRound,
 } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import {
@@ -186,6 +185,7 @@ import {
 } from '@/api/collaboration'
 import { localDomainConfigs } from '@/api/domains'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicActorLink from '@/components/user/PublicActorLink.vue'
 import {
   collaborationHubLocation,
   collaborationResourcePath,

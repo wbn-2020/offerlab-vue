@@ -59,7 +59,7 @@
           <p class="description">{{ series.description }}</p>
 
           <div class="detail-meta">
-            <span><UserRound class="icon-small" aria-hidden="true" />负责人 UID {{ series.ownerUid }}</span>
+            <PublicActorLink :uid="series.ownerUid" role-label="负责人" />
             <span><CalendarDays class="icon-small" aria-hidden="true" />更新于 {{ formatDate(series.updateTime) }}</span>
             <span><Users class="icon-small" aria-hidden="true" />{{ series.memberCount }} 位成员</span>
             <span><FileText class="icon-small" aria-hidden="true" />{{ series.postCount }} 篇内容</span>
@@ -179,7 +179,6 @@ import {
   RefreshCw,
   Send,
   Settings2,
-  UserRound,
   Users,
 } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
@@ -192,6 +191,7 @@ import {
 import { localDomainConfigs } from '@/api/domains'
 import CommunitySpacePanel from '@/components/community/CommunitySpacePanel.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicActorLink from '@/components/user/PublicActorLink.vue'
 import UpdateDigestPanel from '@/components/retention/UpdateDigestPanel.vue'
 import {
   collaborationHubLocation,

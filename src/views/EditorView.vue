@@ -82,11 +82,14 @@
           <input
             v-model="form.title"
             type="text"
+            maxlength="200"
             :placeholder="activePostType.placeholder"
             data-field="title"
+            :aria-invalid="Boolean(fieldErrors.title)"
+            :aria-describedby="fieldErrors.title ? 'editor-title-error' : undefined"
             class="editor-title-input text-3xl font-bold px-4 py-3 border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
           />
-          <p v-if="fieldErrors.title" class="field-error px-4">{{ fieldErrors.title }}</p>
+          <p v-if="fieldErrors.title" id="editor-title-error" class="field-error px-4">{{ fieldErrors.title }}</p>
           <div class="text-sm text-slate-500 dark:text-slate-400 px-4">
             {{ form.title.length }} / 200 字符
           </div>
@@ -287,8 +290,11 @@
             v-model="form.coverUrl"
             type="url"
             placeholder="输入图片 URL"
+            data-field="coverUrl"
+            :aria-invalid="Boolean(fieldErrors.coverUrl)"
             class="editor-cover-input"
           />
+          <p v-if="fieldErrors.coverUrl" class="field-error">{{ fieldErrors.coverUrl }}</p>
           <div v-if="form.coverUrl && !formCoverHasFailed" class="editor-cover-preview">
             <img :src="form.coverUrl" :alt="form.title" @error="handleFormCoverError" />
           </div>
@@ -1229,6 +1235,14 @@ const extensionValue = computed<Record<string, any>>(() => form.value.extension 
 const normalizedTitle = computed(() => form.value.title.trim())
 const normalizedContent = computed(() => form.value.content.trim())
 const normalizedTags = computed(() => selectedTags.value.map((tag) => tag.trim()).filter(Boolean))
+const isHttpUrl = (value: string) => {
+  try {
+    const url = new URL(value.trim())
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 const contentLength = computed(() => form.value.content.length)
 const isContentOverLimit = computed(() => contentLength.value > CONTENT_MAX_LENGTH)
 const activePostType = computed(() => getContentTypeOption(form.value.postType))
@@ -1360,6 +1374,13 @@ const qualityChecks = computed<QualityCheck[]>(() => [
     required: true,
   },
   {
+    key: 'coverUrl',
+    title: '封面链接有效',
+    description: '封面链接必须是完整的 http 或 https 地址。',
+    passed: !form.value.coverUrl.trim() || isHttpUrl(form.value.coverUrl),
+    required: Boolean(form.value.coverUrl.trim()),
+  },
+  {
     key: 'company',
     title: '实体信息',
     description: '旧版经验需要实体字段，便于历史知识库和主题包兼容。',
@@ -1402,7 +1423,6 @@ const isInitialComposeState = computed(() => (
 const publishDisabledReason = computed(() => {
   if (isLoadingPost.value) return '帖子内容加载完成后才能发布'
   if (isInitialComposeState.value) return '先写标题和正文，再选择频道即可发布'
-  if (!selectedDomain.value) return '请选择频道后再发布'
   if (blockingQualityIssues.value.length === 0) return ''
   return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
 })
@@ -2973,6 +2993,10 @@ onMounted(async () => {
 
 const addTag = () => {
   const tag = tagInput.value.trim()
+  if (selectedTags.value.length >= 5) {
+    toast.warning('最多添加 5 个标签')
+    return
+  }
   if (tag && tag.length <= 32 && !selectedTags.value.includes(tag)) {
     selectedTags.value.push(tag)
     tagInput.value = ''
@@ -3011,16 +3035,24 @@ const saveDraft = async () => {
 const publishPost = async () => {
   clearFieldErrors()
   publicUpdateError.value = ''
-  if (!selectedDomain.value) {
-    fieldErrors.value = { domain: '请选择频道' }
-    requestAnimationFrame(focusFirstFieldError)
-    toast.error('请选择频道后再发布')
-    return
+  const localErrors: Record<string, string> = {}
+  if (!selectedDomain.value) localErrors.domain = '请选择频道'
+  if (normalizedTitle.value.length < 8) localErrors.title = '标题至少需要 8 个字符'
+  if (normalizedTitle.value.length > 200) localErrors.title = '标题最多 200 个字符'
+  if (normalizedContent.value.length < activePostType.value.minContentLength) {
+    localErrors.content = `正文至少需要 ${activePostType.value.minContentLength} 个字符`
   }
-  if (isContentOverLimit.value) {
-    fieldErrors.value = { content: `正文不能超过 ${CONTENT_MAX_LENGTH} 字` }
+  if (isContentOverLimit.value) localErrors.content = `正文不能超过 ${CONTENT_MAX_LENGTH} 字`
+  if (normalizedTags.value.length < (isInterviewPost.value ? 2 : 1)) {
+    localErrors.tags = isInterviewPost.value ? '至少添加 2 个标签' : '至少添加 1 个标签'
+  }
+  if (form.value.coverUrl.trim() && !isHttpUrl(form.value.coverUrl)) {
+    localErrors.coverUrl = '封面链接必须是完整的 http 或 https 地址'
+  }
+  if (Object.keys(localErrors).length > 0) {
+    fieldErrors.value = localErrors
     requestAnimationFrame(focusFirstFieldError)
-    toast.error(`正文不能超过 ${CONTENT_MAX_LENGTH} 字`)
+    toast.error(`请先修正：${Object.values(localErrors).join('；')}`)
     return
   }
   if (blockingQualityIssues.value.length > 0) {

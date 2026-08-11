@@ -356,8 +356,8 @@
       </article>
     </template>
 
-    <section v-else-if="!errorMessage && expectedCount > 0" class="comment-state-panel" role="status" aria-live="polite">
-      <p>已有 {{ expectedCount }} 条讨论，评论正在同步。</p>
+    <section v-else-if="!errorMessage && expectedCount > 0" class="comment-state-panel comment-state-panel--error" role="alert">
+      <p>评论数量与列表暂时不一致，当前没有把它当作空评论处理。</p>
       <button type="button" class="comment-state-retry" @click="emit('retry')">重新加载</button>
     </section>
 

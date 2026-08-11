@@ -318,7 +318,7 @@ const adaptAsset = (raw: any): PublicKnowledgeAsset => {
     visibilityState: toVisibilityState(raw?.visibilityState ?? raw?.displayState),
     source: toAssetSource(raw?.source, assetType === 'search_entry' ? 'search' : assetType),
     previewSource: toPreviewSource(raw?.previewSource),
-    sourceNote: safeText(raw?.sourceNote ?? raw?.reasonText, 'From public visible content relations.'),
+    sourceNote: safeText(raw?.sourceNote ?? raw?.reasonText, '来源：公开可见内容关系。'),
     targetHref: safeHref(raw?.targetHref ?? raw?.href),
     updatedAt: safeText(raw?.updatedAt ?? raw?.updateTime),
     excludedReason: safeText(raw?.excludedReason) || undefined,

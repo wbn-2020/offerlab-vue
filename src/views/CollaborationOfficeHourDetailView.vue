@@ -59,7 +59,7 @@
           <p class="description">{{ officeHour.description }}</p>
 
           <div class="detail-meta">
-            <span><UserRound class="icon-small" aria-hidden="true" />主持人 UID {{ officeHour.hostUid }}</span>
+            <PublicActorLink :uid="officeHour.hostUid" role-label="主持人" />
             <span><CalendarDays class="icon-small" aria-hidden="true" />{{ formatDate(officeHour.startsAt) }} 至 {{ formatDate(officeHour.endsAt) }}</span>
             <span><Users class="icon-small" aria-hidden="true" />剩余 {{ officeHour.availableCount }}/{{ officeHour.capacity }}</span>
           </div>
@@ -164,7 +164,6 @@ import {
   MessageCircle,
   RefreshCw,
   Settings2,
-  UserRound,
   Users,
 } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
@@ -175,6 +174,7 @@ import {
 } from '@/api/collaboration'
 import { localDomainConfigs } from '@/api/domains'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicActorLink from '@/components/user/PublicActorLink.vue'
 import {
   collaborationHubLocation,
   collaborationResourcePath,

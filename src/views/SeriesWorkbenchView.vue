@@ -140,7 +140,7 @@
               <p class="series-panel-label">内容目录</p>
               <h2 class="series-panel-title">我的合集</h2>
               <p class="series-panel-description">
-                优先读取远端合集接口；如仅本地 fallback，会明确提示，避免误当成真实公开数据。
+                优先读取已同步的合集；如果暂时只能展示本机内容，会明确提示，避免误当成真实公开数据。
               </p>
             </div>
             <button
@@ -320,7 +320,7 @@ const activeSeriesRecord = computed(() => (
 const seriesSourceSummary = computed(() => (
   seriesSource.value === 'remote'
     ? '已同步后端合集列表'
-    : '接口失败时使用本地 fallback'
+    : '暂时展示本机已保存的合集'
 ))
 const workbenchProgressSummary = computed(() => {
   const totalPublished = seriesRecords.value.reduce((sum, item) => sum + item.progress.publishedCount, 0)
@@ -341,11 +341,11 @@ const seriesStatusLabel = (status: ContentSeriesRecord['status']) => {
 }
 
 const seriesPreviewSourceLabel = (record: ContentSeriesRecord) => {
-  if (seriesSource.value === 'fallback') return 'fallback'
-  if (record.previewSource === 'local') return 'local-only'
-  if (record.previewSource === 'demo') return 'demo'
-  if (record.previewSource === 'fallback') return 'fallback'
-  return 'remote'
+  if (seriesSource.value === 'fallback') return '本机暂存'
+  if (record.previewSource === 'local') return '本机暂存'
+  if (record.previewSource === 'demo') return '示例内容'
+  if (record.previewSource === 'fallback') return '备用内容'
+  return '已同步'
 }
 
 const seriesKnowledgeProjectionLabel = (record: ContentSeriesRecord) => {
@@ -361,7 +361,7 @@ const seriesKnowledgeProjectionCopy = (record: ContentSeriesRecord) => {
     return record.sourceNote || '仅审核通过且关系证据完整的记录会显示为已确认关系。'
   }
   if (record.knowledgeProjectionState === 'DEGRADED') {
-    return `${seriesPreviewSourceLabel(record)} 数据仅作降级展示，不能视为正式关系。`
+    return `${seriesPreviewSourceLabel(record)} 内容仅作暂时展示，不能视为已确认的正式关系。`
   }
   return record.knowledgeProjectionReason
     || '公开系列可参与请求时关系推荐；这些连接是即时阅读建议，不代表已保存或人工确认的知识关系。'

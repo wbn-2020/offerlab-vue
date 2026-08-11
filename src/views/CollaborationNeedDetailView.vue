@@ -69,7 +69,7 @@
           <p class="description">{{ need.description }}</p>
 
           <div class="detail-meta">
-            <span><UserRound class="icon-small" aria-hidden="true" /> 发起者 UID {{ need.creatorUid }}</span>
+            <PublicActorLink :uid="need.creatorUid" role-label="发起者" />
             <span><CalendarDays class="icon-small" aria-hidden="true" /> 发布于 {{ formatDate(need.createTime) }}</span>
             <span><Heart class="icon-small" aria-hidden="true" /> {{ need.followerCount }} 人关注</span>
           </div>
@@ -328,7 +328,7 @@
                       {{ event.toStatus ? statusLabel(event.toStatus) : '记录' }}
                     </p>
                     <p v-if="event.note" class="event-note">{{ event.note }}</p>
-                    <span v-if="event.actorUid" class="event-actor">参与者 UID {{ event.actorUid }}</span>
+                    <span v-if="event.actorUid" class="event-actor">社区参与者</span>
                   </div>
                 </li>
               </ol>
@@ -486,11 +486,11 @@ import {
   Send,
   Settings2,
   Undo2,
-  UserRound,
   XCircle,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicActorLink from '@/components/user/PublicActorLink.vue'
 import CollaborationDeliverySelector from '@/components/collaboration/CollaborationDeliverySelector.vue'
 import { collaborationApi, type CollaborationNeed, type CollaborationNeedEvent, type NeedContentFormat, type NeedDeliveryCandidate, type NeedEventType, type NeedResolutionType, type NeedRevision, type NeedSourceType, type NeedStatus } from '@/api/collaboration'
 import { getErrorMessage } from '@/api/client'

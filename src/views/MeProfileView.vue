@@ -723,7 +723,7 @@
               优先选择精选、高互动和最近更新的公开内容展示在作者主页。
             </p>
           </div>
-          <RouterLink to="/editor" class="secondary-button">继续发布</RouterLink>
+          <RouterLink v-if="hasPublishedContent" to="/editor" class="secondary-button">继续发布</RouterLink>
         </div>
         <div v-if="representativePosts.length" class="representative-grid">
           <RouterLink v-for="post in representativePosts" :key="post.id" :to="post.to" class="representative-card">

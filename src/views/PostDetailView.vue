@@ -2202,7 +2202,7 @@ const postKnowledgeAssetTypeLabel = (type: PublicKnowledgeAssetType) => {
   return labels[type] || type
 }
 const postKnowledgePreviewLabel = (source?: KnowledgePreviewSource) => {
-  if (source === 'local') return 'local-only'
+  if (source === 'local') return '本地只读推导'
   if (source === 'fallback') return 'fallback'
   if (source === 'demo') return 'demo'
   return 'remote'
@@ -2241,7 +2241,7 @@ const localPostKnowledgeAssets = computed(() => {
       seriesTitle || '所属系列',
       '由当前帖子扩展字段推导的所属系列入口。',
       seriesId ? `/collections/${encodeURIComponent(seriesId)}` : '',
-      'local-only 推导，仅在详情页只读展示，需后端确认后才可成为正式知识资产。',
+      '本地只读推导，仅在详情页展示，需服务端确认后才可成为正式知识资产。',
     ))
   }
   const topicSlug = String(extension.topicSlug || extension.curatedTopicSlug || '').trim()
@@ -2253,7 +2253,7 @@ const localPostKnowledgeAssets = computed(() => {
       topicTitle || topicSlug || '相关专题',
       '由当前帖子扩展字段推导的相关专题。',
       topicSlug ? `/topics/${encodeURIComponent(topicSlug)}` : '',
-      'local-only 推导，仅作公开关系提示，不进入普通知识路径。',
+      '本地只读推导，仅作公开关系提示，不进入普通知识路径。',
     ))
   }
   for (const tag of current.tags || []) {
@@ -2263,7 +2263,7 @@ const localPostKnowledgeAssets = computed(() => {
       tag.name,
       '由当前公开帖子标签推导的相关标签入口。',
       `/tag/${encodeURIComponent(String(tag.slug || tag.id))}`,
-      'local-only 推导，展示为只读入口。',
+      '本地只读推导，展示为只读入口。',
     ))
   }
   if (primaryKnowledgeTopic.value) {
@@ -2273,7 +2273,7 @@ const localPostKnowledgeAssets = computed(() => {
       primaryKnowledgeTopic.value,
       '由当前帖子公开主题生成的搜索入口候选。',
       `/search?q=${encodeURIComponent(primaryKnowledgeTopic.value)}&sort=relevance`,
-      'local-only 搜索入口，仅辅助本次体验。',
+      '本地只读搜索入口，仅辅助本次浏览。',
     ))
   }
   return assets.slice(0, 8)
@@ -3251,6 +3251,7 @@ const fetchCommentsPage = async (
       sort: commentSort.value,
     },
     signal,
+    timeout: 10000,
   }) as any
   return res.data ? adaptPage(res.data, adaptQualityComment) : null
 }
@@ -3621,6 +3622,12 @@ const loadComments = async (reset = true) => {
     const page = await fetchCommentsPage(reset, context, controller.signal)
     if (!isActiveCommentLoad()) return
     const nextItems = page?.items || []
+    if (reset && typeof page?.total === 'number' && post.value) {
+      post.value.counter.comment = Math.max(0, page.total)
+    }
+    if (reset && Number(page?.total || 0) > 0 && nextItems.length === 0) {
+      throw new Error('评论列表暂时无法完整读取，请重试')
+    }
     comments.value = mergeCommentPage(comments.value, nextItems, reset)
     commentCursor.value = page?.nextCursor
     const paginatedRootCount = comments.value.filter(
@@ -3754,7 +3761,7 @@ const loadDetailKnowledgeAssets = async () => {
   } catch (error: any) {
     if (!isActiveLoadedPostContext(context)) return
     detailKnowledge.value = null
-    detailKnowledgeError.value = getErrorMessage(error, '知识关系服务暂时不可用，以下仅展示 local-only 只读入口。')
+    detailKnowledgeError.value = getErrorMessage(error, '知识关系暂时不可用，以下仅展示本地只读入口。')
   } finally {
     if (isActiveLoadedPostContext(context)) {
       detailKnowledgeLoading.value = false
