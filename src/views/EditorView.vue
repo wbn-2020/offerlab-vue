@@ -74,7 +74,19 @@
     </main>
 
     <main v-else class="community-page editor-main-shell">
-      <div class="editor-workspace">
+      <section v-if="pendingLocalDraft" class="local-draft-recovery" aria-labelledby="local-draft-recovery-title">
+        <div>
+          <p>发现浏览器本地草稿</p>
+          <h2 id="local-draft-recovery-title">是否恢复上次未完成的内容？</h2>
+          <span>这份草稿仅保存在当前浏览器，最近保存于 {{ pendingLocalDraftSavedAt }}，尚未写入编辑器。</span>
+        </div>
+        <div class="local-draft-recovery-actions">
+          <button type="button" class="local-draft-recovery-primary" @click="restorePendingLocalDraft">恢复草稿</button>
+          <button type="button" class="local-draft-recovery-secondary" @click="discardPendingLocalDraft">放弃草稿</button>
+        </div>
+      </section>
+
+      <div v-else class="editor-workspace">
         <div class="editor-compose-layout">
           <section class="editor-compose-main">
         <!-- 标题输入 -->
@@ -970,6 +982,11 @@ type PublishFailure = {
   actions: string[]
 }
 
+type PendingLocalDraft = {
+  data: Record<string, any>
+  savedAt: number
+}
+
 const form = ref<EditorForm>({
   postType: DEFAULT_POST_TYPE,
   title: '',
@@ -1073,6 +1090,8 @@ const serverDraftId = ref('')
 const selectedDraftId = ref('')
 const serverDrafts = ref<PostDraft[]>([])
 const lastDraftSignature = ref('')
+const pendingLocalDraft = ref<PendingLocalDraft | null>(null)
+const isEditorInitializing = ref(true)
 const showStageTwoPublishingAssist = false
 const seriesRecords = ref<ContentSeriesRecord[]>([])
 const seriesSource = ref<'remote' | 'fallback'>('fallback')
@@ -1584,6 +1603,12 @@ const selectedDomainMeta = computed(() => (
   editorDomainOptions.value.find((item) => Number(item.domain) === Number(selectedDomain.value))
   ?? null
 ))
+const pendingLocalDraftSavedAt = computed(() => {
+  const savedAt = pendingLocalDraft.value?.savedAt
+  if (!savedAt) return ''
+  const date = new Date(savedAt)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('zh-CN', { hour12: false })
+})
 const selectedTopicNames = computed(() => topicNamesFromExtension(extensionValue.value))
 const selectedSeriesRecord = computed(() => (
   seriesRecords.value.find((item) => String(item.id) === String(selectedSeriesId.value)) || null
@@ -2454,9 +2479,9 @@ const clearAutoSaveTimer = () => {
 
 const scheduleAutoSave = () => {
   clearAutoSaveTimer()
-  if (isLoadingPost.value || isForbiddenEdit.value || isPublishing.value || !hasMeaningfulDraft.value) return
+  if (isEditorInitializing.value || isLoadingPost.value || isForbiddenEdit.value || isPublishing.value || !hasMeaningfulDraft.value) return
   autoSaveTimer = setTimeout(() => {
-    if (!isLoadingPost.value && !isForbiddenEdit.value && !isPublishing.value && hasMeaningfulDraft.value) {
+    if (!isEditorInitializing.value && !isLoadingPost.value && !isForbiddenEdit.value && !isPublishing.value && hasMeaningfulDraft.value) {
       persistLocalDraft()
     }
   }, AUTO_SAVE_DEBOUNCE_MS)
@@ -2581,67 +2606,100 @@ const loadLatestSourceDraft = async (postId: string) => {
   return false
 }
 
-const restoreLocalDraft = (onlyWhenNotEditing = false) => {
+const readLocalDraft = (onlyWhenNotEditing = false): PendingLocalDraft | null => {
   const draft = safeStorage.getDraft(localDraftKey(), localDraftStorageOptions())
-  if (!draft || (onlyWhenNotEditing && isEditing.value)) return false
+  if (!draft || (onlyWhenNotEditing && isEditing.value)) return null
   try {
     const draftData = JSON.parse(draft)
     if (!draftData?.savedAt || Date.now() - Number(draftData.savedAt) > LOCAL_DRAFT_TTL || draftData.owner !== draftOwner.value) {
       safeStorage.remove(localDraftKey())
-      return false
+      return null
     }
     const draftForm = { ...draftData }
     if (hasUnsafeDraftPayload(draftForm)) {
+      safeStorage.remove(localDraftKey())
       toast.warning('本地草稿疑似包含乱码或测试数据，已跳过恢复')
-      return false
+      return null
     }
-    const draftTags = draftForm.selectedTags
-    const savedSelectedDomain = draftForm.selectedDomain ?? draftForm.extension?.domain
-    const savedAnonymousCareerPost = Boolean(draftForm.anonymousCareerPost ?? draftForm.extension?.anonymous)
-    const savedServerDraftId = draftForm.serverDraftId
-    const savedPublicUpdateSummary = draftForm.publicUpdateSummary
-    const savedUpdateImpactScope = draftForm.updateImpactScope
-    const savedRespondedSuggestionIds = draftForm.respondedSuggestionIds
-    delete draftForm.selectedTags
-    delete draftForm.selectedDomain
-    delete draftForm.anonymousCareerPost
-    delete draftForm.serverDraftId
-    delete draftForm.publicUpdateSummary
-    delete draftForm.updateImpactScope
-    delete draftForm.respondedSuggestionIds
-    delete draftForm.savedAt
-    delete draftForm.owner
-    form.value = {
-      ...form.value,
-      ...draftForm,
-      title: String(draftForm.title || ''),
-      content: String(draftForm.content || ''),
-      extension: {
-        ...(draftForm.extension || {}),
-        summary: draftForm.extension?.summary || undefined,
-      },
-      coverUrl: String(draftForm.coverUrl || ''),
+    return {
+      data: draftForm,
+      savedAt: Number(draftForm.savedAt),
     }
-    selectedDomain.value = resolveOptionalDomain(savedSelectedDomain, savedAnonymousCareerPost)
-    anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? savedAnonymousCareerPost : false
-    selectedTags.value = normalizeEditorTags(draftTags)
-    selectedSeriesId.value = sanitizeVisibleText((draftForm.extension || {}).seriesId)
-    serverDraftId.value = savedServerDraftId || ''
-    selectedDraftId.value = savedServerDraftId || ''
-    publicUpdateSummary.value = sanitizeVisibleText(savedPublicUpdateSummary).slice(0, EDITOR_LIMITS.summaryMax)
-    updateImpactScope.value = sanitizeVisibleText(savedUpdateImpactScope) || 'CONTENT'
-    respondedSuggestionIds.value = Array.isArray(savedRespondedSuggestionIds)
-      ? [...new Set(savedRespondedSuggestionIds
-        .map(String)
-        .filter((id: string) => /^[1-9]\d*$/.test(id)))].slice(0, 20)
-      : []
-    exposeLoadedLimitErrors()
-    markDraftClean()
-    return true
   } catch {
+    safeStorage.remove(localDraftKey())
     toast.warning('本地草稿已损坏，已忽略')
-    return false
+    return null
   }
+}
+
+const applyLocalDraft = (storedDraft: Record<string, any>) => {
+  const draftForm = { ...storedDraft }
+  const draftTags = draftForm.selectedTags
+  const savedSelectedDomain = draftForm.selectedDomain ?? draftForm.extension?.domain
+  const savedAnonymousCareerPost = Boolean(draftForm.anonymousCareerPost ?? draftForm.extension?.anonymous)
+  const savedServerDraftId = draftForm.serverDraftId
+  const savedPublicUpdateSummary = draftForm.publicUpdateSummary
+  const savedUpdateImpactScope = draftForm.updateImpactScope
+  const savedRespondedSuggestionIds = draftForm.respondedSuggestionIds
+  delete draftForm.selectedTags
+  delete draftForm.selectedDomain
+  delete draftForm.anonymousCareerPost
+  delete draftForm.serverDraftId
+  delete draftForm.publicUpdateSummary
+  delete draftForm.updateImpactScope
+  delete draftForm.respondedSuggestionIds
+  delete draftForm.savedAt
+  delete draftForm.owner
+  form.value = {
+    ...form.value,
+    ...draftForm,
+    title: String(draftForm.title || ''),
+    content: String(draftForm.content || ''),
+    extension: {
+      ...(draftForm.extension || {}),
+      summary: draftForm.extension?.summary || undefined,
+    },
+    coverUrl: String(draftForm.coverUrl || ''),
+  }
+  selectedDomain.value = resolveOptionalDomain(savedSelectedDomain, savedAnonymousCareerPost)
+  anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? savedAnonymousCareerPost : false
+  selectedTags.value = normalizeEditorTags(draftTags)
+  selectedSeriesId.value = sanitizeVisibleText((draftForm.extension || {}).seriesId)
+  serverDraftId.value = savedServerDraftId || ''
+  selectedDraftId.value = savedServerDraftId || ''
+  publicUpdateSummary.value = sanitizeVisibleText(savedPublicUpdateSummary).slice(0, EDITOR_LIMITS.summaryMax)
+  updateImpactScope.value = sanitizeVisibleText(savedUpdateImpactScope) || 'CONTENT'
+  respondedSuggestionIds.value = Array.isArray(savedRespondedSuggestionIds)
+    ? [...new Set(savedRespondedSuggestionIds
+      .map(String)
+      .filter((id: string) => /^[1-9]\d*$/.test(id)))].slice(0, 20)
+    : []
+  exposeLoadedLimitErrors()
+  markDraftClean()
+  return true
+}
+
+const queueLocalDraftRestore = (onlyWhenNotEditing = false) => {
+  const candidate = readLocalDraft(onlyWhenNotEditing)
+  if (!candidate) return false
+  pendingLocalDraft.value = candidate
+  return true
+}
+
+const restorePendingLocalDraft = () => {
+  const candidate = pendingLocalDraft.value
+  if (!candidate) return
+  if (!applyLocalDraft(candidate.data)) return
+  pendingLocalDraft.value = null
+  toast.success('已恢复本地草稿')
+}
+
+const discardPendingLocalDraft = () => {
+  if (!pendingLocalDraft.value) return
+  safeStorage.remove(localDraftKey())
+  pendingLocalDraft.value = null
+  if (!isEditing.value) applyTopicIdeaQuery()
+  toast.success('已放弃本地草稿')
 }
 
 const topicIdeaQueryText = (value: unknown, maxLength = 80) => {
@@ -2773,6 +2831,7 @@ const applyTopicIdeaQuery = () => {
 
 watch(draftOwner, async (nextOwner, prevOwner) => {
   seriesRequestId += 1
+  pendingLocalDraft.value = null
   if (prevOwner && prevOwner !== 'guest' && prevOwner !== nextOwner) {
     safeStorage.clearSensitive(prevOwner)
     clearStageThreeAssistState()
@@ -3067,33 +3126,37 @@ const loadPostForEdit = async (postId: string) => {
 }
 
 onMounted(async () => {
-  assistPanelEnabled.value = safeStorage.get(stageThreeAssistPreferenceKey.value) === '1'
-  await Promise.all([loadEditorDomains(), loadSeriesWorkbench(), loadExplicitAiCapability()])
-  const postId = currentPostId()
-  if (postId) {
-    isEditing.value = true
-    const loaded = await loadPostForEdit(postId)
-    if (!loaded) return
-    const restoredServerDraft = await loadLatestSourceDraft(postId)
-    if (!restoredServerDraft) restoreLocalDraft()
-    applyTrustedUpdateContext()
+  isEditorInitializing.value = true
+  try {
+    assistPanelEnabled.value = safeStorage.get(stageThreeAssistPreferenceKey.value) === '1'
+    await Promise.all([loadEditorDomains(), loadSeriesWorkbench(), loadExplicitAiCapability()])
+    const postId = currentPostId()
+    if (postId) {
+      isEditing.value = true
+      const loaded = await loadPostForEdit(postId)
+      if (!loaded) return
+      const restoredServerDraft = await loadLatestSourceDraft(postId)
+      if (!restoredServerDraft) queueLocalDraftRestore()
+      applyTrustedUpdateContext()
+      clearStageThreeAssistState()
+      await loadRecentEnhancedAssistRecovery()
+      return
+    }
+
+    if (route.params.id) {
+      toast.error('帖子 ID 格式不正确')
+      router.replace('/')
+      return
+    }
+
+    await loadServerDrafts()
+    const hasPendingLocalDraft = queueLocalDraftRestore(true)
+    if (!hasPendingLocalDraft) applyTopicIdeaQuery()
     clearStageThreeAssistState()
     await loadRecentEnhancedAssistRecovery()
-    return
+  } finally {
+    isEditorInitializing.value = false
   }
-
-  if (route.params.id) {
-    toast.error('帖子 ID 格式不正确')
-    router.replace('/')
-    return
-  }
-
-  // 从 localStorage 恢复草稿
-   await loadServerDrafts()
-   const restoredLocalDraft = restoreLocalDraft(true)
-   if (!restoredLocalDraft) applyTopicIdeaQuery()
-   clearStageThreeAssistState()
-   await loadRecentEnhancedAssistRecovery()
 })
 
 const addEditorTags = (values: unknown[]) => {
@@ -5360,6 +5423,65 @@ onBeforeUnmount(() => {
   gap: 1.25rem;
 }
 
+.local-draft-recovery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(251 191 36);
+  border-radius: var(--radius-surface);
+  background: rgb(255 251 235);
+  padding: 1rem 1.1rem;
+  color: rgb(120 53 15);
+}
+
+.local-draft-recovery p {
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.local-draft-recovery h2 {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.local-draft-recovery span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.local-draft-recovery-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.local-draft-recovery-primary,
+.local-draft-recovery-secondary {
+  min-height: 2.4rem;
+  border-radius: var(--radius-control);
+  padding: 0.5rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.local-draft-recovery-primary {
+  border: 1px solid rgb(180 83 9);
+  background: rgb(180 83 9);
+  color: white;
+}
+
+.local-draft-recovery-secondary {
+  border: 1px solid rgb(217 119 6);
+  background: white;
+  color: rgb(146 64 14);
+}
+
 .editor-compose-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 286px;
@@ -5864,6 +5986,24 @@ onBeforeUnmount(() => {
   background: rgb(24 26 32);
 }
 
+.dark .local-draft-recovery {
+  border-color: rgb(146 64 14);
+  background: rgb(69 26 3);
+  color: rgb(253 230 138);
+}
+
+.dark .local-draft-recovery-primary {
+  border-color: rgb(245 158 11);
+  background: rgb(245 158 11);
+  color: rgb(69 26 3);
+}
+
+.dark .local-draft-recovery-secondary {
+  border-color: rgb(180 83 9);
+  background: rgb(69 26 3);
+  color: rgb(253 230 138);
+}
+
 .dark .editor-title-input::placeholder,
 .dark .editor-writing-body :deep(.markdown-textarea::placeholder) {
   color: rgb(148 163 184) !important;
@@ -5921,6 +6061,20 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
+  .local-draft-recovery {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .local-draft-recovery-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .local-draft-recovery-actions button {
+    flex: 1 1 10rem;
+  }
+
   .editor-toolbar-shell {
     position: static;
     padding: 0.6rem 0;

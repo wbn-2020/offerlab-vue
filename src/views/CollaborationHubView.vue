@@ -2288,6 +2288,10 @@ watch(
 )
 
 onMounted(() => {
+  if (activeTab.value === 'needs' && !discoveryQuery.loading.value && !discoveryQuery.initialized.value) {
+    void loadNeeds()
+    return
+  }
   if (activeTab.value !== 'needs') void refreshCurrentTab()
 })
 </script>

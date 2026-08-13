@@ -1,5 +1,6 @@
 import client, { type Result } from './client'
 import { DOMAIN, DOMAIN_OPTIONS, isKnownDomain, type DomainOption } from '@/utils/domains'
+import { isLowQualityVisibleText } from '@/utils/textQuality'
 
 export type DomainConfigSource = 'remote' | 'fallback'
 
@@ -59,6 +60,11 @@ const textOrFallback = (value: unknown, fallback = '') => {
   return next || fallback
 }
 
+const visibleTextOrFallback = (value: unknown, fallback = '') => {
+  const text = textOrFallback(value)
+  return text && !isLowQualityVisibleText(text) ? text : fallback
+}
+
 const fallbackSlug = (option: DomainOption) => {
   return option.label
     .trim()
@@ -99,15 +105,15 @@ const adaptDomainConfig = (raw: any): PublicDomainConfig | null => {
   const fallback = fallbackDomainConfigs.find((item) => item.domain === domain) ?? buildFallbackDomainConfig(option, 0)
   return {
     domain,
-    domainName: textOrFallback(raw?.domainName, option.label),
-    domainSlug: textOrFallback(raw?.domainSlug, fallback.domainSlug),
-    description: textOrFallback(raw?.description, option.description),
+    domainName: visibleTextOrFallback(raw?.domainName, option.label),
+    domainSlug: visibleTextOrFallback(raw?.domainSlug, fallback.domainSlug),
+    description: visibleTextOrFallback(raw?.description, option.description),
     sortOrder: Number.isFinite(Number(raw?.sortOrder)) ? Number(raw.sortOrder) : fallback.sortOrder,
     enabled: raw?.enabled == null ? true : Boolean(raw.enabled),
-    riskLevel: textOrFallback(raw?.riskLevel, fallback.riskLevel).toUpperCase(),
-    postingNotice: textOrFallback(raw?.postingNotice, fallback.postingNotice),
-    browseNotice: textOrFallback(raw?.browseNotice, fallback.browseNotice),
-    interactionNotice: textOrFallback(raw?.interactionNotice, fallback.interactionNotice),
+    riskLevel: visibleTextOrFallback(raw?.riskLevel, fallback.riskLevel).toUpperCase(),
+    postingNotice: visibleTextOrFallback(raw?.postingNotice, fallback.postingNotice),
+    browseNotice: visibleTextOrFallback(raw?.browseNotice, fallback.browseNotice),
+    interactionNotice: visibleTextOrFallback(raw?.interactionNotice, fallback.interactionNotice),
     icon: option.icon,
   }
 }

@@ -41,6 +41,11 @@ for (const field of ['keyword', 'contentFormat', 'sourceType', 'status', 'sort']
 has(filters, /清空|reset/, 'Discovery filters must provide a reset action.')
 has(hub, /need\.matchReasons\.map\(labelNeedMatchReason\)\.join\(['"] · ['"]\)/, 'Discovery cards must translate and explain the server-provided match reasons.')
 has(
+  hub,
+  /onMounted\(\(\)\s*=>\s*\{[\s\S]*activeTab\.value === 'needs'[\s\S]*!discoveryQuery\.loading\.value[\s\S]*!discoveryQuery\.initialized\.value[\s\S]*void loadNeeds\(\)/,
+  'the default needs tab must explicitly load when the discovery composable has not initialized.',
+)
+has(
   read('src/utils/collaborationNeedPresentation.ts'),
   /FILTER_DOMAIN_MATCH[\s\S]*PUBLIC_CONTENT_FORMAT_CONTRIBUTION_MATCH[\s\S]*labelNeedMatchReason/,
   'Discovery match reason codes must have human-readable projections.',

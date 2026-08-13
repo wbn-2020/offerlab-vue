@@ -2634,7 +2634,7 @@ onBeforeUnmount(() => {
   .segmented {
     display: grid;
     width: 100%;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .segment-button {
@@ -2642,19 +2642,25 @@ onBeforeUnmount(() => {
     gap: 0.3rem;
     padding-right: 0.35rem;
     padding-left: 0.35rem;
-    white-space: nowrap;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .search-sort-options {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .chip-button {
     min-width: 0;
     padding-right: 0.3rem;
     padding-left: 0.3rem;
-    white-space: nowrap;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .search-layout {

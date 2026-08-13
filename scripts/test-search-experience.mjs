@@ -31,6 +31,16 @@ assert.match(source, /if \(hasMore\.value\) return `已加载 \$\{resultCount\.v
 assert.match(source, /@click="runSearch\(true\)"/, 'SearchView must expose a load-more action for post results')
 assert.match(source, /cursor: append \? cursor\.value : undefined,[\s\S]*size: 20/, 'SearchView must request additional pages with a cursor and bounded page size')
 assert.match(source, /@media \(max-width: 640px\)[\s\S]*\.search-results[\s\S]*order:\s*1;[\s\S]*\.search-aside[\s\S]*order:\s*2;/, 'SearchView mobile layout must place results before filter/sidebar content')
+assert.match(
+  source,
+  /@media \(max-width: 640px\)[\s\S]*\.segmented\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)[\s\S]*\.search-sort-options\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+  'SearchView mobile controls must use stable two-column grids instead of squeezing four text controls into one row',
+)
+assert.match(
+  source,
+  /\.segment-button\s*\{[\s\S]*white-space:\s*normal;[\s\S]*overflow-wrap:\s*anywhere;[\s\S]*\.chip-button\s*\{[\s\S]*white-space:\s*normal;[\s\S]*overflow-wrap:\s*anywhere;/,
+  'SearchView mobile control labels must wrap instead of overflowing their touch targets',
+)
 assert.match(source, /searchUndoAction/, 'SearchView must expose a visible undo state for saved and recent search deletion')
 assert.match(source, /const scheduleSearchUndo\s*=\s*\(message: string, restore: \(\) => void\)/, 'SearchView must centralize saved and recent search undo handling')
 assert.match(source, /const restoreSearchUndo\s*=\s*\(\)\s*=>/, 'SearchView must let users undo local search deletion')

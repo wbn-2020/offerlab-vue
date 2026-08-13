@@ -10,6 +10,7 @@ const catalog = read('../src/composables/useDomainCatalog.ts')
 const editor = read('../src/views/EditorView.vue')
 const header = read('../src/components/layout/AppHeader.vue')
 const home = read('../src/views/HomeView.vue')
+const domainsApi = read('../src/api/domains.ts')
 
 assert.match(catalog, /domainApi\.listPublic\(\)/, 'shared catalog must request the public domain API')
 assert.match(catalog, /if\s*\(catalogRequest\)\s*return\s+catalogRequest/, 'shared catalog must deduplicate concurrent requests')
@@ -30,5 +31,9 @@ assert.match(editor, /domain-source-note/, 'EditorView must explain why the sele
 assert.match(editor, /selectedDomainMeta/, 'EditorView must derive selected channel metadata from the shared catalog')
 assert.match(home, /homeDomainOptions/, 'HomeView must render shared enabled channels')
 assert.match(header, /headerDomainOptions/, 'AppHeader must render shared enabled channels')
+assert.match(domainsApi, /isLowQualityVisibleText/, 'domain adaptation must detect visibly corrupted remote text')
+assert.match(domainsApi, /const visibleTextOrFallback/, 'domain adaptation must fall back from corrupted remote text')
+assert.match(domainsApi, /domainName:\s*visibleTextOrFallback\(raw\?\.domainName,\s*option\.label\)/, 'editor option labels must retain canonical local channel names when remote text is corrupted')
+assert.match(domainsApi, /description:\s*visibleTextOrFallback\(raw\?\.description,\s*option\.description\)/, 'channel descriptions must retain canonical local copy when remote text is corrupted')
 
 console.log('stage3 domain source guard passed')

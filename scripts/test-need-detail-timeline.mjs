@@ -45,6 +45,15 @@ assert.match(detail, /event\.note/, 'timeline events must render acceptance note
 assert.match(detail, /initialError: ''[\s\S]*loadMoreError: ''/, 'timeline state must separate initial and append errors.')
 assert.match(detail, /if \(append\) \{[\s\S]*eventsState\.loadMoreError = message[\s\S]*\} else \{[\s\S]*eventsState\.initialError = message[\s\S]*events\.value = \[\]/, 'append timeline failures must retain loaded events.')
 assert.match(detail, /eventsState\.loadMoreError[\s\S]*loadEvents\(true\)/, 'timeline append failures must offer an in-place retry.')
+assert.match(detail, /协作时间线暂时不可用，需求说明和认领入口仍可正常使用。/, 'timeline failures must explain that the detail remains usable.')
+const loadEventsStart = detail.indexOf('const loadEvents = async')
+const loadEventsEnd = detail.indexOf('const reloadAll', loadEventsStart)
+assert.ok(loadEventsStart >= 0 && loadEventsEnd > loadEventsStart, 'timeline loader boundaries must remain explicit.')
+assert.doesNotMatch(
+  detail.slice(loadEventsStart, loadEventsEnd),
+  /getErrorMessage\(/,
+  'timeline failures must not surface a generic global service message.',
+)
 
 for (const [name, source] of [
   ['public needs', hub],

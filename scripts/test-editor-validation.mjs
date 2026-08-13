@@ -113,6 +113,23 @@ assert.match(
 )
 assert.match(editor, /blockingQualityIssues\.value\.map/, 'disabled publish actions must explain structured quality blockers')
 assert.doesNotMatch(editor, /watch\(\(\) => form\.value\.extension/, 'metadata errors must not be cleared by a broad deep watcher')
+assert.match(editor, /v-if="pendingLocalDraft"/, 'local drafts must require an explicit recovery decision before rendering the editor')
+assert.match(editor, /queueLocalDraftRestore/, 'local draft detection must queue a recovery candidate')
+assert.match(editor, /restorePendingLocalDraft/, 'local draft recovery must have an explicit restore action')
+assert.match(editor, /discardPendingLocalDraft/, 'local draft recovery must have an explicit discard action')
+assert.match(editor, /safeStorage\.remove\(localDraftKey\(\)\)/, 'discarding a local draft must remove the persisted candidate')
+assert.match(editor, /isEditorInitializing/, 'editor autosave must wait until initial draft recovery state is resolved')
+assert.doesNotMatch(editor, /\brestoreLocalDraft\b/, 'local drafts must not be restored implicitly during editor initialization')
+assert.match(
+  editor,
+  /if \(hasUnsafeDraftPayload\(draftForm\)\) \{\s*safeStorage\.remove\(localDraftKey\(\)\)[\s\S]*?本地草稿疑似包含乱码或测试数据/,
+  'unsafe local drafts must be removed after being rejected so users are not warned on every editor entry',
+)
+assert.match(
+  editor,
+  /catch \{\s*safeStorage\.remove\(localDraftKey\(\)\)\s*toast\.warning\('本地草稿已损坏，已忽略'\)/,
+  'corrupt local drafts must be removed after being rejected so users are not warned on every editor entry',
+)
 
 const gate = requestLifecycle.createLatestRequestGate()
 const firstRequest = gate.start()

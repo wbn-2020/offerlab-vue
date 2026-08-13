@@ -743,6 +743,10 @@ const resetEvents = () => {
   eventsState.hasMore = false
 }
 
+const timelineUnavailableMessage = () => (
+  '协作时间线暂时不可用，需求说明和认领入口仍可正常使用。'
+)
+
 const loadDetail = async () => {
   const requestId = ++detailRequestId
   detailState.loading = true
@@ -785,9 +789,9 @@ const loadEvents = async (append = false) => {
     events.value = Array.from(new Map(merged.map((event) => [String(event.id), event])).values())
     eventsState.nextCursor = result.data?.nextCursor ? String(result.data.nextCursor) : ''
     eventsState.hasMore = Boolean(result.data?.hasMore && eventsState.nextCursor)
-  } catch (error) {
+  } catch {
     if (requestId === eventsRequestId) {
-      const message = getErrorMessage(error, '协作时间线暂时无法读取')
+      const message = timelineUnavailableMessage()
       if (append) {
         eventsState.loadMoreError = message
       } else {
@@ -2082,6 +2086,12 @@ onMounted(() => {
 
   .action-section {
     position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .need-detail-shell {
+    padding-bottom: calc(5.35rem + env(safe-area-inset-bottom));
   }
 }
 

@@ -37,6 +37,26 @@ assert.match(homeView, /switchFeedAfterError\('featured'\)/, 'HomeView feed erro
 assert.match(homeView, /to="\/explore"/, 'HomeView feed errors must route users to discovery')
 assert.match(homeView, /path: '\/questions'/, 'HomeView feed errors must route users to questions')
 assert.match(homeView, /homeFallbackQuestionQuery/, 'HomeView feed errors must preserve a useful keyword when routing to questions')
+assert.match(
+  homeView,
+  /@media \(max-width: 1023px\)[\s\S]*\.community-feed-layout\s*\{[\s\S]*display:\s*block;[\s\S]*\.home-feed-column\s*\{[\s\S]*width:\s*min\(720px,\s*100%\)/,
+  'HomeView must collapse to a readable single feed column below desktop widths',
+)
+assert.match(
+  homeView,
+  /@media \(min-width: 1024px\) and \(max-width: 1279px\)[\s\S]*grid-template-columns:\s*208px minmax\(0,\s*44rem\)[\s\S]*\.community-feed-layout__right\s*\{[\s\S]*display:\s*none !important;/,
+  'HomeView must hide the right rail at mid-width so the feed is not squeezed',
+)
+assert.match(
+  homeView,
+  /@media \(min-width: 1440px\)[\s\S]*grid-template-columns:\s*224px minmax\(0,\s*1fr\) 304px;/,
+  'HomeView must reserve stable three-column proportions on wide desktops',
+)
+assert.match(
+  homeView,
+  /\.home-left-rail,[\s\S]*?\.home-right-rail\s*\{[\s\S]*position:\s*sticky;[\s\S]*max-height:\s*calc\(100vh - var\(--community-header-height, 64px\) - 2rem\)[\s\S]*overflow-y:\s*auto;/,
+  'HomeView long-list side rails must stay bounded and independently scrollable',
+)
 
 assert.match(
   searchView,
