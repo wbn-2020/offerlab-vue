@@ -350,25 +350,25 @@
                 :aria-expanded="showBackgroundDetails"
                 @click="showBackgroundDetails = !showBackgroundDetails"
               >
-                <span><strong>内容背景与演进</strong><small>来源、更新、结果与相关公共知识</small></span>
+                <span><strong>内容背景与演进</strong><small>来源、更新、结果与相关公开内容</small></span>
                 <span>{{ showBackgroundDetails ? '收起' : '展开' }}</span>
               </button>
-              <section v-if="detailKnowledgeLoading || postKnowledgeAssets.length || postKnowledgePaths.length || postKnowledgeRelations.length" v-show="showBackgroundDetails" class="post-knowledge-assets mb-8" aria-label="相关公共知识资产">
+              <section v-if="detailKnowledgeLoading || postKnowledgeAssets.length || postKnowledgePaths.length || postKnowledgeRelations.length" v-show="showBackgroundDetails" class="post-knowledge-assets mb-8" aria-label="相关公开内容">
                 <div class="post-knowledge-head">
                   <div>
-                    <p>相关公共知识资产</p>
-                    <h2>内容详情页的公共关系入口</h2>
+                    <p>相关公开内容</p>
+                    <h2>继续阅读与关联入口</h2>
                     <span>只展示当前可见的公开内容关系；临时整理结果仅供阅读，不会写入正式关系。</span>
                   </div>
                   <RouterLink :to="{ path: '/knowledge/explore', query: { assetType: 'post', assetId: post.postId } }">知识探索</RouterLink>
                 </div>
                 <p v-if="detailKnowledgeError" class="post-knowledge-note">{{ detailKnowledgeError }}</p>
-                <p v-else-if="detailKnowledgeLoading" class="post-knowledge-note">正在读取相关公共知识资产...</p>
+                <p v-else-if="detailKnowledgeLoading" class="post-knowledge-note">正在读取相关公开内容...</p>
                 <div v-if="postKnowledgeAssets.length" class="post-knowledge-grid">
                   <article v-for="asset in postKnowledgeAssets" :key="`${asset.assetType}:${asset.assetId}`" class="post-knowledge-card">
                     <div class="post-knowledge-card-tags">
                       <span>{{ postKnowledgeAssetTypeLabel(asset.assetType) }}</span>
-                      <span v-if="asset.assetStatus === 'archived'">归档知识资产</span>
+                      <span v-if="asset.assetStatus === 'archived'">已归档内容</span>
                       <span v-if="asset.previewSource !== 'remote'">{{ postKnowledgePreviewLabel(asset.previewSource) }} · 只读展示</span>
                     </div>
                     <strong>{{ asset.title }}</strong>
@@ -472,7 +472,7 @@
                 type="button"
                 class="post-secondary-toggle"
                 :aria-expanded="showTrustDetails"
-                aria-controls="post-governance-details"
+                aria-controls="trusted-content"
                 @click="showTrustDetails = !showTrustDetails"
               >
                 <span><strong>内容维护与治理</strong><small>时效、来源、公开更新、纠错与处理入口</small></span>
@@ -480,7 +480,7 @@
               </button>
               <section
                 v-show="showTrustDetails"
-                id="post-governance-details"
+                id="trusted-content"
                 class="trusted-content-loop"
                 data-trusted-content-loop
                 :data-trusted-content-state="trustedContentLoadState"
@@ -5077,11 +5077,13 @@ onBeforeUnmount(() => {
   font-size: 0.75rem;
 }
 
+#trusted-content,
 #content-suggestions,
 [id^='content-suggestion-'] {
   scroll-margin-top: 6rem;
 }
 
+#trusted-content:target,
 [id^='content-suggestion-']:target {
   outline: 3px solid rgb(14 165 233 / 0.35);
   outline-offset: 3px;

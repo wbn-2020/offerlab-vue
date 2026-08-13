@@ -421,9 +421,8 @@ const canSubmit = computed(() => {
 const certificationCheckGap = (check: ExpertCertificationEligibility['checks'][number]) => {
   const copy = safeCertificationCheck(check)
   if (check.code === 'published_posts') {
-    const match = String(check.detail || '').match(/(\d+)\s*\/\s*(\d+)/)
-    const current = Number(match?.[1] || 0)
-    const required = Number(match?.[2] || 3)
+    const current = Math.max(0, Number(check.current) || 0)
+    const required = Math.max(1, Number(check.required) || 3)
     const remaining = Math.max(0, required - current)
     return remaining ? `同领域公开内容还差 ${remaining} 篇（当前 ${current}/${required}）。` : ''
   }

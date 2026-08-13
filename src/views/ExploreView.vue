@@ -154,7 +154,7 @@
                     class="explore-feature-card"
                     :to="`/post/${item.item.post?.postId}`"
                   >
-                    <span class="card-kicker">{{ item.sourceDomainName || '公共内容' }} 到 {{ item.targetDomainName || '延展阅读' }}</span>
+                    <span class="card-kicker">{{ crossDomainDisplayLabel(item) }}</span>
                     <h2>{{ item.item.post?.title || '公开内容推荐' }}</h2>
                     <p>{{ safeCrossDomainReason(item) }}</p>
                     <span class="card-link">
@@ -237,7 +237,7 @@
               <div v-if="activeTopics.length" class="explore-rail-list explore-topic-list">
                 <RouterLink v-for="item in activeTopics.slice(0, 6)" :key="item.id" :to="item.href">
                   <span><Hash class="h-3.5 w-3.5" aria-hidden="true" />{{ item.title }}</span>
-                  <small>{{ item.reasonText || item.reason || '正在讨论' }}</small>
+                  <small>{{ formatPublicContentCountText(item.reasonText || item.reason) }}</small>
                 </RouterLink>
               </div>
               <ModuleEmpty v-else :module="moduleOf('activeTopics')" />
@@ -390,7 +390,7 @@
               class="feature-card"
               :to="`/post/${item.item.post?.postId}`"
             >
-              <span class="card-kicker">{{ item.sourceDomainName || '公共内容' }} → {{ item.targetDomainName || '延展阅读' }}</span>
+              <span class="card-kicker">{{ crossDomainDisplayLabel(item) }}</span>
               <h2>{{ item.item.post?.title || '公开内容推荐' }}</h2>
               <p>{{ safeCrossDomainReason(item) }}</p>
               <span class="card-link">
@@ -552,8 +552,9 @@ import { recommendationsApi } from '@/api/recommendations'
 import { useAuthStore } from '@/stores/auth'
 import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import { useDiscoveryMap } from '@/composables/useDiscoveryMap'
-import { ALL_COMMUNITY_CHANNELS, COMMUNITY_CONTENT_FORMS, isKnownDomain, type CommunityChannel, type CommunityContentForm, type DomainValue } from '@/utils/domains'
+import { ALL_COMMUNITY_CHANNELS, COMMUNITY_CONTENT_FORMS, getCommunityChannel, getDomainLabelSafe, resolveDomainLabel, resolveDomainValue, type CommunityChannel, type CommunityContentForm, type DomainValue } from '@/utils/domains'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeShortLabel, type PostTypeValue } from '@/utils/contentTypes'
+import { formatPublicContentCountText } from '@/utils/publicDisplay'
 import { filterDiscoverySuppressedItems, filterVisiblePosts, normalizeRecommendationReason, type ViewerDiscoverySuppressions } from '@/utils/recommendationGovernance'
 import { filterPublicContent } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
@@ -574,7 +575,7 @@ const { domains, loadDomains } = useDomainCatalog()
 const defaultChannelPostTypes = COMMUNITY_CONTENT_TYPES.map((item) => item.value)
 const domainOptions = computed(() => domains.value.map((item) => ({
     value: item.domain as DomainValue,
-    label: item.domainName,
+    label: getDomainLabelSafe(item.domain),
     icon: item.icon,
     description: item.description,
   })))
@@ -585,7 +586,7 @@ const communityChannels = computed<CommunityChannel[]>(() => ALL_COMMUNITY_CHANN
     return domain
       ? {
           ...channel,
-          name: domain.domainName,
+          name: getDomainLabelSafe(domain.domain),
           icon: domain.icon,
           description: domain.description,
           riskNote: domain.postingNotice || channel.riskNote,
@@ -636,9 +637,9 @@ const domainQueryValue = computed(() => {
 const activeDomain = computed<DomainValue | undefined>(() => {
   const raw = domainQueryValue.value
   if (raw == null || raw === '') return undefined
-  const numeric = Number(raw)
-  return isKnownDomain(numeric) && domains.value.some((item) => Number(item.domain) === numeric)
-    ? numeric
+  const resolved = resolveDomainValue(raw)
+  return resolved && domains.value.some((item) => Number(item.domain) === resolved)
+    ? resolved
     : undefined
 })
 const hasInvalidDomainQuery = computed(() => (
@@ -651,7 +652,8 @@ const activeChannelQuery = computed(() => {
 })
 const activeChannel = computed(() => {
   const value = Array.isArray(activeChannelQuery.value) ? activeChannelQuery.value[0] : activeChannelQuery.value
-  return communityChannels.value.find((channel) => channel.key === value)
+  const resolved = getCommunityChannel(value)
+  return resolved ? communityChannels.value.find((channel) => channel.key === resolved.key) : undefined
 })
 const activeContentFormQuery = computed(() => {
   const value = route.query.contentForm ?? route.query.channel
@@ -757,6 +759,16 @@ const crossDomainStatusLabel = computed(() => {
 const safeCrossDomainReason = (item: CrossDomainRecommendation) => (
   normalizeRecommendationReason(item.recommendationReason) || '公共内容信号显示这篇内容适合作为延展阅读。'
 )
+const crossDomainDisplayLabel = (item: CrossDomainRecommendation) => {
+  const source = resolveDomainLabel(item.sourceDomain, item.sourceDomainName)
+  const target = resolveDomainLabel(
+    item.targetDomain ?? item.item.post?.domain,
+    item.targetDomainName,
+  )
+  if (source && target && source !== target) return `${source} 到 ${target}`
+  if (target) return `跨频道推荐 · ${target}`
+  return '跨频道推荐'
+}
 const crossDomainRecommendations = computed(() => filterDiscoverySuppressedItems(
   crossDomainRecommendationItems.value,
   viewerDiscoverySuppressions.value,

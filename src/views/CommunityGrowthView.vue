@@ -276,8 +276,8 @@
             <form class="form-column" @submit.prevent="sendThank">
               <h3>送出感谢</h3>
               <label class="field-label">
-                收票用户 UID
-                <input v-model.trim="thankForm.receiverUid" class="field-input" inputmode="numeric" placeholder="公开内容作者 UID">
+                收票作者编号
+                <input v-model.trim="thankForm.receiverUid" class="field-input" inputmode="numeric" placeholder="公开内容作者编号">
               </label>
               <div class="field-pair">
                 <label class="field-label">

@@ -47,6 +47,9 @@
         id="markdown-editor-panel"
         v-model="content"
         :maxlength="normalizedMaxLength"
+        @compositionstart="handleCompositionStart"
+        @compositionend="handleCompositionEnd"
+        @paste="handlePaste"
         placeholder="用 Markdown 格式编写内容...&#10;&#10;支持：&#10;# 标题&#10;**粗体** *斜体*&#10;- 列表&#10;`代码` 和 ```代码块```&#10;[链接](url)"
         class="markdown-textarea w-full min-h-[18rem] h-[52vh] max-h-[36rem] sm:h-96 p-4 border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono text-sm leading-6 resize-y focus:outline-none focus:ring-2 focus:ring-primary-500"
       />
@@ -65,6 +68,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
+import { applyEditorTextLimit } from '@/utils/editorValidation'
 
 interface Props {
   modelValue: string
@@ -79,12 +83,43 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const activeTab = ref<'edit' | 'preview'>('edit')
+const isComposing = ref(false)
+const compositionStartValue = ref('')
 const normalizedMaxLength = computed(() => Math.max(1, props.maxLength ?? 50000))
 
 const content = computed({
   get: () => props.modelValue,
-  set: (value: string) => emit('update:modelValue', value.length > normalizedMaxLength.value ? value.slice(0, normalizedMaxLength.value) : value),
+  set: (value: string) => {
+    const next = isComposing.value
+      ? value
+      : applyEditorTextLimit(props.modelValue, value, normalizedMaxLength.value)
+    emit('update:modelValue', next)
+  },
 })
+
+const applyContentLimit = (previous: string, value: string) => {
+  const next = applyEditorTextLimit(previous, value, normalizedMaxLength.value)
+  if (next !== props.modelValue) emit('update:modelValue', next)
+}
+
+const handleCompositionStart = () => {
+  compositionStartValue.value = props.modelValue
+  isComposing.value = true
+}
+
+const handleCompositionEnd = (event: CompositionEvent) => {
+  isComposing.value = false
+  applyContentLimit(
+    compositionStartValue.value,
+    (event.target as HTMLTextAreaElement | null)?.value || props.modelValue,
+  )
+}
+
+const handlePaste = (event: ClipboardEvent) => {
+  const previous = props.modelValue
+  const textarea = event.target as HTMLTextAreaElement | null
+  queueMicrotask(() => applyContentLimit(previous, textarea?.value || props.modelValue))
+}
 </script>
 
 <style scoped>

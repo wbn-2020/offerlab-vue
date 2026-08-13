@@ -61,7 +61,9 @@ has(feedApi, /FeedControlAction[\s\S]*HIDE[\s\S]*LESS_LIKE_THIS[\s\S]*RESTORE/, 
 has(homeView, /locallyHiddenPostIds/, 'Home feed must hide current cards after negative recommendation feedback.')
 has(homeView, /handleFeedControl/, 'Home feed must wire recommendation feedback handling.')
 has(homeView, /filterVisiblePosts/, 'Home feed and curation surfaces must pass through governance filtering.')
-has(homeView, /featuredPreview\s*=\s*computed\(\(\)\s*=>\s*\{[\s\S]*\[\.\.\.cleanPosts\.value,\s*\.\.\.recommendPreviewPosts\.value\][\s\S]*\.filter\(isFeaturedPost\)/, 'Home featured pool must derive from governed public posts.')
+has(homeView, /const\s+cleanPosts\s*=\s*computed\(\(\)\s*=>\s*filterVisiblePosts\(filterPublicContent\(posts\.value\)\)\)/, 'Home feed posts must derive from governed public content.')
+has(homeView, /const\s+continuedReadingPosts\s*=\s*computed\(\(\)\s*=>\s*\{[\s\S]*recommendPreviewPosts\.value[\s\S]*visiblePostIds[\s\S]*seen[\s\S]*\.slice\(0,\s*3\)/, 'Home continued-reading pool must deduplicate, avoid the main feed, and stay bounded.')
+has(homeView, /recommendPreviewPosts\.value\s*=\s*\[latestItems,\s*hotItems,[\s\S]*filterVisiblePosts\(filterPublicContent\(recommendRes\.value\.data\?\.items\s*\|\|\s*\[\]\),\s*6\)/, 'Home continued-reading sources must be filtered through public-content governance.')
 
 has(exploreView, /filterVisiblePosts/, 'Explore recommendations, rankings, and featured surfaces must pass through governance filtering.')
 has(exploreView, /crossDomainRecommendations[\s\S]*filterVisiblePosts/, 'Explore cross-domain recommendations must be filtered before display.')

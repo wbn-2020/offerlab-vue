@@ -68,7 +68,7 @@ const visibleExplore = legacyExploreStart === -1 ? explore : explore.slice(0, le
 assert.match(explore, /route\.query\.channel/, 'explore must support channel query state')
 assert.match(explore, /ALL_COMMUNITY_CHANNELS/, 'explore channel plaza must reuse the formal community channel config')
 assert.match(explore, /useDomainCatalog/, 'explore must share the same channel catalog as Home')
-assert.match(explore, /name:\s*domain\.domainName/, 'explore must use the shared catalog display name')
+assert.match(explore, /name:\s*getDomainLabelSafe\(domain\.domain\)/, 'explore must resolve the shared catalog through the authoritative public display dictionary')
 assert.match(explore, /contentForms/, 'explore must render independent content-form entries')
 assert.match(explore, /activeContentForm/, 'explore must resolve content-form query state')
 assert.match(explore, /query:\s*\{\s*channel:\s*channel\.key\s*\}/, 'channel cards must route to /explore?channel=key')

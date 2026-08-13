@@ -349,14 +349,14 @@ const seriesPreviewSourceLabel = (record: ContentSeriesRecord) => {
 }
 
 const seriesKnowledgeProjectionLabel = (record: ContentSeriesRecord) => {
-  if (record.visibility !== 'public') return '不参与公开投影'
+  if (record.visibility !== 'public') return '不参与公开关联'
   if (record.knowledgeProjectionState === 'CONFIRMED') return '存在已确认关系'
-  if (record.knowledgeProjectionState === 'DEGRADED') return '关系投影降级'
-  return '请求时关系建议'
+  if (record.knowledgeProjectionState === 'DEGRADED') return '关联依据不足'
+  return '本次关联建议'
 }
 
 const seriesKnowledgeProjectionCopy = (record: ContentSeriesRecord) => {
-  if (record.visibility !== 'public') return '私密合集只用于个人管理，不参与公开知识关系投影。'
+  if (record.visibility !== 'public') return '私密合集只用于个人管理，不参与公开内容关联。'
   if (record.knowledgeProjectionState === 'CONFIRMED') {
     return record.sourceNote || '仅审核通过且关系证据完整的记录会显示为已确认关系。'
   }

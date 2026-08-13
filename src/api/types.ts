@@ -1101,6 +1101,8 @@ export interface ExpertCertificationCheckItem {
   label: string
   passed: boolean
   detail: string
+  current?: number
+  required?: number
 }
 
 export interface ExpertCertificationEligibility {

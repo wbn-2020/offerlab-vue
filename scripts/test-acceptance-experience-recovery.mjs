@@ -32,9 +32,11 @@ const governanceTodos = readVue('src/views/me/MyGovernanceTodosView.vue')
 const commentTree = readVue('src/components/post/CommentTree.vue')
 const postDetail = readVue('src/views/PostDetailView.vue')
 const certificationApply = readVue('src/views/CertificationApplyView.vue')
+const expertCertificationApi = readVue('src/api/expertCertification.ts')
 const loginView = readVue('src/views/LoginView.vue')
 const meProfile = readVue('src/views/MeProfileView.vue')
 const operationSlotCard = readVue('src/components/operations/OperationSlotCard.vue')
+const editorValidation = readVue('src/utils/editorValidation.ts')
 const operationsService = readJava(
   'community-domain-post/src/main/java/com/offerlab/community/post/application/OperationCurationService.java',
 )
@@ -136,7 +138,12 @@ for (const name of ['科技数码', '职场经验', '学习成长', '生活方�
   )
 }
 expect(
-  certificationApply.includes("String(check.detail || '').match(/(\\d+)\\s*\\/\\s*(\\d+)/)"),
+  expertCertificationApi.includes("code === 'published_posts'")
+    && expertCertificationApi.includes('current')
+    && expertCertificationApi.includes('required')
+    && certificationApply.includes('Number(check.current)')
+    && certificationApply.includes('Number(check.required)')
+    && !certificationApply.includes('check.detail'),
   'Certification eligibility gaps must parse the structured current/required counts.',
 )
 expect(
@@ -163,8 +170,11 @@ expect(
 )
 expect(
   operationsService.includes('.status("EMPTY")')
-    && operationSlotCard.includes('isSuccessfulEmpty')
-    && operationSlotCard.includes('当前暂无运营精选'),
+    && operationSlotCard.includes("type PublicSlotViewState = 'LOADING' | 'READY' | 'EMPTY' | 'ERROR' | 'DEGRADED'")
+    && operationSlotCard.includes("viewState.value === 'EMPTY'")
+    && operationSlotCard.includes('当前暂无精选内容，稍后再来看看。')
+    && operationSlotCard.includes("viewState === 'ERROR'")
+    && operationSlotCard.includes('重试'),
   'HOME_FEATURED must distinguish a successful empty configuration from an API failure.',
 )
 expect(
@@ -174,10 +184,12 @@ expect(
   'Public readiness must use core dependencies and return safe diagnostic codes.',
 )
 expect(
-  editorView.includes('maxlength="200"')
-    && editorView.includes('标题最多 200 个字符')
-    && editorView.includes('封面链接必须是完整的 http 或 https 地址')
-    && editorView.includes('最多添加 5 个标签'),
+  editorView.includes(':maxlength="EDITOR_LIMITS.titleMax"')
+    && editorValidation.includes('titleMax: 200')
+    && editorValidation.includes('标题最多 ${EDITOR_LIMITS.titleMax} 个字符，当前超出')
+    && editorValidation.includes('封面链接必须是完整的 http 或 https 地址')
+    && editorValidation.includes('tagMax: 5')
+    && editorValidation.includes('最多添加 ${EDITOR_LIMITS.tagMax} 个标签'),
   'Editor validation must cover title, link, content and tag boundaries before publish.',
 )
 expect(

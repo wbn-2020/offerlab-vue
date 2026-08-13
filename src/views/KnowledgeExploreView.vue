@@ -54,7 +54,7 @@
               <select v-model.number="filters.domain" class="filter-input">
                 <option :value="0">全部领域</option>
                 <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
-                  {{ domain.icon }} {{ domain.domainName }}
+                  {{ domain.icon }} {{ getDomainLabelSafe(domain.domain) }}
                 </option>
               </select>
             </label>
@@ -180,8 +180,8 @@
                 <div>
                   <span class="section-icon"><Network class="h-4 w-4" aria-hidden="true" /></span>
                   <div>
-                    <h2>{{ graph.nodes.length ? '关系浏览' : '关系投影' }}</h2>
-                    <p>{{ graph.nodes.length ? '先查看公开对象之间的连接，再进入具体内容继续阅读。' : '当前没有可独立浏览的公开节点，以下仅展示本次投影的关系依据，不构成知识层级。' }}</p>
+                    <h2>{{ graph.nodes.length ? '关联浏览' : '本次关联整理' }}</h2>
+                    <p>{{ graph.nodes.length ? '先查看公开对象之间的连接，再进入具体内容继续阅读。' : '当前没有可独立浏览的公开节点，以下仅展示本次整理的关联依据，不构成知识层级。' }}</p>
                   </div>
                 </div>
                 <span class="module-count">{{ graph.nodes.length ? `${graph.nodes.length} 个节点` : '无可浏览节点' }}</span>
@@ -211,7 +211,7 @@
 
                 <details v-if="confirmedRelations.length || dynamicSuggestions.length" class="relation-evidence advanced-filter">
                   <summary>
-                    <span>高级：查看关系依据</span>
+                    <span>高级：查看关系来源解释</span>
                     <ChevronDown class="h-4 w-4" aria-hidden="true" />
                   </summary>
                   <div class="relation-evidence__body">
@@ -229,7 +229,7 @@
                         <span><ArrowRight class="h-3.5 w-3.5" aria-hidden="true" /></span>
                         <strong>{{ nodeLabel(relation.targetAssetId) }}</strong>
                       </div>
-                      <p>{{ relation.reasonText }}</p>
+                      <p>{{ localizeKnowledgeCopy(relation.reasonText, '暂无更多关系说明。') }}</p>
                       <small>{{ relationLabel(relation.relationType) }}</small>
                     </div>
                   </div>
@@ -248,14 +248,14 @@
                         <span><ArrowRight class="h-3.5 w-3.5" aria-hidden="true" /></span>
                         <strong>{{ nodeLabel(relation.targetAssetId) }}</strong>
                       </div>
-                      <p>{{ relation.degradedReason || relation.reasonText }}</p>
+                      <p>{{ localizeKnowledgeCopy(relation.degradedReason || relation.reasonText, '这条关系建议仍待核对。') }}</p>
                     </div>
                   </div>
 
                   <div v-if="degradedRelations.length" class="relation-group relation-group--degraded">
                     <div class="relation-group__heading">
                       <div>
-                        <strong>关系投影降级</strong>
+                        <strong>关联依据不足</strong>
                         <p>来源或审核依据不足，因此不会被视为确认事实。</p>
                       </div>
                       <span class="relation-status relation-status--degraded">依据不足</span>
@@ -266,7 +266,7 @@
                         <span><ArrowRight class="h-3.5 w-3.5" aria-hidden="true" /></span>
                         <strong>{{ nodeLabel(relation.targetAssetId) }}</strong>
                       </div>
-                      <p>{{ relation.degradedReason || relation.reasonText }}</p>
+                      <p>{{ localizeKnowledgeCopy(relation.degradedReason || relation.reasonText, '当前关系依据不足。') }}</p>
                     </div>
                   </div>
                   </div>
@@ -279,7 +279,7 @@
                 <div>
                   <span class="section-icon"><BookOpen class="h-4 w-4" aria-hidden="true" /></span>
                   <div>
-                    <h2>相关公开内容</h2>
+                    <h2>公开内容入口</h2>
                     <p>从当前可见内容中整理出的阅读入口。</p>
                   </div>
                 </div>
@@ -291,14 +291,14 @@
                     <div class="asset-meta">
                       <span class="asset-type-chip">{{ assetTypeLabel(asset.assetType) }}</span>
                     </div>
-                    <h3>{{ asset.title }}</h3>
-                    <p>{{ asset.summary || asset.sourceNote }}</p>
+                    <h3>{{ localizeKnowledgeCopy(asset.title, '未命名公开内容') }}</h3>
+                    <p>{{ localizeKnowledgeCopy(asset.summary || asset.sourceNote, '来自公开可见内容。') }}</p>
                   </div>
                   <RouterLink
                     v-if="asset.targetHref && asset.visibilityState !== 'excluded'"
                     :to="asset.targetHref"
                     class="asset-link"
-                    aria-label="打开公共知识资产"
+                    aria-label="打开公开内容"
                   >
                     <ArrowUpRight class="h-4 w-4" aria-hidden="true" />
                   </RouterLink>
@@ -312,7 +312,7 @@
                   <div>
                     <span class="section-icon"><Route class="h-4 w-4" aria-hidden="true" /></span>
                     <div>
-                      <h2>推荐阅读顺序</h2>
+                      <h2>知识路径</h2>
                       <p>按内容关联整理的只读建议，可从任一步开始阅读。</p>
                     </div>
                   </div>
@@ -320,15 +320,15 @@
                 <div class="knowledge-path-list">
                   <article v-for="path in graph.paths" :key="path.pathId" class="knowledge-path-row">
                     <div class="knowledge-path-row__heading">
-                      <strong>{{ path.title }}</strong>
+                      <strong>{{ localizeKnowledgeCopy(path.title, '公开内容阅读路径') }}</strong>
                     </div>
-                    <p>{{ path.summary }}</p>
+                    <p>{{ localizeKnowledgeCopy(path.summary, '根据公开内容关系整理的阅读建议。') }}</p>
                     <ol>
                       <li v-for="(step, index) in path.steps" :key="`${path.pathId}:${step.assetId}:${step.title}`">
                         <span class="path-index">{{ index + 1 }}</span>
                         <div>
-                          <RouterLink v-if="step.targetHref" :to="step.targetHref">{{ step.title }}</RouterLink>
-                          <span v-else>{{ step.title }}</span>
+                          <RouterLink v-if="step.targetHref" :to="step.targetHref">{{ localizeKnowledgeCopy(step.title, '未命名阅读步骤') }}</RouterLink>
+                          <span v-else>{{ localizeKnowledgeCopy(step.title, '未命名阅读步骤') }}</span>
                         </div>
                       </li>
                     </ol>
@@ -341,15 +341,15 @@
                   <div>
                     <span class="section-icon"><CircleDashed class="h-4 w-4" aria-hidden="true" /></span>
                     <div>
-                      <h2>待补充主题</h2>
+                      <h2>待补内容方向</h2>
                       <p>仅表达聚合后的公开内容覆盖需求，不展示单个用户行为。</p>
                     </div>
                   </div>
                 </header>
                 <div class="knowledge-gap-list">
                   <article v-for="gap in visibleGaps" :key="gap.gapId" class="knowledge-gap-row">
-                    <strong>{{ gap.title }}</strong>
-                    <p>{{ gap.reasonText }}</p>
+                    <strong>{{ localizeKnowledgeCopy(gap.title, '公开内容待补方向') }}</strong>
+                    <p>{{ localizeKnowledgeCopy(gap.reasonText, '当前公开内容覆盖仍不完整。') }}</p>
                   </article>
                 </div>
               </section>
@@ -360,7 +360,7 @@
                 <div>
                   <span class="section-icon"><Clock3 class="h-4 w-4" aria-hidden="true" /></span>
                   <div>
-                    <h2>本次整理结果</h2>
+                    <h2>本次阅读整理</h2>
                     <p>根据当前可见公开内容即时整理，仅用于帮助继续阅读。</p>
                   </div>
                 </div>
@@ -368,8 +368,8 @@
               <div class="snapshot-list">
                 <article v-for="snapshot in graph.snapshots" :key="snapshot.snapshotId" class="snapshot-row">
                   <div>
-                    <strong>{{ snapshot.title }}</strong>
-                    <p>{{ snapshot.summary || snapshot.sourceNote }}</p>
+                    <strong>{{ localizeKnowledgeCopy(snapshot.title, '公开内容关系整理结果') }}</strong>
+                    <p>{{ localizeKnowledgeCopy(snapshot.summary || snapshot.sourceNote, '根据当前可见的公开内容即时整理。') }}</p>
                   </div>
                 </article>
               </div>
@@ -415,10 +415,10 @@ import {
   type KnowledgeAssetType,
   type KnowledgeExploreResponse,
   type KnowledgeGap,
-  type KnowledgePreviewSource,
 } from '@/api/knowledge'
 import type { KnowledgeRelationNode } from '@/api/types'
-import { DOMAIN, getDomainLabel } from '@/utils/domains'
+import { DOMAIN, getDomainLabel, getDomainLabelSafe, resolveDomainValue } from '@/utils/domains'
+import { localizeKnowledgeCopy } from '@/utils/publicDisplay'
 
 interface KnowledgeExploreFilters {
   domain: number
@@ -458,12 +458,6 @@ const groupLabelMap: Record<string, string> = {
 }
 
 const assetTypeLabel = (type: KnowledgeAssetType) => groupLabelMap[type] || type
-const previewSourceLabel = (source?: KnowledgePreviewSource) => {
-  if (source === 'local') return '本地只读推导'
-  if (source === 'fallback') return 'fallback'
-  if (source === 'demo') return 'demo'
-  return 'remote'
-}
 
 const relationLabel = (relation: string) => {
   switch (relation) {
@@ -472,31 +466,31 @@ const relationLabel = (relation: string) => {
     case 'post_tag':
       return '内容关联标签'
     case 'topic_tag':
-      return 'topic to tag'
+      return '话题关联标签'
     case 'belongs_to':
-      return 'belongs to'
+      return '归属于'
     case 'references':
-      return 'references'
+      return '引用'
     case 'continues':
-      return 'continues'
+      return '延续阅读'
     case 'related':
-      return 'related'
+      return '相关内容'
     case 'fills_gap':
-      return 'fills gap'
+      return '补充缺口'
     case 'search_entry':
-      return 'search entry'
+      return '搜索入口'
     case 'duplicate_of':
-      return 'duplicate of'
+      return '内容重复'
     case 'supersedes':
-      return 'supersedes'
+      return '替代旧内容'
     case 'supplements':
-      return 'supplements'
+      return '补充说明'
     case 'prerequisite_of':
-      return 'prerequisite of'
+      return '前置阅读'
     case 'contradicts':
-      return 'contradicts'
+      return '观点相反'
     default:
-      return relation
+      return '其他关联'
   }
 }
 
@@ -515,7 +509,7 @@ const groupedNodes = computed(() => {
 })
 
 const nodeMap = computed(() => new Map((graph.value?.nodes || []).map((item) => [item.key, item])))
-const nodeLabel = (key: string) => nodeMap.value.get(key)?.label || key
+const nodeLabel = (key: string) => localizeKnowledgeCopy(nodeMap.value.get(key)?.label || key, '未命名节点')
 const confirmedRelations = computed(() => (graph.value?.confirmedRelations || []).filter(isConfirmedKnowledgeRelation))
 const dynamicSuggestions = computed(() => graph.value?.dynamicSuggestions || [])
 const suggestedDynamicRelations = computed(() => dynamicSuggestions.value.filter((relation) => relation.relationState === 'SUGGESTED'))
@@ -552,7 +546,7 @@ const normalizeAssetType = (value: unknown): KnowledgeAssetType | '' => (
 )
 
 const syncFromRoute = () => {
-  filters.domain = normalizePositiveInt(route.query.domain, DOMAIN.TECH)
+  filters.domain = resolveDomainValue(route.query.domain) ?? DOMAIN.TECH
   filters.assetType = normalizeAssetType(route.query.assetType)
   filters.assetId = filters.assetType && typeof route.query.assetId === 'string' ? route.query.assetId : ''
   filters.postId = typeof route.query.postId === 'string' ? route.query.postId : ''

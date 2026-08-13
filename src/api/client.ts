@@ -162,6 +162,9 @@ export function getErrorMessage(error: unknown, fallback = '操作失败') {
     return error.message || fallback
   }
   if (error instanceof Error) {
+    if (/__vccOpts|Cannot read properties of undefined|Cannot read properties of null|component instance|hydration/i.test(error.message)) {
+      return fallback
+    }
     return error.message || fallback
   }
   return fallback

@@ -80,18 +80,22 @@
         <!-- 标题输入 -->
         <div class="flex flex-col gap-2">
           <input
-            v-model="form.title"
+            :value="form.title"
             type="text"
-            maxlength="200"
+            :maxlength="EDITOR_LIMITS.titleMax"
             :placeholder="activePostType.placeholder"
             data-field="title"
             :aria-invalid="Boolean(fieldErrors.title)"
             :aria-describedby="fieldErrors.title ? 'editor-title-error' : undefined"
+            @input="handleTitleInput"
+            @paste="handleTitlePaste"
+            @compositionstart="handleTitleCompositionStart"
+            @compositionend="handleTitleCompositionEnd"
             class="editor-title-input text-3xl font-bold px-4 py-3 border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
           />
           <p v-if="fieldErrors.title" id="editor-title-error" class="field-error px-4">{{ fieldErrors.title }}</p>
           <div class="text-sm text-slate-500 dark:text-slate-400 px-4">
-            {{ form.title.length }} / 200 字符
+            {{ form.title.length }} / {{ EDITOR_LIMITS.titleMax }} 字符
           </div>
         </div>
 
@@ -338,7 +342,12 @@
           <div class="editor-advanced-stack">
         <!-- 内容元数据 -->
         <div class="px-4">
-          <PostMeta v-model="form.extension" :type="form.postType" />
+          <PostMeta
+            v-model="form.extension"
+            :type="form.postType"
+            :errors="{ summary: fieldErrors.summary }"
+            @field-change="handleMetaFieldChange"
+          />
           <div v-if="metaErrorMessages.length" data-field="company" class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
             <p v-for="message in metaErrorMessages" :key="message">{{ message }}</p>
           </div>
@@ -906,6 +915,15 @@ import {
 } from '@/utils/editorAssistContext'
 import { mapEditorDraftToPreview } from '@/utils/editorPreview'
 import { buildEditorQualityChecklist } from '@/utils/editorQualityChecklist'
+import {
+  EDITOR_LIMITS,
+  applyEditorTextLimit,
+  clampEditorText,
+  editorDisabledReason,
+  isValidPublicHttpUrl,
+  normalizeEditorTags,
+  validateEditorPublish,
+} from '@/utils/editorValidation'
 import { safeStorage } from '@/utils/safeStorage'
 import { hasLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 import { useAuthStore } from '@/stores/auth'
@@ -927,7 +945,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 const LOCAL_DRAFT_TTL = 7 * 24 * 60 * 60 * 1000
 const LOCAL_DRAFT_NAMESPACE = 'post-draft'
-const CONTENT_MAX_LENGTH = 50000
+const CONTENT_MAX_LENGTH = EDITOR_LIMITS.contentMax
 const AUTO_SAVE_DEBOUNCE_MS = 1500
 
 const postTypes = computed(() => {
@@ -1043,6 +1061,8 @@ const resolveOptionalDomain = (value: unknown, anonymous = false): number | unde
 }
 const anonymousCareerPost = ref(false)
 const isPublishing = ref(false)
+const isTitleComposing = ref(false)
+const titleCompositionStartValue = ref('')
 const isEditing = ref(false)
 const isLoadingPost = ref(false)
 const isForbiddenEdit = ref(false)
@@ -1235,14 +1255,7 @@ const extensionValue = computed<Record<string, any>>(() => form.value.extension 
 const normalizedTitle = computed(() => form.value.title.trim())
 const normalizedContent = computed(() => form.value.content.trim())
 const normalizedTags = computed(() => selectedTags.value.map((tag) => tag.trim()).filter(Boolean))
-const isHttpUrl = (value: string) => {
-  try {
-    const url = new URL(value.trim())
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
+const isHttpUrl = (value: string) => isValidPublicHttpUrl(value)
 const contentLength = computed(() => form.value.content.length)
 const isContentOverLimit = computed(() => contentLength.value > CONTENT_MAX_LENGTH)
 const activePostType = computed(() => getContentTypeOption(form.value.postType))
@@ -1420,13 +1433,58 @@ const isInitialComposeState = computed(() => (
   && selectedTags.value.length === 0
   && !form.value.coverUrl.trim()
 ))
+const editorValidation = computed(() => validateEditorPublish({
+  domain: selectedDomain.value,
+  title: form.value.title,
+  content: form.value.content,
+  summary: extensionValue.value.summary,
+  tags: selectedTags.value,
+  coverUrl: form.value.coverUrl,
+  minContentLength: activePostType.value.minContentLength,
+  minTagCount: isInterviewPost.value ? 2 : 1,
+}))
+const currentLimitErrors = () => {
+  const errors = editorValidation.value.errors
+  const result: Record<string, string> = {}
+  if (form.value.title.length > EDITOR_LIMITS.titleMax && errors.title) result.title = errors.title
+  if (form.value.content.length > EDITOR_LIMITS.contentMax && errors.content) result.content = errors.content
+  if (String(extensionValue.value.summary || '').length > EDITOR_LIMITS.summaryMax && errors.summary) {
+    result.summary = errors.summary
+  }
+  if (
+    normalizedTags.value.length > EDITOR_LIMITS.tagMax
+    || normalizedTags.value.some((tag) => tag.length > EDITOR_LIMITS.tagNameMax)
+  ) {
+    if (errors.tags) result.tags = errors.tags
+  }
+  if (form.value.coverUrl.trim() && !isValidPublicHttpUrl(form.value.coverUrl) && errors.coverUrl) {
+    result.coverUrl = errors.coverUrl
+  }
+  return result
+}
+
+const exposeLoadedLimitErrors = () => {
+  const errors = currentLimitErrors()
+  if (Object.keys(errors).length) fieldErrors.value = { ...fieldErrors.value, ...errors }
+}
+
 const publishDisabledReason = computed(() => {
   if (isLoadingPost.value) return '帖子内容加载完成后才能发布'
+  if (isPublishing.value) return isEditing.value ? '正在保存修改，请勿重复提交' : '正在发布，请勿重复提交'
   if (isInitialComposeState.value) return '先写标题和正文，再选择频道即可发布'
-  if (blockingQualityIssues.value.length === 0) return ''
-  return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
+  const validationReason = editorDisabledReason(editorValidation.value.errors)
+  if (validationReason) return validationReason
+  if (blockingQualityIssues.value.length) {
+    return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
+  }
+  return ''
 })
-const isPublishDisabled = computed(() => isPublishing.value || isLoadingPost.value || blockingQualityIssues.value.length > 0)
+const isPublishDisabled = computed(() => (
+  isPublishing.value
+  || isLoadingPost.value
+  || Object.keys(editorValidation.value.errors).length > 0
+  || blockingQualityIssues.value.length > 0
+))
 const canRetryWithTextTagsOnly = computed(() => normalizedTags.value.length > 0 && form.value.tags.length > 0)
 const tagInputPlaceholder = computed(() => (
   isQuestionPost.value
@@ -1696,6 +1754,42 @@ const applyEditorExtension = (updates: Record<string, unknown>) => {
     }
   })
   form.value.extension = nextExtension
+}
+
+const handleTitleInput = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const next = isTitleComposing.value
+    ? input.value
+    : applyEditorTextLimit(form.value.title, input.value, EDITOR_LIMITS.titleMax)
+  if (input.value !== next) input.value = next
+  form.value.title = next
+}
+
+const handleTitlePaste = (event: ClipboardEvent) => {
+  const previous = form.value.title
+  const input = event.target as HTMLInputElement | null
+  queueMicrotask(() => {
+    const next = applyEditorTextLimit(previous, input?.value || form.value.title, EDITOR_LIMITS.titleMax)
+    if (input && input.value !== next) input.value = next
+    form.value.title = next
+  })
+}
+
+const handleTitleCompositionStart = () => {
+  titleCompositionStartValue.value = form.value.title
+  isTitleComposing.value = true
+}
+
+const handleTitleCompositionEnd = (event: CompositionEvent) => {
+  isTitleComposing.value = false
+  const input = event.target as HTMLInputElement
+  const next = applyEditorTextLimit(
+    titleCompositionStartValue.value,
+    input.value,
+    EDITOR_LIMITS.titleMax,
+  )
+  if (input.value !== next) input.value = next
+  form.value.title = next
 }
 
 const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
@@ -2075,7 +2169,7 @@ const toggleAssistPanelEnabled = async () => {
 const applyAssistSummary = () => {
   if (!assistSummaryText.value) return
   applyEditorExtension({
-    summary: assistSummaryText.value,
+    summary: clampEditorText(assistSummaryText.value, EDITOR_LIMITS.summaryMax),
     topicNames: selectedTopicNames.value.length ? selectedTopicNames.value : undefined,
     seriesId: selectedSeriesId.value || undefined,
     seriesTitle: selectedSeriesRecord.value?.title || undefined,
@@ -2085,9 +2179,7 @@ const applyAssistSummary = () => {
 }
 
 const applyTagSuggestion = (item: ContentAssistSuggestion) => {
-  if (!normalizedTags.value.some((tag) => tag.toLowerCase() === item.label.toLowerCase())) {
-    selectedTags.value.push(item.label)
-  }
+  if (!addEditorTags([item.label])) return
   scheduleAutoSave()
   scheduleStageThreeAssist()
   toast.success(item.adopted ? '标签已在当前内容中' : '已采纳标签建议')
@@ -2153,14 +2245,7 @@ const syncPublishedSeriesAssignment = async (postId?: string) => {
   }
 }
 
-const addTemplateTags = (tags: string[]) => {
-  tags.forEach((tag) => {
-    const label = sanitizeVisibleText(tag)
-    if (label && !normalizedTags.value.some((item) => item.toLowerCase() === label.toLowerCase())) {
-      selectedTags.value.push(label)
-    }
-  })
-}
+const addTemplateTags = (tags: string[]) => addEditorTags(tags)
 
 const addTemplateTopics = (topics: string[]) => {
   const nextTopics = new Set(selectedTopicNames.value)
@@ -2175,7 +2260,7 @@ const addTemplateTopics = (topics: string[]) => {
 }
 
 const applyTemplateTag = (tag: string) => {
-  addTemplateTags([tag])
+  if (!addTemplateTags([tag])) return
   scheduleAutoSave()
   scheduleStageThreeAssist()
   toast.success('已采纳模板标签')
@@ -2391,6 +2476,7 @@ const currentDraftReq = () => ({
   tagNames: normalizedTags.value,
   extJson: JSON.stringify({
     ...form.value.extension,
+    summary: extensionValue.value.summary || undefined,
     domain: selectedDomain.value,
     anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
     contentType: contentTypeCodeOf(form.value.postType),
@@ -2421,12 +2507,16 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
     title: draft.title || '',
     content: draft.content || '',
     tags: draft.tagIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)),
-    extension,
+    extension: {
+      ...extension,
+      summary: extension.summary || undefined,
+    },
     coverUrl: draft.coverUrl || '',
   }
   anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(draft.anonymous ?? extension.anonymous) : false
-  selectedTags.value = draft.tagNames || []
+  selectedTags.value = normalizeEditorTags(draft.tagNames)
   selectedSeriesId.value = sanitizeVisibleText(extension.seriesId)
+  exposeLoadedLimitErrors()
   markDraftClean()
   return true
 }
@@ -2521,20 +2611,31 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
     delete draftForm.respondedSuggestionIds
     delete draftForm.savedAt
     delete draftForm.owner
-    form.value = { ...form.value, ...draftForm }
+    form.value = {
+      ...form.value,
+      ...draftForm,
+      title: String(draftForm.title || ''),
+      content: String(draftForm.content || ''),
+      extension: {
+        ...(draftForm.extension || {}),
+        summary: draftForm.extension?.summary || undefined,
+      },
+      coverUrl: String(draftForm.coverUrl || ''),
+    }
     selectedDomain.value = resolveOptionalDomain(savedSelectedDomain, savedAnonymousCareerPost)
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? savedAnonymousCareerPost : false
-    selectedTags.value = draftTags || []
+    selectedTags.value = normalizeEditorTags(draftTags)
     selectedSeriesId.value = sanitizeVisibleText((draftForm.extension || {}).seriesId)
     serverDraftId.value = savedServerDraftId || ''
     selectedDraftId.value = savedServerDraftId || ''
-    publicUpdateSummary.value = sanitizeVisibleText(savedPublicUpdateSummary).slice(0, 240)
+    publicUpdateSummary.value = sanitizeVisibleText(savedPublicUpdateSummary).slice(0, EDITOR_LIMITS.summaryMax)
     updateImpactScope.value = sanitizeVisibleText(savedUpdateImpactScope) || 'CONTENT'
     respondedSuggestionIds.value = Array.isArray(savedRespondedSuggestionIds)
       ? [...new Set(savedRespondedSuggestionIds
         .map(String)
         .filter((id: string) => /^[1-9]\d*$/.test(id)))].slice(0, 20)
       : []
+    exposeLoadedLimitErrors()
     markDraftClean()
     return true
   } catch {
@@ -2932,16 +3033,20 @@ const loadPostForEdit = async (postId: string) => {
     }
     form.value = {
       postType: getContentTypeOption(post.postType || DEFAULT_POST_TYPE).value,
-      title: post.title,
-      content: post.content,
+      title: post.title || '',
+      content: post.content || '',
       tags: post.tags?.map(tag => Number(tag.id)).filter(tagId => !Number.isNaN(tagId)) || [],
-      extension: post.extension || {},
-      coverUrl: post.coverUrl || ''
+      extension: {
+        ...(post.extension || {}),
+        summary: post.extension?.summary || undefined,
+      },
+      coverUrl: post.coverUrl || '',
     }
     selectedDomain.value = resolveOptionalDomain(post.domain, Boolean(post.anonymous))
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
-    selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
+    selectedTags.value = normalizeEditorTags(post.tags?.map(tag => tag.name).filter(Boolean))
     selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)
+    exposeLoadedLimitErrors()
     await Promise.all([
       loadTrustProfileForEditor(postId),
       loadPostReferences(postId),
@@ -2991,26 +3096,46 @@ onMounted(async () => {
    await loadRecentEnhancedAssistRecovery()
 })
 
+const addEditorTags = (values: unknown[]) => {
+  const candidates = normalizeEditorTags(values)
+  const overlong = candidates.find((tag) => tag.length > EDITOR_LIMITS.tagNameMax)
+  if (overlong) {
+    fieldErrors.value = { ...fieldErrors.value, tags: `单个标签最多 ${EDITOR_LIMITS.tagNameMax} 个字符` }
+    toast.warning(fieldErrors.value.tags)
+    return false
+  }
+  const next = normalizeEditorTags([...selectedTags.value, ...candidates])
+  if (next.length > EDITOR_LIMITS.tagMax) {
+    fieldErrors.value = { ...fieldErrors.value, tags: `最多添加 ${EDITOR_LIMITS.tagMax} 个标签` }
+    toast.warning(fieldErrors.value.tags)
+    return false
+  }
+  const changed = next.length !== selectedTags.value.length
+    || next.some((tag, index) => tag !== selectedTags.value[index])
+  selectedTags.value = next
+  if (changed) form.value.tags = []
+  if (fieldErrors.value.tags) {
+    const { tags: _tags, ...rest } = fieldErrors.value
+    fieldErrors.value = rest
+  }
+  return true
+}
+
 const addTag = () => {
-  const tag = tagInput.value.trim()
-  if (selectedTags.value.length >= 5) {
-    toast.warning('最多添加 5 个标签')
-    return
-  }
-  if (tag && tag.length <= 32 && !selectedTags.value.includes(tag)) {
-    selectedTags.value.push(tag)
-    tagInput.value = ''
-  }
+  if (addEditorTags([tagInput.value])) tagInput.value = ''
 }
 
 const removeTag = (idx: number) => {
   selectedTags.value.splice(idx, 1)
+  form.value.tags = []
 }
 
 const saveDraft = async () => {
   persistLocalDraft()
-  if (isContentOverLimit.value) {
-    toast.warning(`正文不能超过 ${CONTENT_MAX_LENGTH} 字，已先保存为本地草稿`)
+  const limitErrors = currentLimitErrors()
+  if (Object.keys(limitErrors).length) {
+    fieldErrors.value = { ...fieldErrors.value, ...limitErrors }
+    toast.warning('草稿超出字段限制，已完整保存在本地；请修正标红字段后再同步到服务端')
     return
   }
   isSavingDraft.value = true
@@ -3033,24 +3158,22 @@ const saveDraft = async () => {
 }
 
 const publishPost = async () => {
+  if (isPublishing.value || isLoadingPost.value) return
   clearFieldErrors()
   publicUpdateError.value = ''
-  const localErrors: Record<string, string> = {}
-  if (!selectedDomain.value) localErrors.domain = '请选择频道'
-  if (normalizedTitle.value.length < 8) localErrors.title = '标题至少需要 8 个字符'
-  if (normalizedTitle.value.length > 200) localErrors.title = '标题最多 200 个字符'
-  if (normalizedContent.value.length < activePostType.value.minContentLength) {
-    localErrors.content = `正文至少需要 ${activePostType.value.minContentLength} 个字符`
-  }
-  if (isContentOverLimit.value) localErrors.content = `正文不能超过 ${CONTENT_MAX_LENGTH} 字`
-  if (normalizedTags.value.length < (isInterviewPost.value ? 2 : 1)) {
-    localErrors.tags = isInterviewPost.value ? '至少添加 2 个标签' : '至少添加 1 个标签'
-  }
-  if (form.value.coverUrl.trim() && !isHttpUrl(form.value.coverUrl)) {
-    localErrors.coverUrl = '封面链接必须是完整的 http 或 https 地址'
-  }
+  const validation = validateEditorPublish({
+    domain: selectedDomain.value,
+    title: form.value.title,
+    content: form.value.content,
+    summary: extensionValue.value.summary,
+    tags: selectedTags.value,
+    coverUrl: form.value.coverUrl,
+    minContentLength: activePostType.value.minContentLength,
+    minTagCount: isInterviewPost.value ? 2 : 1,
+  })
+  const localErrors = validation.errors
   if (Object.keys(localErrors).length > 0) {
-    fieldErrors.value = localErrors
+    fieldErrors.value = { ...localErrors }
     requestAnimationFrame(focusFirstFieldError)
     toast.error(`请先修正：${Object.values(localErrors).join('；')}`)
     return
@@ -3074,14 +3197,15 @@ const publishPost = async () => {
       domain: selectedDomain.value,
       anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
       postType: form.value.postType,
-      title: normalizedTitle.value,
-      content: normalizedContent.value,
-      coverUrl: form.value.coverUrl,
+      title: validation.normalized.title,
+      content: validation.normalized.content,
+      coverUrl: validation.normalized.coverUrl,
       visibility: 1,
       tagIds: form.value.tags,
       tagNames: normalizedTags.value,
       extJson: JSON.stringify({
         ...form.value.extension,
+        summary: validation.normalized.summary || undefined,
         anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
         contentType: contentTypeCodeOf(form.value.postType),
         templateCode: contentTypeCodeOf(form.value.postType),
@@ -3310,6 +3434,43 @@ watch(selectedDomain, (domain) => {
   if (domain !== DOMAIN.CAREER) anonymousCareerPost.value = false
   scheduleStageThreeAssist()
 })
+
+const localValidationFields = ['domain', 'title', 'content', 'summary', 'tags', 'coverUrl'] as const
+const syncEditedFieldErrors = (fields: readonly string[]) => {
+  if (Object.keys(fieldErrors.value).length === 0 && !publishFailure.value) return
+  const next = { ...fieldErrors.value }
+  let changed = false
+  fields.forEach((field) => {
+    if (!(field in next)) return
+    const localMessage = localValidationFields.includes(field as typeof localValidationFields[number])
+      ? editorValidation.value.errors[field as typeof localValidationFields[number]]
+      : undefined
+    if (localMessage) {
+      if (next[field] !== localMessage) {
+        next[field] = localMessage
+        changed = true
+      }
+      return
+    }
+    delete next[field]
+    changed = true
+  })
+  if (changed) fieldErrors.value = next
+  if (changed) publishFailure.value = null
+}
+
+watch(() => form.value.title, () => syncEditedFieldErrors(['title']))
+watch(() => form.value.content, () => syncEditedFieldErrors(['content']))
+watch(selectedDomain, () => syncEditedFieldErrors(['domain']))
+watch(selectedTags, () => syncEditedFieldErrors(['tags']), { deep: true })
+watch(() => form.value.coverUrl, () => syncEditedFieldErrors(['coverUrl']))
+
+const handleMetaFieldChange = (field: string) => {
+  const aliases: Record<string, string[]> = {
+    interviewRounds: ['interviewRounds', 'interviewRound', 'round'],
+  }
+  syncEditedFieldErrors(aliases[field] || [field])
+}
 
 watch(selectedSeriesId, () => {
   applyEditorExtension({

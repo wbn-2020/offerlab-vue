@@ -264,7 +264,15 @@
             </div>
 
             <div v-if="isNotificationLoading" class="loading-state" role="status">正在加载通知偏好...</div>
-            <form v-else @submit.prevent="updateNotificationPreferences">
+            <div v-else-if="notificationLoadError" class="state-panel error-panel" role="alert">
+              <AlertCircle class="icon" aria-hidden="true" />
+              <span>{{ notificationLoadError }}</span>
+              <button type="button" class="secondary-button" @click="loadNotificationPreferences">
+                <RefreshCw class="icon" aria-hidden="true" />
+                重试
+              </button>
+            </div>
+            <form v-else-if="notificationPreferencesLoaded" @submit.prevent="updateNotificationPreferences">
               <div class="settings-group">
                 <label class="switch-row">
                   <div>
@@ -404,7 +412,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { EyeOff, Layers3, Loader2, Trash2, UserX } from 'lucide-vue-next'
+import { AlertCircle, EyeOff, Layers3, Loader2, RefreshCw, Trash2, UserX } from 'lucide-vue-next'
 import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
@@ -504,6 +512,8 @@ const notificationPreferenceOptions: Array<{ key: InteractionNotificationKey, la
 
 const privacyForm = ref<PrivacySetting>(defaultPrivacySetting())
 const notificationForm = ref<NotificationPreference>(defaultNotificationPreference())
+const notificationPreferencesLoaded = ref(false)
+const notificationLoadError = ref('')
 const feedControls = ref<FeedControl[]>([])
 const feedControlFilter = ref<'ALL' | FeedControlType>('ALL')
 const feedControlsNextCursor = ref('')
@@ -588,13 +598,18 @@ const loadPrivacy = async () => {
 
 const loadNotificationPreferences = async () => {
   isNotificationLoading.value = true
+  notificationLoadError.value = ''
+  notificationPreferencesLoaded.value = false
   try {
     const res = await notificationApi.getPreferences()
     if (res.data) {
       notificationForm.value = { ...defaultNotificationPreference(), ...res.data }
+      notificationPreferencesLoaded.value = true
+    } else {
+      notificationLoadError.value = '通知偏好暂时没有返回有效数据，请重试。'
     }
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '通知偏好加载失败'))
+    notificationLoadError.value = getErrorMessage(error, '通知偏好加载失败，请重试。')
   } finally {
     isNotificationLoading.value = false
   }

@@ -21,7 +21,7 @@ has(meProfile, /profileNextAction/, 'owner profile must expose one computed next
 has(meProfile, /近期资产/, 'owner profile must surface recent assets near the first viewport.')
 has(meProfile, /v-if="hasAnyAssets"/, 'owner profile must not render an all-zero asset module.')
 has(meProfile, /<details class="profile-workspace-group">/, 'owner profile must collapse low-frequency workspaces.')
-has(meProfile, /维护、治理与账号/, 'owner profile must group maintenance, governance, and account tools.')
+has(meProfile, /账号与治理[\s\S]*维护与账号管理/, 'owner profile must group maintenance, governance, and account tools.')
 
 has(userProfile, /公开内容资产/, 'visitor profile must present public content assets as a long-term entry.')
 has(userProfile, /仅展示公开且通过治理过滤的内容/, 'visitor profile must explicitly state the public governance boundary.')

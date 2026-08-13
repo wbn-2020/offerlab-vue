@@ -343,11 +343,12 @@ const v38Migration = manifest.migrations.find(
   (item) => item.source === 'db/migration/20260805_channel_quality_review_dispatch_batch.sql',
 )
 expect(v38Migration, 'V38 Flyway manifest must include the dispatch-batch migration.')
+const coreMigrationCount = manifest.migrations.filter((item) => item.stream === 'core').length
 expect(
   v38Migration.version === '20260805.02'
     && v38Migration.resource
       === 'community-bootstrap/src/main/resources/db/flyway/core/V20260805.02__channel_quality_review_dispatch_batch.sql'
-    && manifest.streams.core.expectedMigrations === 87,
+    && manifest.streams.core.expectedMigrations === coreMigrationCount,
   'V38 Flyway manifest version, runtime resource and core count must be synchronized.',
 )
 expect(

@@ -3,6 +3,7 @@ import { postApi } from './post'
 import type { ApiId, OperationTopicPublishCheckContract, Post } from './types'
 import { filterStrongExposurePosts, filterVisiblePosts } from '@/utils/recommendationGovernance'
 import { legacyTopicSectionKey, nonEmptyTopicItemList } from '@/utils/topicSectionIdentity'
+import { localizePublicCopy } from '@/utils/publicDisplay'
 import {
   canMutateOpsOrchestration,
   filterOpsOrchestrationDisplayItems,
@@ -786,6 +787,7 @@ const adaptRemoteSlotItem = (item: RemoteOperationSlotItem, rankFallback: number
     const topic = adaptRemoteTopic(item.topic)
     const id = item.id || `topic:${topic.id}`
     const sourceId = item.sourceId || item.contentId || topic.id
+    const reason = localizePublicCopy(item.note || item.reasonText, '公开话题运营整理')
     return {
       id,
       contentId: sourceId,
@@ -795,8 +797,8 @@ const adaptRemoteSlotItem = (item: RemoteOperationSlotItem, rankFallback: number
       href: topic.entryPath,
       sourceType: item.sourceType || 'OPERATION_TOPIC',
       sourceId,
-      reason: item.note || item.reasonText || 'Curated public topic',
-      reasonText: item.reasonText || item.note,
+      reason,
+      reasonText: reason,
       rank: item.rank ?? item.sortOrder ?? rankFallback,
       source: item.source || 'remote',
       blocked: Boolean(item.blocked),
@@ -806,6 +808,7 @@ const adaptRemoteSlotItem = (item: RemoteOperationSlotItem, rankFallback: number
   }
   const postItem = adaptRemotePostItem(item.post, 'Curated public content')
   const sourceId = item.sourceId || item.contentId || postItem.id
+  const reason = localizePublicCopy(item.note || item.reasonText, '来自公开内容的运营整理')
   return {
     id: item.id || `post:${sourceId}`,
     contentId: sourceId,
@@ -815,8 +818,8 @@ const adaptRemoteSlotItem = (item: RemoteOperationSlotItem, rankFallback: number
     href: postItem.href,
     sourceType: item.sourceType || 'POST',
     sourceId,
-    reason: item.note || item.reasonText || 'Curated from public content',
-    reasonText: item.reasonText || item.note,
+    reason,
+    reasonText: reason,
     rank: item.rank ?? item.sortOrder ?? rankFallback,
     source: item.source || 'remote',
     blocked: Boolean(item.blocked),
@@ -856,7 +859,7 @@ const adaptPostCandidate = (post: Post): OperationCandidate => ({
   sourceId: post.postId,
   domain: post.domain,
   contentType: post.tags?.[0]?.name,
-  reason: post.recommendationReasons?.[0] || 'public content query fallback',
+  reason: localizePublicCopy(post.recommendationReasons?.[0], '来自公开内容的补充结果'),
   governanceState: 'degraded',
   href: postHref(post.postId),
   fallback: true,
@@ -940,13 +943,19 @@ export const operationsApi = {
     }
   },
 
-  getPublicOperationSlot: async (slotCode: string): Promise<Result<OperationSlot>> => {
+  getPublicOperationSlot: async (
+    slotCode: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<Result<OperationSlot>> => {
     const normalizedSlotCode = slotCode
     if (!isPublicOperationSlotCode(normalizedSlotCode)) {
       return emptyPublicOperationSlot(normalizedSlotCode, 'unsupported_operation_slot')
     }
     try {
-      const res = await client.get(`/api/v1/operations/slots/${encodeURIComponent(normalizedSlotCode)}`) as Result<RemoteOperationSlot>
+      const res = await client.get(
+        `/api/v1/operations/slots/${encodeURIComponent(normalizedSlotCode)}`,
+        { signal: options.signal },
+      ) as Result<RemoteOperationSlot>
       if (!res.data) return emptyPublicOperationSlot(normalizedSlotCode, 'operation_slot_empty')
       return { ...res, data: adaptRemoteSlot(res.data) }
     } catch (error) {

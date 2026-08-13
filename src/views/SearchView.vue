@@ -97,7 +97,7 @@
                 <select v-model.number="filters.domain" class="field-input" @change="scheduleDebouncedSearch">
                   <option :value="undefined">全部频道</option>
                   <option v-for="item in domainOptions" :key="item.domain" :value="item.domain">
-                    {{ item.icon }} {{ item.domainName }}
+                    {{ item.icon }} {{ getDomainLabelSafe(item.domain) }}
                   </option>
                 </select>
               </label>
@@ -489,7 +489,7 @@ import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, Post, Tag, User } from '@/api/types'
 import { safeStorage } from '@/utils/safeStorage'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeLabel } from '@/utils/contentTypes'
-import { ALL_COMMUNITY_CHANNELS, getCommunityChannel, isKnownDomain } from '@/utils/domains'
+import { ALL_COMMUNITY_CHANNELS, getCommunityChannel, getDomainLabelSafe, isKnownDomain, resolveDomainValue } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
 import { filterSearchSuggestionTerms, filterVisiblePosts, findHighRiskContentWarning } from '@/utils/recommendationGovernance'
@@ -976,9 +976,9 @@ const syncFromRoute = () => {
     : 'posts'
   const channelKey = typeof route.query.channel === 'string' ? route.query.channel : undefined
   const routeChannel = nextMode === 'posts' ? getCommunityChannel(channelKey) : undefined
-  const domain = Number(route.query.domain ?? routeChannel?.domain)
+  const domain = resolveDomainValue(route.query.domain) ?? routeChannel?.domain
   filters.domain = nextMode === 'posts'
-    && isKnownDomain(domain)
+    && domain !== undefined
     && domainOptions.value.some((item) => Number(item.domain) === domain)
     ? domain
     : undefined
@@ -1031,7 +1031,7 @@ const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'domain' | 'company'
   if (snapshot.mode === 'users') return snapshot.q || '作者搜索'
   if (snapshot.mode === 'topics') return snapshot.q || '话题搜索'
   if (snapshot.mode === 'tags') return snapshot.q || '标签搜索'
-  const domainLabel = domainOptions.value.find((item) => Number(item.domain) === Number(snapshot.domain))?.domainName
+  const domainLabel = isKnownDomain(snapshot.domain) ? getDomainLabelSafe(snapshot.domain) : ''
   return [snapshot.q, domainLabel, snapshot.company, snapshot.position, snapshot.type ? postTypeText(snapshot.type) : '']
     .filter(Boolean)
     .join(' / ') || '全部内容'

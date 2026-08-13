@@ -58,7 +58,11 @@
         <section class="detail-header reading-header">
           <div class="eyebrow-row">
             <span class="status-badge" :data-status="need.status">
-              <component :is="statusIcon(need.status)" class="icon-small" aria-hidden="true" />
+              <CheckCircle2 v-if="need.status === 'COMPLETED'" class="icon-small" aria-hidden="true" />
+              <LockKeyhole v-else-if="need.status === 'CLOSED'" class="icon-small" aria-hidden="true" />
+              <ArrowRight v-else-if="need.status === 'MERGED'" class="icon-small" aria-hidden="true" />
+              <Clock3 v-else-if="need.status === 'SUBMITTED'" class="icon-small" aria-hidden="true" />
+              <CircleDot v-else class="icon-small" aria-hidden="true" />
               {{ statusLabel(need.status) }}
             </span>
             <span class="meta-label">{{ domainLabel(need.domain) }}</span>
@@ -316,7 +320,13 @@
               </div>
               <ol v-else class="timeline-list">
                 <li v-for="event in events" :key="event.id" class="timeline-item">
-                  <span class="timeline-marker"><component :is="eventIcon(event.eventType)" class="icon-small" aria-hidden="true" /></span>
+                  <span class="timeline-marker">
+                    <CheckCircle2 v-if="event.eventType === 'ACCEPTED' || event.eventType === 'COMPLETED'" class="icon-small" aria-hidden="true" />
+                    <XCircle v-else-if="event.eventType === 'REJECTED'" class="icon-small" aria-hidden="true" />
+                    <Undo2 v-else-if="event.eventType === 'RELEASED' || event.eventType === 'WITHDRAWN'" class="icon-small" aria-hidden="true" />
+                    <Hand v-else-if="event.eventType === 'CLAIMED'" class="icon-small" aria-hidden="true" />
+                    <CircleDot v-else class="icon-small" aria-hidden="true" />
+                  </span>
                   <div class="timeline-content">
                     <div class="timeline-topline">
                       <strong>{{ eventLabel(event.eventType) }}</strong>
@@ -363,7 +373,11 @@
                   <span class="section-kicker">参与状态</span>
                   <h2>{{ statusLabel(need.status) }}</h2>
                 </div>
-                <component :is="statusIcon(need.status)" class="section-icon" aria-hidden="true" />
+                <CheckCircle2 v-if="need.status === 'COMPLETED'" class="section-icon" aria-hidden="true" />
+                <LockKeyhole v-else-if="need.status === 'CLOSED'" class="section-icon" aria-hidden="true" />
+                <ArrowRight v-else-if="need.status === 'MERGED'" class="section-icon" aria-hidden="true" />
+                <Clock3 v-else-if="need.status === 'SUBMITTED'" class="section-icon" aria-hidden="true" />
+                <CircleDot v-else class="section-icon" aria-hidden="true" />
               </div>
               <p v-if="canClaim" class="participation-copy">当前可认领。确认验收标准后，可在页面顶部发起认领。</p>
               <p v-else-if="canSubmit" class="participation-copy">你已认领这项需求，可选择已有公开内容并提交交付。</p>
@@ -685,20 +699,6 @@ const formatLabel = (format: NeedContentFormat) => formatLabels[format] || forma
 const sourceLabel = (source: NeedSourceType) => sourceLabels[source] || source
 const eventLabel = (type: NeedEventType) => eventLabels[type] || type
 const isPositiveId = (value: string) => /^[1-9]\d*$/.test(value.trim())
-const statusIcon = (status: NeedStatus) => {
-  if (status === 'COMPLETED') return CheckCircle2
-  if (status === 'CLOSED') return LockKeyhole
-  if (status === 'MERGED') return ArrowRight
-  return status === 'SUBMITTED' ? Clock3 : CircleDot
-}
-const eventIcon = (type: NeedEventType) => {
-  if (type === 'ACCEPTED' || type === 'COMPLETED') return CheckCircle2
-  if (type === 'REJECTED') return XCircle
-  if (type === 'RELEASED' || type === 'WITHDRAWN') return Undo2
-  if (type === 'CLAIMED') return Hand
-  return CircleDot
-}
-
 const deliveryPath = computed(() => {
   if (!need.value?.resolutionId) return null
   return buildCollaborationDeliveryPath(
