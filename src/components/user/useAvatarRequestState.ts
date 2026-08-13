@@ -13,6 +13,18 @@ export const resolveAvatarFallback = (
   || '?'
 )
 
+export const resolveAvatarTone = (name: string | null | undefined) => {
+  const value = String(name ?? '').trim() || 'OfferLab'
+  let hash = 0
+  for (const character of value) {
+    hash = (hash * 31 + (character.codePointAt(0) || 0)) % 360
+  }
+  return {
+    background: `hsl(${hash} 58% 42%)`,
+    color: 'hsl(0 0% 100%)',
+  }
+}
+
 export const resolveAvatarAccessibleLabel = (
   alt: string | null | undefined,
   name: string | null | undefined,

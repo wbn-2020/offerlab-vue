@@ -77,7 +77,7 @@ export interface EditorQualityChecklistResult {
 }
 
 const DEFAULT_MIN_TITLE_LENGTH = 8
-const DEFAULT_MAX_TITLE_LENGTH = 60
+const DEFAULT_MAX_TITLE_LENGTH = 200
 const DEFAULT_MIN_CONTENT_LENGTH = 80
 const DEFAULT_STRONG_CONTENT_LENGTH = 220
 

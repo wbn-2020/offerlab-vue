@@ -16,7 +16,7 @@ const channelHealthApi = read('src/api/channelHealth.ts')
 const channelHealthView = read('src/views/AdminChannelHealthView.vue')
 const router = read('src/router/index.ts')
 const improvementStart = profile.indexOf('data-content-improvement-source="server-aggregate-only"')
-const improvementEnd = profile.indexOf('<div class="mt-5 grid gap-3 sm:grid-cols-5">', improvementStart)
+const improvementEnd = profile.indexOf('<div v-if="hasCreatorFeedbackStats"', improvementStart)
 const improvementSection = improvementStart >= 0 && improvementEnd > improvementStart
   ? profile.slice(improvementStart, improvementEnd)
   : ''

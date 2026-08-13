@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell me-profile-page">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <section class="profile-panel">
-        <div class="flex flex-col gap-6 md:flex-row md:items-start">
+    <main class="community-page me-profile-main">
+      <section class="profile-panel profile-hero-panel">
+        <div class="profile-hero-layout">
           <UserAvatar
             class="avatar"
             :src="user?.avatar"
@@ -13,70 +13,84 @@
             :fallback="userInitial"
           />
 
-          <div class="min-w-0 flex-1">
-            <p class="mb-2 text-xs font-black text-primary-600 dark:text-primary-300">我的作者主页</p>
-            <div class="flex flex-wrap items-center gap-3">
-              <h1 class="truncate text-2xl font-bold text-slate-950 dark:text-slate-50">
+          <div class="profile-identity">
+            <p class="profile-context">我的作者主页</p>
+            <div class="profile-name-row">
+              <h1>
                 {{ displayNickname }}
               </h1>
-              <span v-if="user?.isBigV" class="rounded bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              <span v-if="user?.isBigV" class="profile-author-badge">
                 公开作者
               </span>
             </div>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <p class="profile-signature">
               {{ displaySignature }}
             </p>
 
-            <div class="mt-5 grid gap-3 sm:grid-cols-3">
-              <div class="metric-card">
-                <FileText class="h-4 w-4 text-primary-600" />
-                <span>内容</span>
+            <div class="profile-stats" aria-label="作者主页数据">
+              <RouterLink to="/me?tab=posts" class="metric-card">
                 <strong>{{ profileMetricText(user?.postCount, posts) }}</strong>
-              </div>
-              <div class="metric-card">
-                <Users class="h-4 w-4 text-primary-600" />
-                <span>关注</span>
-                <strong>{{ profileMetricText(user?.followingCount, following) }}</strong>
-              </div>
-              <div class="metric-card">
-                <UserRoundCheck class="h-4 w-4 text-primary-600" />
-                <span>粉丝</span>
+                <span>公开内容</span>
+              </RouterLink>
+              <RouterLink to="/me?tab=followers" class="metric-card">
                 <strong>{{ profileMetricText(user?.followerCount, followers) }}</strong>
-              </div>
+                <span>关注者</span>
+              </RouterLink>
+              <RouterLink to="/me?tab=following" class="metric-card">
+                <strong>{{ profileMetricText(user?.followingCount, following) }}</strong>
+                <span>正在关注</span>
+              </RouterLink>
             </div>
           </div>
 
-          <div class="profile-actions">
-            <RouterLink to="/me/contact-requests" class="secondary-button shrink-0">
-              <Mail class="h-4 w-4" />
-              联系请求
-            </RouterLink>
-            <RouterLink to="/me/reports" class="secondary-button shrink-0">
-              <Flag class="h-4 w-4" />
-              我的举报
-            </RouterLink>
-            <RouterLink to="/me/maintenance" class="secondary-button shrink-0">
-              <ListChecks class="h-4 w-4" />
-              维护任务
-            </RouterLink>
-            <RouterLink to="/me/knowledge" class="secondary-button shrink-0">
-              <ListChecks class="h-4 w-4" />
-              知识维护
-            </RouterLink>
-            <RouterLink to="/me/settings" class="secondary-button shrink-0">
-              <Settings class="h-4 w-4" />
-              编辑资料
+          <div v-if="hasPublishedContent" class="profile-actions">
+            <RouterLink :to="profileNextAction.href" class="primary-button">
+              <FileText class="h-4 w-4" />
+              {{ profileNextAction.action }}
             </RouterLink>
           </div>
         </div>
       </section>
 
-      <ParticipationHub class="mt-6" />
+      <section
+        :class="['profile-focus-panel', { 'profile-focus-panel--single': isEmptyProfile }]"
+        aria-labelledby="profile-next-action-title"
+      >
+        <div class="profile-next-action">
+          <div>
+            <p class="section-kicker">下一步</p>
+            <h2 id="profile-next-action-title">{{ profileNextAction.title }}</h2>
+            <p>{{ profileNextAction.description }}</p>
+          </div>
+          <RouterLink :to="profileNextAction.href" class="primary-button">
+            {{ profileNextAction.action }}
+          </RouterLink>
+        </div>
+        <div v-if="!isEmptyProfile" class="profile-recent-assets">
+          <div class="profile-recent-assets__heading">
+            <div>
+              <p class="section-kicker">近期资产</p>
+              <h2>继续回看和整理</h2>
+            </div>
+            <RouterLink to="/series/workbench">管理合集</RouterLink>
+          </div>
+          <div v-if="recentAssetLinks.length" class="profile-recent-assets__list">
+            <RouterLink v-for="asset in recentAssetLinks" :key="asset.label" :to="asset.href">
+              <span>{{ asset.label }}</span>
+              <strong>{{ asset.value }}</strong>
+            </RouterLink>
+          </div>
+          <p v-else class="profile-recent-assets__empty">
+            暂无可回看的个人资产。发布或收藏内容后，这里会出现快捷入口。
+          </p>
+        </div>
+      </section>
 
-      <section class="community-growth-panel">
+      <section v-if="hasMeaningfulPublicImpact" class="community-growth-panel">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">我的作者主页</h2>
+            <p class="section-kicker">公开参与</p>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">公开影响与参与反馈</h2>
             <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
               {{ contributionSourceText }}。这里展示的是公开内容的可解释反馈，不使用分数或等级表达。
             </p>
@@ -89,7 +103,7 @@
             <span>近期反馈窗口</span>
           </div>
         </div>
-        <div class="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div class="public-impact-grid">
           <div v-for="item in publicImpactOverview" :key="item.label" class="growth-stat">
             <strong>{{ item.value }}</strong>
             <span>{{ item.label }}</span>
@@ -100,375 +114,21 @@
         </div>
       </section>
 
-      <section id="creator-workbench" class="creator-feedback-panel mt-6">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <section class="profile-content-section">
+        <div class="profile-content-heading">
           <div>
-            <div class="creator-workbench-title-row">
-              <p class="text-xs font-black text-primary-600 dark:text-primary-300">创作者轻反馈 · 创作者工作台</p>
-              <span class="workspace-source-pill">{{ creatorWorkspaceStateLabel }}</span>
-            </div>
-            <h2>公开内容反馈、维护入口和下一篇方向</h2>
-            <span>只聚合公开内容信号，只展示公开内容互动，覆盖近 7 天/30 天，不承诺曝光效果；回复、更新和选题入口会带上创作者工作台来源上下文。</span>
-            <span>{{ creatorWorkspaceNotice }}</span>
+            <p class="section-kicker">公开内容与关系</p>
+            <h2>继续经营你的内容主页</h2>
+            <p>公开发布优先展示，收藏、关注和讨论记录仍可通过上方分类按需查看。</p>
           </div>
-          <div class="creator-feedback-actions">
-            <RouterLink to="/me/notifications" class="secondary-button">查看通知中心</RouterLink>
-            <RouterLink :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'template', contextType: 'template', returnHref: '/me#creator-workbench' } }" class="primary-button">开始写一篇</RouterLink>
-          </div>
+          <RouterLink v-if="hasPublishedContent" to="/editor" class="secondary-button">继续发布</RouterLink>
         </div>
-        <p v-if="creatorWorkspaceError" class="creator-empty-copy mt-3">{{ creatorWorkspaceError }}</p>
-        <div class="feedback-window-grid">
-          <article v-for="item in feedbackWindows" :key="item.label" class="feedback-window-card">
-            <div>
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.description }}</span>
-            </div>
-            <div class="feedback-window-metrics">
-              <span>{{ item.posts }} 篇内容</span>
-              <span>{{ item.comments }} 条评论</span>
-              <span>{{ item.favorites }} 次收藏</span>
-              <span>{{ item.likes }} 次点赞</span>
-            </div>
-          </article>
-        </div>
-        <div
-          class="trusted-content-workbench"
-          aria-labelledby="trusted-content-workbench-title"
-          data-trusted-content-items="pendingSuggestionItems freshnessItems profileConfirmationItems pendingQuestionItems"
-        >
-          <div class="trusted-content-workbench-head">
-            <div>
-              <div class="trusted-content-title-row">
-                <strong id="trusted-content-workbench-title">可信内容待办</strong>
-                <span v-if="creatorTrustedContentPending" class="trusted-content-status">加载中</span>
-                <span v-else-if="creatorTrustedContentDegraded" class="trusted-content-status">暂不可用</span>
-              </div>
-              <span>优先处理问题闭环、读者补充和内容时效；这些数据不会换算成积分或公开排名。</span>
-            </div>
-            <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
-          </div>
-          <div class="trusted-content-task-list">
-            <RouterLink id="trusted-content-task-suggestions" :to="{ path: '/me', query: { tab: 'posts', focus: 'suggestions' }, hash: '#creator-workbench' }">
-              <span>待处理补充 / 纠错</span>
-              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.pendingSuggestions) }}</strong>
-            </RouterLink>
-            <RouterLink id="trusted-content-task-freshness" :to="{ path: '/me', query: { tab: 'posts', focus: 'freshness' }, hash: '#creator-workbench' }">
-              <span>待确认时效内容</span>
-              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.freshnessAwaitingConfirmation) }}</strong>
-            </RouterLink>
-            <RouterLink id="trusted-content-task-profile" :to="{ path: '/me', query: { tab: 'posts', focus: 'trust-profile' }, hash: '#creator-workbench' }">
-              <span>待确认经验背景</span>
-              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.profileConfirmationDue) }}</strong>
-            </RouterLink>
-            <RouterLink id="trusted-content-task-questions" :to="{ path: '/me', query: { tab: 'posts', focus: 'questions' }, hash: '#creator-workbench' }">
-              <span>尚未闭环的问题</span>
-              <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.unresolvedQuestions) }}</strong>
-            </RouterLink>
-          </div>
-          <div v-for="task in trustedContentTaskGroups" :key="task.key" :id="`trusted-content-task-items-${task.key}`" :data-trusted-content-source="task.sourceField" class="trusted-content-task-items">
-            <div class="trusted-content-task-items-head">
-              <span>{{ task.label }}</span>
-              <small>{{ task.items.length }} 条待处理</small>
-            </div>
-            <div v-if="task.items.length" class="trusted-content-item-list">
-              <RouterLink
-                v-for="item in task.items"
-                :key="`${task.key}-${item.id}`"
-                :to="trustedContentTaskHref(item, task.key)"
-                class="trusted-content-item"
-              >
-                <span class="trusted-content-item-title">{{ item.postTitle }}</span>
-                <small>{{ item.statusLabel }}<template v-if="item.timeLabel"> · {{ item.timeLabel }}</template></small>
-              </RouterLink>
-            </div>
-            <p v-else class="trusted-content-task-items-empty">暂无具体待处理内容</p>
-          </div>
-          <div class="trusted-content-window-list">
-            <div>
-              <span>近 7 天</span>
-              <strong>
-                {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback7Days) }}
-                <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
-              </strong>
-              <small>
-                {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads7Days) }}
-                <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
-              </small>
-            </div>
-            <div>
-              <span>近 30 天</span>
-              <strong>
-                {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback30Days) }}
-                <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
-              </strong>
-              <small>
-                {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads30Days) }}
-                <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
-              </small>
-            </div>
-          </div>
-        </div>
-        <section
-          class="content-improvement-workbench"
-          aria-labelledby="content-improvement-workbench-title"
-          data-content-improvement-source="server-aggregate-only"
-        >
-          <div class="content-improvement-workbench-head">
-            <div>
-              <div class="trusted-content-title-row">
-                <strong id="content-improvement-workbench-title">内容改进线索</strong>
-                <span v-if="contentImprovementSignalsLoading" class="trusted-content-status">加载中</span>
-                <span v-else-if="contentImprovementSignals?.degraded || contentImprovementSignalsError" class="trusted-content-status">暂不可用</span>
-              </div>
-              <span>仅在达到匿名聚合条件时提示复核，不展示读者、反馈数量或个人分发偏好。</span>
-            </div>
-            <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
-          </div>
-          <p v-if="contentImprovementSignalsError" class="creator-empty-copy">{{ contentImprovementSignalsError }}</p>
-          <div v-else-if="contentImprovementSignalsLoading" class="content-improvement-state" role="status">正在读取匿名质量信号</div>
-          <div v-else-if="contentImprovementSignals?.degraded" class="content-improvement-state">内容改进线索暂不可用，当前不会把它解释为没有需要复核的内容。</div>
-          <div v-else-if="contentImprovementSignals?.items.length" class="content-improvement-list">
-            <article
-              v-for="item in contentImprovementSignals.items"
-              :key="item.postId"
-              :class="['content-improvement-item', { 'is-awaiting-feedback': item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' }]"
-            >
-              <div class="content-improvement-item-copy">
-                <span class="content-improvement-item-domain">{{ item.domainName }}</span>
-                <RouterLink :to="item.postHref" class="content-improvement-item-title">{{ item.postTitle }}</RouterLink>
-                <strong>{{ item.headline }}</strong>
-                <p>{{ item.detail }}</p>
-              </div>
-              <RouterLink
-                v-if="item.state === 'MAINTENANCE_EXISTS' && item.workspaceHref"
-                :to="item.workspaceHref"
-                class="secondary-button content-improvement-edit"
-              >
-                打开维护工作区
-              </RouterLink>
-              <RouterLink v-else-if="item.editHref" :to="item.editHref" class="secondary-button content-improvement-edit">
-                {{ item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' ? '查看当前版本' : '查看并更新' }}
-              </RouterLink>
-            </article>
-          </div>
-          <div
-            v-if="contentImprovementSignals?.hasMore && contentImprovementSignals.nextCursor"
-            class="content-improvement-more"
-          >
-            <button
-              type="button"
-              class="secondary-button"
-              :disabled="contentImprovementSignalsLoadingMore"
-              @click="loadMoreContentImprovementSignals"
-            >
-              {{ contentImprovementSignalsLoadingMore ? '加载中' : '加载更多' }}
-            </button>
-          </div>
-          <p v-else-if="!contentImprovementSignals?.items.length" class="content-improvement-state">近 {{ contentImprovementSignals?.periodDays || 30 }} 天暂无可展示的匿名质量复核线索；这不代表所有读者都满意。</p>
-        </section>
-        <div class="mt-5 grid gap-3 sm:grid-cols-5">
-          <RouterLink to="/me?tab=posts" class="feedback-stat">
-            <MessageCircle class="h-4 w-4 text-primary-600" />
-            <strong>{{ publicImpactStats.recentComments }}</strong>
-            <span>近期评论</span>
-            <small>公开讨论里的可回应线索</small>
-          </RouterLink>
-          <RouterLink to="/me?tab=favorites" class="feedback-stat">
-            <Bookmark class="h-4 w-4 text-primary-600" />
-            <strong>{{ publicImpactStats.recentFavorites }}</strong>
-            <span>近期收藏</span>
-            <small>适合沉淀成清单或合集</small>
-          </RouterLink>
-          <RouterLink :to="{ path: '/growth/profile', hash: '#curation-feedback' }" class="feedback-stat">
-            <Globe2 class="h-4 w-4 text-primary-600" />
-            <strong>{{ publicImpactStats.curationCount }}</strong>
-            <span>收录 / 精选</span>
-            <small>查看公开内容被收录记录</small>
-          </RouterLink>
-          <RouterLink :to="topFeedbackPost ? topFeedbackPost.to : '/me?tab=posts'" class="feedback-stat">
-            <Heart class="h-4 w-4 text-primary-600" />
-            <strong>{{ topFeedbackScore }}</strong>
-            <span>近期表现较好内容</span>
-            <small>{{ topFeedbackPost ? '打开内容查看公共反馈' : '发布后会出现' }}</small>
-          </RouterLink>
-        </div>
-        <div class="creator-workbench-grid">
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>近期表现较好内容</strong>
-              <RouterLink to="/me?tab=posts">管理内容</RouterLink>
-            </div>
-            <div v-if="topFeedbackPosts.length" class="creator-link-list">
-              <RouterLink v-for="post in topFeedbackPosts" :key="post.id" :to="post.to" class="creator-link-main">
-                <span>{{ post.title }}</span>
-                <small>{{ post.meta }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="creator-empty-copy">发布公开内容后，这里会按评论、收藏和点赞展示可继续经营的内容。</p>
-          </article>
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>收录 / 精选记录</strong>
-              <RouterLink :to="{ path: '/growth/profile', hash: '#curation-feedback' }">查看详情</RouterLink>
-            </div>
-            <div v-if="curationFeedbackItems.length" class="creator-link-list">
-              <RouterLink v-for="item in curationFeedbackItems" :key="item.id" :to="item.to" class="creator-link-main">
-                <span>{{ item.title }}</span>
-                <small>{{ item.meta }}</small>
-                <small v-if="item.badge">{{ item.badge }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="creator-empty-copy">暂无公开内容收录记录；后续被专题或精选收录时会在这里展示理由。</p>
-          </article>
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>回复机会</strong>
-              <RouterLink to="/me?tab=posts">回到内容讨论</RouterLink>
-            </div>
-            <div v-if="replyOpportunities.length" class="creator-link-list">
-              <RouterLink v-for="item in replyOpportunities" :key="item.id" :to="item.to" class="creator-link-main">
-                <span>{{ item.title }}</span>
-                <small>{{ item.meta }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="creator-empty-copy">暂时没有需要集中回应的讨论；可以先整理代表作或公开合集。</p>
-          </article>
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>选题灵感</strong>
-              <RouterLink :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'template', contextType: 'template', returnHref: '/me#creator-workbench' } }">空白发布</RouterLink>
-            </div>
-            <div class="creator-link-list">
-              <RouterLink v-for="idea in topicIdeas" :key="idea.id" :to="{ path: '/editor', query: idea.query }" class="creator-link-main">
-                <span>{{ idea.title }}</span>
-                <small>{{ idea.reason }}</small>
-              </RouterLink>
-            </div>
-          </article>
-          <article class="creator-workbench-card">
-            <div class="creator-workbench-head">
-              <strong>聚合搜索缺口</strong>
-              <RouterLink to="/search">查看发现</RouterLink>
-            </div>
-            <div v-if="searchGaps.length" class="creator-link-list">
-              <RouterLink v-for="gap in searchGaps" :key="gap.id" :to="gap.to" class="creator-link-main">
-                <span>{{ gap.title }}</span>
-                <small>{{ gap.reason }}</small>
-                <small v-if="gap.badge">{{ gap.badge }}</small>
-              </RouterLink>
-            </div>
-            <p v-else class="creator-empty-copy">暂无可展示的聚合需求；这里只展示匿名化聚合需求，并在后端返回聚合缺口时提供 EditorSearchGapContext 辅助入口。</p>
-          </article>
-        </div>
-      </section>
 
-      <CreatorChallengeWorkspace class="mt-6" />
-
-      <section class="creator-center-grid mt-6">
-        <article class="creator-action-panel">
-          <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p class="text-xs font-black text-primary-600 dark:text-primary-300">下一步行动</p>
-              <h2>创作者中心</h2>
-            </div>
-            <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
-          </div>
-          <div class="creator-action-list">
-            <RouterLink to="/me?tab=followers" class="creator-action-card">
-              <strong>新增关注者</strong>
-              <span>{{ user?.followerCount ?? followers.items.length }} 位作者主页回访线索，只展示公开内容互动。</span>
-            </RouterLink>
-            <RouterLink v-for="item in creatorActions" :key="item.href" :to="item.href" class="creator-action-card">
-              <strong>{{ item.title }}</strong>
-              <span>{{ item.description }}</span>
-            </RouterLink>
-          </div>
-        </article>
-
-        <article class="creator-cert-panel">
-          <p class="text-xs font-black text-primary-600 dark:text-primary-300">作者主页经营</p>
-          <h2>社区身份、代表作和公开合集</h2>
-          <p>
-            P0 先用公开内容和公开合集经营主页；正式手动代表作设置需要后续 adapter 校验作者、内容状态和可见性。
-          </p>
-          <span class="creator-cert-meta">当前公开合集 {{ publicCollectionCount }} 个</span>
-          <div class="creator-cert-actions">
-            <RouterLink to="/me?tab=posts" class="primary-button">选择代表内容</RouterLink>
-            <RouterLink to="/certification/apply" class="secondary-button">认证作者申请</RouterLink>
-            <RouterLink to="/me/settings" class="secondary-button">完善作者资料</RouterLink>
-          </div>
-        </article>
-      </section>
-
-      <section class="profile-panel mt-6">
-        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p class="text-xs font-black text-primary-600 dark:text-primary-300">内容资产</p>
-            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">稍后读、未整理收藏和内容合集</h2>
-            <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              私密合集只在本人主页可见；公开合集仍需要通过治理过滤后才会进入访客主页。
-            </p>
-          </div>
-          <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
-        </div>
-        <div class="asset-grid">
-          <RouterLink to="/me?tab=favorites" class="asset-card">
-            <Bookmark class="h-4 w-4 text-primary-600" />
-            <strong>稍后读</strong>
-            <span>默认保存入口</span>
-            <small>{{ favoriteAssetCountText }}</small>
-          </RouterLink>
-          <RouterLink to="/me?tab=favorites" class="asset-card">
-            <BookmarkCheck class="h-4 w-4 text-primary-600" />
-            <strong>未整理收藏</strong>
-            <span>先回看，再整理到合集</span>
-            <small>{{ unorganizedFavoriteCountText }}</small>
-          </RouterLink>
-          <RouterLink to="/series/workbench" class="asset-card">
-            <Lock class="h-4 w-4 text-primary-600" />
-            <strong>私密合集</strong>
-            <span>只对本人可见</span>
-            <small>{{ privateCollectionCount }} 个</small>
-          </RouterLink>
-          <RouterLink to="/series/workbench" class="asset-card">
-            <Globe2 class="h-4 w-4 text-primary-600" />
-            <strong>公开合集</strong>
-            <span>通过治理后展示</span>
-            <small>{{ publicCollectionCount }} 个</small>
-          </RouterLink>
-        </div>
-      </section>
-
-      <section class="profile-panel mt-6">
-        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">代表内容</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              优先选择精选、高互动和最近更新的公开内容展示在作者主页。
-            </p>
-          </div>
-          <RouterLink to="/editor" class="secondary-button">继续发布</RouterLink>
-        </div>
-        <div v-if="representativePosts.length" class="representative-grid">
-          <RouterLink v-for="post in representativePosts" :key="post.id" :to="post.to" class="representative-card">
-            <strong>{{ post.title }}</strong>
-            <span>{{ post.meta }}</span>
-          </RouterLink>
-        </div>
-        <div v-else-if="representativePostsPending" class="empty-inline">
-          创作者工作台正在读取公开内容摘要，暂不把未读取结果解释为没有代表内容。
-        </div>
-        <div v-else class="empty-inline">
-          发布第一篇公开内容后，这里会形成你的作者主页代表内容。
-        </div>
-      </section>
-
-      <section class="mt-6">
         <div class="tab-bar max-w-full overflow-x-auto" role="tablist" aria-label="个人内容与关系">
           <button
             v-for="(tab, index) in tabs"
-            :key="tab.value"
             :id="profileTabId(tab.value)"
+            :key="tab.value"
             type="button"
             role="tab"
             :aria-selected="activeTab === tab.value"
@@ -485,7 +145,7 @@
 
         <div
           :id="profileTabPanelId(activeTab)"
-          class="mt-5"
+          class="profile-tab-panel"
           role="tabpanel"
           :aria-labelledby="profileTabId(activeTab)"
           tabindex="0"
@@ -495,8 +155,6 @@
               :state="posts"
               empty-title="还没有发布内容"
               empty-description="发布第一篇经验、问题、攻略或资源，让主页先有一个代表内容。"
-              empty-action-text="去发布"
-              empty-action-href="/editor"
               @load-more="loadPosts(true)"
               @like="handleLike"
               @favorite="handleFavorite"
@@ -561,7 +219,7 @@
                 </div>
                 <div v-if="canBatchMoveFavorites" class="favorite-batch-toolbar">
                   <label>
-                    <input type="checkbox" :checked="allVisibleFavoritesSelected" @change="toggleSelectVisibleFavorites" />
+                    <input type="checkbox" :checked="allVisibleFavoritesSelected" @change="toggleSelectVisibleFavorites">
                     <span>选择当前页</span>
                   </label>
                   <span>{{ selectedFavoritePostIds.length }} 条已选</span>
@@ -646,6 +304,438 @@
               @follow-change="handleFollowerUserChange"
             />
           </section>
+        </div>
+      </section>
+
+      <details class="profile-workspace-group">
+        <summary>
+          <span>
+            <strong>参与与协作</strong>
+            <small>查看个人参与记录和需要继续处理的协作事项</small>
+          </span>
+          <span aria-hidden="true">展开</span>
+        </summary>
+        <ParticipationHub class="profile-workspace-content" />
+      </details>
+
+      <details class="profile-workspace-group">
+        <summary>
+          <span>
+            <strong>内容管理</strong>
+            <small>创作者反馈、内容维护和公开主页经营</small>
+          </span>
+          <span aria-hidden="true">展开</span>
+        </summary>
+        <section id="creator-workbench" class="creator-feedback-panel profile-workspace-content">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div class="creator-workbench-title-row">
+                <p class="text-xs font-black text-primary-600 dark:text-primary-300">创作者轻反馈 · 创作者工作台</p>
+                <span class="workspace-source-pill">{{ creatorWorkspaceStateLabel }}</span>
+              </div>
+              <h2>公开内容反馈、维护入口和下一篇方向</h2>
+              <span>只聚合公开内容信号，只展示公开内容互动，覆盖近 7 天/30 天，不承诺曝光效果；回复、更新和选题入口会带上创作者工作台来源上下文。</span>
+              <span>{{ creatorWorkspaceNotice }}</span>
+            </div>
+            <div class="creator-feedback-actions">
+              <RouterLink to="/me/notifications" class="secondary-button">查看通知中心</RouterLink>
+              <RouterLink :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'template', contextType: 'template', returnHref: '/me#creator-workbench' } }" class="primary-button">开始写一篇</RouterLink>
+            </div>
+          </div>
+          <p v-if="creatorWorkspaceError" class="creator-empty-copy mt-3">{{ creatorWorkspaceError }}</p>
+          <div v-if="meaningfulFeedbackWindows.length" class="feedback-window-grid">
+            <article v-for="item in meaningfulFeedbackWindows" :key="item.label" class="feedback-window-card">
+              <div>
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.description }}</span>
+              </div>
+              <div class="feedback-window-metrics">
+                <span>{{ item.posts }} 篇内容</span>
+                <span>{{ item.comments }} 条评论</span>
+                <span>{{ item.favorites }} 次收藏</span>
+                <span>{{ item.likes }} 次点赞</span>
+              </div>
+            </article>
+          </div>
+          <div
+            class="trusted-content-workbench"
+            aria-labelledby="trusted-content-workbench-title"
+            data-trusted-content-items="pendingSuggestionItems freshnessItems profileConfirmationItems pendingQuestionItems"
+          >
+            <div class="trusted-content-workbench-head">
+              <div>
+                <div class="trusted-content-title-row">
+                  <strong id="trusted-content-workbench-title">可信内容待办</strong>
+                  <span v-if="creatorTrustedContentPending" class="trusted-content-status">加载中</span>
+                  <span v-else-if="creatorTrustedContentDegraded" class="trusted-content-status">暂不可用</span>
+                </div>
+                <span>优先处理问题闭环、读者补充和内容时效；这些数据不会换算成积分或公开排名。</span>
+              </div>
+              <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
+            </div>
+            <div v-if="trustedContentTodoCount > 0" class="trusted-content-task-list">
+              <RouterLink id="trusted-content-task-suggestions" :to="{ path: '/me', query: { tab: 'posts', focus: 'suggestions' }, hash: '#creator-workbench' }">
+                <span>待处理补充 / 纠错</span>
+                <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.pendingSuggestions) }}</strong>
+              </RouterLink>
+              <RouterLink id="trusted-content-task-freshness" :to="{ path: '/me', query: { tab: 'posts', focus: 'freshness' }, hash: '#creator-workbench' }">
+                <span>待确认时效内容</span>
+                <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.freshnessAwaitingConfirmation) }}</strong>
+              </RouterLink>
+              <RouterLink id="trusted-content-task-profile" :to="{ path: '/me', query: { tab: 'posts', focus: 'trust-profile' }, hash: '#creator-workbench' }">
+                <span>待确认经验背景</span>
+                <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.profileConfirmationDue) }}</strong>
+              </RouterLink>
+              <RouterLink id="trusted-content-task-questions" :to="{ path: '/me', query: { tab: 'posts', focus: 'questions' }, hash: '#creator-workbench' }">
+                <span>尚未闭环的问题</span>
+                <strong>{{ creatorTrustedContentMetric(creatorTrustedContent.unresolvedQuestions) }}</strong>
+              </RouterLink>
+            </div>
+            <div v-for="task in trustedContentTaskGroups.filter((item) => item.items.length)" :id="`trusted-content-task-items-${task.key}`" :key="task.key" :data-trusted-content-source="task.sourceField" class="trusted-content-task-items">
+              <div class="trusted-content-task-items-head">
+                <span>{{ task.label }}</span>
+                <small>{{ task.items.length }} 条待处理</small>
+              </div>
+              <div v-if="task.items.length" class="trusted-content-item-list">
+                <RouterLink
+                  v-for="item in task.items"
+                  :key="`${task.key}-${item.id}`"
+                  :to="trustedContentTaskHref(item, task.key)"
+                  class="trusted-content-item"
+                >
+                  <span class="trusted-content-item-title">{{ item.postTitle }}</span>
+                  <small>{{ item.statusLabel }}<template v-if="item.timeLabel"> · {{ item.timeLabel }}</template></small>
+                </RouterLink>
+              </div>
+              <p v-else class="trusted-content-task-items-empty">暂无具体待处理内容</p>
+            </div>
+            <div v-if="hasTrustedContentActivity" class="trusted-content-window-list">
+              <div>
+                <span>近 7 天</span>
+                <strong>
+                  {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback7Days) }}
+                  <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
+                </strong>
+                <small>
+                  {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads7Days) }}
+                  <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
+                </small>
+              </div>
+              <div>
+                <span>近 30 天</span>
+                <strong>
+                  {{ creatorTrustedContentMetric(creatorTrustedContent.usefulFeedback30Days) }}
+                  <template v-if="!creatorTrustedContentDegraded">次“为什么有用”</template>
+                </strong>
+                <small>
+                  {{ creatorTrustedContentMetric(creatorTrustedContent.effectiveReads30Days) }}
+                  <template v-if="!creatorTrustedContentDegraded">次有效阅读</template>
+                </small>
+              </div>
+            </div>
+          </div>
+          <section
+            class="content-improvement-workbench"
+            aria-labelledby="content-improvement-workbench-title"
+            data-content-improvement-source="server-aggregate-only"
+          >
+            <div class="content-improvement-workbench-head">
+              <div>
+                <div class="trusted-content-title-row">
+                  <strong id="content-improvement-workbench-title">内容改进线索</strong>
+                  <span v-if="contentImprovementSignalsLoading" class="trusted-content-status">加载中</span>
+                  <span v-else-if="contentImprovementSignals?.degraded || contentImprovementSignalsError" class="trusted-content-status">暂不可用</span>
+                </div>
+                <span>仅在达到匿名聚合条件时提示复核，不展示读者、反馈数量或个人分发偏好。</span>
+              </div>
+              <RouterLink to="/me?tab=posts">管理公开内容</RouterLink>
+            </div>
+            <p v-if="contentImprovementSignalsError" class="creator-empty-copy">{{ contentImprovementSignalsError }}</p>
+            <div v-else-if="contentImprovementSignalsLoading" class="content-improvement-state" role="status">正在读取匿名质量信号</div>
+            <div v-else-if="contentImprovementSignals?.degraded" class="content-improvement-state">内容改进线索暂不可用，当前不会把它解释为没有需要复核的内容。</div>
+            <div v-else-if="contentImprovementSignals?.items.length" class="content-improvement-list">
+              <article
+                v-for="item in contentImprovementSignals.items"
+                :key="item.postId"
+                :class="['content-improvement-item', { 'is-awaiting-feedback': item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' }]"
+              >
+                <div class="content-improvement-item-copy">
+                  <span class="content-improvement-item-domain">{{ item.domainName }}</span>
+                  <RouterLink :to="item.postHref" class="content-improvement-item-title">{{ item.postTitle }}</RouterLink>
+                  <strong>{{ item.headline }}</strong>
+                  <p>{{ item.detail }}</p>
+                </div>
+                <RouterLink
+                  v-if="item.state === 'MAINTENANCE_EXISTS' && item.workspaceHref"
+                  :to="item.workspaceHref"
+                  class="secondary-button content-improvement-edit"
+                >
+                  打开维护工作区
+                </RouterLink>
+                <RouterLink v-else-if="item.editHref" :to="item.editHref" class="secondary-button content-improvement-edit">
+                  {{ item.state === 'UPDATED_AWAITING_ANONYMOUS_FEEDBACK' ? '查看当前版本' : '查看并更新' }}
+                </RouterLink>
+              </article>
+            </div>
+            <div
+              v-if="contentImprovementSignals?.hasMore && contentImprovementSignals.nextCursor"
+              class="content-improvement-more"
+            >
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="contentImprovementSignalsLoadingMore"
+                @click="loadMoreContentImprovementSignals"
+              >
+                {{ contentImprovementSignalsLoadingMore ? '加载中' : '加载更多' }}
+              </button>
+            </div>
+            <p v-else-if="!contentImprovementSignals?.items.length" class="content-improvement-state">近 {{ contentImprovementSignals?.periodDays || 30 }} 天暂无可展示的匿名质量复核线索；这不代表所有读者都满意。</p>
+          </section>
+          <div v-if="hasCreatorFeedbackStats" class="creator-feedback-stat-grid">
+            <RouterLink v-if="publicImpactStats.recentComments > 0" to="/me?tab=posts" class="feedback-stat">
+              <MessageCircle class="h-4 w-4 text-primary-600" />
+              <strong>{{ publicImpactStats.recentComments }}</strong>
+              <span>近期评论</span>
+              <small>公开讨论里的可回应线索</small>
+            </RouterLink>
+            <RouterLink v-if="publicImpactStats.recentFavorites > 0" to="/me?tab=favorites" class="feedback-stat">
+              <Bookmark class="h-4 w-4 text-primary-600" />
+              <strong>{{ publicImpactStats.recentFavorites }}</strong>
+              <span>近期收藏</span>
+              <small>适合沉淀成清单或合集</small>
+            </RouterLink>
+            <RouterLink v-if="publicImpactStats.curationCount > 0" :to="{ path: '/growth/profile', hash: '#curation-feedback' }" class="feedback-stat">
+              <Globe2 class="h-4 w-4 text-primary-600" />
+              <strong>{{ publicImpactStats.curationCount }}</strong>
+              <span>收录 / 精选</span>
+              <small>查看公开内容被收录记录</small>
+            </RouterLink>
+            <RouterLink v-if="topFeedbackScore > 0" :to="topFeedbackPost ? topFeedbackPost.to : '/me?tab=posts'" class="feedback-stat">
+              <Heart class="h-4 w-4 text-primary-600" />
+              <strong>{{ topFeedbackScore }}</strong>
+              <span>近期表现较好内容</span>
+              <small>{{ topFeedbackPost ? '打开内容查看公共反馈' : '发布后会出现' }}</small>
+            </RouterLink>
+          </div>
+          <div class="creator-workbench-grid">
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>近期表现较好内容</strong>
+                <RouterLink to="/me?tab=posts">管理内容</RouterLink>
+              </div>
+              <div v-if="topFeedbackPosts.length" class="creator-link-list">
+                <RouterLink v-for="post in topFeedbackPosts" :key="post.id" :to="post.to" class="creator-link-main">
+                  <span>{{ post.title }}</span>
+                  <small>{{ post.meta }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="creator-empty-copy">发布公开内容后，这里会按评论、收藏和点赞展示可继续经营的内容。</p>
+            </article>
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>收录 / 精选记录</strong>
+                <RouterLink :to="{ path: '/growth/profile', hash: '#curation-feedback' }">查看详情</RouterLink>
+              </div>
+              <div v-if="curationFeedbackItems.length" class="creator-link-list">
+                <RouterLink v-for="item in curationFeedbackItems" :key="item.id" :to="item.to" class="creator-link-main">
+                  <span>{{ item.title }}</span>
+                  <small>{{ item.meta }}</small>
+                  <small v-if="item.badge">{{ item.badge }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="creator-empty-copy">暂无公开内容收录记录；后续被专题或精选收录时会在这里展示理由。</p>
+            </article>
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>回复机会</strong>
+                <RouterLink to="/me?tab=posts">回到内容讨论</RouterLink>
+              </div>
+              <div v-if="replyOpportunities.length" class="creator-link-list">
+                <RouterLink v-for="item in replyOpportunities" :key="item.id" :to="item.to" class="creator-link-main">
+                  <span>{{ item.title }}</span>
+                  <small>{{ item.meta }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="creator-empty-copy">暂时没有需要集中回应的讨论；可以先整理代表作或公开合集。</p>
+            </article>
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>选题灵感</strong>
+                <RouterLink :to="{ path: '/editor', query: { source: 'creator_workbench', action: 'template', contextType: 'template', returnHref: '/me#creator-workbench' } }">空白发布</RouterLink>
+              </div>
+              <div class="creator-link-list">
+                <RouterLink v-for="idea in topicIdeas" :key="idea.id" :to="{ path: '/editor', query: idea.query }" class="creator-link-main">
+                  <span>{{ idea.title }}</span>
+                  <small>{{ idea.reason }}</small>
+                </RouterLink>
+              </div>
+            </article>
+            <article class="creator-workbench-card">
+              <div class="creator-workbench-head">
+                <strong>聚合搜索缺口</strong>
+                <RouterLink to="/search">查看发现</RouterLink>
+              </div>
+              <div v-if="searchGaps.length" class="creator-link-list">
+                <RouterLink v-for="gap in searchGaps" :key="gap.id" :to="gap.to" class="creator-link-main">
+                  <span>{{ gap.title }}</span>
+                  <small>{{ gap.reason }}</small>
+                  <small v-if="gap.badge">{{ gap.badge }}</small>
+                </RouterLink>
+              </div>
+              <p v-else class="creator-empty-copy">暂无可展示的聚合需求；有新的匿名需求时，会在这里提供选题入口。</p>
+            </article>
+          </div>
+        </section>
+
+        <CreatorChallengeWorkspace class="profile-workspace-content" />
+
+        <section class="creator-center-grid profile-workspace-content">
+          <article class="creator-action-panel">
+            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p class="text-xs font-black text-primary-600 dark:text-primary-300">下一步行动</p>
+                <h2>创作者中心</h2>
+              </div>
+              <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
+            </div>
+            <div class="creator-action-list">
+              <RouterLink to="/me?tab=followers" class="creator-action-card">
+                <strong>新增关注者</strong>
+                <span>{{ user?.followerCount ?? followers.items.length }} 位作者主页回访线索，只展示公开内容互动。</span>
+              </RouterLink>
+              <RouterLink v-for="item in creatorActions" :key="item.href" :to="item.href" class="creator-action-card">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.description }}</span>
+              </RouterLink>
+            </div>
+          </article>
+
+          <article class="creator-cert-panel">
+            <p class="text-xs font-black text-primary-600 dark:text-primary-300">作者主页经营</p>
+            <h2>社区身份、代表作和公开合集</h2>
+            <p>
+              先用公开内容和公开合集经营主页；代表内容会根据公开状态和可见性展示。
+            </p>
+            <span v-if="publicCollectionCount" class="creator-cert-meta">当前公开合集 {{ publicCollectionCount }} 个</span>
+            <div class="creator-cert-actions">
+              <RouterLink to="/me?tab=posts" class="primary-button">选择代表内容</RouterLink>
+              <RouterLink to="/certification/apply" class="secondary-button">认证作者申请</RouterLink>
+              <RouterLink to="/me/settings" class="secondary-button">完善作者资料</RouterLink>
+            </div>
+          </article>
+        </section>
+      </details>
+
+      <details class="profile-workspace-group">
+        <summary>
+          <span>
+            <strong>账号与治理</strong>
+            <small>低频管理入口集中放置，不打断个人内容浏览</small>
+          </span>
+          <span aria-hidden="true">展开</span>
+        </summary>
+        <section class="profile-secondary-tools profile-workspace-content" aria-labelledby="profile-secondary-tools-title">
+          <div class="profile-secondary-tools__heading">
+            <div>
+              <p class="section-kicker">个人工具</p>
+              <h2 id="profile-secondary-tools-title">维护与账号管理</h2>
+              <p>这些入口保留完整能力，但不占用作者主页的主要阅读顺序。</p>
+            </div>
+          </div>
+          <div class="profile-secondary-tools__grid">
+            <RouterLink to="/me/contact-requests" class="profile-tool-link">
+              <Mail class="h-4 w-4" />
+              <span><strong>联系请求</strong><small>查看站内联系与处理状态</small></span>
+            </RouterLink>
+            <RouterLink to="/me/relationships" class="profile-tool-link">
+              <Users class="h-4 w-4" />
+              <span><strong>关系管理</strong><small>管理关注、静音和通知偏好</small></span>
+            </RouterLink>
+            <RouterLink to="/me/maintenance" class="profile-tool-link">
+              <ListChecks class="h-4 w-4" />
+              <span><strong>维护任务</strong><small>处理分配给你的内容维护事项</small></span>
+            </RouterLink>
+            <RouterLink to="/me/knowledge" class="profile-tool-link">
+              <BookmarkCheck class="h-4 w-4" />
+              <span><strong>知识维护</strong><small>回应建议、时效和来源问题</small></span>
+            </RouterLink>
+            <RouterLink to="/me/reports" class="profile-tool-link">
+              <Flag class="h-4 w-4" />
+              <span><strong>我的举报</strong><small>查看举报回执与处理进度</small></span>
+            </RouterLink>
+            <RouterLink to="/me/governance-todos" class="profile-tool-link">
+              <ListChecks class="h-4 w-4" />
+              <span><strong>治理待办</strong><small>查看分配给你的只读治理事项</small></span>
+            </RouterLink>
+            <RouterLink to="/me/settings" class="profile-tool-link">
+              <Settings class="h-4 w-4" />
+              <span><strong>账号设置</strong><small>编辑资料和个人偏好</small></span>
+            </RouterLink>
+          </div>
+        </section>
+      </details>
+
+      <section v-if="hasAnyAssets" class="profile-panel mt-6">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="text-xs font-black text-primary-600 dark:text-primary-300">内容资产</p>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">稍后读、未整理收藏和内容合集</h2>
+            <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              私密合集只在本人主页可见；公开合集仍需要通过治理过滤后才会进入访客主页。
+            </p>
+          </div>
+          <RouterLink to="/series/workbench" class="secondary-button">整理合集</RouterLink>
+        </div>
+        <div class="asset-grid">
+          <RouterLink to="/me?tab=favorites" class="asset-card">
+            <Bookmark class="h-4 w-4 text-primary-600" />
+            <strong>稍后读</strong>
+            <span>默认保存入口</span>
+            <small>{{ favoriteAssetCountText }}</small>
+          </RouterLink>
+          <RouterLink to="/me?tab=favorites" class="asset-card">
+            <BookmarkCheck class="h-4 w-4 text-primary-600" />
+            <strong>未整理收藏</strong>
+            <span>先回看，再整理到合集</span>
+            <small>{{ unorganizedFavoriteCountText }}</small>
+          </RouterLink>
+          <RouterLink to="/series/workbench" class="asset-card">
+            <Lock class="h-4 w-4 text-primary-600" />
+            <strong>私密合集</strong>
+            <span>只对本人可见</span>
+            <small>{{ privateCollectionCount }} 个</small>
+          </RouterLink>
+          <RouterLink to="/series/workbench" class="asset-card">
+            <Globe2 class="h-4 w-4 text-primary-600" />
+            <strong>公开合集</strong>
+            <span>通过治理后展示</span>
+            <small>{{ publicCollectionCount }} 个</small>
+          </RouterLink>
+        </div>
+      </section>
+
+      <section v-if="representativePosts.length || representativePostsPending" class="profile-panel mt-6">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-950 dark:text-slate-50">代表内容</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              优先选择精选、高互动和最近更新的公开内容展示在作者主页。
+            </p>
+          </div>
+          <RouterLink v-if="hasPublishedContent" to="/editor" class="secondary-button">继续发布</RouterLink>
+        </div>
+        <div v-if="representativePosts.length" class="representative-grid">
+          <RouterLink v-for="post in representativePosts" :key="post.id" :to="post.to" class="representative-card">
+            <strong>{{ post.title }}</strong>
+            <span>{{ post.meta }}</span>
+          </RouterLink>
+        </div>
+        <div v-else-if="representativePostsPending" class="empty-inline">
+          创作者工作台正在读取公开内容摘要，暂不把未读取结果解释为没有代表内容。
+        </div>
+        <div v-else class="empty-inline">
+          发布第一篇公开内容后，这里会形成你的作者主页代表内容。
         </div>
       </section>
     </main>
@@ -908,8 +998,8 @@ const localContribution = computed(() => {
 })
 const contribution = computed(() => backendContribution.value || localContribution.value)
 const contributionSourceText = computed(() => (
-  contribution.value.source === 'backend_aggregate'
-    ? '由后端按公开内容、精选和互动数据汇总'
+    contribution.value.source === 'backend_aggregate'
+    ? '按公开内容、精选和互动反馈汇总'
     : contribution.value.source === 'local_demo_seed'
       ? '当前为本地作者数据样例'
     : contribution.value.source === 'empty_profile'
@@ -948,7 +1038,7 @@ const normalizeFavoriteFolder = (raw: any): FavoriteFolderView => {
   return {
     id: id || (isDefault ? 'default' : isUnorganized ? 'unorganized' : `folder-${Date.now()}`),
     name: String(raw?.name ?? raw?.title ?? (isUnorganized ? '未整理收藏' : isDefault ? '默认收藏夹' : '收藏夹')),
-    description: String(raw?.description ?? raw?.summary ?? (isUnorganized ? '后端可区分时展示未整理内容' : isDefault ? '一键收藏默认进入这里' : '自定义收藏夹')),
+    description: String(raw?.description ?? raw?.summary ?? (isUnorganized ? '集中查看尚未整理的收藏' : isDefault ? '一键收藏默认进入这里' : '自定义收藏夹')),
     count: Number(raw?.count ?? raw?.postCount ?? raw?.favoriteCount ?? raw?.totalCount ?? 0),
     kind: isUnorganized ? 'unorganized' : isDefault ? 'default' : 'custom',
     isPublic,
@@ -974,7 +1064,7 @@ const fallbackFavoriteFolders = computed<FavoriteFolderView[]>(() => [
   {
     id: 'unorganized',
     name: '未整理收藏',
-    description: '后端可区分时展示未整理内容',
+    description: '集中查看尚未整理的收藏',
     count: unorganizedFavoriteCount.value,
     kind: 'unorganized',
     isPublic: false,
@@ -1014,7 +1104,7 @@ const activeFavoriteFolderTitle = computed(() => activeFavoriteFolder.value?.nam
 const activeFavoriteFolderDescription = computed(() => {
   const folder = activeFavoriteFolder.value
   if (!folder || folder.id === 'all') return '查看你保存过的经验、问题、攻略和资源，也可以按收藏夹继续整理。'
-  if (folder.kind === 'unorganized') return '后端可区分未整理收藏时，这里只展示尚未放入自定义收藏夹的内容。'
+  if (folder.kind === 'unorganized') return '这里集中展示尚未放入自定义收藏夹的内容。'
   return folder.description || (folder.isPublic ? '公开收藏夹只对外展示其中公开可见的内容。' : '私密收藏夹只在你的个人空间可见。')
 })
 const activeFavoriteFolderMeta = computed(() => {
@@ -1230,6 +1320,9 @@ const feedbackWindows = computed(() => {
   const windows = workspaceFeedbackSummary.value?.windows || []
   return windows.length ? windows.slice(0, 2).map(mapFeedbackWindow) : [summarizeWindow(7), summarizeWindow(30)]
 })
+const meaningfulFeedbackWindows = computed(() => feedbackWindows.value.filter((item) => (
+  [item.posts, item.comments, item.favorites, item.likes].some((value) => Number(value) > 0)
+)))
 const publicImpactStats = computed(() => ({
   publicPosts: workspaceSummary.value?.publicPostCount ?? contribution.value.postCount,
   recentFavorites: workspaceSummary.value?.favoriteCount ?? bestFeedbackWindow.value?.favoriteCount ?? contribution.value.favoriteCount,
@@ -1394,6 +1487,110 @@ const representativePostsPending = computed(() => (
   creatorWorkspaceLoading.value
   || (!creatorWorkspace.value && !posts.loaded)
 ))
+const trustedContentTodoCount = computed(() => [
+  creatorTrustedContent.value.pendingSuggestions,
+  creatorTrustedContent.value.freshnessAwaitingConfirmation,
+  creatorTrustedContent.value.profileConfirmationDue,
+  creatorTrustedContent.value.unresolvedQuestions,
+].reduce((total, value) => total + (Number.isFinite(Number(value)) ? Number(value) : 0), 0))
+const hasTrustedContentActivity = computed(() => [
+  creatorTrustedContent.value.usefulFeedback7Days,
+  creatorTrustedContent.value.effectiveReads7Days,
+  creatorTrustedContent.value.usefulFeedback30Days,
+  creatorTrustedContent.value.effectiveReads30Days,
+].some((value) => Number(value) > 0))
+const hasPublishedContent = computed(() => (
+  authorPublicPosts.value.length > 0
+  || Number(user.value?.postCount ?? 0) > 0
+))
+const isEmptyProfile = computed(() => (
+  authorPublicPosts.value.length === 0
+  && unorganizedFavoriteCount.value === 0
+  && publicCollectionCount.value === 0
+  && privateCollectionCount.value === 0
+  && Number(user.value?.followingCount ?? 0) === 0
+  && Number(user.value?.followerCount ?? 0) === 0
+  && trustedContentTodoCount.value === 0
+))
+const profileNextAction = computed(() => {
+  if (isEmptyProfile.value) {
+    return {
+      title: '发布第一篇公开内容',
+      description: '从一个真实问题、经验或资源开始，建立可被回访的个人主页。',
+      action: '开始发布',
+      href: '/editor',
+    }
+  }
+  if (trustedContentTodoCount.value > 0) {
+    return {
+      title: '处理公开内容待办',
+      description: `有 ${trustedContentTodoCount.value} 项内容维护线索需要确认，处理后再继续发布。`,
+      action: '查看待办',
+      href: { path: '/me', query: { tab: 'posts', focus: 'suggestions' }, hash: '#creator-workbench' },
+    }
+  }
+  const reply = replyOpportunities.value[0]
+  if (reply) {
+    return {
+      title: '回到最近的讨论',
+      description: reply.meta,
+      action: '继续回应',
+      href: reply.to,
+    }
+  }
+  if (unorganizedFavoriteCount.value > 0) {
+    return {
+      title: '整理最近收藏',
+      description: `还有 ${unorganizedFavoriteCount.value} 条收藏未整理，可以先放入合适的收藏夹或合集。`,
+      action: '整理收藏',
+      href: '/me?tab=favorites',
+    }
+  }
+  if (authorPublicPosts.value.length === 0) {
+    return {
+      title: '发布第一篇公开内容',
+      description: '从一个真实问题、经验或资源开始，建立可被回访的个人主页。',
+      action: '开始发布',
+      href: '/editor',
+    }
+  }
+  return {
+    title: '继续完善你的公开主页',
+    description: '补充一篇近期经验，或把已有内容整理成更容易回看的系列。',
+    action: '继续发布',
+    href: '/editor',
+  }
+})
+const recentAssetLinks = computed(() => [
+  authorPublicPosts.value.length > 0
+    ? { label: '公开内容', value: `${authorPublicPosts.value.length} 篇`, href: '/me?tab=posts' }
+    : null,
+  representativePosts.value.length > 0
+    ? { label: '代表内容', value: `${representativePosts.value.length} 篇`, href: '/me?tab=posts' }
+    : null,
+  unorganizedFavoriteCount.value > 0
+    ? { label: '待整理收藏', value: `${unorganizedFavoriteCount.value} 条`, href: '/me?tab=favorites' }
+    : null,
+  publicCollectionCount.value > 0
+    ? { label: '公开合集', value: `${publicCollectionCount.value} 个`, href: '/series/workbench' }
+    : null,
+].filter((item): item is { label: string; value: string; href: string } => item !== null))
+const hasMeaningfulPublicImpact = computed(() => (
+  typeDistribution.value.length > 0
+  || Object.values(publicImpactStats.value).some((value) => Number(value) > 0)
+  || Boolean(profileDemoNotice.value)
+))
+const hasCreatorFeedbackStats = computed(() => (
+  publicImpactStats.value.recentComments > 0
+  || publicImpactStats.value.recentFavorites > 0
+  || publicImpactStats.value.curationCount > 0
+  || topFeedbackScore.value > 0
+))
+const hasAnyAssets = computed(() => (
+  unorganizedFavoriteCount.value > 0
+  || publicCollectionCount.value > 0
+  || privateCollectionCount.value > 0
+))
 const firstTopicName = (post?: Post | null) => post?.tags?.[0]?.name || ''
 const mapTopicIdea = (idea: CreatorTopicIdea): WorkbenchTopicIdeaItem => ({
   id: String(idea.id),
@@ -1504,7 +1701,7 @@ const buildCreatorActions = () => [
     href: '/me?tab=posts',
     title: '代表作管理入口',
     description: representativePosts.value.length
-      ? '当前先展示系统挑选的公开内容候选；手动保存需等待代表作 adapter。'
+      ? '当前先展示系统挑选的公开内容候选；确认后即可作为主页代表内容。'
       : '发布公开内容后，可从这里挑选作者主页展示候选。',
   },
   {
@@ -2528,26 +2725,245 @@ watch(
 </script>
 
 <style scoped>
+.me-profile-page {
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+.me-profile-main {
+  padding-top: 1.5rem;
+  padding-bottom: 6rem;
+}
+
 .profile-panel {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.75rem;
-  background: white;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
   padding: 1.5rem;
+}
+
+.profile-hero-panel {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.profile-focus-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+  gap: 1px;
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--border-subtle);
+}
+
+.profile-focus-panel--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.profile-next-action,
+.profile-recent-assets {
+  min-width: 0;
+  background: var(--surface-1);
+  padding: 1.1rem;
+}
+
+.profile-next-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.profile-next-action h2,
+.profile-recent-assets h2 {
+  margin: 0.2rem 0 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.profile-next-action p:last-child,
+.profile-recent-assets__empty {
+  max-width: 62ch;
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.profile-recent-assets__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.profile-recent-assets__heading > a {
+  flex: none;
+  color: var(--primary-700);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.profile-recent-assets__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.profile-recent-assets__list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.35rem 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.profile-recent-assets__list strong {
+  color: var(--text-strong);
+  font-weight: 800;
+}
+
+.profile-workspace-group {
+  margin-top: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+}
+
+.profile-workspace-group > summary {
+  display: flex;
+  min-height: 4rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.profile-workspace-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-workspace-group > summary > span:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.profile-workspace-group > summary strong {
+  color: var(--text-strong);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.profile-workspace-group > summary small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.profile-workspace-group > summary > span:last-child {
+  flex: none;
+  color: var(--primary-700);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.profile-workspace-group[open] > summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.profile-workspace-group[open] > summary > span:last-child {
+  font-size: 0;
+}
+
+.profile-workspace-group[open] > summary > span:last-child::after {
+  content: '收起';
+  font-size: 0.76rem;
+}
+
+.profile-workspace-content {
+  margin: 1rem;
+}
+
+.profile-hero-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.25rem;
 }
 
 .avatar {
   display: flex;
-  height: 6rem;
-  width: 6rem;
+  height: 5.25rem;
+  width: 5.25rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   border-radius: 999px;
-  background: rgb(37 99 235);
-  font-size: 2rem;
+  background: var(--primary-600);
+  font-size: 1.75rem;
   font-weight: 800;
   color: white;
+}
+
+.profile-identity {
+  min-width: 0;
+}
+
+.profile-context,
+.section-kicker {
+  margin: 0;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.profile-name-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.2rem;
+}
+
+.profile-name-row h1 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  font-size: 1.5rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.profile-author-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--primary-50);
+  padding: 0.25rem 0.6rem;
+  color: var(--primary-700);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.profile-signature {
+  max-width: 68ch;
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  text-wrap: pretty;
 }
 
 .profile-actions {
@@ -2558,35 +2974,142 @@ watch(
   justify-content: flex-end;
 }
 
+.profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin-top: 1rem;
+}
+
 .metric-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.25rem 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.625rem;
-  background: rgb(248 250 252);
-  padding: 0.85rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  transition: color 0.18s ease;
+}
+
+.metric-card:hover {
+  color: var(--primary-600);
 }
 
 .metric-card span {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 650;
 }
 
 .metric-card strong {
-  grid-column: 1 / -1;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 850;
 }
 
 .community-growth-panel {
   margin-top: 1.5rem;
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.75rem;
-  background: white;
-  padding: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1.35rem 0;
+}
+
+.public-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.profile-content-section {
+  margin-top: 1.5rem;
+}
+
+.profile-content-heading,
+.profile-secondary-tools__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.profile-content-heading h2,
+.profile-secondary-tools__heading h2 {
+  margin-top: 0.2rem;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.profile-content-heading p:not(.section-kicker),
+.profile-secondary-tools__heading p:not(.section-kicker) {
+  max-width: 64ch;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.profile-tab-panel {
+  margin-top: 0.85rem;
+  outline: none;
+}
+
+.profile-tab-panel:focus-visible {
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.14);
+}
+
+.profile-secondary-tools {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1.25rem;
+}
+
+.profile-secondary-tools__grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-tool-link {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.65rem;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.8rem;
+  color: var(--text-muted);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.profile-tool-link:hover {
+  background: var(--surface-3);
+  color: var(--primary-600);
+}
+
+.profile-tool-link > svg {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+}
+
+.profile-tool-link span,
+.profile-tool-link strong,
+.profile-tool-link small {
+  display: block;
+  min-width: 0;
+}
+
+.profile-tool-link strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.profile-tool-link small {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
 }
 
 .creator-feedback-panel {
@@ -2866,6 +3389,13 @@ watch(
 .trusted-content-window-list small {
   color: rgb(100 116 139);
   font-size: 0.75rem;
+}
+
+.creator-feedback-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.1rem;
 }
 
 .content-improvement-workbench {
@@ -3178,9 +3708,9 @@ watch(
 
 .score-card,
 .growth-stat {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-2);
   padding: 0.85rem;
 }
 
@@ -3193,7 +3723,7 @@ watch(
 .growth-stat strong {
   display: block;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: var(--primary-600);
 }
 
 .score-card strong {
@@ -3210,7 +3740,7 @@ watch(
   margin-top: 0.2rem;
   font-size: 0.78rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .type-chip {
@@ -3224,27 +3754,40 @@ watch(
 
 .tab-bar {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   overflow-x: auto;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
+  scrollbar-width: thin;
 }
 
 .tab-button {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2.875rem;
   flex-shrink: 0;
   align-items: center;
   gap: 0.45rem;
   border-bottom: 2px solid transparent;
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
+  padding: 0 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.tab-button:hover {
+  background: var(--surface-3);
+  color: var(--text-strong);
+}
+
+.tab-button:focus-visible {
+  border-radius: 6px 6px 0 0;
+  outline: 3px solid rgb(37 99 235 / 0.16);
+  outline-offset: -3px;
 }
 
 .tab-active {
-  border-color: rgb(37 99 235);
-  color: rgb(37 99 235);
+  border-color: var(--primary-600);
+  color: var(--primary-600);
 }
 
 .primary-button,
@@ -3254,21 +3797,40 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-control);
   padding: 0.5rem 0.9rem;
   font-size: 0.875rem;
   font-weight: 700;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .primary-button {
-  background: rgb(37 99 235);
+  background: var(--primary-600);
   color: white;
 }
 
+.primary-button:hover {
+  background: var(--primary-700);
+}
+
 .secondary-button {
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  color: rgb(51 65 85);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.secondary-button:hover {
+  border-color: rgb(191 219 254);
+  background: var(--surface-2);
+  color: var(--primary-600);
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.profile-tool-link:focus-visible,
+.metric-card:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 0.16);
+  outline-offset: 2px;
 }
 
 .secondary-button:disabled {
@@ -3553,11 +4115,6 @@ watch(
   color: rgb(203 213 225);
 }
 
-.dark .metric-card {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
-}
-
 .dark .asset-card {
   border-color: rgb(30 41 59);
   background: rgb(15 23 42);
@@ -3760,7 +4317,11 @@ watch(
   color: rgb(199 210 254);
 }
 
-html.dark .community-growth-panel,
+html.dark .community-growth-panel {
+  border-color: rgb(30 41 59);
+  background: transparent;
+}
+
 html.dark .score-card,
 html.dark .growth-stat {
   border-color: rgb(30 41 59);
@@ -3775,6 +4336,11 @@ html.dark .growth-stat {
 .dark .metric-card strong,
 .dark .empty-panel h3 {
   color: rgb(248 250 252);
+}
+
+.dark .profile-author-badge {
+  background: rgb(30 64 175 / 0.28);
+  color: rgb(191 219 254);
 }
 
 .dark .tab-bar {
@@ -3848,7 +4414,143 @@ html.dark .growth-stat {
   color: rgb(147 197 253);
 }
 
+@media (max-width: 900px) {
+  .profile-focus-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-hero-layout {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .profile-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .public-impact-grid,
+  .profile-secondary-tools__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
+  .me-profile-main {
+    padding-top: 1rem;
+    padding-bottom: 6.5rem;
+  }
+
+  .profile-panel {
+    padding: 1rem;
+  }
+
+  .profile-hero-layout {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.9rem;
+  }
+
+  .avatar {
+    width: 4rem;
+    height: 4rem;
+    font-size: 1.35rem;
+  }
+
+  .profile-name-row h1 {
+    font-size: 1.25rem;
+  }
+
+  .profile-signature,
+  .profile-stats,
+  .profile-actions {
+    grid-column: 1 / -1;
+  }
+
+  .profile-signature {
+    margin-top: 0.6rem;
+  }
+
+  .profile-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .profile-next-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .profile-next-action .primary-button {
+    width: 100%;
+  }
+
+  .profile-workspace-group > summary {
+    align-items: flex-start;
+  }
+
+  .profile-workspace-content {
+    margin: 0.75rem;
+  }
+
+  .profile-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    width: 100%;
+    margin-top: 0.85rem;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 0.85rem;
+  }
+
+  .metric-card {
+    display: grid;
+    gap: 0.1rem;
+    text-align: center;
+  }
+
+  .metric-card + .metric-card {
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .metric-card strong {
+    font-size: 0.9375rem;
+  }
+
+  .profile-content-heading,
+  .profile-secondary-tools__heading {
+    flex-direction: column;
+  }
+
+  .profile-content-heading .secondary-button {
+    width: 100%;
+  }
+
+  .public-impact-grid,
+  .profile-secondary-tools__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .score-card {
+    width: 100%;
+  }
+
+  .tab-bar {
+    margin-right: calc(var(--community-page-gutter) * -1);
+    margin-left: calc(var(--community-page-gutter) * -1);
+    padding: 0 var(--community-page-gutter);
+  }
+
+  .tab-button {
+    min-height: 2.75rem;
+    padding: 0 0.7rem;
+    font-size: 0.78rem;
+  }
+
+  .profile-tool-link {
+    border: 1px solid var(--border-subtle);
+  }
+
   .feedback-window-grid,
   .creator-workbench-grid,
   .trusted-content-task-list,

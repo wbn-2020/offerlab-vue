@@ -2,12 +2,12 @@
   <div class="community-growth-page min-h-screen">
     <AppHeader />
 
-    <main class="mx-auto max-w-7xl min-w-0 px-4 py-6 sm:py-8">
-      <header class="mb-5 flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <main class="community-page community-growth-main">
+      <header class="community-growth-heading mb-5 flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div class="min-w-0">
-          <p class="text-sm font-bold text-indigo-700 dark:text-indigo-300">社区成长工作台</p>
-          <h1 class="mt-1 text-2xl font-black text-slate-950 dark:text-white">贡献、野点与社区角色</h1>
-          <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+          <p class="community-growth-kicker">社区成长工作台</p>
+          <h1>贡献、野点与社区角色</h1>
+          <p class="community-growth-description">
             查看可解释的贡献记录，使用已开放的低风险权益，并参与平台悬赏与社区角色申请。
           </p>
         </div>
@@ -276,8 +276,8 @@
             <form class="form-column" @submit.prevent="sendThank">
               <h3>送出感谢</h3>
               <label class="field-label">
-                收票用户 UID
-                <input v-model.trim="thankForm.receiverUid" class="field-input" inputmode="numeric" placeholder="公开内容作者 UID">
+                收票作者编号
+                <input v-model.trim="thankForm.receiverUid" class="field-input" inputmode="numeric" placeholder="公开内容作者编号">
               </label>
               <div class="field-pair">
                 <label class="field-label">
@@ -2059,5 +2059,275 @@ onMounted(refreshAll)
 .dark .skeleton-card,
 .dark .skeleton-row {
   background: rgb(30 41 59);
+}
+
+/* Public workspace language: dense information, restrained surfaces, shared actions. */
+.community-growth-page {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.community-growth-main {
+  min-width: 0;
+  padding-top: 1.5rem;
+  padding-bottom: 6rem;
+}
+
+.community-growth-heading {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.25rem 0 1.25rem;
+}
+
+.community-growth-kicker {
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.community-growth-heading h1 {
+  margin-top: 0.3rem;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.community-growth-description {
+  max-width: 70ch;
+  margin-top: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.community-growth-page .policy-band,
+.community-growth-page .workspace-panel {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+.community-growth-page .policy-band {
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+}
+
+.community-growth-page .policy-band p {
+  color: var(--text-muted);
+}
+
+.community-growth-page .policy-band strong,
+.community-growth-page .panel-header h2,
+.community-growth-page .subsection-heading strong,
+.community-growth-page .asset-title strong,
+.community-growth-page .asset-values dd,
+.community-growth-page .row-title strong,
+.community-growth-page .block-title,
+.community-growth-page .benefit-card h3,
+.community-growth-page .form-column h3,
+.community-growth-page .mini-history strong,
+.community-growth-page .eligibility-panel dd {
+  color: var(--text-strong);
+}
+
+.community-growth-page .section-nav {
+  gap: 0.35rem;
+  padding-bottom: 0.1rem;
+}
+
+.community-growth-page .section-nav a {
+  min-height: 36px;
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.community-growth-page .section-nav a:hover {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.community-growth-page .panel-header {
+  margin-bottom: 0.9rem;
+}
+
+.community-growth-page .panel-header p,
+.community-growth-page .subsection-heading span,
+.community-growth-page .form-hint,
+.community-growth-page .dense-row small,
+.community-growth-page .benefit-meta span,
+.community-growth-page .mini-history small {
+  color: var(--text-muted);
+}
+
+.community-growth-page .count-label,
+.community-growth-page .ticket-counter {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.community-growth-page .ticket-counter {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.community-growth-page .asset-card,
+.community-growth-page .benefit-card,
+.community-growth-page .form-column {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+.community-growth-page .asset-card,
+.community-growth-page .benefit-card {
+  padding: 0.9rem;
+}
+
+.community-growth-page .asset-values div,
+.community-growth-page .eligibility-panel dl div,
+.community-growth-page .dense-row,
+.community-growth-page .section-divider,
+.community-growth-page .form-history-heading,
+.community-growth-page .mini-history > div {
+  border-color: var(--border-subtle);
+}
+
+.community-growth-page .dense-row {
+  padding: 0.8rem 0;
+}
+
+.community-growth-page .selected-row {
+  margin-right: 0;
+  margin-left: 0;
+  border-color: #93c5fd;
+  border-radius: var(--radius-control);
+  background: var(--primary-50);
+  padding: 0.8rem;
+}
+
+.community-growth-page .meta-chip,
+.community-growth-page .status-muted {
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.community-growth-page .status-ok {
+  background: #ecfdf3;
+  color: #047857;
+}
+
+.community-growth-page .status-info {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.community-growth-page .status-point,
+.community-growth-page .status-warn {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.community-growth-page .status-danger {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.community-growth-page .primary-button,
+.community-growth-page .secondary-button,
+.community-growth-page .icon-button {
+  border-radius: var(--radius-control);
+  font-weight: 800;
+}
+
+.community-growth-page .primary-button {
+  border-color: var(--primary-600);
+  background: var(--primary-600);
+}
+
+.community-growth-page .primary-button:hover:not(:disabled) {
+  background: var(--primary-700);
+}
+
+.community-growth-page .secondary-button,
+.community-growth-page .icon-button {
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+.community-growth-page .secondary-button:hover:not(:disabled),
+.community-growth-page .icon-button:hover:not(:disabled) {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.community-growth-page .field-input,
+.community-growth-page .quantity-input {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+.community-growth-page .field-input:focus,
+.community-growth-page .quantity-input:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgb(47 111 235 / 0.12);
+}
+
+.community-growth-page .empty-state {
+  border-color: var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+.community-growth-page .error-state {
+  border-color: #fecaca;
+  border-radius: var(--radius-control);
+  background: #fef2f2;
+}
+
+.community-growth-page .skeleton-card,
+.community-growth-page .skeleton-row {
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+}
+
+@media (max-width: 719px) {
+  .community-growth-main {
+    padding-top: 1rem;
+  }
+
+  .community-growth-heading h1 {
+    font-size: 1.5rem;
+  }
+
+  .community-growth-page .policy-band {
+    padding: 0.85rem;
+  }
+
+  .community-growth-page .workspace-panel {
+    padding: 0.9rem;
+  }
+
+  .community-growth-page .panel-header h2 {
+    font-size: 0.98rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .community-growth-page .skeleton-card::after,
+  .community-growth-page .skeleton-row::after {
+    animation: none;
+  }
 }
 </style>

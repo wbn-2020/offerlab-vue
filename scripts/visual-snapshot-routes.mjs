@@ -25,12 +25,54 @@ const visualSnapshotAuth = {
 
 export const visualSnapshotRoutes = [
   { name: 'home', path: '/' },
+  { name: 'post-detail', path: '/post/1' },
   { name: 'explore', path: '/explore' },
-  { name: 'search', path: '/search?q=Redis' },
+  { name: 'search', path: '/search?q=周报' },
+  { name: 'trend', path: '/trend' },
   { name: 'questions', path: '/questions' },
+  { name: 'question-detail', path: '/questions/1' },
+  { name: 'company-prep-disabled', path: '/companies/example/prep' },
   { name: 'editor', path: '/editor', auth: 'user' },
   { name: 'me', path: '/me', auth: 'user' },
-  { name: 'mock-interview-disabled', path: '/mock-interview', expectedPath: '/questions', auth: 'user' },
+  { name: 'creator-workbench', path: '/me/creator', auth: 'user' },
+  { name: 'user-profile', path: '/u/10001' },
+  { name: 'tag-detail', path: '/tag/weekly-report' },
+  { name: 'topic-detail', path: '/topics/weekly-review' },
+  { name: 'collection-detail', path: '/collections/1' },
+  { name: 'favorite-folder-detail', path: '/favorite-folders/1' },
+  { name: 'collaboration', path: '/collaboration' },
+  { name: 'collaboration-need', path: '/collaboration/needs/1' },
+  { name: 'collaboration-series', path: '/collaboration/series/1' },
+  { name: 'collaboration-activity', path: '/collaboration/activities/1' },
+  { name: 'collaboration-discussion', path: '/collaboration/discussions/1' },
+  { name: 'collaboration-office-hour', path: '/collaboration/office-hours/1' },
+  { name: 'series-workbench', path: '/series/workbench', auth: 'user' },
+  { name: 'growth-profile', path: '/growth/profile', auth: 'user' },
+  { name: 'growth-report', path: '/growth/report', auth: 'user' },
+  { name: 'community-growth', path: '/growth/community', auth: 'user' },
+  { name: 'knowledge-explore', path: '/knowledge/explore' },
+  { name: 'certification-apply', path: '/certification/apply', auth: 'user' },
+  { name: 'public-collaboration-contributions', path: '/u/10001/contributions' },
+  { name: 'knowledge-maintenance', path: '/me/knowledge', auth: 'user' },
+  { name: 'relationship-workspace', path: '/me/relationships', auth: 'user' },
+  { name: 'collaboration-action-center', path: '/me/collaboration', auth: 'user' },
+  { name: 'collaboration-need-composer', path: '/me/collaboration/needs/new', auth: 'user' },
+  { name: 'collaboration-series-submission', path: '/me/collaboration/series/submit', auth: 'user' },
+  { name: 'collaboration-activity-submission', path: '/me/collaboration/activities/submit', auth: 'user' },
+  { name: 'my-collaboration-contributions', path: '/me/collaboration/contributions', auth: 'user' },
+  { name: 'contact-requests', path: '/me/contact-requests', auth: 'user' },
+  { name: 'maintenance-tasks', path: '/me/maintenance', auth: 'user' },
+  { name: 'governance-todos', path: '/me/governance-todos', auth: 'user' },
+  { name: 'me-prep-disabled', path: '/me/prep', auth: 'user' },
+  { name: 'mock-interview-disabled', path: '/mock-interview', auth: 'user' },
+  { name: 'notifications', path: '/me/notifications', auth: 'user' },
+  { name: 'my-reports', path: '/me/reports', auth: 'user' },
+  { name: 'my-report-detail', path: '/me/reports/post/1', auth: 'user' },
+  { name: 'settings', path: '/me/settings', auth: 'user' },
+  { name: 'welcome', path: '/welcome', auth: 'user', onboarding: true },
+  { name: 'about', path: '/about' },
+  { name: 'forbidden', path: '/403' },
+  { name: 'not-found', path: '/missing-ui-rebuild-route' },
   { name: 'admin-ops', path: '/admin/ops', auth: 'admin' },
   { name: 'admin-governance', path: '/admin/governance', auth: 'admin' },
 ]
@@ -50,6 +92,110 @@ function fixtureDataFor(requestUrl) {
   const url = new URL(requestUrl)
   const path = url.pathname
   const now = Date.now()
+  const detailPost = {
+    postId: 1,
+    postType: 1,
+    domain: 2,
+    title: '入职三个月，我把周报写成了可复用的工作档案',
+    summary: '把目标、动作、证据和下周计划写成可复用的工作档案，方便协作与复盘。',
+    content: [
+      '## 为什么周报总是写成流水账',
+      '',
+      '刚开始时，我的周报只记录开会、跟需求和修问题。回头看时，自己和协作方都难以判断一件事到底推进到了哪里。',
+      '',
+      '后来我把周报固定成一份能被复用的工作档案：**目标、动作、证据、下周赌注**。',
+      '',
+      '## 四段式模板',
+      '',
+      '- **目标**：本周要推进或验证的一件事，尽量能判断是否完成。',
+      '- **动作**：实际做了什么，用动词开头，避免只写“参与了”。',
+      '- **证据**：链接、数据、截图或结论，让协作方不用继续追问。',
+      '- **下周赌注**：下一周最想赌赢的一件事，以及需要的支持。',
+      '',
+      '## 三个踩坑',
+      '',
+      '目标写得太多、证据只有“沟通中”、下周计划只是需求列表，都会让周报重新变回流水账。',
+    ].join('\n'),
+    tags: [
+      { id: 101, name: '周报', slug: 'weekly-report' },
+      { id: 102, name: '新人上手', slug: 'newcomer' },
+      { id: 103, name: '复盘模板', slug: 'retrospective-template' },
+    ],
+    author: {
+      uid: 10001,
+      nickname: '周可',
+      avatar: '',
+      signature: '写职场里可复用的小方法',
+      followerCount: 1200,
+      postCount: 36,
+      profileVisible: true,
+    },
+    counter: { view: 1680, like: 128, comment: 23, favorite: 46 },
+    myInteraction: { liked: false, favorited: false },
+    visibility: 'PUBLIC',
+    postStatus: 'PUBLISHED',
+    status: 'PUBLISHED',
+    createdAt: now - (2 * 60 * 60 * 1000),
+    updatedAt: now - (2 * 60 * 60 * 1000),
+  }
+  const searchPosts = [
+    {
+      ...detailPost,
+      postType: 15,
+      highlightTitle: '入职三个月，我把<em>周报</em>写成了可复用的工作档案',
+      highlightSummary: '以前写<em>周报</em>是交差，后来改成目标、动作、证据和下周计划四段。',
+    },
+    {
+      ...detailPost,
+      postId: 2,
+      postType: 16,
+      title: '团队周报没人看，问题可能不在格式',
+      summary: '周报到底应该服务于同步、决策还是绩效记录？不同团队对有用的判断并不一样。',
+      content: '周报真正的问题往往不是模板，而是团队没有先约定谁读、读完要做什么，以及哪些信息值得长期保留。',
+      highlightTitle: '团队<em>周报</em>没人看，问题可能不在格式',
+      highlightSummary: '<em>周报</em>到底应该服务于同步、决策还是绩效记录？',
+      tags: [
+        { id: 104, name: '团队协作', slug: 'team-collaboration' },
+        { id: 105, name: '管理沟通', slug: 'management-communication' },
+      ],
+      author: {
+        ...detailPost.author,
+        uid: 10002,
+        nickname: '苏晚',
+        signature: '记录团队协作里的真实问题',
+        followerCount: 860,
+        postCount: 18,
+      },
+      counter: { view: 1320, like: 96, comment: 31, favorite: 22 },
+      createdAt: now - (26 * 60 * 60 * 1000),
+      updatedAt: now - (26 * 60 * 60 * 1000),
+    },
+    {
+      ...detailPost,
+      postId: 3,
+      postType: 14,
+      title: '我用一个轻量模板，减少了写周报的重复劳动',
+      summary: '把固定字段、证据链接和下周计划拆开，保留真正需要思考的部分。',
+      content: '这个模板不自动生成内容，只负责把固定字段和证据入口放在一起，让每次更新只处理真正变化的部分。',
+      highlightTitle: '我用一个轻量模板，减少了写<em>周报</em>的重复劳动',
+      highlightSummary: '把固定字段、证据链接和下周计划拆开，减少写<em>周报</em>的重复劳动。',
+      tags: [
+        { id: 106, name: '效率工具', slug: 'productivity-tools' },
+        { id: 107, name: '模板', slug: 'template' },
+      ],
+      author: {
+        ...detailPost.author,
+        uid: 10003,
+        nickname: '陈予',
+        signature: '分享克制、可复用的效率工具',
+        followerCount: 640,
+        postCount: 24,
+      },
+      counter: { view: 980, like: 74, comment: 16, favorite: 39 },
+      createdAt: now - (3 * 24 * 60 * 60 * 1000),
+      updatedAt: now - (3 * 24 * 60 * 60 * 1000),
+    },
+  ]
   const user = {
     uid: 900001,
     email: 'offerlab-visual@example.com',
@@ -110,9 +256,48 @@ function fixtureDataFor(requestUrl) {
   }
   if (path === '/api/v1/me/prep/overview') return ok({ targets: [], reviewPlan: { todayQuestions: [] }, weakTags: [], stats: {} })
   if (path === '/api/v1/me/prep/weekly-report') return ok({ highlights: [], weakTags: [], nextActions: [] })
-  if (path === '/api/v1/search/hot') return ok([])
-  if (path === '/api/v1/search/suggest') return ok([])
-  if (path === '/api/v1/search/status') return ok({ available: true, degraded: false, message: 'visual fixture ready' })
+  if (path === '/api/v1/search/posts') {
+    return ok({
+      ...page(searchPosts),
+      source: 'elasticsearch',
+      degraded: false,
+      diagnostics: {},
+    })
+  }
+  if (path === '/api/v1/search/hot') return ok(['周报模板', '团队协作', '新人上手', '效率工具'])
+  if (path === '/api/v1/search/suggest') return ok(['周报模板', '周报复盘', '团队周报'])
+  if (path === '/api/v1/search/status') {
+    return ok({
+      status: 'ready',
+      enabled: true,
+      available: true,
+      indexName: 'visual-fixture',
+      indexExists: true,
+      indexReady: true,
+      publicSearchAvailable: true,
+      publicSearchDegraded: false,
+      publicSearchSource: 'elasticsearch',
+      dbFallbackAvailable: true,
+      message: 'visual fixture ready',
+    })
+  }
+  if (path === '/api/v1/posts/1') return ok(detailPost)
+  if (path === '/api/v1/posts' && url.searchParams.has('tagId')) {
+    return ok(page([
+      {
+        ...detailPost,
+        postId: 2,
+        title: '带教清单：新人第一周只做三件事',
+        counter: { view: 860, like: 63, comment: 12, favorite: 28 },
+      },
+      {
+        ...detailPost,
+        postId: 3,
+        title: '晋升材料怎么从日常工作里长出来',
+        counter: { view: 720, like: 51, comment: 9, favorite: 19 },
+      },
+    ]))
+  }
   if (path.includes('/page') || path.includes('/posts') || path.includes('/questions') || path.includes('/notifications') || path.includes('/review-queue')) return ok(page())
   if (path.includes('/status') || path.includes('/summary')) return ok({})
   return ok([])
@@ -391,13 +576,25 @@ export async function runVisualSnapshots() {
 
   const fs = await import('node:fs/promises')
   const path = await import('node:path')
+  const routeNameFilter = new Set(
+    String(runtimeProcess?.env?.OFFERLAB_VISUAL_ROUTE_NAMES || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )
+  const activeRoutes = routeNameFilter.size
+    ? visualSnapshotRoutes.filter((route) => routeNameFilter.has(route.name))
+    : visualSnapshotRoutes
+  if (activeRoutes.length === 0) {
+    throw new Error('OFFERLAB_VISUAL_ROUTE_NAMES did not match any configured visual route names.')
+  }
   await fs.mkdir(outputDir, { recursive: true })
 
   const browser = await launchChromium(playwright, fs)
   const results = []
   try {
     for (const viewport of visualSnapshotViewports) {
-      for (const route of visualSnapshotRoutes) {
+      for (const route of activeRoutes) {
         const expectedPath = routeExpectedPath(route)
         const authToken = routeAuthToken(route)
         if (route.auth && !authToken) {
@@ -417,14 +614,17 @@ export async function runVisualSnapshots() {
 
         const context = await browser.newContext({ viewport })
         await installFixtureApi(context)
-        await context.addInitScript(({ key, token, theme }) => {
+        await context.addInitScript(({ key, token, theme, onboarding }) => {
           if (token) {
             window.sessionStorage.setItem(key, token)
+          }
+          if (onboarding) {
+            window.sessionStorage.setItem('welcome-onboarding', '900001')
           }
           if (theme === 'dark' || theme === 'light' || theme === 'auto') {
             window.localStorage.setItem('theme', theme)
           }
-        }, { key: authStorageKey, token: authToken, theme: visualTheme })
+        }, { key: authStorageKey, token: authToken, theme: visualTheme, onboarding: route.onboarding === true })
         const page = await context.newPage()
         const pendingApiCount = trackApiRequests(page)
         const url = new URL(route.path, baseUrl).toString()
@@ -488,7 +688,14 @@ export async function runVisualSnapshots() {
 
   await fs.writeFile(
     path.join(outputDir, 'summary.json'),
-    JSON.stringify({ baseUrl, visualTheme, useFixtureApi, capturedAt: new Date().toISOString(), results }, null, 2),
+    JSON.stringify({
+      baseUrl,
+      visualTheme,
+      useFixtureApi,
+      routeNames: activeRoutes.map((route) => route.name),
+      capturedAt: new Date().toISOString(),
+      results,
+    }, null, 2),
     'utf8',
   )
 

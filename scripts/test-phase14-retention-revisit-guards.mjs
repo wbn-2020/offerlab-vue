@@ -49,6 +49,9 @@ assert.match(settingsView, /data-existing-notification-preferences/, 'settings m
 assert.doesNotMatch(settingsView, /v-model="[^"]*retentionNotification|retentionNotification|revisitNotification/, 'settings must not expose an unsupported retention switch.')
 assert.doesNotMatch(types, /retentionNotification|revisitNotification/, 'notification preference types must not invent a retention field.')
 assert.match(notificationsView, /preferenceOffText|interactionPreferenceMuted/, 'notification center must respect existing preference state.')
+assert.doesNotMatch(notificationsView, /class="inbox-view-tabs"/, 'notification center must default to one inbox instead of parallel top-level inbox tabs.')
+assert.doesNotMatch(notificationsView, /class="notification-counts"/, 'notification center must not repeat zero-count summary blocks.')
+assert.match(notificationsView, /v-else class="notification-list"[\s\S]*class="related-inbox-groups"/, 'related update and revisit groups must only appear when notification content exists.')
 
 const guardedSources = [revisitPanel, homeView, meProfile, settingsView, notificationsView]
 const forbiddenCopy = [

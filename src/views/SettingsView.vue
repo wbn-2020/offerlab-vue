@@ -1,353 +1,409 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell settings-page">
     <AppHeader />
-    <main class="px-4 py-8">
-    <div class="mx-auto max-w-5xl space-y-6">
-      <section class="flex flex-col gap-2">
-        <p class="text-sm font-medium text-primary-600 dark:text-primary-400">Account Settings</p>
-        <h1 class="text-2xl font-bold text-slate-950 dark:text-slate-50">设置</h1>
-        <p class="max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-          管理账号资料、关注方向、通知偏好和隐私边界。
-        </p>
-      </section>
 
-      <nav class="flex gap-2 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
-        <button
-          v-for="tab in tabs"
-          :key="tab.value"
-          type="button"
-          :class="['tab-button', activeTab === tab.value ? 'tab-button-active' : '']"
-          @click="switchTab(tab.value)"
-        >
-          {{ tab.label }}
-        </button>
-      </nav>
-
-      <section v-if="activeTab === 'account'" class="panel space-y-6">
-        <div class="account-section">
-          <label class="field-label">邮箱</label>
-          <input :value="user?.email || ''" disabled class="form-input cursor-not-allowed bg-slate-50 text-slate-500 dark:bg-slate-800" />
-          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">邮箱暂不支持修改。</p>
+    <main class="community-page settings-main">
+      <header class="workspace-heading">
+        <div>
+          <p class="section-kicker">个人空间</p>
+          <h1>设置</h1>
+          <p>管理账号、公开资料、通知与隐私边界。</p>
         </div>
+      </header>
 
-        <form class="account-section space-y-4" @submit.prevent="changePassword">
-          <div>
-            <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">修改密码</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">提交后会立即更新当前账号密码。</p>
-          </div>
-          <div class="grid gap-4 md:grid-cols-3">
-            <label>
-              <span class="field-label">原密码</span>
-              <input
-                v-model="passwordForm.oldPassword"
-                type="password"
-                autocomplete="current-password"
-                class="form-input"
-                placeholder="输入原密码"
-              />
-            </label>
-            <label>
-              <span class="field-label">新密码</span>
-              <input
-                v-model="passwordForm.newPassword"
-                type="password"
-                autocomplete="new-password"
-                class="form-input"
-                placeholder="至少 8 位"
-              />
-            </label>
-            <label>
-              <span class="field-label">确认新密码</span>
-              <input
-                v-model="passwordForm.confirmPassword"
-                type="password"
-                autocomplete="new-password"
-                class="form-input"
-                placeholder="再次输入"
-              />
-            </label>
-          </div>
-          <button type="submit" class="primary-button" :disabled="isChangingPassword || !canSubmitPassword">
-            {{ isChangingPassword ? '提交中...' : '修改密码' }}
-          </button>
-        </form>
-
-        <div class="account-section flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">退出所有设备</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">会使其他设备上的登录态失效，并退出当前会话。</p>
-          </div>
-          <button type="button" class="danger-button" :disabled="isLoggingOutAll" @click="logoutAllSessions">
-            {{ isLoggingOutAll ? '处理中...' : '退出所有设备' }}
-          </button>
-        </div>
-      </section>
-
-      <section v-if="activeTab === 'profile'" class="panel">
-        <form class="space-y-6" @submit.prevent="updateProfile">
-          <div>
-            <label class="field-label">昵称</label>
-            <input v-model.trim="profileForm.nickname" type="text" placeholder="输入昵称" class="form-input" />
-          </div>
-          <div>
-            <label class="field-label">头像 URL</label>
-            <input v-model.trim="profileForm.avatarUrl" type="url" placeholder="https://..." class="form-input" />
-            <UserAvatar
-              v-if="profileForm.avatarUrl || profileForm.nickname"
-              :src="profileForm.avatarUrl"
-              :name="profileForm.nickname"
-              :alt="profileForm.nickname ? `${profileForm.nickname}的头像预览` : '头像预览'"
-              class="mt-3 h-24 w-24 rounded-lg text-2xl font-bold"
-            />
-          </div>
-          <div>
-            <label class="field-label">个人简介</label>
-            <textarea v-model.trim="profileForm.bio" rows="4" placeholder="一句话介绍自己" class="form-input resize-none" />
-          </div>
-          <button type="submit" class="primary-button" :disabled="isUpdatingProfile">
-            {{ isUpdatingProfile ? '保存中...' : '保存资料' }}
-          </button>
-        </form>
-      </section>
-
-      <section v-if="activeTab === 'intent'" class="panel">
-        <IntentForm :initial-data="intentFormData || undefined" @submit="updateIntent" />
-      </section>
-
-      <section v-if="activeTab === 'theme'" class="panel space-y-6">
-        <div class="border-b border-slate-200 pb-5 dark:border-slate-800">
-          <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">主题设置</h2>
-          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            选择亮色、深色或跟随系统，设置会保存在当前浏览器。
-          </p>
-        </div>
-        <div class="theme-mode-grid" role="radiogroup" aria-label="主题模式">
+      <div class="settings-workspace">
+        <nav class="settings-tabs" aria-label="设置分组">
           <button
-            v-for="option in themeOptions"
-            :key="option.value"
+            v-for="tab in tabs"
+            :key="tab.value"
             type="button"
-            :class="['theme-option', themeStore.mode === option.value ? 'theme-option-active' : '']"
-            :aria-pressed="themeStore.mode === option.value"
-            @click="themeStore.setMode(option.value)"
+            :class="['tab-button', activeTab === tab.value ? 'tab-button-active' : '']"
+            :aria-current="activeTab === tab.value ? 'page' : undefined"
+            @click="switchTab(tab.value)"
           >
-            <span>{{ option.label }}</span>
-            <small>{{ option.description }}</small>
+            {{ tab.label }}
           </button>
-        </div>
-        <div class="theme-preview">
-          <div>
-            <span>当前模式</span>
-            <strong>{{ currentThemeLabel }}</strong>
-          </div>
-          <p>{{ themeStore.isDark() ? '页面会使用深色 surface 与高对比文本。' : '页面会使用亮色 surface 与浅色背景。' }}</p>
-        </div>
-      </section>
+        </nav>
 
-      <section v-if="activeTab === 'privacy'" class="panel space-y-6">
-        <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">隐私设置</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">保存后会写入后端，刷新页面仍会保留。</p>
-          </div>
-          <button type="button" class="secondary-button" :disabled="isPrivacyLoading" @click="loadPrivacy">
-            {{ isPrivacyLoading ? '加载中...' : '重新加载' }}
-          </button>
-        </div>
-
-        <div v-if="isPrivacyLoading" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
-          正在加载隐私设置...
-        </div>
-        <form v-else class="space-y-6" @submit.prevent="updatePrivacy">
-          <div class="setting-row">
-            <div>
-              <h3 class="setting-title">主页可见性</h3>
-              <p class="setting-desc">控制其他用户查看你的主页资料范围。</p>
-            </div>
-            <select v-model="privacyForm.profileVisibility" class="form-select">
-              <option value="PUBLIC">所有人</option>
-              <option value="FOLLOWERS">仅关注关系</option>
-              <option value="PRIVATE">仅自己</option>
-            </select>
-          </div>
-
-          <div class="setting-row">
-            <div>
-              <h3 class="setting-title">关注方向可见性</h3>
-              <p class="setting-desc">控制关注领域、方向、城市等信息的展示范围。</p>
-            </div>
-            <select v-model="privacyForm.intentVisibility" class="form-select">
-              <option value="PUBLIC">所有人</option>
-              <option value="FOLLOWERS">仅关注关系</option>
-              <option value="PRIVATE">仅自己</option>
-            </select>
-          </div>
-
-          <label class="switch-row">
-            <div>
-              <h3 class="setting-title">允许被搜索</h3>
-              <p class="setting-desc">关闭后，用户搜索场景可以隐藏你的资料。</p>
-            </div>
-            <input v-model="privacyForm.searchable" type="checkbox" class="switch-input" />
-          </label>
-
-          <button type="submit" class="primary-button" :disabled="isUpdatingPrivacy">
-            {{ isUpdatingPrivacy ? '保存中...' : '保存隐私设置' }}
-          </button>
-        </form>
-      </section>
-
-      <section v-if="activeTab === 'notifications'" class="panel space-y-6">
-        <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">通知偏好</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              控制社区互动和系统提醒的打扰程度；关闭后事件仍会发生，只是不再提醒你。
-            </p>
-            <p class="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400" data-phase14-retention-preference-note data-existing-notification-preferences>
-              复访摘要只作为站内入口展示；讨论回访沿用互动通知偏好，关注作者和话题更新沿用系统通知偏好，这里不新增无法持久化的独立复访开关。
-            </p>
-            <p class="mt-2 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400" data-phase15-suggestion-preference-note data-existing-notification-preferences>
-              内容补充和纠错建议沿用现有互动通知或系统通知偏好；当前没有后端持久化字段，因此不展示独立建议开关。
-            </p>
-          </div>
-          <button type="button" class="secondary-button" :disabled="isNotificationLoading" @click="loadNotificationPreferences">
-            {{ isNotificationLoading ? '加载中...' : '重新加载' }}
-          </button>
-        </div>
-
-        <div v-if="isNotificationLoading" class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
-          正在加载通知偏好...
-        </div>
-        <form v-else class="space-y-6" @submit.prevent="updateNotificationPreferences">
-          <label class="switch-row">
-            <div>
-              <h3 class="setting-title">接收互动通知</h3>
-              <p class="setting-desc">包括点赞、评论、收藏、关注和提及等社区回应。</p>
-            </div>
-            <input v-model="notificationForm.interactionNotification" type="checkbox" class="switch-input" />
-          </label>
-          <div
-            class="notification-grid"
-            :class="{ 'notification-grid-disabled': !notificationForm.interactionNotification }"
-          >
-            <label
-              v-for="option in notificationPreferenceOptions"
-              :key="option.key"
-              class="notification-toggle"
-              :class="{ 'notification-toggle-disabled': !notificationForm.interactionNotification }"
-            >
-              <span>
-                <span class="notification-title">{{ option.label }}</span>
-                <span class="notification-desc">{{ option.description }}</span>
-              </span>
-              <input
-                v-model="notificationForm[option.key]"
-                type="checkbox"
-                class="switch-input"
-                :disabled="!notificationForm.interactionNotification"
-              />
-            </label>
-          </div>
-          <p v-if="!notificationForm.interactionNotification" class="setting-help">
-            关闭互动提醒后，别人仍然可以评论、点赞、收藏或关注你，只是这些事件不会再主动打扰。
-          </p>
-
-          <label class="switch-row">
-            <div>
-              <h3 class="setting-title">接收系统通知</h3>
-              <p class="setting-desc">包括社区公告、治理提示和话题更新等必要信息。</p>
-            </div>
-            <input v-model="notificationForm.systemNotification" type="checkbox" class="switch-input" />
-          </label>
-          <p v-if="!notificationForm.systemNotification" class="setting-help">
-            关闭系统提醒后，社区公告和话题更新不会主动打扰；你仍可在站内页面查看相关内容。
-          </p>
-
-          <button type="submit" class="primary-button" :disabled="isUpdatingNotifications">
-            {{ isUpdatingNotifications ? '保存中...' : '保存通知偏好' }}
-          </button>
-        </form>
-      </section>
-
-      <section v-if="activeTab === 'feed-controls'" class="panel space-y-6" data-v29-feed-control-manager>
-        <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">信息流控制</h2>
-            <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              管理你暂时隐藏的内容、减少展示的频道和已屏蔽的作者。所有设置仅影响当前账号的信息流，不会通知其他用户。
-            </p>
-            <p class="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {{ feedControlCountText }}
-            </p>
-          </div>
-          <button type="button" class="secondary-button" :disabled="isFeedControlsLoading" @click="loadFeedControls()">
-            {{ isFeedControlsLoading ? '加载中...' : '重新加载' }}
-          </button>
-        </div>
-
-        <div class="feed-control-filter" role="tablist" aria-label="信息流控制分类">
-          <button
-            v-for="option in feedControlFilterOptions"
-            :key="option.value"
-            type="button"
-            :class="{ 'feed-control-filter-active': feedControlFilter === option.value }"
-            :aria-selected="feedControlFilter === option.value"
-            role="tab"
-            @click="feedControlFilter = option.value"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-
-        <div v-if="isFeedControlsLoading && feedControls.length === 0" class="feed-control-state" role="status">
-          正在读取个人信息流控制...
-        </div>
-        <div v-else-if="feedControlsError && feedControls.length === 0" class="feed-control-state feed-control-state-error" role="alert">
-          <span>{{ feedControlsError }}</span>
-          <button type="button" @click="loadFeedControls()">重试</button>
-        </div>
-        <div v-else-if="filteredFeedControls.length === 0" class="feed-control-state">
-          当前分类下没有已保存的信息流控制。
-        </div>
-        <div v-else class="feed-control-list">
-          <article v-for="control in filteredFeedControls" :key="control.id" class="feed-control-row">
-            <div class="feed-control-icon" aria-hidden="true">
-              <UserX v-if="control.controlType === 'AUTHOR'" class="h-4 w-4" />
-              <Layers3 v-else-if="control.controlType === 'DOMAIN'" class="h-4 w-4" />
-              <EyeOff v-else class="h-4 w-4" />
-            </div>
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <h3>{{ control.targetLabel }}</h3>
-                <span class="feed-control-type">{{ feedControlTypeLabel(control.controlType) }}</span>
+        <div class="settings-content">
+          <section v-if="activeTab === 'account'" class="panel">
+            <header class="panel-heading">
+              <div>
+                <h2>账号与安全</h2>
+                <p>查看登录邮箱，修改密码或结束全部设备会话。</p>
               </div>
-              <p>{{ feedControlTimeLabel(control) }}</p>
+            </header>
+
+            <div class="settings-group">
+              <div class="group-heading">
+                <h3>登录邮箱</h3>
+                <p>邮箱暂不支持修改。</p>
+              </div>
+              <label class="field-block">
+                <span class="field-label">邮箱</span>
+                <input :value="user?.email || ''" disabled class="form-input cursor-not-allowed">
+              </label>
             </div>
-            <button
-              type="button"
-              class="feed-control-remove"
-              :disabled="feedControlRemovingIds.has(control.id)"
-              :aria-label="`移除${control.targetLabel}`"
-              :title="`移除${control.targetLabel}`"
-              @click="removeFeedControl(control.id)"
-            >
-              <Loader2 v-if="feedControlRemovingIds.has(control.id)" class="h-4 w-4 animate-spin" />
-              <Trash2 v-else class="h-4 w-4" />
-            </button>
-          </article>
+
+            <form class="settings-group" @submit.prevent="changePassword">
+              <div class="group-heading">
+                <h3>修改密码</h3>
+                <p>新密码至少 8 位，提交后立即生效。</p>
+              </div>
+              <div class="password-grid">
+                <label class="field-block">
+                  <span class="field-label">原密码</span>
+                  <input
+                    v-model="passwordForm.oldPassword"
+                    type="password"
+                    autocomplete="current-password"
+                    class="form-input"
+                    placeholder="输入原密码"
+                  >
+                </label>
+                <label class="field-block">
+                  <span class="field-label">新密码</span>
+                  <input
+                    v-model="passwordForm.newPassword"
+                    type="password"
+                    autocomplete="new-password"
+                    class="form-input"
+                    placeholder="至少 8 位"
+                  >
+                </label>
+                <label class="field-block">
+                  <span class="field-label">确认新密码</span>
+                  <input
+                    v-model="passwordForm.confirmPassword"
+                    type="password"
+                    autocomplete="new-password"
+                    class="form-input"
+                    placeholder="再次输入"
+                  >
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="primary-button" :disabled="isChangingPassword || !canSubmitPassword">
+                  {{ isChangingPassword ? '提交中...' : '修改密码' }}
+                </button>
+              </div>
+            </form>
+
+            <div class="settings-group danger-group">
+              <div class="group-heading">
+                <h3>退出所有设备</h3>
+                <p>其他设备上的登录态会失效，当前会话也会退出。</p>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="danger-button" :disabled="isLoggingOutAll" @click="logoutAllSessions">
+                  {{ isLoggingOutAll ? '处理中...' : '退出所有设备' }}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section v-if="activeTab === 'profile'" class="panel">
+            <header class="panel-heading">
+              <div>
+                <h2>公开资料</h2>
+                <p>这些信息会用于作者主页和社区身份展示。</p>
+              </div>
+            </header>
+            <form @submit.prevent="updateProfile">
+              <div class="settings-group profile-form-grid">
+                <div class="profile-fields">
+                  <label class="field-block">
+                    <span class="field-label">昵称</span>
+                    <input v-model.trim="profileForm.nickname" type="text" placeholder="输入昵称" class="form-input">
+                  </label>
+                  <label class="field-block">
+                    <span class="field-label">头像 URL</span>
+                    <input v-model.trim="profileForm.avatarUrl" type="url" placeholder="https://..." class="form-input">
+                  </label>
+                  <label class="field-block">
+                    <span class="field-label">个人简介</span>
+                    <textarea v-model.trim="profileForm.bio" rows="5" placeholder="一句话介绍自己" class="form-input resize-none" />
+                  </label>
+                </div>
+                <div class="avatar-preview">
+                  <span class="field-label">头像预览</span>
+                  <UserAvatar
+                    v-if="profileForm.avatarUrl || profileForm.nickname"
+                    :src="profileForm.avatarUrl"
+                    :name="profileForm.nickname"
+                    :alt="profileForm.nickname ? `${profileForm.nickname}的头像预览` : '头像预览'"
+                    class="h-24 w-24 rounded-lg text-2xl font-bold"
+                  />
+                  <div v-else class="avatar-placeholder">未设置</div>
+                </div>
+              </div>
+              <div class="panel-footer">
+                <button type="submit" class="primary-button" :disabled="isUpdatingProfile">
+                  {{ isUpdatingProfile ? '保存中...' : '保存资料' }}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section v-if="activeTab === 'intent'" class="panel">
+            <header class="panel-heading">
+              <div>
+                <h2>关注方向</h2>
+                <p>用于调整内容发现与个人资料中的兴趣信息。</p>
+              </div>
+            </header>
+            <div class="embedded-form">
+              <IntentForm :initial-data="intentFormData || undefined" @submit="updateIntent" />
+            </div>
+          </section>
+
+          <section v-if="activeTab === 'theme'" class="panel">
+            <header class="panel-heading">
+              <div>
+                <h2>主题</h2>
+                <p>主题模式保存在当前浏览器。</p>
+              </div>
+              <span class="current-value">当前：{{ currentThemeLabel }}</span>
+            </header>
+            <div class="settings-group">
+              <div class="theme-mode-grid" role="radiogroup" aria-label="主题模式">
+                <button
+                  v-for="option in themeOptions"
+                  :key="option.value"
+                  type="button"
+                  :class="['theme-option', themeStore.mode === option.value ? 'theme-option-active' : '']"
+                  :aria-pressed="themeStore.mode === option.value"
+                  @click="themeStore.setMode(option.value)"
+                >
+                  <span>{{ option.label }}</span>
+                  <small>{{ option.description }}</small>
+                </button>
+              </div>
+              <div class="theme-preview">
+                <div>
+                  <span>界面预览</span>
+                  <strong>{{ currentThemeLabel }}</strong>
+                </div>
+                <p>{{ themeStore.isDark() ? '当前使用深色界面。' : '当前使用亮色界面。' }}</p>
+              </div>
+            </div>
+          </section>
+
+          <section v-if="activeTab === 'privacy'" class="panel">
+            <header class="panel-heading">
+              <div>
+                <h2>隐私</h2>
+                <p>控制主页信息和搜索可见范围。</p>
+              </div>
+              <button type="button" class="secondary-button" :disabled="isPrivacyLoading" @click="loadPrivacy">
+                {{ isPrivacyLoading ? '加载中...' : '重新加载' }}
+              </button>
+            </header>
+
+            <div v-if="isPrivacyLoading" class="loading-state" role="status">正在加载隐私设置...</div>
+            <form v-else @submit.prevent="updatePrivacy">
+              <div class="settings-group">
+                <div class="setting-row">
+                  <div>
+                    <h3 class="setting-title">主页可见性</h3>
+                    <p class="setting-desc">控制其他用户查看你的主页资料范围。</p>
+                  </div>
+                  <select v-model="privacyForm.profileVisibility" class="form-select">
+                    <option value="PUBLIC">所有人</option>
+                    <option value="FOLLOWERS">仅关注关系</option>
+                    <option value="PRIVATE">仅自己</option>
+                  </select>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <h3 class="setting-title">关注方向可见性</h3>
+                    <p class="setting-desc">控制关注领域、方向、城市等信息的展示范围。</p>
+                  </div>
+                  <select v-model="privacyForm.intentVisibility" class="form-select">
+                    <option value="PUBLIC">所有人</option>
+                    <option value="FOLLOWERS">仅关注关系</option>
+                    <option value="PRIVATE">仅自己</option>
+                  </select>
+                </div>
+
+                <label class="switch-row">
+                  <div>
+                    <h3 class="setting-title">允许被搜索</h3>
+                    <p class="setting-desc">关闭后，用户搜索场景可以隐藏你的资料。</p>
+                  </div>
+                  <input v-model="privacyForm.searchable" type="checkbox" class="switch-input">
+                </label>
+              </div>
+              <div class="panel-footer">
+                <button type="submit" class="primary-button" :disabled="isUpdatingPrivacy">
+                  {{ isUpdatingPrivacy ? '保存中...' : '保存隐私设置' }}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section v-if="activeTab === 'notifications'" class="panel">
+            <header class="panel-heading panel-heading-top">
+              <div>
+                <h2>通知偏好</h2>
+                <p>控制社区互动和系统提醒的打扰程度；关闭后事件仍会发生，只是不再提醒你。</p>
+              </div>
+              <button type="button" class="secondary-button" :disabled="isNotificationLoading" @click="loadNotificationPreferences">
+                {{ isNotificationLoading ? '加载中...' : '重新加载' }}
+              </button>
+            </header>
+
+            <div class="preference-notes">
+              <p data-phase14-retention-preference-note data-existing-notification-preferences>
+                讨论回访会跟随互动通知设置，关注作者和话题的更新会跟随系统通知设置。
+              </p>
+              <p data-phase15-suggestion-preference-note data-existing-notification-preferences>
+                内容补充和纠错建议会按对应通知类型提醒；关闭提醒后，仍可在个人页面主动查看。
+              </p>
+            </div>
+
+            <div v-if="isNotificationLoading" class="loading-state" role="status">正在加载通知偏好...</div>
+            <div v-else-if="notificationLoadError" class="state-panel error-panel" role="alert">
+              <AlertCircle class="icon" aria-hidden="true" />
+              <span>{{ notificationLoadError }}</span>
+              <button type="button" class="secondary-button" @click="loadNotificationPreferences">
+                <RefreshCw class="icon" aria-hidden="true" />
+                重试
+              </button>
+            </div>
+            <form v-else-if="notificationPreferencesLoaded" @submit.prevent="updateNotificationPreferences">
+              <div class="settings-group">
+                <label class="switch-row">
+                  <div>
+                    <h3 class="setting-title">接收互动通知</h3>
+                    <p class="setting-desc">包括点赞、评论、收藏、关注和提及等社区回应。</p>
+                  </div>
+                  <input v-model="notificationForm.interactionNotification" type="checkbox" class="switch-input">
+                </label>
+                <div
+                  class="notification-grid"
+                  :class="{ 'notification-grid-disabled': !notificationForm.interactionNotification }"
+                >
+                  <label
+                    v-for="option in notificationPreferenceOptions"
+                    :key="option.key"
+                    class="notification-toggle"
+                    :class="{ 'notification-toggle-disabled': !notificationForm.interactionNotification }"
+                  >
+                    <span>
+                      <span class="notification-title">{{ option.label }}</span>
+                      <span class="notification-desc">{{ option.description }}</span>
+                    </span>
+                    <input
+                      v-model="notificationForm[option.key]"
+                      type="checkbox"
+                      class="switch-input"
+                      :disabled="!notificationForm.interactionNotification"
+                    >
+                  </label>
+                </div>
+                <p v-if="!notificationForm.interactionNotification" class="setting-help">
+                  关闭互动提醒后，别人仍然可以评论、点赞、收藏或关注你，只是这些事件不会再主动打扰。
+                </p>
+
+                <label class="switch-row">
+                  <div>
+                    <h3 class="setting-title">接收系统通知</h3>
+                    <p class="setting-desc">包括社区公告、治理提示和话题更新等必要信息。</p>
+                  </div>
+                  <input v-model="notificationForm.systemNotification" type="checkbox" class="switch-input">
+                </label>
+                <p v-if="!notificationForm.systemNotification" class="setting-help">
+                  关闭系统提醒后，社区公告和话题更新不会主动打扰；你仍可在站内页面查看相关内容。
+                </p>
+              </div>
+              <div class="panel-footer">
+                <button type="submit" class="primary-button" :disabled="isUpdatingNotifications">
+                  {{ isUpdatingNotifications ? '保存中...' : '保存通知偏好' }}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section v-if="activeTab === 'feed-controls'" class="panel" data-v29-feed-control-manager>
+            <header class="panel-heading panel-heading-top">
+              <div>
+                <h2>信息流控制</h2>
+                <p>管理已隐藏的内容、减少展示的频道和已屏蔽的作者。这些设置只影响当前账号，不会通知其他用户。</p>
+                <span class="panel-meta">{{ feedControlCountText }}</span>
+              </div>
+              <button type="button" class="secondary-button" :disabled="isFeedControlsLoading" @click="loadFeedControls()">
+                {{ isFeedControlsLoading ? '加载中...' : '重新加载' }}
+              </button>
+            </header>
+
+            <div class="settings-group">
+              <div class="feed-control-filter" role="tablist" aria-label="信息流控制分类">
+                <button
+                  v-for="option in feedControlFilterOptions"
+                  :key="option.value"
+                  type="button"
+                  :class="{ 'feed-control-filter-active': feedControlFilter === option.value }"
+                  :aria-selected="feedControlFilter === option.value"
+                  role="tab"
+                  @click="feedControlFilter = option.value"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+
+              <div v-if="isFeedControlsLoading && feedControls.length === 0" class="feed-control-state" role="status">
+                正在读取个人信息流控制...
+              </div>
+              <div v-else-if="feedControlsError && feedControls.length === 0" class="feed-control-state feed-control-state-error" role="alert">
+                <span>{{ feedControlsError }}</span>
+                <button type="button" @click="loadFeedControls()">重试</button>
+              </div>
+              <div v-else-if="filteredFeedControls.length === 0" class="feed-control-state">
+                当前分类下没有已保存的信息流控制。
+              </div>
+              <div v-else class="feed-control-list">
+                <article v-for="control in filteredFeedControls" :key="control.id" class="feed-control-row">
+                  <div class="feed-control-icon" aria-hidden="true">
+                    <UserX v-if="control.controlType === 'AUTHOR'" class="h-4 w-4" />
+                    <Layers3 v-else-if="control.controlType === 'DOMAIN'" class="h-4 w-4" />
+                    <EyeOff v-else class="h-4 w-4" />
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <h3>{{ control.targetLabel }}</h3>
+                      <span class="feed-control-type">{{ feedControlTypeLabel(control.controlType) }}</span>
+                    </div>
+                    <p>{{ feedControlTimeLabel(control) }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="feed-control-remove"
+                    :disabled="feedControlRemovingIds.has(control.id)"
+                    :aria-label="`移除${control.targetLabel}`"
+                    :title="`移除${control.targetLabel}`"
+                    @click="removeFeedControl(control.id)"
+                  >
+                    <Loader2 v-if="feedControlRemovingIds.has(control.id)" class="h-4 w-4 animate-spin" />
+                    <Trash2 v-else class="h-4 w-4" />
+                  </button>
+                </article>
+              </div>
+              <p v-if="feedControlsError && feedControls.length > 0" class="setting-help">{{ feedControlsError }}</p>
+              <button
+                v-if="feedControlsHasMore"
+                type="button"
+                class="secondary-button"
+                :disabled="isFeedControlsLoadingMore"
+                @click="loadFeedControls(true)"
+              >
+                {{ isFeedControlsLoadingMore ? '加载中...' : '加载更多' }}
+              </button>
+            </div>
+          </section>
         </div>
-        <p v-if="feedControlsError && feedControls.length > 0" class="setting-help">{{ feedControlsError }}</p>
-        <button
-          v-if="feedControlsHasMore"
-          type="button"
-          class="secondary-button"
-          :disabled="isFeedControlsLoadingMore"
-          @click="loadFeedControls(true)"
-        >
-          {{ isFeedControlsLoadingMore ? '加载中...' : '加载更多' }}
-        </button>
-      </section>
-    </div>
+      </div>
     </main>
   </div>
 </template>
@@ -356,7 +412,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { EyeOff, Layers3, Loader2, Trash2, UserX } from 'lucide-vue-next'
+import { AlertCircle, EyeOff, Layers3, Loader2, RefreshCw, Trash2, UserX } from 'lucide-vue-next'
 import { getErrorMessage, getResultMessage } from '@/api/client'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
@@ -456,6 +512,8 @@ const notificationPreferenceOptions: Array<{ key: InteractionNotificationKey, la
 
 const privacyForm = ref<PrivacySetting>(defaultPrivacySetting())
 const notificationForm = ref<NotificationPreference>(defaultNotificationPreference())
+const notificationPreferencesLoaded = ref(false)
+const notificationLoadError = ref('')
 const feedControls = ref<FeedControl[]>([])
 const feedControlFilter = ref<'ALL' | FeedControlType>('ALL')
 const feedControlsNextCursor = ref('')
@@ -540,13 +598,18 @@ const loadPrivacy = async () => {
 
 const loadNotificationPreferences = async () => {
   isNotificationLoading.value = true
+  notificationLoadError.value = ''
+  notificationPreferencesLoaded.value = false
   try {
     const res = await notificationApi.getPreferences()
     if (res.data) {
       notificationForm.value = { ...defaultNotificationPreference(), ...res.data }
+      notificationPreferencesLoaded.value = true
+    } else {
+      notificationLoadError.value = '通知偏好暂时没有返回有效数据，请重试。'
     }
   } catch (error: any) {
-    toast.error(getErrorMessage(error, '通知偏好加载失败'))
+    notificationLoadError.value = getErrorMessage(error, '通知偏好加载失败，请重试。')
   } finally {
     isNotificationLoading.value = false
   }
@@ -1310,6 +1373,810 @@ const updateNotificationPreferences = async () => {
   .theme-preview {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+.settings-page {
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+.settings-main {
+  padding-top: 1.25rem;
+  padding-bottom: 6rem;
+}
+
+.workspace-heading {
+  padding: 0.5rem 0 1rem;
+}
+
+.section-kicker {
+  margin: 0;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.workspace-heading h1 {
+  margin: 0.2rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.workspace-heading > div > p:last-child {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.settings-workspace {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.settings-tabs {
+  position: sticky;
+  top: calc(var(--community-header-height) + 1rem);
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+  padding: 0.35rem;
+}
+
+.settings-tabs .tab-button {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.settings-tabs .tab-button:hover {
+  border-color: transparent;
+  background: var(--surface-2);
+  color: var(--text-strong);
+}
+
+.settings-tabs .tab-button-active {
+  border-color: transparent;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.settings-content {
+  min-width: 0;
+}
+
+.panel {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+  padding: 0;
+}
+
+.panel-heading {
+  display: flex;
+  min-height: 5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1.1rem 1.25rem;
+}
+
+.panel-heading-top {
+  align-items: flex-start;
+}
+
+.panel-heading h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.panel-heading p {
+  max-width: 48rem;
+  margin: 0.3rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.panel-meta,
+.current-value {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  margin-top: 0.45rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  padding: 0 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.current-value {
+  flex: none;
+  margin-top: 0;
+}
+
+.settings-group {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1.25rem;
+}
+
+.settings-group:last-child {
+  border-bottom: 0;
+}
+
+.group-heading {
+  margin-bottom: 1rem;
+}
+
+.group-heading h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 750;
+}
+
+.group-heading p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.field-block {
+  display: block;
+}
+
+.field-label {
+  margin-bottom: 0.4rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.form-input,
+.form-select {
+  min-height: 42px;
+  border-radius: var(--radius-control);
+  border-color: var(--border-subtle);
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+}
+
+.form-input:disabled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.form-input:focus,
+.form-select:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+}
+
+.form-select {
+  width: 13rem;
+  max-width: 100%;
+}
+
+.password-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button {
+  min-height: 40px;
+  border-radius: var(--radius-control);
+  padding: 0.55rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.primary-button {
+  background: var(--primary-600);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--primary-700);
+}
+
+.secondary-button {
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.danger-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.danger-group .group-heading,
+.danger-group .form-actions {
+  margin: 0;
+}
+
+.danger-button {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 10rem;
+  align-items: start;
+  gap: 1.5rem;
+}
+
+.profile-fields {
+  display: grid;
+  gap: 1rem;
+}
+
+.avatar-preview {
+  display: flex;
+  min-height: 10rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-surface);
+  background: var(--surface-2);
+  padding: 1rem;
+}
+
+.avatar-preview .field-label {
+  align-self: stretch;
+  text-align: center;
+}
+
+.avatar-placeholder {
+  display: grid;
+  height: 6rem;
+  width: 6rem;
+  place-items: center;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.panel-footer {
+  display: flex;
+  justify-content: flex-end;
+  background: var(--surface-2);
+  padding: 0.75rem 1.25rem;
+}
+
+.embedded-form {
+  padding: 1.25rem;
+}
+
+.theme-mode-grid {
+  gap: 0.65rem;
+}
+
+.theme-option {
+  min-height: 82px;
+  border-radius: var(--radius-surface);
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
+  padding: 0.85rem;
+}
+
+.theme-option:hover {
+  border-color: #bfdbfe;
+  background: var(--surface-1);
+}
+
+.theme-option-active {
+  border-color: #93c5fd;
+  background: var(--primary-50);
+  box-shadow: none;
+}
+
+.theme-option span {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 750;
+}
+
+.theme-option small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.theme-preview {
+  margin-top: 0.75rem;
+  border: 0;
+  border-radius: var(--radius-surface);
+  background: var(--surface-muted);
+  padding: 0.8rem 0.9rem;
+}
+
+.theme-preview strong {
+  font-size: 1rem;
+}
+
+.setting-row,
+.switch-row {
+  min-height: 4.75rem;
+  border-bottom-color: var(--border-subtle);
+  padding: 0.9rem 0;
+}
+
+.settings-group > .setting-row:first-child,
+.settings-group > .switch-row:first-child {
+  padding-top: 0;
+}
+
+.settings-group > .setting-row:last-child,
+.settings-group > .switch-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.setting-title {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 750;
+}
+
+.setting-desc {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.switch-input {
+  position: relative;
+  height: 1.4rem;
+  width: 2.5rem;
+  appearance: none;
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.switch-input::after {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.2);
+  content: "";
+  transition: transform 0.16s ease;
+}
+
+.switch-input:checked {
+  background: var(--primary-600);
+}
+
+.switch-input:checked::after {
+  transform: translateX(1.1rem);
+}
+
+.switch-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.switch-input:focus-visible {
+  outline: 2px solid rgb(21 94 239 / 0.7);
+  outline-offset: 2px;
+}
+
+.preference-notes {
+  display: grid;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  padding: 0.8rem 1.25rem;
+}
+
+.preference-notes p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.55;
+}
+
+.notification-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  border-bottom-color: var(--border-subtle);
+  padding: 0 0 1rem;
+}
+
+.notification-toggle {
+  min-height: 68px;
+  border-radius: var(--radius-surface);
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
+  padding: 0.75rem;
+}
+
+.notification-toggle:not(.notification-toggle-disabled):hover {
+  border-color: #bfdbfe;
+  background: var(--surface-1);
+}
+
+.notification-title {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.notification-desc {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+
+.setting-help {
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.loading-state {
+  display: grid;
+  min-height: 14rem;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.feed-control-filter {
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.feed-control-filter button {
+  min-height: 36px;
+  border-radius: var(--radius-control);
+  border-color: var(--border-subtle);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+}
+
+.feed-control-filter button:hover,
+.feed-control-filter-active {
+  border-color: #bfdbfe !important;
+  background: var(--primary-50) !important;
+  color: var(--primary-700) !important;
+}
+
+.feed-control-state {
+  border-radius: var(--radius-surface);
+  border-color: var(--border-subtle);
+  padding: 1.25rem;
+}
+
+.feed-control-list {
+  border-top-color: var(--border-subtle);
+}
+
+.feed-control-row {
+  grid-template-columns: 2.25rem minmax(0, 1fr) 2.25rem;
+  border-bottom-color: var(--border-subtle);
+}
+
+.feed-control-icon,
+.feed-control-remove {
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: var(--radius-control);
+}
+
+.feed-control-icon {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.feed-control-type {
+  background: var(--surface-muted);
+}
+
+.dark .settings-page {
+  background: #0f1115;
+}
+
+.dark .settings-tabs,
+.dark .panel,
+.dark .form-input,
+.dark .form-select,
+.dark .secondary-button,
+.dark .danger-button {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+}
+
+.dark .settings-tabs .tab-button {
+  color: rgb(148 163 184);
+}
+
+.dark .settings-tabs .tab-button:hover {
+  background: rgb(30 41 59);
+  color: rgb(248 250 252);
+}
+
+.dark .settings-tabs .tab-button-active {
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
+}
+
+.dark .panel-heading,
+.dark .settings-group,
+.dark .preference-notes,
+.dark .setting-row,
+.dark .switch-row,
+.dark .notification-grid {
+  border-color: rgb(30 41 59);
+}
+
+.dark .panel-heading h2,
+.dark .group-heading h3,
+.dark .setting-title,
+.dark .field-label,
+.dark .theme-option span,
+.dark .notification-title,
+.dark .workspace-heading h1 {
+  color: rgb(248 250 252);
+}
+
+.dark .panel-heading p,
+.dark .group-heading p,
+.dark .setting-desc,
+.dark .preference-notes p,
+.dark .workspace-heading > div > p:last-child,
+.dark .theme-option small,
+.dark .notification-desc {
+  color: rgb(148 163 184);
+}
+
+.dark .panel-meta,
+.dark .current-value,
+.dark .panel-footer,
+.dark .avatar-preview,
+.dark .theme-preview,
+.dark .setting-help,
+.dark .feed-control-type {
+  background: rgb(30 41 59);
+  color: rgb(203 213 225);
+}
+
+.dark .form-input:disabled {
+  background: rgb(30 41 59);
+}
+
+.dark .theme-option,
+.dark .notification-toggle {
+  border-color: rgb(51 65 85);
+  background: rgb(17 24 39);
+}
+
+.dark .theme-option:hover,
+.dark .notification-toggle:not(.notification-toggle-disabled):hover {
+  border-color: rgb(59 130 246);
+  background: rgb(30 41 59);
+}
+
+.dark .theme-option-active {
+  border-color: rgb(59 130 246);
+  background: rgb(23 37 84);
+  box-shadow: none;
+}
+
+.dark .feed-control-filter-active {
+  background: rgb(23 37 84) !important;
+  color: rgb(191 219 254) !important;
+}
+
+.dark .feed-control-icon {
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
+}
+
+.dark .danger-button {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10);
+  color: rgb(254 202 202);
+}
+
+@media (max-width: 960px) {
+  .settings-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-tabs {
+    position: sticky;
+    top: var(--community-header-height);
+    z-index: 10;
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-tabs .tab-button {
+    flex: none;
+  }
+
+  .password-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-main {
+    padding-top: 0.75rem;
+  }
+
+  .settings-workspace {
+    gap: 0.75rem;
+  }
+
+  .settings-tabs {
+    margin-right: calc(var(--community-page-gutter) * -1);
+    margin-left: calc(var(--community-page-gutter) * -1);
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    padding-right: var(--community-page-gutter);
+    padding-left: var(--community-page-gutter);
+  }
+
+  .settings-tabs .tab-button {
+    min-height: 44px;
+  }
+
+  .panel-heading {
+    min-height: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .panel-heading .secondary-button {
+    width: 100%;
+  }
+
+  .settings-group,
+  .embedded-form {
+    padding: 1rem;
+  }
+
+  .password-grid,
+  .profile-form-grid,
+  .notification-grid,
+  .theme-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-form-grid {
+    gap: 1rem;
+  }
+
+  .avatar-preview {
+    min-height: 8rem;
+    align-items: flex-start;
+  }
+
+  .avatar-preview .field-label {
+    align-self: auto;
+    text-align: left;
+  }
+
+  .setting-row,
+  .switch-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .switch-row .switch-input {
+    align-self: flex-end;
+    margin-top: -2.5rem;
+  }
+
+  .form-select {
+    width: 100%;
+  }
+
+  .danger-group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .danger-group .form-actions,
+  .form-actions,
+  .panel-footer {
+    justify-content: stretch;
+  }
+
+  .form-actions button,
+  .panel-footer button {
+    width: 100%;
+  }
+
+  .panel-footer,
+  .preference-notes {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+
+  .theme-preview {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .notification-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 390px) {
+  .workspace-heading h1 {
+    font-size: 1.35rem;
+  }
+
+  .workspace-heading > div > p:last-child {
+    max-width: 21rem;
+    font-size: 0.8125rem;
+  }
+
+  .settings-tabs .tab-button {
+    padding: 0 0.65rem;
+  }
+
+  .feed-control-row {
+    gap: 0.6rem;
   }
 }
 </style>

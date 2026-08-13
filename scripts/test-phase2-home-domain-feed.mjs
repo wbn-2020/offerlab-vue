@@ -26,6 +26,81 @@ assert.match(
 assert.match(homeView, /useDomainCatalog/, 'HomeView must consume the shared domain catalog')
 assert.match(
   homeView,
+  /<div class="home-left-rail space-y-5">/,
+  'HomeView must use its bounded left-rail container instead of a content-height Tailwind sticky wrapper',
+)
+assert.match(
+  homeView,
+  /\.community-feed-layout__left,\s*\.community-feed-layout__right\s*\{[\s\S]*?align-self:\s*stretch;/,
+  'desktop rail grid items must stretch to the full feed height so sticky content does not end early',
+)
+assert.match(
+  homeView,
+  /\.home-left-rail,\s*\.home-right-rail\s*\{[\s\S]*?position:\s*sticky;[\s\S]*?max-height:\s*calc\(100vh[\s\S]*?overflow-y:\s*auto;/,
+  'desktop rails must stay useful within the viewport while remaining bounded by the feed row',
+)
+assert.match(
+  homeView,
+  /aria-label="移动频道导航，可横向滚动"[\s\S]*?tabindex="0"/,
+  'mobile channel filters must expose their horizontal scrolling behavior to keyboard and assistive technology',
+)
+assert.match(
+  homeView,
+  /home-horizontal-scroll__cue/,
+  'mobile horizontal filters must include a discoverable visual overflow cue',
+)
+assert.match(
+  homeView,
+  /class="home-task-disclosure"[\s\S]*?<summary>/,
+  'desktop onboarding and daily actions must be secondary collapsed disclosures',
+)
+assert.match(
+  homeView,
+  /class="home-mobile-secondary lg:hidden"/,
+  'mobile task actions must move below the primary reading path',
+)
+assert.doesNotMatch(
+  homeView,
+  /home-reading-pulse/,
+  'the homepage must not duplicate Feed Tabs with a second feed-switching mechanism',
+)
+assert.match(
+  homeView,
+  /import \{ getDomainLabel \} from ['"]@\/utils\/domains['"]/,
+  'homepage channel labels must use the shared domain vocabulary',
+)
+assert.match(
+  homeView,
+  /homeDomainName\(d\.domain\)/,
+  'navigation and mobile channel labels must use the shared domain vocabulary',
+)
+assert.match(
+  homeView,
+  /\.home-feed-list :deep\(\.post-trust-panel\)[\s\S]*?display:\s*none;/,
+  'repeated trust signal chips must be secondary on the homepage feed',
+)
+assert.match(
+  homeView,
+  /\.home-feed-list :deep\(\.post-feed-explanation__trigger\)[\s\S]*?min-height:\s*2rem;/,
+  'recommendation explanations must remain available as a low-emphasis disclosure',
+)
+assert.match(
+  homeView,
+  /\.home-feed-list :deep\(\.post-card__author-row \.text-xs\)[\s\S]*?font-size:\s*0\.8125rem/,
+  'homepage post metadata must remain readable in the light theme',
+)
+assert.match(
+  homeView,
+  /暂时没能更新内容/,
+  'HomeView must present feed degradation in concise user-facing language',
+)
+assert.doesNotMatch(
+  homeView,
+  /channelHotBoardError\.value\s*=\s*getErrorMessage/,
+  'channel hot-board degradation must not surface raw backend error details',
+)
+assert.match(
+  homeView,
   /const activeDomain = computed\(\(\) => \{[\s\S]*homeDomainOptions\.value\.some\(\(item\) => Number\(item\.domain\) === q\) \? q : undefined[\s\S]*\}\)/,
   'activeDomain must reject query values outside the enabled shared domain catalog before API calls',
 )

@@ -43,7 +43,7 @@
       </section>
 
       <template v-else-if="discussion">
-        <section class="detail-hero">
+        <section class="detail-hero reading-header">
           <div class="eyebrow-row">
             <span class="status-badge" :data-status="discussion.status">
               <CircleDot class="icon-small" aria-hidden="true" />
@@ -57,24 +57,9 @@
           <p class="description">{{ discussion.prompt }}</p>
 
           <div class="detail-meta">
-            <span><UserRound class="icon-small" aria-hidden="true" />发起者 UID {{ discussion.creatorUid }}</span>
+            <PublicActorLink :uid="discussion.creatorUid" role-label="发起者" />
             <span><CalendarDays class="icon-small" aria-hidden="true" />更新于 {{ formatDate(discussion.updateTime) }}</span>
             <span><ListChecks class="icon-small" aria-hidden="true" />{{ discussion.voteCount }} 票</span>
-          </div>
-
-          <div class="action-bar">
-            <RouterLink :to="collaborationHubLocation('discussions')" class="primary-button">
-              <Scale class="icon" aria-hidden="true" />
-              回到讨论区参与
-            </RouterLink>
-            <a
-              v-if="sourcePostPath"
-              :href="sourcePostPath"
-              class="secondary-button"
-            >
-              <ExternalLink class="icon" aria-hidden="true" />
-              查看来源帖子
-            </a>
           </div>
         </section>
 
@@ -83,8 +68,8 @@
             <section class="content-section">
               <div class="section-heading">
                 <div>
-                  <span class="section-kicker">DISCUSSION OPTIONS</span>
-                  <h2>投票选项</h2>
+                  <span class="section-kicker">参与讨论</span>
+                  <h2>大家正在比较什么</h2>
                 </div>
                 <ListChecks class="section-icon" aria-hidden="true" />
               </div>
@@ -105,7 +90,7 @@
             <section v-if="discussion.summary || discussion.authorFollowUp" class="content-section">
               <div class="section-heading">
                 <div>
-                  <span class="section-kicker">OUTCOME</span>
+                  <span class="section-kicker">讨论结果</span>
                   <h2>讨论结论</h2>
                 </div>
                 <CheckCircle2 class="section-icon" aria-hidden="true" />
@@ -117,36 +102,57 @@
             </section>
           </div>
 
-          <aside class="facts-panel">
-            <div class="section-heading compact">
-              <div>
-                <span class="section-kicker">DETAILS</span>
-                <h2>基本信息</h2>
+          <aside class="side-column">
+            <section class="action-section">
+              <div class="section-heading compact">
+                <div>
+                  <span class="section-kicker">参与方式</span>
+                  <h2>加入这场讨论</h2>
+                </div>
+                <Scale class="section-icon" aria-hidden="true" />
               </div>
-              <Info class="section-icon" aria-hidden="true" />
-            </div>
-            <dl class="detail-list">
-              <div>
-                <dt>当前状态</dt>
-                <dd>{{ statusLabel(discussion.status) }}</dd>
+              <p class="action-copy">投票或补充观点请回到讨论工作台，状态和共识由现有权限流程维护。</p>
+              <RouterLink :to="collaborationHubLocation('discussions')" class="primary-button full-width">
+                <Scale class="icon" aria-hidden="true" />
+                回到讨论区参与
+              </RouterLink>
+              <a v-if="sourcePostPath" :href="sourcePostPath" class="secondary-button full-width">
+                <ExternalLink class="icon" aria-hidden="true" />
+                查看来源帖子
+              </a>
+            </section>
+
+            <section class="facts-panel">
+              <div class="section-heading compact">
+                <div>
+                  <span class="section-kicker">治理信息</span>
+                  <h2>基本信息</h2>
+                </div>
+                <Info class="section-icon" aria-hidden="true" />
               </div>
-              <div>
-                <dt>共识状态</dt>
-                <dd>{{ consensusLabel(discussion.consensusState) }}</dd>
-              </div>
-              <div>
-                <dt>创建时间</dt>
-                <dd>{{ formatDate(discussion.createTime) }}</dd>
-              </div>
-              <div>
-                <dt>最近更新</dt>
-                <dd>{{ formatDate(discussion.updateTime) }}</dd>
-              </div>
-            </dl>
-            <p class="readonly-note">
-              <LockKeyhole class="icon-small" aria-hidden="true" />
-              详情页不直接提交投票或总结，所有写动作仍由现有讨论工作台和权限校验负责。
-            </p>
+              <dl class="detail-list">
+                <div>
+                  <dt>当前状态</dt>
+                  <dd>{{ statusLabel(discussion.status) }}</dd>
+                </div>
+                <div>
+                  <dt>共识状态</dt>
+                  <dd>{{ consensusLabel(discussion.consensusState) }}</dd>
+                </div>
+                <div>
+                  <dt>创建时间</dt>
+                  <dd>{{ formatDate(discussion.createTime) }}</dd>
+                </div>
+                <div>
+                  <dt>最近更新</dt>
+                  <dd>{{ formatDate(discussion.updateTime) }}</dd>
+                </div>
+              </dl>
+              <p class="readonly-note">
+                <LockKeyhole class="icon-small" aria-hidden="true" />
+                详情页不直接提交投票或总结，所有写动作仍由现有讨论工作台和权限校验负责。
+              </p>
+            </section>
           </aside>
         </div>
       </template>
@@ -169,7 +175,6 @@ import {
   LockKeyhole,
   RefreshCw,
   Scale,
-  UserRound,
 } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import {
@@ -180,6 +185,7 @@ import {
 } from '@/api/collaboration'
 import { localDomainConfigs } from '@/api/domains'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import PublicActorLink from '@/components/user/PublicActorLink.vue'
 import {
   collaborationHubLocation,
   collaborationResourcePath,
@@ -714,5 +720,302 @@ watch([discussion, discussionId, errorMessage], () => {
 
 .dark .skeleton {
   background: rgb(51 65 85);
+}
+
+/* Community reading layout */
+.collaboration-detail-page {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.detail-shell {
+  width: min(1080px, calc(100% - 2.5rem));
+  padding: 1.25rem 0 4.5rem;
+}
+
+.detail-toolbar {
+  margin-bottom: 1.5rem;
+}
+
+.back-link {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.back-link:hover {
+  color: var(--primary-600);
+  text-decoration: none;
+}
+
+.icon-button,
+.primary-button,
+.secondary-button {
+  min-height: 2.5rem;
+  border-radius: var(--radius-control);
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.icon-button {
+  border-color: var(--border-subtle);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.icon-button:hover:not(:disabled),
+.secondary-button:hover {
+  border-color: color-mix(in srgb, var(--primary-500) 45%, var(--border-subtle));
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.primary-button {
+  background: var(--primary-600);
+}
+
+.primary-button:hover {
+  background: var(--primary-700);
+}
+
+.reading-header {
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 1rem 0 2rem;
+}
+
+.reading-header h1 {
+  max-width: 24ch;
+  margin-top: 0.85rem;
+  color: var(--text-strong);
+  font-size: 2.35rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.description,
+.long-copy {
+  max-width: 72ch;
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.85;
+  text-wrap: pretty;
+}
+
+.description {
+  margin-top: 1rem;
+  font-size: 1.06rem;
+}
+
+.detail-meta {
+  margin-top: 1.25rem;
+  color: var(--text-muted);
+  row-gap: 0.5rem;
+}
+
+.status-badge,
+.meta-label {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.status-badge {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
+  color: color-mix(in srgb, var(--success) 72%, var(--text-strong));
+}
+
+.detail-grid {
+  grid-template-columns: minmax(0, 1fr) 292px;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.main-column {
+  gap: 0;
+}
+
+.content-section,
+.facts-panel,
+.action-section {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.content-section {
+  margin-bottom: 1rem;
+  padding: 1.5rem;
+}
+
+.side-column {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.action-section,
+.facts-panel {
+  padding: 1.15rem;
+}
+
+.action-section {
+  position: sticky;
+  top: calc(var(--community-header-height) + 1rem);
+  border-color: color-mix(in srgb, var(--primary-500) 24%, var(--border-subtle));
+}
+
+.section-heading {
+  margin-bottom: 1rem;
+}
+
+.section-heading h2 {
+  margin-top: 0.18rem;
+  color: var(--text-strong);
+  font-size: 1.12rem;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.section-kicker {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.section-icon {
+  color: var(--primary-500);
+}
+
+.action-copy {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.action-section .secondary-button {
+  margin-top: 0.65rem;
+}
+
+.detail-list div {
+  border-color: var(--border-subtle);
+}
+
+.detail-list dt,
+.muted-text {
+  color: var(--text-muted);
+}
+
+.detail-list dd {
+  color: var(--text-strong);
+}
+
+.readonly-note {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.option-row {
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
+}
+
+.option-marker {
+  background: var(--surface);
+  color: var(--primary-700);
+}
+
+.state-panel {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .detail-shell {
+    width: min(100% - 1.25rem, 1080px);
+    padding-top: 0.75rem;
+  }
+
+  .detail-toolbar {
+    margin-bottom: 0.75rem;
+  }
+
+  .reading-header {
+    padding: 0.75rem 0 1.5rem;
+  }
+
+  .reading-header h1 {
+    max-width: none;
+    font-size: 1.8rem;
+    line-height: 1.25;
+  }
+
+  .description {
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  .detail-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .content-section,
+  .action-section,
+  .facts-panel {
+    padding: 1rem;
+  }
+
+  .side-column {
+    order: -1;
+  }
+
+  .action-section {
+    position: static;
+  }
+
+  .facts-panel {
+    order: initial;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button,
+  .primary-button,
+  .secondary-button {
+    transition: none;
+  }
+
+  .spin,
+  .skeleton {
+    animation: none;
+  }
 }
 </style>

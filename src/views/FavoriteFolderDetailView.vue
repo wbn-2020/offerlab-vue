@@ -1,40 +1,76 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="community-shell">
     <AppHeader />
 
-    <main class="mx-auto max-w-5xl px-4 py-8">
-      <section v-if="isLoadingFolder" class="state-panel">
-        正在加载公开收藏夹...
+    <main class="community-page favorite-detail-page">
+      <section v-if="isLoadingFolder" class="state-panel state-panel-loading" aria-live="polite">
+        <div class="state-icon state-icon-loading" aria-hidden="true">
+          <Loader2 class="h-5 w-5 animate-spin" />
+        </div>
+        <h1>正在打开公开收藏夹</h1>
+        <p>正在确认阅读清单和公开内容。</p>
       </section>
 
-      <section v-else-if="folderError" class="state-panel state-panel-error">
+      <section v-else-if="folderError" class="state-panel state-panel-error" role="alert">
+        <div class="state-icon state-icon-error" aria-hidden="true">
+          <AlertCircle class="h-5 w-5" />
+        </div>
         <h1>公开收藏夹暂不可见</h1>
         <p>{{ folderError }}</p>
-        <div class="mt-4 flex flex-wrap justify-center gap-2">
-          <RouterLink to="/explore" class="primary-button">去发现内容</RouterLink>
-          <RouterLink to="/search" class="secondary-button">搜索内容</RouterLink>
+        <div class="state-actions">
+          <button type="button" class="primary-button" @click="loadFolder">
+            <RefreshCw class="h-4 w-4" />
+            重新加载
+          </button>
+          <RouterLink to="/explore" class="secondary-button">
+            <Compass class="h-4 w-4" />
+            去发现内容
+          </RouterLink>
+          <RouterLink to="/search" class="secondary-button">
+            <Search class="h-4 w-4" />
+            搜索内容
+          </RouterLink>
         </div>
       </section>
 
       <template v-else-if="folder">
-        <section class="favorite-folder-header">
-          <div class="folder-mark" aria-hidden="true">{{ folderInitial }}</div>
+        <section class="identity-panel">
+          <div class="folder-mark" aria-hidden="true">
+            <Bookmark class="h-7 w-7" />
+          </div>
 
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">公开收藏夹 / 阅读清单</p>
-            <h1 class="mt-2 text-2xl font-black text-slate-950 dark:text-slate-50">{{ folder.name }}</h1>
-            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+          <div class="identity-copy">
+            <div class="identity-labels">
+              <span class="asset-label"><Bookmark class="h-3.5 w-3.5" />公开阅读清单</span>
+              <span class="visibility-label"><Globe2 class="h-3.5 w-3.5" />{{ visibilityLabel }}</span>
+            </div>
+            <h1>{{ folder.name }}</h1>
+            <p class="identity-description">
               {{ folder.description || '这个公开收藏夹暂未填写描述。' }}
             </p>
 
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span class="info-chip">{{ folder.postCount }} 条内容</span>
-              <span class="info-chip">{{ visibilityLabel }}</span>
-              <span class="info-chip">{{ formatTime(folder.updatedAt || folder.createdAt) }}</span>
-              <RouterLink v-if="ownerProfilePath" :to="ownerProfilePath" class="info-chip info-chip-link">
-                创建者：{{ ownerName }}
-              </RouterLink>
-              <span v-else-if="ownerName" class="info-chip">创建者：{{ ownerName }}</span>
+            <div class="identity-meta" aria-label="收藏夹信息">
+              <span><Files class="h-4 w-4" />{{ folder.postCount }} 条内容</span>
+              <span><Clock3 class="h-4 w-4" />{{ formatTime(folder.updatedAt || folder.createdAt) }}</span>
+              <span><ListOrdered class="h-4 w-4" />按收藏顺序整理</span>
+            </div>
+
+            <RouterLink v-if="ownerProfilePath" :to="ownerProfilePath" class="owner-link">
+              <span class="owner-avatar" aria-hidden="true">
+                {{ ownerInitial }}
+              </span>
+              <span>
+                <small>收藏夹所有者</small>
+                <strong>{{ ownerName || '查看所有者主页' }}</strong>
+              </span>
+              <ChevronRight class="h-4 w-4" aria-hidden="true" />
+            </RouterLink>
+            <div v-else class="owner-link owner-link-static">
+              <span class="owner-avatar" aria-hidden="true"><User class="h-4 w-4" /></span>
+              <span>
+                <small>收藏夹所有者</small>
+                <strong>{{ ownerName || '公开用户' }}</strong>
+              </span>
             </div>
           </div>
 
@@ -50,44 +86,90 @@
           </div>
         </section>
 
-        <section class="mt-6 space-y-4">
-          <div class="section-title">
-            <div>
-              <h2>阅读清单内容</h2>
-              <p>这里仅展示公开可见、未删除且通过治理过滤的帖子；私密收藏不会出现在公开页面。</p>
+        <div class="favorite-layout">
+          <section class="content-column" aria-labelledby="favorite-posts-title">
+            <header class="content-heading">
+              <div>
+                <h2 id="favorite-posts-title">阅读清单内容</h2>
+                <p>按所有者的收藏顺序展示公开可见、未删除且通过治理过滤的帖子。</p>
+              </div>
+              <span class="order-note"><ListOrdered class="h-4 w-4" />收藏顺序</span>
+            </header>
+
+            <div v-if="postsError" class="notice-error" role="alert">
+              <AlertCircle class="h-4 w-4" />
+              <span>{{ postsError }}</span>
+              <button type="button" :disabled="isLoadingPosts" @click="loadPosts(false)">重试</button>
             </div>
-          </div>
 
-          <div v-if="postsError" class="notice-error">{{ postsError }}</div>
+            <div v-if="isLoadingPosts && posts.length === 0" class="post-skeletons" aria-live="polite">
+              <span class="sr-only">正在加载阅读清单内容...</span>
+              <div v-for="index in 2" :key="index" class="post-skeleton" aria-hidden="true">
+                <div class="skeleton-line skeleton-meta" />
+                <div class="skeleton-line skeleton-title" />
+                <div class="skeleton-line" />
+                <div class="skeleton-line skeleton-short" />
+              </div>
+            </div>
 
-          <div v-if="isLoadingPosts && posts.length === 0" class="state-panel">
-            正在加载阅读清单内容...
-          </div>
+            <div v-else-if="posts.length" class="post-list">
+              <PostCard
+                v-for="post in posts"
+                :key="post.postId"
+                :post="post"
+                :like-pending="isActionPending('like', post.postId)"
+                :favorite-pending="isActionPending('favorite', post.postId)"
+                @like="handleLike"
+                @favorite="handleFavorite"
+                @follow-change="handlePostAuthorFollowChange"
+              />
+            </div>
 
-          <template v-else-if="posts.length">
-            <PostCard
-              v-for="post in posts"
-              :key="post.postId"
-              :post="post"
-              :like-pending="isActionPending('like', post.postId)"
-              :favorite-pending="isActionPending('favorite', post.postId)"
-              @like="handleLike"
-              @favorite="handleFavorite"
-              @follow-change="handlePostAuthorFollowChange"
-            />
-          </template>
+            <div v-else class="state-panel state-panel-compact">
+              <div class="state-icon" aria-hidden="true"><Bookmark class="h-5 w-5" /></div>
+              <h2>这个阅读清单还没有公开内容</h2>
+              <p>所有者收藏的内容可能仍是私密、已删除、审核中，或暂时没有可公开展示的帖子。</p>
+              <RouterLink to="/explore" class="secondary-button">
+                <Compass class="h-4 w-4" />
+                浏览其他公开内容
+              </RouterLink>
+            </div>
 
-          <div v-else class="state-panel">
-            <h2>这个阅读清单还没有公开内容</h2>
-            <p>创建者收藏的内容可能仍是私密、已删除、审核中，或暂时没有可公开展示的帖子。</p>
-          </div>
+            <div v-if="hasMore" class="pagination-row">
+              <button type="button" class="secondary-button" :disabled="isLoadingPosts" @click="loadPosts(true)">
+                <Loader2 v-if="isLoadingPosts" class="h-4 w-4 animate-spin" />
+                <ChevronDown v-else class="h-4 w-4" />
+                {{ isLoadingPosts ? '加载中...' : '加载更多' }}
+              </button>
+            </div>
+          </section>
 
-          <div v-if="hasMore" class="text-center">
-            <button type="button" class="secondary-button" :disabled="isLoadingPosts" @click="loadPosts(true)">
-              {{ isLoadingPosts ? '加载中...' : '加载更多' }}
-            </button>
-          </div>
-        </section>
+          <aside class="favorite-rail" aria-label="收藏夹说明">
+            <section class="rail-panel">
+              <div class="rail-panel-heading">
+                <User class="h-5 w-5" aria-hidden="true" />
+                <div>
+                  <h2>由所有者持续整理</h2>
+                  <p>这是个人公开收藏形成的阅读清单，不代表平台精选或内容排名。</p>
+                </div>
+              </div>
+              <RouterLink v-if="ownerProfilePath" :to="ownerProfilePath" class="rail-link">
+                查看所有者的公开主页
+                <ChevronRight class="h-4 w-4" />
+              </RouterLink>
+            </section>
+
+            <section class="rail-panel">
+              <div class="rail-panel-heading">
+                <ShieldCheck class="h-5 w-5" aria-hidden="true" />
+                <div>
+                  <h2>公开与权限边界</h2>
+                  <p>只有公开收藏夹可以访问和分享；私密收藏、已删除内容及受限内容不会在这里展示。</p>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
       </template>
     </main>
   </div>
@@ -95,10 +177,26 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import {
+  AlertCircle,
+  Bookmark,
+  ChevronDown,
+  ChevronRight,
+  Clock3,
+  Compass,
+  Files,
+  Globe2,
+  ListOrdered,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  User,
+} from 'lucide-vue-next'
 import { RouterLink, useRoute } from 'vue-router'
 import { BizException, getErrorMessage } from '@/api/client'
 import { interactionApi } from '@/api/interaction'
-import type { ApiId, FavoriteFolder, Post, User } from '@/api/types'
+import type { ApiId, FavoriteFolder, Post, User as CommunityUser } from '@/api/types'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import PublicShareButton from '@/components/common/PublicShareButton.vue'
 import PostCard from '@/components/post/PostCard.vue'
@@ -107,8 +205,8 @@ import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
 
 type FolderWithOwner = FavoriteFolder & {
-  owner?: Partial<User> | null
-  creator?: Partial<User> | null
+  owner?: Partial<CommunityUser> | null
+  creator?: Partial<CommunityUser> | null
   ownerName?: string
   creatorName?: string
   creatorUid?: ApiId
@@ -125,12 +223,12 @@ const folderError = ref('')
 const postsError = ref('')
 
 const folderId = computed(() => String(route.params.id || ''))
-const folderInitial = computed(() => folder.value?.name?.trim().charAt(0).toUpperCase() || '阅')
 const visibilityLabel = computed(() => folder.value?.visibility === 'public' ? '公开可见' : '非公开')
 const canShareFolder = computed(() => Boolean(folder.value && folder.value.visibility === 'public' && !folderError.value))
 const ownerRecord = computed(() => folder.value?.creator || folder.value?.owner || null)
 const ownerUid = computed(() => ownerRecord.value?.uid ?? folder.value?.creatorUid ?? folder.value?.ownerId)
 const ownerName = computed(() => ownerRecord.value?.nickname || folder.value?.creatorName || folder.value?.ownerName || '')
+const ownerInitial = computed(() => ownerName.value.trim().charAt(0).toUpperCase() || '主')
 const ownerProfilePath = computed(() => ownerUid.value ? `/u/${ownerUid.value}` : '')
 const folderSeoDescription = computed(() => summarizeSeoText(
   folder.value?.description,
@@ -239,86 +337,306 @@ watch([folder, folderId, folderError], () => {
 </script>
 
 <style scoped>
-.favorite-folder-header,
-.section-title,
-.state-panel {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.75rem;
-  background: white;
+.community-shell {
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+.favorite-detail-page {
+  padding-top: 1.5rem;
+  padding-bottom: 3rem;
+}
+
+.identity-panel,
+.state-panel,
+.post-skeleton,
+.rail-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+}
+
+.identity-panel {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+  gap: 1.25rem;
+  align-items: start;
   padding: 1.5rem;
 }
 
-.favorite-folder-header {
+.folder-mark {
+  display: grid;
+  width: 5.5rem;
+  height: 5.5rem;
+  place-items: center;
+  border-radius: 8px;
+  background: #065f46;
+  color: white;
+}
+
+.identity-copy {
+  min-width: 0;
+}
+
+.identity-labels,
+.identity-meta,
+.header-actions,
+.state-actions,
+.pagination-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.folder-mark {
-  display: flex;
-  height: 3.5rem;
-  width: 3.5rem;
-  flex-shrink: 0;
   align-items: center;
-  justify-content: center;
-  border-radius: 0.75rem;
-  background: rgb(5 150 105);
-  color: white;
-  font-size: 1.35rem;
-  font-weight: 900;
+  gap: 0.625rem;
 }
 
-.info-chip {
+.asset-label,
+.visibility-label,
+.order-note {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  background: rgb(236 253 245);
-  padding: 0.35rem 0.7rem;
-  color: rgb(4 120 87);
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1.1rem;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 750;
 }
 
-.info-chip-link:hover {
-  background: rgb(209 250 229);
+.asset-label {
+  color: #047857;
 }
 
-.section-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+.visibility-label,
+.order-note {
+  color: var(--text-muted);
+}
+
+.identity-copy h1 {
+  margin-top: 0.55rem;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 850;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.identity-description {
+  max-width: 68ch;
+  margin-top: 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.identity-meta {
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.identity-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.owner-link {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 1.1rem;
+  color: var(--text-strong);
+}
+
+.owner-link:not(.owner-link-static):hover strong {
+  color: #047857;
+}
+
+.owner-avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.owner-link span:not(.owner-avatar) {
+  display: grid;
+  min-width: 0;
+}
+
+.owner-link small {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.owner-link strong {
+  font-size: 0.8125rem;
+  transition: color 0.18s ease;
 }
 
 .header-actions {
+  justify-content: flex-end;
+}
+
+.favorite-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16.5rem, 20rem);
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.content-column,
+.favorite-rail {
+  min-width: 0;
+}
+
+.content-heading {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.section-title h2,
+.content-heading h2,
 .state-panel h1,
-.state-panel h2 {
-  color: rgb(15 23 42);
-  font-weight: 900;
+.state-panel h2,
+.rail-panel h2 {
+  color: var(--text-strong);
+  font-weight: 800;
 }
 
-.section-title p,
-.state-panel p {
-  margin-top: 0.4rem;
-  color: rgb(100 116 139);
-  font-size: 0.875rem;
+.content-heading h2 {
+  font-size: 1.0625rem;
+}
+
+.content-heading p,
+.state-panel p,
+.rail-panel p {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.order-note {
+  flex: 0 0 auto;
+  padding-top: 0.15rem;
+}
+
+.post-list,
+.post-skeletons,
+.favorite-rail {
+  display: grid;
+  gap: 1rem;
+}
+
+.notice-error {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  border: 1px solid #fecdd3;
+  border-radius: var(--radius-surface);
+  background: #fff1f2;
+  padding: 0.8rem 0.9rem;
+  color: #be123c;
+  font-size: 0.8125rem;
+}
+
+.notice-error span {
+  min-width: 0;
+  flex: 1;
+}
+
+.notice-error button {
+  flex: 0 0 auto;
+  font-weight: 750;
+}
+
+.post-skeleton {
+  padding: 1.25rem;
+}
+
+.skeleton-line {
+  height: 0.75rem;
+  margin-top: 0.75rem;
+  border-radius: 4px;
+  background: var(--surface-3);
+}
+
+.skeleton-line:first-child {
+  margin-top: 0;
+}
+
+.skeleton-meta {
+  width: 34%;
+}
+
+.skeleton-title {
+  width: 78%;
+  height: 1rem;
+  margin-top: 1.1rem;
+}
+
+.skeleton-short {
+  width: 58%;
 }
 
 .state-panel {
-  color: rgb(100 116 139);
+  display: grid;
+  justify-items: center;
+  max-width: 46rem;
+  margin: 3rem auto;
+  padding: 2rem;
+  color: var(--text-muted);
   text-align: center;
 }
 
-.state-panel-error h1 {
-  font-size: 1.25rem;
+.state-panel h1,
+.state-panel h2 {
+  margin-top: 0.8rem;
+  font-size: 1.125rem;
+}
+
+.state-panel-compact {
+  max-width: none;
+  margin: 0;
+}
+
+.state-icon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.state-icon-loading {
+  color: var(--primary-600);
+}
+
+.state-icon-error {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.state-actions,
+.state-panel-compact .secondary-button {
+  margin-top: 1rem;
+  justify-content: center;
 }
 
 .primary-button,
@@ -328,85 +646,205 @@ watch([folder, folderId, folderError], () => {
   max-width: 100%;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
-  padding: 0.625rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 800;
+  gap: 0.45rem;
+  border-radius: var(--radius-control);
+  padding: 0.625rem 0.95rem;
+  font-size: 0.8125rem;
+  font-weight: 750;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .primary-button {
-  background: rgb(5 150 105);
+  background: #047857;
   color: white;
 }
 
-.secondary-button {
-  border: 1px solid rgb(203 213 225);
-  background: white;
-  color: rgb(51 65 85);
+.primary-button:hover {
+  background: #065f46;
 }
 
-.notice-error {
-  border: 1px solid rgb(254 205 211);
-  border-radius: 0.75rem;
-  background: rgb(255 241 242);
+.secondary-button {
+  border: 1px solid var(--border-default);
+  background: var(--surface);
+  color: var(--text-strong);
+}
+
+.secondary-button:hover {
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.secondary-button:disabled,
+.primary-button:disabled,
+.notice-error button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.pagination-row {
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.favorite-rail {
+  position: sticky;
+  top: calc(var(--community-header-height) + 1.25rem);
+}
+
+.rail-panel {
   padding: 1rem;
-  color: rgb(190 18 60);
+}
+
+.rail-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.rail-panel-heading > svg {
+  flex: 0 0 auto;
+  color: #047857;
+}
+
+.rail-panel h2 {
   font-size: 0.875rem;
 }
 
-.dark .favorite-folder-header,
-.dark .section-title,
-.dark .state-panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+.rail-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border-subtle);
+  color: #047857;
+  font-size: 0.8125rem;
+  font-weight: 750;
 }
 
-.dark .folder-mark {
-  background: rgb(6 78 59);
+html.dark .owner-avatar {
+  background: rgb(6 78 59 / 0.6);
+  color: #a7f3d0;
 }
 
-.dark .info-chip {
-  background: rgb(6 78 59 / 0.45);
-  color: rgb(167 243 208);
+html.dark .asset-label,
+html.dark .rail-panel-heading > svg,
+html.dark .rail-link {
+  color: #6ee7b7;
 }
 
-.dark .info-chip-link:hover {
-  background: rgb(6 95 70 / 0.62);
+html.dark .notice-error {
+  border-color: #881337;
+  background: rgb(76 5 25 / 0.6);
+  color: #fecdd3;
 }
 
-.dark .section-title h2,
-.dark .state-panel h1,
-.dark .state-panel h2 {
-  color: rgb(248 250 252);
+html.dark .state-icon-error {
+  background: rgb(76 5 25 / 0.6);
+  color: #fda4af;
 }
 
-.dark .section-title p,
-.dark .state-panel p,
-.dark .state-panel {
-  color: rgb(148 163 184);
-}
+@media (max-width: 900px) {
+  .identity-panel {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+  }
 
-.dark .secondary-button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
-}
+  .header-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
 
-.dark .notice-error {
-  border-color: rgb(127 29 29);
-  background: rgb(69 10 10);
-  color: rgb(254 202 202);
+  .favorite-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .favorite-rail {
+    position: static;
+  }
 }
 
 @media (max-width: 640px) {
-  .favorite-folder-header {
-    flex-direction: column;
+  .favorite-detail-page {
+    padding-top: 1rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .identity-panel {
+    grid-template-columns: 4.25rem minmax(0, 1fr);
+    gap: 0.9rem;
+    padding: 1rem;
+  }
+
+  .folder-mark {
+    width: 4.25rem;
+    height: 4.25rem;
+  }
+
+  .identity-copy h1 {
+    font-size: 1.35rem;
+  }
+
+  .identity-meta {
+    gap: 0.55rem 0.85rem;
+  }
+
+  .owner-link {
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .header-actions :deep(.public-share-button) {
+    width: 100%;
+  }
+
+  .favorite-layout {
+    margin-top: 1.25rem;
+  }
+
+  .content-heading {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .order-note {
+    padding-top: 0;
+  }
+
+  .notice-error {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .notice-error button {
+    margin-left: 1.5rem;
+  }
+
+  .state-panel {
+    margin: 1.5rem auto;
+    padding: 1.5rem 1rem;
+  }
+
+  .state-actions,
+  .state-actions .primary-button,
+  .state-actions .secondary-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: none;
   }
 
   .primary-button,
   .secondary-button,
-  .header-actions {
-    width: 100%;
+  .owner-link strong {
+    transition: none;
   }
 }
 </style>

@@ -1,175 +1,199 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell legacy-training-page">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-8">
-      <LoadingSkeleton v-if="isLoading" />
-      <EmptyState v-else-if="!prep" title="暂无主题包" description="该主题还没有足够的公开经验和知识卡。" actionText="返回知识库" actionHref="/questions" />
+    <main class="community-page prep-page">
+      <section v-if="isLoading" class="surface-card prep-state">
+        <LoadingSkeleton />
+      </section>
+      <section v-else-if="!prep" class="surface-card prep-state">
+        <EmptyState title="暂无主题包" description="该主题还没有足够的公开经验和知识卡。" actionText="返回知识库" actionHref="/questions" />
+      </section>
       <template v-else>
-        <section v-if="demoPrepNotice" class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+        <section v-if="demoPrepNotice" class="prep-notice">
           {{ demoPrepNotice }}
         </section>
 
-        <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 class="text-3xl font-bold text-slate-950 dark:text-slate-50">{{ prep.company }} 主题包</h1>
-              <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">聚合近期经验、高频知识卡、热门方向和技术标签。</p>
-              <div v-if="prep.aliases.length" class="mt-3 flex flex-wrap gap-2">
-                <span v-for="alias in prep.aliases" :key="alias" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ alias }}</span>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="prep-export-button"
-                :disabled="isAddingTarget || isCompanyTargetAdded || isDemoPrep"
-                @click="addCompanyTarget"
-              >
-                {{ isDemoPrep ? '样例不可加入' : isCompanyTargetAdded ? '已加入目标' : isAddingTarget ? '加入中...' : '加入我的目标' }}
-              </button>
-              <button type="button" class="prep-export-button" @click="copyCompanyPrepPack">
-                <Copy class="h-4 w-4" aria-hidden="true" />
-                复制主题包
-              </button>
-              <button type="button" class="prep-export-button" @click="downloadCompanyPrepPack">
-                <Download class="h-4 w-4" aria-hidden="true" />
-                下载主题包
-              </button>
-              <RouterLink :to="`/questions?company=${encodeURIComponent(prep.company)}`" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
-                查看全部知识卡
-              </RouterLink>
+        <header class="surface-card prep-header">
+          <div class="prep-header-main">
+            <span class="legacy-label">兼容学习工具</span>
+            <h1>{{ prep.company }} 主题学习包</h1>
+            <p>从公开知识卡和真实经验中整理可执行的学习顺序，默认社区主路径仍是知识库与公开内容。</p>
+            <div v-if="prep.aliases.length" class="alias-list" aria-label="主题别名">
+              <span v-for="alias in prep.aliases" :key="alias">{{ alias }}</span>
             </div>
           </div>
-        </section>
-
-        <section class="mb-6 grid gap-4 md:grid-cols-4">
-          <div class="metric-card"><span>高频知识卡</span><strong>{{ prep.topQuestions.length }}</strong></div>
-          <div class="metric-card"><span>最近经验</span><strong>{{ prep.recentPosts.length }}</strong></div>
-          <div class="metric-card"><span>热门方向</span><strong>{{ prep.hotPositions.length }}</strong></div>
-          <div class="metric-card"><span>相关方向数</span><strong>{{ prep.relatedPositionCount }}</strong></div>
-        </section>
-
-        <section class="data-confidence-panel mb-6">
-          <div>
-            <h2>数据可信度</h2>
-            <p>{{ confidenceHint }}</p>
-          </div>
-          <div class="confidence-metrics">
-            <span>知识卡样本 <strong>{{ prep.questionSampleCount }}</strong></span>
-            <span>经验样本 <strong>{{ prep.postSampleCount }}</strong></span>
-            <span>反馈样本 <strong>{{ prep.resultSampleCount }}</strong></span>
-            <span>近 30 天反馈 <strong>{{ prep.recentResultSampleCount }}</strong></span>
-            <span>更新 <strong>{{ dataUpdatedText }}</strong></span>
-          </div>
-        </section>
-
-        <section v-if="prep.checklist.length" class="section-panel mb-6">
-          <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 class="section-title mb-1">主题学习清单</h2>
-              <p class="text-sm text-slate-500 dark:text-slate-400">把知识卡、经验阅读和个人掌握情况合成一张学习检查表。</p>
-            </div>
-            <div class="score-ring">{{ prep.prepScore }}%</div>
-          </div>
-          <div class="checklist-grid">
-            <RouterLink
-              v-for="item in prep.checklist"
-              :key="item.key"
-              :to="safeActionHref(item.actionHref)"
-              class="check-item"
-              :class="{ done: item.done }"
+          <div class="prep-header-actions">
+            <RouterLink :to="`/questions?company=${encodeURIComponent(prep.company)}`" class="primary-action">
+              查看全部知识卡
+            </RouterLink>
+            <button
+              type="button"
+              class="secondary-action"
+              :disabled="isAddingTarget || isCompanyTargetAdded || isDemoPrep"
+              @click="addCompanyTarget"
             >
-              <div class="check-icon">{{ item.done ? '✓' : item.current }}</div>
-              <div>
-                <h3>{{ item.title }}</h3>
-                <p>{{ item.description }}</p>
-                <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div class="h-full rounded-full bg-primary-600" :style="{ width: `${checkPercent(item.current, item.target)}%` }" />
+              {{ isDemoPrep ? '样例不可加入' : isCompanyTargetAdded ? '已加入目标' : isAddingTarget ? '加入中...' : '加入我的目标' }}
+            </button>
+            <button type="button" class="secondary-action" @click="copyCompanyPrepPack">
+              <Copy class="h-4 w-4" aria-hidden="true" />
+              复制主题包
+            </button>
+            <button type="button" class="secondary-action" @click="downloadCompanyPrepPack">
+              <Download class="h-4 w-4" aria-hidden="true" />
+              下载主题包
+            </button>
+          </div>
+          <dl class="prep-summary" aria-label="主题包内容概览">
+            <div><dt>高频知识卡</dt><dd>{{ prep.topQuestions.length }}</dd></div>
+            <div><dt>最近经验</dt><dd>{{ prep.recentPosts.length }}</dd></div>
+            <div><dt>热门方向</dt><dd>{{ prep.hotPositions.length }}</dd></div>
+            <div><dt>相关方向</dt><dd>{{ prep.relatedPositionCount }}</dd></div>
+          </dl>
+        </header>
+
+        <div class="prep-layout">
+          <section class="prep-main">
+            <section v-if="prep.checklist.length" class="surface-card section-panel checklist-panel">
+              <div class="section-heading">
+                <div>
+                  <h2>主题学习清单</h2>
+                  <p>把知识卡、经验阅读和个人掌握情况合成一张学习检查表。</p>
+                </div>
+                <strong class="score-value">{{ prep.prepScore }}%</strong>
+              </div>
+              <div class="checklist-grid">
+                <RouterLink
+                  v-for="item in prep.checklist"
+                  :key="item.key"
+                  :to="safeActionHref(item.actionHref)"
+                  class="check-item"
+                  :class="{ done: item.done }"
+                >
+                  <div class="check-icon">{{ item.done ? '✓' : item.current }}</div>
+                  <div class="check-content">
+                    <div class="check-title-row">
+                      <h3>{{ item.title }}</h3>
+                      <span>{{ item.current }}/{{ item.target }}</span>
+                    </div>
+                    <p>{{ item.description }}</p>
+                    <div class="progress-track">
+                      <div class="progress-fill" :style="{ width: `${checkPercent(item.current, item.target)}%` }" />
+                    </div>
+                  </div>
+                </RouterLink>
+              </div>
+              <div v-if="prep.nextActions.length" class="next-actions">
+                <strong>下一步建议</strong>
+                <div>
+                  <span v-for="action in prep.nextActions" :key="action" class="next-action-chip">{{ action }}</span>
                 </div>
               </div>
-            </RouterLink>
-          </div>
-          <div v-if="prep.nextActions.length" class="next-actions">
-            <div class="text-xs font-semibold uppercase text-slate-400">Next</div>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <span v-for="action in prep.nextActions" :key="action" class="next-action-chip">{{ action }}</span>
-            </div>
-          </div>
-        </section>
+            </section>
 
-        <div class="grid gap-6 lg:grid-cols-3">
-          <section class="space-y-4 lg:col-span-2">
-            <div class="section-panel">
-              <h2 class="section-title">高频知识卡</h2>
-              <div class="grid gap-4">
+            <section class="surface-card section-panel">
+              <div class="section-heading">
+                <div>
+                  <h2>高频知识卡</h2>
+                  <p>先覆盖当前主题中反复出现、可复用的核心知识。</p>
+                </div>
+              </div>
+              <div class="content-list">
                 <QuestionCard v-for="question in prep.topQuestions" :key="question.id" :question="question" />
                 <EmptyState v-if="prep.topQuestions.length === 0" title="暂无知识卡" description="等待更多经验沉淀。" />
               </div>
-            </div>
+            </section>
 
-            <div v-if="authStore.isLoggedIn" class="section-panel">
-              <div class="mb-4 flex items-start justify-between gap-3">
+            <section v-if="authStore.isLoggedIn" class="surface-card section-panel">
+              <div class="section-heading">
                 <div>
-                  <h2 class="section-title !mb-1">优先学习这些</h2>
-                  <p class="text-sm text-slate-500 dark:text-slate-400">结合你的掌握状态，从该主题高频知识卡里排除已掌握内容。</p>
+                  <h2>优先学习这些</h2>
+                  <p>结合你的掌握状态，从该主题高频知识卡里排除已掌握内容。</p>
                 </div>
-                <span class="trend-badge">个人化</span>
+                <span class="status-badge">个人化</span>
               </div>
-              <div class="grid gap-4">
+              <div class="content-list">
                 <QuestionCard v-for="question in prep.recommendedQuestions" :key="question.id" :question="question" />
                 <EmptyState v-if="prep.recommendedQuestions.length === 0" title="暂无待推荐知识卡" description="该主题高频内容已基本完成，继续补充新经验或复盘笔记。" />
               </div>
-            </div>
+            </section>
 
-            <div class="section-panel">
-              <h2 class="section-title">最近经验</h2>
-              <div class="space-y-3">
-                <RouterLink v-for="post in prep.recentPosts" :key="post.postId" :to="`/post/${post.postId}`" class="block rounded-lg border border-slate-100 bg-slate-50 p-4 hover:bg-primary-50/50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-primary-950/30">
-                  <h3 class="font-semibold text-slate-950 dark:text-slate-50">{{ post.title }}</h3>
-                  <p class="mt-1 line-clamp-2 text-sm text-slate-500">{{ post.summary || post.content }}</p>
+            <section class="surface-card section-panel">
+              <div class="section-heading">
+                <div>
+                  <h2>最近经验</h2>
+                  <p>用公开经验补充知识卡之外的背景、限制和真实取舍。</p>
+                </div>
+              </div>
+              <div class="experience-list">
+                <RouterLink v-for="post in prep.recentPosts" :key="post.postId" :to="`/post/${post.postId}`" class="experience-row">
+                  <h3>{{ post.title }}</h3>
+                  <p>{{ post.summary || post.content }}</p>
                 </RouterLink>
                 <EmptyState v-if="prep.recentPosts.length === 0" title="暂无经验" description="还没有公开经验。" />
               </div>
-            </div>
+            </section>
           </section>
 
-          <aside class="space-y-6">
-            <div class="section-panel">
-              <h2 class="section-title">高频技术标签</h2>
+          <aside class="prep-aside">
+            <section class="surface-card aside-panel confidence-panel">
+              <div class="aside-heading">
+                <h2>数据可信度</h2>
+                <span>{{ dataUpdatedText }}</span>
+              </div>
+              <p>{{ confidenceHint }}</p>
+              <dl class="confidence-metrics">
+                <div><dt>知识卡样本</dt><dd>{{ prep.questionSampleCount }}</dd></div>
+                <div><dt>经验样本</dt><dd>{{ prep.postSampleCount }}</dd></div>
+                <div><dt>反馈样本</dt><dd>{{ prep.resultSampleCount }}</dd></div>
+                <div><dt>近 30 天反馈</dt><dd>{{ prep.recentResultSampleCount }}</dd></div>
+              </dl>
+            </section>
+
+            <section v-if="prep.myProgress" class="surface-card aside-panel">
+              <div class="aside-heading"><h2>我的学习进度</h2></div>
+              <dl class="personal-progress">
+                <div><dt>收藏</dt><dd>{{ prep.myProgress.favoriteCount }}</dd></div>
+                <div><dt>学习中</dt><dd>{{ prep.myProgress.learningCount }}</dd></div>
+                <div><dt>已掌握</dt><dd>{{ prep.myProgress.masteredCount }}</dd></div>
+                <div><dt>待复习</dt><dd>{{ prep.myProgress.reviewCount }}</dd></div>
+              </dl>
+            </section>
+
+            <section class="surface-card aside-panel">
+              <div class="aside-heading"><h2>高频技术标签</h2></div>
               <RankList :items="prep.topTags" />
-            </div>
-            <div class="section-panel">
-              <h2 class="section-title">热门方向</h2>
+            </section>
+            <section class="surface-card aside-panel">
+              <div class="aside-heading"><h2>热门方向</h2></div>
               <RankList :items="prep.hotPositions" />
-            </div>
-            <div class="section-panel">
-              <h2 class="section-title">30 天热度</h2>
-              <RankList :items="prep.trend30Days" />
-            </div>
-            <div class="section-panel">
-              <h2 class="section-title">90 天热度</h2>
-              <RankList :items="prep.trend90Days" />
-            </div>
-            <div class="section-panel">
-              <div class="mb-4 flex items-start justify-between gap-3">
+            </section>
+            <section class="surface-card aside-panel trend-panel">
+              <div class="aside-heading">
+                <h2>讨论热度</h2>
+                <span>30 / 90 天</span>
+              </div>
+              <div class="trend-columns">
                 <div>
-                  <h2 class="section-title !mb-1">反馈趋势</h2>
-                  <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">来自公开经验的反馈分布，辅助判断近期讨论方向。</p>
+                  <h3>近 30 天</h3>
+                  <RankList :items="prep.trend30Days" />
                 </div>
-                <span class="trend-badge">30 天</span>
+                <div>
+                  <h3>近 90 天</h3>
+                  <RankList :items="prep.trend90Days" />
+                </div>
+              </div>
+            </section>
+            <section class="surface-card aside-panel">
+              <div class="aside-heading">
+                <div>
+                  <h2>反馈趋势</h2>
+                  <p>来自公开经验的反馈分布。</p>
+                </div>
+                <span class="status-badge">30 天</span>
               </div>
               <ResultTrendList title="近 30 天" :items="prep.recentResultDistribution" />
               <ResultTrendList class="mt-4" title="全部样本" :items="prep.interviewResultDistribution" />
-            </div>
-            <div v-if="prep.myProgress" class="section-panel">
-              <h2 class="section-title">我的学习进度</h2>
-              <div class="grid grid-cols-2 gap-3 text-sm">
-                <div class="progress-cell">收藏 {{ prep.myProgress.favoriteCount }}</div>
-                <div class="progress-cell">学习中 {{ prep.myProgress.learningCount }}</div>
-                <div class="progress-cell">已掌握 {{ prep.myProgress.masteredCount }}</div>
-                <div class="progress-cell">待复习 {{ prep.myProgress.reviewCount }}</div>
-              </div>
-            </div>
+            </section>
           </aside>
         </div>
       </template>
@@ -330,143 +354,429 @@ const ResultTrendList = defineComponent({
 </script>
 
 <style scoped>
-.metric-card,
-.section-panel {
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+.legacy-training-page {
+  background: var(--surface-2);
 }
-.metric-card span {
-  display: block;
-  font-size: 0.875rem;
-  color: rgb(100 116 139);
+
+.prep-page {
+  padding-top: 1.25rem;
+  padding-bottom: 5rem;
 }
-.metric-card strong {
-  margin-top: 0.4rem;
-  display: block;
-  font-size: 1.8rem;
-  color: rgb(15 23 42);
+
+.prep-state {
+  min-height: 24rem;
+  padding: 1.5rem;
 }
-.data-confidence-panel {
+
+.prep-notice {
+  margin-bottom: 0.875rem;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-surface);
+  background: #fff7ed;
+  padding: 0.75rem 1rem;
+  color: #9a3412;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.prep-header {
   display: grid;
-  gap: 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgb(186 230 253);
-  background: rgb(240 249 255);
-  padding: 1rem 1.25rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.25rem 2rem;
+  padding: 1.5rem;
 }
-.data-confidence-panel h2 {
-  font-size: 0.95rem;
-  font-weight: 900;
-  color: rgb(12 74 110);
+
+.prep-header-main {
+  min-width: 0;
 }
-.data-confidence-panel p {
-  margin-top: 0.25rem;
-  font-size: 0.84rem;
-  line-height: 1.6;
-  color: rgb(71 85 105);
+
+.legacy-label {
+  display: inline-flex;
+  min-height: 1.625rem;
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  padding: 0.2rem 0.625rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
-.confidence-metrics {
+
+.prep-header h1 {
+  margin-top: 0.75rem;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.prep-header-main > p {
+  max-width: 68ch;
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.alias-list {
   display: flex;
   flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.875rem;
+}
+
+.alias-list span {
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  padding: 0.25rem 0.625rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.prep-header-actions {
+  display: flex;
+  max-width: 30rem;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: flex-end;
   gap: 0.5rem;
 }
-.confidence-metrics span {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 999px;
-  border: 1px solid rgb(186 230 253);
-  background: white;
-  padding: 0.25rem 0.7rem;
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: rgb(71 85 105);
-}
-.confidence-metrics strong {
-  color: rgb(3 105 161);
-}
-.section-title {
-  margin-bottom: 1rem;
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: rgb(15 23 42);
-}
-.progress-cell {
-  border-radius: 0.75rem;
-  background: rgb(248 250 252);
-  padding: 0.85rem;
-  font-weight: 700;
-  color: rgb(71 85 105);
-}
-.score-ring {
-  display: inline-flex;
-  min-width: 56px;
-  min-height: 56px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: rgb(239 246 255);
-  font-size: 1rem;
-  font-weight: 900;
-  color: rgb(29 78 216);
-}
-.prep-export-button {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 800;
-  color: rgb(29 78 216);
-}
-.checklist-grid {
-  display: grid;
-  gap: 0.85rem;
-}
-.next-actions {
-  margin-top: 1rem;
-  border-top: 1px solid rgb(226 232 240);
-  padding-top: 1rem;
-}
-.next-action-chip {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  border-radius: 999px;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
-  padding: 0.3rem 0.7rem;
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: rgb(29 78 216);
-}
-.trend-badge {
-  display: inline-flex;
-  min-height: 26px;
-  align-items: center;
-  border-radius: 999px;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  padding: 0.2rem 0.55rem;
-  font-size: 0.72rem;
-  font-weight: 900;
-  color: rgb(71 85 105);
+
+.prep-header-actions :is(a, button) {
+  min-height: 2.5rem;
   white-space: nowrap;
 }
-.result-trend-block {
-  border-radius: 0.75rem;
-  background: rgb(248 250 252);
-  padding: 0.85rem;
+
+.prep-header-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
+
+.prep-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--border-subtle);
+}
+
+.prep-summary div {
+  padding: 1rem 0.875rem 0;
+}
+
+.prep-summary div + div {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.prep-summary dt {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.prep-summary dd {
+  margin-top: 0.25rem;
+  color: var(--text-strong);
+  font-size: 1.375rem;
+  font-weight: 800;
+}
+
+.prep-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 1rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.prep-main,
+.prep-aside {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.prep-aside {
+  position: sticky;
+  top: calc(var(--community-header-height) + 1rem);
+}
+
+.section-panel,
+.aside-panel {
+  padding: 1.25rem;
+}
+
+.section-heading,
+.aside-heading,
+.check-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.section-heading {
+  margin-bottom: 1rem;
+}
+
+.section-heading h2,
+.aside-heading h2 {
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+
+.section-heading p,
+.aside-heading p {
+  max-width: 62ch;
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.score-value {
+  flex: 0 0 auto;
+  color: var(--primary-600);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.content-list,
+.experience-list,
+.checklist-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.checklist-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.check-item {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-2);
+  padding: 0.875rem;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.check-item:hover {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+}
+
+.check-item.done {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.check-icon {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.check-item.done .check-icon {
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.check-title-row h3 {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.check-title-row span {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.check-content > p {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.progress-track {
+  height: 0.375rem;
+  overflow: hidden;
+  margin-top: 0.625rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-600);
+}
+
+.next-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
+.next-actions > strong {
+  padding-top: 0.3rem;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
+.next-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.next-action-chip,
+.status-badge {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-pill);
+  background: var(--primary-50);
+  padding: 0.2rem 0.625rem;
+  color: var(--primary-700);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.experience-row {
+  display: block;
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.875rem 0;
+}
+
+.experience-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.experience-row:last-child {
+  padding-bottom: 0;
+}
+
+.experience-row h3 {
+  color: var(--text-strong);
+  font-size: 0.9375rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.experience-row p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.experience-row:hover h3 {
+  color: var(--primary-600);
+}
+
+.aside-heading {
+  margin-bottom: 0.875rem;
+}
+
+.aside-heading > span {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.confidence-panel > p {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.confidence-metrics,
+.personal-progress {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+}
+
+.confidence-metrics div,
+.personal-progress div {
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.625rem;
+}
+
+.confidence-metrics dt,
+.personal-progress dt {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+}
+
+.confidence-metrics dd,
+.personal-progress dd {
+  margin-top: 0.125rem;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.trend-columns {
+  display: grid;
+  gap: 1rem;
+}
+
+.trend-columns > div + div {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
+.trend-columns h3 {
+  margin-bottom: 0.625rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.result-trend-block {
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.75rem;
+}
+
 .result-trend-heading,
 .result-row-meta {
   display: flex;
@@ -474,183 +784,196 @@ const ResultTrendList = defineComponent({
   justify-content: space-between;
   gap: 0.75rem;
 }
+
 .result-trend-heading {
   margin-bottom: 0.75rem;
-  font-size: 0.78rem;
-  font-weight: 900;
-  color: rgb(71 85 105);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
 }
+
 .result-trend-heading strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
+
 .result-row-meta {
-  margin-bottom: 0.35rem;
-  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.75rem;
 }
+
 .result-row-meta span {
-  font-weight: 800;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
+  font-weight: 700;
 }
+
 .result-row-meta strong {
-  font-weight: 900;
-  color: rgb(37 99 235);
+  color: var(--primary-600);
+  font-weight: 800;
 }
+
 .result-bar-track {
-  height: 0.45rem;
+  height: 0.375rem;
   overflow: hidden;
-  border-radius: 999px;
-  background: rgb(226 232 240);
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
 }
+
 .result-bar-fill {
   height: 100%;
   border-radius: inherit;
-  background: rgb(37 99 235);
+  background: var(--primary-600);
 }
+
 .result-empty {
-  border-radius: 0.6rem;
-  border: 1px dashed rgb(203 213 225);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-control);
   padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
   text-align: center;
-  font-size: 0.8rem;
-  color: rgb(100 116 139);
 }
-.check-item {
-  display: grid;
-  grid-template-columns: 36px 1fr;
-  gap: 0.85rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  padding: 0.9rem;
-}
-.check-item.done {
-  border-color: rgb(187 247 208);
-  background: rgb(240 253 244);
-}
-.check-icon {
-  display: inline-flex;
-  width: 36px;
-  height: 36px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: white;
-  font-size: 0.85rem;
-  font-weight: 900;
-  color: rgb(37 99 235);
-}
-.check-item h3 {
-  font-size: 0.95rem;
-  font-weight: 900;
-  color: rgb(15 23 42);
-}
-.check-item p {
-  margin-top: 0.25rem;
-  font-size: 0.8rem;
-  color: rgb(100 116 139);
-}
-@media (min-width: 768px) {
-  .checklist-grid {
+
+@media (max-width: 1023px) {
+  .prep-header {
+    grid-template-columns: 1fr;
+  }
+
+  .prep-header-actions {
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .prep-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .prep-aside {
+    position: static;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (min-width: 1024px) {
-  .data-confidence-panel {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+
+@media (max-width: 640px) {
+  .prep-page {
+    padding-top: 0.75rem;
+    padding-bottom: 2rem;
   }
-  .confidence-metrics {
-    justify-content: flex-end;
+
+  .prep-header,
+  .section-panel,
+  .aside-panel {
+    padding: 1rem;
+  }
+
+  .prep-header {
+    gap: 1rem;
+  }
+
+  .prep-header h1 {
+    font-size: 1.375rem;
+  }
+
+  .prep-header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .prep-header-actions :is(a, button) {
+    width: 100%;
+    min-width: 0;
+    padding-right: 0.625rem;
+    padding-left: 0.625rem;
+    font-size: 0.75rem;
+  }
+
+  .prep-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .prep-summary div {
+    padding: 0.75rem 0.5rem 0;
+  }
+
+  .prep-summary div:nth-child(3) {
+    border-left: 0;
+  }
+
+  .prep-summary div:nth-child(n + 3) {
+    margin-top: 0.75rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .prep-summary dd {
+    font-size: 1.125rem;
+  }
+
+  .checklist-grid,
+  .prep-aside {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+  }
+
+  .next-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .check-item {
+    grid-template-columns: 1.875rem minmax(0, 1fr);
+    gap: 0.625rem;
+    padding: 0.75rem;
+  }
+
+  .check-icon {
+    width: 1.875rem;
+    height: 1.875rem;
   }
 }
-.dark .metric-card,
-.dark .section-panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+
+.dark .prep-notice {
+  border-color: #7c2d12;
+  background: rgb(67 20 7 / 0.44);
+  color: #fdba74;
 }
-.dark .data-confidence-panel {
-  border-color: rgb(14 116 144);
-  background: rgb(8 47 73);
-}
-.dark .data-confidence-panel h2 {
-  color: rgb(186 230 253);
-}
-.dark .data-confidence-panel p {
-  color: rgb(203 213 225);
-}
-.dark .confidence-metrics span {
-  border-color: rgb(14 116 144);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
-}
-.dark .confidence-metrics strong {
-  color: rgb(125 211 252);
-}
-.dark .metric-card strong,
-.dark .section-title {
-  color: rgb(248 250 252);
-}
-.dark .progress-cell {
-  background: rgb(2 6 23);
-  color: rgb(203 213 225);
-}
-.dark .score-ring {
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
-}
-.dark .prep-export-button {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
-}
-.dark .next-actions {
-  border-top-color: rgb(30 41 59);
-}
-.dark .next-action-chip {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
-}
-.dark .trend-badge {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
-  color: rgb(203 213 225);
-}
-.dark .result-trend-block {
-  background: rgb(2 6 23);
-}
-.dark .result-trend-heading,
-.dark .result-row-meta span {
-  color: rgb(203 213 225);
-}
-.dark .result-trend-heading strong {
-  color: rgb(248 250 252);
-}
-.dark .result-row-meta strong {
-  color: rgb(147 197 253);
-}
-.dark .result-bar-track {
-  background: rgb(30 41 59);
-}
-.dark .result-bar-fill {
-  background: rgb(96 165 250);
-}
-.dark .result-empty {
-  border-color: rgb(51 65 85);
-  color: rgb(148 163 184);
-}
+
 .dark .check-item {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
+
+.dark .check-item:hover {
+  border-color: #1d4ed8;
+  background: #172554;
+}
+
 .dark .check-item.done {
-  border-color: rgb(22 101 52);
-  background: rgb(5 46 22);
+  border-color: #166534;
+  background: #052e16;
 }
+
 .dark .check-icon {
-  background: rgb(15 23 42);
+  border-color: #1e40af;
+  background: var(--surface-2);
+  color: #bfdbfe;
 }
-.dark .check-item h3 {
-  color: rgb(248 250 252);
+
+.dark .check-item.done .check-icon {
+  border-color: #15803d;
+  color: #bbf7d0;
+}
+
+.dark .next-action-chip,
+.dark .status-badge {
+  border-color: #1e40af;
+  background: #172554;
+  color: #bfdbfe;
+}
+
+.dark .result-trend-block,
+.dark .confidence-metrics div,
+.dark .personal-progress div {
+  background: var(--surface-1);
 }
 </style>

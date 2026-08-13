@@ -34,12 +34,12 @@ const expectedRouteTitles = {
   '/editor/:id': '编辑社区内容',
   '/questions': '知识库',
   '/questions/:id': '知识卡详情',
-  '/companies/:company/prep': '主题学习包',
+  '/companies/:company/prep': '主题学习包迁移说明',
   '/post/:id': '帖子详情',
   '/collections/:id': '合集详情',
   '/me': '我的主页',
-  '/me/prep': '个人学习空间',
-  '/mock-interview': '个人练习归档',
+  '/me/prep': '个人学习空间迁移说明',
+  '/mock-interview': '个人练习迁移说明',
   '/growth/profile': '成长档案',
   '/growth/report': '成长周报月报',
   '/knowledge/explore': '知识关系探索',
@@ -125,10 +125,10 @@ for (const path of ['/login', '/register']) {
   assert.doesNotMatch(block, /adminPermission:/, '/collections/:id must not require admin permissions')
 }
 
-for (const label of ['首页', '发现', '发布']) {
+for (const label of ['首页', '发现', '知识库', '共建']) {
   assert.match(appHeader, new RegExp(`label:\\s*'${label}'`), `primary navigation must expose ${label}`)
 }
-for (const label of ['知识库', '资源库', '题库', '模拟面试', '成长报告']) {
+for (const label of ['资源库', '题库', '模拟面试', '成长报告']) {
   assert.doesNotMatch(appHeader, new RegExp(`label:\\s*'${label}'`), `core navigation must not expose old tool as top-level item: ${label}`)
 }
 assert.match(appHeader, /to="\/knowledge\/explore"[\s\S]*知识探索/, 'knowledge exploration must remain reachable outside primary navigation')
@@ -145,7 +145,7 @@ assert.match(appHeader, /to="\/editor"/, 'mobile header menu must expose publish
 assert.match(appHeader, /to="\/me\/notifications"/, 'mobile header menu must expose notifications when logged in')
 assert.match(appHeader, /authStore\.isLoggedIn \? '\/me' : '\/login'/, 'mobile dock must expose profile/login entry')
 
-for (const view of ['AboutView.vue', 'NotFoundView.vue', 'UserProfileView.vue', 'SettingsView.vue', 'NotificationsView.vue', 'TrendDashboardView.vue', 'EditorView.vue', 'ForbiddenView.vue']) {
+for (const view of ['AboutView.vue', 'NotFoundView.vue', 'UserProfileView.vue', 'SettingsView.vue', 'NotificationsView.vue', 'TrendDashboardView.vue', 'EditorView.vue', 'ForbiddenView.vue', 'LoginView.vue', 'RegisterView.vue', 'LegacyTrainingUnavailableView.vue']) {
   const viewSource = readFileSync(new URL(`../src/views/${view}`, import.meta.url), 'utf8')
   assert.match(viewSource, /<AppHeader\s*\/>/, `${view} must render AppHeader`)
   assert.match(viewSource, /@\/components\/layout\/AppHeader\.vue/, `${view} must import AppHeader`)

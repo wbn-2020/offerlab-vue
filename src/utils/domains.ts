@@ -23,6 +23,7 @@ export interface CommunityChannel {
   name: string
   icon: string
   description: string
+  aliases?: readonly string[]
   domain?: DomainValue
   postTypes?: PostTypeValue[]
   tags?: string[]
@@ -79,6 +80,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     name: '科技数码',
     icon: '💻',
     description: '编程、AI 工具、产品体验、数码设备和效率工具。',
+    aliases: ['tech', 'technology', 'digital', 'tech-digital', '技术', '科技'],
     domain: DOMAIN.TECH,
     tags: ['AI 工具', '软件工具', '产品体验', '数码设备', '效率工具'],
     topics: ['AI 工具实测', '数码设备体验', '效率工作流'],
@@ -88,6 +90,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     name: '学习成长',
     icon: '📚',
     description: '学习方法、读书笔记、考试经验、技能提升和自我管理。',
+    aliases: ['reading', 'learning', 'growth', 'learning-growth', '阅读', '学习'],
     domain: DOMAIN.READING,
     tags: ['学习方法', '读书笔记', '考试经验', '技能提升', '时间管理'],
     topics: ['阅读清单共读', '学习方法复盘', '技能提升路线'],
@@ -97,6 +100,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     name: '职场经验',
     icon: '💼',
     description: '求职面试、实习转行、工作复盘和职场选择。',
+    aliases: ['career', 'workplace', 'career-experience', '职场', '工作'],
     domain: DOMAIN.CAREER,
     tags: ['求职经验', '面试经验', '实习经历', '转行经验', '工作复盘'],
     topics: ['转行经验合集', '职场沟通复盘', '面试与 Offer 讨论'],
@@ -106,6 +110,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     name: '生活方式',
     icon: '🌿',
     description: '租房、城市生活、消费经验、旅行、健康、情绪和日常。',
+    aliases: ['life', 'living', 'lifestyle', '生活'],
     domain: DOMAIN.LIFESTYLE,
     tags: ['租房', '城市生活', '消费经验', '旅行', '健康', '日常'],
     topics: ['城市租房避坑', '生活消费复盘', '日常健康记录'],
@@ -118,6 +123,7 @@ export const SECONDARY_COMMUNITY_CHANNELS: CommunityChannel[] = [
     name: '投资理财',
     icon: '💡',
     description: '理财心得、投资复盘和风险认知。',
+    aliases: ['finance', 'investment', 'money', '投资', '理财'],
     domain: DOMAIN.INVESTMENT,
     tags: ['风险复盘', '理财心得', '资产配置'],
     topics: ['投资风险复盘', '理财经验交流'],
@@ -181,14 +187,41 @@ export const ALL_COMMUNITY_CHANNELS: CommunityChannel[] = [
   ...SECONDARY_COMMUNITY_CHANNELS,
 ]
 
-export const getCommunityChannel = (key?: string | string[] | null): CommunityChannel | undefined => {
+const normalizeChannelReference = (value?: string | number | null): string => (
+  String(value ?? '').trim().toLocaleLowerCase()
+)
+
+export const getCommunityChannel = (
+  key?: string | string[] | number | null,
+): CommunityChannel | undefined => {
   const value = Array.isArray(key) ? key[0] : key
-  return ALL_COMMUNITY_CHANNELS.find((channel) => channel.key === value)
+  const normalized = normalizeChannelReference(value)
+  if (!normalized) return undefined
+
+  return ALL_COMMUNITY_CHANNELS.find((channel) => {
+    const references = [
+      channel.key,
+      channel.name,
+      channel.domain,
+      channel.domain == null ? '' : `domain-${channel.domain}`,
+      ...(channel.aliases || []),
+    ]
+    return references.some((reference) => normalizeChannelReference(reference) === normalized)
+  })
 }
 
 export const isKnownDomain = (domain?: number | string | null): domain is DomainValue => {
   const value = Number(domain)
   return Number.isFinite(value) && domainByValue.has(value as DomainValue)
+}
+
+export const resolveDomainValue = (domain?: unknown): DomainValue | undefined => {
+  const value = Array.isArray(domain)
+    ? domain.find((item): item is string | number => typeof item === 'string' || typeof item === 'number')
+    : domain
+  if (typeof value !== 'string' && typeof value !== 'number') return undefined
+  if (isKnownDomain(value)) return Number(value) as DomainValue
+  return getCommunityChannel(value)?.domain
 }
 
 export const normalizeDomain = (domain?: number | string | null): DomainValue => {
@@ -226,4 +259,13 @@ export const getDomainLabelSafe = (domain?: number | string | null): string => {
 
 export const getDomainIconSafe = (domain?: number | string | null): string => {
   return getDomainOptionSafe(domain)?.icon ?? ''
+}
+
+export const resolveDomainLabel = (
+  domain?: number | string | null,
+  legacyName?: string | null,
+): string => {
+  const option = getDomainOptionSafe(domain)
+  if (option) return option.label
+  return getCommunityChannel(legacyName)?.name || ''
 }

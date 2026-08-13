@@ -26,12 +26,21 @@ const toStringList = (value: unknown): string[] => (
     : []
 )
 
-const adaptCheckItem = (raw: any): ExpertCertificationCheckItem => ({
-  code: safeText(raw?.code),
-  label: safeText(raw?.label),
-  passed: Boolean(raw?.passed),
-  detail: safeText(raw?.detail),
-})
+const adaptCheckItem = (raw: any): ExpertCertificationCheckItem => {
+  const code = safeText(raw?.code)
+  const detail = safeText(raw?.detail)
+  const countMatch = code === 'published_posts' ? detail.match(/(\d+)\s*\/\s*(\d+)/) : null
+  const current = raw?.current == null ? Number(countMatch?.[1]) : toNumber(raw.current)
+  const required = raw?.required == null ? Number(countMatch?.[2]) : toNumber(raw.required)
+  return {
+    code,
+    label: safeText(raw?.label),
+    passed: Boolean(raw?.passed),
+    detail,
+    ...(Number.isFinite(current) ? { current } : {}),
+    ...(Number.isFinite(required) && required > 0 ? { required } : {}),
+  }
+}
 
 const adaptEligibility = (raw: any): ExpertCertificationEligibility => ({
   domain: toNumber(raw?.domain),

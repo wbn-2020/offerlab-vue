@@ -8,7 +8,6 @@ import { setupRouterGuards } from './guards'
 import { legacyCollaborationDetailPath } from '@/utils/collaborationRoutes'
 
 const enableLegacyTrainingRoutes = import.meta.env.VITE_OFFERLAB_ENABLE_LEGACY_TRAINING === 'true'
-const legacyTrainingRedirect = () => ({ name: 'Questions', query: { legacy: 'training-disabled' } })
 
 const routes = [
   {
@@ -99,8 +98,8 @@ const routes = [
     name: 'CompanyPrep',
     ...(enableLegacyTrainingRoutes
       ? { component: () => import('@/views/CompanyPrepView.vue') }
-      : { redirect: legacyTrainingRedirect }),
-    meta: { title: '主题学习包' },
+      : { component: () => import('@/views/LegacyTrainingUnavailableView.vue') }),
+    meta: { title: '主题学习包迁移说明', legacyFeature: 'company-training' },
   },
   {
     path: '/post/:id',
@@ -208,6 +207,24 @@ const routes = [
     meta: { title: '协作行动中心', requiresAuth: true },
   },
   {
+    path: '/me/collaboration/needs/new',
+    name: 'CollaborationNeedComposer',
+    component: () => import('@/views/CollaborationHubView.vue'),
+    meta: { title: '发起内容需求', requiresAuth: true },
+  },
+  {
+    path: '/me/collaboration/series/submit',
+    name: 'CollaborationSeriesSubmission',
+    component: () => import('@/views/CollaborationHubView.vue'),
+    meta: { title: '提交合集内容', requiresAuth: true },
+  },
+  {
+    path: '/me/collaboration/activities/submit',
+    name: 'CollaborationActivitySubmission',
+    component: () => import('@/views/CollaborationHubView.vue'),
+    meta: { title: '提交活动内容', requiresAuth: true },
+  },
+  {
     path: '/me/collaboration/contributions',
     name: 'MyCollaborationContributions',
     component: () => import('@/views/CollaborationContributionView.vue'),
@@ -243,16 +260,16 @@ const routes = [
     name: 'MePrep',
     ...(enableLegacyTrainingRoutes
       ? { component: () => import('@/views/MePrepView.vue') }
-      : { redirect: legacyTrainingRedirect }),
-    meta: { title: '个人学习空间', requiresAuth: true, legacyFeature: 'private-training' },
+      : { component: () => import('@/views/LegacyTrainingUnavailableView.vue') }),
+    meta: { title: '个人学习空间迁移说明', requiresAuth: true, legacyFeature: 'private-training' },
   },
   {
     path: '/mock-interview',
     name: 'MockInterview',
     ...(enableLegacyTrainingRoutes
       ? { component: () => import('@/views/MockInterviewView.vue') }
-      : { redirect: legacyTrainingRedirect }),
-    meta: { title: '个人练习归档', requiresAuth: true, legacyFeature: 'mock-interview' },
+      : { component: () => import('@/views/LegacyTrainingUnavailableView.vue') }),
+    meta: { title: '个人练习迁移说明', requiresAuth: true, legacyFeature: 'mock-interview' },
   },
   {
     path: '/me/notifications',
@@ -271,7 +288,7 @@ const routes = [
     path: '/me/reports/:sourceType/:reportId',
     name: 'MyReportDetail',
     component: () => import('@/views/MyReportsView.vue'),
-    meta: { title: 'Report Detail', requiresAuth: true },
+    meta: { title: '举报详情', requiresAuth: true },
   },
   {
     path: '/me/settings',

@@ -20,6 +20,9 @@ export const invalidateAdminPermissionCache = adminPermissionCache.invalidateAdm
 
 export function setupRouterGuards(router: Router) {
   router.beforeEach(async (to, from, next) => {
+    const title = to.meta.title as string | undefined
+    const description = to.meta.description as string | undefined
+    applyPageSeo({ title, description, canonical: to.path })
     const authStore = useAuthStore()
     const requiresAuth = to.meta.requiresAuth as boolean
     const adminPermission = to.meta.adminPermission as AdminPermissionKey | AdminPermissionKey[] | undefined

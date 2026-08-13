@@ -1,35 +1,61 @@
 <template>
-  <div class="maintenance-page min-h-screen">
+  <div class="app-shell maintenance-page">
     <AppHeader />
-    <main class="mx-auto max-w-5xl px-4 py-8">
+    <main class="community-page maintenance-main">
       <header class="page-header">
         <div>
-          <p>内容维护</p>
+          <p class="page-kicker">内容维护</p>
           <h1>我的维护任务</h1>
-          <span>领取后提交公开内容交付，审核通过才会完成；这里不把维护行为换算成排名或积分。</span>
+          <span>领取任务、选择一份你有权提交的公开内容，交付后等待治理审核。</span>
         </div>
-        <button type="button" class="icon-button" title="刷新维护任务" :disabled="loading" @click="load()">
-          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+        <button type="button" class="secondary-action icon-button" title="刷新维护任务" :disabled="loading" @click="load()">
+          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" aria-hidden="true" />
+          <span>刷新</span>
         </button>
       </header>
 
-      <div class="filter-bar">
-        <select v-model="status" class="field-control" aria-label="按状态筛选维护任务" @change="changeStatus">
-          <option value="">全部状态</option>
-          <option v-for="item in statuses" :key="item" :value="item">{{ statusLabel(item) }}</option>
-        </select>
+      <section class="filter-bar surface-panel" aria-label="维护任务筛选">
+        <div class="filter-copy">
+          <strong>任务队列</strong>
+          <span>{{ items.length ? `当前已加载 ${items.length} 项` : '只展示分配给当前账号的任务' }}，状态由服务端治理流程决定。</span>
+        </div>
+        <label class="field-label">
+          <span>任务状态</span>
+          <select v-model="status" class="field-control" aria-label="按状态筛选维护任务" @change="changeStatus">
+            <option value="">全部状态</option>
+            <option v-for="item in statuses" :key="item" :value="item">{{ statusLabel(item) }}</option>
+          </select>
+        </label>
+      </section>
+
+      <div v-if="errorText && items.length === 0" class="state state-error surface-panel" role="alert">
+        <div>
+          <strong>{{ maintenanceErrorTitle }}</strong>
+          <p>{{ maintenanceErrorDescription }}</p>
+          <small v-if="maintenanceErrorKind === 'permission'">如果你需要处理其他账号的任务，请切换到有权限的账号。</small>
+        </div>
+        <div class="state-actions">
+          <RouterLink v-if="maintenanceErrorKind === 'permission'" :to="switchAccountLocation" class="secondary-action secondary-button">切换账号</RouterLink>
+          <button type="button" class="secondary-action secondary-button" :disabled="loading" @click="load()">重试</button>
+        </div>
+      </div>
+      <div v-else-if="loading" class="state surface-panel" role="status">
+        <strong>正在读取维护任务</strong>
+        <p>正在同步当前账号的任务状态与交付权限。</p>
+      </div>
+      <div v-else-if="items.length === 0" class="state surface-panel">
+        <strong>当前没有分配给你的维护任务</strong>
+        <p>这里不会要求你记住任务编号。新任务被分配或已有任务状态更新后，会出现在这里。</p>
+        <div class="state-actions">
+          <RouterLink to="/me/knowledge" class="secondary-action secondary-button">查看知识维护</RouterLink>
+          <RouterLink to="/explore" class="primary-action primary-button">去发现公开内容</RouterLink>
+        </div>
       </div>
 
-      <div v-if="errorText && items.length === 0" class="state state-error">
-        <p>{{ errorText }}</p>
-        <button type="button" class="secondary-button" :disabled="loading" @click="load()">重试</button>
-      </div>
-      <div v-else-if="loading" class="state">正在读取维护任务</div>
-      <div v-else-if="items.length === 0" class="state">当前没有分配给你的维护任务。</div>
-      <section v-else class="task-list">
-        <article v-for="task in items" :key="String(task.id)" class="task-row">
-          <div class="task-head">
-            <div>
+      <section v-else class="task-list" aria-label="维护任务列表">
+        <article v-for="task in items" :key="String(task.id)" class="task-row surface-panel">
+          <header class="task-head">
+            <div class="task-title-group">
               <div class="badge-line">
                 <span :class="['status', statusClass(task.status)]">{{ statusLabel(task.status) }}</span>
                 <span :class="['priority', priorityClass(task.priority)]">{{ priorityLabel(task.priority) }}</span>
@@ -39,64 +65,112 @@
               <h2>{{ task.title }}</h2>
             </div>
             <RouterLink v-if="task.sourcePostId" :to="`/post/${task.sourcePostId}`" class="open-link">查看原内容</RouterLink>
-          </div>
+          </header>
+
           <p class="detail">{{ task.detail }}</p>
-          <p class="meta">领域 {{ task.domain }} · 任务 #{{ task.id }} · 批次 {{ task.dispatchBatchId || '--' }} · 第 {{ task.currentAttemptNo }} 回合 · 更新于 {{ formatTime(task.updateTime) }}</p>
-          <p :class="['due-meta', dueClass(task.dueAt)]">截止时间：{{ task.dueAt ? formatTime(task.dueAt) : '未设置' }}</p>
-          <p v-if="task.terminalOutcomeCode" class="note">结案结果：{{ terminalOutcomeLabel(task.terminalOutcomeCode) }}</p>
-          <p v-if="task.closeReasonCode" class="note">关闭原因：{{ closeReasonLabel(task.closeReasonCode) }}</p>
-          <p v-if="task.reviewNote" class="note">治理说明：{{ task.reviewNote }}</p>
-          <p v-if="task.deliveryNote" class="note">交付说明：{{ task.deliveryNote }}</p>
-          <MaintenanceTaskReviewContextPanel
-            :task-id="task.id"
-            :context-key="`${task.status}:${task.updateTime}:${task.deliveryType || ''}:${task.deliveryRefId || ''}:${task.deliveryPostId || ''}`"
-          />
-          <MaintenanceTaskAttemptTimeline
-            :task-id="task.id"
-            :timeline-key="`${task.currentAttemptNo}:${task.status}:${task.updateTime}`"
-          />
+
+          <dl class="task-facts">
+            <div><dt>领域</dt><dd>{{ task.domain }}</dd></div>
+            <div><dt>处理回合</dt><dd>第 {{ task.currentAttemptNo }} 回合</dd></div>
+            <div><dt>更新时间</dt><dd>{{ formatTime(task.updateTime) }}</dd></div>
+            <div>
+              <dt>截止时间</dt>
+              <dd :class="dueClass(task.dueAt)">{{ task.dueAt ? formatTime(task.dueAt) : '未设置' }}</dd>
+            </div>
+          </dl>
+
+          <div v-if="task.terminalOutcomeCode || task.closeReasonCode || task.reviewNote || task.deliveryNote" class="task-notes">
+            <p v-if="task.terminalOutcomeCode"><strong>结案结果</strong>{{ terminalOutcomeLabel(task.terminalOutcomeCode) }}</p>
+            <p v-if="task.closeReasonCode"><strong>关闭原因</strong>{{ closeReasonLabel(task.closeReasonCode) }}</p>
+            <p v-if="task.reviewNote"><strong>治理说明</strong>{{ task.reviewNote }}</p>
+            <p v-if="task.deliveryNote"><strong>交付说明</strong>{{ task.deliveryNote }}</p>
+          </div>
+
+          <div class="task-context">
+            <MaintenanceTaskReviewContextPanel
+              :task-id="task.id"
+              :context-key="`${task.status}:${task.updateTime}:${task.deliveryType || ''}:${task.deliveryRefId || ''}:${task.deliveryPostId || ''}`"
+            />
+            <MaintenanceTaskAttemptTimeline
+              :task-id="task.id"
+              :timeline-key="`${task.currentAttemptNo}:${task.status}:${task.updateTime}`"
+            />
+          </div>
 
           <div v-if="task.canClaim" class="action-row">
-            <button type="button" class="primary-button" :disabled="isTaskMutationPending(task)" @click="claim(task)">{{ isTaskActionPending(task, 'claim') ? '领取中' : '领取任务' }}</button>
+            <div>
+              <strong>下一步：领取任务</strong>
+              <p>领取后才可提交公开内容交付。</p>
+            </div>
+            <button type="button" class="primary-action primary-button" :disabled="isTaskMutationPending(task)" @click="claim(task)">
+              {{ isTaskActionPending(task, 'claim') ? '领取中' : '领取任务' }}
+            </button>
           </div>
 
           <form v-if="task.canSubmit" class="submit-form" @submit.prevent="submit(task)">
+            <div class="submit-form-heading">
+              <strong>提交维护交付</strong>
+              <p>优先选择你的公开内容；收藏内容只作为参考，不能代替你的交付。服务端会再次校验归属、公开状态和领域。</p>
+            </div>
             <fieldset class="submit-form-fields" :disabled="isTaskMutationPending(task)">
+              <div v-if="candidateLoading && !deliveryCandidates(task).length" class="candidate-state" role="status">
+                <strong>正在整理可用资源</strong>
+                <p>正在从你的公开内容和收藏中寻找可选择的交付资源。</p>
+              </div>
+              <div v-else-if="candidateError && !deliveryCandidates(task).length" class="candidate-state candidate-state-error" role="alert">
+                <strong>候选资源暂时无法读取</strong>
+                <p>{{ candidateError }}</p>
+                <button type="button" class="secondary-action secondary-button" :disabled="candidateLoading" @click="loadCandidateResources()">重试</button>
+              </div>
               <CollaborationDeliverySelector
+                v-else
                 class="maintenance-delivery-selector"
                 :model-value="selectedDeliveryCandidate(task)"
                 :candidates="deliveryCandidates(task)"
                 :preferred-candidate-id="suggestedDelivery(task)?.deliveryRefId"
-                title="选择维护交付资源"
-                description="关联资源会排在首位；提交时服务端仍会校验归属、公开状态和领域。"
-                empty-description="当前任务没有可直接带入的关联资源，可在下方手动填写已发布资源 ID。"
-                :show-filters="false"
-                :show-create-action="false"
+                :initial-resolution-type="draft(task).deliveryType"
+                title="先选择公开交付资源"
+                description="关联资源、我的公开内容和收藏参考会集中显示在这里。"
+                empty-description="当前没有可直接选择的资源。你可以先创建新的公开内容，再回来提交；不会要求你手填编号。"
+                create-action-label="新建公开内容"
+                :create-href="createDeliveryHref(task)"
+                :show-filters="true"
+                :show-create-action="true"
                 @select="applyDeliveryCandidate(task, $event)"
               />
-              <details class="manual-delivery-fallback" :open="!suggestedDelivery(task)">
-                <summary>关联资源不适用时手动填写</summary>
+              <p v-if="candidateError && deliveryCandidates(task).length" class="candidate-partial-error" role="status">
+                部分候选来源暂不可用，当前仍可使用已列出的资源。
+              </p>
+              <details class="manual-delivery-fallback">
+                <summary>高级：使用精确资源 ID</summary>
                 <div class="manual-delivery-fields">
                   <select v-model="draft(task).deliveryType" class="field-control">
                     <option value="POST">公开帖子</option>
                     <option value="QUESTION">公开问题</option>
                     <option value="SERIES">协作合集</option>
                   </select>
-                  <input v-model.trim="draft(task).deliveryRefId" class="field-control" inputmode="numeric" placeholder="交付对象 ID">
+                  <input v-model.trim="draft(task).deliveryRefId" class="field-control" inputmode="numeric" placeholder="仅在你确认资源编号时填写">
                 </div>
+                <p class="field-help">只接受你有权提交的公开资源编号。服务端会校验归属、公开状态和领域。</p>
               </details>
-              <textarea v-model.trim="draft(task).note" class="field-control note-input" rows="2" maxlength="1000" placeholder="说明本次更新解决了什么、还有哪些边界。" />
-              <button type="submit" class="primary-button" :disabled="isTaskMutationPending(task) || !canSubmit(task)">{{ isTaskActionPending(task, 'submit') ? '提交中' : '提交治理审核' }}</button>
+              <label class="note-field">
+                <span>交付说明</span>
+                <textarea v-model.trim="draft(task).note" class="field-control note-input" rows="3" maxlength="1000" placeholder="说明本次更新解决了什么、还有哪些边界。" />
+              </label>
+              <button type="submit" class="primary-action primary-button" :disabled="isTaskMutationPending(task) || !canSubmit(task)">
+                {{ isTaskActionPending(task, 'submit') ? '提交中' : '提交治理审核' }}
+              </button>
             </fieldset>
           </form>
         </article>
       </section>
-      <div v-if="loadMoreErrorText && items.length > 0" class="state state-error load-more-error">
-        <p>{{ loadMoreErrorText }}</p>
-        <button type="button" class="secondary-button" :disabled="loadingMore" @click="load(true)">重试加载更多</button>
+
+      <div v-if="loadMoreErrorText && items.length > 0" class="state state-error load-more-error surface-panel">
+        <div><strong>后续任务加载失败</strong><p>{{ loadMoreErrorText }}</p></div>
+        <button type="button" class="secondary-action secondary-button" :disabled="loadingMore" @click="load(true)">重试加载更多</button>
       </div>
       <div v-else-if="hasMore && !loading" class="load-more-row">
-        <button type="button" class="secondary-button" :disabled="loadingMore" @click="load(true)">
+        <button type="button" class="secondary-action secondary-button" :disabled="loadingMore" @click="load(true)">
           {{ loadingMore ? '正在加载' : '加载更多' }}
         </button>
       </div>
@@ -105,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -114,7 +188,9 @@ import CollaborationDeliverySelector from '@/components/collaboration/Collaborat
 import MaintenanceTaskReviewContextPanel from '@/components/maintenance/MaintenanceTaskReviewContextPanel.vue'
 import MaintenanceTaskAttemptTimeline from '@/components/maintenance/MaintenanceTaskAttemptTimeline.vue'
 import type { NeedDeliveryCandidate } from '@/api/collaboration'
-import { getErrorMessage } from '@/api/client'
+import { BizException, getErrorMessage } from '@/api/client'
+import { postApi } from '@/api/post'
+import type { Post } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 import {
   contentMaintenanceApi,
@@ -148,6 +224,12 @@ const nextCursor = ref<string | null>(null)
 const hasMore = ref(false)
 const drafts = reactive<Record<string, { deliveryType: MaintenanceDeliveryType; deliveryRefId: string; note: string }>>({})
 const pendingActions = reactive<Record<string, number>>({})
+const ownedPublicPosts = ref<Post[]>([])
+const favoritePosts = ref<Post[]>([])
+const candidateLoading = ref(false)
+const candidateError = ref('')
+const candidateLoadGeneration = ref(0)
+const maintenanceErrorKind = ref<'error' | 'permission'>('error')
 let maintenanceLoadRequestId = 0
 let maintenanceAccountGeneration = 0
 let maintenanceLoadController: AbortController | null = null
@@ -173,6 +255,30 @@ interface MaintenanceWriteSnapshot {
 const currentMaintenanceAccountKey = () => (
   `${String(authStore.user?.uid ?? '')}:${String(authStore.token ?? '')}`
 )
+
+const switchAccountLocation = computed(() => ({
+  path: '/login',
+  query: {
+    redirect: route.fullPath,
+    switchAccount: '1',
+  },
+}))
+
+const isPermissionError = (error: unknown) => {
+  const status = Number((error as { response?: { status?: unknown } } | null)?.response?.status)
+  const code = error instanceof BizException ? error.code : Number((error as { code?: unknown } | null)?.code)
+  return status === 401 || status === 403 || code === 10401 || code === 10403
+}
+
+const maintenanceErrorTitle = computed(() => (
+  maintenanceErrorKind.value === 'permission' ? '当前账号没有查看维护任务的权限' : '维护任务暂时无法读取'
+))
+
+const maintenanceErrorDescription = computed(() => (
+  maintenanceErrorKind.value === 'permission'
+    ? '服务端拒绝了当前账号的任务读取请求。请切换账号或稍后重试。'
+    : errorText.value
+))
 
 const maintenanceRequestIsCurrent = (
   requestId: number,
@@ -217,6 +323,75 @@ const clearMaintenanceState = () => {
   loadMoreErrorText.value = ''
   for (const key of Object.keys(drafts)) delete drafts[key]
   for (const key of Object.keys(pendingActions)) delete pendingActions[key]
+}
+
+const clearCandidateState = () => {
+  candidateLoadGeneration.value += 1
+  ownedPublicPosts.value = []
+  favoritePosts.value = []
+  candidateLoading.value = false
+  candidateError.value = ''
+}
+
+const candidatePostType = (post: Post): 'POST' | 'QUESTION' => (
+  Number(post.postType) === 13 ? 'QUESTION' : 'POST'
+)
+
+const postCandidate = (
+  post: Post,
+  task: ContentMaintenanceTask,
+  origin: 'owned' | 'favorite',
+): NeedDeliveryCandidate => {
+  const deliveryType = candidatePostType(post)
+  const id = String(post.postId)
+  const isPublic = post.visibility == null || String(post.visibility).toUpperCase() === 'PUBLIC' || Number(post.visibility) === 1
+  const isOwned = origin === 'owned'
+  const sameDomain = post.domain == null || Number(post.domain) === Number(task.domain)
+  const eligible = isOwned && isPublic && !post.deleted && !post.restricted && sameDomain
+  let ineligibleReason = ''
+  if (!isOwned) ineligibleReason = '收藏内容属于其他作者，只能作为参考；请新建或选择自己的公开内容。'
+  else if (!isPublic || post.deleted || post.restricted) ineligibleReason = '该内容当前不是可提交的公开内容。'
+  else if (!sameDomain) ineligibleReason = '该内容所属领域与当前维护任务不一致。'
+  return {
+    id,
+    resolutionType: deliveryType,
+    title: `${isOwned ? '我的公开内容' : '我的收藏'} · ${post.title || '未命名内容'}`,
+    domain: Number(post.domain ?? task.domain),
+    postType: post.postType,
+    publicPath: `/post/${encodeURIComponent(id)}`,
+    eligible,
+    ineligibleReason: ineligibleReason || null,
+    createTime: new Date(post.createdAt || Date.now()).toISOString(),
+    updateTime: new Date(post.updatedAt || post.createdAt || Date.now()).toISOString(),
+  }
+}
+
+const loadCandidateResources = async () => {
+  if (!authStore.isLoggedIn || !authStore.user?.uid) return
+  const generation = ++candidateLoadGeneration.value
+  const uid = String(authStore.user.uid)
+  candidateLoading.value = true
+  candidateError.value = ''
+  try {
+    const [ownedResult, favoriteResult] = await Promise.allSettled([
+      postApi.list({ authorId: uid, size: 12 }),
+      postApi.getMyFavorites(undefined, 12),
+    ])
+    if (generation !== candidateLoadGeneration.value || uid !== String(authStore.user?.uid ?? '')) return
+    const failures = [ownedResult, favoriteResult].filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (ownedResult.status === 'fulfilled') ownedPublicPosts.value = ownedResult.value.data?.items || []
+    if (favoriteResult.status === 'fulfilled') favoritePosts.value = favoriteResult.value.data?.items || []
+    if (failures.length === 2) {
+      const permissionFailure = failures.some((result) => isPermissionError(result.reason))
+      candidateError.value = permissionFailure
+        ? '当前账号没有权限读取候选资源，请切换账号或稍后重试。'
+        : '公开内容和收藏暂时都无法读取，请稍后重试。'
+    } else if (failures.length) {
+      candidateError.value = '部分候选来源暂不可用，已保留仍可读取的资源。'
+    }
+  } finally {
+    if (generation === candidateLoadGeneration.value) candidateLoading.value = false
+  }
 }
 
 const isCanceledRequest = (error: unknown, signal: AbortSignal) => {
@@ -318,6 +493,18 @@ const deliveryCandidates = (task: ContentMaintenanceTask): NeedDeliveryCandidate
       })
     }
   }
+  for (const post of ownedPublicPosts.value) {
+    const candidate = postCandidate(post, task, 'owned')
+    if (!candidates.some((item) => `${item.resolutionType}:${String(item.id)}` === `${candidate.resolutionType}:${String(candidate.id)}`)) {
+      candidates.push(candidate)
+    }
+  }
+  for (const post of favoritePosts.value) {
+    const candidate = postCandidate(post, task, 'favorite')
+    if (!candidates.some((item) => `${item.resolutionType}:${String(item.id)}` === `${candidate.resolutionType}:${String(candidate.id)}`)) {
+      candidates.push(candidate)
+    }
+  }
   return candidates
 }
 const selectedDeliveryCandidate = (task: ContentMaintenanceTask) => {
@@ -332,6 +519,17 @@ const applyDeliveryCandidate = (task: ContentMaintenanceTask, candidate: NeedDel
     deliveryType: candidate.resolutionType,
     deliveryRefId: String(candidate.id),
   })
+}
+
+const createDeliveryHref = (task: ContentMaintenanceTask) => {
+  const query = new URLSearchParams({
+    source: 'maintenance_task',
+    taskId: String(task.id),
+    domain: String(task.domain),
+    returnHref: route.fullPath,
+  })
+  if (task.sourcePostId) query.set('sourcePostId', String(task.sourcePostId))
+  return `/editor?${query.toString()}`
 }
 const load = async (append = false) => {
   if (!authStore.isLoggedIn || !authStore.user?.uid) return
@@ -389,7 +587,10 @@ const load = async (append = false) => {
     ) return
     const message = getErrorMessage(error, append ? '加载更多维护任务失败' : '维护任务暂时无法读取')
     if (append) loadMoreErrorText.value = message
-    else errorText.value = message
+    else {
+      errorText.value = message
+      maintenanceErrorKind.value = isPermissionError(error) ? 'permission' : 'error'
+    }
   } finally {
     if (maintenanceLoadController === controller && requestId === maintenanceLoadRequestId) {
       if (append) loadingMore.value = false
@@ -513,31 +714,594 @@ watch(
     if (uid === previousUid && token === previousToken) return
     maintenanceAccountGeneration += 1
     clearMaintenanceState()
+    clearCandidateState()
     if (uid && token) void load()
+    if (uid && token) void loadCandidateResources()
   },
 )
 
 onMounted(() => {
   void load()
+  void loadCandidateResources()
 })
 
 onBeforeUnmount(() => {
   clearMaintenanceState()
+  clearCandidateState()
 })
 </script>
 
 <style scoped>
-.maintenance-page { background: rgb(248 250 252); }
-.page-header,.task-head,.action-row { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
-.page-header { margin-bottom:1.25rem; }.page-header p { margin:0;color:rgb(8 145 178);font-size:.75rem;font-weight:900; }
-.page-header h1 { margin:.2rem 0;color:rgb(15 23 42);font-size:1.5rem;font-weight:900; }.page-header span { color:rgb(100 116 139);font-size:.85rem;line-height:1.55; }
-.icon-button { display:inline-flex;width:2.5rem;height:2.5rem;align-items:center;justify-content:center;border:1px solid rgb(203 213 225);border-radius:.5rem;background:white;color:rgb(51 65 85); }
-.filter-bar { margin-bottom:1rem; }.field-control { width:100%;min-width:0;border:1px solid rgb(203 213 225);border-radius:.5rem;background:white;padding:.6rem .7rem;color:rgb(15 23 42);font-size:.8rem; }.filter-bar .field-control { width:auto;min-width:10rem; }
-.task-list { display:grid;gap:.85rem; }.task-row { border:1px solid rgb(226 232 240);border-radius:.625rem;background:white;padding:1rem; }.badge-line { display:flex;flex-wrap:wrap;gap:.4rem; }.status,.source,.priority { display:inline-flex;border-radius:999px;padding:.2rem .5rem;font-size:.68rem;font-weight:900; }.status-active { background:rgb(224 231 255);color:rgb(67 56 202); }.status-warn { background:rgb(254 243 199);color:rgb(146 64 14); }.status-ok { background:rgb(220 252 231);color:rgb(21 128 61); }.status-muted,.source { background:rgb(241 245 249);color:rgb(71 85 105); }.priority-high { background:rgb(254 226 226);color:rgb(185 28 28); }.priority-medium { background:rgb(254 243 199);color:rgb(146 64 14); }.priority-low { background:rgb(220 252 231);color:rgb(21 128 61); }
-.task-head h2 { margin:.55rem 0 0;color:rgb(15 23 42);font-size:1rem;font-weight:900; }.open-link { color:rgb(8 145 178);font-size:.76rem;font-weight:800;white-space:nowrap; }.detail,.note,.meta,.due-meta { margin:.7rem 0 0;color:rgb(71 85 105);font-size:.8rem;line-height:1.6; }.meta,.due-meta { color:rgb(100 116 139);font-size:.72rem; }.due-overdue { color:rgb(185 28 28);font-weight:900; }.note { border-left:2px solid rgb(125 211 252);padding-left:.65rem; }
-.action-row { margin-top:.9rem;justify-content:flex-start; }.submit-form { margin-top:1rem;border-top:1px solid rgb(241 245 249);padding-top:1rem; }.submit-form-fields { display:grid;min-width:0;margin:0;padding:0;border:0;grid-template-columns:minmax(0,1fr) auto;gap:.65rem; }.maintenance-delivery-selector { grid-column:1 / -1;border:0;border-radius:0;background:transparent; }.manual-delivery-fallback { grid-column:1 / -1;color:rgb(100 116 139);font-size:.75rem;font-weight:800; }.manual-delivery-fallback summary { cursor:pointer; }.manual-delivery-fields { display:grid;grid-template-columns:10rem minmax(0,1fr);gap:.65rem;margin-top:.65rem; }.note-input { grid-column:1 / -1;resize:vertical; }.primary-button { display:inline-flex;min-height:38px;align-items:center;justify-content:center;border:1px solid rgb(8 145 178);border-radius:.5rem;background:rgb(8 145 178);padding:.5rem .75rem;color:white;font-size:.78rem;font-weight:900; }.primary-button:disabled,.icon-button:disabled,.submit-form-fields:disabled { cursor:not-allowed;opacity:.5; }
-.load-more-row { display:flex;justify-content:center;margin-top:1rem; }.secondary-button { display:inline-flex;min-height:38px;align-items:center;justify-content:center;border:1px solid rgb(203 213 225);border-radius:.5rem;background:white;padding:.5rem .85rem;color:rgb(51 65 85);font-size:.78rem;font-weight:900; }.secondary-button:disabled { cursor:not-allowed;opacity:.5; }
-.state { border:1px dashed rgb(203 213 225);border-radius:.625rem;background:white;padding:2rem;color:rgb(100 116 139);text-align:center; }.state p { margin:0; }.state .secondary-button { margin-top:.75rem; }.state-error { border-style:solid;border-color:rgb(254 202 202);color:rgb(185 28 28); }.load-more-error { margin-top:1rem;padding:1rem; }
-@media (max-width:720px) { .page-header,.task-head { flex-direction:column; }.submit-form,.manual-delivery-fields { grid-template-columns:1fr; }.note-input { grid-column:auto; } }
-.dark .maintenance-page { background:rgb(2 6 23); }.dark .task-row,.dark .field-control,.dark .icon-button,.dark .secondary-button,.dark .state { border-color:rgb(51 65 85);background:rgb(15 23 42);color:rgb(203 213 225); }.dark .page-header h1,.dark .task-head h2 { color:rgb(248 250 252); }.dark .page-header span,.dark .detail,.dark .meta { color:rgb(148 163 184); }.dark .submit-form { border-color:rgb(51 65 85); }
+.maintenance-page {
+  min-width: 0;
+}
+
+.maintenance-main {
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.page-header,
+.task-head,
+.action-row,
+.filter-bar,
+.state {
+  display: flex;
+}
+
+.page-header {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.page-kicker {
+  margin: 0;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.page-header h1 {
+  margin: 0.2rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.page-header > div > span {
+  display: block;
+  max-width: 68ch;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.icon-button {
+  flex: none;
+}
+
+.filter-bar {
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+}
+
+.filter-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.filter-copy strong {
+  color: var(--text-strong);
+  font-size: 0.92rem;
+}
+
+.filter-copy span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.field-label,
+.note-field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.field-label {
+  width: min(14rem, 100%);
+}
+
+.field-control {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0.62rem 0.72rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.field-control:focus {
+  border-color: var(--primary-500);
+}
+
+.task-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.task-row {
+  min-width: 0;
+  padding: 1.1rem;
+}
+
+.task-head {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.task-title-group {
+  min-width: 0;
+}
+
+.badge-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.status,
+.source,
+.priority {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  border-radius: var(--radius-pill);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.status-active {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.status-warn,
+.priority-medium {
+  background: #fffaeb;
+  color: #93370d;
+}
+
+.status-ok,
+.priority-low {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.status-muted,
+.source {
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.priority-high {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.task-head h2 {
+  max-width: 44rem;
+  margin: 0.55rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.open-link {
+  flex: none;
+  color: var(--primary-700);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.open-link:hover {
+  text-decoration: underline;
+}
+
+.detail {
+  max-width: 72ch;
+  margin: 0.75rem 0 0;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.task-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 1rem 0 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-2);
+}
+
+.task-facts div {
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+}
+
+.task-facts div:not(:nth-child(3n + 1)) {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.task-facts div:nth-child(n + 4) {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.task-facts dt {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.task-facts dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.due-overdue {
+  color: var(--danger) !important;
+}
+
+.task-notes {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.task-notes p {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  margin: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.65rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.task-notes strong {
+  color: var(--text-muted);
+}
+
+.task-context {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.action-row {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  border: 1px solid #b2ddff;
+  border-radius: var(--radius-surface);
+  background: #eff8ff;
+  padding: 0.8rem;
+}
+
+.action-row strong,
+.submit-form-heading strong {
+  color: var(--text-strong);
+  font-size: 0.84rem;
+}
+
+.action-row p,
+.submit-form-heading p {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.submit-form {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
+.submit-form-heading {
+  margin-bottom: 0.75rem;
+}
+
+.submit-form-fields {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 0.75rem;
+}
+
+.maintenance-delivery-selector {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.candidate-state {
+  display: grid;
+  gap: 0.3rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1rem 0;
+  color: var(--text-muted);
+}
+
+.candidate-state strong {
+  color: var(--text-strong);
+  font-size: 0.84rem;
+}
+
+.candidate-state p,
+.candidate-partial-error,
+.field-help {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.candidate-state-error,
+.candidate-partial-error {
+  color: var(--warning);
+}
+
+.candidate-state .secondary-action {
+  justify-self: start;
+  margin-top: 0.35rem;
+}
+
+.candidate-partial-error {
+  border-left: 2px solid currentColor;
+  padding-left: 0.65rem;
+}
+
+.manual-delivery-fallback {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.manual-delivery-fallback summary {
+  cursor: pointer;
+}
+
+.manual-delivery-fields {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.field-help {
+  margin-top: 0.45rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.note-input {
+  resize: vertical;
+}
+
+.primary-button {
+  justify-self: start;
+}
+
+.primary-button:disabled,
+.icon-button:disabled,
+.submit-form-fields:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.state {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 7rem;
+  padding: 1.25rem;
+  color: var(--text-muted);
+}
+
+.state > div {
+  text-align: left;
+}
+
+.state strong {
+  color: var(--text-strong);
+  font-size: 0.9rem;
+}
+
+.state p {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.state small {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.state-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.state-error {
+  border-color: #fecdca;
+  background: #fffbfa;
+  color: #b42318;
+}
+
+.load-more-error {
+  min-height: 0;
+  margin-top: 1rem;
+}
+
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+:global(html.dark) .status-active {
+  background: rgba(30, 64, 175, 0.34);
+  color: #bfdbfe;
+}
+
+:global(html.dark) .status-warn,
+:global(html.dark) .priority-medium {
+  background: rgba(120, 53, 15, 0.34);
+  color: #fdba74;
+}
+
+:global(html.dark) .status-ok,
+:global(html.dark) .priority-low {
+  background: rgba(6, 78, 59, 0.42);
+  color: #a7f3d0;
+}
+
+:global(html.dark) .priority-high {
+  background: rgba(127, 29, 29, 0.36);
+  color: #fecaca;
+}
+
+:global(html.dark) .action-row {
+  border-color: #1e3a8a;
+  background: rgba(30, 58, 138, 0.2);
+}
+
+:global(html.dark) .state-error {
+  border-color: #7f1d1d;
+  background: rgba(69, 10, 10, 0.28);
+  color: #fecaca;
+}
+
+@media (max-width: 760px) {
+  .maintenance-main {
+    padding-top: 1.25rem;
+  }
+
+  .page-header,
+  .task-head,
+  .filter-bar,
+  .state,
+  .action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-header .secondary-action,
+  .action-row .primary-action,
+  .state .secondary-action,
+  .state .primary-action,
+  .state-actions {
+    width: 100%;
+  }
+
+  .state-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .field-label {
+    width: 100%;
+  }
+
+  .task-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .task-facts div:not(:nth-child(3n + 1)) {
+    border-left: 0;
+  }
+
+  .task-facts div:nth-child(n + 4) {
+    border-top: 0;
+  }
+
+  .task-facts div:nth-child(even) {
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .task-facts div:nth-child(n + 3) {
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .manual-delivery-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .task-notes p {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .task-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .task-facts div:nth-child(even) {
+    border-left: 0;
+  }
+
+  .task-facts div:nth-child(n + 2) {
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: none;
+  }
+}
 </style>

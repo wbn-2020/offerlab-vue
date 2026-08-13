@@ -1,5 +1,8 @@
 <template>
   <header class="community-header">
+    <button type="button" class="community-skip-link" @click="focusMainContent">
+      跳到主要内容
+    </button>
     <div class="community-header__inner">
       <RouterLink
         to="/"
@@ -15,7 +18,7 @@
 
       <nav class="community-header__nav" aria-label="主导航">
         <RouterLink
-          v-for="item in navItems.slice(0, 3)"
+          v-for="item in navItems"
           :key="item.to"
           :to="item.to"
           class="community-header__nav-link"
@@ -27,18 +30,27 @@
 
         <div class="community-header__menu" @click.stop>
           <button
+            ref="domainMenuButton"
             type="button"
             class="community-header__nav-link community-header__channel-trigger"
             :aria-expanded="showDomainMenu"
-            @click="showDomainMenu = !showDomainMenu"
+            aria-haspopup="menu"
+            aria-controls="header-domain-menu"
+            @click="toggleDomainMenu"
           >
             频道
             <ChevronDown class="h-3.5 w-3.5" />
           </button>
-          <div v-if="showDomainMenu" class="community-header__dropdown community-header__channel-menu">
+          <div
+            v-if="showDomainMenu"
+            id="header-domain-menu"
+            class="community-header__dropdown community-header__channel-menu"
+            role="menu"
+          >
             <RouterLink
               to="/"
               class="community-header__channel-item"
+              role="menuitem"
               @click="showDomainMenu = false"
             >
               <span class="community-header__channel-icon">全</span>
@@ -52,6 +64,7 @@
               :key="domain.domain"
               :to="{ path: '/', query: { domain: domain.domain } }"
               class="community-header__channel-item"
+              role="menuitem"
               @click="showDomainMenu = false"
             >
               <span class="community-header__channel-icon">{{ domain.icon }}</span>
@@ -104,34 +117,57 @@
           <Moon v-else class="h-[18px] w-[18px]" />
         </button>
 
-        <div class="community-header__menu" data-user-menu>
+        <template v-if="!authStore.isLoggedIn">
+          <RouterLink to="/login" class="community-header__auth-link">登录</RouterLink>
+          <RouterLink to="/register" class="community-header__register-link">注册</RouterLink>
+        </template>
+
+        <div v-else class="community-header__menu" data-user-menu>
           <button
+            ref="userMenuButton"
             type="button"
             class="community-header__avatar"
             :aria-expanded="showUserMenu"
+            aria-haspopup="menu"
+            aria-controls="header-user-menu"
             aria-label="用户菜单"
-            @click.stop="showUserMenu = !showUserMenu"
+            @click.stop="toggleUserMenu"
           >
             <UserAvatar
-              v-if="authStore.isLoggedIn"
               class="community-header__avatar-image"
               :src="authStore.user?.avatar"
               :name="authStore.user?.nickname"
               alt=""
               fallback="我"
             />
-            <User v-else class="h-[18px] w-[18px]" />
           </button>
           <div
             v-if="showUserMenu"
+            id="header-user-menu"
             class="community-header__dropdown community-header__user-menu"
             :data-permission-state="permissionViewState"
+            role="menu"
           >
-            <template v-if="authStore.isLoggedIn">
-              <div class="community-header__user-summary">
-                <strong>{{ authStore.user?.nickname || `${siteBrand.shortName}用户` }}</strong>
-                <small>{{ userMenuSignature }}</small>
-              </div>
+            <div class="community-header__user-summary">
+              <strong>{{ authStore.user?.nickname || `${siteBrand.shortName}用户` }}</strong>
+              <small>{{ userMenuSignature }}</small>
+            </div>
+            <div class="community-header__menu-divider" />
+            <p class="community-header__menu-group-label">常用</p>
+            <RouterLink to="/me" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">我的主页</RouterLink>
+            <RouterLink to="/me/notifications" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">通知中心</RouterLink>
+            <RouterLink to="/me/collaboration" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">协作行动中心</RouterLink>
+            <div class="community-header__menu-divider" />
+            <p class="community-header__menu-group-label">工作台</p>
+            <RouterLink to="/series/workbench" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">内容合集</RouterLink>
+            <RouterLink to="/me/relationships" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">关系与订阅中心</RouterLink>
+            <RouterLink to="/me/knowledge" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">知识维护</RouterLink>
+            <RouterLink to="/knowledge/explore" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">知识探索</RouterLink>
+            <RouterLink to="/growth/profile" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">成长档案</RouterLink>
+            <RouterLink to="/me/settings" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">设置</RouterLink>
+
+            <details v-if="adminLinks.length || permissionStatus !== 'ready'" class="community-header__admin-tools">
+              <summary>管理工具</summary>
               <div v-if="permissionStatus === 'loading'" class="community-header__permission-state" role="status">
                 <Loader2 class="h-4 w-4 animate-spin" aria-hidden="true" />
                 <span>正在确认管理权限</span>
@@ -148,44 +184,21 @@
                   重试
                 </button>
               </div>
-              <div class="community-header__menu-divider" />
-              <p class="community-header__menu-group-label">个人空间</p>
-              <RouterLink to="/me" class="community-header__menu-item" @click="showUserMenu = false">我的主页</RouterLink>
-              <RouterLink to="/me/relationships" class="community-header__menu-item" @click="showUserMenu = false">关系与订阅中心</RouterLink>
-              <RouterLink to="/me/collaboration" class="community-header__menu-item" @click="showUserMenu = false">协作行动中心</RouterLink>
-              <RouterLink to="/me/governance-todos" class="community-header__menu-item" @click="showUserMenu = false">我的治理待办</RouterLink>
-              <RouterLink to="/me/notifications" class="community-header__menu-item" @click="showUserMenu = false">通知中心</RouterLink>
-              <RouterLink to="/series/workbench" class="community-header__menu-item" @click="showUserMenu = false">内容合集</RouterLink>
-              <div class="community-header__menu-divider" />
-              <p class="community-header__menu-group-label">创作与成长</p>
-              <RouterLink to="/growth/profile" class="community-header__menu-item" @click="showUserMenu = false">作者数据</RouterLink>
-              <RouterLink to="/growth/report" class="community-header__menu-item" @click="showUserMenu = false">历史报告</RouterLink>
-              <RouterLink to="/growth/community" class="community-header__menu-item" @click="showUserMenu = false">社区成长</RouterLink>
-              <RouterLink to="/me/knowledge" class="community-header__menu-item" @click="showUserMenu = false">知识维护</RouterLink>
-              <RouterLink to="/knowledge/explore" class="community-header__menu-item" @click="showUserMenu = false">知识探索</RouterLink>
-              <RouterLink to="/certification/apply" class="community-header__menu-item" @click="showUserMenu = false">认证作者申请</RouterLink>
-              <div class="community-header__menu-divider" />
-              <RouterLink to="/me/settings" class="community-header__menu-item" @click="showUserMenu = false">设置</RouterLink>
-              <div v-if="adminLinks.length" class="community-header__menu-divider" />
-              <p v-if="adminLinks.length" class="community-header__menu-group-label">管理后台</p>
               <RouterLink
                 v-for="item in adminLinks"
                 :key="item.to"
                 :to="item.to"
                 class="community-header__menu-item"
+                role="menuitem"
                 @click="showUserMenu = false"
               >
                 {{ item.label }}
               </RouterLink>
-              <div class="community-header__menu-divider" />
-              <button type="button" class="community-header__menu-item community-header__menu-item--danger" @click="handleLogout">
-                退出登录
-              </button>
-            </template>
-            <template v-else>
-              <RouterLink to="/login" class="community-header__menu-item" @click="showUserMenu = false">登录</RouterLink>
-              <RouterLink to="/register" class="community-header__menu-item" @click="showUserMenu = false">注册</RouterLink>
-            </template>
+            </details>
+            <div class="community-header__menu-divider" />
+            <button type="button" class="community-header__menu-item community-header__menu-item--danger" role="menuitem" @click="handleLogout">
+              退出登录
+            </button>
           </div>
         </div>
       </div>
@@ -204,9 +217,9 @@
         <PenLine class="h-5 w-5" />
         <span>发布</span>
       </RouterLink>
-      <RouterLink to="/collaboration" :class="{ 'community-mobile-dock__item--active': isNavActive('/collaboration') }">
-        <HeartHandshake class="h-5 w-5" />
-        <span>共建</span>
+      <RouterLink to="/questions" :class="{ 'community-mobile-dock__item--active': isNavActive('/questions') }">
+        <BookOpen class="h-5 w-5" />
+        <span>知识库</span>
       </RouterLink>
       <RouterLink :to="authStore.isLoggedIn ? '/me' : '/login'" :class="{ 'community-mobile-dock__item--active': isNavActive('/me') }">
         <User class="h-5 w-5" />
@@ -221,6 +234,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   AlertCircle,
   Bell,
+  BookOpen,
   ChevronDown,
   Compass,
   Flame,
@@ -254,6 +268,8 @@ const route = useRoute()
 
 const showUserMenu = ref(false)
 const showDomainMenu = ref(false)
+const userMenuButton = ref<HTMLButtonElement | null>(null)
+const domainMenuButton = ref<HTMLButtonElement | null>(null)
 const keyword = ref('')
 const permissions = ref<MyAdminPermissions | null>(null)
 const permissionStatus = ref<'idle' | 'loading' | 'ready' | 'unavailable'>('idle')
@@ -271,8 +287,8 @@ const userMenuSignature = computed(() => {
 const navItems = [
   { to: '/', label: '首页', icon: Flame },
   { to: '/explore', label: '发现', icon: Compass },
+  { to: '/questions', label: '知识库', icon: BookOpen },
   { to: '/collaboration', label: '共建', icon: HeartHandshake },
-  { to: '/editor', label: '发布', icon: PenLine },
 ]
 
 const isNavActive = (target: string) => (
@@ -350,11 +366,41 @@ const toggleTheme = () => {
   themeStore.toggleExplicitMode()
 }
 
+const focusMainContent = () => {
+  const main = document.querySelector<HTMLElement>('main')
+  if (!main) return
+  if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1')
+  main.focus()
+}
+
+const toggleDomainMenu = () => {
+  showDomainMenu.value = !showDomainMenu.value
+  if (showDomainMenu.value) showUserMenu.value = false
+}
+
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value
+  if (showUserMenu.value) showDomainMenu.value = false
+}
+
 const handleDocumentClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement | null
   if (!target?.closest('[data-user-menu]')) showUserMenu.value = false
   if (!target?.closest('.community-header__channel-trigger') && !target?.closest('.community-header__channel-menu')) {
     showDomainMenu.value = false
+  }
+}
+
+const handleDocumentKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape') return
+  if (showUserMenu.value) {
+    showUserMenu.value = false
+    userMenuButton.value?.focus()
+    return
+  }
+  if (showDomainMenu.value) {
+    showDomainMenu.value = false
+    domainMenuButton.value?.focus()
   }
 }
 
@@ -379,10 +425,12 @@ onMounted(() => {
   loadPermissions()
   loadDomains()
   document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleDocumentKeydown)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleDocumentKeydown)
 })
 
 watch([() => authStore.user?.uid, () => authStore.token], () => {
@@ -401,13 +449,13 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__inner {
   display: grid;
-  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+  grid-template-columns: auto auto minmax(220px, 360px) auto;
   align-items: center;
-  gap: 1.15rem;
-  width: min(1320px, 100%);
-  min-height: 68px;
+  gap: 1rem;
+  width: min(var(--community-page-max), 100%);
+  min-height: var(--community-header-height);
   margin: 0 auto;
-  padding: 0.75rem 1.5rem;
+  padding: 0 1.25rem;
 }
 
 .community-header__brand {
@@ -420,10 +468,10 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__brand-mark {
   display: grid;
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 2.125rem;
+  height: 2.125rem;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--primary-600);
   color: white;
   font-size: 1rem;
@@ -462,13 +510,15 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .community-header__nav-link,
 .community-header__icon-button,
 .community-header__avatar,
-.community-header__publish {
+.community-header__publish,
+.community-header__auth-link,
+.community-header__register-link {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 40px;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-muted);
   font-size: 0.875rem;
@@ -478,7 +528,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__nav-link {
   position: relative;
-  padding: 0 0.65rem;
+  padding: 0 0.75rem;
 }
 
 .community-header__nav-link:hover,
@@ -488,19 +538,28 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .community-header__nav-link--active {
+  background: var(--primary-50);
   color: var(--primary-600);
   font-weight: 750;
 }
 
-.community-header__nav-link--active::after {
-  position: absolute;
-  right: 0.65rem;
-  bottom: 0.15rem;
-  left: 0.65rem;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--primary-600);
-  content: "";
+.community-skip-link {
+  position: fixed;
+  z-index: 60;
+  top: 0.5rem;
+  left: 0.5rem;
+  transform: translateY(-150%);
+  border-radius: var(--radius-control);
+  background: var(--primary-700);
+  padding: 0.55rem 0.8rem;
+  color: white;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  transition: transform 0.15s ease;
+}
+
+.community-skip-link:focus-visible {
+  transform: translateY(0);
 }
 
 .community-header__channel-trigger {
@@ -518,8 +577,8 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   width: 100%;
   height: 2.5rem;
   padding: 0 0.85rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
   color: var(--text-muted);
   transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
@@ -542,7 +601,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .community-header__search input::placeholder {
-  color: #98a2b3;
+  color: #667085;
 }
 
 .community-header__actions {
@@ -552,6 +611,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .community-header__publish {
   gap: 0.35rem;
   padding: 0 0.85rem;
+  border-radius: var(--radius-pill);
   background: var(--primary-600);
   color: white;
   font-weight: 750;
@@ -562,9 +622,29 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   transform: translateY(-1px);
 }
 
+.community-header__auth-link,
+.community-header__register-link {
+  min-height: 40px;
+  padding: 0 0.8rem;
+}
+
+.community-header__auth-link:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
+}
+
+.community-header__register-link {
+  background: var(--primary-600);
+  color: white;
+}
+
+.community-header__register-link:hover {
+  background: var(--primary-700);
+}
+
 .community-header__icon-button {
   position: relative;
-  width: 44px;
+  width: 40px;
   cursor: pointer;
 }
 
@@ -589,7 +669,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__avatar {
   position: relative;
-  width: 44px;
+  width: 40px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   background: var(--surface-3);
@@ -774,6 +854,26 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   text-transform: none;
 }
 
+.community-header__admin-tools {
+  border-top: 1px solid var(--surface-3);
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+}
+
+.community-header__admin-tools summary {
+  min-height: 2.35rem;
+  padding: 0.55rem 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.community-header__admin-tools summary:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
+}
+
 .dark .community-header__menu-group-label {
   color: rgb(100 116 139);
 }
@@ -800,6 +900,8 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .dark .community-header__search,
 .dark .community-header__channel-item,
 .dark .community-header__menu-item,
+.dark .community-header__auth-link,
+.dark .community-header__admin-tools summary,
 .dark .community-header__user-summary small {
   color: rgb(203 213 225);
 }
@@ -846,6 +948,10 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   border-color: rgb(63 63 70);
 }
 
+.dark .community-header__admin-tools {
+  border-color: rgb(63 63 70);
+}
+
 @media (max-width: 1100px) {
   .community-header__inner {
     grid-template-columns: auto minmax(180px, 1fr) auto;
@@ -859,14 +965,14 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 @media (max-width: 720px) {
   .community-header__inner {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    min-height: 58px;
+    min-height: var(--community-header-height);
     gap: 0.6rem;
-    padding: 0.6rem 0.9rem;
+    padding: 0 0.9rem;
   }
 
   .community-header__brand-mark {
-    width: 1.8rem;
-    height: 1.8rem;
+    width: 2rem;
+    height: 2rem;
   }
 
   .community-header__brand-copy {
@@ -884,7 +990,8 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   }
 
   .community-header__publish,
-  .community-header__theme-button {
+  .community-header__auth-link,
+  .community-header__register-link {
     display: none;
   }
 
@@ -919,7 +1026,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
     place-items: center;
     align-content: center;
     gap: 0.15rem;
-    border-radius: var(--radius-control);
+    border-radius: 10px;
     color: var(--text-muted);
     font-size: 0.625rem;
     font-weight: 700;

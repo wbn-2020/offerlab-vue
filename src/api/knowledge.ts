@@ -1,5 +1,6 @@
 import client, { type Result } from './client'
 import type { ApiId, KnowledgeRelationEdge, KnowledgeRelationGraph, KnowledgeRelationNode } from './types'
+import { localizeKnowledgeCopy } from '@/utils/publicDisplay'
 
 export type KnowledgeAssetType = 'post' | 'series' | 'collection' | 'topic' | 'tag' | 'search_entry'
 export type PublicKnowledgeAssetType = KnowledgeAssetType
@@ -300,7 +301,7 @@ const toSourceRefs = (value: unknown): KnowledgeSourceRef[] => Array.isArray(val
     return {
       source: oneOf(raw.source, [...assetSources, ...relationSources, ...gapSources], 'manual'),
       sourceId: raw.sourceId,
-      sourceNote: safeText(raw.sourceNote) || undefined,
+      sourceNote: raw.sourceNote == null ? undefined : localizeKnowledgeCopy(raw.sourceNote, ''),
       previewSource: raw.previewSource == null ? undefined : oneOf(raw.previewSource, previewSources, 'remote'),
     }
   }).filter(Boolean) as KnowledgeSourceRef[]
@@ -312,13 +313,13 @@ const adaptAsset = (raw: any): PublicKnowledgeAsset => {
   return {
     assetId,
     assetType,
-    title: safeText(raw?.title ?? raw?.label, assetId || 'Untitled knowledge asset'),
-    summary: safeText(raw?.summary ?? raw?.description),
+    title: localizeKnowledgeCopy(raw?.title ?? raw?.label, assetId || '未命名公开内容'),
+    summary: localizeKnowledgeCopy(raw?.summary ?? raw?.description, ''),
     assetStatus: toAssetStatus(raw?.assetStatus ?? raw?.status),
     visibilityState: toVisibilityState(raw?.visibilityState ?? raw?.displayState),
     source: toAssetSource(raw?.source, assetType === 'search_entry' ? 'search' : assetType),
     previewSource: toPreviewSource(raw?.previewSource),
-    sourceNote: safeText(raw?.sourceNote ?? raw?.reasonText, 'From public visible content relations.'),
+    sourceNote: localizeKnowledgeCopy(raw?.sourceNote ?? raw?.reasonText, '来源：公开可见内容关系。'),
     targetHref: safeHref(raw?.targetHref ?? raw?.href),
     updatedAt: safeText(raw?.updatedAt ?? raw?.updateTime),
     excludedReason: safeText(raw?.excludedReason) || undefined,
@@ -356,7 +357,7 @@ const adaptRelation = (raw: any, allowConfirmed = true): KnowledgeRelationProjec
     sourceAssetId: safeText(raw?.sourceAssetId ?? raw?.source),
     targetAssetId: safeText(raw?.targetAssetId ?? raw?.target),
     relationType: toRelationType(raw?.relationType ?? raw?.relation),
-    reasonText: safeText(raw?.reasonText ?? raw?.sourceNote, 'Relation explanation is unavailable.'),
+    reasonText: localizeKnowledgeCopy(raw?.reasonText ?? raw?.sourceNote, '暂无更多关系说明。'),
     source: sourceKnown ? sourceValue : 'manual',
     reviewStatus: reviewKnown ? reviewValue : 'PENDING_REVIEW',
     visibilityStatus: raw?.visibilityStatus === 'VISIBLE' ? 'VISIBLE' : 'HIDDEN',
@@ -367,9 +368,9 @@ const adaptRelation = (raw: any, allowConfirmed = true): KnowledgeRelationProjec
     return { ...relation, relationState: 'CONFIRMED' }
   }
   const degradedReason = !sourceKnown
-    ? 'Relation source is missing or unrecognized.'
+    ? '关系来源暂不明确。'
     : !reviewKnown
-      ? 'Relation review state is missing or unrecognized.'
+      ? '关系核对状态暂不明确。'
       : undefined
   return {
     ...relation,
@@ -383,14 +384,14 @@ const adaptGraphEdgeSuggestion = (raw: any): DynamicKnowledgeSuggestionDTO => ({
   sourceAssetId: safeText(raw?.source),
   targetAssetId: safeText(raw?.target),
   relationType: toRelationType(raw?.relation),
-  reasonText: 'Dynamic graph connection; review and source evidence were not provided.',
+  reasonText: '这是待核对的关联建议，暂缺完整来源依据。',
   source: 'manual',
   reviewStatus: 'PENDING_REVIEW',
   visibilityStatus: 'HIDDEN',
   riskLevel: 'MEDIUM',
   createdAt: '',
   relationState: 'DEGRADED',
-  degradedReason: 'Graph edges do not carry review or source evidence.',
+  degradedReason: '当前关联建议暂缺核对和来源依据。',
 })
 
 const adaptPathStep = (raw: any): KnowledgePathStep => {
@@ -398,16 +399,20 @@ const adaptPathStep = (raw: any): KnowledgePathStep => {
     return {
       assetId: '',
       assetType: 'post',
-      title: raw || 'Untitled step',
+      title: localizeKnowledgeCopy(raw, '未命名阅读步骤'),
     }
   }
   return {
     assetId: safeText(raw?.assetId ?? raw?.id),
     assetType: toAssetType(raw?.assetType ?? raw?.type),
-    title: safeText(raw?.title ?? raw?.label, 'Untitled step'),
-    summary: safeText(raw?.summary ?? raw?.description) || undefined,
+    title: localizeKnowledgeCopy(raw?.title ?? raw?.label, '未命名阅读步骤'),
+    summary: raw?.summary == null && raw?.description == null
+      ? undefined
+      : localizeKnowledgeCopy(raw?.summary ?? raw?.description, ''),
     targetHref: safeHref(raw?.targetHref ?? raw?.href) || undefined,
-    sourceNote: safeText(raw?.sourceNote ?? raw?.reasonText) || undefined,
+    sourceNote: raw?.sourceNote == null && raw?.reasonText == null
+      ? undefined
+      : localizeKnowledgeCopy(raw?.sourceNote ?? raw?.reasonText, ''),
     previewSource: raw?.previewSource == null ? undefined : toPreviewSource(raw.previewSource),
     visibilityState: raw?.visibilityState == null && raw?.displayState == null
       ? undefined
@@ -417,8 +422,8 @@ const adaptPathStep = (raw: any): KnowledgePathStep => {
 
 const adaptPath = (raw: any): KnowledgePath => ({
   pathId: safeText(raw?.pathId ?? raw?.id),
-  title: safeText(raw?.title, 'Public knowledge path'),
-  summary: safeText(raw?.summary ?? raw?.description, 'Public reading suggestion organized from public asset relations.'),
+  title: localizeKnowledgeCopy(raw?.title, '公开内容阅读路径'),
+  summary: localizeKnowledgeCopy(raw?.summary ?? raw?.description, '根据公开内容关系整理的阅读建议。'),
   entryAssetId: safeText(raw?.entryAssetId),
   steps: Array.isArray(raw?.steps) ? raw.steps.map(adaptPathStep) : [],
   sourceRefs: toSourceRefs(raw?.sourceRefs),
@@ -429,8 +434,8 @@ const adaptPath = (raw: any): KnowledgePath => ({
 
 const adaptGap = (raw: any): KnowledgeGap => ({
   gapId: safeText(raw?.gapId ?? raw?.id),
-  title: safeText(raw?.title, 'Public knowledge gap'),
-  reasonText: safeText(raw?.reasonText ?? raw?.summary, 'Public content coverage is incomplete.'),
+  title: localizeKnowledgeCopy(raw?.title, '公开内容待补方向'),
+  reasonText: localizeKnowledgeCopy(raw?.reasonText ?? raw?.summary, '当前公开内容覆盖仍不完整。'),
   source: toGapSource(raw?.source),
   sourceRefs: toSourceRefs(raw?.sourceRefs),
   minSampleMet: raw?.minSampleMet !== false,
@@ -442,11 +447,11 @@ const adaptSnapshot = (raw: any): KnowledgeAssetSnapshot => ({
   snapshotId: safeText(raw?.snapshotId ?? raw?.id),
   assetId: safeText(raw?.assetId),
   assetType: toAssetType(raw?.assetType ?? 'topic'),
-  title: safeText(raw?.title, 'Stable public knowledge projection'),
-  summary: safeText(raw?.summary ?? raw?.description),
+  title: localizeKnowledgeCopy(raw?.title, '公开内容关系整理结果'),
+  summary: localizeKnowledgeCopy(raw?.summary ?? raw?.description, ''),
   sections: Array.isArray(raw?.sections) ? raw.sections.map(adaptPathStep) : [],
   relations: Array.isArray(raw?.relations) ? raw.relations.map(adaptRelation) : [],
-  sourceNote: safeText(raw?.sourceNote, 'Built at request time from currently visible public content.'),
+  sourceNote: localizeKnowledgeCopy(raw?.sourceNote, '根据当前可见的公开内容即时整理。'),
   archivedAt: safeText(raw?.archivedAt ?? raw?.archiveTime),
 })
 
@@ -475,7 +480,7 @@ export const adaptKnowledgeExploreResponse = (raw: any): KnowledgeExploreRespons
     snapshots: Array.isArray(raw?.snapshots) ? raw.snapshots.map(adaptSnapshot) : [],
     displayState: toPathDisplayState(raw?.displayState),
     previewSource: toPreviewSource(raw?.previewSource),
-    sourceNote: safeText(raw?.sourceNote, 'Only public visible assets, relation source notes, and response-state diagnostics are displayed.'),
+    sourceNote: localizeKnowledgeCopy(raw?.sourceNote, '仅展示公开可见内容、关系来源说明和当前响应状态。'),
     excludedReason: safeText(raw?.excludedReason) || undefined,
   }
 }

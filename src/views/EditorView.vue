@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell editor-page">
     <AppHeader />
     <!-- 编辑工具条 -->
-    <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
-      <div class="editor-toolbar-inner max-w-6xl mx-auto flex items-center justify-between">
+    <div class="editor-toolbar-shell bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+      <div class="community-page editor-toolbar-inner flex items-center justify-between">
         <div class="editor-toolbar-title flex items-center gap-4">
           <button
             @click="goBack"
@@ -46,7 +46,7 @@
             <p
               v-if="publishDisabledReason && !isPublishing"
               id="publish-disabled-reason"
-              class="publish-hint"
+              :class="['publish-hint', { 'publish-hint--neutral': isInitialComposeState }]"
               role="status"
               aria-live="polite"
             >
@@ -58,7 +58,7 @@
     </div>
 
     <!-- 主体内容 -->
-    <main v-if="isForbiddenEdit" class="mx-auto flex min-h-[calc(100vh-160px)] max-w-4xl items-center px-4 py-10">
+    <main v-if="isForbiddenEdit" class="community-page flex min-h-[calc(100vh-160px)] items-center py-10">
       <section class="w-full rounded-xl border border-amber-200 bg-white p-8 text-center shadow-sm dark:border-amber-900/60 dark:bg-slate-900">
         <p class="text-sm font-semibold text-amber-600 dark:text-amber-400">无法编辑该帖子</p>
         <h2 class="mt-3 text-2xl font-bold text-slate-950 dark:text-slate-50">只能编辑本人发布的内容</h2>
@@ -73,20 +73,29 @@
       </section>
     </main>
 
-    <div v-else class="editor-main-shell max-w-6xl mx-auto p-6">
-      <div class="space-y-6">
+    <main v-else class="community-page editor-main-shell">
+      <div class="editor-workspace">
+        <div class="editor-compose-layout">
+          <section class="editor-compose-main">
         <!-- 标题输入 -->
         <div class="flex flex-col gap-2">
           <input
-            v-model="form.title"
+            :value="form.title"
             type="text"
+            :maxlength="EDITOR_LIMITS.titleMax"
             :placeholder="activePostType.placeholder"
             data-field="title"
+            :aria-invalid="Boolean(fieldErrors.title)"
+            :aria-describedby="fieldErrors.title ? 'editor-title-error' : undefined"
+            @input="handleTitleInput"
+            @paste="handleTitlePaste"
+            @compositionstart="handleTitleCompositionStart"
+            @compositionend="handleTitleCompositionEnd"
             class="editor-title-input text-3xl font-bold px-4 py-3 border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
           />
-          <p v-if="fieldErrors.title" class="field-error px-4">{{ fieldErrors.title }}</p>
+          <p v-if="fieldErrors.title" id="editor-title-error" class="field-error px-4">{{ fieldErrors.title }}</p>
           <div class="text-sm text-slate-500 dark:text-slate-400 px-4">
-            {{ form.title.length }} / 200 字符
+            {{ form.title.length }} / {{ EDITOR_LIMITS.titleMax }} 字符
           </div>
         </div>
 
@@ -212,8 +221,15 @@
           </div>
         </section>
 
+        <section class="editor-writing-body" data-field="content">
+          <MarkdownEditor v-model="form.content" :max-length="CONTENT_MAX_LENGTH" />
+          <p v-if="fieldErrors.content" class="field-error mt-2">{{ fieldErrors.content }}</p>
+        </section>
+          </section>
+
+          <aside class="editor-compose-rail">
         <!-- 领域选择 -->
-        <div class="px-4 flex flex-col gap-2">
+        <section class="editor-rail-section editor-domain-field flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-700 dark:text-slate-300">频道</label>
           <select
             v-model="selectedDomain"
@@ -230,9 +246,9 @@
             <span v-else>选择最贴近内容主题的频道，方便其他人发现和参与讨论。</span>
           </p>
           <p v-if="fieldErrors.domain" class="field-error">{{ fieldErrors.domain }}</p>
-        </div>
+        </section>
 
-        <section v-if="selectedDomain === DOMAIN.CAREER" class="anonymous-career-toggle mx-4">
+        <section v-if="selectedDomain === DOMAIN.CAREER" class="editor-rail-section anonymous-career-toggle">
           <div>
             <p>匿名发布</p>
             <span>适合不便公开身份的职场内容，作者信息由服务端按权限处理。</span>
@@ -243,9 +259,95 @@
           </label>
         </section>
 
+        <section class="editor-rail-section editor-tag-section">
+          <label class="editor-rail-label">标签</label>
+          <div class="tag-entry-row flex gap-2">
+            <input
+              v-model="tagInput"
+              type="text"
+              :placeholder="tagInputPlaceholder"
+              @keydown.enter="addTag"
+              class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              data-field="tags"
+            />
+            <button
+              type="button"
+              class="editor-tag-add"
+              @click="addTag"
+            >
+              添加
+            </button>
+          </div>
+          <div v-if="selectedTags.length" class="editor-selected-tags">
+            <span v-for="(tag, idx) in selectedTags" :key="idx">
+              {{ tag }}
+              <button type="button" :aria-label="`移除标签 ${tag}`" @click="removeTag(idx)">×</button>
+            </span>
+          </div>
+          <p v-else class="editor-rail-note">最多添加 5 个与正文直接相关的标签。</p>
+          <p v-if="fieldErrors.tags" class="field-error">{{ fieldErrors.tags }}</p>
+        </section>
+
+        <section class="editor-rail-section editor-cover-section">
+          <label class="editor-rail-label">封面图 <span>可选</span></label>
+          <input
+            v-model="form.coverUrl"
+            type="url"
+            placeholder="输入图片 URL"
+            data-field="coverUrl"
+            :aria-invalid="Boolean(fieldErrors.coverUrl)"
+            class="editor-cover-input"
+          />
+          <p v-if="fieldErrors.coverUrl" class="field-error">{{ fieldErrors.coverUrl }}</p>
+          <div v-if="form.coverUrl && !formCoverHasFailed" class="editor-cover-preview">
+            <img :src="form.coverUrl" :alt="form.title" @error="handleFormCoverError" />
+          </div>
+          <p v-else-if="form.coverUrl" class="editor-cover-fallback" role="status">
+            {{ formCoverFallbackText }}
+          </p>
+        </section>
+
+        <section class="editor-rail-section editor-rail-checklist">
+          <div class="editor-rail-checklist__head">
+            <div>
+              <p>发布前检查</p>
+              <strong>{{ passedQualityCount }}/{{ qualityChecks.length }} 已通过</strong>
+            </div>
+            <span :class="blockingQualityIssues.length ? 'is-warning' : 'is-ready'">
+              {{ blockingQualityIssues.length ? `${blockingQualityIssues.length} 项待处理` : '可以发布' }}
+            </span>
+          </div>
+          <div class="editor-rail-checklist__items">
+            <div
+              v-for="item in qualityChecks.slice(0, 5)"
+              :key="`rail-${item.key}`"
+              :class="{ 'is-passed': item.passed }"
+            >
+              <span>{{ item.passed ? '✓' : '·' }}</span>
+              <p>{{ item.title }}</p>
+            </div>
+          </div>
+        </section>
+          </aside>
+        </div>
+
+        <details class="editor-advanced-disclosure">
+          <summary class="editor-advanced-summary">
+            <div>
+              <strong>高级选项</strong>
+              <span>需要时再补充内容结构、来源、公开预览、写作建议与合集归属；不影响先完成标题、正文和频道。</span>
+            </div>
+            <span class="editor-advanced-summary__action">展开</span>
+          </summary>
+          <div class="editor-advanced-stack">
         <!-- 内容元数据 -->
         <div class="px-4">
-          <PostMeta v-model="form.extension" :type="form.postType" />
+          <PostMeta
+            v-model="form.extension"
+            :type="form.postType"
+            :errors="{ summary: fieldErrors.summary }"
+            @field-change="handleMetaFieldChange"
+          />
           <div v-if="metaErrorMessages.length" data-field="company" class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
             <p v-for="message in metaErrorMessages" :key="message">{{ message }}</p>
           </div>
@@ -738,51 +840,6 @@
           </div>
         </section>
 
-        <!-- 标签输入 -->
-        <div class="px-4 flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">标签</label>
-          <div class="tag-entry-row flex gap-2 mb-2">
-            <input
-              v-model="tagInput"
-              type="text"
-              :placeholder="tagInputPlaceholder"
-              @keydown.enter="addTag"
-              class="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              data-field="tags"
-            />
-            <button
-              type="button"
-              @click="addTag"
-              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
-            >
-              添加
-            </button>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <div
-              v-for="(tag, idx) in selectedTags"
-              :key="idx"
-              class="flex items-center gap-2 px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-full text-sm"
-            >
-              {{ tag }}
-              <button
-                type="button"
-                @click="removeTag(idx)"
-                class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-          <p v-if="fieldErrors.tags" class="field-error">{{ fieldErrors.tags }}</p>
-        </div>
-
-        <!-- Markdown 编辑器 -->
-        <div class="px-4" data-field="content">
-          <MarkdownEditor v-model="form.content" :max-length="CONTENT_MAX_LENGTH" />
-          <p v-if="fieldErrors.content" class="field-error mt-2">{{ fieldErrors.content }}</p>
-        </div>
-
         <section v-if="publishFailure" class="publish-diagnostic mx-4" role="alert">
           <div>
             <p class="publish-diagnostic-kicker">发布未完成，草稿已保护</p>
@@ -799,25 +856,10 @@
             <RouterLink to="/me">查看我的草稿</RouterLink>
           </div>
         </section>
-
-        <!-- 封面图 -->
-        <div class="px-4 flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">封面图（可选）</label>
-          <input
-            v-model="form.coverUrl"
-            type="url"
-            placeholder="输入图片 URL..."
-            class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <div v-if="form.coverUrl && !formCoverHasFailed" class="mt-2 rounded-lg overflow-hidden max-h-64">
-            <img :src="form.coverUrl" :alt="form.title" class="w-full h-auto object-cover" @error="handleFormCoverError" />
           </div>
-          <div v-else-if="form.coverUrl" class="mt-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400" role="status">
-            {{ formCoverFallbackText }}
-          </div>
-        </div>
+        </details>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
@@ -873,6 +915,15 @@ import {
 } from '@/utils/editorAssistContext'
 import { mapEditorDraftToPreview } from '@/utils/editorPreview'
 import { buildEditorQualityChecklist } from '@/utils/editorQualityChecklist'
+import {
+  EDITOR_LIMITS,
+  applyEditorTextLimit,
+  clampEditorText,
+  editorDisabledReason,
+  isValidPublicHttpUrl,
+  normalizeEditorTags,
+  validateEditorPublish,
+} from '@/utils/editorValidation'
 import { safeStorage } from '@/utils/safeStorage'
 import { hasLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText, sanitizeVisibleText } from '@/utils/textQuality'
 import { useAuthStore } from '@/stores/auth'
@@ -894,7 +945,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 const LOCAL_DRAFT_TTL = 7 * 24 * 60 * 60 * 1000
 const LOCAL_DRAFT_NAMESPACE = 'post-draft'
-const CONTENT_MAX_LENGTH = 50000
+const CONTENT_MAX_LENGTH = EDITOR_LIMITS.contentMax
 const AUTO_SAVE_DEBOUNCE_MS = 1500
 
 const postTypes = computed(() => {
@@ -1010,6 +1061,8 @@ const resolveOptionalDomain = (value: unknown, anonymous = false): number | unde
 }
 const anonymousCareerPost = ref(false)
 const isPublishing = ref(false)
+const isTitleComposing = ref(false)
+const titleCompositionStartValue = ref('')
 const isEditing = ref(false)
 const isLoadingPost = ref(false)
 const isForbiddenEdit = ref(false)
@@ -1202,6 +1255,7 @@ const extensionValue = computed<Record<string, any>>(() => form.value.extension 
 const normalizedTitle = computed(() => form.value.title.trim())
 const normalizedContent = computed(() => form.value.content.trim())
 const normalizedTags = computed(() => selectedTags.value.map((tag) => tag.trim()).filter(Boolean))
+const isHttpUrl = (value: string) => isValidPublicHttpUrl(value)
 const contentLength = computed(() => form.value.content.length)
 const isContentOverLimit = computed(() => contentLength.value > CONTENT_MAX_LENGTH)
 const activePostType = computed(() => getContentTypeOption(form.value.postType))
@@ -1333,6 +1387,13 @@ const qualityChecks = computed<QualityCheck[]>(() => [
     required: true,
   },
   {
+    key: 'coverUrl',
+    title: '封面链接有效',
+    description: '封面链接必须是完整的 http 或 https 地址。',
+    passed: !form.value.coverUrl.trim() || isHttpUrl(form.value.coverUrl),
+    required: Boolean(form.value.coverUrl.trim()),
+  },
+  {
     key: 'company',
     title: '实体信息',
     description: '旧版经验需要实体字段，便于历史知识库和主题包兼容。',
@@ -1365,13 +1426,65 @@ const qualityChecks = computed<QualityCheck[]>(() => [
 ])
 const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) => item.required && !item.passed))
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
+const isInitialComposeState = computed(() => (
+  !normalizedTitle.value
+  && !normalizedContent.value
+  && !selectedDomain.value
+  && selectedTags.value.length === 0
+  && !form.value.coverUrl.trim()
+))
+const editorValidation = computed(() => validateEditorPublish({
+  domain: selectedDomain.value,
+  title: form.value.title,
+  content: form.value.content,
+  summary: extensionValue.value.summary,
+  tags: selectedTags.value,
+  coverUrl: form.value.coverUrl,
+  minContentLength: activePostType.value.minContentLength,
+  minTagCount: isInterviewPost.value ? 2 : 1,
+}))
+const currentLimitErrors = () => {
+  const errors = editorValidation.value.errors
+  const result: Record<string, string> = {}
+  if (form.value.title.length > EDITOR_LIMITS.titleMax && errors.title) result.title = errors.title
+  if (form.value.content.length > EDITOR_LIMITS.contentMax && errors.content) result.content = errors.content
+  if (String(extensionValue.value.summary || '').length > EDITOR_LIMITS.summaryMax && errors.summary) {
+    result.summary = errors.summary
+  }
+  if (
+    normalizedTags.value.length > EDITOR_LIMITS.tagMax
+    || normalizedTags.value.some((tag) => tag.length > EDITOR_LIMITS.tagNameMax)
+  ) {
+    if (errors.tags) result.tags = errors.tags
+  }
+  if (form.value.coverUrl.trim() && !isValidPublicHttpUrl(form.value.coverUrl) && errors.coverUrl) {
+    result.coverUrl = errors.coverUrl
+  }
+  return result
+}
+
+const exposeLoadedLimitErrors = () => {
+  const errors = currentLimitErrors()
+  if (Object.keys(errors).length) fieldErrors.value = { ...fieldErrors.value, ...errors }
+}
+
 const publishDisabledReason = computed(() => {
   if (isLoadingPost.value) return '帖子内容加载完成后才能发布'
-  if (!selectedDomain.value) return '请选择频道后再发布'
-  if (blockingQualityIssues.value.length === 0) return ''
-  return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
+  if (isPublishing.value) return isEditing.value ? '正在保存修改，请勿重复提交' : '正在发布，请勿重复提交'
+  if (isInitialComposeState.value) return '先写标题和正文，再选择频道即可发布'
+  const validationReason = editorDisabledReason(editorValidation.value.errors)
+  if (validationReason) return validationReason
+  if (blockingQualityIssues.value.length) {
+    return `请先补齐：${blockingQualityIssues.value.map((item) => item.title).join('、')}`
+  }
+  return ''
 })
-const isPublishDisabled = computed(() => isPublishing.value || isLoadingPost.value || blockingQualityIssues.value.length > 0)
+const isPublishDisabled = computed(() => (
+  isPublishing.value
+  || isLoadingPost.value
+  || Object.keys(editorValidation.value.errors).length > 0
+  || blockingQualityIssues.value.length > 0
+))
 const canRetryWithTextTagsOnly = computed(() => normalizedTags.value.length > 0 && form.value.tags.length > 0)
 const tagInputPlaceholder = computed(() => (
   isQuestionPost.value
@@ -1563,7 +1676,7 @@ const explicitAiActionLabel = computed(() => {
     return isExplicitAiReconciliationLoading.value ? '确认使用结果...' : '重新确认使用结果'
   }
   if (explicitAiCapability.value?.available) return `AI 增强建议 · ${explicitAiCapability.value.remainingQuota} 次`
-  return 'AI 增强不可用'
+  return 'AI 增强（可选）'
 })
 const explicitAiUnavailableReason = computed(() => {
   if (!authStore.isLoggedIn) return '登录后可使用 AI 创作增强'
@@ -1641,6 +1754,42 @@ const applyEditorExtension = (updates: Record<string, unknown>) => {
     }
   })
   form.value.extension = nextExtension
+}
+
+const handleTitleInput = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const next = isTitleComposing.value
+    ? input.value
+    : applyEditorTextLimit(form.value.title, input.value, EDITOR_LIMITS.titleMax)
+  if (input.value !== next) input.value = next
+  form.value.title = next
+}
+
+const handleTitlePaste = (event: ClipboardEvent) => {
+  const previous = form.value.title
+  const input = event.target as HTMLInputElement | null
+  queueMicrotask(() => {
+    const next = applyEditorTextLimit(previous, input?.value || form.value.title, EDITOR_LIMITS.titleMax)
+    if (input && input.value !== next) input.value = next
+    form.value.title = next
+  })
+}
+
+const handleTitleCompositionStart = () => {
+  titleCompositionStartValue.value = form.value.title
+  isTitleComposing.value = true
+}
+
+const handleTitleCompositionEnd = (event: CompositionEvent) => {
+  isTitleComposing.value = false
+  const input = event.target as HTMLInputElement
+  const next = applyEditorTextLimit(
+    titleCompositionStartValue.value,
+    input.value,
+    EDITOR_LIMITS.titleMax,
+  )
+  if (input.value !== next) input.value = next
+  form.value.title = next
 }
 
 const buildStageThreeAssistRequest = (): ContentAssistRequest => ({
@@ -2020,7 +2169,7 @@ const toggleAssistPanelEnabled = async () => {
 const applyAssistSummary = () => {
   if (!assistSummaryText.value) return
   applyEditorExtension({
-    summary: assistSummaryText.value,
+    summary: clampEditorText(assistSummaryText.value, EDITOR_LIMITS.summaryMax),
     topicNames: selectedTopicNames.value.length ? selectedTopicNames.value : undefined,
     seriesId: selectedSeriesId.value || undefined,
     seriesTitle: selectedSeriesRecord.value?.title || undefined,
@@ -2030,9 +2179,7 @@ const applyAssistSummary = () => {
 }
 
 const applyTagSuggestion = (item: ContentAssistSuggestion) => {
-  if (!normalizedTags.value.some((tag) => tag.toLowerCase() === item.label.toLowerCase())) {
-    selectedTags.value.push(item.label)
-  }
+  if (!addEditorTags([item.label])) return
   scheduleAutoSave()
   scheduleStageThreeAssist()
   toast.success(item.adopted ? '标签已在当前内容中' : '已采纳标签建议')
@@ -2098,14 +2245,7 @@ const syncPublishedSeriesAssignment = async (postId?: string) => {
   }
 }
 
-const addTemplateTags = (tags: string[]) => {
-  tags.forEach((tag) => {
-    const label = sanitizeVisibleText(tag)
-    if (label && !normalizedTags.value.some((item) => item.toLowerCase() === label.toLowerCase())) {
-      selectedTags.value.push(label)
-    }
-  })
-}
+const addTemplateTags = (tags: string[]) => addEditorTags(tags)
 
 const addTemplateTopics = (topics: string[]) => {
   const nextTopics = new Set(selectedTopicNames.value)
@@ -2120,7 +2260,7 @@ const addTemplateTopics = (topics: string[]) => {
 }
 
 const applyTemplateTag = (tag: string) => {
-  addTemplateTags([tag])
+  if (!addTemplateTags([tag])) return
   scheduleAutoSave()
   scheduleStageThreeAssist()
   toast.success('已采纳模板标签')
@@ -2336,6 +2476,7 @@ const currentDraftReq = () => ({
   tagNames: normalizedTags.value,
   extJson: JSON.stringify({
     ...form.value.extension,
+    summary: extensionValue.value.summary || undefined,
     domain: selectedDomain.value,
     anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
     contentType: contentTypeCodeOf(form.value.postType),
@@ -2366,12 +2507,16 @@ const applyDraft = (draft: PostDraft, sourceLabel = '草稿') => {
     title: draft.title || '',
     content: draft.content || '',
     tags: draft.tagIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)),
-    extension,
+    extension: {
+      ...extension,
+      summary: extension.summary || undefined,
+    },
     coverUrl: draft.coverUrl || '',
   }
   anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(draft.anonymous ?? extension.anonymous) : false
-  selectedTags.value = draft.tagNames || []
+  selectedTags.value = normalizeEditorTags(draft.tagNames)
   selectedSeriesId.value = sanitizeVisibleText(extension.seriesId)
+  exposeLoadedLimitErrors()
   markDraftClean()
   return true
 }
@@ -2466,20 +2611,31 @@ const restoreLocalDraft = (onlyWhenNotEditing = false) => {
     delete draftForm.respondedSuggestionIds
     delete draftForm.savedAt
     delete draftForm.owner
-    form.value = { ...form.value, ...draftForm }
+    form.value = {
+      ...form.value,
+      ...draftForm,
+      title: String(draftForm.title || ''),
+      content: String(draftForm.content || ''),
+      extension: {
+        ...(draftForm.extension || {}),
+        summary: draftForm.extension?.summary || undefined,
+      },
+      coverUrl: String(draftForm.coverUrl || ''),
+    }
     selectedDomain.value = resolveOptionalDomain(savedSelectedDomain, savedAnonymousCareerPost)
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? savedAnonymousCareerPost : false
-    selectedTags.value = draftTags || []
+    selectedTags.value = normalizeEditorTags(draftTags)
     selectedSeriesId.value = sanitizeVisibleText((draftForm.extension || {}).seriesId)
     serverDraftId.value = savedServerDraftId || ''
     selectedDraftId.value = savedServerDraftId || ''
-    publicUpdateSummary.value = sanitizeVisibleText(savedPublicUpdateSummary).slice(0, 240)
+    publicUpdateSummary.value = sanitizeVisibleText(savedPublicUpdateSummary).slice(0, EDITOR_LIMITS.summaryMax)
     updateImpactScope.value = sanitizeVisibleText(savedUpdateImpactScope) || 'CONTENT'
     respondedSuggestionIds.value = Array.isArray(savedRespondedSuggestionIds)
       ? [...new Set(savedRespondedSuggestionIds
         .map(String)
         .filter((id: string) => /^[1-9]\d*$/.test(id)))].slice(0, 20)
       : []
+    exposeLoadedLimitErrors()
     markDraftClean()
     return true
   } catch {
@@ -2877,16 +3033,20 @@ const loadPostForEdit = async (postId: string) => {
     }
     form.value = {
       postType: getContentTypeOption(post.postType || DEFAULT_POST_TYPE).value,
-      title: post.title,
-      content: post.content,
+      title: post.title || '',
+      content: post.content || '',
       tags: post.tags?.map(tag => Number(tag.id)).filter(tagId => !Number.isNaN(tagId)) || [],
-      extension: post.extension || {},
-      coverUrl: post.coverUrl || ''
+      extension: {
+        ...(post.extension || {}),
+        summary: post.extension?.summary || undefined,
+      },
+      coverUrl: post.coverUrl || '',
     }
     selectedDomain.value = resolveOptionalDomain(post.domain, Boolean(post.anonymous))
     anonymousCareerPost.value = selectedDomain.value === DOMAIN.CAREER ? Boolean(post.anonymous) : false
-    selectedTags.value = post.tags?.map(tag => tag.name).filter(Boolean) || []
+    selectedTags.value = normalizeEditorTags(post.tags?.map(tag => tag.name).filter(Boolean))
     selectedSeriesId.value = sanitizeVisibleText((post.extension || {}).seriesId)
+    exposeLoadedLimitErrors()
     await Promise.all([
       loadTrustProfileForEditor(postId),
       loadPostReferences(postId),
@@ -2936,22 +3096,46 @@ onMounted(async () => {
    await loadRecentEnhancedAssistRecovery()
 })
 
-const addTag = () => {
-  const tag = tagInput.value.trim()
-  if (tag && tag.length <= 32 && !selectedTags.value.includes(tag)) {
-    selectedTags.value.push(tag)
-    tagInput.value = ''
+const addEditorTags = (values: unknown[]) => {
+  const candidates = normalizeEditorTags(values)
+  const overlong = candidates.find((tag) => tag.length > EDITOR_LIMITS.tagNameMax)
+  if (overlong) {
+    fieldErrors.value = { ...fieldErrors.value, tags: `单个标签最多 ${EDITOR_LIMITS.tagNameMax} 个字符` }
+    toast.warning(fieldErrors.value.tags)
+    return false
   }
+  const next = normalizeEditorTags([...selectedTags.value, ...candidates])
+  if (next.length > EDITOR_LIMITS.tagMax) {
+    fieldErrors.value = { ...fieldErrors.value, tags: `最多添加 ${EDITOR_LIMITS.tagMax} 个标签` }
+    toast.warning(fieldErrors.value.tags)
+    return false
+  }
+  const changed = next.length !== selectedTags.value.length
+    || next.some((tag, index) => tag !== selectedTags.value[index])
+  selectedTags.value = next
+  if (changed) form.value.tags = []
+  if (fieldErrors.value.tags) {
+    const { tags: _tags, ...rest } = fieldErrors.value
+    fieldErrors.value = rest
+  }
+  return true
+}
+
+const addTag = () => {
+  if (addEditorTags([tagInput.value])) tagInput.value = ''
 }
 
 const removeTag = (idx: number) => {
   selectedTags.value.splice(idx, 1)
+  form.value.tags = []
 }
 
 const saveDraft = async () => {
   persistLocalDraft()
-  if (isContentOverLimit.value) {
-    toast.warning(`正文不能超过 ${CONTENT_MAX_LENGTH} 字，已先保存为本地草稿`)
+  const limitErrors = currentLimitErrors()
+  if (Object.keys(limitErrors).length) {
+    fieldErrors.value = { ...fieldErrors.value, ...limitErrors }
+    toast.warning('草稿超出字段限制，已完整保存在本地；请修正标红字段后再同步到服务端')
     return
   }
   isSavingDraft.value = true
@@ -2974,18 +3158,24 @@ const saveDraft = async () => {
 }
 
 const publishPost = async () => {
+  if (isPublishing.value || isLoadingPost.value) return
   clearFieldErrors()
   publicUpdateError.value = ''
-  if (!selectedDomain.value) {
-    fieldErrors.value = { domain: '请选择频道' }
+  const validation = validateEditorPublish({
+    domain: selectedDomain.value,
+    title: form.value.title,
+    content: form.value.content,
+    summary: extensionValue.value.summary,
+    tags: selectedTags.value,
+    coverUrl: form.value.coverUrl,
+    minContentLength: activePostType.value.minContentLength,
+    minTagCount: isInterviewPost.value ? 2 : 1,
+  })
+  const localErrors = validation.errors
+  if (Object.keys(localErrors).length > 0) {
+    fieldErrors.value = { ...localErrors }
     requestAnimationFrame(focusFirstFieldError)
-    toast.error('请选择频道后再发布')
-    return
-  }
-  if (isContentOverLimit.value) {
-    fieldErrors.value = { content: `正文不能超过 ${CONTENT_MAX_LENGTH} 字` }
-    requestAnimationFrame(focusFirstFieldError)
-    toast.error(`正文不能超过 ${CONTENT_MAX_LENGTH} 字`)
+    toast.error(`请先修正：${Object.values(localErrors).join('；')}`)
     return
   }
   if (blockingQualityIssues.value.length > 0) {
@@ -3007,14 +3197,15 @@ const publishPost = async () => {
       domain: selectedDomain.value,
       anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
       postType: form.value.postType,
-      title: normalizedTitle.value,
-      content: normalizedContent.value,
-      coverUrl: form.value.coverUrl,
+      title: validation.normalized.title,
+      content: validation.normalized.content,
+      coverUrl: validation.normalized.coverUrl,
       visibility: 1,
       tagIds: form.value.tags,
       tagNames: normalizedTags.value,
       extJson: JSON.stringify({
         ...form.value.extension,
+        summary: validation.normalized.summary || undefined,
         anonymous: selectedDomain.value === DOMAIN.CAREER ? anonymousCareerPost.value : false,
         contentType: contentTypeCodeOf(form.value.postType),
         templateCode: contentTypeCodeOf(form.value.postType),
@@ -3244,6 +3435,43 @@ watch(selectedDomain, (domain) => {
   scheduleStageThreeAssist()
 })
 
+const localValidationFields = ['domain', 'title', 'content', 'summary', 'tags', 'coverUrl'] as const
+const syncEditedFieldErrors = (fields: readonly string[]) => {
+  if (Object.keys(fieldErrors.value).length === 0 && !publishFailure.value) return
+  const next = { ...fieldErrors.value }
+  let changed = false
+  fields.forEach((field) => {
+    if (!(field in next)) return
+    const localMessage = localValidationFields.includes(field as typeof localValidationFields[number])
+      ? editorValidation.value.errors[field as typeof localValidationFields[number]]
+      : undefined
+    if (localMessage) {
+      if (next[field] !== localMessage) {
+        next[field] = localMessage
+        changed = true
+      }
+      return
+    }
+    delete next[field]
+    changed = true
+  })
+  if (changed) fieldErrors.value = next
+  if (changed) publishFailure.value = null
+}
+
+watch(() => form.value.title, () => syncEditedFieldErrors(['title']))
+watch(() => form.value.content, () => syncEditedFieldErrors(['content']))
+watch(selectedDomain, () => syncEditedFieldErrors(['domain']))
+watch(selectedTags, () => syncEditedFieldErrors(['tags']), { deep: true })
+watch(() => form.value.coverUrl, () => syncEditedFieldErrors(['coverUrl']))
+
+const handleMetaFieldChange = (field: string) => {
+  const aliases: Record<string, string[]> = {
+    interviewRounds: ['interviewRounds', 'interviewRound', 'round'],
+  }
+  syncEditedFieldErrors(aliases[field] || [field])
+}
+
 watch(selectedSeriesId, () => {
   applyEditorExtension({
     seriesId: selectedSeriesId.value || undefined,
@@ -3385,6 +3613,11 @@ onBeforeUnmount(() => {
   font-weight: 700;
   line-height: 1.4;
   color: rgb(180 83 9);
+}
+
+.publish-hint--neutral {
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .publish-diagnostic {
@@ -4524,6 +4757,10 @@ onBeforeUnmount(() => {
   color: rgb(251 191 36);
 }
 
+.dark .publish-hint--neutral {
+  color: var(--text-muted);
+}
+
 .dark .publish-diagnostic {
   border-color: rgb(127 29 29);
   background: rgb(69 10 10 / 0.55);
@@ -5027,6 +5264,745 @@ onBeforeUnmount(() => {
   .forbidden-secondary-action {
     min-height: 44px;
     width: 100%;
+  }
+}
+
+/* Writing-first editor layout aligned with the community prototype. */
+.editor-page {
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+.editor-toolbar-shell {
+  position: sticky;
+  top: var(--community-header-height);
+  z-index: 30;
+  padding: 0.65rem 0;
+  background: rgb(255 255 255 / 0.96) !important;
+  backdrop-filter: blur(10px);
+}
+
+.editor-toolbar-inner {
+  min-height: 2.75rem;
+  gap: 1rem;
+}
+
+.editor-toolbar-title {
+  gap: 0.75rem !important;
+}
+
+.editor-heading {
+  color: var(--text-strong) !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+}
+
+.editor-back-button {
+  min-height: 2.25rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control) !important;
+  padding: 0 0.7rem !important;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.editor-back-button:hover {
+  border-color: var(--primary-100);
+  background: var(--primary-50) !important;
+  color: var(--primary-600);
+}
+
+.editor-toolbar-actions {
+  gap: 0.6rem !important;
+}
+
+.editor-toolbar-actions > button,
+.publish-action-group > button {
+  min-height: 2.35rem;
+  border-radius: var(--radius-control) !important;
+  padding: 0 0.85rem !important;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.editor-toolbar-actions > button {
+  border-color: var(--border-subtle) !important;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.publish-action-group > button {
+  background: var(--primary-600) !important;
+}
+
+.draft-select {
+  min-height: 2.35rem;
+  width: min(14rem, 34vw);
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-control);
+  font-size: 0.75rem;
+}
+
+.publish-hint {
+  max-width: 18rem;
+  font-size: 0.6875rem;
+}
+
+.editor-main-shell {
+  padding-top: 1.35rem;
+  padding-bottom: 3rem;
+}
+
+.editor-workspace {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.editor-compose-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 286px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.editor-compose-main {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  padding: 1.25rem;
+}
+
+.editor-compose-main > .mx-4 {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.editor-compose-main > div:first-child {
+  gap: 0.2rem;
+}
+
+.editor-title-input {
+  min-height: 3.25rem;
+  padding: 0.35rem 0 !important;
+  color: var(--text-strong) !important;
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  line-height: 1.35;
+}
+
+.editor-title-input::placeholder {
+  color: #98a2b3 !important;
+}
+
+.editor-compose-main > div:first-child > div:last-child {
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  font-size: 0.6875rem;
+}
+
+.content-type-tabs {
+  gap: 0.3rem !important;
+  margin: 0;
+  border: 0 !important;
+  padding: 0 0 0.15rem !important;
+  scrollbar-width: none;
+}
+
+.content-type-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.content-type-tab {
+  min-height: 2.1rem;
+  border: 1px solid transparent !important;
+  border-radius: 5px;
+  padding: 0 0.65rem !important;
+  background: var(--surface-3);
+  color: var(--text-muted) !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+}
+
+.content-type-tab:hover:not(:disabled) {
+  background: var(--primary-50);
+  color: var(--primary-600) !important;
+}
+
+.content-type-tab.text-primary-600 {
+  border-color: var(--primary-100) !important;
+  background: var(--primary-50);
+  color: var(--primary-600) !important;
+}
+
+.template-helper {
+  align-items: flex-start;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.85rem 0;
+}
+
+.template-helper > div:first-child {
+  min-width: 0;
+}
+
+.template-helper p {
+  color: var(--primary-600);
+  font-size: 0.6875rem;
+}
+
+.template-helper strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+}
+
+.template-helper span,
+.template-helper small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.template-chip-row {
+  margin-top: 0.5rem;
+  gap: 0.3rem;
+}
+
+.template-helper .template-chip {
+  min-height: 1.7rem;
+  border-color: var(--border-subtle);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 0.2rem 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.template-control-group {
+  max-width: 15rem;
+  gap: 0.35rem;
+}
+
+.template-select,
+.template-helper .template-control-group button {
+  min-height: 2rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  padding: 0 0.55rem;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.template-helper .template-control-group button {
+  background: var(--primary-600);
+  color: white;
+}
+
+.template-helper .template-control-group button:disabled {
+  border-color: var(--border-subtle);
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.editor-writing-body {
+  min-width: 0;
+}
+
+.editor-writing-body :deep(.markdown-editor-shell) {
+  gap: 0.75rem;
+}
+
+.editor-writing-body :deep(.markdown-editor-toolbar) {
+  padding-bottom: 0.55rem;
+}
+
+.editor-writing-body :deep(.markdown-tabs) {
+  width: 10.5rem;
+  border-color: var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.editor-writing-body :deep(.markdown-tab-button) {
+  min-height: 2rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.editor-writing-body :deep(.markdown-textarea) {
+  min-height: 31rem;
+  height: 56vh;
+  max-height: 44rem;
+  border-color: var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+  color: var(--text-primary);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.8;
+}
+
+.editor-writing-body :deep(.markdown-textarea::placeholder) {
+  color: #667085;
+}
+
+.editor-compose-rail {
+  position: sticky;
+  top: calc(var(--community-header-height) + 4.65rem);
+  display: grid;
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.editor-rail-section {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  padding: 0.9rem;
+}
+
+.editor-rail-label,
+.editor-domain-field > label {
+  color: var(--text-strong) !important;
+  font-size: 0.75rem !important;
+  font-weight: 800 !important;
+}
+
+.editor-rail-label span {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.editor-domain-field select,
+.editor-tag-section input,
+.editor-cover-input {
+  min-height: 2.4rem;
+  width: 100%;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 6px !important;
+  background: var(--surface-2) !important;
+  padding: 0 0.65rem !important;
+  color: var(--text-primary) !important;
+  font-size: 0.75rem !important;
+}
+
+.editor-domain-field select {
+  text-overflow: ellipsis;
+}
+
+.domain-source-note,
+.editor-rail-note {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.55;
+}
+
+.anonymous-career-toggle {
+  margin: 0;
+}
+
+.editor-tag-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.editor-tag-section .tag-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+}
+
+.editor-tag-add {
+  min-height: 2.4rem;
+  border-radius: 6px;
+  background: var(--primary-600);
+  padding: 0 0.7rem;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.editor-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.editor-selected-tags > span {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 4px;
+  background: var(--primary-50);
+  padding: 0.2rem 0.45rem;
+  color: var(--primary-700);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.editor-selected-tags button {
+  color: inherit;
+}
+
+.editor-cover-section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.editor-cover-preview {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+
+.editor-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.editor-cover-fallback {
+  border: 1px dashed var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.editor-rail-checklist {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.editor-rail-checklist__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.editor-rail-checklist__head p {
+  color: var(--text-strong);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.editor-rail-checklist__head strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.editor-rail-checklist__head > span {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.625rem;
+  font-weight: 750;
+}
+
+.editor-rail-checklist__head > .is-ready {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.editor-rail-checklist__head > .is-warning {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.editor-rail-checklist__items {
+  display: grid;
+}
+
+.editor-rail-checklist__items > div {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2rem;
+  border-top: 1px solid var(--surface-3);
+}
+
+.editor-rail-checklist__items > div > span {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+.editor-rail-checklist__items > div > p {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-rail-checklist__items > .is-passed > span {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.editor-rail-checklist__items > .is-passed > p {
+  color: var(--text-primary);
+}
+
+.editor-advanced-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.editor-advanced-disclosure {
+  margin: 0 1rem 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: rgb(248 250 252 / 0.72);
+}
+
+.editor-advanced-summary {
+  display: flex;
+  min-height: 4.5rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.editor-advanced-summary::-webkit-details-marker {
+  display: none;
+}
+
+.editor-advanced-summary > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.editor-advanced-summary strong {
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+}
+
+.editor-advanced-summary span {
+  color: rgb(100 116 139);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.editor-advanced-summary__action {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.editor-advanced-disclosure[open] .editor-advanced-summary__action {
+  font-size: 0;
+}
+
+.editor-advanced-disclosure[open] .editor-advanced-summary__action::after {
+  content: "收起";
+  font-size: 0.8rem;
+}
+
+.editor-advanced-disclosure[open] .editor-advanced-stack {
+  padding-bottom: 1rem;
+}
+
+.dark .editor-advanced-disclosure {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42 / 0.5);
+}
+
+.dark .editor-advanced-summary strong {
+  color: rgb(241 245 249);
+}
+
+.dark .editor-advanced-summary span {
+  color: rgb(148 163 184);
+}
+
+.editor-advanced-stack > .mx-4 {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.editor-advanced-stack > .px-4 {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.dark .editor-toolbar-shell {
+  background: rgb(15 17 21 / 0.96) !important;
+}
+
+.dark .editor-compose-main,
+.dark .editor-rail-section {
+  border-color: rgb(63 63 70);
+  background: rgb(24 26 32);
+}
+
+.dark .editor-title-input::placeholder,
+.dark .editor-writing-body :deep(.markdown-textarea::placeholder) {
+  color: rgb(148 163 184) !important;
+}
+
+.dark .content-type-tab {
+  background: rgb(39 39 42);
+  color: rgb(161 161 170) !important;
+}
+
+.dark .content-type-tab.text-primary-600,
+.dark .content-type-tab:hover:not(:disabled) {
+  border-color: rgb(30 64 175) !important;
+  background: rgb(30 58 138 / 0.38);
+  color: rgb(147 197 253) !important;
+}
+
+.dark .template-helper {
+  border-color: rgb(63 63 70);
+  background: transparent;
+}
+
+.dark .editor-domain-field select,
+.dark .editor-tag-section input,
+.dark .editor-cover-input,
+.dark .template-select {
+  border-color: rgb(63 63 70) !important;
+  background: rgb(15 17 21) !important;
+  color: rgb(228 228 231) !important;
+}
+
+.dark .editor-selected-tags > span {
+  background: rgb(30 58 138 / 0.4);
+  color: rgb(191 219 254);
+}
+
+.dark .editor-rail-checklist__items > div {
+  border-color: rgb(39 39 42);
+}
+
+@media (max-width: 1023px) {
+  .editor-compose-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-compose-rail {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .editor-domain-field,
+  .editor-rail-checklist {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .editor-toolbar-shell {
+    position: static;
+    padding: 0.6rem 0;
+    backdrop-filter: none;
+  }
+
+  .editor-toolbar-inner {
+    gap: 0.65rem;
+  }
+
+  .editor-toolbar-title {
+    justify-content: flex-start;
+  }
+
+  .editor-toolbar-actions {
+    gap: 0.5rem !important;
+  }
+
+  .draft-select {
+    min-height: 2.5rem;
+  }
+
+  .editor-main-shell {
+    padding: 0.85rem 1rem 2rem;
+  }
+
+  .editor-compose-main {
+    gap: 0.85rem;
+    padding: 1rem;
+  }
+
+  .editor-title-input {
+    min-height: 2.75rem;
+    font-size: 1.35rem !important;
+  }
+
+  .content-type-tabs {
+    margin-right: -1rem;
+    margin-left: -1rem;
+    padding-right: 1rem !important;
+    padding-left: 1rem !important;
+  }
+
+  .template-helper {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .template-control-group {
+    display: grid;
+    width: 100%;
+    max-width: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .template-control-group > * {
+    min-height: 2.5rem !important;
+    max-width: none;
+  }
+
+  .template-select {
+    grid-column: 1 / -1;
+  }
+
+  .editor-writing-body :deep(.markdown-textarea) {
+    min-height: 25rem;
+    height: 58dvh;
+    max-height: 38rem;
+    padding: 0.9rem;
+    font-size: 16px;
+  }
+
+  .editor-compose-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-rail-section {
+    padding: 0.85rem;
+  }
+
+  .editor-advanced-stack {
+    gap: 0.85rem;
   }
 }
 </style>

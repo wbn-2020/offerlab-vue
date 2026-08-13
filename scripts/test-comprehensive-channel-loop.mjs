@@ -13,6 +13,7 @@ const searchApi = read('../src/api/search.ts')
 const home = read('../src/views/HomeView.vue')
 const header = read('../src/components/layout/AppHeader.vue')
 const editor = read('../src/views/EditorView.vue')
+const editorValidation = read('../src/utils/editorValidation.ts')
 const explore = read('../src/views/ExploreView.vue')
 const discovery = read('../src/api/discovery.ts')
 const search = read('../src/views/SearchView.vue')
@@ -46,7 +47,8 @@ for (const [name, source] of [
 
 assert.match(editor, /const\s+selectedDomain\s*=\s*ref<number\s*\|\s*undefined>\(\)/, 'new posts must start without a default channel')
 assert.match(editor, /<option\s+:value="undefined">请选择频道<\/option>/, 'editor must render an explicit channel placeholder')
-assert.match(editor, /if\s*\(!selectedDomain\.value\)[\s\S]{0,220}请选择频道/, 'publishing without a channel must be blocked with a clear message')
+assert.match(editor, /const\s+editorValidation\s*=\s*computed\(\(\)\s*=>\s*validateEditorPublish\(/, 'editor publish validation must flow through the shared validator')
+assert.match(editorValidation, /if\s*\(!input\.domain\)\s*errors\.domain\s*=\s*'请选择频道'/, 'publishing without a channel must be blocked with a clear message')
 assert.match(editor, /domain:\s*selectedDomain\.value/, 'draft and publish payloads must preserve the selected channel')
 assert.doesNotMatch(editor, /DOMAIN\.LIFESTYLE\)\s*$/, 'editor restore paths must not silently default to lifestyle')
 

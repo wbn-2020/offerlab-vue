@@ -1,22 +1,35 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell legacy-training-page">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-8">
-      <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p class="text-xs font-black tracking-normal text-primary-600 dark:text-primary-300">个人练习归档</p>
-            <h1 class="mt-2 text-3xl font-black text-slate-950 dark:text-slate-50">知识复盘</h1>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              从知识库抽取一组知识卡，按复盘节奏作答、计时、自评分，并沉淀一份个人复盘记录。
-            </p>
-          </div>
-          <RouterLink to="/me/prep" class="secondary-action">回到学习空间</RouterLink>
+    <main class="community-page mock-page">
+      <header class="surface-card mock-header">
+        <div class="mock-header-copy">
+          <span class="legacy-label">兼容学习工具</span>
+          <h1>知识复盘归档</h1>
+          <p>
+            从个人知识库抽取一组知识卡，完成作答、自评与报告归档。记录仅用于私人回看，不扩展为社区主路径。
+          </p>
         </div>
-      </section>
+        <div class="mock-header-actions">
+          <RouterLink to="/questions" class="primary-action">返回知识库</RouterLink>
+          <RouterLink to="/me/prep" class="secondary-action">学习空间</RouterLink>
+        </div>
+        <dl class="mock-guide" aria-label="知识复盘流程">
+          <div><dt>1</dt><dd>设置主题与题数</dd></div>
+          <div><dt>2</dt><dd>作答并保存草稿</dd></div>
+          <div><dt>3</dt><dd>提交后归档报告</dd></div>
+        </dl>
+      </header>
 
-      <div class="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <aside class="space-y-4">
+      <div class="mock-layout">
+        <aside class="mock-sidebar">
+          <MockInterviewStartForm
+            :model-value="startForm"
+            :is-starting="isStarting"
+            :service-unavailable="isMockInterviewUnavailable"
+            :unavailable-message="statsError"
+            @submit="startInterview"
+          />
           <MockInterviewStatsPanel
             :stats="statsForPanel"
             :is-loading="isStatsLoading"
@@ -25,17 +38,10 @@
             @retry="loadStats"
             @mark-weak-answers-review="markStatsWeakAnswersForReview"
           />
-          <MockInterviewStartForm
-            :model-value="startForm"
-            :is-starting="isStarting"
-            :service-unavailable="isMockInterviewUnavailable"
-            :unavailable-message="statsError"
-            @submit="startInterview"
-          />
           <MockInterviewRecentList :sessions="recentSessions" @refresh="loadRecent" @select="selectSession" />
         </aside>
 
-        <section class="min-w-0">
+        <section class="mock-workspace">
           <MockInterviewWorkspace
             :session="currentSession"
             :draft-answers="draftAnswers"
@@ -618,22 +624,404 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.secondary-action {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.65rem;
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  padding: 0.55rem 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 800;
-  color: rgb(51 65 85);
+.legacy-training-page {
+  background: var(--surface-2);
 }
 
-.dark .secondary-action {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+.mock-page {
+  padding-top: 1.25rem;
+  padding-bottom: 5rem;
+}
+
+.mock-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.25rem 2rem;
+  padding: 1.5rem;
+}
+
+.mock-header-copy {
+  min-width: 0;
+}
+
+.legacy-label {
+  display: inline-flex;
+  min-height: 1.625rem;
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  padding: 0.2rem 0.625rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.mock-header h1 {
+  margin-top: 0.75rem;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.mock-header-copy p {
+  max-width: 68ch;
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.mock-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.mock-header-actions :is(a, button) {
+  min-height: 2.5rem;
+  white-space: nowrap;
+}
+
+.mock-guide {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--border-subtle);
+}
+
+.mock-guide div {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.875rem 0.75rem 0;
+}
+
+.mock-guide div + div {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.mock-guide dt {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--primary-50);
+  color: var(--primary-700);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.mock-guide dd {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.mock-layout {
+  display: grid;
+  grid-template-columns: 19rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.mock-sidebar {
+  position: sticky;
+  top: calc(var(--community-header-height) + 1rem);
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.mock-workspace {
+  min-width: 0;
+}
+
+:deep(.panel) {
+  border-radius: var(--radius-surface);
+  border-color: var(--border-subtle);
+  background: var(--surface);
+  padding: 1.125rem;
+  box-shadow: none;
+}
+
+:deep(.panel-title) {
+  color: var(--text-strong);
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+:deep(.panel-note),
+:deep(.state-box),
+:deep(.field-label),
+:deep(.field-input),
+:deep(.answer-input) {
+  font-size: 0.8125rem;
+}
+
+:deep(.field-label) {
+  color: var(--text-muted);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:deep(.field-input),
+:deep(.answer-input) {
+  border-radius: var(--radius-control);
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+:deep(.field-input:focus),
+:deep(.answer-input:focus) {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.42);
+}
+
+:deep(.primary-action),
+:deep(.secondary-action),
+:deep(.mini-button),
+:deep(.retry-button) {
+  min-height: 2.375rem;
+  border-radius: var(--radius-control);
+  font-size: 0.8125rem;
+}
+
+:deep(.secondary-action),
+:deep(.mini-button) {
+  border-color: var(--border-subtle);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+:deep(.secondary-action:hover),
+:deep(.mini-button:hover) {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+:deep(.timer-card) {
+  min-width: 6rem;
+  border-radius: var(--radius-control);
+  border: 1px solid #bfdbfe;
+  background: var(--primary-50);
+  padding: 0.625rem 0.75rem;
+}
+
+:deep(.timer-card span) {
+  color: var(--primary-700);
+  font-size: 0.6875rem;
+}
+
+:deep(.timer-card strong) {
+  color: var(--primary-700);
+  font-size: 1.125rem;
+}
+
+:deep(.question-index) {
+  border-radius: var(--radius-pill);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+:deep(.review-box),
+:deep(.ai-toggle-row),
+:deep(.ai-review-box),
+:deep(.weak-review-box),
+:deep(.learning-loop-box) {
+  border-radius: var(--radius-control);
+}
+
+:deep(.review-box) {
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
+}
+
+:deep(.ai-toggle-row) {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+:deep(.ai-toggle-row small) {
+  color: var(--text-muted);
+}
+
+:deep(.review-list li) {
+  border-color: var(--border-subtle);
+  background: var(--surface);
+}
+
+:deep(.weak-review-box) {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+:deep(.learning-loop-box) {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+:deep(.recent-item) {
+  border-radius: var(--radius-control);
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
+}
+
+:deep(.recent-item:hover) {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+}
+
+@media (max-width: 1023px) {
+  .mock-header {
+    grid-template-columns: 1fr;
+  }
+
+  .mock-header-actions {
+    justify-content: flex-start;
+  }
+
+  .mock-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mock-sidebar {
+    position: static;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .mock-page {
+    padding-top: 0.75rem;
+    padding-bottom: 2rem;
+  }
+
+  .mock-header {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .mock-header h1 {
+    font-size: 1.375rem;
+  }
+
+  .mock-header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mock-header-actions a {
+    width: 100%;
+    min-width: 0;
+    padding-right: 0.625rem;
+    padding-left: 0.625rem;
+    white-space: nowrap;
+  }
+
+  .mock-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .mock-guide div {
+    padding: 0.625rem 0 0;
+  }
+
+  .mock-guide div + div {
+    border-top: 1px solid var(--border-subtle);
+    border-left: 0;
+    margin-top: 0.625rem;
+    padding-top: 0.625rem;
+  }
+
+  .mock-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  :deep(.panel) {
+    padding: 1rem;
+  }
+
+  :deep(.panel > .flex) {
+    align-items: flex-start;
+  }
+
+  :deep(.timer-card) {
+    width: 100%;
+  }
+
+  :deep(.ai-review-grid) {
+    grid-template-columns: 1fr;
+  }
+
+  :deep(.learning-loop-actions) {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  :deep(.learning-loop-actions > *) {
+    width: 100%;
+  }
+}
+
+.dark .mock-guide dt {
+  background: #172554;
+  color: #bfdbfe;
+}
+
+.dark :deep(.panel) {
+  border-color: var(--border-subtle);
+  background: var(--surface);
+}
+
+.dark :deep(.field-input),
+.dark :deep(.answer-input),
+.dark :deep(.recent-item) {
+  border-color: #334155;
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+.dark :deep(.secondary-action),
+.dark :deep(.mini-button) {
+  border-color: #334155;
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.dark :deep(.secondary-action:hover),
+.dark :deep(.mini-button:hover),
+.dark :deep(.recent-item:hover) {
+  border-color: #1e40af;
+  background: #172554;
+  color: #bfdbfe;
+}
+
+.dark :deep(.review-box),
+.dark :deep(.review-list li) {
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+}
+
+.dark :deep(.weak-review-box) {
+  border-color: #7c2d12;
+  background: #431407;
+}
+
+.dark :deep(.learning-loop-box) {
+  border-color: #166534;
+  background: #052e16;
 }
 </style>

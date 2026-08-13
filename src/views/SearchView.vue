@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell search-page">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <section class="search-shell">
-        <div class="flex flex-col gap-3 lg:flex-row">
+    <main class="community-page search-main">
+      <section class="search-shell search-command-bar">
+        <div class="search-form-row">
           <div class="relative flex-1">
             <Search class="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
             <input
@@ -12,6 +12,7 @@
               type="search"
               list="search-suggestions"
               class="search-input pl-10"
+              aria-label="搜索内容、话题、作者或标签"
               placeholder="搜索内容、话题、作者、标签或有用经验"
               @input="handleSearchInput"
               @keyup.enter="runSearch(false)"
@@ -34,32 +35,33 @@
           </button>
         </div>
 
-        <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="search-control-row">
           <div class="segmented">
-            <button type="button" :class="['segment-button', searchMode === 'posts' ? 'segment-active' : '']" @click="setMode('posts')">
+            <button type="button" :class="['segment-button', searchMode === 'posts' ? 'segment-active' : '']" :aria-pressed="searchMode === 'posts'" @click="setMode('posts')">
               <FileText class="h-4 w-4" />
               内容
             </button>
-            <button type="button" :class="['segment-button', searchMode === 'users' ? 'segment-active' : '']" @click="setMode('users')">
+            <button type="button" :class="['segment-button', searchMode === 'users' ? 'segment-active' : '']" :aria-pressed="searchMode === 'users'" @click="setMode('users')">
               <Users class="h-4 w-4" />
               作者
             </button>
-            <button type="button" :class="['segment-button', searchMode === 'topics' ? 'segment-active' : '']" @click="setMode('topics')">
+            <button type="button" :class="['segment-button', searchMode === 'topics' ? 'segment-active' : '']" :aria-pressed="searchMode === 'topics'" @click="setMode('topics')">
               <Hash class="h-4 w-4" />
               话题
             </button>
-            <button type="button" :class="['segment-button', searchMode === 'tags' ? 'segment-active' : '']" @click="setMode('tags')">
+            <button type="button" :class="['segment-button', searchMode === 'tags' ? 'segment-active' : '']" :aria-pressed="searchMode === 'tags'" @click="setMode('tags')">
               <Hash class="h-4 w-4" />
               标签
             </button>
           </div>
 
-          <div v-if="searchMode === 'posts'" class="flex flex-wrap gap-2">
+          <div v-if="searchMode === 'posts'" class="search-sort-options">
             <button
               v-for="option in sortOptions"
               :key="option.value"
               type="button"
               :class="['chip-button', filters.sort === option.value ? 'chip-active' : '']"
+              :aria-pressed="filters.sort === option.value"
               @click="setSort(option.value)"
             >
               {{ option.label }}
@@ -68,13 +70,26 @@
         </div>
       </section>
 
-      <div class="search-layout mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
+      <div class="search-layout">
         <aside class="search-aside space-y-4">
-          <details class="filter-details" open>
-            <summary class="filter-summary">
-              筛选、热门词和搜索记录
-            </summary>
-          <section v-if="searchMode === 'posts'" class="side-panel">
+          <section class="side-panel search-related-panel">
+            <div class="side-panel-heading">
+              <h2 class="side-title">相关发现</h2>
+              <RouterLink to="/explore">查看全部</RouterLink>
+            </div>
+            <div class="search-side-list">
+              <RouterLink
+                v-for="topic in recommendedTopics.slice(0, 4)"
+                :key="topic"
+                :to="`/topics/${encodeURIComponent(topic)}`"
+              >
+                <span># {{ topic }}</span>
+                <small>话题</small>
+              </RouterLink>
+            </div>
+          </section>
+
+          <section v-if="searchMode === 'posts'" class="side-panel filter-panel">
             <h2 class="side-title">筛选</h2>
             <div class="space-y-3">
               <label class="field-label">
@@ -82,17 +97,9 @@
                 <select v-model.number="filters.domain" class="field-input" @change="scheduleDebouncedSearch">
                   <option :value="undefined">全部频道</option>
                   <option v-for="item in domainOptions" :key="item.domain" :value="item.domain">
-                    {{ item.icon }} {{ item.domainName }}
+                    {{ item.icon }} {{ getDomainLabelSafe(item.domain) }}
                   </option>
                 </select>
-              </label>
-              <label class="field-label">
-                高级筛选：标签 / 实体
-                <input v-model.trim="filters.company" class="field-input" placeholder="例如 AI 工具 / 租房 / 读书" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
-              </label>
-              <label class="field-label">
-                高级筛选：场景 / 岗位
-                <input v-model.trim="filters.position" class="field-input" placeholder="例如 转行 / 租房 / 产品经理" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
               </label>
               <label class="field-label">
                 内容类型
@@ -101,49 +108,62 @@
                   <option v-for="item in searchContentTypes" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
               </label>
-              <label class="field-label">
-                经验护照
-                <select v-model="filters.trustProfile" class="field-input" @change="scheduleDebouncedSearch">
-                  <option value="">全部</option>
-                  <option value="true">已补充</option>
-                  <option value="false">未补充</option>
-                </select>
-              </label>
-              <label class="field-label">
-                内容时效
-                <select v-model="filters.freshnessStatus" class="field-input" @change="scheduleDebouncedSearch">
-                  <option value="">全部状态</option>
-                  <option value="CURRENT">当前有效</option>
-                  <option value="POSSIBLY_STALE">可能已过时</option>
-                  <option value="AWAITING_AUTHOR_CONFIRMATION">等待作者确认</option>
-                  <option value="UPDATED">已更新</option>
-                  <option value="SUPERSEDED">已有后续内容</option>
-                </select>
-              </label>
-              <label class="field-label">
-                讨论结果
-                <select v-model="filters.resolved" class="field-input" @change="scheduleDebouncedSearch">
-                  <option value="">全部</option>
-                  <option value="true">已有结果</option>
-                  <option value="false">仍待补充</option>
-                </select>
-              </label>
-              <label class="field-label">
-                来源说明
-                <select v-model="filters.sourceComplete" class="field-input" @change="scheduleDebouncedSearch">
-                  <option value="">全部</option>
-                  <option value="true">来源完整</option>
-                  <option value="false">来源待补充</option>
-                </select>
-              </label>
             </div>
+            <details class="filter-details" :open="hasAdvancedFilters">
+              <summary class="filter-summary">高级筛选</summary>
+              <div class="filter-details__body space-y-3">
+                <label class="field-label">
+                  标签 / 实体
+                  <input v-model.trim="filters.company" class="field-input" placeholder="例如 AI 工具 / 租房 / 读书" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                </label>
+                <label class="field-label">
+                  场景 / 岗位
+                  <input v-model.trim="filters.position" class="field-input" placeholder="例如 转行 / 租房 / 产品经理" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
+                </label>
+                <label class="field-label">
+                  经验护照
+                  <select v-model="filters.trustProfile" class="field-input" @change="scheduleDebouncedSearch">
+                    <option value="">全部</option>
+                    <option value="true">已补充</option>
+                    <option value="false">未补充</option>
+                  </select>
+                </label>
+                <label class="field-label">
+                  内容时效
+                  <select v-model="filters.freshnessStatus" class="field-input" @change="scheduleDebouncedSearch">
+                    <option value="">全部状态</option>
+                    <option value="CURRENT">当前有效</option>
+                    <option value="POSSIBLY_STALE">可能已过时</option>
+                    <option value="AWAITING_AUTHOR_CONFIRMATION">等待作者确认</option>
+                    <option value="UPDATED">已更新</option>
+                    <option value="SUPERSEDED">已有后续内容</option>
+                  </select>
+                </label>
+                <label class="field-label">
+                  讨论结果
+                  <select v-model="filters.resolved" class="field-input" @change="scheduleDebouncedSearch">
+                    <option value="">全部</option>
+                    <option value="true">已有结果</option>
+                    <option value="false">仍待补充</option>
+                  </select>
+                </label>
+                <label class="field-label">
+                  来源说明
+                  <select v-model="filters.sourceComplete" class="field-input" @change="scheduleDebouncedSearch">
+                    <option value="">全部</option>
+                    <option value="true">来源完整</option>
+                    <option value="false">来源待补充</option>
+                  </select>
+                </label>
+              </div>
+            </details>
             <div class="mt-4 grid grid-cols-2 gap-2">
               <button type="button" class="secondary-button" @click="resetFilters">清空</button>
               <button type="button" class="secondary-button" @click="runSearch(false)">应用</button>
             </div>
           </section>
 
-          <section class="side-panel">
+          <section class="side-panel hot-panel">
             <h2 class="side-title">热门搜索</h2>
             <div class="flex flex-wrap gap-2">
               <button v-for="word in hotWords" :key="word" type="button" class="tag-button" @click="useHotWord(word)">
@@ -152,13 +172,13 @@
             </div>
           </section>
 
-          <section v-if="savedSearches.length || recentSearches.length" class="side-panel space-y-4">
+          <section v-if="savedSearches.length || recentSearches.length" class="side-panel history-panel space-y-4">
             <div v-if="savedSearches.length" class="space-y-2">
               <div class="flex items-center justify-between gap-2">
                 <h2 class="side-title">保存的搜索</h2>
                 <div class="flex items-center gap-2">
                   <span class="mini-count">{{ savedSearches.length }}/8</span>
-                  <button type="button" class="mini-icon-button" title="清空保存搜索" @click="clearSavedSearches">
+                  <button type="button" class="mini-icon-button" title="清空保存搜索" aria-label="清空保存搜索" @click="clearSavedSearches">
                     <Eraser class="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -174,10 +194,10 @@
                     @keyup.esc="cancelRenameSavedSearch"
                   />
                   <div class="saved-search-actions">
-                    <button type="button" class="mini-icon-button" title="保存名称" @click="confirmRenameSavedSearch(item)">
+                    <button type="button" class="mini-icon-button" title="保存名称" aria-label="保存搜索名称" @click="confirmRenameSavedSearch(item)">
                       <Check class="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" class="mini-icon-button" title="取消重命名" @click="cancelRenameSavedSearch">
+                    <button type="button" class="mini-icon-button" title="取消重命名" aria-label="取消重命名搜索" @click="cancelRenameSavedSearch">
                       <X class="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -188,10 +208,10 @@
                     <span class="saved-search-meta">{{ searchSnapshotMeta(item) }}</span>
                   </button>
                   <div class="saved-search-actions">
-                    <button type="button" class="mini-icon-button" title="重命名保存搜索" @click="startRenameSavedSearch(item)">
+                    <button type="button" class="mini-icon-button" title="重命名保存搜索" aria-label="重命名保存搜索" @click="startRenameSavedSearch(item)">
                       <Pencil class="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" class="mini-icon-button" title="删除保存搜索" @click="deleteSavedSearch(item.id)">
+                    <button type="button" class="mini-icon-button" title="删除保存搜索" aria-label="删除保存搜索" @click="deleteSavedSearch(item.id)">
                       <Trash2 class="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -204,7 +224,7 @@
                 <h2 class="side-title">最近搜索</h2>
                 <div class="flex items-center gap-2">
                   <span class="mini-count">{{ recentSearches.length }}/8</span>
-                  <button type="button" class="mini-icon-button" title="清空最近搜索" @click="clearRecentSearches">
+                  <button type="button" class="mini-icon-button" title="清空最近搜索" aria-label="清空最近搜索" @click="clearRecentSearches">
                     <Eraser class="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -215,7 +235,7 @@
                   <span class="saved-search-meta">{{ searchSnapshotMeta(item) }}</span>
                 </button>
                 <div class="saved-search-actions">
-                  <button type="button" class="mini-icon-button" title="删除最近搜索" @click="deleteRecentSearch(item.id)">
+                  <button type="button" class="mini-icon-button" title="删除最近搜索" aria-label="删除最近搜索" @click="deleteRecentSearch(item.id)">
                     <Trash2 class="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -231,7 +251,7 @@
             </div>
           </section>
 
-          <section class="side-panel">
+          <section class="side-panel service-panel">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <h2 class="side-title">搜索服务</h2>
@@ -242,7 +262,6 @@
               </span>
             </div>
           </section>
-          </details>
         </aside>
 
         <section class="search-results min-w-0 space-y-4">
@@ -336,17 +355,20 @@
               <PostCard
                 :post="post"
                 :like-pending="isActionPending('like', post.postId)"
-              :favorite-pending="isActionPending('favorite', post.postId)"
-              :detail-query="postDetailQuery"
-              show-reason-panel
-              @like="handleLike"
-              @favorite="handleFavorite"
-              @follow-change="handlePostAuthorFollowChange"
-            />
-              <div v-if="searchHitReasons(post).length" class="search-hit-reasons" aria-label="命中解释">
-                <span>命中解释</span>
+                :favorite-pending="isActionPending('favorite', post.postId)"
+                :detail-query="postDetailQuery"
+                @like="handleLike"
+                @favorite="handleFavorite"
+                @follow-change="handlePostAuthorFollowChange"
+              />
+              <details
+                v-if="searchHitReasons(post).length"
+                class="search-hit-reasons"
+                aria-label="命中解释"
+              >
+                <summary>为什么匹配</summary>
                 <small v-for="reason in searchHitReasons(post)" :key="reason">{{ reason }}</small>
-              </div>
+              </details>
             </div>
           </template>
 
@@ -467,7 +489,7 @@ import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, CommunityTopic, Post, Tag, User } from '@/api/types'
 import { safeStorage } from '@/utils/safeStorage'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeLabel } from '@/utils/contentTypes'
-import { ALL_COMMUNITY_CHANNELS, getCommunityChannel, isKnownDomain } from '@/utils/domains'
+import { ALL_COMMUNITY_CHANNELS, getCommunityChannel, getDomainLabelSafe, isKnownDomain, resolveDomainValue } from '@/utils/domains'
 import { filterPublicContent, filterVisibleTexts, isLowQualityVisibleText, isSyntheticVisibleText, sanitizePublicVisibleText } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
 import { filterSearchSuggestionTerms, filterVisiblePosts, findHighRiskContentWarning } from '@/utils/recommendationGovernance'
@@ -629,6 +651,14 @@ const hasQuery = computed(() => {
     || filters.sourceComplete,
   )
 })
+const hasAdvancedFilters = computed(() => Boolean(
+  filters.company
+  || filters.position
+  || filters.trustProfile
+  || filters.freshnessStatus
+  || filters.resolved
+  || filters.sourceComplete,
+))
 const shouldAutoRunSearch = computed(() => (
   hasQuery.value
   || searchMode.value === 'users'
@@ -657,14 +687,14 @@ const searchDiagnosticText = computed(() => {
     return '当前关键词像自动化回归记录，这类数据不会出现在公开搜索中。'
   }
   if (diagnostics.emptyReason === 'type_or_filter_no_match') {
-    return '当前内容类型或筛选条件没有匹配结果，可以先放宽内容类型、标签或频道。'
+    return '当前筛选条件没有匹配结果，可以先减少筛选项。'
   }
   const filtered = Number(diagnostics.syntheticFiltered || 0)
   if (filtered > 0) {
-    return `已隐藏 ${filtered} 条自动化回归记录，公开搜索只展示真实公开内容。`
+    return '部分不适合公开展示的记录已被隐藏。'
   }
   if (searchResultMeta.value?.scanLimit) {
-    return `本次搜索扫描上限 ${searchResultMeta.value.scanLimit} 条，结果受当前筛选条件影响。`
+    return '结果会受到当前筛选条件和可检索范围影响。'
   }
   return ''
 })
@@ -744,19 +774,16 @@ const userFacingSearchStatusMessage = (message?: string | null) => {
   return value
 }
 const searchStatusText = computed(() => {
-  if (searchStatusError.value && !searchStatus.value) return '搜索状态接口暂不可用，本页已保留热门内容、发现页、社区问题求助和搜作者入口'
-  if (!searchStatus.value) return '公开搜索仅展示已发布、公开、可分发的社区内容；个人最近搜索和保存搜索不参与公共趋势、创作者建议、编辑器建议或专题候选'
+  if (searchStatusError.value && !searchStatus.value) return '暂时无法读取搜索状态，仍可浏览热门内容、作者和发现页。'
+  if (!searchStatus.value) return '公开搜索只展示已发布且可公开访问的内容。'
   if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、社区问题求助和搜作者入口'
-  if (searchStatus.value.publicSearchSource === 'mysql') {
-    const mode = searchStatus.value.fallbackMode === 'compat' ? '兼容模式' : '完整标签治理模式'
-    return `公开搜索当前由数据库兜底服务（${mode}），结果可能不完整，排序能力受限，不代表内容获得额外曝光或排名`
+  if (searchStatus.value.publicSearchSource === 'mysql') return '搜索仍可使用，但结果完整度和排序能力可能暂时受限。'
+  if (!searchStatus.value.enabled || !searchStatus.value.available || !searchStatus.value.indexExists) {
+    return '搜索仍可使用，但结果完整度可能暂时受限。'
   }
-  if (!searchStatus.value.enabled) return '搜索索引未启用，当前使用数据库搜索，结果可能不完整'
-  if (!searchStatus.value.available) return '搜索索引暂不可用，当前使用数据库兜底搜索，结果可能不完整'
-  if (!searchStatus.value.indexExists) return '搜索索引尚未创建，当前结果可能不完整'
   const backendMessage = userFacingSearchStatusMessage(searchStatus.value.message)
   if (backendMessage) return backendMessage
-  return '搜索索引已就绪；结果只按公开内容和当前筛选返回，不承诺曝光、精选或排名'
+  return '搜索状态正常，只返回公开且符合当前条件的内容。'
 })
 const searchErrorStatusText = computed(() => {
   if (!errorMessage.value) return searchStatusText.value
@@ -765,10 +792,10 @@ const searchErrorStatusText = computed(() => {
   return `本次搜索请求失败；下方状态仅表示当前后端诊断：${searchStatusText.value}`
 })
 const searchStatusBadge = computed(() => {
-  if (searchStatus.value?.publicSearchSource === 'elasticsearch') return '实时'
-  if (searchStatus.value?.publicSearchSource === 'mysql') return '兜底'
+  if (searchStatus.value?.publicSearchSource === 'elasticsearch') return '正常'
+  if (searchStatus.value?.publicSearchSource === 'mysql') return '受限'
   if (searchStatus.value?.publicSearchAvailable === false) return '不可用'
-  return searchStatus.value?.available ? '实时' : '公开'
+  return searchStatus.value?.available ? '正常' : '受限'
 })
 const searchStatusPillClass = computed(() => {
   if (searchStatus.value?.publicSearchSource === 'elasticsearch') return 'status-ok'
@@ -790,20 +817,17 @@ const communityQuestionQuery = computed(() => {
 const searchSourceTitle = computed(() => {
   const meta = searchResultMeta.value
   if (!meta) return ''
-  if (meta.source === 'elasticsearch' && !meta.degraded) return '本次结果来自实时搜索索引'
-  if (meta.source === 'mysql' && meta.degraded && isVisibilitySupplementReason(meta.fallbackReason)) return '本次补充了数据库可见结果'
-  if (meta.source === 'mysql' && meta.degraded) return '本次使用数据库兜底搜索'
-  if (meta.source === 'mysql') return '本次结果来自数据库搜索'
-  if (meta.source === 'client_fallback') return '本页客户端兜底建议'
-  return `本次搜索来源：${meta.source || '未知'}`
+  if (!meta.degraded) return '搜索结果'
+  if (isVisibilitySupplementReason(meta.fallbackReason)) return '已补充可见内容'
+  if (meta.source === 'client_fallback') return '可继续浏览'
+  return '结果可能不完整'
 })
 const searchSourceDescription = computed(() => {
   const meta = searchResultMeta.value
   if (!meta) return ''
-  const scan = meta.scanLimit ? `扫描上限 ${meta.scanLimit} 条。` : ''
-  if (!meta.degraded) return `索引可用，按当前筛选和排序返回，不代表曝光、精选或排名。${scan}`
-  if (isVisibilitySupplementReason(meta.fallbackReason)) return `${fallbackReasonText(meta.fallbackReason)}，搜索服务仍可用。${scan}`
-  return `${fallbackReasonText(meta.fallbackReason)}，结果可能不完整，排序能力受限，不代表曝光、精选或排名。${scan}`
+  if (!meta.degraded) return '按当前关键词、筛选和排序返回公开内容。'
+  if (isVisibilitySupplementReason(meta.fallbackReason)) return '已补充符合公开条件的内容，搜索仍可继续使用。'
+  return `${fallbackReasonText(meta.fallbackReason)}，你仍可调整关键词或筛选继续查找。`
 })
 const highRiskSearchWarning = computed(() => (
   findHighRiskContentWarning([filters.q, filters.company, filters.position].filter(Boolean).join(' '))
@@ -814,7 +838,14 @@ const isLowQualitySearchTerm = (value: string) => {
 }
 
 const filterVisibleSearchTerms = (values: unknown) => {
-  return filterSearchSuggestionTerms(filterVisibleTexts(values, 12).filter((value) => !isSyntheticVisibleText(value)), 12)
+  const normalizedValues = Array.isArray(values)
+    ? values.map((value) => {
+        if (typeof value === 'string') return value
+        if (value && typeof value === 'object' && 'text' in value) return String(value.text || '')
+        return ''
+      })
+    : values
+  return filterSearchSuggestionTerms(filterVisibleTexts(normalizedValues, 12).filter((value) => !isSyntheticVisibleText(value)), 12)
 }
 
 const stripHighlightTags = (value?: string) => String(value || '').replace(/<\/?em>/g, '')
@@ -865,14 +896,14 @@ const isVisibilitySupplementReason = (reason?: string) => {
 
 const fallbackReasonText = (reason?: string) => {
   const labels: Record<string, string> = {
-    elasticsearch_empty: '索引没有召回可见结果，已补充数据库中的公开内容',
-    elasticsearch_visibility_filtered: '索引结果经过可见性过滤后不足，已补充数据库中的公开内容',
-    elasticsearch_unavailable: '搜索服务当前不可用，已使用数据库兜底',
-    mysql_fallback_continuation: '本页继续沿用首屏确定的数据库排序',
-    hot_sort_mysql: '热门排序使用数据库热度计算',
-    search_api_error: '搜索请求失败，已保留本页兜底入口',
+    elasticsearch_empty: '未找到直接匹配，已补充其他公开内容',
+    elasticsearch_visibility_filtered: '直接匹配较少，已补充其他公开内容',
+    elasticsearch_unavailable: '当前使用备用搜索方式',
+    mysql_fallback_continuation: '后续结果沿用当前排序',
+    hot_sort_mysql: '热门结果按社区互动排序',
+    search_api_error: '本次搜索失败，已保留其他浏览入口',
   }
-  return labels[reason || ''] || '本次使用兜底搜索链路'
+  return labels[reason || ''] || '当前使用备用搜索方式'
 }
 
 const analyticsKeyword = () => filters.q || filters.company || filters.position || (filters.type ? postTypeText(filters.type) : '') || 'empty-result'
@@ -945,9 +976,9 @@ const syncFromRoute = () => {
     : 'posts'
   const channelKey = typeof route.query.channel === 'string' ? route.query.channel : undefined
   const routeChannel = nextMode === 'posts' ? getCommunityChannel(channelKey) : undefined
-  const domain = Number(route.query.domain ?? routeChannel?.domain)
+  const domain = resolveDomainValue(route.query.domain) ?? routeChannel?.domain
   filters.domain = nextMode === 'posts'
-    && isKnownDomain(domain)
+    && domain !== undefined
     && domainOptions.value.some((item) => Number(item.domain) === domain)
     ? domain
     : undefined
@@ -1000,7 +1031,7 @@ const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'domain' | 'company'
   if (snapshot.mode === 'users') return snapshot.q || '作者搜索'
   if (snapshot.mode === 'topics') return snapshot.q || '话题搜索'
   if (snapshot.mode === 'tags') return snapshot.q || '标签搜索'
-  const domainLabel = domainOptions.value.find((item) => Number(item.domain) === Number(snapshot.domain))?.domainName
+  const domainLabel = isKnownDomain(snapshot.domain) ? getDomainLabelSafe(snapshot.domain) : ''
   return [snapshot.q, domainLabel, snapshot.company, snapshot.position, snapshot.type ? postTypeText(snapshot.type) : '']
     .filter(Boolean)
     .join(' / ') || '全部内容'
@@ -1626,11 +1657,12 @@ onBeforeUnmount(() => {
 
 .filter-details {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 .filter-summary {
-  display: none;
+  display: flex;
   min-height: 2.75rem;
   cursor: pointer;
   align-items: center;
@@ -1653,6 +1685,10 @@ onBeforeUnmount(() => {
 
 .filter-details[open] > .filter-summary::after {
   content: '收起';
+}
+
+.filter-details__body {
+  padding-top: 0.15rem;
 }
 
 .primary-button,
@@ -1979,32 +2015,26 @@ onBeforeUnmount(() => {
 }
 
 .search-hit-reasons {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0 0.25rem 0.25rem;
+  border-top: 1px solid var(--surface-3);
+  padding: 0.65rem 1rem 0.75rem;
 }
 
-.search-hit-reasons span,
+.search-hit-reasons summary,
 .search-hit-reasons small {
-  display: inline-flex;
-  min-height: 1.75rem;
-  align-items: center;
-  border-radius: 999px;
   font-size: 0.75rem;
+}
+
+.search-hit-reasons summary {
+  cursor: pointer;
+  color: var(--text-muted);
   font-weight: 800;
 }
 
-.search-hit-reasons span {
-  color: rgb(71 85 105);
-}
-
 .search-hit-reasons small {
-  border: 1px solid rgb(219 234 254);
-  background: rgb(239 246 255);
-  padding: 0.25rem 0.6rem;
-  color: rgb(30 64 175);
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--text-primary);
+  line-height: 1.5;
 }
 
 .loading-panel,
@@ -2083,11 +2113,6 @@ onBeforeUnmount(() => {
 
   .filter-summary {
     display: flex;
-  }
-
-  .filter-details:not([open]) > .side-panel,
-  .filter-details:not([open]) > .undo-panel {
-    display: none;
   }
 
   .primary-button,
@@ -2275,5 +2300,373 @@ onBeforeUnmount(() => {
   border-color: rgb(153 27 27);
   background: rgb(15 23 42);
   color: rgb(254 202 202);
+}
+
+/* Community search layout */
+.search-page {
+  background: var(--surface-2);
+}
+
+.search-main {
+  padding-top: 1.5rem;
+  padding-bottom: 4rem;
+}
+
+.search-command-bar {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  padding: 0.9rem;
+  box-shadow: var(--shadow-card);
+}
+
+.search-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: start;
+  gap: 0.625rem;
+}
+
+.search-input {
+  min-height: 2.875rem;
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+.search-input:focus,
+.field-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+}
+
+.search-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.85rem;
+}
+
+.segmented {
+  gap: 0.2rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 0.2rem;
+  background: var(--surface-3);
+}
+
+.segment-button {
+  min-height: 2.125rem;
+  border-radius: 5px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8125rem;
+}
+
+.segment-active {
+  background: var(--surface);
+  color: var(--primary-700);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.06);
+}
+
+.search-sort-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.chip-button {
+  min-height: 2.125rem;
+  border-radius: var(--radius-control);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8125rem;
+}
+
+.chip-active {
+  border-color: #93c5fd;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.search-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 286px;
+  grid-template-areas: "results rail";
+  align-items: start;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.search-results {
+  grid-area: results;
+}
+
+.search-input::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+.search-aside {
+  grid-area: rail;
+}
+
+.filter-details {
+  gap: 0.75rem;
+}
+
+.search-aside .side-panel {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  padding: 0.9rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.search-aside .search-related-panel {
+  order: 1;
+}
+
+.search-aside .hot-panel {
+  order: 2;
+}
+
+.search-aside .filter-panel {
+  order: 3;
+}
+
+.search-aside .history-panel {
+  order: 4;
+}
+
+.search-aside .service-panel {
+  order: 5;
+}
+
+.side-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.side-panel-heading a {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary-600);
+}
+
+.search-side-list {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.search-side-list a {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 6px;
+  padding: 0.45rem 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.search-side-list a:hover {
+  background: var(--surface-3);
+  color: var(--primary-700);
+}
+
+.search-side-list small {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.result-summary {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0.15rem 0.1rem;
+  color: var(--text-muted);
+}
+
+.search-source-notice {
+  border-radius: var(--radius-surface);
+}
+
+.search-result-item {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.search-result-item :deep(.post-card) {
+  border-bottom: 0;
+}
+
+.search-hit-reasons {
+  border-top: 1px solid var(--surface-3);
+  padding: 0.65rem 1rem 0.75rem;
+}
+
+.loading-panel,
+.empty-panel,
+.user-row {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.empty-panel {
+  padding: 2.5rem 1.5rem;
+}
+
+.empty-panel h2 {
+  font-size: 1.0625rem;
+}
+
+.empty-panel > p {
+  max-width: 42rem;
+  margin-right: auto;
+  margin-left: auto;
+  line-height: 1.65;
+}
+
+.recommend-chip {
+  border-radius: var(--radius-pill);
+}
+
+.primary-button,
+.secondary-button {
+  border-radius: var(--radius-control);
+}
+
+.dark .search-page {
+  background: #0f1115;
+}
+
+.dark .search-command-bar,
+.dark .search-result-item {
+  border-color: rgb(39 39 42);
+  background: rgb(24 26 32);
+}
+
+.dark .segmented {
+  background: rgb(39 39 42);
+}
+
+.dark .segment-active {
+  background: rgb(24 26 32);
+  color: rgb(147 197 253);
+}
+
+.dark .search-side-list a {
+  color: rgb(226 232 240);
+}
+
+.dark .search-side-list a:hover {
+  background: rgb(39 39 42);
+  color: rgb(147 197 253);
+}
+
+@media (min-width: 1024px) {
+  .search-aside {
+    position: sticky;
+    top: calc(var(--community-header-height) + 1.25rem);
+  }
+}
+
+@media (max-width: 1023px) {
+  .search-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .search-results {
+    order: 1;
+    width: 100%;
+  }
+
+  .search-aside {
+    order: 2;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .search-main {
+    padding-top: 0.75rem;
+    padding-bottom: 2rem;
+  }
+
+  .search-command-bar {
+    padding: 0.75rem;
+  }
+
+  .search-form-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .search-form-row > .relative {
+    grid-column: 1 / -1;
+  }
+
+  .search-form-row > .primary-button,
+  .search-form-row > .secondary-button {
+    width: 100%;
+  }
+
+  .search-control-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
+  }
+
+  .segmented {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .segment-button {
+    min-width: 0;
+    gap: 0.3rem;
+    padding-right: 0.35rem;
+    padding-left: 0.35rem;
+    white-space: nowrap;
+  }
+
+  .search-sort-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .chip-button {
+    min-width: 0;
+    padding-right: 0.3rem;
+    padding-left: 0.3rem;
+    white-space: nowrap;
+  }
+
+  .search-layout {
+    margin-top: 0.75rem;
+  }
+
+  .empty-panel {
+    padding: 2rem 1rem;
+  }
+
+  .search-related-panel {
+    display: none;
+  }
 }
 </style>

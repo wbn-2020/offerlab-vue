@@ -13,7 +13,7 @@ const normalize = (value) => value.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\
 
 const packageJson = JSON.parse(read('package.json'))
 const document = readRepo(
-  '文档/V38/OfferLab-V38-频道质量候选批次派发与维护执行治理详细方案-2026-08-05.md',
+  '文档/拓展/V38/OfferLab-V38-频道质量候选批次派发与维护执行治理详细方案-2026-08-05.md',
 )
 const candidateApi = read('src/api/channelHealthCandidates.ts')
 const batchApi = read('src/api/channelHealthReviewBatches.ts')
@@ -343,11 +343,12 @@ const v38Migration = manifest.migrations.find(
   (item) => item.source === 'db/migration/20260805_channel_quality_review_dispatch_batch.sql',
 )
 expect(v38Migration, 'V38 Flyway manifest must include the dispatch-batch migration.')
+const coreMigrationCount = manifest.migrations.filter((item) => item.stream === 'core').length
 expect(
   v38Migration.version === '20260805.02'
     && v38Migration.resource
       === 'community-bootstrap/src/main/resources/db/flyway/core/V20260805.02__channel_quality_review_dispatch_batch.sql'
-    && manifest.streams.core.expectedMigrations === 87,
+    && manifest.streams.core.expectedMigrations === coreMigrationCount,
   'V38 Flyway manifest version, runtime resource and core count must be synchronized.',
 )
 expect(

@@ -17,13 +17,11 @@ const assert = (condition, message) => {
   if (!condition) failures.push(message)
 }
 
-assert(files.home.includes('hotRisingEntries'), 'HomeView must expose a first-screen hot/rising entry model.')
-assert(files.home.includes('setHomeFeed') && files.home.includes("feed: 'hot'"), 'HomeView hot entry must switch to the existing hot feed.')
-assert(files.home.includes('setHomeFeed') && files.home.includes("feed: 'latest'"), 'HomeView rising entry must switch to the existing latest/rising feed.')
-assert(files.home.includes('explainHotReason'), 'HomeView must render explainable hot/rising reasons.')
-assert(files.home.includes('filterVisiblePosts(filterPublicContent'), 'HomeView hot/rising entries must reuse public visibility filtering.')
-assert(files.home.includes('findHighRiskContentWarning'), 'HomeView hot/rising entries must surface high-risk warnings when detected.')
-assert(files.home.includes('normalizeRecommendationReason'), 'HomeView hot/rising reasons must reuse recommendation reason governance.')
+assert(files.home.includes("const feedTabs: FeedType[] = ['following', 'recommend', 'latest', 'hot', 'featured']"), 'HomeView must expose the latest and hot first-screen feed entries.')
+assert(files.home.includes('setHomeFeed') && files.home.includes("hot: '热门'"), 'HomeView hot entry must switch through the existing feed control.')
+assert(files.home.includes('setHomeFeed') && files.home.includes("latest: '最新'"), 'HomeView latest entry must switch through the existing feed control.')
+assert(files.home.includes('feedDescriptions') && files.home.includes('推荐理由会结合兴趣设置'), 'HomeView must explain its feed ranking and recommendation reasons.')
+assert(files.home.includes('filterVisiblePosts(filterPublicContent'), 'HomeView feed entries must reuse public visibility filtering.')
 
 assert(files.explore.includes('channelFeaturedDirections'), 'ExploreView must expose channel featured directions.')
 assert(files.explore.includes('channel-featured-direction'), 'ExploreView must render channel featured direction cards.')
@@ -32,6 +30,7 @@ assert(files.explore.includes('riskNote'), 'ExploreView channel direction must s
 
 assert(files.postCard.includes('recommendationReasonDetails'), 'PostCard must expose server-provided explanation details.')
 assert(files.postCard.includes('findHighRiskContentWarning'), 'PostCard must surface existing high-risk content warnings.')
+assert(files.postCard.includes('normalizeRecommendationReason'), 'PostCard recommendation reasons must reuse recommendation reason governance.')
 assert(files.governance.includes('findHighRiskContentWarning'), 'Recommendation governance must provide high-risk warning detection.')
 
 const forbiddenHomeMainline = ['AI 教练', '训练计划', '刷题', '模拟面试']

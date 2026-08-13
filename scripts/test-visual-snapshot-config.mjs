@@ -7,17 +7,97 @@ const runner = readFileSync(new URL('./visual-snapshot-routes.mjs', import.meta.
 const editorView = readFileSync(new URL('../src/views/EditorView.vue', import.meta.url), 'utf8')
 const meProfileView = readFileSync(new URL('../src/views/MeProfileView.vue', import.meta.url), 'utf8')
 
-const requiredRoutes = ['/', '/explore', '/search', '/questions', '/editor', '/me', '/mock-interview', '/admin/ops', '/admin/governance']
+const requiredRoutes = [
+  '/',
+  '/explore',
+  '/collaboration',
+  '/collaboration/needs/1',
+  '/collaboration/series/1',
+  '/collaboration/activities/1',
+  '/collaboration/discussions/1',
+  '/collaboration/office-hours/1',
+  '/trend',
+  '/questions',
+  '/questions/1',
+  '/companies/example/prep',
+  '/post/1',
+  '/editor',
+  '/series/workbench',
+  '/collections/1',
+  '/favorite-folders/1',
+  '/growth/profile',
+  '/growth/report',
+  '/growth/community',
+  '/knowledge/explore',
+  '/certification/apply',
+  '/u/10001/contributions',
+  '/u/10001',
+  '/me',
+  '/me/knowledge',
+  '/me/relationships',
+  '/me/collaboration',
+  '/me/collaboration/needs/new',
+  '/me/collaboration/series/submit',
+  '/me/collaboration/activities/submit',
+  '/me/collaboration/contributions',
+  '/me/contact-requests',
+  '/me/creator',
+  '/me/maintenance',
+  '/me/governance-todos',
+  '/me/prep',
+  '/mock-interview',
+  '/me/notifications',
+  '/me/reports',
+  '/me/reports/post/1',
+  '/me/settings',
+  '/search',
+  '/tag/weekly-report',
+  '/topics/weekly-review',
+  '/welcome',
+  '/about',
+  '/403',
+  '/missing-ui-rebuild-route',
+  '/admin/ops',
+  '/admin/governance',
+]
 const routePaths = visualSnapshotRoutes.map((item) => item.path.split('?')[0])
 for (const route of requiredRoutes) {
   assert.ok(routePaths.includes(route), `visual snapshot route missing: ${route}`)
 }
 const disabledMockInterviewRoute = visualSnapshotRoutes.find((item) => item.path === '/mock-interview')
-assert.equal(disabledMockInterviewRoute?.expectedPath, '/questions', 'disabled mock-interview snapshots must expect the knowledge-library redirect')
+assert.equal(disabledMockInterviewRoute?.expectedPath, undefined, 'disabled mock-interview snapshots must stay on the migration explanation URL')
+const welcomeRoute = visualSnapshotRoutes.find((item) => item.path === '/welcome')
+assert.equal(welcomeRoute?.onboarding, true, 'welcome visual snapshot must seed the registration onboarding session marker')
 
 assert.ok(visualSnapshotViewports.some((item) => item.name === 'desktop' && item.width >= 1280), 'visual snapshots must include a desktop viewport')
 assert.ok(visualSnapshotViewports.some((item) => item.name === 'mobile-390' && item.width === 390), 'visual snapshots must include the 390px mobile viewport')
-for (const route of visualSnapshotRoutes.filter((item) => ['/editor', '/me', '/mock-interview'].includes(item.path))) {
+for (const route of visualSnapshotRoutes.filter((item) => [
+  '/editor',
+  '/series/workbench',
+  '/growth/profile',
+  '/growth/report',
+  '/growth/community',
+  '/certification/apply',
+  '/me',
+  '/me/knowledge',
+  '/me/relationships',
+  '/me/collaboration',
+  '/me/collaboration/needs/new',
+  '/me/collaboration/series/submit',
+  '/me/collaboration/activities/submit',
+  '/me/collaboration/contributions',
+  '/me/contact-requests',
+  '/me/creator',
+  '/me/maintenance',
+  '/me/governance-todos',
+  '/me/prep',
+  '/mock-interview',
+  '/me/notifications',
+  '/me/reports',
+  '/me/reports/post/1',
+  '/me/settings',
+  '/welcome',
+].includes(item.path))) {
   assert.equal(route.auth, 'user', `${route.path} visual snapshot must require a logged-in community user token`)
 }
 for (const route of visualSnapshotRoutes.filter((item) => item.path.startsWith('/admin/'))) {
@@ -43,6 +123,9 @@ assert.match(runner, /offerlab\.auth\.token/, 'visual snapshot runner must injec
 assert.match(runner, /OFFERLAB_VISUAL_USER_TOKEN/, 'visual snapshot runner must document the user-token environment variable')
 assert.match(runner, /OFFERLAB_VISUAL_ADMIN_TOKEN/, 'visual snapshot runner must document the admin-token environment variable')
 assert.match(runner, /OFFERLAB_VISUAL_FIXTURE_API/, 'visual snapshot runner must support explicit fixture API mode for offline route captures')
+assert.match(runner, /OFFERLAB_VISUAL_ROUTE_NAMES/, 'visual snapshot runner must support selecting a bounded route set')
+assert.match(runner, /activeRoutes/, 'visual snapshot runner must capture the selected route set')
+assert.match(runner, /welcome-onboarding/, 'welcome visual snapshots must seed the onboarding session marker')
 assert.match(runner, /context\.route\('\*\*\/api\/v1\/\*\*'/, 'fixture visual snapshots must intercept app API calls inside Playwright')
 assert.match(runner, /\/api\/v1\/users\/me/, 'fixture visual snapshots must keep authenticated routes hydrated')
 assert.match(runner, /\/api\/v1\/ops\/me\/permissions/, 'fixture visual snapshots must keep admin route permission guards hydrated')

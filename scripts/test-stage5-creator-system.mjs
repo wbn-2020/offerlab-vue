@@ -78,7 +78,8 @@ assertNotIncludes(certification, 'check.detail', 'certification page must not di
 assertNotIncludes(certification, 'eligibility.riskWarning }}</p>', 'certification page must not directly render backend risk warning')
 assertNotIncludes(certification, 'item.eligibilitySummary }}</p>', 'certification page must not directly render backend eligibility summary')
 
-assertIncludes(header, '认证作者申请', 'header certification entry must use creator wording')
+assertIncludes(meProfile, '认证作者申请', 'profile certification entry must use creator wording')
+assertNotIncludes(header, '认证作者申请', 'global header must keep the low-frequency certification entry out of primary navigation')
 assertNotIncludes(header, '专家认证申请', 'header must not expose old expert application wording')
 assertIncludes(router, "title: '认证作者申请'", 'router title must use creator certification wording')
 assertIncludes(knowledgeExplore, '认证作者', 'knowledge explore entry must use creator certification wording')

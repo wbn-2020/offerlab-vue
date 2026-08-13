@@ -5,7 +5,7 @@
       <select
         v-model="localMeta.difficulty"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        @change="emitUpdate"
+        @change="emitUpdate('difficulty')"
       >
         <option value="">未选择</option>
         <option value="入门">入门</option>
@@ -22,7 +22,7 @@
         type="text"
         placeholder="如：旅行准备、效率工具、读书复盘"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        @input="emitUpdate"
+        @input="emitUpdate('scenario')"
       />
     </div>
 
@@ -42,11 +42,15 @@
       <textarea
         v-model="localMeta.summary"
         rows="3"
-        maxlength="240"
+        :maxlength="EDITOR_LIMITS.summaryMax"
+        data-field="summary"
+        :aria-invalid="Boolean(errors?.summary)"
+        :aria-describedby="errors?.summary ? 'editor-summary-error' : undefined"
         placeholder="用 1-2 句话概括这篇内容，后续可由 AI 辅助生成。"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        @input="emitUpdate"
+        @input="emitUpdate('summary')"
       />
+      <p v-if="errors?.summary" id="editor-summary-error" class="text-sm text-rose-600 dark:text-rose-300">{{ errors.summary }}</p>
     </div>
 
     <template v-if="type === 1">
@@ -58,7 +62,7 @@
         type="text"
         placeholder="如：字节跳动"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        @input="emitUpdate"
+        @input="emitUpdate('company')"
       />
     </div>
 
@@ -70,7 +74,7 @@
         type="text"
         placeholder="如：Java 后端"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        @input="emitUpdate"
+        @input="emitUpdate('position')"
       />
     </div>
 
@@ -84,7 +88,7 @@
         max="10"
         placeholder="0-10"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        @input="emitUpdate"
+        @input="emitUpdate('yearsOfExp')"
       />
     </div>
 
@@ -94,7 +98,7 @@
       <select
         v-model.number="localMeta.interviewResult"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        @change="emitUpdate"
+        @change="emitUpdate('interviewResult')"
       >
         <option :value="0">未选择</option>
         <option :value="1">已通过</option>
@@ -112,7 +116,7 @@
         min="1"
         placeholder="1"
         class="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        @input="emitUpdate"
+        @input="emitUpdate('interviewRounds')"
       />
     </div>
     </template>
@@ -121,6 +125,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { EDITOR_LIMITS } from '@/utils/editorValidation'
 
 interface PostMetaData {
   company?: string
@@ -138,10 +143,12 @@ interface PostMetaData {
 interface Props {
   modelValue?: PostMetaData
   type?: number
+  errors?: Partial<Record<'summary', string>>
 }
 
 interface Emits {
   (e: 'update:modelValue', value: PostMetaData): void
+  (e: 'field-change', field: keyof PostMetaData): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -151,7 +158,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
-const localMeta = ref<PostMetaData>({
+const emptyMeta = (): PostMetaData => ({
   company: '',
   position: '',
   yearsOfExp: 0,
@@ -161,19 +168,25 @@ const localMeta = ref<PostMetaData>({
   scenario: '',
   techStacks: [],
   summary: '',
+})
+
+const localMeta = ref<PostMetaData>({
+  ...emptyMeta(),
   ...props.modelValue
 })
 const techStackText = ref((props.modelValue?.techStacks || []).join(', '))
 
 watch(() => props.modelValue, (newVal) => {
-  if (newVal) {
-    localMeta.value = { ...localMeta.value, ...newVal }
-    techStackText.value = (newVal.techStacks || []).join(', ')
-  }
+  localMeta.value = { ...emptyMeta(), ...(newVal || {}) }
+  techStackText.value = (newVal?.techStacks || []).join(', ')
 }, { deep: true })
 
-const emitUpdate = () => {
-  emit('update:modelValue', localMeta.value)
+const emitUpdate = (field: keyof PostMetaData) => {
+  emit('update:modelValue', {
+    ...localMeta.value,
+    techStacks: [...(localMeta.value.techStacks || [])],
+  })
+  emit('field-change', field)
 }
 
 const emitTechStacks = () => {
@@ -182,6 +195,6 @@ const emitTechStacks = () => {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 12)
-  emitUpdate()
+  emitUpdate('techStacks')
 }
 </script>

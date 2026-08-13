@@ -55,7 +55,7 @@ assert.match(opsView, /opsApi\.searchAnalytics\(\{ days: 30, limit: 8, includeTe
 assert.match(opsView, /loaders\.push\([\s\S]*loadStatus\(\)[\s\S]*loadOutbox\(\)[\s\S]*loadSearchAnalytics\(\)/, 'Ops refresh must include search analytics')
 assert.match(opsView, /reloadGovernanceData/, 'OpsView must reload analytics and reports when toggling test data')
 
-assert.match(trendView, /搜索页推荐动作点击/, 'TrendDashboardView must accurately label search-page recommendation action clicks')
+assert.match(trendView, /发现链路摘要[\s\S]*推荐动作点击/, 'TrendDashboardView must accurately label search-page recommendation action clicks within the discovery summary')
 assert.match(trendView, /opsSummaryState\s*=\s*ref<[^>]*'restricted'/, 'TrendDashboardView must model a restricted analytics state')
 assert.match(trendView, /isOpsAnalyticsRestricted/, 'TrendDashboardView must identify 401/403 analytics failures')
 assert.match(trendView, /当前账号无法查看；此状态不代表没有运营数据/, 'TrendDashboardView must explain restricted analytics honestly')

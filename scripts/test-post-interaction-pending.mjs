@@ -60,9 +60,9 @@ assert.match(postCard, /:disabled="favoritePending"/, 'PostCard favorite button 
 assert.match(postCard, /:aria-busy="likePending"/, 'PostCard like button must expose busy state')
 assert.match(postCard, /:aria-busy="favoritePending"/, 'PostCard favorite button must expose busy state')
 assert.match(postCard, /action-label">浏览/, 'PostCard metrics must keep visible labels on compact screens')
-assert.match(postCard, /action-label">点赞/, 'PostCard like action must keep visible labels on compact screens')
+assert.match(postCard, /action-label">\{\{ post\.myInteraction\?\.liked \? '已点赞' : '点赞' \}\}/, 'PostCard like action must keep a state-aware visible label on compact screens')
 assert.match(postCard, /action-label">评论/, 'PostCard comments metric must keep visible labels on compact screens')
-assert.match(postCard, /action-label">收藏/, 'PostCard favorite action must keep visible labels on compact screens')
+assert.match(postCard, /action-label">\{\{ post\.myInteraction\?\.favorited \? '已收藏' : '收藏' \}\}/, 'PostCard favorite action must keep a state-aware visible label on compact screens')
 assert.match(postCard, /white-space:\s*nowrap/, 'PostCard interaction buttons must avoid icon/number wrapping')
 
 assert.match(interactionBar, /likePending\?: boolean/, 'InteractionBar must accept a like pending prop')
@@ -70,9 +70,9 @@ assert.match(interactionBar, /favoritePending\?: boolean/, 'InteractionBar must 
 assert.match(interactionBar, /:disabled="likePending"/, 'Post detail like button must be disabled while pending')
 assert.match(interactionBar, /:disabled="favoritePending"/, 'Post detail favorite button must be disabled while pending')
 assert.match(interactionBar, /action-label">浏览/, 'Post detail metrics must keep visible labels on compact screens')
-assert.match(interactionBar, /action-label">点赞/, 'Post detail like action must keep visible labels on compact screens')
+assert.match(interactionBar, /action-label">\{\{ post\.myInteraction\?\.liked \? '已点赞' : '点赞' \}\}/, 'Post detail like action must keep a state-aware visible label on compact screens')
 assert.match(interactionBar, /action-label">评论/, 'Post detail comments metric must keep visible labels on compact screens')
-assert.match(interactionBar, /action-label">收藏/, 'Post detail favorite action must keep visible labels on compact screens')
+assert.match(interactionBar, /action-label">\{\{ post\.myInteraction\?\.favorited \? '已收藏' : '收藏内容' \}\}/, 'Post detail favorite action must keep a state-aware visible label on compact screens')
 assert.match(interactionBar, /white-space:\s*nowrap/, 'Post detail interaction actions must avoid icon/number wrapping')
 
 assert.match(postDetail, /:like-pending="isTogglingLike"/, 'PostDetailView must pass like pending state into InteractionBar')

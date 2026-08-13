@@ -1,40 +1,45 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell growth-profile-page">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <section class="surface-card p-6">
+    <main class="community-page growth-profile-main">
+      <header class="growth-page-heading">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="max-w-3xl">
-            <span class="growth-kicker">成长品牌</span>
-            <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
+            <span class="growth-kicker">创作成长</span>
+            <h1>
               成长档案
             </h1>
-            <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+            <p class="growth-page-description">
               用可解释的活跃度、影响力、内容深度和持续性，整理你在不同领域的成长轨迹。
             </p>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="option in dayOptions"
-              :key="option"
-              type="button"
-              :class="['day-chip', days === option ? 'day-chip-active' : '']"
-              @click="days = option"
-            >
-              {{ option }} 天
-            </button>
+          <div class="growth-heading-actions">
+            <div class="day-segment" aria-label="成长统计周期">
+              <button
+                v-for="option in dayOptions"
+                :key="option"
+                type="button"
+                :class="['day-chip', days === option ? 'day-chip-active' : '']"
+                :aria-pressed="days === option"
+                @click="days = option"
+              >
+                {{ option }} 天
+              </button>
+            </div>
             <RouterLink to="/growth/report" class="secondary-action">
+              <FileBarChart class="h-4 w-4" />
               周报 / 月报
             </RouterLink>
             <RouterLink to="/knowledge/explore" class="secondary-action">
+              <Network class="h-4 w-4" />
               知识关系
             </RouterLink>
           </div>
         </div>
-      </section>
+      </header>
 
-      <section class="mt-6">
+      <section class="growth-content">
         <EmptyState
           v-if="!authStore.isLoggedIn"
           title="登录后查看个人成长档案"
@@ -46,31 +51,37 @@
         <div v-else class="space-y-6">
           <LoadingSkeleton v-if="loading" />
 
-          <div v-else-if="error" class="surface-card p-6">
-            <h2 class="text-lg font-black text-slate-950 dark:text-white">成长档案暂时不可用</h2>
-            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ error }}</p>
-            <button type="button" class="primary-action mt-4" @click="loadProfile">
-              重新加载
-            </button>
+          <div v-else-if="error" class="surface-panel growth-error-state">
+            <AlertTriangle class="h-5 w-5" />
+            <div>
+              <h2 class="text-lg font-black text-slate-950 dark:text-white">成长档案暂时不可用</h2>
+              <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                当前无法确认你的成长记录，请稍后重试。已有内容和个人数据不会因此改变。
+              </p>
+              <button type="button" class="primary-action mt-4" @click="loadProfile">
+                <RefreshCw class="h-4 w-4" />
+                重新加载
+              </button>
+            </div>
           </div>
 
           <EmptyState
-            v-else-if="!profile || !profile.domains.length"
+            v-else-if="!hasReliableGrowthProfile"
             title="还没有足够的成长数据"
-            description="公开内容档案尚未形成；下方成长路径仍会独立展示可读取的共建、贡献、权益和角色记录。"
+            description="先发布一篇公开内容，或参与一次真实讨论。记录足够后，这里才会生成成长档案，不会用全零指标代替你的真实进展。"
             action-text="去发布"
             action-href="/editor"
           />
 
-          <section v-else class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-            <article class="surface-card p-6">
-              <div class="grid gap-4 md:grid-cols-3">
+          <section v-else-if="profile" class="growth-overview-layout">
+            <article class="surface-panel growth-summary-panel">
+              <div class="growth-summary-grid">
                 <div class="summary-card">
                   <span class="summary-label">最强领域</span>
                   <strong>{{ strongestDomain }}</strong>
-                  <p>{{ primaryDomain?.postCount ?? 0 }} 篇公开内容</p>
+                  <p>{{ primaryDomain?.postCount }} 篇公开内容</p>
                 </div>
-                <div class="summary-card">
+                <div v-if="profile?.emergingDomain" class="summary-card">
                   <span class="summary-label">新兴方向</span>
                   <strong>{{ emergingDomain }}</strong>
                   <p>{{ profile.days }} 天内正在抬头的领域</p>
@@ -83,7 +94,7 @@
               </div>
             </article>
 
-            <article class="surface-card p-6">
+            <article class="surface-panel growth-guide-panel">
               <h2 class="text-lg font-black text-slate-950 dark:text-white">雷达维度说明</h2>
               <div class="mt-4 grid gap-3 sm:grid-cols-2">
                 <div v-for="item in dimensionGlossary" :key="item.key" class="glossary-card">
@@ -91,16 +102,10 @@
                   <p>{{ item.detail }}</p>
                 </div>
               </div>
-              <div v-if="profile.degraded" class="fallback-banner mt-4">
-                <strong>{{ profileDemoNotice ? '当前展示本地样例档案' : '当前为降级视图' }}</strong>
-                <p>
-                  {{ profileDemoNotice || profile.degradationReasons.join(' / ') || '部分服务未就绪，当前只展示规则聚合结果。' }}
-                </p>
-              </div>
             </article>
           </section>
 
-          <section id="growth-path" class="surface-card p-6">
+          <section v-if="pathLoading || hasGrowthPathEvidence" id="growth-path" class="surface-panel growth-path-panel">
             <div class="mb-4">
               <h2 class="text-lg font-black text-slate-950 dark:text-white">成长路径</h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -109,8 +114,8 @@
             </div>
             <p v-if="pathLoading" class="growth-path-loading">正在读取你的记录…</p>
             <ol v-else class="growth-path-list">
-              <li v-for="(step, index) in growthPathSteps" :key="step.key" class="growth-path-step">
-                <span :class="['growth-path-marker', `growth-path-marker--${step.state}`]">{{ index + 1 }}</span>
+              <li v-for="step in visibleGrowthPathSteps" :key="step.key" class="growth-path-step">
+                <span :class="['growth-path-marker', `growth-path-marker--${step.state}`]" aria-hidden="true">✓</span>
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
                     <h3 class="growth-path-title">{{ step.title }}</h3>
@@ -125,8 +130,8 @@
             </ol>
           </section>
 
-          <template v-if="profile && profile.domains.length">
-            <section id="curation-feedback" class="surface-card p-6">
+          <template v-if="hasReliableGrowthProfile">
+            <section v-if="recentCurationFeedbackItems.length" id="curation-feedback" class="surface-panel curation-panel">
               <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 class="text-lg font-black text-slate-950 dark:text-white">最近入选反馈</h2>
@@ -149,14 +154,13 @@
                   <small>{{ curationFeedbackStatusLabel(item) }} · {{ formatTime(item.includedAt || item.triggeredAt) }}</small>
                 </RouterLink>
               </div>
-              <p v-else class="curation-empty">暂无公开内容入选反馈</p>
             </section>
 
-            <section class="grid gap-4 lg:grid-cols-2">
+            <section class="grid gap-4 domain-grid">
               <article
-                v-for="domain in profile.domains"
+                v-for="domain in meaningfulDomains"
                 :key="domain.domain"
-                class="surface-card p-6"
+                class="surface-panel domain-card"
               >
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -164,23 +168,23 @@
                       <span v-if="isKnownDomain(domain.domain)" class="domain-icon">{{ getDomainIcon(domain.domain) }}</span>
                       <div>
                         <h2 class="text-lg font-black text-slate-950 dark:text-white">{{ profileDomainLabel(domain) }}</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                        <p v-if="totalScore(domain) > 0" class="text-xs text-slate-500 dark:text-slate-400">
                           综合得分 {{ totalScore(domain) }} / 400
                         </p>
                       </div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      <span class="meta-pill">发布 {{ domain.postCount }}</span>
-                      <span class="meta-pill">系列 {{ domain.seriesCount }}</span>
-                      <span class="meta-pill">活跃日 {{ domain.activeDays }}</span>
-                      <span class="meta-pill">互动 {{ domain.interactionCount }}</span>
-                      <span class="meta-pill">浏览 {{ domain.viewCount }}</span>
+                      <span v-if="domain.postCount > 0" class="meta-pill">发布 {{ domain.postCount }}</span>
+                      <span v-if="domain.seriesCount > 0" class="meta-pill">系列 {{ domain.seriesCount }}</span>
+                      <span v-if="domain.activeDays > 0" class="meta-pill">活跃日 {{ domain.activeDays }}</span>
+                      <span v-if="domain.interactionCount > 0" class="meta-pill">互动 {{ domain.interactionCount }}</span>
+                      <span v-if="domain.viewCount > 0" class="meta-pill">浏览 {{ domain.viewCount }}</span>
                     </div>
                   </div>
                 </div>
 
                 <div class="mt-5 space-y-3">
-                  <div v-for="dimension in domain.dimensions" :key="dimension.key">
+                  <div v-for="dimension in meaningfulDimensions(domain)" :key="dimension.key">
                     <div class="mb-1 flex items-center justify-between gap-3 text-sm">
                       <strong class="text-slate-900 dark:text-slate-100">{{ dimension.label }}</strong>
                       <span class="text-slate-500 dark:text-slate-400">{{ dimension.score }}</span>
@@ -221,7 +225,7 @@
                   </div>
                   <p
                     v-else
-                    class="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                    class="domain-empty-state"
                   >
                     这个领域还在积累样本，继续发布或整理系列后会形成更稳定的代表内容。
                   </p>
@@ -238,6 +242,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { AlertTriangle, FileBarChart, Network, RefreshCw } from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -292,10 +297,6 @@ const representativePostDomainLabel = (
   postDomain?: number | null,
   fallbackDomain?: number | null,
 ) => getDomainLabelSafe(postDomain == null ? fallbackDomain : postDomain)
-const profileDemoNotice = computed(() => profile.value?.degradationReasons?.includes('local_demo_seed')
-  ? '这些内容是本地样例，用来说明成长档案会如何组织公开内容，不代表你的真实成长画像。'
-  : ''
-)
 const recentCurationFeedbackItems = computed(() => (
   curationFeedbackSummary.value?.recentItems.filter((item): item is CreatorCurationFeedback & { href: string } => Boolean(item.href)) ?? []
 ))
@@ -316,6 +317,28 @@ const curationFeedbackLocation = (item: CreatorCurationFeedback) => {
 const totalScore = (domain: GrowthProfileDomain) => (
   domain.dimensions.reduce((sum, item) => sum + Number(item.score || 0), 0)
 )
+const meaningfulDimensions = (domain: GrowthProfileDomain) => (
+  domain.dimensions.filter((dimension) => Number(dimension.score) > 0)
+)
+const domainHasEvidence = (domain: GrowthProfileDomain) => (
+  [
+    domain.postCount,
+    domain.seriesCount,
+    domain.activeDays,
+    domain.interactionCount,
+    domain.viewCount,
+  ].some((value) => Number(value) > 0)
+  || meaningfulDimensions(domain).length > 0
+  || domain.representativePosts.length > 0
+)
+const meaningfulDomains = computed(() => profile.value?.domains.filter(domainHasEvidence) ?? [])
+const hasReliableGrowthProfile = computed(() => (
+  Boolean(profile.value)
+  && profilePathPayloadTrusted.value
+  && !profile.value?.degraded
+  && !profile.value?.degradationReasons.length
+  && meaningfulDomains.value.length > 0
+))
 
 // ---- 成长路径（六步，仅自见）----
 // 每个来源独立降级：读不到就是 null，由 growthPath 纯函数映射成「暂无法读取」，
@@ -501,6 +524,10 @@ const growthPathSteps = computed(() => summarizeGrowthPath({
   perks: pathSources.value?.perks ?? null,
   roles: pathSources.value?.roles ?? null,
 }))
+const visibleGrowthPathSteps = computed(() => growthPathSteps.value.filter((step) => step.state === 'active'))
+const hasGrowthPathEvidence = computed(() => (
+  hasReliableGrowthProfile.value && visibleGrowthPathSteps.value.length > 0
+))
 
 const growthPathStateLabel = (state: GrowthPathState) => {
   if (state === 'active') return '有记录'
@@ -581,19 +608,108 @@ onBeforeUnmount(invalidateSessionLoads)
 </script>
 
 <style scoped>
+.growth-profile-page {
+  background: var(--surface-2);
+}
+
+.growth-profile-main {
+  padding-top: 1.5rem;
+  padding-bottom: 6rem;
+}
+
+.growth-page-heading {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.35rem 0 1.5rem;
+}
+
+.growth-page-heading h1 {
+  margin-top: 0.3rem;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.growth-page-description {
+  max-width: 68ch;
+  margin-top: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+
+.growth-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.day-segment {
+  display: inline-flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0.2rem;
+}
+
+.growth-content {
+  margin-top: 1.25rem;
+}
+
+.growth-overview-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.growth-summary-panel,
+.growth-guide-panel,
+.growth-path-panel,
+.curation-panel,
+.domain-card {
+  padding: 1rem;
+}
+
+.growth-summary-grid {
+  display: grid;
+}
+
+.growth-error-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: var(--danger);
+}
+
+.domain-grid {
+  display: grid;
+  gap: 1rem;
+}
+
 .growth-path-loading {
   font-size: 0.85rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .growth-path-list {
   display: grid;
-  gap: 1.1rem;
+  gap: 0;
 }
 
 .growth-path-step {
   display: flex;
   gap: 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.9rem 0;
+}
+
+.growth-path-step:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.growth-path-step:last-child {
+  padding-bottom: 0;
 }
 
 .growth-path-marker {
@@ -627,7 +743,7 @@ onBeforeUnmount(invalidateSessionLoads)
 .growth-path-title {
   font-size: 0.95rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .growth-path-state {
@@ -656,14 +772,14 @@ onBeforeUnmount(invalidateSessionLoads)
   margin-top: 0.25rem;
   font-size: 0.8rem;
   line-height: 1.6;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .growth-path-evidence {
   margin-top: 0.2rem;
   font-size: 0.82rem;
   line-height: 1.6;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .dark .growth-path-loading,
@@ -698,62 +814,58 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .growth-kicker {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  background: rgb(224 242 254);
-  padding: 0.35rem 0.75rem;
+  display: block;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(3 105 161);
+  color: var(--primary-600);
 }
 
 .day-chip {
-  border-radius: 999px;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  padding: 0.55rem 0.9rem;
+  min-height: 34px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 0.4rem 0.7rem;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  color: var(--text-muted);
   transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
 .day-chip-active {
-  border-color: rgb(59 130 246);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: var(--primary-50);
+  color: var(--primary-700);
 }
 
 .summary-card,
 .glossary-card,
 .post-row {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 1rem;
-  background: rgb(255 255 255 / 0.82);
+  background: transparent;
 }
 
 .summary-card {
-  min-height: 9rem;
+  min-height: 7.5rem;
+  border-top: 1px solid var(--border-subtle);
   padding: 1rem;
 }
 
+.summary-card:first-child {
+  border-top: 0;
+}
+
 .summary-label {
-  display: inline-flex;
+  display: block;
   margin-bottom: 0.75rem;
-  border-radius: 999px;
-  background: rgb(241 245 249);
-  padding: 0.25rem 0.55rem;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(71 85 105);
+  color: var(--text-muted);
 }
 
 .summary-card strong {
   display: block;
   font-size: 1.125rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .summary-card p,
@@ -761,21 +873,26 @@ onBeforeUnmount(invalidateSessionLoads)
   margin-top: 0.5rem;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .glossary-card {
-  padding: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.8rem 0;
+}
+
+.glossary-card:nth-child(-n + 2) {
+  border-top: 0;
 }
 
 .glossary-card strong {
   font-size: 0.95rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .fallback-banner {
-  border-radius: 1rem;
+  border-radius: var(--radius-control);
   border: 1px solid rgb(254 215 170);
   background: rgb(255 247 237);
   padding: 1rem;
@@ -801,8 +918,8 @@ onBeforeUnmount(invalidateSessionLoads)
   width: 2.75rem;
   align-items: center;
   justify-content: center;
-  border-radius: 0.9rem;
-  background: rgb(239 246 255);
+  border-radius: var(--radius-control);
+  background: var(--primary-50);
   font-size: 1.2rem;
 }
 
@@ -813,7 +930,7 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .dimension-bar {
-  height: 0.65rem;
+  height: 0.5rem;
   overflow: hidden;
   border-radius: 999px;
   background: rgb(226 232 240);
@@ -823,20 +940,24 @@ onBeforeUnmount(invalidateSessionLoads)
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgb(14 165 233), rgb(37 99 235));
+  background: var(--primary-600);
 }
 
 .post-row {
   display: flex;
   align-items: center;
   gap: 1rem;
+  border-top: 1px solid var(--border-subtle);
   padding: 0.9rem 1rem;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: background-color 0.15s ease;
+}
+
+.post-row:first-child {
+  border-top: 0;
 }
 
 .post-row:hover {
-  border-color: rgb(191 219 254);
-  transform: translateY(-1px);
+  background: var(--surface-2);
 }
 
 .post-row-link {
@@ -861,16 +982,16 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .curation-card {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 1rem;
-  background: rgb(255 255 255 / 0.82);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
   padding: 1rem;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .curation-card:hover {
   border-color: rgb(191 219 254);
-  transform: translateY(-1px);
+  background: var(--primary-50);
 }
 
 .curation-card-kicker {
@@ -897,33 +1018,28 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .curation-empty {
-  border-radius: 1rem;
+  border-radius: var(--radius-control);
   border: 1px dashed rgb(203 213 225);
   padding: 1rem;
 }
 
-.dark .growth-kicker {
-  background: rgb(8 47 73);
-  color: rgb(125 211 252);
+.dark .day-chip {
+  background: transparent;
+  color: var(--text-muted);
 }
 
-.dark .day-chip {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+.domain-empty-state {
+  margin: 0;
+  background: var(--surface-2);
+  padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
 }
 
 .dark .day-chip-active {
-  border-color: rgb(59 130 246);
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
-}
-
-.dark .summary-card,
-.dark .glossary-card,
-.dark .post-row {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42 / 0.88);
+  background: var(--surface-3);
+  color: #bfdbfe;
 }
 
 .dark .summary-label,
@@ -953,7 +1069,7 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .dark .domain-icon {
-  background: rgb(30 41 59);
+  background: var(--surface-3);
 }
 
 .dark .dimension-bar {
@@ -966,8 +1082,8 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .dark .curation-card {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42 / 0.88);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .curation-card-kicker {
@@ -987,5 +1103,62 @@ onBeforeUnmount(invalidateSessionLoads)
 
 .dark .curation-empty {
   border-color: rgb(51 65 85);
+}
+
+@media (min-width: 768px) {
+  .growth-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .summary-card {
+    border-top: 0;
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .summary-card:first-child {
+    border-left: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .growth-overview-layout {
+    grid-template-columns: minmax(0, 1.2fr) minmax(19rem, 0.8fr);
+  }
+
+  .domain-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .growth-profile-main {
+    padding-top: 1rem;
+  }
+
+  .growth-page-heading h1 {
+    font-size: 1.5rem;
+  }
+
+  .growth-heading-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .day-segment {
+    grid-column: 1 / -1;
+  }
+
+  .day-chip {
+    flex: 1;
+  }
+
+  .growth-summary-panel,
+  .growth-guide-panel,
+  .growth-path-panel,
+  .curation-panel,
+  .domain-card {
+    padding: 0.9rem;
+  }
 }
 </style>

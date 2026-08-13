@@ -1,244 +1,300 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-8">
+    <main class="community-page question-detail-page">
       <LoadingSkeleton v-if="isQuestionLoading" />
-      <section v-else-if="isQuestionNotFound" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
-        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">题目不存在或已被删除</h3>
-        <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
+      <section v-else-if="isQuestionNotFound" class="detail-state">
+        <FileQuestion class="detail-state-icon" aria-hidden="true" />
+        <h3>题目不存在或已被删除</h3>
+        <p>
           这张知识卡可能已被下架、来源内容不可见，或本地演示数据还没有补到当前数据库。
         </p>
-        <div class="flex flex-wrap justify-center gap-3">
-          <RouterLink to="/questions" class="primary-action inline-flex items-center justify-center">返回知识库</RouterLink>
-          <RouterLink :to="{ path: '/search', query: { q: questionId } }" class="secondary-action inline-flex items-center justify-center">搜索相似内容</RouterLink>
-          <RouterLink to="/" class="secondary-action inline-flex items-center justify-center">回到首页</RouterLink>
+        <div class="detail-state-actions">
+          <RouterLink to="/questions" class="primary-action">
+            <ArrowLeft class="h-4 w-4" aria-hidden="true" />
+            返回知识库
+          </RouterLink>
+          <RouterLink :to="{ path: '/search', query: { q: questionId } }" class="secondary-action">
+            <Search class="h-4 w-4" aria-hidden="true" />
+            搜索相似内容
+          </RouterLink>
+          <RouterLink to="/" class="secondary-action">回到首页</RouterLink>
         </div>
       </section>
-      <section v-else-if="isError" class="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
-        <h3 class="mb-2 text-lg font-black text-slate-950 dark:text-slate-100">题目加载失败</h3>
-        <p class="mb-6 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
+      <section v-else-if="isError" class="detail-state detail-state--error">
+        <AlertCircle class="detail-state-icon" aria-hidden="true" />
+        <h3>题目加载失败</h3>
+        <p>
           {{ getErrorMessage(error, '题目详情暂时无法加载，请稍后重试。') }}
         </p>
-        <div class="flex flex-wrap justify-center gap-3">
-          <button type="button" class="primary-action" @click="refetch()">重试</button>
-          <RouterLink to="/questions" class="secondary-action inline-flex items-center justify-center">返回知识库</RouterLink>
+        <div class="detail-state-actions">
+          <button type="button" class="primary-action" @click="refetch()">
+            <RefreshCw class="h-4 w-4" aria-hidden="true" />
+            重试
+          </button>
+          <RouterLink to="/questions" class="secondary-action">返回知识库</RouterLink>
         </div>
       </section>
-      <EmptyState v-else-if="!detail || !question" title="知识卡不存在" description="这张知识卡可能已隐藏、来源内容不可见，或当前知识库还没有同步到详情页。" actionText="返回知识库" actionHref="/questions" />
-      <div v-else class="grid gap-8 lg:grid-cols-3">
-        <article class="rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
-          <div class="mb-5 flex flex-wrap gap-2">
-            <RouterLink v-if="question.company" :to="{ path: '/search', query: { q: question.company, mode: 'posts' } }" class="pill company">{{ question.company }}</RouterLink>
-            <span v-if="question.position" class="pill">{{ question.position }}</span>
-            <span v-if="question.interviewRound" class="pill">{{ question.interviewRound }}</span>
-            <span class="pill">{{ difficultyText(question.difficulty) }}</span>
-          </div>
-          <h1 class="text-3xl font-bold leading-tight text-slate-950 dark:text-slate-50">{{ question.questionText }}</h1>
-          <section v-if="question.examPoint" class="mt-6 rounded-xl border border-indigo-100 bg-indigo-50/70 p-5 dark:border-indigo-900 dark:bg-indigo-950/30">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">考察点</h2>
-            <p class="mt-3 text-base font-semibold leading-7 text-slate-800 dark:text-slate-100">{{ question.examPoint }}</p>
-          </section>
-          <div class="mt-5 grid gap-3 sm:grid-cols-3">
-            <div class="insight-tile">
-              <span>出现频次</span>
-              <strong>{{ sourcePostCount }} 篇</strong>
-            </div>
-            <div class="insight-tile">
-              <span>质量分</span>
-              <strong>{{ question.qualityScore || 0 }}</strong>
-            </div>
-            <div class="insight-tile">
-              <span>题组</span>
-              <strong>{{ isCanonicalRoot ? '主题' : '同题' }}</strong>
-            </div>
-          </div>
-          <section v-if="hasReviewSchedule" class="mt-5 rounded-xl border border-amber-100 bg-amber-50/70 p-5 dark:border-amber-900 dark:bg-amber-950/30">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">复习计划</h2>
-            <div class="mt-3 grid gap-3 sm:grid-cols-3">
-              <div class="schedule-tile"><span>下次复习</span><strong>{{ formatReviewDate(question.nextReviewAt) }}</strong></div>
-              <div class="schedule-tile"><span>已复习</span><strong>{{ question.reviewCount }} 次</strong></div>
-              <div class="schedule-tile"><span>当前间隔</span><strong>{{ question.reviewIntervalDays }} 天</strong></div>
-            </div>
-          </section>
-          <section class="mt-8 rounded-xl border border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">参考思路</h2>
-            <p class="mt-3 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
-              {{ question.answerHint || '暂未生成参考思路。AI 内容仅作辅助，不作为官方标准答案。' }}
-            </p>
-          </section>
+      <EmptyState v-else-if="!detail || !question" title="知识卡不存在" description="这张知识卡可能已隐藏、来源内容不可见，或当前知识库还没有同步到详情页。" action-text="返回知识库" action-href="/questions" />
+      <template v-else>
+        <nav class="detail-breadcrumb" aria-label="面包屑">
+          <RouterLink to="/questions">
+            <ArrowLeft class="h-4 w-4" aria-hidden="true" />
+            知识库
+          </RouterLink>
+          <span aria-hidden="true">/</span>
+          <span>知识卡详情</span>
+        </nav>
 
-          <section v-if="question.referenceAnswer" class="mt-5 rounded-xl border border-emerald-100 bg-emerald-50/70 p-5 dark:border-emerald-900 dark:bg-emerald-950/30">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">参考答案</h2>
-            <p class="mt-3 whitespace-pre-wrap leading-7 text-slate-700 dark:text-slate-200">{{ question.referenceAnswer }}</p>
-          </section>
+        <div class="question-detail-layout">
+          <article class="question-reading">
+            <header class="question-title-block">
+              <div class="question-meta">
+                <RouterLink v-if="question.company" :to="{ path: '/search', query: { q: question.company, mode: 'posts' } }" class="pill company">{{ question.company }}</RouterLink>
+                <span v-if="question.position" class="pill">{{ question.position }}</span>
+                <span v-if="question.interviewRound" class="pill">{{ question.interviewRound }}</span>
+                <span class="pill">{{ difficultyText(question.difficulty) }}</span>
+              </div>
+              <h1>{{ question.questionText }}</h1>
+              <p class="question-reading-note">
+                这张知识卡由公开内容整理而来。先阅读考察点和参考思路，再结合来源内容判断适用边界。
+              </p>
+            </header>
 
-          <section v-if="question.sourceSnippet || question.qualityReason" class="mt-5 grid gap-4 lg:grid-cols-2">
-            <div v-if="question.sourceSnippet" class="structured-panel">
-              <h2>来源片段</h2>
-              <p>{{ question.sourceSnippet }}</p>
-            </div>
-            <div v-if="question.qualityReason" class="structured-panel">
-              <h2>质量说明</h2>
-              <p>{{ question.qualityReason }}</p>
-            </div>
-          </section>
+            <section class="question-signals" aria-label="知识卡信号">
+              <div class="insight-tile">
+                <span>来源频次</span>
+                <strong>{{ sourcePostCount }} 篇</strong>
+                <small>公开内容中的出现次数</small>
+              </div>
+              <div v-if="Number(question.qualityScore || 0) > 0" class="insight-tile">
+                <span>质量分</span>
+                <strong>{{ question.qualityScore }}</strong>
+                <small>结构完整度提示</small>
+              </div>
+              <div class="insight-tile">
+                <span>题组关系</span>
+                <strong>{{ isCanonicalRoot ? '主题题' : '同题卡' }}</strong>
+                <small>{{ isCanonicalRoot ? '当前题组的主问题' : '已归并到相关主题' }}</small>
+              </div>
+            </section>
 
-          <section v-if="enableLegacyTrainingTools" class="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-5 dark:border-blue-900 dark:bg-blue-950/30">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 class="text-sm font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">我的笔记</h2>
-                <p class="mt-1 text-xs text-blue-700/75 dark:text-blue-200/75">记录自己的答案思路、STAR 项目映射、易错点和复习提醒。</p>
+            <section v-if="question.examPoint" class="reading-section reading-section--focus">
+              <div class="reading-section-heading">
+                <Target class="h-5 w-5" aria-hidden="true" />
+                <h2>核心考察点</h2>
               </div>
-              <div class="flex flex-wrap gap-2">
-                <button type="button" class="secondary-action" @click="copyAnswerCard">
-                  复制回答卡片
-                </button>
-                <button type="button" class="secondary-action" :disabled="isSavingNote" @click="saveNote">
-                  {{ isSavingNote ? '保存中...' : '保存笔记' }}
-                </button>
+              <p>{{ question.examPoint }}</p>
+            </section>
+
+            <section class="reading-section">
+              <div class="reading-section-heading">
+                <Lightbulb class="h-5 w-5" aria-hidden="true" />
+                <h2>参考思路</h2>
               </div>
-            </div>
-            <div class="mt-4 grid gap-4 lg:grid-cols-2">
-              <div>
-                <label class="field-label">回答草稿</label>
-                <textarea
-                  v-model.trim="answerDraft"
-                  maxlength="4000"
-                  rows="6"
-                  class="note-input mt-2"
-                  placeholder="用自己的话整理这道题的回答草稿，比如先定义，再说场景，再补充权衡。"
-                  @focus="ensureLogin"
-                  @input="markNoteDirty"
-                />
-                <div class="mt-2 text-right text-xs text-blue-700/70 dark:text-blue-200/70">{{ answerDraft.length }} / 4000</div>
+              <p class="reading-prose">
+                {{ question.answerHint || '暂未生成参考思路。AI 内容仅作辅助，不作为官方标准答案。' }}
+              </p>
+            </section>
+
+            <section v-if="question.referenceAnswer" class="reading-section reading-section--answer">
+              <div class="reading-section-heading">
+                <BookOpenCheck class="h-5 w-5" aria-hidden="true" />
+                <h2>参考答案</h2>
               </div>
-              <div>
-                <label class="field-label">STAR 项目映射</label>
-                <textarea
-                  v-model.trim="starStory"
-                  maxlength="2000"
-                  rows="6"
-                  class="note-input mt-2"
-                  placeholder="S: 场景 / T: 目标 / A: 行动 / R: 结果，补一段能支撑这道题的项目经历。"
-                  @focus="ensureLogin"
-                  @input="markNoteDirty"
-                />
-                <div class="mt-2 text-right text-xs text-blue-700/70 dark:text-blue-200/70">{{ starStory.length }} / 2000</div>
+              <p class="reading-prose">{{ question.referenceAnswer }}</p>
+            </section>
+
+            <section v-if="question.sourceSnippet || question.qualityReason" class="evidence-grid">
+              <div v-if="question.sourceSnippet" class="structured-panel">
+                <div class="reading-section-heading">
+                  <Quote class="h-4 w-4" aria-hidden="true" />
+                  <h2>来源片段</h2>
+                </div>
+                <p>{{ question.sourceSnippet }}</p>
               </div>
-            </div>
-            <div class="mt-4 grid gap-2 sm:grid-cols-[160px_1fr] sm:items-center">
-              <label class="text-xs font-bold uppercase tracking-wide text-blue-700/80 dark:text-blue-200/80">
-                错因标签
+              <div v-if="question.qualityReason" class="structured-panel">
+                <div class="reading-section-heading">
+                  <BadgeCheck class="h-4 w-4" aria-hidden="true" />
+                  <h2>质量说明</h2>
+                </div>
+                <p>{{ question.qualityReason }}</p>
+              </div>
+            </section>
+
+            <section v-if="enableLegacyTrainingTools" class="answer-workspace">
+              <div class="answer-workspace-heading">
+                <div>
+                  <h2>我的笔记</h2>
+                  <p>记录自己的答案思路、STAR 项目映射、易错点和复习提醒。</p>
+                </div>
+                <div class="answer-workspace-actions">
+                  <button type="button" class="secondary-action" @click="copyAnswerCard">
+                    <Copy class="h-4 w-4" aria-hidden="true" />
+                    复制回答卡片
+                  </button>
+                  <button type="button" class="primary-action" :disabled="isSavingNote" @click="saveNote">
+                    <Save class="h-4 w-4" aria-hidden="true" />
+                    {{ isSavingNote ? '保存中...' : '保存笔记' }}
+                  </button>
+                </div>
+              </div>
+              <div class="answer-editor-grid">
+                <label class="answer-field">
+                  <span class="field-label">回答草稿</span>
+                  <textarea
+                    v-model.trim="answerDraft"
+                    maxlength="4000"
+                    rows="7"
+                    class="note-input"
+                    placeholder="用自己的话整理这道题的回答草稿，比如先定义，再说场景，再补充权衡。"
+                    @focus="ensureLogin"
+                    @input="markNoteDirty"
+                  />
+                  <small>{{ answerDraft.length }} / 4000</small>
+                </label>
+                <label class="answer-field">
+                  <span class="field-label">STAR 项目映射</span>
+                  <textarea
+                    v-model.trim="starStory"
+                    maxlength="2000"
+                    rows="7"
+                    class="note-input"
+                    placeholder="S: 场景 / T: 目标 / A: 行动 / R: 结果，补一段能支撑这道题的项目经历。"
+                    @focus="ensureLogin"
+                    @input="markNoteDirty"
+                  />
+                  <small>{{ starStory.length }} / 2000</small>
+                </label>
+              </div>
+              <label class="mistake-field">
+                <span class="field-label">错因标签</span>
+                <select v-model="mistakeReason" class="reason-select" @focus="ensureLogin" @change="markNoteDirty">
+                  <option value="">暂不标记</option>
+                  <option value="concept">概念不熟</option>
+                  <option value="project">项目表达弱</option>
+                  <option value="memory">需要记忆</option>
+                  <option value="expression">表达不清</option>
+                  <option value="careless">粗心失误</option>
+                  <option value="other">其他</option>
+                </select>
               </label>
-              <select v-model="mistakeReason" class="reason-select" @focus="ensureLogin" @change="markNoteDirty">
-                <option value="">暂不标记</option>
-                <option value="concept">概念不熟</option>
-                <option value="project">项目表达弱</option>
-                <option value="memory">需要记忆</option>
-                <option value="expression">表达不清</option>
-                <option value="careless">粗心失误</option>
-                <option value="other">其他</option>
+              <div v-if="isNoteDirty" class="draft-notice" role="status">
+                有未保存的笔记改动，已在本地暂存
+              </div>
+              <label class="answer-field">
+                <span class="field-label">复习笔记</span>
+                <textarea
+                  v-model.trim="noteText"
+                  maxlength="4000"
+                  rows="5"
+                  class="note-input"
+                  placeholder="例如：先说明 HashMap 扩容，再补充并发场景下为什么要用 ConcurrentHashMap。"
+                  @focus="ensureLogin"
+                  @input="markNoteDirty"
+                />
+                <small>{{ noteText.length }} / 4000</small>
+              </label>
+            </section>
+
+            <footer class="question-footer">
+              <div v-if="question.tags.length" class="tag-list" aria-label="知识卡标签">
+                <span v-for="tag in question.tags" :key="tag.id">{{ tag.name }}</span>
+              </div>
+              <p>参考内容来自公开社区整理，不替代来源作者的完整表达，也不构成专业结论。</p>
+            </footer>
+          </article>
+
+          <aside class="question-sidebar">
+            <section class="sidebar-panel action-panel">
+              <h2>保存与继续</h2>
+              <button
+                :class="question.favorite ? 'secondary-action' : 'primary-action'"
+                :disabled="isTogglingFavorite"
+                @click="toggleFavorite"
+              >
+                <Bookmark class="h-4 w-4" aria-hidden="true" />
+                {{ isTogglingFavorite ? '处理中...' : (question.favorite ? '取消收藏' : '收藏题目') }}
+              </button>
+              <select v-if="enableLegacyTrainingTools" v-model="selectedProgress" class="state-select" :disabled="isUpdatingProgress" @change="updateProgress">
+                <option value="">学习状态</option>
+                <option value="todo">待学习</option>
+                <option value="learning">学习中</option>
+                <option value="mastered">已掌握</option>
+                <option value="review">待复习</option>
               </select>
-            </div>
-            <div v-if="isNoteDirty" class="mt-3 text-xs font-bold text-blue-700/80 dark:text-blue-200/80">
-              有未保存的笔记改动，已在本地暂存
-            </div>
-            <textarea
-              v-model.trim="noteText"
-              maxlength="4000"
-              rows="5"
-              class="note-input mt-4"
-              placeholder="例如：先说明 HashMap 扩容，再补充并发场景下为什么要用 ConcurrentHashMap。"
-              @focus="ensureLogin"
-              @input="markNoteDirty"
-            />
-            <div class="mt-2 text-right text-xs text-blue-700/70 dark:text-blue-200/70">
-              {{ noteText.length }} / 4000
-            </div>
-          </section>
-
-          <div class="mt-6 flex flex-wrap gap-2">
-            <span v-for="tag in question.tags" :key="tag.id" class="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ tag.name }}</span>
-          </div>
-
-          <div class="mt-8 flex flex-wrap gap-3 border-t border-slate-100 pt-6 dark:border-slate-800">
-            <button class="primary-action" :disabled="isTogglingFavorite" @click="toggleFavorite">
-              {{ isTogglingFavorite ? '处理中...' : (question.favorite ? '取消收藏' : '收藏题目') }}
-            </button>
-            <select v-if="enableLegacyTrainingTools" v-model="selectedProgress" class="state-select" :disabled="isUpdatingProgress" @change="updateProgress">
-              <option value="">学习状态</option>
-              <option value="todo">待学习</option>
-              <option value="learning">学习中</option>
-              <option value="mastered">已掌握</option>
-              <option value="review">待复习</option>
-            </select>
-            <RouterLink
-              v-if="enableLegacyTrainingTools"
-              :to="mockInterviewLink"
-              class="primary-action inline-flex items-center justify-center"
-            >
-              加入知识复盘
-            </RouterLink>
-            <RouterLink
-              v-if="enableLegacyTrainingTools"
-              :to="prepReturnLink"
-              class="secondary-action inline-flex items-center justify-center"
-            >
-              回学习空间
-            </RouterLink>
-            <RouterLink
-              to="/questions"
-              class="secondary-action inline-flex items-center justify-center"
-            >
-              返回知识库
-            </RouterLink>
-            <RouterLink
-              to="/me"
-              class="secondary-action inline-flex items-center justify-center"
-            >
-              回个人主页
-            </RouterLink>
-            <RouterLink
-              v-if="detail.sourcePosts.length"
-              :to="`/post/${detail.sourcePosts[0].postId}`"
-              class="secondary-action inline-flex items-center justify-center"
-            >
-              查看来源内容
-            </RouterLink>
-            <button
-              v-else
-              class="secondary-action opacity-60"
-              type="button"
-              disabled
-            >
-              暂无可跳转来源
-            </button>
-          </div>
-        </article>
-
-        <aside class="space-y-6">
-          <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">来源内容</h2>
-            <div v-if="detail.sourcePosts.length" class="space-y-3">
-              <RouterLink v-for="post in detail.sourcePosts" :key="post.postId" :to="`/post/${post.postId}`" class="block rounded-lg bg-slate-50 p-3 hover:bg-primary-50 dark:bg-slate-950 dark:hover:bg-primary-950/30">
-                <div class="line-clamp-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{{ post.title }}</div>
-                <div class="mt-1 text-xs text-slate-500">{{ post.counter.view }} 浏览</div>
+              <RouterLink
+                v-if="detail.sourcePosts.length"
+                :to="`/post/${detail.sourcePosts[0].postId}`"
+                class="secondary-action"
+              >
+                <ExternalLink class="h-4 w-4" aria-hidden="true" />
+                查看来源内容
               </RouterLink>
-            </div>
-            <p v-else class="text-sm text-slate-500">暂无可见来源。</p>
-          </section>
+              <button v-else class="secondary-action" type="button" disabled>
+                暂无可跳转来源
+              </button>
+            </section>
 
-          <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <h2 class="mb-4 font-bold text-slate-950 dark:text-slate-50">相似知识卡</h2>
-            <div v-if="detail.relatedQuestions.length" class="space-y-3">
-              <RouterLink v-for="item in detail.relatedQuestions" :key="item.id" :to="`/questions/${item.id}`" class="block rounded-lg bg-slate-50 p-3 text-sm font-semibold text-slate-800 hover:bg-primary-50 hover:text-primary-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-primary-950/30">
-                {{ item.questionText }}
+            <section v-if="hasReviewSchedule" class="sidebar-panel review-panel">
+              <div class="sidebar-heading">
+                <CalendarClock class="h-5 w-5" aria-hidden="true" />
+                <h2>复习计划</h2>
+              </div>
+              <dl class="review-schedule">
+                <div class="schedule-tile">
+                  <dt>下次复习</dt>
+                  <dd>{{ formatReviewDate(question.nextReviewAt) }}</dd>
+                </div>
+                <div class="schedule-tile">
+                  <dt>已复习</dt>
+                  <dd>{{ question.reviewCount }} 次</dd>
+                </div>
+                <div class="schedule-tile">
+                  <dt>当前间隔</dt>
+                  <dd>{{ question.reviewIntervalDays }} 天</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="sidebar-panel">
+              <h2>来源内容</h2>
+              <div v-if="detail.sourcePosts.length" class="sidebar-link-list">
+                <RouterLink v-for="post in detail.sourcePosts" :key="post.postId" :to="`/post/${post.postId}`">
+                  <span>{{ post.title }}</span>
+                  <small>{{ post.counter.view }} 浏览</small>
+                </RouterLink>
+              </div>
+              <p v-else class="sidebar-empty">暂无可见来源。</p>
+            </section>
+
+            <section class="sidebar-panel">
+              <h2>相似知识卡</h2>
+              <div v-if="detail.relatedQuestions.length" class="sidebar-link-list">
+                <RouterLink v-for="item in detail.relatedQuestions" :key="item.id" :to="`/questions/${item.id}`">
+                  <span>{{ item.questionText }}</span>
+                </RouterLink>
+              </div>
+              <p v-else class="sidebar-empty">暂无相似题。</p>
+            </section>
+
+            <section v-if="enableLegacyTrainingTools" class="sidebar-panel legacy-actions">
+              <h2>兼容学习入口</h2>
+              <RouterLink :to="mockInterviewLink" class="primary-action">
+                加入知识复盘
               </RouterLink>
-            </div>
-            <p v-else class="text-sm text-slate-500">暂无相似题。</p>
-          </section>
-        </aside>
-      </div>
+              <RouterLink :to="prepReturnLink" class="secondary-action">
+                回学习空间
+              </RouterLink>
+            </section>
+
+            <nav class="sidebar-navigation" aria-label="详情页导航">
+              <RouterLink to="/questions">返回知识库</RouterLink>
+              <RouterLink to="/me">回个人主页</RouterLink>
+            </nav>
+          </aside>
+        </div>
+      </template>
     </main>
   </div>
 </template>
@@ -247,6 +303,23 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, RouterLink, useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
+import {
+  AlertCircle,
+  ArrowLeft,
+  BadgeCheck,
+  Bookmark,
+  BookOpenCheck,
+  CalendarClock,
+  Copy,
+  ExternalLink,
+  FileQuestion,
+  Lightbulb,
+  Quote,
+  RefreshCw,
+  Save,
+  Search,
+  Target,
+} from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -499,150 +572,636 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.question-detail-page {
+  padding-top: 1.5rem;
+  padding-bottom: 4rem;
+}
+
+.detail-breadcrumb {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.detail-breadcrumb a {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.detail-breadcrumb a:hover {
+  color: var(--primary-700);
+}
+
+.question-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.question-reading {
+  min-width: 0;
+  padding: 1.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+}
+
+.question-title-block {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.question-meta,
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
 .pill {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  background: rgb(248 250 252);
-  padding: 0.45rem 0.8rem;
-  font-size: 0.8rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  padding: 0.4rem 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(71 85 105);
 }
+
 .company {
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: var(--primary-700);
 }
+
+.question-title-block h1 {
+  max-width: 28ch;
+  margin-top: 1rem;
+  color: var(--text-strong);
+  font-size: 2rem;
+  font-weight: 760;
+  line-height: 1.38;
+  text-wrap: pretty;
+}
+
+.question-reading-note {
+  max-width: 68ch;
+  margin-top: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.question-signals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border-subtle);
+}
+
 .insight-tile {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.5rem;
-  background: rgb(248 250 252);
-  padding: 0.85rem 1rem;
+  min-width: 0;
+  padding: 1rem 0.9rem;
+  border-right: 1px solid var(--border-subtle);
 }
+
+.insight-tile:first-child {
+  padding-left: 0;
+}
+
+.insight-tile:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
 .insight-tile span {
   display: block;
-  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
   font-weight: 700;
-  color: rgb(100 116 139);
 }
+
 .insight-tile strong {
+  display: block;
   margin-top: 0.25rem;
-  display: block;
-  font-size: 1.1rem;
-  color: rgb(15 23 42);
-}
-.schedule-tile {
-  border-radius: 0.5rem;
-  background: rgb(255 251 235);
-  padding: 0.85rem 1rem;
-}
-.schedule-tile span {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: rgb(146 64 14);
-}
-.schedule-tile strong {
-  margin-top: 0.25rem;
-  display: block;
+  overflow: hidden;
+  color: var(--text-strong);
   font-size: 1rem;
-  color: rgb(120 53 15);
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.structured-panel {
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+
+.insight-tile small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.reading-section {
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.reading-section--focus {
+  margin-top: 1.5rem;
+  padding: 1.1rem;
+  border: 1px solid #c7d7fe;
+  border-radius: var(--radius-surface);
+  background: var(--primary-50);
+}
+
+.reading-section--answer {
   padding: 1.25rem;
+  border: 1px solid #a9e6c5;
+  border-radius: var(--radius-surface);
+  background: #f0fdf4;
 }
-.structured-panel h2 {
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgb(71 85 105);
+
+.reading-section-heading,
+.sidebar-heading {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--text-primary);
 }
-.structured-panel p {
+
+.reading-section-heading h2,
+.sidebar-heading h2 {
+  font-size: 0.9rem;
+  font-weight: 720;
+}
+
+.reading-section > p,
+.reading-prose {
+  max-width: 72ch;
   margin-top: 0.75rem;
   white-space: pre-wrap;
-  font-size: 0.875rem;
-  line-height: 1.75;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.9;
+  text-wrap: pretty;
 }
-.primary-action {
-  border-radius: 0.75rem;
-  background: rgb(37 99 235);
-  padding: 0.7rem 1rem;
-  font-size: 0.875rem;
+
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.schedule-tile {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.schedule-tile:last-child {
+  border-bottom: 0;
+}
+
+.schedule-tile dt {
   font-weight: 700;
-  color: white;
+  color: var(--text-muted);
+  font-size: 0.7rem;
 }
-.secondary-action,
-.state-select,
-.reason-select {
-  border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: white;
-  padding: 0.7rem 1rem;
+
+.schedule-tile dd {
+  color: var(--text-strong);
+  font-size: 0.85rem;
+  font-weight: 720;
+}
+
+.structured-panel {
+  min-width: 0;
+  padding: 1rem;
+  border-radius: var(--radius-surface);
+  background: var(--surface-2);
+}
+
+.structured-panel h2 {
+  font-size: 0.8rem;
+}
+
+.structured-panel p {
+  margin-top: 0.65rem;
+  white-space: pre-wrap;
+  color: var(--text-primary);
   font-size: 0.875rem;
-  font-weight: 700;
-  color: rgb(71 85 105);
+  line-height: 1.7;
 }
+
+.answer-workspace {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-surface);
+  background: #f8fbff;
+}
+
+.answer-workspace-heading {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.answer-workspace-heading h2 {
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 720;
+}
+
+.answer-workspace-heading p {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.answer-workspace-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+}
+
+.answer-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.answer-field {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.answer-field small {
+  justify-self: end;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.mistake-field {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.8rem;
+}
+
 .note-input {
   width: 100%;
   resize: vertical;
-  border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: white;
-  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0.75rem 0.8rem;
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.7;
-  color: rgb(30 41 59);
   outline: none;
 }
+
 .field-label {
   display: block;
+  color: var(--text-primary);
   font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgb(30 64 175);
+  font-weight: 700;
 }
+
 .note-input:focus {
-  border-color: rgb(37 99 235);
-  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.65);
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgba(47, 111, 235, 0.14);
 }
-.dark .pill,
-.dark .insight-tile,
-.dark .structured-panel,
-.dark .secondary-action,
-.dark .state-select,
-.dark .reason-select,
-.dark .note-input {
-  border-color: rgb(51 65 85);
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+
+.state-select,
+.reason-select {
+  width: 100%;
+  min-height: 2.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0.55rem 0.7rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 650;
 }
-.dark .insight-tile span {
-  color: rgb(148 163 184);
+
+.draft-notice {
+  margin-top: 0.8rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-control);
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  font-weight: 650;
 }
-.dark .insight-tile strong {
-  color: rgb(248 250 252);
+
+.question-footer {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 1.5rem;
 }
-.dark .schedule-tile {
-  background: rgb(69 26 3 / 0.35);
+
+.tag-list span {
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  padding: 0.35rem 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
 }
-.dark .schedule-tile span {
-  color: rgb(253 230 138);
+
+.question-footer > p {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
 }
-.dark .schedule-tile strong {
-  color: rgb(254 243 199);
+
+.question-sidebar {
+  display: grid;
+  gap: 0.8rem;
+  position: sticky;
+  top: calc(var(--community-header-height) + 1rem);
 }
-.dark .structured-panel h2 {
-  color: rgb(148 163 184);
+
+.sidebar-panel {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
 }
-.dark .structured-panel p {
-  color: rgb(203 213 225);
+
+.sidebar-panel > h2 {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 720;
+}
+
+.action-panel,
+.legacy-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.action-panel .primary-action,
+.action-panel .secondary-action,
+.legacy-actions .primary-action,
+.legacy-actions .secondary-action {
+  width: 100%;
+}
+
+.review-panel {
+  background: #fffbeb;
+}
+
+.review-schedule {
+  margin-top: 0.65rem;
+}
+
+.sidebar-link-list {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+
+.sidebar-link-list a {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.6rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.sidebar-link-list a:hover {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.sidebar-link-list span {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.sidebar-link-list small,
+.sidebar-empty {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.sidebar-empty {
+  margin-top: 0.65rem;
+}
+
+.sidebar-navigation {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.25rem 0.2rem;
+}
+
+.sidebar-navigation a {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.sidebar-navigation a:hover {
+  color: var(--primary-700);
+}
+
+.detail-state {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+  min-height: 28rem;
+  padding: 4rem 1.25rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+  text-align: center;
+}
+
+.detail-state-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--primary-600);
+}
+
+.detail-state--error .detail-state-icon {
+  color: var(--danger);
+}
+
+.detail-state h3 {
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 720;
+}
+
+.detail-state p {
+  max-width: 32rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+
+.detail-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  margin-top: 0.4rem;
+}
+
+@media (max-width: 980px) {
+  .question-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .question-sidebar {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sidebar-navigation {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .question-detail-page {
+    padding-top: 1rem;
+  }
+
+  .question-reading {
+    padding: 1.15rem;
+  }
+
+  .question-title-block h1 {
+    font-size: 1.55rem;
+  }
+
+  .question-signals,
+  .evidence-grid,
+  .answer-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .insight-tile,
+  .insight-tile:first-child,
+  .insight-tile:last-child {
+    padding: 0.8rem 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .insight-tile:last-child {
+    border-bottom: 0;
+  }
+
+  .answer-workspace-heading {
+    display: grid;
+  }
+
+  .answer-workspace-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .mistake-field {
+    grid-template-columns: 1fr;
+  }
+
+  .question-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-navigation {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 440px) {
+  .question-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pill {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .answer-workspace {
+    padding: 1rem;
+  }
+
+  .answer-workspace-actions,
+  .detail-state-actions {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .detail-state-actions {
+    display: grid;
+  }
+}
+
+:global(html.dark) .company,
+:global(html.dark) .reading-section--focus,
+:global(html.dark) .draft-notice,
+:global(html.dark) .sidebar-link-list a:hover {
+  background: rgba(21, 94, 239, 0.15);
+  color: #bfdbfe;
+}
+
+:global(html.dark) .reading-section--answer {
+  border-color: #166534;
+  background: rgba(20, 83, 45, 0.24);
+}
+
+:global(html.dark) .answer-workspace {
+  border-color: #1d4ed8;
+  background: rgba(30, 64, 175, 0.12);
+}
+
+:global(html.dark) .review-panel {
+  background: rgba(120, 53, 15, 0.24);
+}
+
+:global(html.dark) .note-input,
+:global(html.dark) .state-select,
+:global(html.dark) .reason-select {
+  background: rgba(2, 6, 23, 0.55);
 }
 </style>

@@ -33,7 +33,7 @@ assert.match(detail, /deliveryPath as buildCollaborationDeliveryPath[\s\S]*const
 assert.doesNotMatch(detail, /series\/workbench/, 'collaboration series deliveries must not route to the personal content-series workbench.')
 assert.doesNotMatch(mine, /series\/workbench/, 'my collaborations must keep collaboration-series links in the collaboration domain.')
 assert.doesNotMatch(management, /series\/workbench/, 'management review links must keep collaboration-series links in the collaboration domain.')
-assert.match(hub, /useCollaborationHubQuery[\s\S]*activeTab\.value = hubQueryState\.tab/, 'the collaboration hub must honor stable tab deep links.')
+assert.match(hub, /useCollaborationHubQuery[\s\S]*activeTab\.value = contributionTab\.value \|\| hubQueryState\.tab/, 'the collaboration hub must honor stable tab deep links while prioritizing protected contribution routes.')
 assert.match(hubQuery, /parseCollaborationHubQuery\(route\.query\)[\s\S]*watch\(\(\) => route\.query/, 'the collaboration hub must restore deep-link state on refresh and browser navigation.')
 assert.match(hub, /collaborationApi\.series\.detail\(linkedId\)[\s\S]*collaboration-series-\$\{linkedId\}/, 'a linked collaboration series must be fetched directly and scrolled into view.')
 assert.match(detail, /<form v-if="canSubmit"[\s\S]*<\/form>[\s\S]*<div v-if="canRelease \|\| canWithdraw \|\| canReviewSubmission"/, 'claimants must be able to submit or release from the same claimed-state action panel.')

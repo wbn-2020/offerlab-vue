@@ -26,6 +26,10 @@
   --info: #2f6feb;
   --radius-control: 7px;
   --radius-surface: 8px;
+  --radius-pill: 999px;
+  --community-page-max: 1180px;
+  --community-page-gutter: 1.25rem;
+  --community-header-height: 60px;
   --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04);
   --shadow-soft: 0 1px 2px rgba(16, 24, 40, 0.03);
 }
@@ -138,6 +142,12 @@ input, textarea, select {
   font: inherit;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -150,6 +160,13 @@ select:focus-visible {
 @layer components {
   .app-shell {
     @apply min-h-screen bg-transparent;
+  }
+
+  .community-page {
+    width: min(var(--community-page-max), 100%);
+    margin: 0 auto;
+    padding-right: var(--community-page-gutter);
+    padding-left: var(--community-page-gutter);
   }
 
   .surface-card {
@@ -206,6 +223,12 @@ select:focus-visible {
 @media (max-width: 1023px) {
   body {
     padding-bottom: 4.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --community-page-gutter: 1rem;
   }
 }
 

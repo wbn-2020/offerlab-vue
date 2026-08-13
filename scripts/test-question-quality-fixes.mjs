@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 const detail = readFileSync(new URL('../src/views/QuestionDetailView.vue', import.meta.url), 'utf8')
 const search = readFileSync(new URL('../src/views/SearchView.vue', import.meta.url), 'utf8')
 const questions = readFileSync(new URL('../src/views/QuestionsView.vue', import.meta.url), 'utf8')
+const questionCard = readFileSync(new URL('../src/components/question/QuestionCard.vue', import.meta.url), 'utf8')
 
 assert.match(detail, /storageOwner\s*=\s*computed/, 'QuestionDetailView must scope note drafts by current user')
 assert.match(detail, /question-note-draft:\$\{questionId\.value\}/, 'QuestionDetailView must scope note drafts by question id')
@@ -44,5 +45,9 @@ assert.match(questions, /page:\s*targetPage/, 'QuestionsView must request the in
 assert.match(questions, /page\.value\s*=\s*targetPage/, 'QuestionsView must only commit current page after a successful response')
 assert.match(questions, /const nextPage\s*=\s*page\.value \+ 1[\s\S]*fetchQuestions\(true,\s*nextPage\)/, 'QuestionsView load more must request the next page without committing it first')
 assert.doesNotMatch(questions, /page\.value\s*\+=\s*1/, 'QuestionsView load more must not skip pages after append failures')
+assert.match(questions, /主题或领域/, 'QuestionsView must describe public filters with user-facing topic and domain language')
+assert.match(questionCard, /const hasMeaningfulQuality = computed/, 'QuestionCard must distinguish meaningful quality signals from zero placeholders')
+assert.match(questionCard, /v-if="hasMeaningfulQuality"[\s\S]*内容完整度/, 'QuestionCard must omit zero-value quality chips semantically')
+assert.match(detail, /v-if="Number\(question\.qualityScore \|\| 0\) > 0"/, 'QuestionDetailView must not render a meaningless zero quality tile')
 
 console.log('question quality fixes guard passed')

@@ -112,10 +112,10 @@ const errorMessageMap: Record<number, string> = {
   10404: '目标资源不存在或已被删除',
   10429: '操作太频繁，请稍后再试',
   20000: '系统暂时开小差了，请稍后重试',
-  20001: '数据库暂时不可用，请稍后重试',
-  20002: '缓存服务暂时不可用，请稍后重试',
-  20003: '消息队列暂时不可用，请稍后重试',
-  20004: '搜索服务暂时不可用，已尽量使用降级能力',
+  20001: '内容服务暂时无法完成请求，请稍后重试',
+  20002: '当前操作暂时无法完成，请稍后重试',
+  20003: '异步处理暂时不可用，请稍后重试',
+  20004: '搜索暂时无法完整返回结果，请稍后重试',
   20500: '依赖服务暂时不可用，请稍后重试',
   30001: '请勿重复操作',
   30002: '当前状态不允许执行该操作，请刷新后重试',
@@ -162,6 +162,9 @@ export function getErrorMessage(error: unknown, fallback = '操作失败') {
     return error.message || fallback
   }
   if (error instanceof Error) {
+    if (/__vccOpts|Cannot read properties of undefined|Cannot read properties of null|component instance|hydration/i.test(error.message)) {
+      return fallback
+    }
     return error.message || fallback
   }
   return fallback

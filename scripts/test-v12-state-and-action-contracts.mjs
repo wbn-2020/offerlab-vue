@@ -26,8 +26,8 @@ assert.ok(
 )
 assert.match(
   notifications,
-  /catch \(error\) \{[\s\S]*?clearNotificationListState\(\)[\s\S]*?loadErrorText\.value = getErrorMessage\(error, 'Notifications are temporarily unavailable\.'\)/,
-  'initial notification failures must not retain a previous filter list',
+  /catch \(error\) \{[\s\S]*?clearNotificationListState\(\)[\s\S]*?loadErrorText\.value = '通知暂时无法读取，请稍后重试。'/,
+  'initial notification failures must clear the previous filter list and use stable user-facing copy',
 )
 assert.match(
   notifications,

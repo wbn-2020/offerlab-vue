@@ -42,18 +42,13 @@ export const safeCertificationRiskWarning = (value?: string) => {
   return '该领域内容仅用于社区经验交流，不构成投资、理财、法律、健康或其他专业建议；认证不代表平台对每条内容背书。'
 }
 
-const numberFromText = (value: string, fallback = 0) => {
-  const match = value.match(/\d+/)
-  return match ? Number(match[0]) : fallback
-}
-
 export const safeCertificationCheck = (check: ExpertCertificationCheckItem) => {
-  const detail = String(check.detail || '')
   if (check.code === 'published_posts') {
-    const count = numberFromText(detail)
+    const current = Math.max(0, Number(check.current) || 0)
+    const required = Math.max(1, Number(check.required) || 3)
     return {
       label: '同领域公开内容',
-      detail: count > 0 ? `已发布 ${count} 篇同领域公开内容，基础门槛为 3 篇。` : '需要至少 3 篇同领域公开内容。',
+      detail: `当前 ${current}/${required}，需要至少 ${required} 篇同领域公开内容。`,
     }
   }
   if (check.code === 'recent_activity') {

@@ -3,58 +3,63 @@
     <AppHeader />
     <main class="explore-page">
       <section class="explore-band explore-band-hero">
-        <div class="mb-8 explore-shell hero-grid">
-          <div class="hero-copy">
-            <nav class="explore-toolbar" aria-label="发现页路径">
-              <button type="button" class="explore-back-button" @click="returnToCommunity">
-                <ArrowLeft class="h-4 w-4" aria-hidden="true" />
-                返回
-              </button>
-              <span>发现</span>
-            </nav>
-            <p class="eyebrow">发现社区内容</p>
-            <h1>频道广场与话题广场</h1>
-            <p class="hero-summary">
-              从运营精选专题、频道入口和活跃话题进入公开社区内容，发现真实经验、攻略和资源。
-            </p>
-            <form class="hero-search" @submit.prevent="submitSearch">
-              <Search class="h-5 w-5" aria-hidden="true" />
-              <input v-model.trim="keyword" type="search" placeholder="搜索公开经验、话题或资源">
-              <button type="submit" aria-label="搜索">
-                <ArrowRight class="h-5 w-5" aria-hidden="true" />
-              </button>
-            </form>
+        <div class="mb-8 explore-shell">
+          <nav class="explore-toolbar" aria-label="发现页路径">
+            <button type="button" class="explore-back-button" @click="returnToCommunity">
+              <ArrowLeft class="h-4 w-4" aria-hidden="true" />
+              返回社区
+            </button>
+            <span>发现</span>
+          </nav>
+
+          <div class="explore-hero-layout">
+            <div class="hero-copy">
+              <p class="eyebrow">发现社区内容</p>
+              <h1>频道广场与话题广场</h1>
+              <p class="hero-summary">
+                从频道、活跃话题和精选内容进入真实经验，找到值得继续阅读、讨论或共建的方向。
+              </p>
+              <form class="hero-search" role="search" @submit.prevent="submitSearch">
+                <Search class="h-5 w-5" aria-hidden="true" />
+                <input
+                  v-model.trim="keyword"
+                  type="search"
+                  aria-label="搜索公开经验、话题或资源"
+                  placeholder="搜索公开经验、话题或资源"
+                >
+                <button type="submit" aria-label="搜索">
+                  <ArrowRight class="h-5 w-5" aria-hidden="true" />
+                </button>
+              </form>
+            </div>
+
+            <aside class="explore-hero-guide" aria-label="发现页内容概览" aria-live="polite">
+              <div>
+                <span>公开频道</span>
+                <strong>{{ loading ? '加载中' : communityChannels.length }}</strong>
+              </div>
+              <div>
+                <span>活跃话题</span>
+                <strong>{{ loading ? '加载中' : activeTopics.length }}</strong>
+              </div>
+              <div>
+                <span>内容形式</span>
+                <strong>{{ loading ? '加载中' : contentForms.length }}</strong>
+              </div>
+              <p v-if="loading">正在更新公共内容地图</p>
+              <p v-else-if="degraded">当前可见内容可正常浏览，个别入口会在对应区域提示状态</p>
+              <p v-else>{{ activeDomainOption?.label ? `正在浏览 ${activeDomainOption.label}` : '从感兴趣的频道开始探索' }}</p>
+            </aside>
           </div>
-          <aside class="status-panel" aria-live="polite">
-            <div class="status-row">
-              <span>专题</span>
-              <strong>{{ discoveryMap?.featuredTopics.length || 0 }}</strong>
-            </div>
-            <div class="status-row">
-              <span>频道</span>
-              <strong>{{ communityChannels.length }}</strong>
-            </div>
-            <div class="status-row">
-              <span>内容形式</span>
-              <strong>{{ contentForms.length }}</strong>
-            </div>
-            <div class="status-row">
-              <span>话题</span>
-              <strong>{{ discoveryMap?.activeTopics.length || 0 }}</strong>
-            </div>
-            <div class="status-row">
-              <span>领域</span>
-              <strong>{{ activeDomainOption?.label || '全部' }}</strong>
-            </div>
-            <p v-if="loading" class="status-note">正在读取公共内容地图...</p>
-            <p v-else-if="degraded" class="status-note">部分模块暂时不可用，页面已保留可访问入口。</p>
-            <p v-else class="status-note">公共内容地图已就绪。</p>
-          </aside>
         </div>
       </section>
 
       <section class="explore-channel-strip">
         <div class="explore-shell">
+          <div class="explore-channel-strip__label">
+            <strong>浏览内容</strong>
+            <span>选择一个频道或内容形式</span>
+          </div>
           <div class="explore-channel-strip__inner">
             <RouterLink to="/explore" class="explore-channel-strip__item" :class="{ 'explore-channel-strip__item--active': !activeChannel && !activeContentForm }">
               全部
@@ -83,47 +88,8 @@
 
       <section class="explore-browse-band">
         <div class="explore-shell explore-browse-layout">
-          <aside class="explore-browse-aside hidden lg:block">
-            <nav class="explore-side-nav" aria-label="发现频道">
-              <div class="explore-side-nav__heading">
-                <span>浏览频道</span>
-                <RouterLink to="/explore">重置</RouterLink>
-              </div>
-              <RouterLink
-                to="/explore"
-                class="explore-side-nav__item"
-                :class="{ 'explore-side-nav__item--active': !activeChannel && !activeContentForm }"
-              >
-                <span>全</span>
-                全部内容
-              </RouterLink>
-              <RouterLink
-                v-for="channel in communityChannels"
-                :key="channel.key"
-                :to="{ path: '/explore', query: { channel: channel.key } }"
-                class="explore-side-nav__item"
-                :class="{ 'explore-side-nav__item--active': activeChannel?.key === channel.key }"
-              >
-                <span>{{ channel.icon }}</span>
-                {{ channel.name }}
-              </RouterLink>
-              <div class="explore-side-nav__divider" />
-              <p class="explore-side-nav__label">内容形式</p>
-              <RouterLink
-                v-for="form in contentForms"
-                :key="form.id"
-                :to="form.href"
-                class="explore-side-nav__item explore-side-nav__item--form"
-                :class="{ 'explore-side-nav__item--active': activeContentForm?.key === form.id.replace('content-form:', '') }"
-              >
-                <span>{{ form.icon || '内' }}</span>
-                {{ form.title }}
-              </RouterLink>
-            </nav>
-          </aside>
-
           <section class="explore-browse-content">
-            <div v-if="error" class="state-banner state-banner-error">
+            <div v-if="error && !hasItems" class="state-banner state-banner-error">
               <AlertCircle class="h-5 w-5" aria-hidden="true" />
               <span>{{ error }}</span>
               <button type="button" @click="reload">
@@ -159,7 +125,7 @@
                 <ModuleEmpty v-else :module="moduleOf('featuredTopics')" />
               </section>
 
-              <section v-if="crossDomainStatus !== 'unauthenticated'" class="explore-content-section">
+              <section v-if="crossDomainStatus !== 'unauthenticated'" class="explore-content-section stage4-cross-domain-panel">
                 <header class="section-header">
                   <div>
                     <p class="eyebrow">延展阅读</p>
@@ -188,7 +154,7 @@
                     class="explore-feature-card"
                     :to="`/post/${item.item.post?.postId}`"
                   >
-                    <span class="card-kicker">{{ item.sourceDomainName || '公共内容' }} 到 {{ item.targetDomainName || '延展阅读' }}</span>
+                    <span class="card-kicker">{{ crossDomainDisplayLabel(item) }}</span>
                     <h2>{{ item.item.post?.title || '公开内容推荐' }}</h2>
                     <p>{{ safeCrossDomainReason(item) }}</p>
                     <span class="card-link">
@@ -267,10 +233,11 @@
                 <h2>活跃话题</h2>
                 <Hash class="h-4 w-4" aria-hidden="true" />
               </div>
-              <div v-if="activeTopics.length" class="explore-rail-list">
+              <p class="explore-rail-intro">从本周正在讨论的主题进入公开内容。</p>
+              <div v-if="activeTopics.length" class="explore-rail-list explore-topic-list">
                 <RouterLink v-for="item in activeTopics.slice(0, 6)" :key="item.id" :to="item.href">
-                  <span>{{ item.title }}</span>
-                  <small>{{ item.reasonText || item.reason || '正在讨论' }}</small>
+                  <span><Hash class="h-3.5 w-3.5" aria-hidden="true" />{{ item.title }}</span>
+                  <small>{{ formatPublicContentCountText(item.reasonText || item.reason) }}</small>
                 </RouterLink>
               </div>
               <ModuleEmpty v-else :module="moduleOf('activeTopics')" />
@@ -293,6 +260,37 @@
                 <RouterLink v-for="item in searchEntrypoints.slice(0, 4)" :key="item.id" :to="item.href">
                   <span>{{ item.title }}</span>
                   <small>{{ item.summary || '进入公开搜索继续浏览' }}</small>
+                </RouterLink>
+              </div>
+            </section>
+
+            <section id="collab" class="explore-rail-section explore-collaboration">
+              <div class="explore-rail-section__title">
+                <h2>参与共建</h2>
+                <ArrowRight class="h-4 w-4" aria-hidden="true" />
+              </div>
+              <p class="explore-rail-intro">发布真实经验，或参与公开需求与协作合集。</p>
+              <div class="explore-collaboration__links">
+                <RouterLink to="/editor">
+                  <span>
+                    <strong>发布公开内容</strong>
+                    <small>经验、攻略、资源与讨论</small>
+                  </span>
+                  <ArrowRight class="h-4 w-4" aria-hidden="true" />
+                </RouterLink>
+                <RouterLink to="/collaboration">
+                  <span>
+                    <strong>浏览共建需求</strong>
+                    <small>认领需求并留下公开贡献</small>
+                  </span>
+                  <ArrowRight class="h-4 w-4" aria-hidden="true" />
+                </RouterLink>
+                <RouterLink to="/series/workbench">
+                  <span>
+                    <strong>整理内容合集</strong>
+                    <small>把散篇内容沉淀成长期专题</small>
+                  </span>
+                  <ArrowRight class="h-4 w-4" aria-hidden="true" />
                 </RouterLink>
               </div>
             </section>
@@ -392,7 +390,7 @@
               class="feature-card"
               :to="`/post/${item.item.post?.postId}`"
             >
-              <span class="card-kicker">{{ item.sourceDomainName || '公共内容' }} → {{ item.targetDomainName || '延展阅读' }}</span>
+              <span class="card-kicker">{{ crossDomainDisplayLabel(item) }}</span>
               <h2>{{ item.item.post?.title || '公开内容推荐' }}</h2>
               <p>{{ safeCrossDomainReason(item) }}</p>
               <span class="card-link">
@@ -554,8 +552,9 @@ import { recommendationsApi } from '@/api/recommendations'
 import { useAuthStore } from '@/stores/auth'
 import { useDomainCatalog } from '@/composables/useDomainCatalog'
 import { useDiscoveryMap } from '@/composables/useDiscoveryMap'
-import { ALL_COMMUNITY_CHANNELS, COMMUNITY_CONTENT_FORMS, isKnownDomain, type CommunityChannel, type CommunityContentForm, type DomainValue } from '@/utils/domains'
+import { ALL_COMMUNITY_CHANNELS, COMMUNITY_CONTENT_FORMS, getCommunityChannel, getDomainLabelSafe, resolveDomainLabel, resolveDomainValue, type CommunityChannel, type CommunityContentForm, type DomainValue } from '@/utils/domains'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE, getContentTypeShortLabel, type PostTypeValue } from '@/utils/contentTypes'
+import { formatPublicContentCountText } from '@/utils/publicDisplay'
 import { filterDiscoverySuppressedItems, filterVisiblePosts, normalizeRecommendationReason, type ViewerDiscoverySuppressions } from '@/utils/recommendationGovernance'
 import { filterPublicContent } from '@/utils/textQuality'
 import { buildFollowReasons, isPublicAuthor } from '@/utils/creatorSignals'
@@ -576,7 +575,7 @@ const { domains, loadDomains } = useDomainCatalog()
 const defaultChannelPostTypes = COMMUNITY_CONTENT_TYPES.map((item) => item.value)
 const domainOptions = computed(() => domains.value.map((item) => ({
     value: item.domain as DomainValue,
-    label: item.domainName,
+    label: getDomainLabelSafe(item.domain),
     icon: item.icon,
     description: item.description,
   })))
@@ -587,7 +586,7 @@ const communityChannels = computed<CommunityChannel[]>(() => ALL_COMMUNITY_CHANN
     return domain
       ? {
           ...channel,
-          name: domain.domainName,
+          name: getDomainLabelSafe(domain.domain),
           icon: domain.icon,
           description: domain.description,
           riskNote: domain.postingNotice || channel.riskNote,
@@ -638,9 +637,9 @@ const domainQueryValue = computed(() => {
 const activeDomain = computed<DomainValue | undefined>(() => {
   const raw = domainQueryValue.value
   if (raw == null || raw === '') return undefined
-  const numeric = Number(raw)
-  return isKnownDomain(numeric) && domains.value.some((item) => Number(item.domain) === numeric)
-    ? numeric
+  const resolved = resolveDomainValue(raw)
+  return resolved && domains.value.some((item) => Number(item.domain) === resolved)
+    ? resolved
     : undefined
 })
 const hasInvalidDomainQuery = computed(() => (
@@ -653,7 +652,8 @@ const activeChannelQuery = computed(() => {
 })
 const activeChannel = computed(() => {
   const value = Array.isArray(activeChannelQuery.value) ? activeChannelQuery.value[0] : activeChannelQuery.value
-  return communityChannels.value.find((channel) => channel.key === value)
+  const resolved = getCommunityChannel(value)
+  return resolved ? communityChannels.value.find((channel) => channel.key === resolved.key) : undefined
 })
 const activeContentFormQuery = computed(() => {
   const value = route.query.contentForm ?? route.query.channel
@@ -759,6 +759,16 @@ const crossDomainStatusLabel = computed(() => {
 const safeCrossDomainReason = (item: CrossDomainRecommendation) => (
   normalizeRecommendationReason(item.recommendationReason) || '公共内容信号显示这篇内容适合作为延展阅读。'
 )
+const crossDomainDisplayLabel = (item: CrossDomainRecommendation) => {
+  const source = resolveDomainLabel(item.sourceDomain, item.sourceDomainName)
+  const target = resolveDomainLabel(
+    item.targetDomain ?? item.item.post?.domain,
+    item.targetDomainName,
+  )
+  if (source && target && source !== target) return `${source} 到 ${target}`
+  if (target) return `跨频道推荐 · ${target}`
+  return '跨频道推荐'
+}
 const crossDomainRecommendations = computed(() => filterDiscoverySuppressedItems(
   crossDomainRecommendationItems.value,
   viewerDiscoverySuppressions.value,
@@ -2567,6 +2577,730 @@ const SkeletonCard = defineComponent({
 
   .explore-entry-row {
     grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+  }
+}
+
+/* Explore redesign: discovery content leads, filters and system state stay secondary. */
+.explore-page {
+  min-height: calc(100vh - var(--community-header-height));
+  padding-bottom: 2.5rem;
+  background: var(--surface-2);
+}
+
+.explore-shell {
+  width: min(1180px, calc(100% - 2.5rem));
+}
+
+.explore-band-hero {
+  border-bottom: 0;
+}
+
+.explore-band-hero .explore-shell {
+  padding: 1.1rem 0 1.4rem;
+}
+
+.explore-toolbar {
+  margin-bottom: 1rem;
+}
+
+.explore-toolbar > span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.explore-back-button {
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  background: var(--surface);
+  font-size: 0.75rem;
+}
+
+.explore-hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18.5rem;
+  gap: 3rem;
+  align-items: end;
+}
+
+.hero-copy {
+  max-width: 47rem;
+}
+
+.hero-copy h1 {
+  max-width: 16ch;
+  font-size: 2rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.hero-summary {
+  max-width: 40rem;
+  margin: 0.55rem 0 1rem;
+  font-size: 0.875rem;
+}
+
+.hero-search {
+  width: min(36rem, 100%);
+  min-height: 2.85rem;
+}
+
+.hero-search button {
+  width: 2.35rem;
+  height: 2.1rem;
+}
+
+.explore-hero-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.explore-hero-guide > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.8rem 0.75rem;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.explore-hero-guide > div:last-of-type {
+  border-right: 0;
+}
+
+.explore-hero-guide span {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.explore-hero-guide strong {
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.explore-hero-guide p {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.55;
+}
+
+.explore-channel-plaza {
+  width: 100%;
+  margin: 0 !important;
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: var(--surface);
+}
+
+.explore-plaza-shell {
+  padding: 1.5rem 0 1.35rem;
+}
+
+.explore-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.explore-section-heading h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+
+.explore-section-heading p:not(.eyebrow) {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.explore-domain-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.explore-domain-card {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 0.65rem;
+  min-width: 0;
+  min-height: 9.5rem;
+  align-content: start;
+  padding: 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  color: var(--text-primary);
+  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.explore-domain-card:hover,
+.explore-domain-card--active {
+  border-color: rgb(147 197 253);
+  background: var(--primary-50);
+  transform: translateY(-1px);
+}
+
+.explore-domain-card > svg {
+  grid-column: 2;
+  align-self: end;
+  justify-self: end;
+  color: var(--primary-600);
+}
+
+.explore-domain-card__icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--surface-3);
+  font-size: 1rem;
+}
+
+.explore-domain-card--active .explore-domain-card__icon {
+  background: var(--primary-100);
+}
+
+.explore-domain-card__body {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.3rem;
+}
+
+.explore-domain-card__body strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.explore-domain-card__body small,
+.explore-domain-card__body em {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-style: normal;
+  line-height: 1.55;
+}
+
+.explore-domain-card__body small {
+  -webkit-line-clamp: 3;
+}
+
+.explore-domain-card__body em {
+  -webkit-line-clamp: 2;
+  margin-top: 0.1rem;
+  color: var(--primary-600);
+}
+
+.explore-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.explore-form-row__label {
+  margin-right: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.explore-form-chip {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.explore-form-chip:hover,
+.explore-form-chip--active {
+  border-color: rgb(147 197 253);
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.explore-channel-strip {
+  display: none !important;
+}
+
+.explore-browse-band {
+  padding: 0 1.25rem;
+}
+
+.explore-browse-layout {
+  grid-template-columns: 184px minmax(0, 1fr) 270px;
+  gap: 1.75rem;
+  padding: 1.65rem 0 0;
+}
+
+.explore-browse-content {
+  gap: 1.75rem;
+}
+
+.explore-mobile-topics {
+  display: none;
+}
+
+.explore-content-section {
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+}
+
+.explore-content-section + .explore-content-section {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.explore-content-section .section-header {
+  padding-bottom: 0.7rem;
+}
+
+.explore-feature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.explore-feature-card {
+  min-height: 9.5rem;
+  border-top: 0;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-left: 0;
+  border-radius: 0;
+}
+
+.explore-feature-card:first-child:nth-last-child(odd) {
+  grid-column: span 2;
+}
+
+.explore-browse-rail {
+  gap: 0;
+}
+
+.explore-rail-section {
+  padding: 0 0 1.15rem;
+}
+
+.explore-rail-intro {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.explore-topic-list span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.explore-topic-list span svg {
+  flex: 0 0 auto;
+  color: var(--primary-600);
+}
+
+.explore-collaboration__links {
+  display: grid;
+  margin-top: 0.55rem;
+}
+
+.explore-collaboration__links > a {
+  display: flex;
+  min-height: 3.6rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.explore-collaboration__links > a:last-child {
+  border-bottom: 0;
+}
+
+.explore-collaboration__links > a > span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.explore-collaboration__links strong {
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
+.explore-collaboration__links small {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.explore-collaboration__links svg {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.explore-collaboration__links > a:hover strong,
+.explore-collaboration__links > a:hover svg {
+  color: var(--primary-600);
+}
+
+.dark .explore-page {
+  background: rgb(15 23 42);
+}
+
+.dark .explore-channel-plaza,
+.dark .explore-domain-card,
+.dark .explore-form-chip,
+.dark .explore-content-section {
+  border-color: rgb(51 65 85);
+  background: rgb(24 26 32);
+}
+
+.dark .explore-domain-card:hover,
+.dark .explore-domain-card--active,
+.dark .explore-form-chip:hover,
+.dark .explore-form-chip--active {
+  background: rgb(30 58 138 / 0.36);
+}
+
+.dark .explore-domain-card__icon {
+  background: rgb(39 39 42);
+}
+
+.dark .explore-domain-card__body strong,
+.dark .explore-collaboration__links strong,
+.dark .explore-hero-guide strong {
+  color: rgb(241 245 249);
+}
+
+.dark .explore-hero-guide,
+.dark .explore-hero-guide > div,
+.dark .explore-hero-guide p,
+.dark .explore-form-row,
+.dark .explore-feature-grid,
+.dark .explore-collaboration__links > a {
+  border-color: rgb(51 65 85);
+}
+
+@media (max-width: 1100px) {
+  .explore-domain-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .explore-browse-layout {
+    grid-template-columns: minmax(0, 1fr) 250px;
+  }
+
+  .explore-browse-aside {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .explore-hero-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .explore-hero-guide {
+    width: min(32rem, 100%);
+  }
+
+  .explore-browse-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .explore-browse-rail {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .explore-collaboration {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .explore-page {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  .explore-shell {
+    width: min(100% - 2rem, 1180px);
+  }
+
+  .explore-band-hero .explore-shell {
+    padding: 0.8rem 0 1.15rem;
+  }
+
+  .explore-toolbar {
+    margin-bottom: 0.75rem;
+  }
+
+  .hero-copy h1 {
+    max-width: none;
+    font-size: 1.5rem;
+  }
+
+  .hero-summary {
+    margin-bottom: 0.85rem;
+    font-size: 0.8125rem;
+  }
+
+  .hero-search {
+    min-height: 2.65rem;
+  }
+
+  .explore-hero-guide {
+    width: 100%;
+  }
+
+  .explore-hero-guide > div {
+    padding: 0.65rem 0.55rem;
+  }
+
+  .explore-plaza-shell {
+    padding: 1.15rem 0 1rem;
+  }
+
+  .explore-section-heading {
+    margin-bottom: 0.8rem;
+  }
+
+  .explore-section-heading .module-status {
+    display: none;
+  }
+
+  .explore-domain-grid {
+    display: flex;
+    gap: 0.65rem;
+    margin-right: -1rem;
+    padding-right: 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .explore-domain-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .explore-domain-card {
+    width: 15rem;
+    min-width: 15rem;
+    min-height: 8.75rem;
+    scroll-snap-align: start;
+  }
+
+  .explore-form-row {
+    flex-wrap: nowrap;
+    margin-right: -1rem;
+    padding-right: 1rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .explore-form-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .explore-form-row__label,
+  .explore-form-chip {
+    flex: 0 0 auto;
+  }
+
+  .explore-browse-band {
+    padding: 0 1rem;
+  }
+
+  .explore-browse-layout {
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+
+  .explore-mobile-topics {
+    display: block;
+    padding: 0.85rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-surface);
+    background: var(--surface);
+  }
+
+  .explore-browse-content {
+    gap: 1rem;
+  }
+
+  .explore-content-section {
+    padding: 0.85rem;
+  }
+
+  .explore-feature-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .explore-feature-card:first-child:nth-last-child(odd) {
+    grid-column: auto;
+  }
+
+  .explore-feature-card {
+    min-height: 8.5rem;
+  }
+
+  .explore-browse-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .explore-rail-section {
+    padding: 1rem 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .explore-rail-section:first-child {
+    display: none;
+  }
+
+  .explore-collaboration {
+    order: -1;
+  }
+
+  .explore-topic-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.7rem;
+  }
+
+  .explore-topic-list > a {
+    min-width: 0;
+    padding: 0.7rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+  }
+
+  .explore-topic-list span,
+  .explore-topic-list small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .explore-topic-list span {
+    white-space: nowrap;
+  }
+
+  .explore-topic-list small {
+    display: block;
+    white-space: nowrap;
+  }
+
+  .dark .explore-topic-list > a {
+    border-color: rgb(51 65 85);
+    background: rgb(24 26 32);
+  }
+
+  .dark .explore-mobile-topics {
+    border-color: rgb(51 65 85);
+    background: rgb(24 26 32);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explore-domain-card,
+  .explore-feature-card,
+  .channel-featured-direction {
+    transition: none;
+  }
+}
+
+.explore-channel-strip .explore-shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.explore-channel-strip__label {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.1rem;
+  padding-right: 1rem;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.explore-channel-strip__label strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+}
+
+.explore-channel-strip__label span {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.explore-browse-layout {
+  grid-template-columns: minmax(0, 1fr) 18rem;
+}
+
+.explore-browse-content {
+  grid-column: 1;
+}
+
+.explore-browse-rail {
+  grid-column: 2;
+}
+
+@media (max-width: 900px) {
+  .explore-channel-strip .explore-shell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .explore-channel-strip__label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .explore-browse-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .explore-browse-content,
+  .explore-browse-rail {
+    grid-column: 1;
   }
 }
 </style>

@@ -314,11 +314,12 @@ const v37ManifestEntry = flywayManifest.migrations.find(
   (item) => item.source === 'db/migration/20260805_channel_quality_candidate_disposition.sql',
 )
 expect(v37ManifestEntry, 'V37 Flyway manifest must include the candidate disposition migration.')
+const coreMigrationCount = flywayManifest.migrations.filter((item) => item.stream === 'core').length
 expect(
   v37ManifestEntry.version === '20260805.01'
     && v37ManifestEntry.resource
       === 'community-bootstrap/src/main/resources/db/flyway/core/V20260805.01__channel_quality_candidate_disposition.sql'
-    && flywayManifest.streams.core.expectedMigrations === 87,
+    && flywayManifest.streams.core.expectedMigrations === coreMigrationCount,
   'V37 Flyway manifest must point to the synchronized runtime resource.',
 )
 

@@ -1,17 +1,17 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell post-detail-page">
     <AppHeader />
-    <main class="mx-auto max-w-7xl px-4 py-8">
+    <main class="community-page post-detail-main py-5 sm:py-6 lg:py-7">
       <button type="button" class="detail-back" @click="goBack">
         <ArrowLeft class="h-4 w-4" />
         返回
       </button>
-      <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div class="lg:col-span-2">
+      <div class="post-detail-layout">
+        <div class="post-detail-content">
           <LoadingSkeleton v-if="isLoading" />
 
           <template v-else-if="post">
-            <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+            <section class="post-detail-author-card mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <div class="flex items-center justify-between gap-4">
                 <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex min-w-0 items-center gap-3">
                   <UserAvatar
@@ -56,13 +56,18 @@
                     >
                       联系作者
                     </button>
-                    <span v-else class="contact-author-unavailable">作者暂未开放联系请求</span>
                   </template>
                 </div>
               </div>
+              <p
+                v-if="showContactAuthorEntry && !canStartContactRequest"
+                class="contact-author-unavailable"
+              >
+                作者暂未开放联系请求
+              </p>
             </section>
 
-            <article class="mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+            <article class="post-detail-article mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
               <div class="mb-4 flex flex-wrap items-center gap-3">
                 <span class="content-type-pill">{{ contentTypeLabel }}</span>
                 <span v-if="isKnownDomain(post.domain)" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
@@ -86,12 +91,11 @@
                 <span>{{ governanceUnavailableState.description }}</span>
               </div>
 
-              <div
+              <details
                 v-if="publishStatusItems.length"
-                class="publish-status-bar mb-6"
-                role="status"
-                aria-live="polite"
+                class="publish-status-bar publish-status-details mb-6"
               >
+                <summary>查看内容发布状态</summary>
                 <div class="publish-status-head">
                   <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">发布状态</span>
                   <span class="text-xs text-slate-500 dark:text-slate-400">{{ publishStatusSummary }}</span>
@@ -107,7 +111,7 @@
                     {{ item.label }}
                   </span>
                 </div>
-              </div>
+              </details>
 
               <div v-if="post.extension" class="mb-6 flex flex-wrap gap-3 border-b border-slate-200 pb-6 dark:border-slate-800">
                 <span v-for="stack in visibleTechStacks" :key="stack" class="meta-pill">技术栈：{{ stack }}</span>
@@ -340,22 +344,31 @@
                 </div>
               </section>
 
-              <section v-if="detailKnowledgeLoading || postKnowledgeAssets.length || postKnowledgePaths.length || postKnowledgeRelations.length" class="post-knowledge-assets mb-8" aria-label="相关公共知识资产">
+              <button
+                type="button"
+                class="post-secondary-toggle"
+                :aria-expanded="showBackgroundDetails"
+                @click="showBackgroundDetails = !showBackgroundDetails"
+              >
+                <span><strong>内容背景与演进</strong><small>来源、更新、结果与相关公开内容</small></span>
+                <span>{{ showBackgroundDetails ? '收起' : '展开' }}</span>
+              </button>
+              <section v-if="detailKnowledgeLoading || postKnowledgeAssets.length || postKnowledgePaths.length || postKnowledgeRelations.length" v-show="showBackgroundDetails" class="post-knowledge-assets mb-8" aria-label="相关公开内容">
                 <div class="post-knowledge-head">
                   <div>
-                    <p>相关公共知识资产</p>
-                    <h2>内容详情页的公共关系入口</h2>
-                    <span>只展示公开资产、来源解释和只读诊断；local-only/fallback/demo 不作为正式关系。</span>
+                    <p>相关公开内容</p>
+                    <h2>继续阅读与关联入口</h2>
+                    <span>只展示当前可见的公开内容关系；临时整理结果仅供阅读，不会写入正式关系。</span>
                   </div>
                   <RouterLink :to="{ path: '/knowledge/explore', query: { assetType: 'post', assetId: post.postId } }">知识探索</RouterLink>
                 </div>
                 <p v-if="detailKnowledgeError" class="post-knowledge-note">{{ detailKnowledgeError }}</p>
-                <p v-else-if="detailKnowledgeLoading" class="post-knowledge-note">正在读取相关公共知识资产...</p>
+                <p v-else-if="detailKnowledgeLoading" class="post-knowledge-note">正在读取相关公开内容...</p>
                 <div v-if="postKnowledgeAssets.length" class="post-knowledge-grid">
                   <article v-for="asset in postKnowledgeAssets" :key="`${asset.assetType}:${asset.assetId}`" class="post-knowledge-card">
                     <div class="post-knowledge-card-tags">
                       <span>{{ postKnowledgeAssetTypeLabel(asset.assetType) }}</span>
-                      <span v-if="asset.assetStatus === 'archived'">归档知识资产</span>
+                      <span v-if="asset.assetStatus === 'archived'">已归档内容</span>
                       <span v-if="asset.previewSource !== 'remote'">{{ postKnowledgePreviewLabel(asset.previewSource) }} · 只读展示</span>
                     </div>
                     <strong>{{ asset.title }}</strong>
@@ -378,7 +391,7 @@
                 </div>
               </section>
 
-              <div class="mb-8 grid gap-4">
+              <div v-show="showBackgroundDetails" class="mb-8 grid gap-4">
                 <ReadingThreadPanel v-if="post.domain === DOMAIN.READING" :post-id="String(post.postId)" />
                 <PostReferencePanel :post-id="String(post.postId)" :high-risk="post.domain === 5" />
                 <ContentEvolutionPanel :post-id="String(post.postId)" />
@@ -389,7 +402,7 @@
                 />
               </div>
 
-              <PostQuestionBlock v-if="showStageTwoDetailPanels" :post-id="post.postId" />
+              <PostQuestionBlock v-if="showStageTwoDetailPanels" v-show="showBackgroundDetails" :post-id="post.postId" />
 
               <div v-if="post.tags.length" class="mb-8 flex flex-wrap gap-2 border-b border-slate-200 pb-8 dark:border-slate-800">
                 <RouterLink
@@ -402,18 +415,20 @@
                 </RouterLink>
               </div>
 
-              <InteractionBar
-                :post="post"
-                :like-pending="isTogglingLike"
-                :favorite-pending="isTogglingFavorite"
-                :share-title="post.title"
-                :share-text="detailSeoDescription"
-                :share-canonical="`/post/${postId}`"
-                :share-disabled="!canSharePost"
-                :share-disabled-reason="shareDisabledReason"
-                @like="handleLike"
-                @favorite="handleFavorite"
-              />
+              <div>
+                <InteractionBar
+                  :post="post"
+                  :like-pending="isTogglingLike"
+                  :favorite-pending="isTogglingFavorite"
+                  :share-title="post.title"
+                  :share-text="detailSeoDescription"
+                  :share-canonical="`/post/${postId}`"
+                  :share-disabled="!canSharePost"
+                  :share-disabled-reason="shareDisabledReason"
+                  @like="handleLike"
+                  @favorite="handleFavorite"
+                />
+              </div>
               <div v-if="post.myInteraction?.favorited && !interactionFeedback" class="favorite-organizer-row">
                 <PostSaveOrganizer
                   :post-id="post.postId"
@@ -446,8 +461,25 @@
                   </RouterLink>
                 </div>
               </div>
+              <RouterLink
+                :to="{ path: `/post/${postId}`, hash: '#comments' }"
+                class="discussion-primary-link"
+              >
+                {{ post.counter.comment ? `查看并参与 ${post.counter.comment} 条讨论` : '成为第一个参与讨论的人' }}
+              </RouterLink>
 
+              <button
+                type="button"
+                class="post-secondary-toggle"
+                :aria-expanded="showTrustDetails"
+                aria-controls="trusted-content"
+                @click="showTrustDetails = !showTrustDetails"
+              >
+                <span><strong>内容维护与治理</strong><small>时效、来源、公开更新、纠错与处理入口</small></span>
+                <span>{{ showTrustDetails ? '收起' : '展开' }}</span>
+              </button>
               <section
+                v-show="showTrustDetails"
                 id="trusted-content"
                 class="trusted-content-loop"
                 data-trusted-content-loop
@@ -663,6 +695,7 @@
 
               <section
                 v-if="contentTrustSignals.length || publicSuggestionRecords.length"
+                v-show="showTrustDetails"
                 class="content-trust-panel"
                 data-phase15-content-trust
                 data-explainable-trust-signals
@@ -698,7 +731,7 @@
                 </div>
               </section>
 
-              <section v-if="publicUpdates.length" class="public-update-list" aria-labelledby="public-update-list-title">
+              <section v-if="publicUpdates.length" v-show="showTrustDetails" class="public-update-list" aria-labelledby="public-update-list-title">
                 <div class="public-update-list-head">
                   <div>
                     <p>更新记录</p>
@@ -717,6 +750,7 @@
               </section>
 
               <section
+                v-show="showTrustDetails"
                 id="content-suggestions"
                 class="content-suggestion-panel"
                 data-phase15-content-suggestion
@@ -908,8 +942,10 @@
                 </div>
               </section>
 
-              <div v-if="authStore.isLoggedIn" class="mt-4 flex justify-end gap-3">
-                <template v-if="isOwnPost">
+              <details v-if="authStore.isLoggedIn" class="post-management-disclosure">
+                <summary>管理与举报</summary>
+                <div class="post-management-disclosure__actions">
+                  <template v-if="isOwnPost">
                   <button
                     v-if="canViewVersionHistory"
                     type="button"
@@ -952,11 +988,12 @@
                   >
                     举报帖子
                   </button>
-                </template>
-              </div>
+                  </template>
+                </div>
+              </details>
             </article>
 
-            <section id="comments" class="rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+            <section id="comments" class="post-detail-comments rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
               <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">{{ discussionSectionTitle }}</h2>
                 <div class="inline-flex w-full rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800 sm:w-auto" aria-label="评论排序">
@@ -998,20 +1035,13 @@
                 </div>
               </div>
 
-              <div v-if="isLoadingComments" class="rounded-lg border border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                正在加载评论...
-              </div>
-              <div v-else-if="commentsErrorMessage" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-200">
-                <p class="font-semibold">{{ commentsErrorMessage }}</p>
-                <button type="button" class="mt-4 rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100 dark:hover:bg-amber-900/40" @click="loadComments(true)">
-                  重试
-                </button>
-              </div>
               <CommentTree
                 ref="commentTreeRef"
-                v-else
                 :post-id="postId"
                 :comments="comments"
+                :loading="isLoadingComments"
+                :error-message="commentsErrorMessage"
+                :expected-count="Number(post.counter.comment || 0)"
                 :post-author-uid="canOpenAuthorProfile ? post.author.uid : undefined"
                 :can-like-comments="authStore.isLoggedIn"
                 :can-report-comments="true"
@@ -1043,6 +1073,7 @@
                 @load-more-replies="handleLoadMoreReplies"
                 @delete-comment="handleDeleteComment"
                 @report-comment="openCommentReportDialog"
+                @retry="loadComments(true)"
               />
               <div v-if="hasMoreComments" class="mt-6 text-center">
                 <button
@@ -1078,8 +1109,8 @@
           <EmptyState v-else :title="postUnavailableTitle" :description="postUnavailableDescription" actionText="返回首页" actionHref="/" />
         </div>
 
-        <aside class="hidden lg:block">
-          <div class="sticky top-24 space-y-6">
+        <aside class="post-detail-rail hidden lg:block">
+          <div class="post-detail-rail__inner sticky top-24 space-y-6">
             <section v-if="post" class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
               <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">作者名片</h3>
               <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex flex-col items-center text-center">
@@ -1646,6 +1677,8 @@ const readPostSuggestionEntryOpen = (source?: Post | null) => {
 }
 
 const post = ref<Post | null>(null)
+const showBackgroundDetails = ref(false)
+const showTrustDetails = ref(false)
 const failedDetailImages = ref<string[]>([])
 const publishStatus = computed<PostPublishStatus | null>(() => publishStatusData.value?.data || null)
 const authorUid = computed(() => String(post.value?.author.uid ?? ''))
@@ -1683,12 +1716,12 @@ const authorBioText = computed(() => safeCreatorBio(post.value?.author.signature
 const authorFollowReason = computed(() => buildFollowReasons(post.value?.author, post.value ? [post.value] : [])[0])
 const safeSearchFallbackReason = (reason: string) => {
   const labels: Record<string, string> = {
-    elasticsearch_empty: '索引首屏无可见结果，已补充数据库结果',
-    elasticsearch_visibility_filtered: '索引结果经可见性过滤后不足，已补充数据库结果',
-    elasticsearch_unavailable: 'Elasticsearch 不可用',
-    mysql_fallback_continuation: '继续沿用数据库排序，避免切换排序序列',
-    hot_sort_mysql: '热门排序使用数据库热度',
-    search_api_error: '搜索请求失败',
+    elasticsearch_empty: '已补充更多可见结果',
+    elasticsearch_visibility_filtered: '已补充符合公开条件的结果',
+    elasticsearch_unavailable: '部分搜索结果暂未完整返回',
+    mysql_fallback_continuation: '后续结果沿用当前排序',
+    hot_sort_mysql: '当前按社区热度排序',
+    search_api_error: '部分搜索结果暂未返回',
   }
   return labels[reason] || ''
 }
@@ -1702,16 +1735,16 @@ const searchEntryNotice = computed(() => {
   const degraded = readQuery('degraded') === 'true'
   const fallbackReason = readQuery('fallbackReason')
   const sourceText = source === 'elasticsearch'
-    ? '来自实时搜索索引'
+    ? '来自搜索结果'
     : source === 'mysql'
-      ? '来自数据库兜底搜索'
+      ? '来自搜索结果'
       : source === 'client_fallback'
-        ? '来自客户端兜底入口'
+        ? '来自补充搜索结果'
         : '来自搜索结果'
   const parts = [sourceText]
-  if (degraded) parts.push('本次搜索处于降级链路')
+  if (degraded) parts.push('部分结果可能暂未完整展示')
   const reasonText = safeSearchFallbackReason(fallbackReason)
-  if (reasonText) parts.push(`原因：${reasonText}`)
+  if (reasonText) parts.push(reasonText)
   return parts.join('，')
 })
 const publishStatusItems = computed(() => {
@@ -2169,7 +2202,7 @@ const postKnowledgeAssetTypeLabel = (type: PublicKnowledgeAssetType) => {
   return labels[type] || type
 }
 const postKnowledgePreviewLabel = (source?: KnowledgePreviewSource) => {
-  if (source === 'local') return 'local-only'
+  if (source === 'local') return '本地只读推导'
   if (source === 'fallback') return 'fallback'
   if (source === 'demo') return 'demo'
   return 'remote'
@@ -2208,7 +2241,7 @@ const localPostKnowledgeAssets = computed(() => {
       seriesTitle || '所属系列',
       '由当前帖子扩展字段推导的所属系列入口。',
       seriesId ? `/collections/${encodeURIComponent(seriesId)}` : '',
-      'local-only 推导，仅在详情页只读展示，需后端确认后才可成为正式知识资产。',
+      '本地只读推导，仅在详情页展示，需服务端确认后才可成为正式知识资产。',
     ))
   }
   const topicSlug = String(extension.topicSlug || extension.curatedTopicSlug || '').trim()
@@ -2220,7 +2253,7 @@ const localPostKnowledgeAssets = computed(() => {
       topicTitle || topicSlug || '相关专题',
       '由当前帖子扩展字段推导的相关专题。',
       topicSlug ? `/topics/${encodeURIComponent(topicSlug)}` : '',
-      'local-only 推导，仅作公开关系提示，不进入普通知识路径。',
+      '本地只读推导，仅作公开关系提示，不进入普通知识路径。',
     ))
   }
   for (const tag of current.tags || []) {
@@ -2230,7 +2263,7 @@ const localPostKnowledgeAssets = computed(() => {
       tag.name,
       '由当前公开帖子标签推导的相关标签入口。',
       `/tag/${encodeURIComponent(String(tag.slug || tag.id))}`,
-      'local-only 推导，展示为只读入口。',
+      '本地只读推导，展示为只读入口。',
     ))
   }
   if (primaryKnowledgeTopic.value) {
@@ -2240,7 +2273,7 @@ const localPostKnowledgeAssets = computed(() => {
       primaryKnowledgeTopic.value,
       '由当前帖子公开主题生成的搜索入口候选。',
       `/search?q=${encodeURIComponent(primaryKnowledgeTopic.value)}&sort=relevance`,
-      'local-only 搜索入口，仅辅助本次体验。',
+      '本地只读搜索入口，仅辅助本次浏览。',
     ))
   }
   return assets.slice(0, 8)
@@ -3218,6 +3251,7 @@ const fetchCommentsPage = async (
       sort: commentSort.value,
     },
     signal,
+    timeout: 10000,
   }) as any
   return res.data ? adaptPage(res.data, adaptQualityComment) : null
 }
@@ -3588,6 +3622,12 @@ const loadComments = async (reset = true) => {
     const page = await fetchCommentsPage(reset, context, controller.signal)
     if (!isActiveCommentLoad()) return
     const nextItems = page?.items || []
+    if (reset && typeof page?.total === 'number' && post.value) {
+      post.value.counter.comment = Math.max(0, page.total)
+    }
+    if (reset && Number(page?.total || 0) > 0 && nextItems.length === 0) {
+      throw new Error('评论列表暂时无法完整读取，请重试')
+    }
     comments.value = mergeCommentPage(comments.value, nextItems, reset)
     commentCursor.value = page?.nextCursor
     const paginatedRootCount = comments.value.filter(
@@ -3721,7 +3761,7 @@ const loadDetailKnowledgeAssets = async () => {
   } catch (error: any) {
     if (!isActiveLoadedPostContext(context)) return
     detailKnowledge.value = null
-    detailKnowledgeError.value = getErrorMessage(error, '知识关系服务暂时不可用，以下仅展示 local-only 只读入口。')
+    detailKnowledgeError.value = getErrorMessage(error, '知识关系暂时不可用，以下仅展示本地只读入口。')
   } finally {
     if (isActiveLoadedPostContext(context)) {
       detailKnowledgeLoading.value = false
@@ -4533,6 +4573,46 @@ onBeforeUnmount(() => {
   padding: 1.2rem 0;
 }
 
+.post-management-disclosure {
+  margin-top: 1rem;
+  border-top: 1px solid rgb(226 232 240);
+  padding-top: 0.75rem;
+}
+
+.post-management-disclosure > summary {
+  display: flex;
+  min-height: 2.5rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.post-management-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.post-management-disclosure > summary::after {
+  color: rgb(37 99 235);
+  content: '展开';
+  font-size: 0.75rem;
+}
+
+.post-management-disclosure[open] > summary::after {
+  content: '收起';
+}
+
+.post-management-disclosure__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
 .trusted-content-loop-head,
 .public-update-list-head {
   display: flex;
@@ -4997,11 +5077,13 @@ onBeforeUnmount(() => {
   font-size: 0.75rem;
 }
 
+#trusted-content,
 #content-suggestions,
 [id^='content-suggestion-'] {
   scroll-margin-top: 6rem;
 }
 
+#trusted-content:target,
 [id^='content-suggestion-']:target {
   outline: 3px solid rgb(14 165 233 / 0.35);
   outline-offset: 3px;
@@ -5234,6 +5316,14 @@ onBeforeUnmount(() => {
 .dark .content-trust-panel,
 .dark .content-suggestion-panel {
   border-color: rgb(51 65 85);
+}
+
+.dark .post-management-disclosure {
+  border-color: rgb(51 65 85);
+}
+
+.dark .post-management-disclosure > summary {
+  color: rgb(203 213 225);
 }
 
 .dark .trusted-content-loop-head h2,
@@ -6249,7 +6339,364 @@ onBeforeUnmount(() => {
   color: rgb(147 197 253);
 }
 
+/* The reading surface follows the community shell: one focused column and a compact context rail. */
+.post-detail-page {
+  min-height: 100vh;
+  background: var(--page-bg);
+}
+
+.post-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.post-detail-content {
+  min-width: 0;
+}
+
+.post-detail-author-card {
+  margin-bottom: 0 !important;
+  border-color: var(--border-subtle) !important;
+  border-bottom: 0 !important;
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0 !important;
+  padding: 1.15rem 1.4rem !important;
+  background: var(--surface) !important;
+}
+
+.post-detail-author-card h3 {
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.post-detail-author-card p {
+  color: var(--text-muted);
+}
+
+.post-detail-author-card button {
+  min-height: 2rem;
+  border-radius: 5px !important;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.post-detail-article {
+  margin-bottom: 1.25rem !important;
+  border-color: var(--border-subtle) !important;
+  border-radius: 0 0 var(--radius-surface) var(--radius-surface) !important;
+  padding: 1.45rem 1.9rem 1.8rem !important;
+  background: var(--surface) !important;
+}
+
+.post-detail-article h1 {
+  max-width: 46rem;
+  margin-bottom: 0.9rem !important;
+  color: var(--text-strong) !important;
+  font-size: clamp(1.55rem, 2.8vw, 2rem) !important;
+  font-weight: 800 !important;
+  line-height: 1.36 !important;
+  letter-spacing: 0;
+}
+
+.post-detail-article :deep(.prose) {
+  max-width: 43rem;
+  margin-bottom: 1.8rem !important;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.85;
+}
+
+.post-detail-article :deep(.prose h2) {
+  margin-top: 2rem;
+  color: var(--text-strong);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.post-detail-article :deep(.prose p),
+.post-detail-article :deep(.prose li) {
+  color: var(--text-primary);
+}
+
+.post-detail-article :deep(.prose blockquote) {
+  border-left-color: var(--primary-300);
+  color: var(--text-muted);
+}
+
+.post-detail-article :deep(.prose pre) {
+  border-radius: 6px;
+}
+
+.post-detail-article :deep(.prose a) {
+  color: var(--primary-600);
+}
+
+.post-detail-article .content-type-pill,
+.post-detail-article .meta-pill {
+  border-radius: 5px;
+  font-size: 0.7rem;
+}
+
+.post-detail-article .meta-pill {
+  padding: 0.3rem 0.5rem;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.post-detail-comments {
+  border-color: var(--border-subtle) !important;
+  border-radius: var(--radius-surface) !important;
+  padding: 1.4rem 1.9rem 1.7rem !important;
+  background: var(--surface) !important;
+}
+
+.post-detail-comments h2 {
+  color: var(--text-strong) !important;
+  font-size: 1.1rem !important;
+  font-weight: 800 !important;
+}
+
+.post-detail-comments textarea {
+  border-radius: 6px !important;
+  background: var(--surface-2) !important;
+}
+
+.post-detail-rail__inner {
+  display: grid;
+  gap: 1rem !important;
+}
+
+.post-detail-rail section {
+  border-color: var(--border-subtle) !important;
+  border-radius: var(--radius-surface) !important;
+  padding: 1rem !important;
+  background: var(--surface) !important;
+  box-shadow: none;
+}
+
+.post-detail-rail h3 {
+  margin-bottom: 0.75rem !important;
+  color: var(--text-strong) !important;
+  font-size: 0.875rem !important;
+  font-weight: 800 !important;
+}
+
+.post-detail-rail section:nth-child(2) {
+  counter-reset: related-post;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block) {
+  position: relative;
+  padding: 0.65rem 0 0.65rem 2rem !important;
+  border-bottom: 1px solid var(--surface-3);
+  border-radius: 0 !important;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block:last-child) {
+  border-bottom: 0;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block::before) {
+  position: absolute;
+  top: 0.7rem;
+  left: 0;
+  content: counter(related-post, decimal-leading-zero);
+  counter-increment: related-post;
+  color: var(--primary-600);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block > div:first-child) {
+  color: var(--text-primary) !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  line-height: 1.55;
+}
+
+.post-detail-rail section:nth-child(2) :deep(a.block > div:last-child) {
+  color: var(--text-muted) !important;
+  font-size: 0.6875rem !important;
+}
+
+.dark .post-detail-author-card,
+.dark .post-detail-article,
+.dark .post-detail-comments,
+.dark .post-detail-rail section {
+  border-color: rgb(63 63 70) !important;
+  background: rgb(24 26 32) !important;
+}
+
+.dark .post-detail-article :deep(.prose),
+.dark .post-detail-article :deep(.prose p),
+.dark .post-detail-article :deep(.prose li) {
+  color: rgb(203 213 225);
+}
+
+.dark .post-detail-article :deep(.prose h2) {
+  color: rgb(241 245 249);
+}
+
+.publish-status-details {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.publish-status-details {
+  padding: 0;
+}
+
+.publish-status-details > summary {
+  display: flex;
+  min-height: 3.25rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  color: var(--text-strong);
+}
+
+.publish-status-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.publish-status-details > summary::after {
+  content: '展开';
+  flex: 0 0 auto;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.publish-status-details[open] > summary::after {
+  content: '收起';
+}
+
+.post-secondary-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.8rem 0;
+  color: var(--text-strong);
+  text-align: left;
+}
+
+.post-secondary-toggle > span:first-child {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.post-secondary-toggle strong {
+  font-size: 0.875rem;
+}
+
+.post-secondary-toggle small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.post-secondary-toggle > span:last-child {
+  flex: 0 0 auto;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.post-secondary-toggle:hover {
+  background: var(--surface-2);
+}
+
+.publish-status-details .publish-status-head,
+.post-secondary-toggle + section,
+.post-secondary-toggle + div {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.discussion-primary-link {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--primary-700);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.discussion-primary-link:hover {
+  background: var(--surface-2);
+}
+
+.post-detail-author-card .contact-author-unavailable {
+  display: block;
+  min-height: 0;
+  width: auto;
+  margin: 0.55rem 0 0 3.75rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+@media (max-width: 1023px) {
+  .post-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .post-detail-main {
+    padding-bottom: 5.75rem;
+  }
+}
+
 @media (max-width: 640px) {
+  .post-detail-main {
+    padding-top: 1rem;
+  }
+
+  .detail-back {
+    margin-bottom: 0.7rem;
+  }
+
+  .post-detail-author-card {
+    padding: 1rem !important;
+  }
+
+  .post-detail-article,
+  .post-detail-comments {
+    padding: 1.15rem 1rem 1.35rem !important;
+  }
+
+  .post-detail-article h1 {
+    font-size: 1.45rem !important;
+  }
+
+  .post-detail-article :deep(.prose) {
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
+
   .ai-knowledge-head {
     flex-direction: column;
   }
@@ -6303,9 +6750,13 @@ onBeforeUnmount(() => {
 
   .discussion-follow-button,
   .discussion-follow-link,
-  .contact-author-button,
-  .contact-author-unavailable {
+  .contact-author-button {
     width: 100%;
+  }
+
+  .post-detail-author-card .contact-author-unavailable {
+    width: auto;
+    margin-left: 0;
   }
 
   .ai-knowledge-grid,

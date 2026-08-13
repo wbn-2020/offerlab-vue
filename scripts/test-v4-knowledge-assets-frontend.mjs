@@ -28,11 +28,11 @@ for (const token of [
 }
 
 for (const [label, patterns] of [
-  ['公共知识资产', ['公共知识资产', 'PublicKnowledgeAsset']],
+  ['公开内容入口', ['公开内容入口', 'PublicKnowledgeAsset']],
   ['关系来源解释', ['关系来源解释', 'sourceNote', 'relation source notes']],
   ['知识路径', ['知识路径', 'Knowledge Paths']],
-  ['公共缺口', ['公共缺口', 'Knowledge Gaps']],
-  ['请求时公开投影', ['请求时公开投影', 'request-time projection']],
+  ['待补内容方向', ['待补内容方向', 'Knowledge Gaps']],
+  ['本次阅读整理', ['本次阅读整理', 'request-time projection']],
   ['只读展示', ['只读', 'read-only']],
 ]) {
   assert(patterns.some((token) => exploreView.includes(token)), `KnowledgeExploreView missing ${label}`)
@@ -40,7 +40,7 @@ for (const [label, patterns] of [
 assert(!exploreView.includes('归档快照 Archived Snapshots'), 'KnowledgeExploreView must not label request-time projections as archived snapshots')
 
 for (const [label, patterns] of [
-  ['相关公共知识资产', ['相关公共知识资产', 'postKnowledgeAssets']],
+  ['相关公开内容', ['相关公开内容', 'postKnowledgeAssets']],
   ['所属系列', ['所属系列', 'series']],
   ['相关专题', ['相关专题', 'topic']],
   ['来源解释', ['来源解释', 'sourceNote']],
@@ -60,10 +60,10 @@ assert(!topicDetail.includes('归档知识资产'), 'TopicDetailView must not re
 assert(!topicDetail.includes('归档快照'), 'TopicDetailView must not describe the archived topic version as a request-time knowledge snapshot')
 
 for (const [label, patterns] of [
-  ['请求时关系建议', ['请求时关系建议', 'SUGGESTED']],
+  ['本次关联建议', ['本次关联建议', 'SUGGESTED']],
   ['已确认关系', ['已确认关系', 'CONFIRMED']],
-  ['关系投影降级', ['关系投影降级', 'DEGRADED']],
-  ['local-only', ['local-only']],
+  ['关联依据不足', ['关联依据不足', 'DEGRADED']],
+  ['本机暂存', ['本机暂存']],
   ['只读展示', ['只读展示', 'read-only']],
 ]) {
   assert(patterns.some((token) => seriesWorkbench.includes(token)), `SeriesWorkbenchView missing ${label}`)

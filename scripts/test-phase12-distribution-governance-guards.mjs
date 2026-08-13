@@ -63,12 +63,20 @@ has(recommendationsApi, /filterDistributionPosts\(raw\?\.item\?\.post/, 'Cross-d
 has(searchView, /filterSearchSuggestionTerms/, 'Search suggestions must use the shared suggestion safety filter.')
 has(searchView, /filterVisibleSearchTerms[\s\S]*filterSearchSuggestionTerms/, 'Search suggestions must filter unsafe suggestions before rendering.')
 
+has(homeView, /<PostCard\b/, 'HomeView must render feed entries through the governed PostCard component.')
+
+for (const [name, source] of [
+  ['ExploreView.vue', exploreView],
+  ['PostCard.vue', postCard],
+]) {
+  has(source, /normalizeRecommendationReason|neutralizeHighRiskRecommendationReason/, `${name} must normalize recommendation reason copy before display.`)
+}
+
 for (const [name, source] of [
   ['HomeView.vue', homeView],
   ['ExploreView.vue', exploreView],
   ['PostCard.vue', postCard],
 ]) {
-  has(source, /normalizeRecommendationReason|neutralizeHighRiskRecommendationReason/, `${name} must normalize recommendation reason copy before display.`)
   missing(source, /AI 精准推荐|隐私画像|付费优先|广告投放|专家建议|权威推荐|专业背书/i, `${name} must not render prohibited recommendation or endorsement copy.`)
 }
 

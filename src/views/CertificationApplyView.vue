@@ -2,243 +2,330 @@
   <div class="app-shell">
     <AppHeader />
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <section class="surface-card p-6">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="max-w-3xl">
-            <span class="stage4-kicker">认证作者体系</span>
-            <h1 class="mt-3 text-3xl font-black tracking-normal text-slate-950 dark:text-white">
-              认证作者申请
-            </h1>
-            <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              身份说明用于标识持续贡献和领域经验，提交后进入人工审核；不代表平台对每条内容背书。
-            </p>
+    <main class="community-page certification-page">
+      <header class="certification-intro">
+        <nav class="certification-breadcrumb" aria-label="认证作者申请路径">
+          <RouterLink to="/me">
+            <ArrowLeft class="h-4 w-4" aria-hidden="true" />
+            返回我的主页
+          </RouterLink>
+          <span>认证作者申请</span>
+        </nav>
+
+        <div class="certification-intro__layout">
+          <div class="certification-intro__copy">
+            <p class="page-kicker">作者身份与领域贡献</p>
+            <h1>认证作者申请</h1>
+            <p>身份说明用于标识持续贡献和领域经验，提交后进入人工审核；不代表平台对每条内容背书。</p>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <RouterLink to="/me" class="secondary-action">
-              我的作者主页
-            </RouterLink>
-            <RouterLink to="/knowledge/explore" class="secondary-action">
-              知识关系
-            </RouterLink>
-          </div>
+          <RouterLink to="/knowledge/explore" class="secondary-action">
+            <Network class="h-4 w-4" aria-hidden="true" />
+            浏览知识关系
+          </RouterLink>
         </div>
-      </section>
+      </header>
 
-      <section class="mt-6">
-        <EmptyState
-          v-if="!authStore.isLoggedIn"
-          title="登录后提交认证作者申请"
-          description="身份申请会读取你的公开内容，并保留可审核的资格解释与证据摘要。"
-          action-text="去登录"
-          :action-href="loginHref"
-        />
+      <EmptyState
+        v-if="!authStore.isLoggedIn"
+        title="登录后提交认证作者申请"
+        description="身份申请会读取你的公开内容，并保留可审核的资格解释与证据摘要。"
+        action-text="去登录"
+        :action-href="loginHref"
+      />
 
-        <div v-else class="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <article class="surface-card p-6">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <h2 class="text-lg font-black text-slate-950 dark:text-white">资格检查</h2>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  身份申请标准默认看同领域至少 3 篇公开内容，并且 90 天内至少有 1 篇更新。
-                </p>
-              </div>
-              <button type="button" class="secondary-action" :disabled="loadingEligibility" @click="loadEligibility">
-                {{ loadingEligibility ? '加载中...' : '刷新资格' }}
-              </button>
+      <template v-else>
+        <ol class="surface-panel workflow-steps" aria-label="认证作者申请流程">
+          <li :class="{ 'workflow-step--complete': eligibility?.eligible }">
+            <span class="workflow-step__index">
+              <Check v-if="eligibility?.eligible" class="h-4 w-4" aria-hidden="true" />
+              <span v-else>1</span>
+            </span>
+            <div>
+              <strong>资格检查</strong>
+              <small>{{ eligibility?.eligible ? '已达到当前领域申请条件' : '核对公开贡献和近期更新' }}</small>
             </div>
+          </li>
+          <li :class="{ 'workflow-step--active': eligibility?.eligible }">
+            <span class="workflow-step__index">2</span>
+            <div>
+              <strong>填写证据</strong>
+              <small>说明公开内容、经历和参考链接</small>
+            </div>
+          </li>
+          <li>
+            <span class="workflow-step__index">3</span>
+            <div>
+              <strong>人工审核</strong>
+              <small>提交后可在申请记录中查看状态</small>
+            </div>
+          </li>
+        </ol>
 
-            <label class="mt-5 block">
-              <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">申请领域</span>
-              <select v-model.number="selectedDomain" class="filter-input">
-                <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
-                  {{ domain.icon }} {{ domain.domainName }}
-                </option>
-              </select>
-            </label>
+        <div class="certification-workspace">
+          <section class="surface-panel certification-panel">
+            <header class="panel-heading">
+              <div>
+                <span class="section-icon"><ShieldCheck class="h-4 w-4" aria-hidden="true" /></span>
+                <div>
+                  <h2>资格检查</h2>
+                  <p>同领域至少 3 篇公开内容，并且 90 天内至少有 1 篇更新。</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="icon-action"
+                :disabled="loadingEligibility"
+                title="刷新资格"
+                aria-label="刷新资格"
+                @click="loadEligibility"
+              >
+                <RefreshCw :class="['h-4 w-4', { 'animate-spin': loadingEligibility }]" aria-hidden="true" />
+              </button>
+            </header>
 
-            <LoadingSkeleton v-if="loadingEligibility" class="mt-5" />
+            <div class="panel-body">
+              <label class="field-group">
+                <span>申请领域</span>
+                <select v-model.number="selectedDomain" class="filter-input">
+                  <option v-for="domain in localDomainConfigs" :key="domain.domain" :value="domain.domain">
+                    {{ domain.icon }} {{ domain.domainName }}
+                  </option>
+                </select>
+              </label>
 
-            <div v-else-if="eligibility" class="mt-5 space-y-4">
-              <div class="eligibility-card">
-                <div class="flex items-start justify-between gap-3">
+              <LoadingSkeleton v-if="loadingEligibility" />
+
+              <div v-else-if="eligibility" class="eligibility-result">
+                <div class="eligibility-result__summary">
                   <div>
-                    <strong class="text-base text-slate-950 dark:text-white">{{ eligibility.domainName }}</strong>
-                    <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                      {{ safeCertificationExplanation(eligibility) }}
-                    </p>
+                    <span>当前领域</span>
+                    <strong>{{ eligibility.domainName }}</strong>
+                    <p>{{ safeCertificationExplanation(eligibility) }}</p>
                   </div>
                   <span :class="['eligibility-badge', eligibility.eligible ? 'eligibility-badge-pass' : 'eligibility-badge-hold']">
+                    <CheckCircle2 v-if="eligibility.eligible" class="h-3.5 w-3.5" aria-hidden="true" />
+                    <Clock3 v-else class="h-3.5 w-3.5" aria-hidden="true" />
                     {{ eligibility.eligible ? '可申请' : '继续积累' }}
                   </span>
                 </div>
 
-                <div class="mt-4 space-y-2">
+                <div class="check-list">
                   <div v-for="check in eligibility.checks" :key="check.code" class="check-row">
-                    <div class="min-w-0 flex-1">
-                      <strong class="text-sm text-slate-900 dark:text-slate-100">{{ safeCertificationCheck(check).label }}</strong>
-                      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ safeCertificationCheck(check).detail }}</p>
+                    <span :class="['check-icon', check.passed ? 'check-icon--pass' : 'check-icon--hold']">
+                      <Check v-if="check.passed" class="h-3.5 w-3.5" aria-hidden="true" />
+                      <Minus v-else class="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <strong>{{ safeCertificationCheck(check).label }}</strong>
+                      <p>{{ safeCertificationCheck(check).detail }}</p>
                     </div>
                     <span :class="['check-pill', check.passed ? 'check-pill-pass' : 'check-pill-hold']">
                       {{ check.passed ? '通过' : '未达标' }}
                     </span>
                   </div>
                 </div>
+
+                <div v-if="eligibilityGaps.length" class="eligibility-gap-banner" role="status">
+                  <AlertCircle class="h-4 w-4" aria-hidden="true" />
+                  <div>
+                    <strong>当前还差</strong>
+                    <ul>
+                      <li v-for="gap in eligibilityGaps" :key="gap">{{ gap }}</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div v-if="safeCertificationRiskWarning(eligibility.riskWarning)" class="risk-banner">
+                  <AlertTriangle class="h-4 w-4" aria-hidden="true" />
+                  <div>
+                    <strong>风险提示</strong>
+                    <p>{{ safeCertificationRiskWarning(eligibility.riskWarning) }}</p>
+                  </div>
+                </div>
               </div>
 
-              <div v-if="safeCertificationRiskWarning(eligibility.riskWarning)" class="risk-banner">
-                <strong>风险提示</strong>
-                <p>{{ safeCertificationRiskWarning(eligibility.riskWarning) }}</p>
+              <div v-else-if="eligibilityError" class="feedback-banner feedback-banner--error" role="alert">
+                <AlertCircle class="h-4 w-4" aria-hidden="true" />
+                <span>{{ eligibilityError }}</span>
               </div>
             </div>
+          </section>
 
-            <div v-else-if="eligibilityError" class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {{ eligibilityError }}
-            </div>
-          </article>
-
-          <article class="surface-card p-6">
-            <div class="flex items-start justify-between gap-3">
+          <section class="surface-panel certification-panel">
+            <header class="panel-heading">
               <div>
-                <h2 class="text-lg font-black text-slate-950 dark:text-white">提交申请</h2>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  保存证据摘要、证据链接和资格快照，后续由人工审核，不会自动生效。
-                </p>
+                <span class="section-icon"><FileText class="h-4 w-4" aria-hidden="true" /></span>
+                <div>
+                  <h2>申请材料</h2>
+                  <p>保存证据摘要、链接和资格快照，提交后不会自动生效。</p>
+                </div>
               </div>
-            </div>
+              <span class="form-readiness" :class="{ 'form-readiness--ready': canSubmit }">
+                {{ canSubmit ? '可以提交' : '待补充' }}
+              </span>
+            </header>
 
-            <form class="mt-5 space-y-4" @submit.prevent="submitApplication">
-              <label class="block">
-                <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">证据摘要</span>
+            <form class="panel-body application-form" @submit.prevent="submitApplication">
+              <label class="field-group">
+                <span class="field-label">
+                  <span>证据摘要</span>
+                  <small>{{ form.evidenceSummary.length }}/500</small>
+                </span>
                 <textarea
                   v-model.trim="form.evidenceSummary"
-                  rows="5"
+                  rows="6"
                   maxlength="500"
-                  class="filter-input min-h-36"
+                  class="filter-input evidence-summary-input"
                   placeholder="说明你在该领域的公开内容、实践经历和希望审核者重点查看的证据。"
                 />
+                <small class="field-hint">建议说明贡献范围、实践背景、内容更新频率和可核验结果。</small>
               </label>
 
-              <label class="block">
-                <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">证据链接</span>
+              <label class="field-group">
+                <span class="field-label">
+                  <span>证据链接</span>
+                  <small>{{ evidenceLinks.length }}/8</small>
+                </span>
                 <textarea
                   v-model.trim="form.evidenceLinksText"
                   rows="4"
-                  class="filter-input min-h-28"
+                  class="filter-input evidence-links-input"
                   placeholder="每行一个链接，最多 8 条。可以填社区帖子链接或外部作品链接。"
                 />
-                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  当前将提交 {{ evidenceLinks.length }} 条链接。
-                </p>
+                <small v-if="hasInvalidEvidenceLinks" class="field-feedback field-feedback--error">
+                  <AlertCircle class="h-3.5 w-3.5" aria-hidden="true" />
+                  链接必须以 http:// 或 https:// 开头。
+                </small>
+                <small v-else class="field-hint">当前将提交 {{ evidenceLinks.length }} 条安全链接。</small>
               </label>
 
-              <label
-                v-if="eligibility?.riskAcknowledgementRequired"
-                class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-              >
-                <input v-model="form.riskAcknowledged" type="checkbox" class="mt-1 h-4 w-4 rounded border-amber-300" />
+              <label v-if="eligibility?.riskAcknowledgementRequired" class="acknowledgement-row">
+                <input v-model="form.riskAcknowledged" type="checkbox">
                 <span>
-                  我已知晓该领域内容仅作为社区交流，不构成投资、理财或其他专业建议。
+                  <strong>确认风险边界</strong>
+                  <small>我已知晓该领域内容仅作为社区交流，不构成投资、理财或其他专业建议。</small>
                 </span>
               </label>
 
-              <div v-if="submitError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {{ submitError }}
+              <div v-if="submitError" class="feedback-banner feedback-banner--error" role="alert">
+                <AlertCircle class="h-4 w-4" aria-hidden="true" />
+                <span>{{ submitError }}</span>
               </div>
 
-              <div class="flex flex-wrap gap-3">
+              <div v-if="submissionBlockedReason" id="certification-submit-reason" class="form-blocker" role="status">
+                <AlertCircle class="h-4 w-4" aria-hidden="true" />
+                <span>{{ submissionBlockedReason }}</span>
+              </div>
+
+              <div class="form-actions">
                 <button
                   type="submit"
                   class="primary-action"
                   :disabled="!canSubmit || submitting"
+                  :title="submissionBlockedReason || '提交认证申请'"
+                  :aria-describedby="submissionBlockedReason ? 'certification-submit-reason' : undefined"
                 >
+                  <Send class="h-4 w-4" aria-hidden="true" />
                   {{ submitting ? '提交中...' : '提交申请' }}
                 </button>
                 <button type="button" class="secondary-action" @click="resetForm">
-                  重置表单
+                  <RotateCcw class="h-4 w-4" aria-hidden="true" />
+                  重置
                 </button>
               </div>
             </form>
-          </article>
+          </section>
         </div>
-      </section>
 
-      <section v-if="authStore.isLoggedIn" class="surface-card mt-6 p-6">
-        <div class="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-black text-slate-950 dark:text-white">我的申请记录</h2>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              记录当前用户在该领域的申请、审核和撤销状态。
-            </p>
+        <section class="surface-panel application-history">
+          <header class="panel-heading">
+            <div>
+              <span class="section-icon"><History class="h-4 w-4" aria-hidden="true" /></span>
+              <div>
+                <h2>我的申请记录</h2>
+                <p>查看当前领域的申请、审核与撤销状态。</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="icon-action"
+              :disabled="loadingApplications"
+              title="刷新申请记录"
+              aria-label="刷新申请记录"
+              @click="loadApplications"
+            >
+              <RefreshCw :class="['h-4 w-4', { 'animate-spin': loadingApplications }]" aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="history-body">
+            <LoadingSkeleton v-if="loadingApplications" />
+
+            <div v-else-if="applicationsError" class="feedback-banner feedback-banner--error" role="alert">
+              <AlertCircle class="h-4 w-4" aria-hidden="true" />
+              <span>{{ applicationsError }}</span>
+            </div>
+
+            <EmptyState
+              v-else-if="!applications.length"
+              title="还没有申请记录"
+              description="先通过资格检查，再提交第一条认证申请。"
+            />
+
+            <div v-else class="application-list">
+              <article v-for="item in applications" :key="item.id" class="application-row">
+                <div class="application-row__main">
+                  <div class="application-row__heading">
+                    <div>
+                      <strong>{{ item.domainName }}</strong>
+                      <span :class="['status-pill', certificationStatusTone(item.status)]">
+                        {{ certificationStatusText(item.status) }}
+                      </span>
+                    </div>
+                    <button
+                      v-if="canRevoke(item)"
+                      type="button"
+                      class="revoke-action"
+                      :disabled="revokingId === String(item.id)"
+                      @click="revokeApplication(item.id)"
+                    >
+                      <Undo2 class="h-4 w-4" aria-hidden="true" />
+                      {{ revokingId === String(item.id) ? '撤销中...' : '撤销申请' }}
+                    </button>
+                  </div>
+
+                  <p class="application-summary">{{ item.evidenceSummary }}</p>
+
+                  <div class="application-meta">
+                    <span><Clock3 class="h-3.5 w-3.5" aria-hidden="true" />提交 {{ formatTime(item.createTime) }}</span>
+                    <span><ShieldCheck class="h-3.5 w-3.5" aria-hidden="true" />{{ item.eligibilityPassed ? '资格通过' : '资格待补充' }}</span>
+                    <span><UserCheck class="h-3.5 w-3.5" aria-hidden="true" />人工审核</span>
+                  </div>
+
+                  <div class="application-explanation">
+                    <strong>资格解释</strong>
+                    <p>{{ safeCertificationSummary(item) }}</p>
+                  </div>
+
+                  <div v-if="item.evidenceLinks.length" class="evidence-link-list">
+                    <a
+                      v-for="link in safeEvidenceLinks(item.evidenceLinks)"
+                      :key="link"
+                      :href="link"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Link2 class="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{{ link }}</span>
+                      <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                    </a>
+                  </div>
+                </div>
+              </article>
+            </div>
           </div>
-          <button type="button" class="secondary-action" :disabled="loadingApplications" @click="loadApplications">
-            {{ loadingApplications ? '加载中...' : '刷新记录' }}
-          </button>
-        </div>
-
-        <LoadingSkeleton v-if="loadingApplications" />
-
-        <div v-else-if="applicationsError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {{ applicationsError }}
-        </div>
-
-        <EmptyState
-          v-else-if="!applications.length"
-          title="还没有申请记录"
-          description="先通过资格检查，再提交第一条认证申请。"
-        />
-
-        <div v-else class="space-y-3">
-          <article v-for="item in applications" :key="item.id" class="application-card">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <strong class="text-base text-slate-950 dark:text-white">{{ item.domainName }}</strong>
-                  <span :class="['status-pill', certificationStatusTone(item.status)]">{{ certificationStatusText(item.status) }}</span>
-                </div>
-                <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  {{ item.evidenceSummary }}
-                </p>
-                <div class="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <span class="meta-pill">提交 {{ formatTime(item.createTime) }}</span>
-                  <span class="meta-pill">{{ item.eligibilityPassed ? '资格通过' : '资格待补充' }}</span>
-                  <span class="meta-pill">人工审核</span>
-                </div>
-              </div>
-
-              <button
-                v-if="canRevoke(item)"
-                type="button"
-                class="secondary-action shrink-0"
-                :disabled="revokingId === String(item.id)"
-                @click="revokeApplication(item.id)"
-              >
-                {{ revokingId === String(item.id) ? '撤销中...' : '撤销申请' }}
-              </button>
-            </div>
-
-            <div class="mt-4 grid gap-3 md:grid-cols-1">
-              <div class="detail-card">
-                <strong>资格解释</strong>
-                <p>{{ safeCertificationSummary(item) }}</p>
-              </div>
-            </div>
-
-            <div v-if="item.evidenceLinks.length" class="mt-4 flex flex-wrap gap-2">
-              <a
-                v-for="link in safeEvidenceLinks(item.evidenceLinks)"
-                :key="link"
-                :href="link"
-                target="_blank"
-                rel="noreferrer"
-                class="link-chip"
-              >
-                {{ link }}
-              </a>
-            </div>
-          </article>
-        </div>
-      </section>
+        </section>
+      </template>
     </main>
   </div>
 </template>
@@ -247,6 +334,26 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  FileText,
+  History,
+  Link2,
+  Minus,
+  Network,
+  RefreshCw,
+  RotateCcw,
+  Send,
+  ShieldCheck,
+  Undo2,
+  UserCheck,
+} from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -309,6 +416,38 @@ const canSubmit = computed(() => {
   if (hasInvalidEvidenceLinks.value) return false
   if (eligibility.value.riskAcknowledgementRequired && !form.riskAcknowledged) return false
   return true
+})
+
+const certificationCheckGap = (check: ExpertCertificationEligibility['checks'][number]) => {
+  const copy = safeCertificationCheck(check)
+  if (check.code === 'published_posts') {
+    const current = Math.max(0, Number(check.current) || 0)
+    const required = Math.max(1, Number(check.required) || 3)
+    const remaining = Math.max(0, required - current)
+    return remaining ? `同领域公开内容还差 ${remaining} 篇（当前 ${current}/${required}）。` : ''
+  }
+  if (check.code === 'recent_activity') return '还需要在 90 天内完成至少一次公开更新。'
+  return `${copy.label}尚未满足。`
+}
+
+const eligibilityGaps = computed(() => (eligibility.value?.checks || [])
+  .filter((check) => !check.passed)
+  .map(certificationCheckGap)
+  .filter(Boolean))
+
+const submissionBlockedReason = computed(() => {
+  if (loadingEligibility.value) return '正在核对当前领域的申请资格。'
+  if (eligibilityError.value) return '资格检查暂不可用，暂不能提交申请。'
+  if (!eligibility.value) return '请先完成资格检查后再提交申请。'
+  if (!eligibility.value.eligible) {
+    return eligibilityGaps.value.length
+      ? `尚未达到申请条件：${eligibilityGaps.value.join(' ')}`
+      : '尚未达到当前领域的申请条件，暂不能提交申请。'
+  }
+  if (!form.evidenceSummary.trim()) return '请先填写证据摘要。'
+  if (hasInvalidEvidenceLinks.value) return '请修正不符合要求的证据链接。'
+  if (eligibility.value.riskAcknowledgementRequired && !form.riskAcknowledged) return '请先确认风险边界。'
+  return ''
 })
 
 const isSafeEvidenceLink = (value: string) => {
@@ -404,7 +543,7 @@ const submitApplication = async () => {
     toast.success('认证申请已提交，等待人工审核')
     resetForm()
     await refreshStageFourCertification()
-  } catch (err) {
+  } catch (_err) {
     submitError.value = safeCertificationSubmitError()
   } finally {
     submitting.value = false
@@ -619,5 +758,788 @@ onMounted(async () => {
 .dark .link-chip {
   background: rgb(30 41 59);
   color: rgb(191 219 254);
+}
+
+.certification-page {
+  padding-top: 1.5rem;
+  padding-bottom: 5rem;
+}
+
+.certification-intro {
+  padding: 0.25rem 0 1.5rem;
+}
+
+.certification-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.15rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.certification-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-primary);
+}
+
+.certification-breadcrumb a:hover {
+  color: var(--primary-600);
+}
+
+.certification-breadcrumb span::before {
+  content: "/";
+  margin-right: 0.65rem;
+  color: #cbd5e1;
+}
+
+.certification-intro__layout {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.certification-intro__copy {
+  max-width: 44rem;
+}
+
+.page-kicker {
+  margin: 0 0 0.5rem;
+  color: var(--primary-600);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.certification-intro h1 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.certification-intro__copy > p:last-child {
+  max-width: 70ch;
+  margin: 0.7rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.75;
+  text-wrap: pretty;
+}
+
+.workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.workflow-steps li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+}
+
+.workflow-steps li + li {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.workflow-step__index {
+  display: inline-grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.workflow-steps strong,
+.workflow-steps small {
+  display: block;
+}
+
+.workflow-steps strong {
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.workflow-steps small {
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.workflow-step--complete .workflow-step__index {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.workflow-step--active {
+  background: var(--primary-50);
+}
+
+.workflow-step--active .workflow-step__index {
+  background: var(--primary-600);
+  color: #fff;
+}
+
+.certification-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.certification-panel,
+.application-history {
+  overflow: hidden;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.panel-heading > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.section-icon {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.panel-heading h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.panel-heading p {
+  max-width: 58ch;
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.icon-action {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  transition: 160ms ease;
+}
+
+.icon-action:hover:not(:disabled) {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.icon-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.panel-body {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem 1.2rem;
+}
+
+.field-group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.field-group > span,
+.field-label {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.field-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.field-label small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.filter-input {
+  width: 100%;
+  min-height: 2.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0.65rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  outline: none;
+  resize: vertical;
+  transition: 160ms ease;
+}
+
+.filter-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.evidence-summary-input {
+  min-height: 9.25rem;
+}
+
+.evidence-links-input {
+  min-height: 7rem;
+}
+
+.field-hint,
+.field-feedback {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.field-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.field-feedback--error {
+  color: #b42318;
+}
+
+.eligibility-result {
+  display: grid;
+  gap: 1rem;
+  padding-top: 0.2rem;
+}
+
+.eligibility-gap-banner,
+.form-blocker {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-control);
+  background: #fff7ed;
+  padding: 0.8rem;
+  color: #9a3412;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.eligibility-gap-banner svg,
+.form-blocker svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.eligibility-gap-banner strong {
+  display: block;
+  font-weight: 800;
+}
+
+.eligibility-gap-banner ul {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.form-blocker {
+  margin-top: 0.25rem;
+}
+
+.eligibility-result__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.eligibility-result__summary > div > span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.eligibility-result__summary strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.eligibility-result__summary p {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.eligibility-badge {
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.check-list {
+  display: grid;
+}
+
+.check-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.8rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.check-row + .check-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.check-icon {
+  display: inline-grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.check-icon--pass {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.check-icon--hold {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.check-row strong,
+.check-row p {
+  display: block;
+}
+
+.check-row strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.check-row p {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.risk-banner {
+  display: flex;
+  gap: 0.65rem;
+  border-radius: var(--radius-surface);
+}
+
+.risk-banner > svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #c2410c;
+}
+
+.form-readiness {
+  flex-shrink: 0;
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.form-readiness--ready {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.acknowledgement-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-surface);
+  background: #fff7ed;
+}
+
+.acknowledgement-row input {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  accent-color: var(--primary-600);
+}
+
+.acknowledgement-row strong,
+.acknowledgement-row small {
+  display: block;
+}
+
+.acknowledgement-row strong {
+  color: #9a3412;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.acknowledgement-row small {
+  margin-top: 0.2rem;
+  color: #9a3412;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.feedback-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.feedback-banner svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.feedback-banner--error {
+  border-color: #fecaca;
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding-top: 0.2rem;
+}
+
+.application-history {
+  margin-top: 1rem;
+}
+
+.history-body {
+  padding: 0 1.2rem;
+}
+
+.history-body > :first-child {
+  margin-top: 1.1rem;
+}
+
+.history-body > :last-child {
+  margin-bottom: 1.2rem;
+}
+
+.application-list {
+  display: grid;
+}
+
+.application-row {
+  padding: 1.1rem 0;
+}
+
+.application-row + .application-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.application-row__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.application-row__heading > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.application-row__heading strong {
+  color: var(--text-strong);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.status-pill {
+  padding: 0.28rem 0.55rem;
+  font-size: 0.66rem;
+}
+
+.revoke-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  padding: 0.35rem 0.45rem;
+  border-radius: var(--radius-control);
+  color: #b42318;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.revoke-action:hover:not(:disabled) {
+  background: #fef3f2;
+}
+
+.revoke-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.application-summary {
+  max-width: 75ch;
+  margin: 0.55rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.application-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.application-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.application-explanation {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.application-explanation strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+.application-explanation p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
+.evidence-link-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.evidence-link-list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(100%, 28rem);
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-control);
+  background: var(--primary-50);
+  color: var(--primary-700);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.evidence-link-list a span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evidence-link-list a svg {
+  flex-shrink: 0;
+}
+
+:global(.dark .section-icon),
+:global(.dark .workflow-step__index) {
+  background: var(--surface-3);
+}
+
+:global(.dark .workflow-step--active) {
+  background: rgba(30, 64, 175, 0.2);
+}
+
+:global(.dark .workflow-step--active .workflow-step__index) {
+  background: var(--primary-600);
+}
+
+:global(.dark .workflow-step--complete .workflow-step__index),
+:global(.dark .check-icon--pass),
+:global(.dark .eligibility-badge-pass),
+:global(.dark .check-pill-pass),
+:global(.dark .form-readiness--ready) {
+  background: rgba(6, 78, 59, 0.45);
+  color: #6ee7b7;
+}
+
+:global(.dark .check-icon--hold),
+:global(.dark .eligibility-badge-hold),
+:global(.dark .check-pill-hold) {
+  background: rgba(133, 77, 14, 0.35);
+  color: #fde68a;
+}
+
+:global(.dark .risk-banner),
+:global(.dark .acknowledgement-row) {
+  border-color: #9a3412;
+  background: rgba(124, 45, 18, 0.28);
+}
+
+:global(.dark .eligibility-gap-banner),
+:global(.dark .form-blocker) {
+  border-color: #9a3412;
+  background: rgba(124, 45, 18, 0.28);
+  color: #fdba74;
+}
+
+:global(.dark .feedback-banner--error) {
+  border-color: #7f1d1d;
+  background: rgba(127, 29, 29, 0.24);
+  color: #fca5a5;
+}
+
+:global(.dark .evidence-link-list a) {
+  background: rgba(30, 64, 175, 0.24);
+  color: #bfdbfe;
+}
+
+@media (max-width: 900px) {
+  .certification-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .certification-page {
+    padding-top: 1rem;
+  }
+
+  .certification-intro__layout {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .certification-intro__layout > a {
+    align-self: flex-start;
+  }
+
+  .workflow-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-steps li + li {
+    border-top: 1px solid var(--border-subtle);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .certification-intro h1 {
+    font-size: 1.45rem;
+  }
+
+  .panel-heading,
+  .eligibility-result__summary,
+  .application-row__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .panel-heading .icon-action,
+  .application-row__heading .revoke-action {
+    align-self: flex-end;
+  }
+
+  .form-readiness {
+    margin-left: 2.7rem;
+  }
+
+  .check-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .check-pill {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .form-actions > button {
+    flex: 1 1 8rem;
+  }
 }
 </style>

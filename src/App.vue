@@ -40,9 +40,11 @@ const route = useRoute()
 const routeLoadError = ref<unknown>(null)
 const routeLoadMessage = computed(() => {
   if (routeLoadError.value instanceof Error && routeLoadError.value.message) {
-    return routeLoadError.value.message
+    if (!/__vccOpts|Cannot read properties of undefined|Cannot read properties of null|component instance|hydration/i.test(routeLoadError.value.message)) {
+      return '页面资源暂时无法加载，请重试或返回首页。'
+    }
   }
-  return '请检查本地 dev server 或刷新页面后重试。'
+  return '页面资源暂时无法加载，请重试或返回首页。'
 })
 
 const clearRouteLoadError = () => {

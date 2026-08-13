@@ -5,7 +5,11 @@
     :role="accessibleLabel ? 'img' : undefined"
     :aria-label="accessibleLabel || undefined"
   >
-    <span class="user-avatar__fallback" aria-hidden="true">{{ fallbackText }}</span>
+    <span
+      class="user-avatar__fallback"
+      :style="fallbackStyle"
+      aria-hidden="true"
+    >{{ fallbackText }}</span>
     <img
       v-if="shouldLoadImage"
       :key="requestKey"
@@ -27,6 +31,7 @@ import { computed } from 'vue'
 import {
   resolveAvatarAccessibleLabel,
   resolveAvatarFallback,
+  resolveAvatarTone,
   useAvatarRequestState,
 } from './useAvatarRequestState'
 
@@ -53,6 +58,7 @@ const {
   acceptError,
 } = useAvatarRequestState(computed(() => props.src))
 const fallbackText = computed(() => resolveAvatarFallback(props.name, props.fallback))
+const fallbackStyle = computed(() => resolveAvatarTone(props.name))
 const accessibleLabel = computed(() => resolveAvatarAccessibleLabel(props.alt, props.name))
 
 const attemptedRequest = (event: Event) => (
@@ -91,6 +97,8 @@ const handleImageError = (event: Event) => {
   place-items: center;
   background: var(--user-avatar-fallback-background, var(--primary-600));
   color: var(--user-avatar-fallback-color, white);
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .user-avatar__image {

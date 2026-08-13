@@ -1,88 +1,47 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="app-shell notifications-page">
     <AppHeader />
-    <main class="px-4 py-6 sm:px-6">
-    <div class="mx-auto max-w-5xl">
-      <nav class="inbox-view-tabs" role="tablist" aria-label="参与收件箱视图">
-        <button
-          v-for="(view, index) in inboxViews"
-          :key="view.value"
-          :id="inboxViewTabId(view.value)"
-          type="button"
-          role="tab"
-          :class="{ active: activeView === view.value }"
-          :aria-controls="inboxViewPanelId(view.value)"
-          :aria-selected="activeView === view.value"
-          :tabindex="activeView === view.value ? 0 : -1"
-          @click="switchInboxView(view.value)"
-          @keydown="handleInboxViewKeydown($event, index)"
-        >
-          <component :is="view.icon" class="h-4 w-4" aria-hidden="true" />
-          {{ view.label }}
-        </button>
-      </nav>
+
+    <main class="community-page notifications-main">
+      <header class="workspace-heading">
+        <div>
+          <p class="section-kicker">个人收件箱</p>
+          <h1>通知</h1>
+          <p class="workspace-heading-copy">所有社区回应集中在这里，按需筛选并回到相关内容。</p>
+        </div>
+        <div class="heading-status" aria-live="polite">
+          <span class="heading-status-dot" aria-hidden="true" />
+          <span>{{ unread.total > 0 ? `${unread.total} 条未读` : '已查看全部' }}</span>
+        </div>
+      </header>
 
       <section
         v-if="activeView === 'notifications'"
         :id="inboxViewPanelId('notifications')"
-        role="tabpanel"
-        :aria-labelledby="inboxViewTabId('notifications')"
-        tabindex="0"
+        aria-label="通知收件箱"
       >
-      <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p class="text-sm font-medium text-primary-600 dark:text-primary-400">社区回访中心</p>
-            <h1 class="mt-1 text-2xl font-bold text-slate-950 dark:text-slate-100 sm:text-3xl">通知中心</h1>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              看清谁回应了你、关联哪条内容，以及下一步回到讨论、作者主页或话题页。
-            </p>
-            <p class="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-              轻反馈只覆盖评论、收藏、关注和提及等社区互动；页面尊重通知偏好，只提供回访入口，没有生成新的后端通知。
-            </p>
-            <p v-if="preferenceOffText" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-              {{ preferenceOffText }}
-            </p>
-            <p v-if="unreadErrorText" class="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-              {{ unreadErrorText }}
-              <button type="button" class="ml-2 underline" @click="loadUnread">重试</button>
-            </p>
+        <div class="notification-filter-bar">
+          <div class="notification-filter-copy">
+            <strong>收件箱</strong>
+            <span>按来源筛选</span>
           </div>
-
-          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div class="metric-card">
-              <span>未读</span>
-              <strong>{{ unread.total }}</strong>
-            </div>
-            <div class="metric-card">
-              <span>互动</span>
-              <strong>{{ interactionUnread }}</strong>
-            </div>
-            <div class="metric-card">
-              <span>提及</span>
-              <strong>{{ unread.mention }}</strong>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto notification-filter-scroll">
             <div class="flex min-w-max gap-2" role="tablist" aria-label="通知类型">
               <button
                 v-for="(tab, index) in tabs"
-                :key="tab.value"
                 :id="notificationTypeTabId(tab.value)"
+                :key="tab.value"
                 type="button"
                 role="tab"
+                :class="[
+                  'tab-button',
+                  activeType === tab.value ? 'tab-button-active' : 'tab-button-idle'
+                ]"
                 :aria-controls="notificationTypePanelId"
                 :aria-selected="activeType === tab.value"
                 :tabindex="activeType === tab.value ? 0 : -1"
                 @click="switchTab(tab.value)"
                 @keydown="handleNotificationTypeKeydown($event, index)"
-                :class="[
-                  'tab-button',
-                  activeType === tab.value ? 'tab-button-active' : 'tab-button-idle'
-                ]"
               >
                 <component :is="tab.icon" class="h-4 w-4" aria-hidden="true" />
                 <span>{{ tab.label }}</span>
@@ -90,204 +49,205 @@
               </button>
             </div>
           </div>
+        </div>
 
+        <div class="notification-actions-row">
+          <p>{{ inboxStatusText }}</p>
           <div class="mark-read-actions">
-            <RouterLink
-              to="/me/settings"
-              class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              <Bell class="h-4 w-4" />
+            <RouterLink to="/me/settings" class="secondary-action">
+              <Bell class="h-4 w-4" aria-hidden="true" />
               通知偏好
             </RouterLink>
             <button
+              v-if="unread.total > 0"
               type="button"
-              @click="markAllAsRead"
+              class="secondary-action"
               :disabled="markAllDisabled"
               :title="markAllHint"
-              class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              @click="markAllAsRead"
             >
-              <CheckCheck class="h-4 w-4" />
-              {{ isMutating ? '处理中...' : unread.total === 0 ? '暂无未读' : '全部已读' }}
+              <CheckCheck class="h-4 w-4" aria-hidden="true" />
+              {{ isMutating ? '处理中...' : '全部已读' }}
             </button>
-            <p v-if="unread.total === 0" class="mark-read-hint">当前没有未读通知</p>
           </div>
         </div>
-      </section>
 
-      <div
-        :id="notificationTypePanelId"
-        role="tabpanel"
-        :aria-labelledby="notificationTypeTabId(activeType)"
-        tabindex="0"
-      >
-      <div
-        v-if="hasPendingNotificationRefresh"
-        class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-semibold text-primary-800 dark:border-primary-900 dark:bg-primary-950/40 dark:text-primary-200"
-        role="status"
-      >
-        <span>有新通知</span>
-        <button
-          type="button"
-          class="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="isLoading"
-          @click="refreshNotifications"
+        <p v-if="preferenceOffText" class="notice notice-warning">
+          <BellOff class="h-4 w-4 shrink-0" aria-hidden="true" />
+          {{ preferenceOffText }}
+        </p>
+        <p v-if="unreadErrorText" class="notice notice-error" role="alert">
+          <span>{{ unreadErrorText }}</span>
+          <button type="button" @click="loadUnread">重试</button>
+        </p>
+        <div
+          v-if="hasPendingNotificationRefresh"
+          class="notice notice-info"
+          role="status"
         >
-          刷新
-        </button>
-      </div>
-      <div v-if="isLoading && notifications.length === 0" class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <div v-for="item in 4" :key="item" class="flex gap-4 border-b border-slate-100 py-4 last:border-b-0 dark:border-slate-800">
-          <div class="h-11 w-11 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
-          <div class="flex-1 space-y-3">
-            <div class="h-4 w-1/3 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
-            <div class="h-3 w-2/3 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
-          </div>
+          <span>有新通知</span>
+          <button type="button" :disabled="isLoading" @click="refreshNotifications">刷新列表</button>
         </div>
-      </div>
 
-      <div v-else-if="notifications.length === 0" class="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900">
-        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-          <BellOff class="h-6 w-6" />
-        </div>
-        <h2 class="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">{{ emptyTitle }}</h2>
-        <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500 dark:text-slate-400">{{ emptyText }}</p>
-        <RouterLink to="/explore" class="mt-5 inline-flex items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
-          去发现内容和作者
-        </RouterLink>
-      </div>
-
-      <div v-else class="notification-list space-y-3">
-        <section class="feedback-revisit-panel">
-          <div>
-            <p class="text-xs font-black text-primary-600 dark:text-primary-300">创作者轻反馈</p>
-            <h2>最近可以回访的社区回应</h2>
-            <span>{{ feedbackSummary }}</span>
-          </div>
-          <div class="feedback-revisit-actions">
-            <RouterLink to="/me?tab=posts">我的内容</RouterLink>
-            <RouterLink to="/me?tab=favorites">我的收藏</RouterLink>
-            <RouterLink to="/me?tab=followers">新增关注者</RouterLink>
-          </div>
-        </section>
-
-        <!-- Accessibility static contract: :role="notif.targetPath ? 'button' : undefined" :tabindex="notif.targetPath ? 0 : undefined" -->
-        <article
-          v-for="notif in notifications"
-          :key="notif.notificationId"
-          :class="[
-            'rounded-xl border p-4 shadow-sm transition-colors',
-            notificationTargetPath(notif) ? 'cursor-pointer hover:border-primary-300 hover:bg-primary-50/40 dark:hover:border-primary-800 dark:hover:bg-slate-800' : '',
-            notif.read
-              ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
-              : 'border-primary-200 bg-primary-50 dark:border-slate-700 dark:bg-slate-800'
-          ]"
-          :role="notificationTargetPath(notif) ? 'button' : undefined"
-          :tabindex="notificationTargetPath(notif) ? 0 : undefined"
-          :aria-label="notificationActionLabel(notif)"
-          @click="openNotification(notif)"
-          @keydown.enter.prevent="openNotification(notif)"
-          @keydown.space.prevent="openNotification(notif)"
+        <div
+          :id="notificationTypePanelId"
+          class="notifications-workspace"
+          role="tabpanel"
+          :aria-labelledby="notificationTypeTabId(activeType)"
+          tabindex="0"
         >
-          <div class="notification-item-inner flex items-start gap-4">
-            <div :class="['flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full', iconClass(notif.type)]">
-              <component :is="iconFor(notif.type)" class="h-5 w-5" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2 pr-1">
-                <p class="min-w-0 text-sm font-semibold text-slate-900 dark:text-slate-100">{{ notif.title }}</p>
-                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  {{ labelFor(notif.type) }}
-                </span>
-                <span v-if="!notif.read" class="rounded-full bg-danger px-2 py-0.5 text-xs font-semibold text-white">未读</span>
-                <span v-if="isMutedByPreference(notif)" class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-                  偏好静默
-                </span>
-              </div>
-              <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ notif.content }}</p>
-              <div v-if="curationFeedbackPayload(notif)" class="curation-feedback-card mt-3">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="curation-feedback-label">入选反馈</span>
-                  <strong class="text-sm text-slate-900 dark:text-slate-100">
-                    内容标题：{{ curationFeedbackPayload(notif)?.contentTitle }}
-                  </strong>
+          <div class="notifications-feed">
+            <div v-if="isLoading && notifications.length === 0" class="notification-list-surface" aria-busy="true">
+              <div v-for="item in 4" :key="item" class="notification-skeleton">
+                <div class="skeleton-icon" />
+                <div class="skeleton-copy">
+                  <div class="skeleton-line skeleton-line-short" />
+                  <div class="skeleton-line" />
+                  <div class="skeleton-line skeleton-line-medium" />
                 </div>
-                <dl class="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300 sm:grid-cols-2">
-                  <div>
-                    <dt>收录位置</dt>
-                    <dd>{{ curationFeedbackPayload(notif)?.placementLabel }}</dd>
-                  </div>
-                  <div>
-                    <dt>触发时间</dt>
-                    <dd>{{ formatTime(curationFeedbackPayload(notif)?.triggeredAt || notif.createdAt) }}</dd>
-                  </div>
-                  <div class="sm:col-span-2">
-                    <dt>收录理由</dt>
-                    <dd>{{ curationFeedbackPayload(notif)?.reasonText }}</dd>
-                  </div>
-                </dl>
-                <RouterLink
-                  v-if="curationFeedbackPayload(notif)?.href"
-                  :to="curationFeedbackPayload(notif)?.href || '/'"
-                  class="curation-feedback-link"
-                  @click.stop
-                >
-                  查看入口
-                </RouterLink>
-              </div>
-              <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
-                <span>{{ formatTime(notif.createdAt) }}</span>
-                <span v-if="notificationTargetPath(notif)">{{ nextStepText(notif) }}</span>
               </div>
             </div>
-            <button
-              v-if="!notif.read"
-              type="button"
-              @click.stop="markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId])"
-              :disabled="isMutating"
-              class="notification-read-button flex-shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-            >
-              标记已读
-            </button>
-          </div>
-        </article>
 
-        <div class="flex justify-center pt-3">
-          <button
-            v-if="hasMore"
-            type="button"
-            @click="loadMore"
-            :disabled="isLoading"
-            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            {{ isLoading ? '加载中...' : '加载更多' }}
-          </button>
+            <div v-else-if="notifications.length === 0" class="empty-state notification-list-surface">
+              <div class="empty-icon" aria-hidden="true"><BellOff class="h-5 w-5" /></div>
+              <h2>{{ emptyTitle }}</h2>
+              <p class="max-w-lg text-sm leading-6">{{ emptyText }}</p>
+              <button v-if="loadErrorText" type="button" class="primary-action" @click="loadNotifications">重新加载</button>
+              <RouterLink v-else to="/explore" class="primary-action">去发现内容和作者</RouterLink>
+            </div>
+
+            <div v-else class="notification-list">
+              <section v-if="hasFeedbackSummary" class="feedback-revisit-panel">
+                <div>
+                  <p class="section-kicker">轻反馈</p>
+                  <h2>最近可以回访的社区回应</h2>
+                  <span>{{ feedbackSummary }}</span>
+                </div>
+                <div class="feedback-revisit-actions">
+                  <RouterLink to="/me?tab=posts">我的内容</RouterLink>
+                  <RouterLink to="/me?tab=favorites">我的收藏</RouterLink>
+                  <RouterLink to="/me?tab=followers">新增关注者</RouterLink>
+                </div>
+              </section>
+
+              <nav class="related-inbox-groups" aria-label="与当前通知相关的个人分组">
+                <button type="button" @click="switchInboxView('updates')">
+                  <Newspaper class="h-4 w-4" aria-hidden="true" />
+                  <span><strong>更新摘要</strong><small>查看与你关注内容有关的更新</small></span>
+                </button>
+                <button type="button" @click="switchInboxView('revisits')">
+                  <History class="h-4 w-4" aria-hidden="true" />
+                  <span><strong>回访事项</strong><small>继续处理已收藏或已关注的内容</small></span>
+                </button>
+              </nav>
+
+              <!-- Accessibility static contract: :role="notif.targetPath ? 'button' : undefined" :tabindex="notif.targetPath ? 0 : undefined" -->
+              <article
+                v-for="notif in notifications"
+                :key="notif.notificationId"
+                :class="[
+                  'notification-row',
+                  notificationTargetPath(notif) ? 'notification-row-actionable' : '',
+                  notif.read ? 'notification-row-read' : 'notification-row-unread'
+                ]"
+                :role="notificationTargetPath(notif) ? 'button' : undefined"
+                :tabindex="notificationTargetPath(notif) ? 0 : undefined"
+                :aria-label="notificationActionLabel(notif)"
+                @click="openNotification(notif)"
+                @keydown.enter.prevent="openNotification(notif)"
+                @keydown.space.prevent="openNotification(notif)"
+              >
+                <div class="notification-item-inner">
+                  <div :class="['notification-icon', iconClass(notif.type)]">
+                    <component :is="iconFor(notif.type)" class="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="notification-row-heading">
+                      <p class="notification-title">{{ notif.title }}</p>
+                      <span class="notification-type">{{ labelFor(notif.type) }}</span>
+                      <span v-if="!notif.read" class="notification-unread-badge">未读</span>
+                      <span v-if="isMutedByPreference(notif)" class="notification-muted-badge">偏好静默</span>
+                    </div>
+                    <p class="notification-content">{{ notif.content }}</p>
+                    <div v-if="curationFeedbackPayload(notif)" class="curation-feedback-card">
+                      <div class="curation-feedback-heading">
+                        <span class="curation-feedback-label">入选反馈</span>
+                        <strong>内容标题：{{ curationFeedbackPayload(notif)?.contentTitle }}</strong>
+                      </div>
+                      <dl>
+                        <div>
+                          <dt>收录位置</dt>
+                          <dd>{{ curationFeedbackPayload(notif)?.placementLabel }}</dd>
+                        </div>
+                        <div>
+                          <dt>触发时间</dt>
+                          <dd>{{ formatTime(curationFeedbackPayload(notif)?.triggeredAt || notif.createdAt) }}</dd>
+                        </div>
+                        <div class="curation-feedback-wide">
+                          <dt>收录理由</dt>
+                          <dd>{{ curationFeedbackPayload(notif)?.reasonText }}</dd>
+                        </div>
+                      </dl>
+                      <RouterLink
+                        v-if="curationFeedbackPayload(notif)?.href"
+                        :to="curationFeedbackPayload(notif)?.href || '/'"
+                        class="curation-feedback-link"
+                        @click.stop
+                      >
+                        查看入口
+                      </RouterLink>
+                    </div>
+                    <div class="notification-row-meta">
+                      <span>{{ formatTime(notif.createdAt) }}</span>
+                      <span v-if="notificationTargetPath(notif)" class="notification-next-step">
+                        {{ nextStepText(notif) }}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    v-if="!notif.read"
+                    type="button"
+                    class="notification-read-button"
+                    :disabled="isMutating"
+                    @click.stop="markAsRead(notif.notificationId, notif.notificationIds ?? [notif.notificationId])"
+                  >
+                    标记已读
+                  </button>
+                </div>
+              </article>
+
+              <div v-if="hasMore" class="load-more-row">
+                <button type="button" class="secondary-action" :disabled="isLoading" @click="loadMore">
+                  {{ isLoading ? '加载中...' : '加载更多' }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      </div>
       </section>
 
       <section
         v-else-if="activeView === 'updates'"
         :id="inboxViewPanelId('updates')"
-        role="tabpanel"
-        :aria-labelledby="inboxViewTabId('updates')"
-        tabindex="0"
+        aria-label="更新摘要"
       >
-        <UpdateDigestPanel
-          route-state
-          title="与你有关的更新摘要"
-        />
+        <div class="related-view-heading">
+          <button type="button" class="secondary-action" @click="switchInboxView('notifications')">返回收件箱</button>
+          <p>更新摘要只整理与你已有关注关系有关的站内内容。</p>
+        </div>
+        <UpdateDigestPanel route-state title="与你有关的更新摘要" />
       </section>
       <section
         v-else
         :id="inboxViewPanelId('revisits')"
-        role="tabpanel"
-        :aria-labelledby="inboxViewTabId('revisits')"
-        tabindex="0"
+        aria-label="回访事项"
       >
+        <div class="related-view-heading">
+          <button type="button" class="secondary-action" @click="switchInboxView('notifications')">返回收件箱</button>
+          <p>社区回访中心尊重通知偏好，只保留回到讨论和关联内容的入口，不会额外生成新的通知。</p>
+        </div>
         <RevisitSummaryPanel route-state />
       </section>
-    </div>
     </main>
   </div>
 </template>
@@ -343,13 +303,7 @@ const activeView = computed<InboxView>(() => {
   const value = String(firstQueryValue(route.query.view) || 'notifications') as InboxView
   return inboxViewValues.has(value) ? value : 'notifications'
 })
-const inboxViews = [
-  { value: 'notifications' as const, label: '通知', icon: Bell },
-  { value: 'updates' as const, label: '更新摘要', icon: Newspaper },
-  { value: 'revisits' as const, label: '回访', icon: History },
-]
 const notificationTypePanelId = 'notification-type-panel'
-const inboxViewTabId = (view: InboxView) => `inbox-view-tab-${view}`
 const inboxViewPanelId = (view: InboxView) => `inbox-view-panel-${view}`
 const notificationTypeTabId = (type: string) => `notification-type-tab-${type}`
 const currentNotificationAccountKey = () => (
@@ -363,16 +317,15 @@ const notificationAccountIsCurrent = (accountKey: string, generation: number) =>
 )
 
 const tabs = computed(() => [
-  { value: 'all', label: 'All', count: unread.value.total, icon: Bell },
-  { value: 'like', label: 'Likes', count: unread.value.like, icon: Heart },
-  { value: 'comment', label: 'Comments', count: unread.value.comment, icon: MessageCircle },
-  { value: 'favorite', label: 'Favorites', count: unread.value.favorite, icon: Bookmark },
-  { value: 'follower', label: 'Followers', count: unread.value.follower, icon: UserPlus },
-  { value: 'mention', label: 'Mentions', count: unread.value.mention, icon: AtSign },
-  { value: 'system', label: 'System', count: unread.value.system, icon: Bell },
+  { value: 'all', label: '全部', count: unread.value.total, icon: Bell },
+  { value: 'like', label: '点赞', count: unread.value.like, icon: Heart },
+  { value: 'comment', label: '评论', count: unread.value.comment, icon: MessageCircle },
+  { value: 'favorite', label: '收藏', count: unread.value.favorite, icon: Bookmark },
+  { value: 'follower', label: '关注', count: unread.value.follower, icon: UserPlus },
+  { value: 'mention', label: '提及', count: unread.value.mention, icon: AtSign },
+  { value: 'system', label: '系统', count: unread.value.system, icon: Bell },
 ])
 
-const interactionUnread = computed(() => unread.value.like + unread.value.comment + unread.value.favorite + unread.value.follower)
 const feedbackCounts = computed(() => notifications.value.reduce((counts, notif) => {
   if (notif.type === 'comment') counts.comment += 1
   if (notif.type === 'favorite') counts.favorite += 1
@@ -383,30 +336,38 @@ const feedbackCounts = computed(() => notifications.value.reduce((counts, notif)
 const feedbackSummary = computed(() => {
   const counts = feedbackCounts.value
   const parts = [
-    counts.comment ? `${counts.comment} comments` : '',
-    counts.favorite ? `${counts.favorite} favorites` : '',
-    counts.follower ? `${counts.follower} new followers` : '',
-    counts.mention ? `${counts.mention} mentions` : '',
+    counts.comment ? `${counts.comment} 条评论` : '',
+    counts.favorite ? `${counts.favorite} 次收藏` : '',
+    counts.follower ? `${counts.follower} 位新增关注者` : '',
+    counts.mention ? `${counts.mention} 次提及` : '',
   ].filter(Boolean)
   return parts.length
-    ? `${parts.join(', ')} can take you back to discussions or profiles.`
-    : 'No new comments, favorites, or followers in this list.'
+    ? `${parts.join('、')}，可以直接回到相关讨论或作者主页。`
+    : '当前列表没有新的评论、收藏、关注或提及。'
 })
-const emptyTitle = computed(() => activeType.value === 'all' ? 'No notifications yet' : `No ${labelFor(activeType.value)} notifications`)
+const hasFeedbackSummary = computed(() => Object.values(feedbackCounts.value).some((count) => count > 0))
+const inboxStatusText = computed(() => {
+  if (isLoading.value && notifications.value.length === 0) return '正在同步最新通知'
+  if (loadErrorText.value) return '收件箱暂时无法读取'
+  if (notifications.value.length === 0) return '当前没有需要处理的通知'
+  if (unread.value.total > 0) return `当前有 ${unread.value.total} 条未读通知`
+  return `已加载 ${notifications.value.length} 条通知`
+})
+const emptyTitle = computed(() => activeType.value === 'all' ? '暂时没有通知' : `暂时没有${labelFor(activeType.value)}通知`)
 const emptyText = computed(() => {
   if (loadErrorText.value) return loadErrorText.value
-  if (preferenceOffText.value) return 'Notifications are muted, but you can still browse and join discussions.'
-  if (activeType.value === 'all') return 'Comments, likes, favorites, follows, and mentions will appear here.'
-  if (activeType.value === 'follower') return 'New followers will appear here so you can visit their profiles.'
-  if (activeType.value === 'system') return 'Community announcements and system notifications will appear here.'
-  return 'There are no new notifications in this category.'
+  if (preferenceOffText.value) return '当前提醒已静默，你仍然可以浏览内容并参与讨论。'
+  if (activeType.value === 'all') return '评论、点赞、收藏、关注和提及会集中出现在这里。'
+  if (activeType.value === 'follower') return '新增关注者会出现在这里，方便你回访对方主页。'
+  if (activeType.value === 'system') return '社区公告和系统通知会出现在这里。'
+  return '当前分类没有新的通知。'
 })
 const preferenceOffText = computed(() => {
   const pref = preferences.value
   if (!pref) return ''
-  if (!pref.interactionNotification && !pref.systemNotification) return 'Interaction and system notifications are muted.'
-  if (!pref.interactionNotification) return 'Interaction notifications are muted.'
-  if (!pref.systemNotification) return 'System notifications are muted.'
+  if (!pref.interactionNotification && !pref.systemNotification) return '互动通知和系统通知均已静默。'
+  if (!pref.interactionNotification) return '互动通知已静默。'
+  if (!pref.systemNotification) return '系统通知已静默。'
   return ''
 })
 const markAllDisabled = computed(() => isMutating.value || unread.value.total === 0)
@@ -531,14 +492,14 @@ const loadNotifications = async () => {
     notificationListLoaded = true
     notificationListMarker = markerAtRequestStart
     hasPendingNotificationRefresh.value = latestUnreadMarker() !== markerAtRequestStart
-  } catch (error) {
+  } catch {
     if (
       requestGeneration !== notificationLoadGeneration
       || requestedType !== activeType.value
       || !notificationAccountIsCurrent(accountKey, accountGeneration)
     ) return
     clearNotificationListState()
-    loadErrorText.value = getErrorMessage(error, 'Notifications are temporarily unavailable.')
+    loadErrorText.value = '通知暂时无法读取，请稍后重试。'
   } finally {
     if (
       requestGeneration === notificationLoadGeneration
@@ -639,16 +600,6 @@ const rovingTabIndex = (key: string, currentIndex: number, itemCount: number) =>
 
 const focusTabById = (id: string) => {
   void nextTick(() => document.getElementById(id)?.focus())
-}
-
-const handleInboxViewKeydown = (event: KeyboardEvent, currentIndex: number) => {
-  const nextIndex = rovingTabIndex(event.key, currentIndex, inboxViews.length)
-  if (nextIndex === null) return
-  event.preventDefault()
-  const nextView = inboxViews[nextIndex]
-  if (!nextView) return
-  switchInboxView(nextView.value)
-  focusTabById(inboxViewTabId(nextView.value))
 }
 
 const handleNotificationTypeKeydown = (event: KeyboardEvent, currentIndex: number) => {
@@ -1161,6 +1112,1044 @@ onBeforeUnmount(() => {
     grid-column: 1 / -1;
     min-height: 44px;
     width: 100%;
+  }
+}
+
+.notifications-page {
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+.notifications-main {
+  padding-top: 1.25rem;
+  padding-bottom: 6rem;
+}
+
+.workspace-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.5rem 0 1rem;
+}
+
+.section-kicker {
+  margin: 0;
+  color: var(--primary-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.workspace-heading h1 {
+  margin: 0.2rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.workspace-heading-copy {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.heading-status {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.heading-status-dot {
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 50%;
+  background: var(--primary-600);
+}
+
+.inbox-view-tabs {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 0.875rem;
+  gap: 0.25rem;
+  border-radius: var(--radius-surface);
+  background: var(--surface-muted);
+  padding: 0.25rem;
+  scrollbar-width: none;
+}
+
+.inbox-view-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.inbox-view-tabs button {
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  padding: 0 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.inbox-view-tabs button:hover {
+  color: var(--text-strong);
+}
+
+.inbox-view-tabs button.active {
+  border: 0;
+  background: var(--surface-1);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.notification-filter-bar {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0;
+  background: var(--surface-1);
+  padding: 0.75rem;
+}
+
+.notification-filter-copy {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.notification-filter-copy strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.notification-filter-copy span {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.notification-filter-scroll {
+  padding-bottom: 0.25rem;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.tab-button {
+  min-height: 36px;
+  border-radius: var(--radius-control);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.tab-button-active {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.tab-button-idle {
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.tab-button-idle:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
+}
+
+.tab-count {
+  min-width: 1.15rem;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  padding: 0.05rem 0.3rem;
+  font-size: 0.625rem;
+  font-weight: 750;
+}
+
+.notification-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-surface) var(--radius-surface);
+  background: var(--surface-1);
+  padding: 0.75rem;
+}
+
+.notification-actions-row > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.notification-counts {
+  display: flex;
+  align-items: center;
+}
+
+.notification-count {
+  display: flex;
+  min-width: 5.25rem;
+  align-items: baseline;
+  gap: 0.45rem;
+  border-right: 1px solid var(--border-subtle);
+  padding: 0 1rem;
+}
+
+.notification-count:first-child {
+  padding-left: 0;
+}
+
+.notification-count:last-child {
+  border-right: 0;
+}
+
+.notification-count span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.notification-count strong {
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.mark-read-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.mark-read-actions .secondary-action {
+  min-height: 38px;
+  padding: 0.45rem 0.75rem;
+}
+
+.mark-read-hint {
+  display: none;
+}
+
+.notice {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding: 0.65rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.notice button {
+  flex: none;
+  color: inherit;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.notice-warning {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.notice-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.notice-info {
+  border-color: #bfdbfe;
+  background: var(--primary-50);
+  color: #1d4ed8;
+}
+
+.notifications-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  margin-top: 0.875rem;
+}
+
+.related-inbox-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--border-subtle);
+}
+
+.related-inbox-groups button {
+  display: flex;
+  min-width: 0;
+  min-height: 3.75rem;
+  align-items: center;
+  gap: 0.65rem;
+  border: 0;
+  background: var(--surface-1);
+  padding: 0.75rem 1rem;
+  color: var(--primary-700);
+  text-align: left;
+}
+
+.related-inbox-groups button:hover {
+  background: var(--surface-2);
+}
+
+.related-inbox-groups span {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.related-inbox-groups strong {
+  color: var(--text-strong);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.related-inbox-groups small {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.related-view-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.875rem;
+}
+
+.related-view-heading p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.notifications-feed {
+  min-width: 0;
+}
+
+.notification-list,
+.notification-list-surface {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.feedback-revisit-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 0;
+  border-bottom: 1px solid #dbeafe;
+  border-radius: 0;
+  background: var(--primary-50);
+  padding: 0.85rem 1rem;
+}
+
+.feedback-revisit-panel h2 {
+  margin-top: 0.15rem;
+  font-size: 0.9375rem;
+  font-weight: 750;
+  color: var(--text-strong);
+}
+
+.feedback-revisit-panel span {
+  margin-top: 0.2rem;
+  max-width: 38rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.feedback-revisit-actions {
+  flex: none;
+  gap: 0.35rem;
+}
+
+.feedback-revisit-actions a {
+  min-height: 2rem;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0.35rem 0.65rem;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.notification-row {
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  padding: 1rem;
+  outline: none;
+  transition: background-color 0.16s ease;
+}
+
+.notification-row:last-of-type {
+  border-bottom: 0;
+}
+
+.notification-row-unread {
+  background: #f8fbff;
+}
+
+.notification-row-actionable:hover,
+.notification-row-actionable:focus-visible {
+  background: #f1f6ff;
+}
+
+.notification-row-actionable {
+  cursor: pointer;
+}
+
+.notification-item-inner {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.8rem;
+}
+
+.notification-icon {
+  display: grid;
+  height: 2.5rem;
+  width: 2.5rem;
+  place-items: center;
+  border-radius: var(--radius-control);
+}
+
+.notification-row-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding-right: 0.25rem;
+}
+
+.notification-title {
+  min-width: 0;
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.notification-type,
+.notification-unread-badge,
+.notification-muted-badge {
+  display: inline-flex;
+  min-height: 1.25rem;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  padding: 0 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.notification-type {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.notification-unread-badge {
+  background: var(--danger);
+  color: white;
+}
+
+.notification-muted-badge {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.notification-content {
+  margin: 0.3rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.notification-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.notification-next-step {
+  color: var(--primary-600);
+  font-weight: 700;
+}
+
+.notification-read-button {
+  min-height: 34px;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  padding: 0.35rem 0.65rem;
+  color: var(--primary-700);
+  font-size: 0.75rem;
+  font-weight: 750;
+  white-space: nowrap;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.notification-read-button:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background: var(--primary-50);
+}
+
+.notification-read-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.curation-feedback-card {
+  margin-top: 0.75rem;
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius-control);
+  background: #f8fbff;
+  padding: 0.75rem;
+}
+
+.curation-feedback-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.curation-feedback-heading strong {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+}
+
+.curation-feedback-label {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.curation-feedback-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+  margin-top: 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.curation-feedback-wide {
+  grid-column: 1 / -1;
+}
+
+.curation-feedback-card dt {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.curation-feedback-card dd {
+  margin-top: 0.15rem;
+  line-height: 1.55;
+}
+
+.curation-feedback-link {
+  min-height: 2rem;
+  border-radius: var(--radius-control);
+  background: var(--primary-600);
+  padding: 0.35rem 0.65rem;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.75rem;
+}
+
+.notification-skeleton {
+  display: flex;
+  gap: 0.8rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1rem;
+}
+
+.notification-skeleton:last-child {
+  border-bottom: 0;
+}
+
+.skeleton-icon,
+.skeleton-line {
+  animation: notification-pulse 1.4s ease-in-out infinite;
+  background: var(--surface-muted);
+}
+
+.skeleton-icon {
+  height: 2.5rem;
+  width: 2.5rem;
+  flex: none;
+  border-radius: var(--radius-control);
+}
+
+.skeleton-copy {
+  flex: 1;
+  padding-top: 0.1rem;
+}
+
+.skeleton-line {
+  height: 0.6rem;
+  width: 100%;
+  border-radius: 3px;
+}
+
+.skeleton-line + .skeleton-line {
+  margin-top: 0.55rem;
+}
+
+.skeleton-line-short {
+  width: 34%;
+}
+
+.skeleton-line-medium {
+  width: 62%;
+}
+
+@keyframes notification-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.empty-state {
+  display: flex;
+  min-height: 22rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-icon {
+  display: grid;
+  height: 2.75rem;
+  width: 2.75rem;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.empty-state h2 {
+  margin: 0.9rem 0 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.empty-state p {
+  margin: 0.35rem auto 0;
+  color: var(--text-muted);
+}
+
+.empty-state .primary-action {
+  margin-top: 1rem;
+}
+
+.notification-context {
+  position: sticky;
+  top: calc(var(--community-header-height) + 1rem);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.context-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-1);
+  padding: 0.9rem;
+}
+
+.context-block-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.context-stats {
+  margin-top: 0.5rem;
+}
+
+.context-stats div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.55rem 0;
+}
+
+.context-stats div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.context-stats dt,
+.context-block p {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.context-stats dd {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.context-block p {
+  margin: 0.55rem 0 0;
+}
+
+.context-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.context-links a {
+  min-height: 2rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  padding: 0.35rem 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.context-links a:hover {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.dark .notifications-page {
+  background: #0f1115;
+}
+
+.dark .heading-status,
+.dark .inbox-view-tabs button.active,
+.dark .notification-filter-bar,
+.dark .notification-actions-row,
+.dark .notification-list,
+.dark .notification-list-surface,
+.dark .notification-row,
+.dark .context-block,
+.dark .notification-read-button,
+.dark .feedback-revisit-actions a {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42);
+}
+
+.dark .inbox-view-tabs {
+  background: rgb(30 41 59);
+}
+
+.dark .inbox-view-tabs button,
+.dark .tab-button-idle {
+  color: rgb(148 163 184);
+}
+
+.dark .inbox-view-tabs button:hover,
+.dark .inbox-view-tabs button.active {
+  color: rgb(248 250 252);
+}
+
+.dark .tab-button-active {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
+}
+
+.dark .tab-button-idle:hover,
+.dark .context-links a {
+  background: rgb(30 41 59);
+  color: rgb(203 213 225);
+}
+
+.dark .notification-count,
+.dark .notification-skeleton,
+.dark .notification-row,
+.dark .context-stats div,
+.dark .load-more-row {
+  border-color: rgb(30 41 59);
+}
+
+.dark .notification-row-unread,
+.dark .notification-row-actionable:hover,
+.dark .notification-row-actionable:focus-visible {
+  background: rgb(22 34 53);
+}
+
+.dark .feedback-revisit-panel {
+  border-color: rgb(30 64 175);
+  background: rgb(17 34 63);
+}
+
+.dark .feedback-revisit-actions a {
+  color: rgb(191 219 254);
+}
+
+.dark .notification-title,
+.dark .feedback-revisit-panel h2,
+.dark .curation-feedback-heading strong,
+.dark .workspace-heading h1,
+.dark .notification-count strong,
+.dark .context-block-heading,
+.dark .context-stats dd {
+  color: rgb(248 250 252);
+}
+
+.dark .notification-content,
+.dark .notification-row-meta,
+.dark .workspace-heading-copy,
+.dark .filter-caption,
+.dark .notification-count span,
+.dark .feedback-revisit-panel span,
+.dark .context-stats dt,
+.dark .context-block p {
+  color: rgb(148 163 184);
+}
+
+.dark .notification-type,
+.dark .empty-icon,
+.dark .skeleton-icon,
+.dark .skeleton-line {
+  background: rgb(30 41 59);
+}
+
+.dark .curation-feedback-card {
+  border-color: rgb(30 64 175);
+  background: rgb(15 31 55);
+}
+
+.dark .notice-warning {
+  border-color: rgb(154 52 18);
+  background: rgb(67 28 12);
+  color: rgb(254 215 170);
+}
+
+.dark .notice-error {
+  border-color: rgb(127 29 29);
+  background: rgb(69 10 10);
+  color: rgb(254 202 202);
+}
+
+.dark .notice-info {
+  border-color: rgb(30 64 175);
+  background: rgb(23 37 84);
+  color: rgb(191 219 254);
+}
+
+@media (max-width: 960px) {
+  .notifications-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .notification-context {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .notification-filter-bar {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.55rem;
+  }
+
+  .notification-actions-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mark-read-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mark-read-actions .secondary-action {
+    width: 100%;
+  }
+
+  .notification-context {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .notifications-main {
+    padding-top: 0.75rem;
+  }
+
+  .workspace-heading {
+    align-items: flex-start;
+  }
+
+  .workspace-heading-copy {
+    max-width: 21rem;
+  }
+
+  .heading-status {
+    min-height: 2rem;
+    padding: 0 0.55rem;
+    font-size: 0.75rem;
+  }
+
+  .inbox-view-tabs {
+    width: 100%;
+  }
+
+  .inbox-view-tabs button {
+    flex: 1;
+    justify-content: center;
+    padding: 0 0.65rem;
+  }
+
+  .notification-filter-bar,
+  .notification-actions-row {
+    padding: 0.65rem;
+  }
+
+  .related-inbox-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .related-view-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .related-view-heading .secondary-action {
+    width: 100%;
+  }
+
+  .feedback-revisit-panel {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 0.8rem;
+  }
+
+  .feedback-revisit-actions,
+  .feedback-revisit-actions a {
+    width: 100%;
+  }
+
+  .feedback-revisit-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .feedback-revisit-actions a {
+    padding: 0.35rem 0.3rem;
+    text-align: center;
+  }
+
+  .notification-row {
+    padding: 0.875rem;
+  }
+
+  .notification-item-inner {
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .notification-read-button {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .curation-feedback-card dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .curation-feedback-wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .workspace-heading {
+    gap: 0.75rem;
+  }
+
+  .workspace-heading h1 {
+    font-size: 1.35rem;
+  }
+
+  .workspace-heading-copy {
+    font-size: 0.8125rem;
+  }
+
+  .heading-status {
+    align-self: flex-start;
+  }
+
+  .feedback-revisit-actions {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>
