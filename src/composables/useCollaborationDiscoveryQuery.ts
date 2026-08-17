@@ -13,6 +13,7 @@ import { getErrorMessage } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
 const PAGE_SIZE = 20
+const SLOW_LOAD_NOTICE_MS = 800
 const VALID_SORTS: CollaborationNeedDiscoverySort[] = ['LATEST', 'UPDATED', 'STALLED_FIRST']
 const VALID_FORMATS: NeedContentFormat[] = ['ARTICLE', 'QUESTION', 'GUIDE', 'CHECKLIST', 'RESOURCE']
 const VALID_SOURCES: NeedSourceType[] = ['COMMUNITY', 'POST', 'TOPIC', 'ACTIVITY', 'EXTERNAL', 'SEARCH_GAP']
@@ -68,6 +69,7 @@ export function useCollaborationDiscoveryQuery(
   const items = ref<NeedDiscoveryItem[]>([])
   const loading = ref(false)
   const loadingMore = ref(false)
+  const slowLoad = ref(false)
   const initialError = ref('')
   const loadMoreError = ref('')
   const nextCursor = ref('')
@@ -78,6 +80,7 @@ export function useCollaborationDiscoveryQuery(
   let activeController: AbortController | null = null
   let disposed = false
   let keywordTimer: ReturnType<typeof setTimeout> | null = null
+  let slowLoadTimer: ReturnType<typeof setTimeout> | null = null
   let routeSyncing = false
 
   const currentUid = () => String(authStore.user?.uid ?? '')
@@ -97,6 +100,14 @@ export function useCollaborationDiscoveryQuery(
     activeController = null
   }
 
+  const clearSlowLoadNotice = () => {
+    if (slowLoadTimer) {
+      clearTimeout(slowLoadTimer)
+      slowLoadTimer = null
+    }
+    slowLoad.value = false
+  }
+
   const clearResults = () => {
     requestId.value += 1
     abortActiveRequest()
@@ -105,6 +116,7 @@ export function useCollaborationDiscoveryQuery(
     hasMore.value = false
     loading.value = false
     loadingMore.value = false
+    clearSlowLoadNotice()
     initialError.value = ''
     loadMoreError.value = ''
     initialized.value = false
@@ -153,7 +165,7 @@ export function useCollaborationDiscoveryQuery(
     && queryKey === filterKey()
   )
 
-  const load = async (append = false) => {
+  const load = async (append = false, preserveItems = false) => {
     if (!enabled.value) {
       clearResults()
       initialized.value = true
@@ -167,6 +179,7 @@ export function useCollaborationDiscoveryQuery(
     abortActiveRequest()
     const controller = new AbortController()
     activeController = controller
+    const retainCurrentPage = !append && preserveItems && items.value.length > 0
     if (append) {
       loadingMore.value = true
       loadMoreError.value = ''
@@ -174,9 +187,15 @@ export function useCollaborationDiscoveryQuery(
       loading.value = true
       initialError.value = ''
       loadMoreError.value = ''
-      items.value = []
-      nextCursor.value = ''
-      hasMore.value = false
+      if (!retainCurrentPage) {
+        items.value = []
+        nextCursor.value = ''
+        hasMore.value = false
+      }
+      clearSlowLoadNotice()
+      slowLoadTimer = setTimeout(() => {
+        if (isCurrent(id, uid, token, queryKey)) slowLoad.value = true
+      }, SLOW_LOAD_NOTICE_MS)
     }
 
     try {
@@ -199,9 +218,11 @@ export function useCollaborationDiscoveryQuery(
       if (append) loadMoreError.value = message
       else {
         initialError.value = message
-        items.value = []
-        nextCursor.value = ''
-        hasMore.value = false
+        if (!retainCurrentPage) {
+          items.value = []
+          nextCursor.value = ''
+          hasMore.value = false
+        }
         initialized.value = true
       }
     } finally {
@@ -210,11 +231,13 @@ export function useCollaborationDiscoveryQuery(
         else loading.value = false
       }
       if (activeController === controller) activeController = null
+      if (!append && isCurrent(id, uid, token, queryKey)) clearSlowLoadNotice()
     }
   }
 
   const scheduleLoad = () => {
     if (keywordTimer) clearTimeout(keywordTimer)
+    clearSlowLoadNotice()
     clearResults()
     void writeRouteFilters()
     keywordTimer = setTimeout(() => {
@@ -280,6 +303,7 @@ export function useCollaborationDiscoveryQuery(
     items,
     loading,
     loadingMore,
+    slowLoad,
     initialError,
     loadMoreError,
     nextCursor,
@@ -289,7 +313,7 @@ export function useCollaborationDiscoveryQuery(
     setFilters,
     resetFilters,
     load,
-    refresh: () => load(),
+    refresh: () => load(false, true),
     loadMore: () => load(true),
     clearResults,
   }

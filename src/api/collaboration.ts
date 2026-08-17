@@ -256,16 +256,16 @@ export type NeedEventVisibilityScope = 'PUBLIC' | 'PARTICIPANTS' | 'MANAGERS'
 
 export interface CollaborationNeedEvent {
   id: ApiId
-  needId: ApiId
   eventType: NeedEventType
-  actorUid?: ApiId | null
+  hasActor?: boolean
   fromStatus?: NeedStatus | null
   toStatus?: NeedStatus | null
-  targetType?: string | null
-  targetId?: ApiId | null
   note?: string | null
-  visibilityScope?: NeedEventVisibilityScope | null
   createTime: string
+}
+
+export interface CollaborationNeedEventTimeline extends PageResult<CollaborationNeedEvent> {
+  historyIntegrityWarning: boolean
 }
 
 export interface CloseCmd {
@@ -431,9 +431,16 @@ export type OfficeHourReservationStatus =
   | 'EXPIRED'
 export type OfficeHourReservationDecision = 'ACCEPTED' | 'REJECTED'
 
+export interface PublicActor {
+  displayName: string
+  avatarUrl?: string | null
+  badges?: string[]
+  self: boolean
+}
+
 export interface OfficeHour {
   id: ApiId
-  hostUid: ApiId
+  host: PublicActor
   domain: number
   title: string
   description: string
@@ -468,18 +475,17 @@ export interface OfficeHourStatusCmd {
 export interface OfficeHourReservation {
   id: ApiId
   officeHourId: ApiId
-  hostUid: ApiId
-  attendeeUid: ApiId
+  host: PublicActor
+  attendee: PublicActor
+  viewerRole: 'HOST' | 'ATTENDEE' | 'MODERATOR'
   topic: string
   contextDetail?: string | null
   status: OfficeHourReservationStatus
   responseNote?: string | null
-  decidedBy?: ApiId | null
   decidedAt?: string | null
   hostConfirmedAt?: string | null
   attendeeConfirmedAt?: string | null
   completedAt?: string | null
-  cancelledBy?: ApiId | null
   cancelledAt?: string | null
   canManage: boolean
   createTime: string
@@ -501,8 +507,7 @@ export interface OfficeHourFeedback {
   id: ApiId
   reservationId: ApiId
   officeHourId: ApiId
-  authorUid: ApiId
-  targetUid: ApiId
+  author: PublicActor
   rating: number
   feedback?: string | null
   createTime: string
@@ -668,7 +673,7 @@ export const collaborationApi = {
       needId: ApiId,
       query: Pick<CollaborationListQuery, 'cursor' | 'size'> = {},
     ) =>
-      requestResult<PageResult<CollaborationNeedEvent>>(
+      requestResult<CollaborationNeedEventTimeline>(
         client.get(`${BASE_PATH}/needs/${resourceId(needId)}/events`, { params: query }),
       ),
     create: (cmd: NeedCreateCmd) =>

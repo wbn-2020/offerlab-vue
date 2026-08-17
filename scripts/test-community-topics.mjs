@@ -24,6 +24,7 @@ assert.match(adapters, /virtualTopic:\s*Boolean\(raw\?\.virtualTopic\)/, 'topic 
 assert.match(api, /export\s+interface\s+CommunityTopicReq/, 'post API must define the admin topic command shape')
 assert.match(api, /listTopics:\s*async[\s\S]*\/api\/v1\/topics/, 'post API must expose public topic listing')
 assert.match(api, /getTopic:\s*async[\s\S]*\/api\/v1\/topics\/\$\{encodeURIComponent\(slug\)\}/, 'post API must expose topic detail loading')
+assert.match(api, /resolveTopic:\s*async[\s\S]*\/api\/v1\/topics\/resolve/, 'post API must expose a non-404 topic resolver')
 assert.match(api, /getTopicPosts:\s*async[\s\S]*\/api\/v1\/topics\/\$\{encodeURIComponent\(slug\)\}\/posts/, 'post API must expose topic post pagination')
 assert.match(api, /getTopicFollowStatus:\s*async[\s\S]*\/api\/v1\/topics\/\$\{encodeURIComponent\(slug\)\}\/follow-status/, 'post API must expose topic follow status')
 assert.match(api, /followTopic:\s*async[\s\S]*\/api\/v1\/topics\/\$\{encodeURIComponent\(slug\)\}\/follow/, 'post API must expose topic follow')
@@ -39,7 +40,9 @@ assert.match(homeView, /\/topics\/\$\{topic\.slug\}/, 'homeView topic links must
 assert.match(exploreView, /useDiscoveryMap/, 'exploreView must use the V3 DiscoveryMap entry contract')
 assert.match(exploreView, /:to="item\.href"/, 'exploreView topic links must navigate through backend-provided topic hrefs')
 
-assert.match(topicDetailView, /postApi\.getTopic\(slug\)/, 'topic detail page must load topic metadata from backend')
+assert.match(topicDetailView, /postApi\.resolveTopic\(slug\)/, 'topic detail page must resolve topic metadata without an expected 404')
+assert.doesNotMatch(topicDetailView, /postApi\.getTopic\(slug\)/, 'topic detail page must not use a 404-producing detail request as an existence probe')
+assert.match(topicDetailView, /v-if="topicReady"\s+class="identity-banner"/, 'topic detail must not render derived identity metadata before resolution')
 assert.match(topicDetailView, /postApi\.getTopicPosts\(slug/, 'topic detail page must page topic posts from backend')
 assert.match(topicDetailView, /postApi\.getTopicFollowStatus\(slug\)/, 'topic detail page must load authenticated follow state without breaking public browsing')
 assert.match(topicDetailView, /topicLoadFailed/, 'topic detail page must separate topic load failure from empty content')

@@ -23,7 +23,7 @@
           </div>
 
           <!-- Form -->
-          <form class="space-y-4" @submit.prevent="handleSubmit">
+          <form class="space-y-4" novalidate @submit.prevent="handleSubmit">
             <!-- Nickname Field -->
             <div>
               <label for="register-nickname" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">昵称</label>
@@ -35,9 +35,13 @@
                 autocomplete="nickname"
                 placeholder="2-32 个字符"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                ref="nicknameInput"
                 :disabled="isLoading"
+                :aria-invalid="Boolean(errors.nickname)"
+                :aria-describedby="errors.nickname ? 'register-nickname-error' : undefined"
+                @input="clearFieldError('nickname')"
               >
-              <p v-if="errors.nickname" class="text-xs text-danger mt-1">{{ errors.nickname }}</p>
+              <p v-if="errors.nickname" id="register-nickname-error" role="alert" class="text-xs text-danger mt-1">{{ errors.nickname }}</p>
             </div>
 
             <!-- Email Field -->
@@ -51,9 +55,13 @@
                 autocomplete="email"
                 placeholder="your@email.com"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                ref="emailInput"
                 :disabled="isLoading"
+                :aria-invalid="Boolean(errors.email)"
+                :aria-describedby="errors.email ? 'register-email-error' : undefined"
+                @input="clearFieldError('email')"
               >
-              <p v-if="errors.email" class="text-xs text-danger mt-1">{{ errors.email }}</p>
+              <p v-if="errors.email" id="register-email-error" role="alert" class="text-xs text-danger mt-1">{{ errors.email }}</p>
             </div>
 
             <!-- Password Field -->
@@ -67,7 +75,11 @@
                 autocomplete="new-password"
                 placeholder="至少 6 位"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                ref="passwordInput"
                 :disabled="isLoading"
+                :aria-invalid="Boolean(errors.password)"
+                :aria-describedby="errors.password ? 'register-password-error' : undefined"
+                @input="handlePasswordInput"
               >
               <div v-if="form.password" class="mt-2">
                 <div class="flex gap-1" aria-hidden="true">
@@ -80,7 +92,7 @@
                 </div>
                 <p class="mt-1 text-xs" :class="passwordStrength.textClass">密码强度：{{ passwordStrength.label }}</p>
               </div>
-              <p v-if="errors.password" class="text-xs text-danger mt-1">{{ errors.password }}</p>
+              <p v-if="errors.password" id="register-password-error" role="alert" class="text-xs text-danger mt-1">{{ errors.password }}</p>
             </div>
 
             <!-- Confirm Password Field -->
@@ -94,9 +106,13 @@
                 autocomplete="new-password"
                 placeholder="再次输入密码"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                ref="confirmPasswordInput"
                 :disabled="isLoading"
+                :aria-invalid="Boolean(errors.confirmPassword)"
+                :aria-describedby="errors.confirmPassword ? 'register-confirm-password-error' : undefined"
+                @input="handleConfirmPasswordInput"
               >
-              <p v-if="errors.confirmPassword" class="text-xs text-danger mt-1">{{ errors.confirmPassword }}</p>
+              <p v-if="errors.confirmPassword" id="register-confirm-password-error" role="alert" class="text-xs text-danger mt-1">{{ errors.confirmPassword }}</p>
             </div>
 
             <!-- Submit Button -->
@@ -126,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive } from 'vue'
+import { computed, nextTick, ref, reactive } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
@@ -145,6 +161,10 @@ const { register } = useAuth()
 const authStore = useAuthStore()
 
 const isLoading = ref(false)
+const nicknameInput = ref<HTMLInputElement | null>(null)
+const emailInput = ref<HTMLInputElement | null>(null)
+const passwordInput = ref<HTMLInputElement | null>(null)
+const confirmPasswordInput = ref<HTMLInputElement | null>(null)
 const form = reactive({
   nickname: '',
   email: '',
@@ -178,13 +198,62 @@ const registerSchema = z.object({
   nickname: z.string().min(2, '昵称至少 2 个字符').max(32, '昵称最多 32 个字符'),
   email: z.string().email('请输入有效的邮箱地址'),
   password: z.string().min(6, '密码至少 6 位'),
-  confirmPassword: z.string().min(1, '请再次输入密码'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: '两次输入的密码不一致',
-  path: ['confirmPassword'],
+  confirmPassword: z.string(),
+}).superRefine((data, context) => {
+  if (!data.confirmPassword) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: '请再次输入密码',
+      path: ['confirmPassword'],
+    })
+  } else if (data.password !== data.confirmPassword) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: '两次输入的密码不一致',
+      path: ['confirmPassword'],
+    })
+  }
 })
 
-const validateForm = () => {
+type RegisterField = keyof typeof errors
+
+const clearFieldError = (field: RegisterField) => {
+  errors[field] = ''
+}
+
+const validateConfirmation = () => {
+  if (!form.confirmPassword) {
+    errors.confirmPassword = form.password ? '请再次输入密码' : ''
+  } else if (form.password !== form.confirmPassword) {
+    errors.confirmPassword = '两次输入的密码不一致'
+  } else {
+    errors.confirmPassword = ''
+  }
+}
+
+const handlePasswordInput = () => {
+  clearFieldError('password')
+  validateConfirmation()
+}
+
+const handleConfirmPasswordInput = () => {
+  validateConfirmation()
+}
+
+const focusFirstInvalidField = async () => {
+  const inputs: Record<RegisterField, HTMLInputElement | null> = {
+    nickname: nicknameInput.value,
+    email: emailInput.value,
+    password: passwordInput.value,
+    confirmPassword: confirmPasswordInput.value,
+  }
+  const firstInvalid = (Object.keys(errors) as RegisterField[]).find((field) => Boolean(errors[field]))
+  if (!firstInvalid) return
+  await nextTick()
+  inputs[firstInvalid]?.focus()
+}
+
+const validateForm = async () => {
   errors.nickname = ''
   errors.email = ''
   errors.password = ''
@@ -196,19 +265,17 @@ const validateForm = () => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       error.errors.forEach((err) => {
-        const field = err.path[0] as string
-        if (field === 'nickname') errors.nickname = err.message
-        if (field === 'email') errors.email = err.message
-        if (field === 'password') errors.password = err.message
-        if (field === 'confirmPassword') errors.confirmPassword = err.message
+        const field = err.path[0] as RegisterField
+        if (field in errors && !errors[field]) errors[field] = err.message
       })
     }
+    await focusFirstInvalidField()
     return false
   }
 }
 
 const handleSubmit = async () => {
-  if (!validateForm()) return
+  if (!await validateForm()) return
 
   isLoading.value = true
   try {

@@ -3,7 +3,7 @@
     <AppHeader />
 
     <main class="community-page aggregation-main">
-      <section class="identity-banner" aria-labelledby="topic-detail-title">
+      <section v-if="topicReady" class="identity-banner" aria-labelledby="topic-detail-title">
         <div class="identity-mark" aria-hidden="true">
           <Hash class="h-5 w-5" />
         </div>
@@ -41,7 +41,7 @@
             </RouterLink>
           </div>
           <div class="identity-meta" aria-label="话题内容摘要">
-            <span><FileText class="h-4 w-4" />{{ displayCount }} {{ displayCountLabel }}</span>
+            <span><FileText class="h-4 w-4" />{{ displayCountText }} {{ displayCountLabel }}</span>
             <span v-if="canFollowTopic"><Users class="h-4 w-4" />{{ topic?.followerCount || 0 }} 位关注者</span>
             <span v-else>公开内容集合</span>
           </div>
@@ -202,7 +202,7 @@
                   <span>{{ isCuratedTopic ? '专题集合' : '话题状态' }}</span>
                   <h2>{{ currentTopicTitle }}</h2>
                 </div>
-                <strong>{{ displayCount }}</strong>
+                <strong>{{ displayCountText }}</strong>
               </div>
               <p v-if="isCuratedTopic">公开收录内容按专题结构组织，条目来源和可读状态以服务端结果为准。</p>
               <p v-else>关注、分享或参与话题的动作集中在这里，阅读内容不受账号状态影响。</p>
@@ -289,7 +289,7 @@ import type { ApiId, CommunityTopic, Post } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
 import { isKnownDomain, getDomainIcon, getDomainLabel, getDomainLabelSafe } from '@/utils/domains'
 import { summarizeCurationDomains } from '@/utils/curationDomainComposition'
-import { postTypeSummary } from '@/utils/communityMetrics'
+import { contentTypeName, postTypeDistributionCount, postTypeDistributionSummary } from '@/utils/communityMetrics'
 import { useAuthStore } from '@/stores/auth'
 import { filterPublicContent } from '@/utils/textQuality'
 import { filterVisiblePosts } from '@/utils/recommendationGovernance'
@@ -315,21 +315,53 @@ let postRequestGeneration = 0
 const topicSlug = computed(() => String(route.params.slug || ''))
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
 const fallbackName = computed(() => String(route.params.slug || '话题'))
+const routeTitle = computed(() => {
+  const slug = fallbackName.value.toLowerCase()
+  const knownTitles: Record<string, string> = {
+    java: 'Java',
+    'java-backend-roadmap': 'Java 后端成长路线',
+    redis: 'Redis',
+    mysql: 'MySQL',
+    spring: 'Spring',
+    'spring-boot': 'Spring Boot',
+    'spring-cloud': 'Spring Cloud',
+  }
+  return knownTitles[slug] || fallbackName.value.replace(/[-_]+/g, ' ')
+})
 const displayableCuratedStatuses = new Set(['PUBLISHED', 'ARCHIVED'])
 const isCuratedTopic = computed(() => Boolean(curatedTopic.value && displayableCuratedStatuses.has(curatedTopic.value.status)))
-const currentTopicTitle = computed(() => curatedTopic.value?.title || topic.value?.name || fallbackName.value)
+const currentTopicTitle = computed(() => curatedTopic.value?.title || topic.value?.name || routeTitle.value)
 const currentTopicSummary = computed(() => curatedTopic.value?.summary || topic.value?.description || '围绕公开内容形成的社区集合，只展示已经通过治理过滤且仍然可见的内容。')
 const topicTags = computed(() => isCuratedTopic.value ? [] : topic.value?.tags || [])
 const displayCount = computed(() => {
   if (isCuratedTopic.value) {
     return curatedTopic.value?.sections.reduce((sum, section) => sum + section.items.length, 0) || 0
   }
-  return topic.value?.postCount || posts.value.length
+  return topic.value?.statisticsAvailable ? Number(topic.value.postCount || 0) : posts.value.length
 })
-const displayCountLabel = computed(() => isCuratedTopic.value ? '篇收录' : '篇内容')
-const typeSummary = computed(() => postTypeSummary(posts.value))
+const isDisplayCountPending = computed(() => (
+  !isCuratedTopic.value
+  && (!topic.value || (!topic.value.statisticsAvailable && isLoading.value && posts.value.length === 0))
+))
+const displayCountText = computed(() => isDisplayCountPending.value ? '读取中' : String(displayCount.value))
+const displayCountLabel = computed(() => {
+  if (isDisplayCountPending.value) return '公开内容数量'
+  if (isCuratedTopic.value) return '篇收录'
+  return topic.value?.statisticsAvailable ? '篇公开内容' : '篇已加载内容'
+})
+const typeSummary = computed(() => {
+  if (!topic.value) return '正在加载内容类型统计'
+  if (!topic.value.statisticsAvailable) return '内容类型统计暂不可用'
+  const summary = postTypeDistributionSummary(topic.value.typeDistribution)
+  const filters = [
+    activeType.value ? `${contentTypeName(activeType.value)} ${postTypeDistributionCount(topic.value.typeDistribution, activeType.value)}` : '',
+    featuredOnly.value ? '精选' : '',
+  ].filter(Boolean)
+  return filters.length ? `全量分布：${summary}；当前筛选：${filters.join(' + ')}` : `全量分布：${summary}`
+})
 const topicLoadFailed = computed(() => Boolean(topicErrorMessage.value && !topic.value && !isCuratedTopic.value))
 const topicReady = computed(() => Boolean(isCuratedTopic.value || (topic.value && !topicLoadFailed.value)))
+const topicNotFound = computed(() => topicErrorMessage.value === '目标资源不存在或已被删除')
 const canFollowTopic = computed(() => Boolean(!isCuratedTopic.value && topic.value?.id && !topic.value?.virtualTopic))
 // 跨频道语义只读后端派生的 topicScope，不由 domain 是否为空自行推断。
 const isCrossDomainCuratedTopic = computed(() => (
@@ -397,6 +429,7 @@ const curatedLifecycleCopy = computed(() => {
   return ''
 })
 const unavailableTitle = computed(() => {
+  if (topicNotFound.value) return '话题不存在'
   if (curatedTopic.value?.status === 'OFFLINE') return '话题集合已下线'
   if (curatedTopic.value?.status === 'DEGRADED') return '话题集合暂时不可用'
   return isCuratedTopic.value ? '话题集合暂时无法打开' : '话题暂时无法打开'
@@ -416,6 +449,7 @@ const topicTypeText = computed(() => {
 
 const curatedTopicFallbackAllowed = (detail?: CuratedTopicDetail | null) => (
   detail?.fallbackReason === 'operation_topic_not_found'
+  || detail?.fallbackReason === 'operation_topic_empty'
 )
 
 const findPost = (postId: ApiId) => posts.value.find((item) => String(item.postId) === String(postId))
@@ -454,8 +488,12 @@ const loadTopic = async () => {
       return
     }
 
-    const res = await postApi.getTopic(slug)
+    const res = await postApi.resolveTopic(slug)
     if (!isCurrentLoad(targetGeneration, slug)) return
+    if (!res.data) {
+      topicErrorMessage.value = '目标资源不存在或已被删除'
+      return
+    }
     topic.value = res.data
     if (!topic.value?.virtualTopic) {
       await loadTopicFollowStatus(slug, targetGeneration)

@@ -309,7 +309,10 @@ export function adaptTag(raw: any): Tag {
     name,
     slug: raw?.slug ?? raw?.code ?? String(name).toLowerCase(),
     category: sanitizeVisibleText(raw?.category) || undefined,
-    count: Number(raw?.count ?? raw?.postCount ?? raw?.useCount ?? 0),
+    count: raw?.postCount == null ? undefined : Number(raw.postCount),
+    postCount: raw?.postCount == null ? undefined : Number(raw.postCount),
+    typeDistribution: adaptTypeDistribution(raw?.typeDistribution),
+    statisticsAvailable: raw?.statisticsAvailable == null ? undefined : Boolean(raw.statisticsAvailable),
     tagType: raw?.tagType === undefined ? undefined : Number(raw.tagType),
     status: raw?.status ?? raw?.tagStatus,
     recommended: raw?.recommended === undefined ? undefined : Boolean(raw.recommended),
@@ -331,6 +334,8 @@ export function adaptCommunityTopic(raw: any): CommunityTopic {
     featured: Boolean(raw?.featured),
     status: raw?.status ?? raw?.topicStatus,
     postCount: Number(raw?.postCount ?? raw?.count ?? 0),
+    typeDistribution: adaptTypeDistribution(raw?.typeDistribution),
+    statisticsAvailable: raw?.statisticsAvailable == null ? undefined : Boolean(raw.statisticsAvailable),
     followerCount: Number(raw?.followerCount ?? 0),
     followed: Boolean(raw?.followed),
     virtualTopic: Boolean(raw?.virtualTopic),
@@ -398,6 +403,15 @@ function adaptPostTrustSignals(raw: any): Post['trustSignals'] {
     sourceComplete: Boolean(raw.sourceComplete),
     resolved: Boolean(raw.resolved),
   }
+}
+
+function adaptTypeDistribution(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([type, count]) => [String(type), Math.max(0, Number(count ?? 0))] as const)
+      .filter(([, count]) => Number.isFinite(count) && count > 0),
+  )
 }
 
 export function adaptPost(raw: any): Post {

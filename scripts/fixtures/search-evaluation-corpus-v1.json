@@ -1,0 +1,234 @@
+{
+  "version": "2026-08-15.v1",
+  "status": "PREPARED_NOT_EXECUTED",
+  "executionBoundary": "Run only against the authorized controlled test environment after resolving document keys to audited COMMUNITY post IDs. Do not change this corpus to hide a failed case.",
+  "qualityGates": {
+    "negativeFalseRecallRate": 0,
+    "precisionAt5": 0.8,
+    "mustHitRecallAt10": 0.95,
+    "esMysqlEligibilityDifferenceRate": 0.1
+  },
+  "documentAnchors": [
+    {
+      "key": "community-backend-roadmap",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering a backend engineer growth roadmap."
+    },
+    {
+      "key": "community-cache-penetration",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering cache-penetration mitigation."
+    },
+    {
+      "key": "community-distributed-transaction",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering distributed transaction consistency."
+    },
+    {
+      "key": "community-es-query-guide",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Legitimate community technical content discussing Elasticsearch query design."
+    },
+    {
+      "key": "community-java-concurrency",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering Java concurrency."
+    },
+    {
+      "key": "community-java-core",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering Java fundamentals."
+    },
+    {
+      "key": "community-java-interview-recap",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering a Java interview recap."
+    },
+    {
+      "key": "community-jvm-gc",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering JVM garbage collection."
+    },
+    {
+      "key": "community-kafka-consumer",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering Kafka consumer processing."
+    },
+    {
+      "key": "community-kubernetes",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering Kubernetes."
+    },
+    {
+      "key": "community-microservices",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering microservice architecture."
+    },
+    {
+      "key": "community-mysql-fallback-guide",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Legitimate community technical content discussing MySQL fallback behavior."
+    },
+    {
+      "key": "community-mysql-index",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering MySQL index design."
+    },
+    {
+      "key": "community-redis-cache",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering Redis caching."
+    },
+    {
+      "key": "community-spring-boot",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering Spring Boot."
+    },
+    {
+      "key": "community-sql-tuning",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering SQL performance tuning."
+    },
+    {
+      "key": "community-system-design",
+      "resolvedPostId": null,
+      "contentEnvironment": "COMMUNITY",
+      "resolutionStatus": "PENDING_CONTROLLED_ENVIRONMENT_LOOKUP",
+      "purpose": "Community technical content covering system design."
+    }
+  ],
+  "caseGroups": [
+    {
+      "category": "positive",
+      "cases": [
+        { "id": "POS-01", "query": "Java", "mustHitDocumentKeys": ["community-java-core"] },
+        { "id": "POS-02", "query": "Redis", "mustHitDocumentKeys": ["community-redis-cache"] },
+        { "id": "POS-03", "query": "Spring Boot", "mustHitDocumentKeys": ["community-spring-boot"] },
+        { "id": "POS-04", "query": "JVM GC", "mustHitDocumentKeys": ["community-jvm-gc"] },
+        { "id": "POS-05", "query": "MySQL 索引", "mustHitDocumentKeys": ["community-mysql-index"] },
+        { "id": "POS-06", "query": "Elasticsearch 查询", "mustHitDocumentKeys": ["community-es-query-guide"] },
+        { "id": "POS-07", "query": "Kubernetes", "mustHitDocumentKeys": ["community-kubernetes"] },
+        { "id": "POS-08", "query": "微服务", "mustHitDocumentKeys": ["community-microservices"] },
+        { "id": "POS-09", "query": "系统设计", "mustHitDocumentKeys": ["community-system-design"] },
+        { "id": "POS-10", "query": "后端成长路线", "mustHitDocumentKeys": ["community-backend-roadmap"] },
+        { "id": "POS-11", "query": "Java 并发", "mustHitDocumentKeys": ["community-java-concurrency"] },
+        { "id": "POS-12", "query": "SQL 优化", "mustHitDocumentKeys": ["community-sql-tuning"] },
+        { "id": "POS-13", "query": "Kafka 消费", "mustHitDocumentKeys": ["community-kafka-consumer"] },
+        { "id": "POS-14", "query": "缓存穿透", "mustHitDocumentKeys": ["community-cache-penetration"] },
+        { "id": "POS-15", "query": "分布式事务", "mustHitDocumentKeys": ["community-distributed-transaction"] }
+      ]
+    },
+    {
+      "category": "negative",
+      "cases": [
+        { "id": "NEG-01", "query": "OfferLab不存在关键词xyz20260814", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-02", "query": "qzvwx-not-a-community-term-001", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-03", "query": "纯虚构技术栈蓝鲸引擎", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-04", "query": "无意义长词阿尔法贝塔伽马20260815", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-05", "query": "never-published-search-probe", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-06", "query": "zzzz-search-negative-case-a", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-07", "query": "zzzz-search-negative-case-b", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-08", "query": "zzzz-search-negative-case-c", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-09", "query": "zzzz-search-negative-case-d", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-10", "query": "zzzz-search-negative-case-e", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-11", "query": "zzzz-search-negative-case-f", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-12", "query": "zzzz-search-negative-case-g", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-13", "query": "zzzz-search-negative-case-h", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-14", "query": "zzzz-search-negative-case-i", "expectedVisibleResultCount": 0 },
+        { "id": "NEG-15", "query": "zzzz-search-negative-case-j", "expectedVisibleResultCount": 0 }
+      ]
+    },
+    {
+      "category": "chinese_long_tail",
+      "cases": [
+        { "id": "LONG-01", "query": "Java 后端三年经验面试复盘", "mustHitDocumentKeys": ["community-java-interview-recap"] },
+        { "id": "LONG-02", "query": "Redis 缓存击穿的工程化治理", "mustHitDocumentKeys": ["community-redis-cache"] },
+        { "id": "LONG-03", "query": "MySQL 联合索引失效排查", "mustHitDocumentKeys": ["community-mysql-index"] },
+        { "id": "LONG-04", "query": "Elasticsearch 检索相关性调优", "mustHitDocumentKeys": ["community-es-query-guide"] },
+        { "id": "LONG-05", "query": "Spring Boot 服务启动慢排查", "mustHitDocumentKeys": ["community-spring-boot"] },
+        { "id": "LONG-06", "query": "Kafka 重复消费幂等处理", "mustHitDocumentKeys": ["community-kafka-consumer"] },
+        { "id": "LONG-07", "query": "分布式事务最终一致性方案", "mustHitDocumentKeys": ["community-distributed-transaction"] },
+        { "id": "LONG-08", "query": "系统设计高并发限流方案", "mustHitDocumentKeys": ["community-system-design"] },
+        { "id": "LONG-09", "query": "后端工程师成长路线规划", "mustHitDocumentKeys": ["community-backend-roadmap"] },
+        { "id": "LONG-10", "query": "MySQL fallback 与 Elasticsearch 一致性", "mustHitDocumentKeys": ["community-mysql-fallback-guide"] }
+      ]
+    },
+    {
+      "category": "weak_or_stop_word",
+      "cases": [
+        { "id": "WEAK-01", "query": "不", "expectedBehavior": "no_broad_recall" },
+        { "id": "WEAK-02", "query": "在", "expectedBehavior": "no_broad_recall" },
+        { "id": "WEAK-03", "query": "的", "expectedBehavior": "no_broad_recall" },
+        { "id": "WEAK-04", "query": "了", "expectedBehavior": "no_broad_recall" },
+        { "id": "WEAK-05", "query": "啊", "expectedBehavior": "no_broad_recall" }
+      ]
+    },
+    {
+      "category": "special_character",
+      "cases": [
+        { "id": "SPECIAL-01", "query": "()[]{}+*?", "expectedBehavior": "no_error_no_broad_recall" },
+        { "id": "SPECIAL-02", "query": "\"'\\\\/", "expectedBehavior": "no_error_no_broad_recall" },
+        { "id": "SPECIAL-03", "query": "<script>alert(1)</script>", "expectedBehavior": "no_error_no_broad_recall" },
+        { "id": "SPECIAL-04", "query": "%%__--", "expectedBehavior": "no_error_no_broad_recall" },
+        { "id": "SPECIAL-05", "query": "（），。！？", "expectedBehavior": "no_error_no_broad_recall" }
+      ]
+    },
+    {
+      "category": "typo",
+      "cases": [
+        { "id": "TYPO-01", "query": "Javaa", "expectedBehavior": "zero_or_explicit_correction" },
+        { "id": "TYPO-02", "query": "Rediss", "expectedBehavior": "zero_or_explicit_correction" },
+        { "id": "TYPO-03", "query": "Sprng Boot", "expectedBehavior": "zero_or_explicit_correction" },
+        { "id": "TYPO-04", "query": "MySQLl", "expectedBehavior": "zero_or_explicit_correction" },
+        { "id": "TYPO-05", "query": "Elastisearch", "expectedBehavior": "zero_or_explicit_correction" }
+      ]
+    },
+    {
+      "category": "contract_and_fallback",
+      "cases": [
+        { "id": "CONTRACT-01", "query": "", "expectedBehavior": "empty_search_start_state" },
+        { "id": "CONTRACT-02", "query": "   ", "expectedBehavior": "empty_search_start_state" },
+        { "id": "CONTRACT-03", "query": "741177956554252288", "expectedBehavior": "known_candidate_is_not_public_until_classified" },
+        { "id": "CONTRACT-04", "query": "Java", "filters": { "domain": "backend" }, "mustHitDocumentKeys": ["community-java-core"] },
+        { "id": "CONTRACT-05", "query": "Java", "filters": { "type": "experience" }, "expectedBehavior": "filters_url_request_summary_result_match" },
+        { "id": "CONTRACT-06", "query": "Redis", "filters": { "trusted": true }, "expectedBehavior": "filters_url_request_summary_result_match" },
+        { "id": "CONTRACT-07", "query": "OfferLab不存在关键词xyz20260814", "executionModes": ["es", "mysql_fallback"], "expectedVisibleResultCount": 0 },
+        { "id": "CONTRACT-08", "query": "Elasticsearch 查询", "executionModes": ["es", "mysql_fallback"], "mustHitDocumentKeys": ["community-es-query-guide"] },
+        { "id": "CONTRACT-09", "query": "MySQL fallback", "executionModes": ["es", "mysql_fallback"], "mustHitDocumentKeys": ["community-mysql-fallback-guide"] },
+        { "id": "CONTRACT-10", "query": "Java", "expectedBehavior": "clear_cancels_late_response_and_removes_q" }
+      ]
+    }
+  ]
+}

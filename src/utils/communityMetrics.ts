@@ -94,6 +94,25 @@ export const postTypeSummary = (posts: Post[]) => {
     .join(' / ')
 }
 
+export const postTypeDistributionSummary = (distribution?: Record<string, number>) => {
+  const items = COMMUNITY_CONTENT_TYPES
+    .map((type) => ({
+      name: type.label,
+      count: Math.max(0, Number(distribution?.[String(type.value)] || 0)),
+    }))
+    .filter((item) => item.count > 0)
+  if (!items.length) return '暂无内容类型分布'
+  return items
+    .slice(0, 3)
+    .map((item) => `${item.name} ${item.count}`)
+    .join(' / ')
+}
+
+export const postTypeDistributionCount = (distribution: Record<string, number> | undefined, type?: number | null) => {
+  if (type == null) return 0
+  return Math.max(0, Number(distribution?.[String(type)] || 0))
+}
+
 export const contentTypeName = (type?: number | null) => getContentTypeShortLabel(type)
 
 const contributionLevel = (score: number) => {

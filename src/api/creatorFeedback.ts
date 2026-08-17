@@ -652,6 +652,27 @@ export const adaptCreatorReplyOpportunity = (raw: any): CreatorReplyOpportunity 
   createdAt: raw?.createdAt == null && raw?.createTime == null ? undefined : toNumber(raw?.createdAt ?? raw?.createTime),
 })
 
+const legacyRepresentativeBoundary = [
+  'Profile display only',
+  'not platform endorsement or commercial placement.',
+].join(', ')
+const legacyHighRiskRepresentativeBoundary = [
+  'Neutral profile display with risk context',
+  'not professional endorsement or commercial placement.',
+].join(', ')
+
+const adaptRepresentativeBoundaryCopy = (value: unknown) => {
+  const copy = safeText(value)
+  if (!copy) return undefined
+  if (copy === legacyRepresentativeBoundary) {
+    return '仅用于作者主页展示，不代表平台背书或商业推荐。'
+  }
+  if (copy === legacyHighRiskRepresentativeBoundary) {
+    return '仅作中性主页展示，并保留风险提示；不代表专业背书或商业推荐。'
+  }
+  return copy
+}
+
 export const adaptCreatorRepresentativePost = (raw: any): CreatorRepresentativePost => ({
   postId: adaptId(raw?.postId ?? raw?.id),
   title: safeText(raw?.title, '未命名内容'),
@@ -664,7 +685,7 @@ export const adaptCreatorRepresentativePost = (raw: any): CreatorRepresentativeP
   reason: safeText(raw?.reason),
   source: safeText(raw?.source) || undefined,
   publicVisible: raw?.publicVisible == null ? undefined : Boolean(raw.publicVisible),
-  boundaryCopy: safeText(raw?.boundaryCopy) || undefined,
+  boundaryCopy: adaptRepresentativeBoundaryCopy(raw?.boundaryCopy),
   href: safeSameSitePath(raw?.href ?? raw?.targetPath ?? raw?.jumpPath) || undefined,
 })
 

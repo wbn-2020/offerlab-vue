@@ -1,5 +1,5 @@
 import { useAuthStore } from '@/stores/auth'
-import { authApi } from '@/api/auth'
+import { authApi, AUTH_PROFILE_TIMEOUT_MS } from '@/api/auth'
 import { authTokenStore } from '@/utils/authTokenStore'
 
 interface AuthOperationOwner {
@@ -56,7 +56,7 @@ export function useAuth() {
     authStore.setToken(token)
     owner.sessionGeneration = authStore.getSessionGeneration()
     const sessionVersion = authTokenStore.getVersion()
-    const me = await authApi.fetchMe().catch((error) => {
+    const me = await authApi.fetchMe(AUTH_PROFILE_TIMEOUT_MS).catch((error) => {
       if (!authOperationRequestIsCurrent(owner)) {
         throw new AuthOperationSupersededError()
       }

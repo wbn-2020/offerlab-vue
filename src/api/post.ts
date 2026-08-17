@@ -379,6 +379,11 @@ export const postApi = {
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptTag) : [] }
   },
 
+  getTag: async (tagId: ApiId): Promise<Result<Tag>> => {
+    const res = await client.get(`/api/v1/tags/${tagId}`) as Result<any>
+    return { ...res, data: res.data ? adaptTag(res.data) : null }
+  },
+
   listAdminTags: async (params?: { status?: number; recommended?: boolean; keyword?: string; limit?: number }): Promise<Result<Tag[]>> => {
     const res = await client.get('/api/v1/tags/admin', { params }) as Result<any>
     return { ...res, data: Array.isArray(res.data) ? res.data.map(adaptTag) : [] }
@@ -425,6 +430,11 @@ export const postApi = {
 
   getTopic: async (slug: string): Promise<Result<CommunityTopic>> => {
     const res = await client.get(`/api/v1/topics/${encodeURIComponent(slug)}`) as Result<any>
+    return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
+  },
+
+  resolveTopic: async (slug: string): Promise<Result<CommunityTopic>> => {
+    const res = await client.get('/api/v1/topics/resolve', { params: { slug } }) as Result<any>
     return { ...res, data: res.data ? adaptCommunityTopic(res.data) : null }
   },
 

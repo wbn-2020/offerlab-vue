@@ -25,6 +25,7 @@ export function setupRouterGuards(router: Router) {
     applyPageSeo({ title, description, canonical: to.path })
     const authStore = useAuthStore()
     const requiresAuth = to.meta.requiresAuth as boolean
+    const guestOnly = to.meta.guestOnly as boolean
     const adminPermission = to.meta.adminPermission as AdminPermissionKey | AdminPermissionKey[] | undefined
 
     if (authStore.token && !authStore.ready) {
@@ -44,6 +45,13 @@ export function setupRouterGuards(router: Router) {
     if (requiresAuth && !authStore.isLoggedIn) {
       next({ name: 'Login', query: { redirect: to.fullPath } })
       return
+    }
+    if (guestOnly && authStore.isLoggedIn) {
+      const switchAccount = to.name === 'Login' && to.query.switchAccount === '1'
+      if (!switchAccount) {
+        next({ path: '/me', replace: true })
+        return
+      }
     }
     if (
       to.name === 'Welcome'

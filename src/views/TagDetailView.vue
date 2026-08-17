@@ -14,7 +14,7 @@
             汇总这个标签下的经验分享、问题求助、攻略清单、资源推荐、复盘记录和观点讨论。
           </p>
           <div class="identity-meta" aria-label="标签内容摘要">
-            <span><FileText class="h-4 w-4" />{{ displayCount }} 篇公开内容</span>
+            <span><FileText class="h-4 w-4" />{{ displayCount }} {{ displayCountLabel }}</span>
             <span>按发布时间持续更新</span>
           </div>
         </div>
@@ -121,7 +121,7 @@
                 </div>
                 <strong>{{ displayCount }}</strong>
               </div>
-              <p>这里仅展示公开且仍可见的内容，筛选不会改变标签本身。</p>
+              <p>{{ statisticsAvailable ? '统计覆盖这个标签下的全部公开内容，筛选不会改变标签本身。' : '全量统计暂不可用，当前显示已加载且仍可见的内容。' }}</p>
               <PublicShareButton
                 class="rail-share-button"
                 :title="tagId ? tagName : '标签暂未找到'"
@@ -167,7 +167,7 @@ import { postApi } from '@/api/post'
 import { usePostInteraction } from '@/composables/usePostInteraction'
 import type { ApiId, Post, Tag } from '@/api/types'
 import { COMMUNITY_CONTENT_TYPES, POST_TYPE } from '@/utils/contentTypes'
-import { postTypeSummary } from '@/utils/communityMetrics'
+import { contentTypeName, postTypeDistributionCount, postTypeDistributionSummary } from '@/utils/communityMetrics'
 import { filterPublicContent } from '@/utils/textQuality'
 import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 import { applyPageSeo, summarizeSeoText } from '@/utils/seo'
@@ -176,6 +176,9 @@ const route = useRoute()
 const tagName = ref('标签')
 const tagId = ref<ApiId | null>(null)
 const declaredCount = ref(0)
+const typeDistribution = ref<Record<string, number>>({})
+const statisticsAvailable = ref(false)
+const statisticsResolved = ref(false)
 const posts = ref<Post[]>([])
 const cursor = ref<string | undefined>()
 const hasMore = ref(false)
@@ -187,9 +190,19 @@ let tagLoadGeneration = 0
 let postRequestGeneration = 0
 
 const tagSlug = computed(() => String(route.params.slug || ''))
-const displayCount = computed(() => declaredCount.value || posts.value.length)
+const displayCount = computed(() => statisticsAvailable.value ? declaredCount.value : posts.value.length)
+const displayCountLabel = computed(() => statisticsAvailable.value ? '篇公开内容' : '篇已加载内容')
 const contentTypeChannels = COMMUNITY_CONTENT_TYPES
-const typeSummary = computed(() => postTypeSummary(posts.value))
+const typeSummary = computed(() => {
+  if (!statisticsResolved.value) return '正在加载内容类型统计'
+  if (!statisticsAvailable.value) return '内容类型统计暂不可用'
+  const summary = postTypeDistributionSummary(typeDistribution.value)
+  const filters = [
+    activeType.value ? `${contentTypeName(activeType.value)} ${postTypeDistributionCount(typeDistribution.value, activeType.value)}` : '',
+    featuredOnly.value ? '精选' : '',
+  ].filter(Boolean)
+  return filters.length ? `全量分布：${summary}；当前筛选：${filters.join(' + ')}` : `全量分布：${summary}`
+})
 const emptyTitle = computed(() => tagId.value ? '这个标签下还没有内容' : '没有找到这个标签')
 const emptyDescription = computed(() => tagId.value
   ? '去发现相关内容，或发布第一篇经验、问题、攻略或资源。'
@@ -217,6 +230,9 @@ const loadTag = async () => {
   tagName.value = slug || '标签'
   tagId.value = null
   declaredCount.value = 0
+  typeDistribution.value = {}
+  statisticsAvailable.value = false
+  statisticsResolved.value = false
   posts.value = []
   cursor.value = undefined
   hasMore.value = false
@@ -230,9 +246,21 @@ const loadTag = async () => {
     const currentTag = resolveTag(tags, slug)
     if (!currentTag) return
 
-    tagId.value = currentTag.id
-    tagName.value = currentTag.name
-    declaredCount.value = currentTag.count || 0
+    let detail = currentTag
+    try {
+      const detailRes = await postApi.getTag(currentTag.id)
+      if (!isCurrentTagLoad(targetGeneration, slug)) return
+      if (detailRes.data) detail = detailRes.data
+    } catch {
+      // The public list still resolves the tag; only the full statistics enhancement is unavailable.
+    }
+
+    tagId.value = detail.id
+    tagName.value = detail.name
+    declaredCount.value = Number(detail.postCount ?? 0)
+    typeDistribution.value = detail.typeDistribution || {}
+    statisticsAvailable.value = Boolean(detail.statisticsAvailable)
+    statisticsResolved.value = true
     isPostLoadStarted = true
     await loadPosts(false, targetGeneration)
   } catch (error: unknown) {

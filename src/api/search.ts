@@ -37,22 +37,9 @@ export interface SearchParams {
 }
 
 export interface SearchStatus {
-  status?: string
-  enabled: boolean
   available: boolean
-  indexName: string
-  indexExists: boolean
-  indexReady: boolean
-  publicSearchAvailable?: boolean
-  publicSearchDegraded?: boolean
-  publicSearchSource?: string
-  dbFallbackAvailable?: boolean
-  fallbackSource?: string
-  fallbackMode?: string
-  fallbackScanLimit?: number
-  fallbackSchemaReady?: boolean
-  message?: string
-  diagnosticMessage?: string
+  degraded: boolean
+  message: string
   action?: string
 }
 

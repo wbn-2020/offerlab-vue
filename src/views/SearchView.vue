@@ -29,7 +29,7 @@
             <Search class="h-4 w-4" />
             搜索
           </button>
-          <button type="button" class="secondary-button" :disabled="!hasQuery" @click="saveCurrentSearch">
+          <button type="button" class="secondary-button" :disabled="!canPersistSearch" @click="saveCurrentSearch">
             <Bookmark class="h-4 w-4" />
             保存搜索
           </button>
@@ -68,6 +68,34 @@
             </button>
           </div>
         </div>
+
+        <details class="mobile-search-disclosure">
+          <summary>
+            <span>搜索范围</span>
+            <strong>{{ mobileSearchModeLabel }}<template v-if="searchMode === 'posts'"> · {{ activeSortLabel }}</template></strong>
+          </summary>
+          <div class="mobile-search-disclosure__body">
+            <div class="segmented">
+              <button type="button" :class="['segment-button', searchMode === 'posts' ? 'segment-active' : '']" :aria-pressed="searchMode === 'posts'" @click="setMode('posts')">内容</button>
+              <button type="button" :class="['segment-button', searchMode === 'users' ? 'segment-active' : '']" :aria-pressed="searchMode === 'users'" @click="setMode('users')">作者</button>
+              <button type="button" :class="['segment-button', searchMode === 'topics' ? 'segment-active' : '']" :aria-pressed="searchMode === 'topics'" @click="setMode('topics')">话题</button>
+              <button type="button" :class="['segment-button', searchMode === 'tags' ? 'segment-active' : '']" :aria-pressed="searchMode === 'tags'" @click="setMode('tags')">标签</button>
+            </div>
+            <div v-if="searchMode === 'posts'" class="search-sort-options">
+              <button
+                v-for="option in sortOptions"
+                :key="`mobile-${option.value}`"
+                type="button"
+                :class="['chip-button', filters.sort === option.value ? 'chip-active' : '']"
+                :aria-pressed="filters.sort === option.value"
+                @click="setSort(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </details>
+        <p v-if="!isLoading && resultCount > 0" class="mobile-result-summary">{{ resultSummaryText }}</p>
       </section>
 
       <div class="search-layout">
@@ -109,9 +137,24 @@
                 </select>
               </label>
             </div>
-            <details class="filter-details" :open="hasAdvancedFilters">
-              <summary class="filter-summary">高级筛选</summary>
-              <div class="filter-details__body space-y-3">
+            <div class="filter-details">
+              <button
+                ref="advancedFilterToggle"
+                type="button"
+                class="filter-summary"
+                :aria-expanded="advancedFiltersOpen"
+                aria-controls="advanced-search-filters"
+                @click="toggleAdvancedFilters"
+              >
+                <span>高级筛选</span>
+                <span class="filter-summary__state">{{ advancedFilterSummary }}</span>
+              </button>
+              <div
+                v-if="advancedFiltersOpen"
+                id="advanced-search-filters"
+                ref="advancedFilterBody"
+                class="filter-details__body space-y-3"
+              >
                 <label class="field-label">
                   标签 / 实体
                   <input v-model.trim="filters.company" class="field-input" placeholder="例如 AI 工具 / 租房 / 读书" @input="scheduleDebouncedSearch" @keyup.enter="runSearch(false)" />
@@ -156,7 +199,7 @@
                   </select>
                 </label>
               </div>
-            </details>
+            </div>
             <div class="mt-4 grid grid-cols-2 gap-2">
               <button type="button" class="secondary-button" @click="resetFilters">清空</button>
               <button type="button" class="secondary-button" @click="runSearch(false)">应用</button>
@@ -285,15 +328,6 @@
             <span v-if="searchMode === 'posts'">排序: {{ activeSortLabel }}</span>
           </div>
 
-          <div
-            v-if="searchMode === 'posts' && searchResultMeta && !isLoading"
-            :class="['search-source-notice', searchResultMeta.degraded ? 'source-degraded' : 'source-normal']"
-          >
-            <strong>{{ searchSourceTitle }}</strong>
-            <span>{{ searchSourceDescription }}</span>
-            <span v-if="searchDiagnosticText" class="block text-xs">{{ searchDiagnosticText }}</span>
-          </div>
-
           <div v-if="highRiskSearchWarning" class="search-source-notice source-degraded">
             <strong>谨慎参考</strong>
             <span>{{ highRiskSearchWarning }}</span>
@@ -346,7 +380,7 @@
                 <h3 class="truncate font-semibold text-slate-950 dark:text-slate-50">{{ item.name }}</h3>
                 <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">标签索引会把相关内容、话题和作者线索收拢到一起。</p>
               </div>
-              <span class="view-link">{{ item.count || 0 }} 篇</span>
+              <span class="view-link">{{ item.postCount ?? 0 }} 篇</span>
             </RouterLink>
           </template>
 
@@ -375,7 +409,6 @@
           <div v-else-if="!isLoading" class="empty-panel">
             <h2>{{ emptyTitle }}</h2>
             <p>{{ emptyText }}</p>
-            <p v-if="searchDiagnosticText" class="mt-2 text-sm text-amber-700 dark:text-amber-300">{{ searchDiagnosticText }}</p>
             <div v-if="searchMode === 'posts' && hasQuery" class="no-result-recommendations">
               <div v-if="relaxActions.length" class="recommend-group">
                 <span>放宽筛选</span>
@@ -472,7 +505,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Bookmark, Check, Eraser, FileText, Hash, Pencil, Search, Trash2, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -498,6 +531,19 @@ type SortValue = 'relevance' | 'latest' | 'hot' | 'trusted'
 type BooleanFilter = '' | 'true' | 'false'
 type FreshnessFilter = '' | 'CURRENT' | 'POSSIBLY_STALE' | 'AWAITING_AUTHOR_CONFIRMATION' | 'UPDATED' | 'SUPERSEDED'
 type SearchMode = 'posts' | 'users' | 'topics' | 'tags'
+type SearchQueryState = {
+  mode: SearchMode
+  q: string
+  domain?: number
+  company: string
+  position: string
+  type?: number
+  sort: SortValue
+  trustProfile: BooleanFilter
+  freshnessStatus: FreshnessFilter
+  resolved: BooleanFilter
+  sourceComplete: BooleanFilter
+}
 type SearchSnapshot = {
   id: string
   label: string
@@ -519,14 +565,6 @@ type SearchUndoAction = {
   id: number
   message: string
   restore: () => void
-}
-
-type SearchResultMeta = {
-  source?: string
-  degraded?: boolean
-  fallbackReason?: string
-  scanLimit?: number
-  diagnostics?: Record<string, unknown>
 }
 
 type RecommendationSource = 'remote' | 'local' | 'fallback' | 'demo'
@@ -598,6 +636,7 @@ const topicResults = ref<CommunityTopic[]>([])
 const tagResults = ref<Tag[]>([])
 const cursor = ref<string | undefined>()
 const hasMore = ref(false)
+const resultDisplayCapReached = ref(false)
 const hotWords = ref<string[]>([])
 const suggestions = ref<string[]>([])
 const hotWordsSource = ref<RecommendationSource>('fallback')
@@ -608,7 +647,10 @@ const searchUndoAction = ref<SearchUndoAction | null>(null)
 const editingSavedSearchId = ref('')
 const editingSavedSearchLabel = ref('')
 const searchStatus = ref<SearchStatus | null>(null)
-const searchResultMeta = ref<SearchResultMeta | null>(null)
+const appliedQuery = ref<SearchQueryState | null>(null)
+const advancedFiltersOpen = ref(false)
+const advancedFilterToggle = ref<HTMLButtonElement | null>(null)
+const advancedFilterBody = ref<HTMLElement | null>(null)
 const isLoading = ref(false)
 const isSearchStatusLoading = ref(false)
 const searchStatusError = ref(false)
@@ -621,20 +663,51 @@ let searchRequestId = 0
 let isPushingQuery = false
 
 const storageOwner = computed(() => String(authStore.user?.uid ?? 'guest'))
-const storageKey = (name: string) => `offerlab:${storageOwner.value}:${name}`
+const storageNamespace = computed(() => {
+  const origin = typeof window === 'undefined' ? 'unknown-origin' : window.location.origin
+  return encodeURIComponent(origin)
+})
+const storageKey = (name: string) => (
+  `offerlab:v2:${storageNamespace.value}:${storageOwner.value}:${name}`
+)
 const resultCount = computed(() => {
   if (searchMode.value === 'users') return userResults.value.length
   if (searchMode.value === 'topics') return topicResults.value.length
   if (searchMode.value === 'tags') return tagResults.value.length
   return searchResults.value.length
 })
-const activeSortLabel = computed(() => sortOptions.find((item) => item.value === filters.sort)?.label || '相关度')
+const activeSortLabel = computed(() => sortOptions.find(
+  (item) => item.value === (appliedQuery.value?.sort || filters.sort),
+)?.label || '相关度')
+const appliedFilterLabels = computed(() => {
+  const query = appliedQuery.value
+  if (!query || query.mode !== 'posts') return []
+  const labels: string[] = []
+  if (query.q) labels.push(`关键词「${query.q}」`)
+  if (query.domain) labels.push(getDomainLabelSafe(query.domain))
+  if (query.type) labels.push(getContentTypeLabel(query.type))
+  if (query.company) labels.push(`标签「${query.company}」`)
+  if (query.position) labels.push(`场景「${query.position}」`)
+  if (query.trustProfile) labels.push(query.trustProfile === 'true' ? '已补充经验护照' : '未补充经验护照')
+  if (query.freshnessStatus) labels.push('已筛选内容时效')
+  if (query.resolved) labels.push(query.resolved === 'true' ? '已有讨论结果' : '仍待补充结果')
+  if (query.sourceComplete) labels.push(query.sourceComplete === 'true' ? '来源完整' : '来源待补充')
+  return labels
+})
 const resultSummaryText = computed(() => {
-  if (searchMode.value === 'users') return `找到 ${resultCount.value} 位作者`
-  if (searchMode.value === 'topics') return filters.q ? `找到 ${resultCount.value} 个相关话题` : `共 ${resultCount.value} 个热门话题`
-  if (searchMode.value === 'tags') return filters.q ? `找到 ${resultCount.value} 个相关标签` : `共 ${resultCount.value} 个热门标签`
-  if (hasMore.value) return `已加载 ${resultCount.value} 条内容，继续加载可查看更多`
-  return `共 ${resultCount.value} 条内容`
+  const query = appliedQuery.value
+  const mode = query?.mode || searchMode.value
+  if (mode === 'users') return `找到 ${resultCount.value} 位作者`
+  if (mode === 'topics') return query?.q ? `找到 ${resultCount.value} 个相关话题` : `共 ${resultCount.value} 个热门话题`
+  if (mode === 'tags') return query?.q ? `找到 ${resultCount.value} 个相关标签` : `共 ${resultCount.value} 个热门标签`
+  const countText = resultDisplayCapReached.value
+    ? `已显示 ${resultCount.value} 条内容（最多显示 ${MAX_SEARCH_RESULTS} 条）`
+    : hasMore.value
+    ? `已加载 ${resultCount.value} 条内容，继续加载可查看更多`
+    : `共 ${resultCount.value} 条内容`
+  return appliedFilterLabels.value.length
+    ? `${countText} · 已应用：${appliedFilterLabels.value.join('、')}`
+    : countText
 })
 const hasQuery = computed(() => {
   if (searchMode.value === 'users') return Boolean(filters.q)
@@ -651,6 +724,13 @@ const hasQuery = computed(() => {
     || filters.sourceComplete,
   )
 })
+const mobileSearchModeLabel = computed(() => ({
+  posts: '内容',
+  users: '作者',
+  topics: '话题',
+  tags: '标签',
+}[searchMode.value]))
+const canPersistSearch = computed(() => Boolean(filters.q.trim()))
 const hasAdvancedFilters = computed(() => Boolean(
   filters.company
   || filters.position
@@ -658,6 +738,17 @@ const hasAdvancedFilters = computed(() => Boolean(
   || filters.freshnessStatus
   || filters.resolved
   || filters.sourceComplete,
+))
+const advancedFilterCount = computed(() => [
+  filters.company,
+  filters.position,
+  filters.trustProfile,
+  filters.freshnessStatus,
+  filters.resolved,
+  filters.sourceComplete,
+].filter(Boolean).length)
+const advancedFilterSummary = computed(() => (
+  advancedFilterCount.value ? `${advancedFilterCount.value} 项已设置` : '未设置'
 ))
 const shouldAutoRunSearch = computed(() => (
   hasQuery.value
@@ -678,44 +769,11 @@ const filterVisibleTopics = (items: CommunityTopic[], keyword: string) => (
 const filterVisibleTags = (items: Tag[], keyword: string) => (
   filterPublicContent(items)
     .filter((item) => includesKeyword([item.name, item.slug, item.category], keyword))
-    .sort((a, b) => Number(b.count || 0) - Number(a.count || 0))
+    .sort((a, b) => Number(b.postCount || 0) - Number(a.postCount || 0))
 )
-const searchDiagnosticText = computed(() => {
-  const diagnostics = searchResultMeta.value?.diagnostics
-  if (!diagnostics) return ''
-  if (String(diagnostics.emptyReason || '').startsWith('test_data_filtered')) {
-    return '当前关键词像自动化回归记录，这类数据不会出现在公开搜索中。'
-  }
-  if (diagnostics.emptyReason === 'type_or_filter_no_match') {
-    return '当前筛选条件没有匹配结果，可以先减少筛选项。'
-  }
-  const filtered = Number(diagnostics.syntheticFiltered || 0)
-  if (filtered > 0) {
-    return '部分不适合公开展示的记录已被隐藏。'
-  }
-  if (searchResultMeta.value?.scanLimit) {
-    return '结果会受到当前筛选条件和可检索范围影响。'
-  }
-  return ''
-})
-const postDetailSearchSources = new Set(['elasticsearch', 'mysql', 'client_fallback'])
-const postDetailFallbackReasons = new Set([
-  'elasticsearch_empty',
-  'elasticsearch_visibility_filtered',
-  'elasticsearch_unavailable',
-  'mysql_fallback_continuation',
-  'hot_sort_mysql',
-  'search_api_error',
-])
 const postDetailQuery = computed<Record<string, string>>(() => {
-  const meta = searchResultMeta.value
-  if (!meta) return {} as Record<string, string>
-  const query: Record<string, string> = { from: 'search' }
-  if (meta.source && postDetailSearchSources.has(meta.source)) query.source = meta.source
-  if (meta.degraded) query.degraded = 'true'
-  if (meta.fallbackReason && postDetailFallbackReasons.has(meta.fallbackReason)) {
-    query.fallbackReason = meta.fallbackReason
-  }
+  const query: Record<string, string> = {}
+  if (appliedQuery.value) query.from = 'search'
   return query
 })
 const searchSignalNote = computed(() => {
@@ -766,24 +824,10 @@ const sourceLabel = (source: RecommendationSource) => {
   return labels[source]
 }
 const shouldTrackPublicRecommendation = (source: RecommendationSource) => source === 'remote'
-const userFacingSearchStatusMessage = (message?: string | null) => {
-  const value = message?.trim()
-  if (!value) return ''
-  if (/^[\x00-\x7F]+$/.test(value)) return ''
-  if (/(Elasticsearch|MySQL|fallback|Public search|index is not ready)/i.test(value)) return ''
-  return value
-}
 const searchStatusText = computed(() => {
   if (searchStatusError.value && !searchStatus.value) return '暂时无法读取搜索状态，仍可浏览热门内容、作者和发现页。'
   if (!searchStatus.value) return '公开搜索只展示已发布且可公开访问的内容。'
-  if (searchStatus.value.publicSearchAvailable === false) return '公开搜索暂不可用，请稍后重试或使用发现页、社区问题求助和搜作者入口'
-  if (searchStatus.value.publicSearchSource === 'mysql') return '搜索仍可使用，但结果完整度和排序能力可能暂时受限。'
-  if (!searchStatus.value.enabled || !searchStatus.value.available || !searchStatus.value.indexExists) {
-    return '搜索仍可使用，但结果完整度可能暂时受限。'
-  }
-  const backendMessage = userFacingSearchStatusMessage(searchStatus.value.message)
-  if (backendMessage) return backendMessage
-  return '搜索状态正常，只返回公开且符合当前条件的内容。'
+  return searchStatus.value.message || '公开搜索只展示已发布且可公开访问的内容。'
 })
 const searchErrorStatusText = computed(() => {
   if (!errorMessage.value) return searchStatusText.value
@@ -792,14 +836,11 @@ const searchErrorStatusText = computed(() => {
   return `本次搜索请求失败；下方状态仅表示当前后端诊断：${searchStatusText.value}`
 })
 const searchStatusBadge = computed(() => {
-  if (searchStatus.value?.publicSearchSource === 'elasticsearch') return '正常'
-  if (searchStatus.value?.publicSearchSource === 'mysql') return '受限'
-  if (searchStatus.value?.publicSearchAvailable === false) return '不可用'
-  return searchStatus.value?.available ? '正常' : '受限'
+  if (searchStatus.value?.available === false) return '不可用'
+  return searchStatus.value?.degraded ? '受限' : '正常'
 })
 const searchStatusPillClass = computed(() => {
-  if (searchStatus.value?.publicSearchSource === 'elasticsearch') return 'status-ok'
-  if (searchStatus.value?.publicSearchAvailable === false) return 'status-danger'
+  if (searchStatus.value?.available === false) return 'status-danger'
   return 'status-ok'
 })
 const communityQuestionQuery = computed(() => {
@@ -813,21 +854,6 @@ const communityQuestionQuery = computed(() => {
       sort: 'hot',
     },
   }
-})
-const searchSourceTitle = computed(() => {
-  const meta = searchResultMeta.value
-  if (!meta) return ''
-  if (!meta.degraded) return '搜索结果'
-  if (isVisibilitySupplementReason(meta.fallbackReason)) return '已补充可见内容'
-  if (meta.source === 'client_fallback') return '可继续浏览'
-  return '结果可能不完整'
-})
-const searchSourceDescription = computed(() => {
-  const meta = searchResultMeta.value
-  if (!meta) return ''
-  if (!meta.degraded) return '按当前关键词、筛选和排序返回公开内容。'
-  if (isVisibilitySupplementReason(meta.fallbackReason)) return '已补充符合公开条件的内容，搜索仍可继续使用。'
-  return `${fallbackReasonText(meta.fallbackReason)}，你仍可调整关键词或筛选继续查找。`
 })
 const highRiskSearchWarning = computed(() => (
   findHighRiskContentWarning([filters.q, filters.company, filters.position].filter(Boolean).join(' '))
@@ -845,7 +871,12 @@ const filterVisibleSearchTerms = (values: unknown) => {
         return ''
       })
     : values
-  return filterSearchSuggestionTerms(filterVisibleTexts(normalizedValues, 12).filter((value) => !isSyntheticVisibleText(value)), 12)
+  return filterSearchSuggestionTerms(
+    filterVisibleTexts(normalizedValues, 12)
+      .filter((value) => !isSyntheticVisibleText(value))
+      .filter((value) => !isLowQualitySearchTerm(value)),
+    12,
+  )
 }
 
 const stripHighlightTags = (value?: string) => String(value || '').replace(/<\/?em>/g, '')
@@ -855,7 +886,14 @@ const containsTerm = (value: unknown, term: string) => {
   const keyword = term.trim().toLowerCase()
   return Boolean(keyword && text.includes(keyword))
 }
-const activeSearchTerms = () => uniqueText([filters.q, filters.company, filters.position]).slice(0, 4)
+const activeSearchTerms = () => {
+  const query = appliedQuery.value
+  return uniqueText([
+    query?.q || '',
+    query?.company || '',
+    query?.position || '',
+  ]).slice(0, 4)
+}
 const postTopicNames = (post: Post) => {
   const values = [
     post.extension?.topic,
@@ -889,22 +927,6 @@ const userSignatureText = (item: User) => {
   return sanitizePublicVisibleText(item.signature, '作者还没有填写简介')
 }
 const searchUserFollowReason = (item: User) => buildFollowReasons(item)[0]
-
-const isVisibilitySupplementReason = (reason?: string) => {
-  return reason === 'elasticsearch_empty' || reason === 'elasticsearch_visibility_filtered'
-}
-
-const fallbackReasonText = (reason?: string) => {
-  const labels: Record<string, string> = {
-    elasticsearch_empty: '未找到直接匹配，已补充其他公开内容',
-    elasticsearch_visibility_filtered: '直接匹配较少，已补充其他公开内容',
-    elasticsearch_unavailable: '当前使用备用搜索方式',
-    mysql_fallback_continuation: '后续结果沿用当前排序',
-    hot_sort_mysql: '热门结果按社区互动排序',
-    search_api_error: '本次搜索失败，已保留其他浏览入口',
-  }
-  return labels[reason || ''] || '当前使用备用搜索方式'
-}
 
 const analyticsKeyword = () => filters.q || filters.company || filters.position || (filters.type ? postTypeText(filters.type) : '') || 'empty-result'
 
@@ -1003,25 +1025,28 @@ const syncFromRoute = () => {
     ? route.query.sourceComplete
     : ''
   searchMode.value = nextMode
+  advancedFiltersOpen.value = hasAdvancedFilters.value
 }
 
-const pushQuery = () => {
+const queryToRouteQuery = (query: SearchQueryState) => ({
+  ...(query.q ? { q: query.q } : {}),
+  ...(query.mode === 'posts' && query.domain ? { domain: String(query.domain) } : {}),
+  ...(query.company ? { company: query.company } : {}),
+  ...(query.position ? { position: query.position } : {}),
+  ...(query.type ? { type: String(query.type) } : {}),
+  ...(query.mode === 'posts' ? { sort: query.sort } : {}),
+  ...(query.mode === 'posts' && query.trustProfile ? { trustProfile: query.trustProfile } : {}),
+  ...(query.mode === 'posts' && query.freshnessStatus ? { freshnessStatus: query.freshnessStatus } : {}),
+  ...(query.mode === 'posts' && query.resolved ? { resolved: query.resolved } : {}),
+  ...(query.mode === 'posts' && query.sourceComplete ? { sourceComplete: query.sourceComplete } : {}),
+  ...(query.mode !== 'posts' ? { mode: query.mode } : {}),
+})
+
+const pushQuery = (query = captureQueryState()) => {
   isPushingQuery = true
   return router.replace({
     path: '/search',
-    query: {
-      ...(filters.q ? { q: filters.q } : {}),
-      ...(searchMode.value === 'posts' && filters.domain ? { domain: String(filters.domain) } : {}),
-      ...(filters.company ? { company: filters.company } : {}),
-      ...(filters.position ? { position: filters.position } : {}),
-      ...(filters.type ? { type: String(filters.type) } : {}),
-      ...(searchMode.value === 'posts' ? { sort: filters.sort } : {}),
-      ...(searchMode.value === 'posts' && filters.trustProfile ? { trustProfile: filters.trustProfile } : {}),
-      ...(searchMode.value === 'posts' && filters.freshnessStatus ? { freshnessStatus: filters.freshnessStatus } : {}),
-      ...(searchMode.value === 'posts' && filters.resolved ? { resolved: filters.resolved } : {}),
-      ...(searchMode.value === 'posts' && filters.sourceComplete ? { sourceComplete: filters.sourceComplete } : {}),
-      ...(searchMode.value !== 'posts' ? { mode: searchMode.value } : {}),
-    },
+    query: queryToRouteQuery(query),
   }).finally(() => {
     isPushingQuery = false
   })
@@ -1037,30 +1062,30 @@ const snapshotLabel = (snapshot: Pick<SearchSnapshot, 'q' | 'domain' | 'company'
     .join(' / ') || '全部内容'
 }
 
-const currentSnapshot = (): SearchSnapshot => {
-  const mode = searchMode.value
-  const domain = mode === 'posts' ? filters.domain : undefined
-  const company = mode === 'posts' ? filters.company : ''
-  const position = mode === 'posts' ? filters.position : ''
-  const type = mode === 'posts' ? filters.type : undefined
-  const sort = mode === 'posts' ? filters.sort : 'relevance'
-  const trustProfile = mode === 'posts' ? filters.trustProfile : ''
-  const freshnessStatus = mode === 'posts' ? filters.freshnessStatus : ''
-  const resolved = mode === 'posts' ? filters.resolved : ''
-  const sourceComplete = mode === 'posts' ? filters.sourceComplete : ''
+const currentSnapshot = (query = captureQueryState()): SearchSnapshot => {
+  const mode = query.mode
+  const domain = query.domain
+  const company = query.company
+  const position = query.position
+  const type = query.type
+  const sort = query.sort
+  const trustProfile = query.trustProfile
+  const freshnessStatus = query.freshnessStatus
+  const resolved = query.resolved
+  const sourceComplete = query.sourceComplete
   const snapshot = {
     mode,
-    q: filters.q,
+    q: query.q,
     domain,
     company,
     position,
     type,
   }
   return {
-    id: [mode, filters.q, domain ?? 'all', company, position, type ?? 'all', sort, trustProfile, freshnessStatus, resolved, sourceComplete].join('|'),
+    id: [mode, query.q, domain ?? 'all', company, position, type ?? 'all', sort, trustProfile, freshnessStatus, resolved, sourceComplete].join('|'),
     label: snapshotLabel(snapshot),
     mode,
-    q: filters.q,
+    q: query.q,
     domain,
     company,
     position,
@@ -1144,16 +1169,16 @@ const loadSearchSnapshots = () => {
   savedSearches.value = readSnapshots(SAVED_SEARCH_KEY).slice(0, MAX_SAVED_SEARCHES)
 }
 
-const rememberRecentSearch = () => {
-  if (!hasQuery.value) return
-  const snapshot = currentSnapshot()
+const rememberRecentSearch = (query: SearchQueryState) => {
+  if (!query.q.trim()) return
+  const snapshot = currentSnapshot(query)
   const next = [snapshot, ...recentSearches.value.filter((item) => item.id !== snapshot.id)].slice(0, MAX_RECENT_SEARCHES)
   recentSearches.value = next
   writeSnapshots(RECENT_SEARCH_KEY, next)
 }
 
 const saveCurrentSearch = () => {
-  if (!hasQuery.value) return
+  if (!canPersistSearch.value) return
   const snapshot = currentSnapshot()
   const existing = savedSearches.value.find((item) => item.id === snapshot.id)
   const nextSnapshot = existing ? { ...snapshot, label: existing.label } : snapshot
@@ -1281,7 +1306,10 @@ const clearSearchDebounce = () => {
 
 const scheduleDebouncedSearch = () => {
   clearSearchDebounce()
-  if (!shouldAutoRunSearch.value) return
+  if (!shouldAutoRunSearch.value) {
+    void clearEmptySearchState()
+    return
+  }
   searchDebounceTimer = setTimeout(() => {
     runSearch(false)
   }, SEARCH_DEBOUNCE_MS)
@@ -1290,6 +1318,47 @@ const scheduleDebouncedSearch = () => {
 const handleSearchInput = () => {
   loadSuggestions()
   scheduleDebouncedSearch()
+}
+
+const captureQueryState = (): SearchQueryState => ({
+  mode: searchMode.value,
+  q: filters.q,
+  domain: searchMode.value === 'posts' ? filters.domain : undefined,
+  company: searchMode.value === 'posts' ? filters.company : '',
+  position: searchMode.value === 'posts' ? filters.position : '',
+  type: searchMode.value === 'posts' ? filters.type : undefined,
+  sort: searchMode.value === 'posts' ? filters.sort : 'relevance',
+  trustProfile: searchMode.value === 'posts' ? filters.trustProfile : '',
+  freshnessStatus: searchMode.value === 'posts' ? filters.freshnessStatus : '',
+  resolved: searchMode.value === 'posts' ? filters.resolved : '',
+  sourceComplete: searchMode.value === 'posts' ? filters.sourceComplete : '',
+})
+
+const clearEmptySearchState = async () => {
+  clearSearchDebounce()
+  searchRequestId += 1
+  isLoading.value = false
+  appliedQuery.value = null
+  resetResults()
+  await pushQuery(captureQueryState())
+}
+
+const toggleAdvancedFilters = async () => {
+  const closing = advancedFiltersOpen.value
+  const focusWasInside = closing && Boolean(
+    advancedFilterBody.value?.contains(document.activeElement),
+  )
+  advancedFiltersOpen.value = !advancedFiltersOpen.value
+  if (focusWasInside) {
+    await nextTick()
+    advancedFilterToggle.value?.focus()
+  }
+}
+
+const handleAdvancedFilterEscape = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || !advancedFiltersOpen.value) return
+  event.preventDefault()
+  void toggleAdvancedFilters()
 }
 
 const clearCompanyFilter = () => {
@@ -1315,68 +1384,71 @@ const clearTypeFilter = () => {
 const runSearch = async (append = false, syncRoute = true) => {
   if (!append) clearSearchDebounce()
   if (append && (isLoading.value || !hasMore.value)) return
-  if (!append && syncRoute) await pushQuery()
+  const query = append && appliedQuery.value ? appliedQuery.value : captureQueryState()
+  if (!append && syncRoute) await pushQuery(query)
   const requestId = ++searchRequestId
   isLoading.value = true
   errorMessage.value = ''
+  if (!append) resultDisplayCapReached.value = false
   try {
-    if (searchMode.value === 'users') {
+    if (query.mode === 'users') {
       cursor.value = undefined
       hasMore.value = false
       searchResults.value = []
       topicResults.value = []
       tagResults.value = []
-      searchResultMeta.value = null
-      if (!filters.q) {
+      if (!query.q) {
         userResults.value = []
+        if (!append) appliedQuery.value = query
         return
       }
-      const res = await userApi.searchUsers(filters.q, 20)
+      const res = await userApi.searchUsers(query.q, 20)
       if (requestId !== searchRequestId) return
       userResults.value = filterPublicContent(res.data || []).filter(isPublicAuthor)
-      if (!append) rememberRecentSearch()
+      if (!append) appliedQuery.value = query
+      if (!append) rememberRecentSearch(query)
       return
     }
 
-    if (searchMode.value === 'topics') {
+    if (query.mode === 'topics') {
       cursor.value = undefined
       hasMore.value = false
       searchResults.value = []
       userResults.value = []
       tagResults.value = []
-      searchResultMeta.value = null
-      const res = await postApi.listTopics({ keyword: filters.q || undefined, limit: 50 })
+      const res = await postApi.listTopics({ keyword: query.q || undefined, limit: 50 })
       if (requestId !== searchRequestId) return
-      topicResults.value = filterVisibleTopics(res.data || [], filters.q).slice(0, 20)
-      if (!append) rememberRecentSearch()
+      topicResults.value = filterVisibleTopics(res.data || [], query.q).slice(0, 20)
+      if (!append) appliedQuery.value = query
+      if (!append) rememberRecentSearch(query)
       return
     }
 
-    if (searchMode.value === 'tags') {
+    if (query.mode === 'tags') {
       cursor.value = undefined
       hasMore.value = false
       searchResults.value = []
       userResults.value = []
       topicResults.value = []
-      searchResultMeta.value = null
       const res = await postApi.getTags()
       if (requestId !== searchRequestId) return
-      tagResults.value = filterVisibleTags(res.data || [], filters.q).slice(0, 30)
-      if (!append) rememberRecentSearch()
+      tagResults.value = filterVisibleTags(res.data || [], query.q).slice(0, 30)
+      if (!append) appliedQuery.value = query
+      if (!append) rememberRecentSearch(query)
       return
     }
 
     const params = {
-      q: filters.q || undefined,
-      domain: filters.domain,
-      company: filters.company || undefined,
-      position: filters.position || undefined,
-      type: filters.type,
-      sort: filters.sort,
-      trustProfile: filters.trustProfile ? filters.trustProfile === 'true' : undefined,
-      freshnessStatus: filters.freshnessStatus || undefined,
-      resolved: filters.resolved ? filters.resolved === 'true' : undefined,
-      sourceComplete: filters.sourceComplete ? filters.sourceComplete === 'true' : undefined,
+      q: query.q || undefined,
+      domain: query.domain,
+      company: query.company || undefined,
+      position: query.position || undefined,
+      type: query.type,
+      sort: query.sort,
+      trustProfile: query.trustProfile ? query.trustProfile === 'true' : undefined,
+      freshnessStatus: query.freshnessStatus || undefined,
+      resolved: query.resolved ? query.resolved === 'true' : undefined,
+      sourceComplete: query.sourceComplete ? query.sourceComplete === 'true' : undefined,
       cursor: append ? cursor.value : undefined,
       size: 20,
     } as Parameters<typeof searchApi.searchPosts>[0]
@@ -1392,20 +1464,11 @@ const runSearch = async (append = false, syncRoute = true) => {
     userResults.value = []
     topicResults.value = []
     tagResults.value = []
-    searchResultMeta.value = page ? {
-      source: page.source,
-      degraded: page.degraded,
-      fallbackReason: page.fallbackReason,
-      scanLimit: page.scanLimit,
-      diagnostics: page.diagnostics,
-    } : null
+    if (!append) appliedQuery.value = query
     cursor.value = page?.nextCursor
-    hasMore.value = Boolean(
-      page?.hasMore
-      && page?.nextCursor
-      && uniqueItems.length < MAX_SEARCH_RESULTS,
-    )
-    if (!append) rememberRecentSearch()
+    resultDisplayCapReached.value = Boolean(page?.hasMore && uniqueItems.length >= MAX_SEARCH_RESULTS)
+    hasMore.value = Boolean(page?.hasMore && page?.nextCursor && !resultDisplayCapReached.value)
+    if (!append) rememberRecentSearch(query)
   } catch (error: any) {
     if (requestId !== searchRequestId) return
     errorMessage.value = `${getErrorMessage(error, '搜索接口暂不可用')}。已刷新搜索状态，并保留热门内容、发现页、社区问题求助和搜作者入口。`
@@ -1415,13 +1478,9 @@ const runSearch = async (append = false, syncRoute = true) => {
       userResults.value = []
       topicResults.value = []
       tagResults.value = []
-      searchResultMeta.value = {
-        source: 'client_fallback',
-        degraded: true,
-        fallbackReason: 'search_api_error',
-      }
       cursor.value = undefined
       hasMore.value = false
+      resultDisplayCapReached.value = false
     }
   } finally {
     if (requestId === searchRequestId) {
@@ -1431,6 +1490,8 @@ const runSearch = async (append = false, syncRoute = true) => {
 }
 
 const resetFilters = async () => {
+  clearSearchDebounce()
+  searchRequestId += 1
   filters.q = ''
   filters.domain = undefined
   filters.company = ''
@@ -1447,9 +1508,11 @@ const resetFilters = async () => {
   userResults.value = []
   topicResults.value = []
   tagResults.value = []
-  searchResultMeta.value = null
+  appliedQuery.value = null
+  advancedFiltersOpen.value = false
   cursor.value = undefined
   hasMore.value = false
+  resultDisplayCapReached.value = false
   errorMessage.value = ''
   await router.replace({ path: '/search' })
 }
@@ -1460,9 +1523,9 @@ const resetResults = () => {
   userResults.value = []
   topicResults.value = []
   tagResults.value = []
-  searchResultMeta.value = null
   cursor.value = undefined
   hasMore.value = false
+  resultDisplayCapReached.value = false
   errorMessage.value = ''
 }
 
@@ -1569,6 +1632,7 @@ const handlePostAuthorFollowChange = (authorUid: ApiId, following: boolean) => {
 }
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleAdvancedFilterEscape)
   loadSearchSnapshots()
   syncFromRoute()
   await loadDomains()
@@ -1603,6 +1667,7 @@ watch(storageOwner, () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleAdvancedFilterEscape)
   if (suggestionTimer) clearTimeout(suggestionTimer)
   clearSearchDebounce()
   clearSearchUndoTimer()
@@ -1676,15 +1741,10 @@ onBeforeUnmount(() => {
   color: rgb(15 23 42);
 }
 
-.filter-summary::after {
-  content: '展开';
+.filter-summary__state {
   font-size: 0.75rem;
   font-weight: 800;
   color: rgb(37 99 235);
-}
-
-.filter-details[open] > .filter-summary::after {
-  content: '收起';
 }
 
 .filter-details__body {
@@ -2376,6 +2436,11 @@ onBeforeUnmount(() => {
   gap: 0.45rem;
 }
 
+.mobile-search-disclosure,
+.mobile-result-summary {
+  display: none;
+}
+
 .chip-button {
   min-height: 2.125rem;
   border-radius: var(--radius-control);
@@ -2625,10 +2690,56 @@ onBeforeUnmount(() => {
   }
 
   .search-control-row {
-    align-items: stretch;
-    flex-direction: column;
+    display: none;
+  }
+
+  .mobile-search-disclosure {
+    display: block;
+    margin-top: 0.7rem;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 0.7rem;
+  }
+
+  .mobile-search-disclosure > summary {
+    display: flex;
+    min-height: 2.75rem;
+    cursor: pointer;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--surface-2);
+    padding: 0.55rem 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    list-style: none;
+  }
+
+  .mobile-search-disclosure > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobile-search-disclosure > summary strong {
+    color: var(--text-primary);
+  }
+
+  .mobile-search-disclosure__body {
+    display: grid;
     gap: 0.65rem;
-    margin-top: 0.75rem;
+    padding-top: 0.65rem;
+  }
+
+  .mobile-result-summary {
+    display: block;
+    margin-top: 0.65rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 650;
+  }
+
+  .search-results > .result-summary {
+    display: none;
   }
 
   .segmented {

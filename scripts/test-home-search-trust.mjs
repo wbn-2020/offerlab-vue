@@ -22,7 +22,7 @@ assert.match(
 assert.match(homeView, /emptyFeedTitle\s*=\s*computed/, 'HomeView must expose an honest empty-feed title')
 assert.match(homeView, /activeFeed\.value\s*===\s*'latest'\s*&&\s*sampledFeedContentCount\.value\s*>\s*0/, 'latest empty state must distinguish an empty latest feed from an empty community')
 assert.match(homeView, /emptyFeedDescription\s*=\s*computed/, 'HomeView must expose a recovery description for empty feeds')
-assert.match(homeView, /\u53ef\u4ee5\u5148\u770b\u63a8\u8350\u6216\u70ed\u95e8\u5185\u5bb9/, 'empty feeds must route users toward real recommendation and discovery surfaces')
+assert.match(homeView, /\u5f53\u524d\u516c\u5f00\u5185\u5bb9\u6b63\u5728\u51c6\u5907\u4e2d\uff0c\u6682\u65f6\u6ca1\u6709\u53ef\u9605\u8bfb\u7684\u5e16\u5b50/, 'empty feeds must describe an actually empty public environment honestly')
 assert.match(homeView, /taskSections\s*=\s*computed/, 'HomeView must render server-backed onboarding and daily task sections')
 assert.match(homeView, /sections\.push\(onboardingOverview\.value\)/, 'HomeView must include active server onboarding tasks')
 assert.match(homeView, /sections\.push\(dailyOverview\.value\)/, 'HomeView must include server daily tasks')
@@ -60,8 +60,8 @@ assert.match(
 
 assert.match(
   searchView,
-  /搜索仍可使用，但结果完整度和排序能力可能暂时受限/,
-  'SearchView degraded search copy must explain result completeness and ranking limits without infrastructure terms',
+  /暂时无法读取搜索状态，仍可浏览热门内容、作者和发现页。/,
+  'SearchView search-status failures must provide public alternatives without exposing infrastructure details',
 )
 
 const sourceRegion = (source, startMarker, endMarker) => {

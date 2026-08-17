@@ -1714,38 +1714,9 @@ const canStartContactRequest = computed(() => showContactAuthorEntry.value && is
 const authorProfileTo = computed(() => `/u/${authorUid.value}`)
 const authorBioText = computed(() => safeCreatorBio(post.value?.author.signature, '这位作者还没有填写简介。'))
 const authorFollowReason = computed(() => buildFollowReasons(post.value?.author, post.value ? [post.value] : [])[0])
-const safeSearchFallbackReason = (reason: string) => {
-  const labels: Record<string, string> = {
-    elasticsearch_empty: '已补充更多可见结果',
-    elasticsearch_visibility_filtered: '已补充符合公开条件的结果',
-    elasticsearch_unavailable: '部分搜索结果暂未完整返回',
-    mysql_fallback_continuation: '后续结果沿用当前排序',
-    hot_sort_mysql: '当前按社区热度排序',
-    search_api_error: '部分搜索结果暂未返回',
-  }
-  return labels[reason] || ''
-}
 const searchEntryNotice = computed(() => {
   if (route.query.from !== 'search') return ''
-  const readQuery = (key: string): string => {
-    const value = route.query[key]
-    return typeof value === 'string' ? value : Array.isArray(value) ? String(value[0] ?? '') : ''
-  }
-  const source = readQuery('source')
-  const degraded = readQuery('degraded') === 'true'
-  const fallbackReason = readQuery('fallbackReason')
-  const sourceText = source === 'elasticsearch'
-    ? '来自搜索结果'
-    : source === 'mysql'
-      ? '来自搜索结果'
-      : source === 'client_fallback'
-        ? '来自补充搜索结果'
-        : '来自搜索结果'
-  const parts = [sourceText]
-  if (degraded) parts.push('部分结果可能暂未完整展示')
-  const reasonText = safeSearchFallbackReason(fallbackReason)
-  if (reasonText) parts.push(reasonText)
-  return parts.join('，')
+  return '来自搜索结果'
 })
 const publishStatusItems = computed(() => {
   const status = publishStatus.value

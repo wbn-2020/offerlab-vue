@@ -11,6 +11,17 @@ const opsApi = read('../src/api/ops.ts')
 const postApi = read('../src/api/post.ts')
 const types = read('../src/api/types.ts')
 const backendSearchController = read('../../offerlab-java/community-domain-search/src/main/java/com/offerlab/community/search/controller/SearchController.java')
+const postDetailQueryBlock = searchView.match(
+  /const postDetailQuery = computed<Record<string, string>>\(\(\) => \{[\s\S]*?\n\}\)/,
+)?.[0] || ''
+const postPublishStatusType = types.slice(
+  types.indexOf('export interface PostPublishStatus'),
+  types.indexOf('export interface PostVersionHistory'),
+)
+const backendPublishStatus = backendSearchController.slice(
+  backendSearchController.indexOf('public Result<Map<String, Object>> publishStatus'),
+  backendSearchController.indexOf('private static boolean containsPost'),
+)
 
 const publishStatusStart = postApi.indexOf('getPublishStatus:')
 const publishStatusEnd = postApi.indexOf('getInterviewMaterials:', publishStatusStart)
@@ -19,12 +30,9 @@ const publishStatusApi = postApi.slice(publishStatusStart, publishStatusEnd)
 assert.match(types, /diagnostics\?: Record<string, unknown>/, 'PaginatedResponse must expose backend diagnostics')
 assert.doesNotMatch(searchApi, /includeTestData|yearsOfExp/, 'Public search API types must not expose unsupported diagnostic filters')
 assert.doesNotMatch(searchView, /includeTestData|yearsOfExp/, 'SearchView must not preserve or send unsupported public search filters')
-assert.match(searchView, /searchDiagnosticText\s*=\s*computed/, 'SearchView must derive a visible diagnostic summary')
-assert.match(searchView, /startsWith\('test_data_filtered'\)/, 'SearchView must explain backend test-data filtering without exposing a public override')
-assert.match(searchView, /:detail-query="postDetailQuery"/, 'Search results must pass whitelisted diagnostics into post detail links')
-assert.match(searchView, /postDetailSearchSources = new Set\(\['elasticsearch', 'mysql', 'client_fallback'\]\)/, 'Search detail links must allow only known public source labels')
-assert.match(searchView, /'mysql_fallback_continuation'/, 'Search detail links must preserve the stable MySQL continuation reason')
-assert.match(searchView, /query\.source = meta\.source[\s\S]*query\.degraded = 'true'[\s\S]*query\.fallbackReason = meta\.fallbackReason/, 'Search detail links and PostDetail must share source, degraded, and fallbackReason query keys')
+assert.match(searchView, /:detail-query="postDetailQuery"/, 'Search results must pass product-semantic entry context into post detail links')
+assert.match(postDetailQueryBlock, /if \(appliedQuery\.value\) query\.from = 'search'/, 'Search detail links must only expose the product-semantic from=search query')
+assert.doesNotMatch(postDetailQueryBlock, /postDetailSearchSources|query\.source|query\.degraded|query\.fallbackReason/, 'Search detail links must not expose infrastructure source or fallback state')
 assert.doesNotMatch(searchView, /query\.search(?:Source|Degraded|FallbackReason|ScanLimit)|query\.scanLimit/, 'Search detail links must not use stale query names or expose scan limits')
 assert.match(searchView, /filterVisiblePosts\(filterPublicContent\(page\?\.items \|\| \[\]\)\)/, 'SearchView must always apply public visibility filtering')
 
@@ -32,9 +40,8 @@ assert.match(postCard, /detailQuery\?: Record<string, string \| number \| boolea
 assert.match(postCard, /const detailTo = computed/, 'PostCard must build detail routes from the query prop')
 
 assert.match(postDetail, /searchEntryNotice\s*=\s*computed/, 'PostDetailView must render a search-entry diagnostic strip')
-assert.match(postDetail, /safeSearchFallbackReason/, 'PostDetailView must whitelist fallback reason display')
-assert.match(postDetail, /mysql_fallback_continuation: '后续结果沿用当前排序'/, 'PostDetailView must explain stable fallback continuation without exposing raw diagnostics')
-assert.match(postDetail, /readQuery\('source'\)[\s\S]*readQuery\('degraded'\) === 'true'[\s\S]*readQuery\('fallbackReason'\)/, 'PostDetailView must read the same whitelisted search diagnostic query contract')
+assert.match(postDetail, /if \(route\.query\.from !== 'search'\) return ''[\s\S]*return '来自搜索结果'/, 'PostDetailView must only consume the product-semantic search entry marker')
+assert.doesNotMatch(postDetail, /readQuery\('source'\)|readQuery\('degraded'\)|readQuery\('fallbackReason'\)|safeSearchFallbackReason/, 'PostDetailView must ignore legacy infrastructure diagnostics in public URLs')
 assert.match(postDetail, /publishStatusItems\s*=\s*computed/, 'PostDetailView must render publish pipeline status items')
 assert.doesNotMatch(postDetail, /retryTask\?\.lastError/, 'PostDetailView public publish status must not render internal retry errors')
 assert.match(postDetail, /已落库/, 'PostDetailView publish status must explain database landing')
@@ -43,18 +50,16 @@ assert.match(postDetail, /Outbox/, 'PostDetailView publish status must expose Ou
 assert.doesNotMatch(postDetail, /parts\.push\(`原因：\$\{fallbackReason\}`\)/, 'PostDetailView must not render raw fallbackReason query text')
 
 assert.match(types, /export interface PostPublishStatus/, 'API types must expose post publish status')
-assert.match(types, /export interface PostPublishStatus[\s\S]*postId:\s*ApiId/, 'PostPublishStatus must carry the diagnosed post id')
-assert.match(types, /export interface PostPublishStatus[\s\S]*ready\?:\s*boolean/, 'PostPublishStatus must carry the publish ready flag')
-assert.match(types, /search\?:\s*\{[\s\S]*visible\?:\s*boolean[\s\S]*source\?:\s*string[\s\S]*degraded\?:\s*boolean[\s\S]*fallbackReason\?:\s*string[\s\S]*diagnostics\?:\s*Record<string, unknown>/, 'PostPublishStatus.search must type visibility source fallbackReason and diagnostics')
-assert.doesNotMatch(types, /export interface PostPublishStatus[\s\S]*lastError/, 'PostPublishStatus must keep internal retry errors out of the public detail contract')
+assert.match(postPublishStatusType, /postId:\s*ApiId/, 'PostPublishStatus must carry the diagnosed post id')
+assert.match(postPublishStatusType, /ready\?:\s*boolean/, 'PostPublishStatus must carry the publish ready flag')
+assert.match(postPublishStatusType, /search\?:\s*\{[\s\S]*visible\?:\s*boolean/, 'PostPublishStatus.search must type public search visibility')
+assert.doesNotMatch(postPublishStatusType, /\bsource\?:|\bdegraded\?:|\bfallbackReason\?:|\bdiagnostics\?:|\blastError/, 'PostPublishStatus must keep infrastructure diagnostics and retry errors out of the public detail contract')
 assert.match(postApi, /getPublishStatus/, 'post API must expose publish status endpoint')
 assert.match(postApi, /\/api\/v1\/search\/posts\/\$\{postId\}\/publish-status/, 'post API must call publish status diagnostics endpoint')
 assert.doesNotMatch(publishStatusApi, /Result<any>/, 'post API must not consume publish status diagnostics through Result<any>')
-assert.match(backendSearchController, /data\.put\("postId",\s*postId\)/, 'publish-status backend response must expose postId')
-assert.match(backendSearchController, /data\.put\("ready",\s*dbVisible && Boolean\.TRUE\.equals\(search\.get\("visible"\)\)\)/, 'publish-status backend response must expose ready')
-assert.match(backendSearchController, /search\.put\("source",\s*recall\.getSource\(\)\)/, 'publish-status backend response must expose search source')
-assert.match(backendSearchController, /search\.put\("fallbackReason",\s*recall\.getFallbackReason\(\)\)/, 'publish-status backend response must expose fallbackReason')
-assert.match(backendSearchController, /search\.put\("diagnostics",\s*recall\.getDiagnostics\(\)\)/, 'publish-status backend response must expose diagnostics')
+assert.match(backendPublishStatus, /data\.put\("postId",\s*postId\)/, 'publish-status backend response must expose postId')
+assert.match(backendPublishStatus, /data\.put\("ready",\s*dbVisible && Boolean\.TRUE\.equals\(search\.get\("visible"\)\)\)/, 'publish-status backend response must expose ready')
+assert.doesNotMatch(backendPublishStatus, /search\.put\("(?:source|degraded|fallbackReason|diagnostics)"/, 'publish-status backend response must not expose infrastructure diagnostics')
 assert.match(opsApi, /export interface PostSearchDiagnostics/, 'Ops API must type post-level search diagnostics')
 assert.match(opsApi, /getPostSearchDiagnostics/, 'Ops API must expose post-level search diagnostics endpoint')
 

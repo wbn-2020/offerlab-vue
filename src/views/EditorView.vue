@@ -331,12 +331,20 @@
           </div>
           <div class="editor-rail-checklist__items">
             <div
-              v-for="item in qualityChecks.slice(0, 5)"
+              v-for="item in railQualityChecks"
               :key="`rail-${item.key}`"
               :class="{ 'is-passed': item.passed }"
             >
               <span>{{ item.passed ? '✓' : '·' }}</span>
               <p>{{ item.title }}</p>
+              <button
+                v-if="!item.passed"
+                type="button"
+                :aria-label="`定位到${item.title}`"
+                @click="focusQualityCheck(item.key)"
+              >
+                定位
+              </button>
             </div>
           </div>
         </section>
@@ -1444,6 +1452,11 @@ const qualityChecks = computed<QualityCheck[]>(() => [
   ...questionQualityChecks.value,
 ])
 const blockingQualityIssues = computed(() => qualityChecks.value.filter((item) => item.required && !item.passed))
+const railQualityChecks = computed(() => (
+  blockingQualityIssues.value.length
+    ? blockingQualityIssues.value
+    : qualityChecks.value.filter((item) => item.required)
+))
 const passedQualityCount = computed(() => qualityChecks.value.filter((item) => item.passed).length)
 const isInitialComposeState = computed(() => (
   !normalizedTitle.value
@@ -2392,6 +2405,16 @@ const focusFirstFieldError = () => {
     || (['company', 'position', 'interviewRound', 'round', 'yearsOfExp', 'interviewResult', 'interviewRounds', 'extension'].includes(firstField)
       ? document.querySelector<HTMLElement>('[data-field="company"]')
       : null)
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) el.focus()
+}
+
+const focusQualityCheck = (key: string) => {
+  const field = ['structured-background', 'structured-problem', 'structured-solution', 'structured-result']
+    .includes(key)
+    ? 'content'
+    : key
+  const el = document.querySelector<HTMLElement>(`[data-field="${field}"]`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) el.focus()
 }
@@ -5860,6 +5883,13 @@ onBeforeUnmount(() => {
   gap: 0.45rem;
   min-height: 2rem;
   border-top: 1px solid var(--surface-3);
+}
+
+.editor-rail-checklist__items > div > button {
+  margin-left: auto;
+  color: var(--primary-700);
+  font-size: 0.72rem;
+  font-weight: 750;
 }
 
 .editor-rail-checklist__items > div > span {

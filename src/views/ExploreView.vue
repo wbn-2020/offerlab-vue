@@ -47,8 +47,11 @@
                 <strong>{{ loading ? '加载中' : contentForms.length }}</strong>
               </div>
               <p v-if="loading">正在更新公共内容地图</p>
-              <p v-else-if="degraded">当前可见内容可正常浏览，个别入口会在对应区域提示状态</p>
-              <p v-else>{{ activeDomainOption?.label ? `正在浏览 ${activeDomainOption.label}` : '从感兴趣的频道开始探索' }}</p>
+              <p v-else>
+                {{ hasItems
+                  ? (activeDomainOption?.label ? `正在浏览 ${activeDomainOption.label}` : '从感兴趣的频道开始探索')
+                  : (degraded ? '当前没有可展示的公开内容，部分入口仍在恢复中' : '当前没有可展示的公开内容，请稍后再来') }}
+              </p>
             </aside>
           </div>
         </div>

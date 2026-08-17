@@ -1,6 +1,5 @@
 import axios from 'axios'
 import client, { apiBaseURL, BizException, Result } from './client'
-import type { SearchStatus } from './search'
 import type { ApiId, PaginatedResponse } from './types'
 import type { Question } from './question'
 import { authTokenStore } from '@/utils/authTokenStore'
@@ -142,11 +141,31 @@ export interface OutboxStatus {
   duePending: number
 }
 
+export interface OpsSearchStatus {
+  status?: string
+  enabled: boolean
+  available: boolean
+  indexName: string
+  indexExists: boolean
+  indexReady: boolean
+  publicSearchAvailable?: boolean
+  publicSearchDegraded?: boolean
+  publicSearchSource?: string
+  dbFallbackAvailable?: boolean
+  fallbackSource?: string
+  fallbackMode?: string
+  fallbackScanLimit?: number
+  fallbackSchemaReady?: boolean
+  message?: string
+  diagnosticMessage?: string
+  action?: string
+}
+
 export interface OpsStatus {
   adminWhitelistEnabled: boolean
   adminRoleEnabled: boolean
   adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY' | 'LOCKED'
-  search: SearchStatus
+  search: OpsSearchStatus
   searchIndexRetry: SearchIndexRetryStatus
   notificationRetry: NotificationRetryStatus
   outbox: OutboxStatus

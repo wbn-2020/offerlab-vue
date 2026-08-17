@@ -434,13 +434,13 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { title: '登录' },
+    meta: { title: '登录', guestOnly: true },
   },
   {
     path: '/register',
     name: 'Register',
     component: () => import('@/views/RegisterView.vue'),
-    meta: { title: '注册' },
+    meta: { title: '注册', guestOnly: true },
   },
   {
     path: '/welcome',

@@ -81,8 +81,8 @@ assert.match(topicDetailView, /item\.disabled/,
 assert.match(topicDetailView, /sourceNote|sortNote|reasonText/,
   'TopicDetailView must explain source, reason, or ordering for curated items')
 
-assert.match(topicDetailView, /postApi\.getTopic\(slug\)/,
-  'community topic fallback must remain available for non-curated topics')
+assert.match(topicDetailView, /postApi\.resolveTopic\(slug\)/,
+  'community topic resolution must remain available for non-curated topics without expected 404 noise')
 assert.match(topicDetailView, /curatedTopicFallbackAllowed/,
   'TopicDetailView must explicitly gate community-topic fallback to curated topic not-found responses')
 

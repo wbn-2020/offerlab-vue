@@ -1,7 +1,11 @@
 import { computed, onScopeDispose, reactive, watch } from 'vue'
 import { getErrorMessage, type Result } from '@/api/client'
 import { collaborationApi, type CollaborationActionSummary, type PageResult } from '@/api/collaboration'
-import { contentMaintenanceApi, type ContentMaintenanceTask } from '@/api/contentMaintenance'
+import {
+  ContentMaintenanceContractError,
+  contentMaintenanceApi,
+  type ContentMaintenanceTask,
+} from '@/api/contentMaintenance'
 import { interactionApi } from '@/api/interaction'
 import { knowledgeMaintenanceApi, type KnowledgeActionSummary } from '@/api/knowledgeMaintenance'
 import { notificationApi } from '@/api/notification'
@@ -213,7 +217,9 @@ export function useParticipationHub() {
       if (!requestIsCurrent(source, accountKey, generation, requestId) || controller.signal.aborted) return
       state.data = null
       state.status = 'error'
-      state.error = getErrorMessage(error, config.fallbackError)
+      state.error = error instanceof ContentMaintenanceContractError
+        ? '维护任务暂时无法读取，其他个人主页功能不受影响。请稍后重试。'
+        : getErrorMessage(error, config.fallbackError)
       state.loadedAt = null
     } finally {
       if (controllers[source] === controller) delete controllers[source]

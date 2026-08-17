@@ -43,12 +43,6 @@
             </div>
           </div>
 
-          <div v-if="hasPublishedContent" class="profile-actions">
-            <RouterLink :to="profileNextAction.href" class="primary-button">
-              <FileText class="h-4 w-4" />
-              {{ profileNextAction.action }}
-            </RouterLink>
-          </div>
         </div>
       </section>
 
@@ -121,7 +115,7 @@
             <h2>继续经营你的内容主页</h2>
             <p>公开发布优先展示，收藏、关注和讨论记录仍可通过上方分类按需查看。</p>
           </div>
-          <RouterLink v-if="hasPublishedContent" to="/editor" class="secondary-button">继续发布</RouterLink>
+          <RouterLink v-if="hasPublishedContent" to="/me?tab=posts" class="secondary-button">管理公开内容</RouterLink>
         </div>
 
         <div class="tab-bar max-w-full overflow-x-auto" role="tablist" aria-label="个人内容与关系">
@@ -723,7 +717,7 @@
               优先选择精选、高互动和最近更新的公开内容展示在作者主页。
             </p>
           </div>
-          <RouterLink v-if="hasPublishedContent" to="/editor" class="secondary-button">继续发布</RouterLink>
+          <RouterLink v-if="hasPublishedContent" to="/me?tab=posts" class="secondary-button">查看全部内容</RouterLink>
         </div>
         <div v-if="representativePosts.length" class="representative-grid">
           <RouterLink v-for="post in representativePosts" :key="post.id" :to="post.to" class="representative-card">

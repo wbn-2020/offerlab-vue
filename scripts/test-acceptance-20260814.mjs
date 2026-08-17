@@ -1,0 +1,56 @@
+import { readFileSync } from 'node:fs'
+import assert from 'node:assert/strict'
+
+const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
+
+const search = read('../src/views/SearchView.vue')
+const register = read('../src/views/RegisterView.vue')
+const router = read('../src/router/index.ts')
+const guards = read('../src/router/guards.ts')
+const topic = read('../src/views/TopicDetailView.vue')
+const tag = read('../src/views/TagDetailView.vue')
+const postApi = read('../src/api/post.ts')
+const adapters = read('../src/api/adapters.ts')
+
+assert.match(search, /const appliedQuery = ref<SearchQueryState \| null>\(null\)/, 'search must keep an immutable applied-query snapshot')
+assert.match(search, /const query = append && appliedQuery\.value \? appliedQuery\.value : captureQueryState\(\)/, 'requests and pagination must use the applied snapshot')
+assert.match(search, /const query = append && appliedQuery\.value \? appliedQuery\.value : captureQueryState\(\)\s*[\s\S]*await pushQuery\(query\)/, 'search must capture the request snapshot before awaiting URL replacement')
+assert.match(search, /已应用：\$\{appliedFilterLabels\.value\.join\('、'\)\}/, 'result summary must describe the applied request')
+assert.match(search, /if \(!shouldAutoRunSearch\.value\) \{[\s\S]*clearEmptySearchState\(\)/, 'clearing the final query input must atomically clear URL and results')
+assert.match(search, /searchRequestId \+= 1[\s\S]*appliedQuery\.value = null[\s\S]*resetResults\(\)[\s\S]*await pushQuery\(captureQueryState\(\)\)/, 'empty search must invalidate late responses before removing query state')
+assert.match(search, /v-if="advancedFiltersOpen"/, 'collapsed advanced filters must be unmounted')
+assert.match(search, /:aria-expanded="advancedFiltersOpen"/, 'advanced filter disclosure must expose expanded state')
+assert.match(search, /advancedFilterToggle\.value\?\.focus\(\)/, 'closing advanced filters must restore focus to the disclosure button')
+assert.match(search, /const handleAdvancedFilterEscape = \(event: KeyboardEvent\) => \{[\s\S]*event\.key !== 'Escape'[\s\S]*toggleAdvancedFilters\(\)/, 'advanced filters must close on Escape')
+assert.match(search, /window\.addEventListener\('keydown', handleAdvancedFilterEscape\)[\s\S]*window\.removeEventListener\('keydown', handleAdvancedFilterEscape\)/, 'Escape listener must be cleaned up with the view')
+assert.match(search, /const canPersistSearch = computed\(\(\) => Boolean\(filters\.q\.trim\(\)\)\)/, 'empty keywords must not be persisted as search history')
+assert.match(search, /已显示 \$\{resultCount\.value\} 条内容（最多显示 \$\{MAX_SEARCH_RESULTS\} 条）/, 'capped result counts must say that only the display limit is shown')
+assert.match(search, /resultDisplayCapReached\.value = Boolean\(page\?\.hasMore && uniqueItems\.length >= MAX_SEARCH_RESULTS\)/, 'result cap state must be explicit')
+
+assert.match(register, /\.superRefine\(/, 'registration confirmation validation must own required and mismatch precedence')
+assert.match(register, /else if \(data\.password !== data\.confirmPassword\)/, 'non-empty mismatched confirmation must show the mismatch error')
+assert.match(register, /if \(field in errors && !errors\[field\]\) errors\[field\] = err\.message/, 'registration must preserve the first issue per field')
+assert.match(register, /focusFirstInvalidField/, 'registration must focus the first invalid field')
+assert.match(register, /aria-describedby="errors\.confirmPassword \? 'register-confirm-password-error' : undefined"/, 'confirmation input must be associated with its error')
+assert.match(register, /const validateConfirmation = \(\) =>/, 'confirmation must be revalidated while the user edits either password field')
+
+assert.match(router, /meta: \{ title: '注册', guestOnly: true \}/, 'register route must be guest-only')
+assert.match(router, /meta: \{ title: '登录', guestOnly: true \}/, 'login route must be guest-only')
+assert.match(guards, /if \(guestOnly && authStore\.isLoggedIn\) \{[\s\S]*next\(\{ path: '\/me', replace: true \}\)/, 'authenticated users must be redirected away from guest-only routes')
+assert.match(guards, /to\.name === 'Login' && to\.query\.switchAccount === '1'/, 'login must retain the explicit switch-account exception')
+
+assert.match(topic, /topic\.value\?\.statisticsAvailable \? Number\(topic\.value\.postCount \|\| 0\) : posts\.value\.length/, 'topic total must prefer server statistics and label loaded content when unavailable')
+assert.match(topic, /postTypeDistributionSummary\(topic\.value\.typeDistribution\)/, 'topic distribution must use server-provided full collection statistics')
+assert.match(topic, /postTypeDistributionCount\(topic\.value\.typeDistribution, activeType\.value\)/, 'topic selected type must display its full-collection count')
+assert.match(topic, /if \(!topic\.value\.statisticsAvailable\) return '内容类型统计暂不可用'/, 'topic must distinguish unavailable statistics from an empty distribution')
+assert.doesNotMatch(topic, /postTypeSummary\(posts\.value\)/, 'topic must not infer a full distribution from the current page')
+
+assert.match(postApi, /getTag: async \(tagId: ApiId\)[\s\S]*client\.get\(`\/api\/v1\/tags\/\$\{tagId\}`\)/, 'tag detail API must expose a dedicated full-statistics endpoint')
+assert.match(tag, /const detailRes = await postApi\.getTag\(currentTag\.id\)/, 'tag page must request server-side full statistics')
+assert.match(tag, /declaredCount\.value = Number\(detail\.postCount \?\? 0\)[\s\S]*typeDistribution\.value = detail\.typeDistribution \|\| \{\}[\s\S]*statisticsAvailable\.value = Boolean\(detail\.statisticsAvailable\)/, 'tag page must retain the server statistics as one snapshot')
+assert.match(tag, /if \(!statisticsAvailable\.value\) return '内容类型统计暂不可用'/, 'tag must distinguish unavailable statistics from an empty distribution')
+assert.match(tag, /postTypeDistributionCount\(typeDistribution\.value, activeType\.value\)/, 'tag selected type must display its full-collection count')
+assert.doesNotMatch(tag, /postTypeSummary\(posts\.value\)/, 'tag must not infer a full distribution from the current page')
+assert.match(adapters, /postCount: raw\?\.postCount == null \? undefined : Number\(raw\.postCount\)[\s\S]*typeDistribution: adaptTypeDistribution\(raw\?\.typeDistribution\)[\s\S]*statisticsAvailable:/, 'tag adapter must preserve full-statistics fields')
+
+console.log('2026-08-14 acceptance guards passed')

@@ -234,7 +234,19 @@
             @submit="submitNeedDiscoveryFilters"
           />
 
-          <div v-if="needState.loading" class="state-stack" aria-label="需求加载中">
+          <div v-if="needState.error && needState.items.length" class="state-message state-message-error" role="alert">
+            <AlertCircle class="h-5 w-5" aria-hidden="true" />
+            <div>
+              <strong>刷新失败，已保留当前需求</strong>
+              <p>{{ needState.error }}</p>
+            </div>
+            <button type="button" @click="loadNeeds()">重试</button>
+          </div>
+
+          <div v-if="needState.loading && !needState.items.length" class="state-stack" aria-label="需求加载中">
+            <p v-if="needState.slowLoad" class="state-message state-message-slow" role="status">
+              加载时间比平常更长，仍在读取公开需求。
+            </p>
             <div v-for="index in 4" :key="index" class="skeleton-row">
               <span class="skeleton-line skeleton-line-short" />
               <span class="skeleton-line" />
@@ -242,7 +254,7 @@
             </div>
           </div>
 
-          <div v-else-if="needState.error" class="state-message state-message-error" role="alert">
+          <div v-else-if="needState.error && !needState.items.length" class="state-message state-message-error" role="alert">
             <AlertCircle class="h-5 w-5" aria-hidden="true" />
             <div>
               <strong>需求加载失败</strong>
@@ -479,7 +491,16 @@
             </div>
           </div>
 
-          <div v-if="seriesState.loading" class="state-stack" aria-label="合集加载中">
+          <div v-if="seriesState.error && seriesState.items.length" class="state-message state-message-error" role="alert">
+            <AlertCircle class="h-5 w-5" aria-hidden="true" />
+            <div>
+              <strong>刷新失败，已保留当前合集</strong>
+              <p>{{ seriesState.error }}</p>
+            </div>
+            <button type="button" @click="loadSeries()">重试</button>
+          </div>
+
+          <div v-if="seriesState.loading && !seriesState.items.length" class="state-stack" aria-label="合集加载中">
             <div v-for="index in 4" :key="index" class="skeleton-row">
               <span class="skeleton-line skeleton-line-short" />
               <span class="skeleton-line" />
@@ -487,7 +508,7 @@
             </div>
           </div>
 
-          <div v-else-if="seriesState.error" class="state-message state-message-error" role="alert">
+          <div v-else-if="seriesState.error && !seriesState.items.length" class="state-message state-message-error" role="alert">
             <AlertCircle class="h-5 w-5" aria-hidden="true" />
             <div>
               <strong>合集加载失败</strong>
@@ -680,7 +701,16 @@
             </div>
           </div>
 
-          <div v-if="activityState.loading" class="state-stack" aria-label="活动加载中">
+          <div v-if="activityState.error && activityState.items.length" class="state-message state-message-error" role="alert">
+            <AlertCircle class="h-5 w-5" aria-hidden="true" />
+            <div>
+              <strong>刷新失败，已保留当前活动</strong>
+              <p>{{ activityState.error }}</p>
+            </div>
+            <button type="button" @click="loadActivities()">重试</button>
+          </div>
+
+          <div v-if="activityState.loading && !activityState.items.length" class="state-stack" aria-label="活动加载中">
             <div v-for="index in 4" :key="index" class="skeleton-row">
               <span class="skeleton-line skeleton-line-short" />
               <span class="skeleton-line" />
@@ -688,7 +718,7 @@
             </div>
           </div>
 
-          <div v-else-if="activityState.error" class="state-message state-message-error" role="alert">
+          <div v-else-if="activityState.error && !activityState.items.length" class="state-message state-message-error" role="alert">
             <AlertCircle class="h-5 w-5" aria-hidden="true" />
             <div>
               <strong>活动加载失败</strong>
@@ -1009,7 +1039,16 @@
           </div>
         </div>
 
-        <div v-if="discussionState.loading" class="state-stack" aria-label="讨论加载中">
+        <div v-if="discussionState.error && discussionState.items.length" class="state-message state-message-error" role="alert">
+          <AlertCircle class="h-5 w-5" aria-hidden="true" />
+          <div>
+            <strong>刷新失败，已保留当前讨论</strong>
+            <p>{{ discussionState.error }}</p>
+          </div>
+          <button type="button" @click="loadDiscussions()">重试</button>
+        </div>
+
+        <div v-if="discussionState.loading && !discussionState.items.length" class="state-stack" aria-label="讨论加载中">
           <div v-for="index in 4" :key="index" class="skeleton-row">
             <span class="skeleton-line skeleton-line-short" />
             <span class="skeleton-line" />
@@ -1017,7 +1056,7 @@
           </div>
         </div>
 
-        <div v-else-if="discussionState.error" class="state-message state-message-error" role="alert">
+        <div v-else-if="discussionState.error && !discussionState.items.length" class="state-message state-message-error" role="alert">
           <AlertCircle class="h-5 w-5" aria-hidden="true" />
           <div>
             <strong>讨论加载失败</strong>
@@ -1363,6 +1402,9 @@ const needState = {
   },
   get loadingMore() {
     return discoveryQuery.loadingMore.value
+  },
+  get slowLoad() {
+    return discoveryQuery.slowLoad.value
   },
   get error() {
     return discoveryQuery.initialError.value

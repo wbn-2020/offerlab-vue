@@ -67,7 +67,6 @@
             </span>
             <span class="meta-label">{{ domainLabel(need.domain) }}</span>
             <span class="meta-label">{{ formatLabel(need.contentFormat) }}</span>
-            <span class="meta-label">需求 #{{ need.id }}</span>
           </div>
           <h1>{{ need.title }}</h1>
           <p class="description">{{ need.description }}</p>
@@ -314,34 +313,40 @@
                 <span>{{ eventsState.initialError }}</span>
                 <button type="button" class="text-button" @click="loadEvents()">重试</button>
               </div>
-              <div v-else-if="!events.length" class="timeline-state">
-                <Inbox class="icon" aria-hidden="true" />
-                <span>协作记录会在需求上线后的真实动作发生后出现在这里。</span>
-              </div>
-              <ol v-else class="timeline-list">
-                <li v-for="event in events" :key="event.id" class="timeline-item">
-                  <span class="timeline-marker">
-                    <CheckCircle2 v-if="event.eventType === 'ACCEPTED' || event.eventType === 'COMPLETED'" class="icon-small" aria-hidden="true" />
-                    <XCircle v-else-if="event.eventType === 'REJECTED'" class="icon-small" aria-hidden="true" />
-                    <Undo2 v-else-if="event.eventType === 'RELEASED' || event.eventType === 'WITHDRAWN'" class="icon-small" aria-hidden="true" />
-                    <Hand v-else-if="event.eventType === 'CLAIMED'" class="icon-small" aria-hidden="true" />
-                    <CircleDot v-else class="icon-small" aria-hidden="true" />
-                  </span>
-                  <div class="timeline-content">
-                    <div class="timeline-topline">
-                      <strong>{{ eventLabel(event.eventType) }}</strong>
-                      <time :datetime="event.createTime">{{ formatDate(event.createTime) }}</time>
+              <template v-else>
+                <div v-if="eventsState.integrityWarning" class="timeline-state error-panel" role="alert">
+                  <AlertCircle class="icon" aria-hidden="true" />
+                  <span>{{ eventsState.integrityWarning }}</span>
+                </div>
+                <div v-if="!events.length && !eventsState.integrityWarning" class="timeline-state">
+                  <Inbox class="icon" aria-hidden="true" />
+                  <span>协作记录会在需求上线后的真实动作发生后出现在这里。</span>
+                </div>
+                <ol v-else-if="events.length" class="timeline-list">
+                  <li v-for="event in events" :key="event.id" class="timeline-item">
+                    <span class="timeline-marker">
+                      <CheckCircle2 v-if="event.eventType === 'ACCEPTED' || event.eventType === 'COMPLETED'" class="icon-small" aria-hidden="true" />
+                      <XCircle v-else-if="event.eventType === 'REJECTED'" class="icon-small" aria-hidden="true" />
+                      <Undo2 v-else-if="event.eventType === 'RELEASED' || event.eventType === 'WITHDRAWN'" class="icon-small" aria-hidden="true" />
+                      <Hand v-else-if="event.eventType === 'CLAIMED'" class="icon-small" aria-hidden="true" />
+                      <CircleDot v-else class="icon-small" aria-hidden="true" />
+                    </span>
+                    <div class="timeline-content">
+                      <div class="timeline-topline">
+                        <strong>{{ eventLabel(event.eventType) }}</strong>
+                        <time :datetime="event.createTime">{{ formatDate(event.createTime) }}</time>
+                      </div>
+                      <p v-if="event.fromStatus || event.toStatus" class="status-transition">
+                        {{ event.fromStatus ? statusLabel(event.fromStatus) : '开始' }}
+                        <ArrowRight class="icon-small" aria-hidden="true" />
+                        {{ event.toStatus ? statusLabel(event.toStatus) : '记录' }}
+                      </p>
+                      <p v-if="event.note" class="event-note">{{ event.note }}</p>
+                      <span v-if="event.hasActor" class="event-actor">社区参与者</span>
                     </div>
-                    <p v-if="event.fromStatus || event.toStatus" class="status-transition">
-                      {{ event.fromStatus ? statusLabel(event.fromStatus) : '开始' }}
-                      <ArrowRight class="icon-small" aria-hidden="true" />
-                      {{ event.toStatus ? statusLabel(event.toStatus) : '记录' }}
-                    </p>
-                    <p v-if="event.note" class="event-note">{{ event.note }}</p>
-                    <span v-if="event.actorUid" class="event-actor">社区参与者</span>
-                  </div>
-                </li>
-              </ol>
+                  </li>
+                </ol>
+              </template>
               <div
                 v-if="eventsState.loadMoreError"
                 class="timeline-state error-panel timeline-load-more-error"
@@ -545,6 +550,7 @@ const eventsState = reactive({
   loadingMore: false,
   initialError: '',
   loadMoreError: '',
+  integrityWarning: '',
   nextCursor: '',
   hasMore: false,
 })
@@ -697,7 +703,7 @@ const domainLabel = (domain: number) => localDomainConfigs.find((item) => Number
 const statusLabel = (status: NeedStatus) => statusLabels[status] || status
 const formatLabel = (format: NeedContentFormat) => formatLabels[format] || format
 const sourceLabel = (source: NeedSourceType) => sourceLabels[source] || source
-const eventLabel = (type: NeedEventType) => eventLabels[type] || type
+const eventLabel = (type: NeedEventType | string) => eventLabels[type as NeedEventType] || '未知协作记录'
 const isPositiveId = (value: string) => /^[1-9]\d*$/.test(value.trim())
 const deliveryPath = computed(() => {
   if (!need.value?.resolutionId) return null
@@ -739,6 +745,7 @@ const resetEvents = () => {
   eventsState.loadingMore = false
   eventsState.initialError = ''
   eventsState.loadMoreError = ''
+  eventsState.integrityWarning = ''
   eventsState.nextCursor = ''
   eventsState.hasMore = false
 }
@@ -777,6 +784,7 @@ const loadEvents = async (append = false) => {
     eventsState.loading = true
     eventsState.initialError = ''
     eventsState.loadMoreError = ''
+    eventsState.integrityWarning = ''
   }
   try {
     const result = await collaborationApi.needs.events(needId.value as ApiId, {
@@ -789,6 +797,9 @@ const loadEvents = async (append = false) => {
     events.value = Array.from(new Map(merged.map((event) => [String(event.id), event])).values())
     eventsState.nextCursor = result.data?.nextCursor ? String(result.data.nextCursor) : ''
     eventsState.hasMore = Boolean(result.data?.hasMore && eventsState.nextCursor)
+    eventsState.integrityWarning = result.data?.historyIntegrityWarning
+      ? '部分历史协作记录暂时无法展示。'
+      : ''
   } catch {
     if (requestId === eventsRequestId) {
       const message = timelineUnavailableMessage()

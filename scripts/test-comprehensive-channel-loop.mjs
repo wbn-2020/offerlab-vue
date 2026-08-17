@@ -73,8 +73,9 @@ assert.doesNotMatch(explore, /OfferLab Discovery Map|Cross-domain discovery|Publ
 assert.match(searchApi, /domain\?:\s*number/, 'SearchParams must support domain')
 assert.match(searchApi, /domain:\s*params\.domain/, 'search API must forward domain')
 assert.match(search, /v-model\.number="filters\.domain"/, 'search must render a real domain selector')
-assert.match(search, /domain:\s*filters\.domain/, 'search requests must include the selected domain')
-assert.match(search, /\.\.\.\(searchMode\.value === 'posts' && filters\.domain\s*\?\s*\{\s*domain:\s*String\(filters\.domain\)\s*\}\s*:\s*\{\}\)/, 'post search URLs must retain domain')
+assert.match(search, /captureQueryState[\s\S]*domain:\s*searchMode\.value === 'posts' \? filters\.domain : undefined/, 'search snapshots must capture the selected domain')
+assert.match(search, /const params = \{[\s\S]*domain:\s*query\.domain/, 'search requests must include the applied domain snapshot')
+assert.match(search, /const queryToRouteQuery\s*=\s*\(query:\s*SearchQueryState\)\s*=>\s*\(\{[\s\S]*\.\.\.\(query\.mode === 'posts' && query\.domain\s*\?\s*\{\s*domain:\s*String\(query\.domain\)\s*\}\s*:\s*\{\}\)/, 'post search URLs must retain the applied domain snapshot')
 assert.doesNotMatch(search, /if\s*\(filters\.domain\)\s*\{\s*filters\.domain\s*=\s*undefined/, 'route sync must not erase a valid domain')
 assert.doesNotMatch(search, /频道\s*\/\s*场景/, 'position must not be presented as the channel selector')
 

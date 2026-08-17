@@ -109,9 +109,12 @@
                 <strong>{{ office.title }}</strong>
               </div>
               <p>{{ office.description }}</p>
-              <small>
-                主持人 UID {{ office.hostUid }} · {{ formatTime(office.startsAt) }} 至 {{ formatTime(office.endsAt) }}
-                · 剩余 {{ office.availableCount }}/{{ office.capacity }}
+              <small class="actor-meta">
+                <PublicActorIdentity :actor="office.host" role-label="主持人" compact />
+                <span aria-hidden="true">·</span>
+                <span>{{ formatTime(office.startsAt) }} 至 {{ formatTime(office.endsAt) }}</span>
+                <span aria-hidden="true">·</span>
+                <span>剩余 {{ office.availableCount }}/{{ office.capacity }}</span>
               </small>
               <p v-if="office.topicGuidance" class="guidance-copy"><strong>提问指引：</strong>{{ office.topicGuidance }}</p>
             </div>
@@ -197,7 +200,13 @@
                 <strong>{{ reservation.topic }}</strong>
               </div>
               <p>{{ reservation.contextDetail || '未补充背景' }}</p>
-              <small>时段 #{{ reservation.officeHourId }} · 主持人 {{ reservation.hostUid }} · 参与者 {{ reservation.attendeeUid }}</small>
+              <small class="actor-meta">
+                <span>时段 #{{ reservation.officeHourId }}</span>
+                <span aria-hidden="true">·</span>
+                <PublicActorIdentity :actor="reservation.host" role-label="主持人" compact />
+                <span aria-hidden="true">·</span>
+                <PublicActorIdentity :actor="reservation.attendee" role-label="参与者" compact />
+              </small>
               <small v-if="reservation.responseNote">主持人回复：{{ reservation.responseNote }}</small>
             </div>
             <div class="row-actions">
@@ -262,7 +271,11 @@
                 <strong>{{ reservation.topic }}</strong>
               </div>
               <p>{{ reservation.contextDetail || '未补充背景' }}</p>
-              <small>参与者 UID {{ reservation.attendeeUid }} · {{ formatTime(reservation.createTime) }}</small>
+              <small class="actor-meta">
+                <PublicActorIdentity :actor="reservation.attendee" role-label="参与者" compact />
+                <span aria-hidden="true">·</span>
+                <span>{{ formatTime(reservation.createTime) }}</span>
+              </small>
             </div>
             <div class="row-actions">
               <button v-if="reservation.status === 'PENDING'" type="button" class="primary-button compact" :disabled="busy" @click="decideReservation(reservation, 'ACCEPTED')">
@@ -286,7 +299,8 @@
       <div v-else-if="feedbackItems.length" class="feedback-list">
         <div v-for="item in feedbackItems" :key="String(item.id)">
           <strong>{{ item.rating }}/5</strong>
-          <span>用户 {{ item.authorUid }}：{{ item.feedback || '未填写文字反馈' }}</span>
+          <PublicActorIdentity :actor="item.author" role-label="反馈者" compact />
+          <span>{{ item.feedback || '未填写文字反馈' }}</span>
         </div>
       </div>
       <form class="form-stack" @submit.prevent="submitFeedback">
@@ -345,6 +359,7 @@ import {
   type PageResult,
 } from '@/api/collaboration'
 import { useAuthStore } from '@/stores/auth'
+import PublicActorIdentity from '@/components/user/PublicActorIdentity.vue'
 
 type LoadState = { loading: boolean; error: string; requestId: number }
 const state = (): LoadState => reactive({ loading: false, error: '', requestId: 0 })
@@ -640,9 +655,8 @@ const submitFeedback = () => runAction('feedback', async () => {
   await openFeedback(reservation)
 }, '反馈已提交')
 
-const currentUid = computed(() => String(authStore.user?.uid ?? ''))
 const hasCurrentUserConfirmed = (reservation: OfficeHourReservation) =>
-  String(reservation.hostUid) === currentUid.value
+  reservation.viewerRole === 'HOST'
     ? Boolean(reservation.hostConfirmedAt)
     : Boolean(reservation.attendeeConfirmedAt)
 
@@ -907,6 +921,13 @@ watch(
   color: rgb(100 116 139);
   font-size: 0.7rem;
   line-height: 1.45;
+}
+
+.row-main small.actor-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
 .guidance-copy {

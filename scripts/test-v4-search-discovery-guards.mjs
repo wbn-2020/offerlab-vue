@@ -95,7 +95,7 @@ missing(searchApi, /includeTestData|yearsOfExp/, 'Frontend public search contrac
 has(searchController, /facade\.searchPosts\(keyword, company, position, type, domain, sort, cursor, size, false,[\s\S]*trustFilter\)\.publicView\(\)/, 'Public backend search endpoint must pass domain and trust filters, force includeTestData=false, and return publicView.')
 has(searchView, /搜索建议来自公开内容和近期公共搜索趋势[\s\S]*最近搜索和保存搜索只保存在本机，不进入公共趋势或创作者建议/, 'Search copy must explain public suggestions and local-only snapshots.')
 has(searchView, /const RECENT_SEARCH_KEY = 'recent-searches'[\s\S]*const SAVED_SEARCH_KEY = 'saved-searches'/, 'Recent searches and saved searches must use separate storage keys.')
-has(searchView, /const storageKey = \(name: string\) => `offerlab:\$\{storageOwner\.value\}:\$\{name\}`/, 'Recent and saved searches must be scoped by viewer/guest owner.')
+has(searchView, /const storageKey = \(name: string\) => \([\s\S]*offerlab:v2:[\s\S]*storageNamespace\.value[\s\S]*storageOwner\.value[\s\S]*name/, 'Recent and saved searches must be scoped by environment and viewer/guest owner.')
 has(searchView, /recentSearches\.value = readSnapshots\(RECENT_SEARCH_KEY\)[\s\S]*savedSearches\.value = readSnapshots\(SAVED_SEARCH_KEY\)/, 'Recent and saved searches must be loaded independently.')
 has(searchView, /writeSnapshots\(RECENT_SEARCH_KEY, next\)/, 'Recent searches must write only the recent-search storage key.')
 has(searchView, /writeSnapshots\(SAVED_SEARCH_KEY, next\)/, 'Saved searches must write only the saved-search storage key.')

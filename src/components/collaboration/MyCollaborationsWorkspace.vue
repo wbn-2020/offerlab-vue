@@ -329,7 +329,7 @@
         </form>
 
         <div class="row-footer">
-          <span>需求 #{{ need.id }}</span>
+          <span>公开协作需求</span>
           <div class="row-actions">
             <button
               v-if="activeScope === 'claimed'
@@ -699,7 +699,7 @@ const deliveryState = (need: CollaborationNeed): {
   if (need.status === 'MERGED') {
     return {
       title: '需求已合并',
-      description: need.mergedIntoNeedId ? `后续进展合并至需求 #${need.mergedIntoNeedId}` : '后续进展已转入合并后的需求。',
+      description: '后续进展已转入合并后的需求。',
       tone: 'muted',
       icon: GitMerge,
     }

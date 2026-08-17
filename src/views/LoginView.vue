@@ -190,6 +190,11 @@ const validateForm = () => {
   }
 }
 
+const navigateAfterLogin = () => {
+  // 登录成功后使用同源硬导航，避免登录页等待异步路由组件或守卫 Promise。
+  window.location.replace(safeRedirect(route.query.redirect))
+}
+
 const handleSubmit = async () => {
   if (!validateForm()) return
 
@@ -204,8 +209,7 @@ const handleSubmit = async () => {
   }, 3_000)
   try {
     await login(form.email, form.password)
-    await router.replace(safeRedirect(route.query.redirect))
-    toast.success('登录成功')
+    navigateAfterLogin()
   } catch (error: any) {
     if (isLoginTimeout(error)) {
       loginFeedbackState.value = 'timeout'
@@ -231,8 +235,7 @@ const retrySession = async () => {
   await authStore.hydrate()
   try {
     if (authStore.isLoggedIn) {
-      await router.replace(safeRedirect(route.query.redirect))
-      toast.success('会话已恢复')
+      navigateAfterLogin()
     } else if (authStore.sessionExpired) {
       await router.replace({
         path: '/login',
@@ -255,7 +258,7 @@ onMounted(async () => {
     await authStore.hydrate()
   }
   if (authStore.isLoggedIn) {
-    await router.replace(safeRedirect(route.query.redirect))
+    navigateAfterLogin()
   }
 })
 

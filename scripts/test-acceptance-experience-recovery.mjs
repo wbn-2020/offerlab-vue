@@ -151,10 +151,11 @@ expect(
   'Login must explain the wait before a timeout is returned.',
 )
 expect(
-  meProfile.includes('v-if="hasPublishedContent" class="profile-actions"')
-    && meProfile.includes('v-if="hasPublishedContent" to="/editor" class="secondary-button"')
+  meProfile.includes('v-if="hasPublishedContent" to="/me?tab=posts" class="secondary-button"')
+    && meProfile.includes('管理公开内容')
+    && !meProfile.includes('>继续发布<')
     && !meProfile.includes('empty-action-text="去发布"'),
-  'Profiles without public posts must expose only the focused primary publishing action.',
+  'Profiles with public posts must expose one focused content-management action.',
 )
 expect(
   commentMapper.includes('long countVisibleComments')
@@ -200,7 +201,10 @@ expect(
 )
 expect(
   exploreView.includes('error && !hasItems')
-    && exploreView.includes('个别入口会在对应区域提示状态'),
+    && exploreView.includes('state-banner-error')
+    && exploreView.includes('@click="reload"')
+    && exploreView.includes('ModuleEmpty')
+    && exploreView.includes('当前没有可展示的公开内容'),
   'Explore must localize partial failures instead of showing a global unavailable state beside successful content.',
 )
 expect(

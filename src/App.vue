@@ -14,13 +14,9 @@
       </main>
       <Suspense v-else>
         <component :is="Component" v-if="Component" />
+        <RouteLoadingFallback v-else :collaboration="isCollaborationRoute" />
         <template #fallback>
-          <main class="flex min-h-screen items-center justify-center bg-slate-50 px-6 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
-            <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <Loader2 class="h-5 w-5 animate-spin text-primary-600 dark:text-primary-400" aria-hidden="true" />
-              <span class="text-sm font-semibold">正在加载页面</span>
-            </div>
-          </main>
+          <RouteLoadingFallback :collaboration="isCollaborationRoute" />
         </template>
       </Suspense>
     </RouterView>
@@ -29,15 +25,18 @@
 </template>
 
 <script setup lang="ts">
-import { Loader2 } from 'lucide-vue-next'
-import { computed, onErrorCaptured, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { Toaster } from 'vue-sonner'
+import RouteLoadingFallback from '@/components/layout/RouteLoadingFallback.vue'
 import { useRealtime } from '@/composables/useRealtime'
 
 const router = useRouter()
 const route = useRoute()
 const routeLoadError = ref<unknown>(null)
+const isCollaborationRoute = computed(() => (
+  route.path === '/collaboration' || route.path.startsWith('/collaboration/')
+))
 const routeLoadMessage = computed(() => {
   if (routeLoadError.value instanceof Error && routeLoadError.value.message) {
     if (!/__vccOpts|Cannot read properties of undefined|Cannot read properties of null|component instance|hydration/i.test(routeLoadError.value.message)) {
@@ -60,11 +59,6 @@ const retryRouteLoad = () => {
 
 router.onError((error) => {
   routeLoadError.value = error
-})
-
-onErrorCaptured((error) => {
-  routeLoadError.value = error
-  return false
 })
 
 watch(() => route.fullPath, clearRouteLoadError)

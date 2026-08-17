@@ -59,7 +59,7 @@
           <p class="description">{{ officeHour.description }}</p>
 
           <div class="detail-meta">
-            <PublicActorLink :uid="officeHour.hostUid" role-label="主持人" />
+            <PublicActorIdentity :actor="officeHour.host" role-label="主持人" />
             <span><CalendarDays class="icon-small" aria-hidden="true" />{{ formatDate(officeHour.startsAt) }} 至 {{ formatDate(officeHour.endsAt) }}</span>
             <span><Users class="icon-small" aria-hidden="true" />剩余 {{ officeHour.availableCount }}/{{ officeHour.capacity }}</span>
           </div>
@@ -174,7 +174,7 @@ import {
 } from '@/api/collaboration'
 import { localDomainConfigs } from '@/api/domains'
 import AppHeader from '@/components/layout/AppHeader.vue'
-import PublicActorLink from '@/components/user/PublicActorLink.vue'
+import PublicActorIdentity from '@/components/user/PublicActorIdentity.vue'
 import {
   collaborationHubLocation,
   collaborationResourcePath,

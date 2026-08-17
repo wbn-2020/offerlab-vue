@@ -89,11 +89,11 @@ assert.doesNotMatch(domains, /ALL_COMMUNITY_CHANNELS[\s\S]*qa-discussion/, 'ques
 assert.match(domains, /投资理财内容仅供经验交流，不构成投资建议/, 'secondary investment channel must keep risk notice')
 assert.match(discovery, /contentForms/, 'discovery API contract must expose contentForms')
 
-assert.match(search, /postApi\.listTopics\(\{ keyword: filters\.q \|\| undefined, limit: 50 \}\)/, 'search topics mode must query the public topic API with the active keyword')
+assert.match(search, /postApi\.listTopics\(\{ keyword: query\.q \|\| undefined, limit: 50 \}\)/, 'search topics mode must query the public topic API with the applied keyword snapshot')
 assert.match(search, /postApi\.getTags\(\)/, 'search tags mode must reuse existing tag API')
 assert.match(search, /shouldAutoRunSearch/, 'search must centralize auto-run conditions for direct links')
 assert.match(search, /searchMode\.value === 'topics' \|\| searchMode\.value === 'tags'/, 'search direct links must auto-load topics and tags modes without a keyword')
-assert.match(search, /if \(!shouldAutoRunSearch\.value\) return/, 'debounced search must also refresh empty topics and tags modes')
+assert.match(search, /if \(!shouldAutoRunSearch\.value\) \{[\s\S]*clearEmptySearchState\(\)[\s\S]*return/, 'debounced search must clear empty post search state while topics and tags remain auto-loadable')
 assert.match(search, /热门频道[\s\S]*热门话题[\s\S]*热门标签/, 'search empty state must recommend channels, topics, and tags')
 assert.match(search, /path: '\/explore'[\s\S]*channel: channel\.key/, 'search channel recommendations must route through explore channel state')
 

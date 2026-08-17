@@ -664,8 +664,8 @@ const emptyFeedTitle = computed(() => {
 const emptyFeedDescription = computed(() => {
   if (activeFeed.value === 'following') return '关注作者后，他们发布的新内容会出现在这里。'
   if (activeFeed.value === 'latest' && sampledFeedContentCount.value > 0) return '推荐和热门里还有内容，也可以去发现页浏览其他频道。'
-  if (activeDomainMeta.value) return '可以切换到综合频道，或发布这个频道的第一篇内容。'
-  return '可以先看推荐或热门内容，也可以发布自己的第一篇内容。'
+  if (activeDomainMeta.value) return '该频道当前没有可公开阅读的内容，可以切换综合频道或稍后再来。'
+  return '当前公开内容正在准备中，暂时没有可阅读的帖子，可以稍后重试或进入发现页。'
 })
 const emptyFeedActionText = computed(() => activeFeed.value === 'following' ? '去发现作者' : '去发现内容')
 const emptyFeedActionHref = computed(() => '/explore')

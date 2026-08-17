@@ -23,10 +23,14 @@ export interface RegisterResp {
   uid: ApiId
 }
 
+export const AUTH_LOGIN_TIMEOUT_MS = 12_000
+export const AUTH_PROFILE_TIMEOUT_MS = 8_000
+
 export const authApi = {
-  login: (req: LoginReq): Promise<Result<LoginResp>> =>
+  login: (req: LoginReq, timeoutMs = AUTH_LOGIN_TIMEOUT_MS): Promise<Result<LoginResp>> =>
     client.post('/api/v1/auth/login', { ...req, email: req.email || req.account }, {
       skipAuthRedirect: true,
+      timeout: timeoutMs,
     }),
 
   register: (req: RegisterReq): Promise<Result<RegisterResp>> =>

@@ -145,10 +145,6 @@ export interface PostPublishStatus {
   }
   search?: {
     visible?: boolean
-    source?: string
-    degraded?: boolean
-    fallbackReason?: string
-    diagnostics?: Record<string, unknown>
   }
 }
 
@@ -186,6 +182,9 @@ export interface Tag {
   slug: string
   category?: string
   count?: number
+  postCount?: number
+  typeDistribution?: Record<string, number>
+  statisticsAvailable?: boolean
   tagType?: number
   status?: number
   recommended?: boolean
@@ -216,6 +215,8 @@ export interface CommunityTopic {
   featured?: boolean
   status?: number
   postCount?: number
+  typeDistribution?: Record<string, number>
+  statisticsAvailable?: boolean
   followerCount?: number
   followed?: boolean
   virtualTopic?: boolean
