@@ -84,6 +84,26 @@
             </div>
           </section>
 
+          <section id="terms" class="about-section policy-anchor">
+            <h2>服务条款</h2>
+            <p>
+              使用社区即表示你同意以真实、合法、尊重他人的方式浏览、发布和互动。你应对自己提交的内容负责，不得利用平台实施骚扰、欺诈、侵权、违法传播或自动化滥用。
+            </p>
+            <p>
+              平台可以基于公开规则限制违规内容和账号，并保留必要的申诉与反馈入口。涉及重大规则变化时，注册或后续使用流程会要求重新确认。
+            </p>
+          </section>
+
+          <section id="privacy" class="about-section policy-anchor">
+            <h2>隐私政策</h2>
+            <p>
+              注册时收集邮箱、昵称和安全凭据，用于账号识别、登录、安全风控与必要通知。公开页面不会展示邮箱、密码、内部账号标识或运维诊断信息。
+            </p>
+            <p>
+              你可以在设置页管理公开资料、通知和可联系范围。平台仅在实现社区功能、安全审计和法定义务所需范围内处理相关信息。
+            </p>
+          </section>
+
           <section class="about-section">
             <h2>反馈方式</h2>
             <p>
@@ -168,6 +188,10 @@ import { siteBrand } from '@/utils/brand'
 
 .about-section {
   padding: 1.75rem 0;
+}
+
+.policy-anchor {
+  scroll-margin-top: calc(var(--community-header-height) + 1rem);
 }
 
 .about-section + .about-section {

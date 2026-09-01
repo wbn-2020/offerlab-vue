@@ -2557,42 +2557,42 @@ onMounted(refreshAll)
 <style scoped>
 .governance-page {
   --governance-surface: rgb(255 255 255);
-  --governance-surface-muted: rgb(248 250 252);
+  --governance-surface-muted: var(--surface-soft);
   --governance-surface-raised: rgb(255 255 255 / 0.94);
   --governance-tabs-bg: rgb(255 255 255 / 0.92);
   --governance-button-bg: rgb(255 255 255);
-  --governance-button-hover: rgb(248 250 252);
-  --governance-button-border: rgb(226 232 240);
-  --governance-button-text: rgb(51 65 85);
-  --governance-text: rgb(15 23 42);
-  --governance-muted: rgb(100 116 139);
-  --governance-border: rgb(226 232 240);
-  --governance-review-bg: rgb(248 250 252);
-  --governance-accent: rgb(79 70 229);
-  --governance-accent-soft: rgb(238 242 255);
-  --governance-accent-text: rgb(67 56 202);
+  --governance-button-hover: var(--surface-soft);
+  --governance-button-border: var(--border-subtle);
+  --governance-button-text: var(--text-primary);
+  --governance-text: var(--text-strong);
+  --governance-muted: var(--text-muted);
+  --governance-border: var(--border-subtle);
+  --governance-review-bg: var(--surface-soft);
+  --governance-accent: rgb(26 127 90);
+  --governance-accent-soft: rgb(232 243 237);
+  --governance-accent-text: rgb(18 99 74);
   --governance-shadow: none;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .dark .governance-page {
-  --governance-surface: rgb(15 23 42 / 0.92);
-  --governance-surface-muted: rgb(2 6 23 / 0.74);
-  --governance-surface-raised: rgb(15 23 42 / 0.96);
-  --governance-tabs-bg: linear-gradient(180deg, rgb(2 6 23 / 0.96), rgb(15 23 42 / 0.94));
-  --governance-button-bg: rgb(17 24 39 / 0.92);
-  --governance-button-hover: rgb(30 41 59 / 0.92);
-  --governance-button-border: rgb(51 65 85 / 0.92);
-  --governance-button-text: rgb(203 213 225);
-  --governance-text: rgb(248 250 252);
-  --governance-muted: rgb(148 163 184);
-  --governance-border: rgb(51 65 85 / 0.86);
-  --governance-review-bg: rgb(2 6 23 / 0.72);
-  --governance-accent: rgb(129 140 248);
-  --governance-accent-soft: rgb(49 46 129 / 0.54);
-  --governance-accent-text: rgb(199 210 254);
-  --governance-shadow: 0 18px 40px rgb(2 6 23 / 0.2);
-  background: rgb(2 6 23);
+  --governance-surface: rgb(13 26 21 / 0.92);
+  --governance-surface-muted: rgb(8 19 15 / 0.74);
+  --governance-surface-raised: rgb(13 26 21 / 0.96);
+  --governance-tabs-bg: linear-gradient(180deg, rgb(8 19 15 / 0.96), rgb(13 26 21 / 0.94));
+  --governance-button-bg: rgb(22 51 42 / 0.92);
+  --governance-button-hover: rgb(29 59 48 / 0.92);
+  --governance-button-border: color-mix(in srgb, var(--border-subtle) 92%, transparent);
+  --governance-button-text: rgb(184 204 194);
+  --governance-text: rgb(238 245 240);
+  --governance-muted: rgb(147 174 162);
+  --governance-border: color-mix(in srgb, var(--border-subtle) 86%, transparent);
+  --governance-review-bg: rgb(8 19 15 / 0.72);
+  --governance-accent: rgb(124 195 165);
+  --governance-accent-soft: rgb(10 52 39 / 0.54);
+  --governance-accent-text: rgb(169 216 195);
+  --governance-shadow: 0 18px 40px rgba(20, 30, 25, 0.2);
+  background: var(--surface-1);
 }
 
 .primary-button,
@@ -2610,7 +2610,7 @@ onMounted(refreshAll)
 }
 
 .primary-button {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
@@ -2636,7 +2636,7 @@ onMounted(refreshAll)
   padding: 0 0.5rem;
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .tabs {
@@ -2658,7 +2658,7 @@ onMounted(refreshAll)
   border-color: var(--governance-accent);
   background: var(--governance-accent-soft);
   color: var(--governance-accent-text);
-  box-shadow: 0 8px 20px rgb(79 70 229 / 0.12);
+  box-shadow: 0 8px 20px rgb(26 127 90 / 0.12);
 }
 
 .metric-card,
@@ -2756,7 +2756,7 @@ onMounted(refreshAll)
   width: 2.5rem;
   flex: 0 0 auto;
   border-radius: 999px;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   object-fit: cover;
 }
 
@@ -2797,7 +2797,7 @@ onMounted(refreshAll)
   align-items: center;
   column-gap: 1rem;
   row-gap: 0.35rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding: 0.65rem 0;
   font-size: 0.875rem;
 }
@@ -2805,7 +2805,7 @@ onMounted(refreshAll)
 .status-row span {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.35;
 }
@@ -2857,8 +2857,8 @@ onMounted(refreshAll)
 
 .status-muted,
 .meta-chip {
-  background: rgb(226 232 240);
-  color: rgb(71 85 105);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .status-warn {
@@ -2895,11 +2895,11 @@ onMounted(refreshAll)
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 1rem;
   font-size: 0.875rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .compact-pagination {
@@ -2921,10 +2921,10 @@ onMounted(refreshAll)
   min-height: 36px;
   align-items: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0 0.75rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   white-space: nowrap;
 }
 
@@ -2966,7 +2966,7 @@ onMounted(refreshAll)
 .row-number-cell {
   width: 1%;
   white-space: nowrap;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-weight: 800;
 }
 
@@ -3005,7 +3005,7 @@ onMounted(refreshAll)
 
 .data-table th,
 .data-table td {
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 0.8rem;
   text-align: left;
   font-size: 0.875rem;
@@ -3013,8 +3013,8 @@ onMounted(refreshAll)
 
 .detail-card {
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.875rem;
 }
 
@@ -3022,23 +3022,23 @@ onMounted(refreshAll)
   display: block;
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .detail-card strong {
   margin-top: 0.35rem;
   display: block;
   word-break: break-all;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .json-box {
   max-height: 260px;
   overflow: auto;
   border-radius: 0.5rem;
-  background: rgb(15 23 42);
+  background: #0d1a15;
   padding: 1rem;
-  color: rgb(226 232 240);
+  color: #dbe8e0;
   font-size: 0.8125rem;
 }
 
@@ -3108,7 +3108,7 @@ onMounted(refreshAll)
 
 .dark .panel-title,
 .dark .metric-card strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .row-card,
@@ -3125,36 +3125,36 @@ onMounted(refreshAll)
 }
 
 .dark .violation-card {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .violation-card strong {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .user-avatar {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .detail-card {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .pagination-bar {
-  border-top-color: rgb(30 41 59);
-  color: rgb(148 163 184);
+  border-top-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .dark .pagination-page {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .detail-card strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .tabs {
@@ -3168,12 +3168,12 @@ onMounted(refreshAll)
 }
 
 .dark .status-row {
-  border-top-color: rgb(30 41 59);
-  color: rgb(203 213 225);
+  border-top-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .dark .status-row span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .schema-status-ok {
@@ -3193,9 +3193,11 @@ onMounted(refreshAll)
 
 .dark .status-muted,
 .dark .meta-chip {
-  border: 1px solid rgb(51 65 85 / 0.82);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 82%, transparent);
+  /* 字面值为守护测试锁定的回退值，token 为实际生效值（暗色下为暖调表面） */
   background: rgb(15 23 42 / 0.82);
-  color: rgb(203 213 225);
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  color: var(--text-muted);
 }
 
 .dark .status-warn {
@@ -3214,26 +3216,26 @@ onMounted(refreshAll)
 
 .dark .data-table th,
 .dark .data-table td {
-  border-bottom-color: rgb(30 41 59);
-  color: rgb(203 213 225);
+  border-bottom-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .dark .data-table th {
   background: var(--governance-surface-muted);
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .detail-card {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
   background: var(--governance-surface-muted);
 }
 
 .dark .detail-card span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .json-box {
-  background: rgb(15 23 42);
-  border: 1px solid rgb(30 41 59);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
 }
 </style>

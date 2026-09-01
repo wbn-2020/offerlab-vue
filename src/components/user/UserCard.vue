@@ -128,35 +128,35 @@ const toggleFollow = async () => {
 .profile-link {
   display: grid;
   gap: 0.1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   padding: 0.55rem 0.75rem;
   text-align: center;
   font-size: 0.875rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .profile-link span {
   font-size: 0.72rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .profile-link:hover {
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .dark .profile-link {
-  border-color: rgb(51 65 85);
-  color: rgb(147 197 253);
+  border-color: var(--border-subtle);
+  color: rgb(124 195 165);
 }
 
 .dark .profile-link span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .profile-link:hover {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 </style>

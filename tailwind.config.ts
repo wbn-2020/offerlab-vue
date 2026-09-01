@@ -8,25 +8,27 @@ export default {
   theme: {
     extend: {
       colors: {
+        /* 「闻野」品牌色阶：森绿。与 src/styles/globals.css 的 --primary-* / --brand 保持同源，
+           避免 Tailwind 工具类（bg-primary-600 等）与 CSS 变量出现两套强调色。 */
         primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          50: '#e8f3ed',
+          100: '#cde8dc',
+          200: '#a9d8c3',
+          300: '#7cc3a5',
+          400: '#46ac86',
+          500: '#219a70',
+          600: '#1a7f5a',
+          700: '#12634a',
+          800: '#0e4a37',
+          900: '#0a3427',
         },
         accent: {
-          500: '#f59e0b',
+          500: '#d98324',
         },
-        success: '#10b981',
-        warning: '#f59e0b',
-        danger: '#ef4444',
-        info: '#3b82f6',
+        success: '#12b76a',
+        warning: '#d98324',
+        danger: '#d92d20',
+        info: '#219a70',
       },
       fontFamily: {
         sans: ['PingFang SC', '"Microsoft YaHei"', 'Inter', 'system-ui', 'sans-serif'],
@@ -41,11 +43,12 @@ export default {
         '2xl': ['28px', { lineHeight: '1.3' }],
       },
       borderRadius: {
-        lg: '8px',
-        xl: '12px',
+        lg: '10px',
+        xl: '14px',
       },
       boxShadow: {
-        sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        sm: '0 1px 2px 0 rgba(20, 30, 25, 0.05)',
+        card: '0 8px 24px rgba(20, 30, 25, 0.07)',
       },
     },
   },

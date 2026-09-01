@@ -137,23 +137,23 @@ const isRepairSuggestion = (item: SearchSuggestionItem) => {
   gap: 0.75rem;
   font-size: 0.8125rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .suggest-heading small {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .suggest-row {
   width: 100%;
   justify-content: space-between;
   gap: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.65rem 0.75rem;
   text-align: left;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .suggest-main {
@@ -172,7 +172,7 @@ const isRepairSuggestion = (item: SearchSuggestionItem) => {
 }
 
 .suggest-main small {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.4;
 }
@@ -184,7 +184,7 @@ const isRepairSuggestion = (item: SearchSuggestionItem) => {
   gap: 0.35rem;
   font-size: 0.7rem;
   font-weight: 900;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .source-pill,
@@ -200,14 +200,14 @@ const isRepairSuggestion = (item: SearchSuggestionItem) => {
 }
 
 .source-local {
-  background: rgb(219 234 254);
-  color: rgb(29 78 216);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .source-display,
 .display-pill {
-  background: rgb(241 245 249);
-  color: rgb(100 116 139);
+  background: var(--surface-soft);
+  color: var(--text-muted);
 }
 
 .persist-pill {
@@ -217,16 +217,16 @@ const isRepairSuggestion = (item: SearchSuggestionItem) => {
 
 .dark .suggest-heading,
 .dark .suggest-row {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .suggest-heading small,
 .dark .suggest-main small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .suggest-row {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 </style>

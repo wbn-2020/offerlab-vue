@@ -29,33 +29,33 @@ const renderedContent = computed(() => renderMarkdown(props.content))
   font-size: 28px;
   font-weight: bold;
   margin: 24px 0 16px 0;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 :deep(.dark .markdown-content h1) {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 :deep(.markdown-content h2) {
   font-size: 22px;
   font-weight: bold;
   margin: 20px 0 12px 0;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
 }
 
 :deep(.dark .markdown-content h2) {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 :deep(.markdown-content h3) {
   font-size: 18px;
   font-weight: bold;
   margin: 16px 0 8px 0;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 :deep(.dark .markdown-content h3) {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 :deep(.markdown-content p) {
@@ -72,8 +72,8 @@ const renderedContent = computed(() => renderMarkdown(props.content))
 }
 
 :deep(.markdown-content code) {
-  background-color: rgb(241 245 249);
-  color: rgb(15 23 42);
+  background-color: var(--surface-soft);
+  color: var(--text-strong);
   padding: 2px 6px;
   border-radius: 4px;
   font-family: 'JetBrains Mono', monospace;
@@ -81,13 +81,13 @@ const renderedContent = computed(() => renderMarkdown(props.content))
 }
 
 :deep(.dark .markdown-content code) {
-  background-color: rgb(30 41 59);
-  color: rgb(226 232 240);
+  background-color: var(--surface-1);
+  color: var(--text-primary);
 }
 
 :deep(.markdown-content pre) {
-  background-color: rgb(15 23 42);
-  color: rgb(226 232 240);
+  background-color: #0d1a15;
+  color: #dbe8e0;
   padding: 16px;
   border-radius: 8px;
   overflow-x: auto;
@@ -102,15 +102,17 @@ const renderedContent = computed(() => renderMarkdown(props.content))
 }
 
 :deep(.markdown-content blockquote) {
-  border-left: 4px solid rgb(99 102 241);
-  padding-left: 16px;
+  border-left: 3px solid var(--primary-600);
+  border-radius: 0 8px 8px 0;
+  padding: 2px 16px;
   margin: 16px 0;
-  color: rgb(100 116 139);
-  font-style: italic;
+  background: var(--brand-soft);
+  color: var(--text-muted);
+  font-style: normal;
 }
 
 :deep(.dark .markdown-content blockquote) {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 :deep(.markdown-content table) {
@@ -121,40 +123,44 @@ const renderedContent = computed(() => renderMarkdown(props.content))
 
 :deep(.markdown-content th),
 :deep(.markdown-content td) {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   padding: 12px;
   text-align: left;
 }
 
 :deep(.dark .markdown-content th),
 :deep(.dark .markdown-content td) {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 :deep(.markdown-content th) {
-  background-color: rgb(241 245 249);
+  background-color: var(--surface-soft);
   font-weight: bold;
 }
 
 :deep(.dark .markdown-content th) {
-  background-color: rgb(30 41 59);
+  background-color: var(--surface-1);
 }
 
 :deep(.markdown-content a) {
-  color: rgb(99 102 241);
-  text-decoration: underline;
+  color: var(--primary-700);
+  text-decoration-color: color-mix(in srgb, var(--primary-600) 45%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-line: underline;
 }
 
 :deep(.markdown-content a:hover) {
-  color: rgb(79 70 229);
+  color: var(--primary-600);
+  text-decoration-color: var(--primary-600);
 }
 
 :deep(.dark .markdown-content a) {
-  color: rgb(129 140 248);
+  color: var(--brand-strong);
 }
 
 :deep(.dark .markdown-content a:hover) {
-  color: rgb(165 180 252);
+  color: rgb(169 216 195);
 }
 
 :deep(.markdown-content img) {

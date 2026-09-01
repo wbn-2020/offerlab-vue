@@ -184,33 +184,33 @@ watch(() => props.modelValue, (open) => {
   align-items: center;
   gap: 0.55rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.65rem 0.75rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 700;
 }
 
 .contact-scene-option input {
-  accent-color: rgb(79 70 229);
+  accent-color: rgb(26 127 90);
 }
 
 .contact-scene-option--active {
-  border-color: rgb(129 140 248);
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  border-color: rgb(124 195 165);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .dark .contact-scene-option {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .contact-scene-option--active {
-  border-color: rgb(129 140 248);
-  background: rgb(49 46 129 / 0.45);
-  color: rgb(199 210 254);
+  border-color: rgb(124 195 165);
+  background: rgb(10 52 39 / 0.45);
+  color: rgb(169 216 195);
 }
 </style>

@@ -107,7 +107,7 @@ const deliveryStatusText = computed(() => {
 
 .content-suggestion-source {
   justify-self: start;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.8125rem;
   font-weight: 800;
 }
@@ -122,12 +122,12 @@ const deliveryStatusText = computed(() => {
 .content-suggestion-target > div {
   min-width: 0;
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.7rem 0.75rem;
 }
 
 .content-suggestion-target dt {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -135,7 +135,7 @@ const deliveryStatusText = computed(() => {
 .content-suggestion-target dd {
   margin: 0.25rem 0 0;
   overflow-wrap: anywhere;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.8125rem;
   line-height: 1.55;
 }
@@ -155,29 +155,29 @@ const deliveryStatusText = computed(() => {
   min-height: 1.75rem;
   align-items: center;
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.25rem 0.6rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.72rem;
   font-weight: 800;
 }
 
 :global(.dark .content-suggestion-structured) .content-suggestion-source {
-  color: rgb(147 197 253);
+  color: rgb(124 195 165);
 }
 
 :global(.dark .content-suggestion-structured) .content-suggestion-target > div,
 :global(.dark .content-suggestion-structured) .content-suggestion-state span {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 :global(.dark .content-suggestion-structured) .content-suggestion-target dt {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 :global(.dark .content-suggestion-structured) .content-suggestion-target dd,
 :global(.dark .content-suggestion-structured) .content-suggestion-state span {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {

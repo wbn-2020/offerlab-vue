@@ -882,8 +882,8 @@ onBeforeUnmount(() => {
 }
 
 :global(html.dark) .status--open {
-  background: rgba(30, 64, 175, 0.34);
-  color: #bfdbfe;
+  background: rgba(14, 74, 55, 0.34);
+  color: #a9d8c3;
 }
 
 :global(html.dark) .status--completed,
@@ -907,9 +907,9 @@ onBeforeUnmount(() => {
 }
 
 :global(html.dark) .projection-state {
-  border-color: #1e3a8a;
-  background: rgba(30, 58, 138, 0.22);
-  color: #bfdbfe;
+  border-color: #0a3427;
+  background: rgba(10, 52, 39, 0.22);
+  color: #a9d8c3;
 }
 
 :global(html.dark) .projection-state--read_only_stale,

@@ -195,14 +195,17 @@ const adaptModule = (
       ? { key, title: moduleTitles[key], status: 'READY', source: items[0].source, degraded: false, itemCount: items.length }
       : unavailableModule(key, `${key}_unavailable`)
   }
-  const source = raw.source && isDisplayableSource(raw.source) && items.length ? raw.source : (items.length ? items[0].source : 'unavailable')
+  const declaredEmpty = raw.status === 'EMPTY' && raw.degraded !== true
+  const source = raw.source && isDisplayableSource(raw.source)
+    ? raw.source
+    : (items.length ? items[0].source : 'unavailable')
   return {
     key: raw.key || key,
     title: raw.title || moduleTitles[key],
-    status: items.length ? (raw.status || 'READY') : (raw.status === 'EMPTY' ? 'EMPTY' : 'UNAVAILABLE'),
+    status: items.length ? (raw.status || 'READY') : (declaredEmpty ? 'EMPTY' : 'UNAVAILABLE'),
     source,
-    degraded: Boolean(raw.degraded || !items.length),
-    fallbackReason: raw.fallbackReason,
+    degraded: declaredEmpty ? false : Boolean(raw.degraded || !items.length),
+    fallbackReason: declaredEmpty ? undefined : raw.fallbackReason,
     itemCount: items.length,
   }
 }

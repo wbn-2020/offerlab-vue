@@ -54,7 +54,7 @@
                 aria-label="账号或邮箱"
                 placeholder="输入账号或邮箱"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
-                :disabled="isLoading"
+                :disabled="isLoading || rateLimitSeconds > 0"
               >
               <p v-if="errors.email" class="text-xs text-danger mt-1">{{ errors.email }}</p>
             </div>
@@ -69,9 +69,9 @@
                 name="password"
                 autocomplete="current-password"
                 aria-label="密码"
-                placeholder="至少 6 位"
+                placeholder="输入密码"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
-                :disabled="isLoading"
+                :disabled="isLoading || rateLimitSeconds > 0"
               >
               <p v-if="errors.password" class="text-xs text-danger mt-1">{{ errors.password }}</p>
             </div>
@@ -79,10 +79,10 @@
             <!-- Submit Button -->
             <button
               type="submit"
-              :disabled="isLoading"
+              :disabled="isLoading || rateLimitSeconds > 0"
               class="auth-submit w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
-              {{ isLoading ? '登录中...' : '登录' }}
+              {{ isLoading ? '登录中...' : rateLimitSeconds > 0 ? `${rateLimitSeconds} 秒后重试` : '登录' }}
             </button>
           </form>
 
@@ -99,8 +99,8 @@
         </div>
 
         <!-- Demo Hint -->
-        <div v-if="showDemoAccounts" class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p class="text-xs text-blue-700 dark:text-blue-300">
+        <div v-if="showDemoAccounts" class="mt-6 p-4 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg">
+          <p class="text-xs text-primary-700 dark:text-primary-300">
             <strong>演示账号：</strong> admin / 123456，user1 / 123456
           </p>
         </div>
@@ -115,7 +115,7 @@ import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
-import { getErrorMessage } from '@/api/client'
+import { getErrorMessage, getRateLimitRetryAfterSeconds } from '@/api/client'
 import { redirectQuery, safeRedirect } from '@/utils/navigation'
 import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -131,6 +131,8 @@ const isLoading = ref(false)
 const isRetryingSession = ref(false)
 const loginFeedback = ref('')
 const loginFeedbackState = ref<'waiting' | 'timeout' | ''>('')
+const rateLimitSeconds = ref(0)
+let rateLimitTimer: ReturnType<typeof setInterval> | undefined
 let loginFeedbackTimer: ReturnType<typeof setTimeout> | undefined
 const showDemoAccounts = import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true'
 const form = reactive({
@@ -168,7 +170,8 @@ const clearLoginFeedbackTimer = () => {
 // Validation schema
 const loginSchema = z.object({
   email: z.string().min(1, '请输入账号或邮箱'),
-  password: z.string().min(6, '密码至少 6 位'),
+  // 登录需兼容密码策略升级前的存量账号；强度规则由注册和改密入口执行。
+  password: z.string().min(1, '请输入密码'),
 })
 
 const validateForm = () => {
@@ -211,12 +214,26 @@ const handleSubmit = async () => {
     await login(form.email, form.password)
     navigateAfterLogin()
   } catch (error: any) {
-    if (isLoginTimeout(error)) {
+    const retryAfterSeconds = getRateLimitRetryAfterSeconds(error)
+    if (retryAfterSeconds) {
+      rateLimitSeconds.value = retryAfterSeconds
+      if (rateLimitTimer) clearInterval(rateLimitTimer)
+      rateLimitTimer = setInterval(() => {
+        rateLimitSeconds.value = Math.max(0, rateLimitSeconds.value - 1)
+        if (rateLimitSeconds.value === 0 && rateLimitTimer) {
+          clearInterval(rateLimitTimer)
+          rateLimitTimer = undefined
+        }
+      }, 1000)
+      toast.error(`操作过于频繁，请 ${retryAfterSeconds} 秒后重试`)
+    } else if (isLoginTimeout(error)) {
       loginFeedbackState.value = 'timeout'
       loginFeedback.value = '本次登录未完成，账号和密码尚未被确认。请检查网络后重试。'
+      toast.error('登录请求超时，请检查网络后重试')
+    } else {
+      const message = getErrorMessage(error, '登录失败，请检查账号和密码')
+      toast.error(message)
     }
-    const message = getErrorMessage(error, '登录失败，请检查账号和密码')
-    toast.error(message)
   } finally {
     clearLoginFeedbackTimer()
     isLoading.value = false
@@ -264,6 +281,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   clearLoginFeedbackTimer()
+  if (rateLimitTimer) clearInterval(rateLimitTimer)
 })
 </script>
 
@@ -342,11 +360,11 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.5rem;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 0.8rem;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .auth-feedback strong,
@@ -364,7 +382,7 @@ onBeforeUnmount(() => {
   flex: none;
   min-height: 2.25rem;
   border-radius: 0.375rem;
-  background: rgb(30 64 175);
+  background: rgb(14 74 55);
   padding: 0 0.75rem;
   color: white;
   font-size: 0.75rem;
@@ -378,9 +396,9 @@ onBeforeUnmount(() => {
 }
 
 .dark .auth-feedback {
-  border-color: rgb(30 64 175);
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(169 216 195);
 }
 
 @media (max-width: 720px) {

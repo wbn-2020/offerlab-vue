@@ -94,6 +94,15 @@ export class BizException extends Error {
   }
 }
 
+export const getRateLimitRetryAfterSeconds = (error: unknown): number | undefined => {
+  const data = error instanceof BizException
+    ? error.data
+    : (error as { response?: { data?: { data?: unknown } } })?.response?.data?.data
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return undefined
+  const seconds = Number((data as { retryAfterSeconds?: unknown }).retryAfterSeconds)
+  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : undefined
+}
+
 const isResultPayload = (value: unknown): value is Result<unknown> => {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<Result<unknown>>
@@ -134,6 +143,14 @@ const errorMessageMap: Record<number, string> = {
   30602: '当前未收藏',
 }
 
+const internalErrorText = /elasticsearch|mysql|redis|kafka|database|sql|jdbc|stack trace|exception|mapper|repository|connection refused|timed out while|uid\b|traceback/i
+
+const safeApiMessage = (message: unknown, fallback: string) => {
+  const text = typeof message === 'string' ? message.trim() : ''
+  if (!text || text.length > 160 || internalErrorText.test(text)) return fallback
+  return text
+}
+
 /**
  * Trace ID 只用于排查，不进入面向用户的提示文案。
  * 需要展示给支持人员时使用 getErrorTraceId 单独获取。
@@ -148,9 +165,13 @@ export function getErrorTraceId(error: unknown): string | undefined {
 
 export function getErrorMessage(error: unknown, fallback = '操作失败') {
   if (error instanceof BizException) {
-    return errorMessageMap[error.code] || error.message || fallback
+    const mapped = errorMessageMap[error.code]
+    if (mapped) return mapped
+    if (error.status && error.status < 500) return safeApiMessage(error.message, fallback)
+    return fallback
   }
   if (axios.isAxiosError(error)) {
+    if (error.code === 'ERR_CANCELED') return '请求已取消，请重新操作'
     if (error.response?.status === 400) return errorMessageMap[10001]
     if (error.response?.status === 401) return errorMessageMap[10401]
     if (error.response?.status === 403) return errorMessageMap[10403]
@@ -158,20 +179,17 @@ export function getErrorMessage(error: unknown, fallback = '操作失败') {
     if (error.response?.status === 409) return errorMessageMap[30002]
     if (error.response?.status === 429) return errorMessageMap[10429]
     if (error.response?.status && error.response.status >= 500) return '服务暂时不可用，请稍后重试'
-    if (error.code === 'ECONNABORTED') return '请求超时，请稍后重试'
-    return error.message || fallback
-  }
-  if (error instanceof Error) {
-    if (/__vccOpts|Cannot read properties of undefined|Cannot read properties of null|component instance|hydration/i.test(error.message)) {
-      return fallback
+    if (['ECONNABORTED', 'ETIMEDOUT'].includes(String(error.code || '').toUpperCase())) {
+      return '请求超时，请稍后重试'
     }
-    return error.message || fallback
+    if (!error.response) return '网络连接异常，请检查网络后重试'
+    return fallback
   }
   return fallback
 }
 
 export function getResultMessage(result: Pick<Result, 'message' | 'traceId'> | null | undefined, fallback = '操作失败') {
-  return result?.message || fallback
+  return safeApiMessage(result?.message, fallback)
 }
 
 const rawApiBaseURL = (import.meta.env.VITE_API_BASE_URL || '').trim()

@@ -358,9 +358,9 @@ watch(
 <style scoped>
 .community-space-panel {
   margin-top: 1.5rem;
-  border: 1px solid rgb(199 210 254);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.75rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
@@ -380,14 +380,14 @@ watch(
 }
 
 .space-eyebrow {
-  color: rgb(79 70 229);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 900;
 }
 
 .space-head h2 {
   margin-top: 0.15rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.05rem;
   font-weight: 900;
 }
@@ -398,7 +398,7 @@ watch(
 .space-item small,
 .space-state p,
 .space-more-error {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8rem;
   line-height: 1.55;
 }
@@ -422,14 +422,14 @@ watch(
 }
 
 .space-link {
-  background: rgb(224 231 255);
-  color: rgb(67 56 202);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .space-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .space-button:disabled {
@@ -444,13 +444,13 @@ watch(
   border-radius: 0.6rem;
   background: white;
   padding: 0.9rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 700;
 }
 
 .space-state strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-weight: 900;
 }
 
@@ -506,7 +506,7 @@ watch(
 
 .space-metric span {
   display: block;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -515,7 +515,7 @@ watch(
   display: block;
   overflow: hidden;
   margin-top: 0.2rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.9rem;
   font-weight: 900;
   text-overflow: ellipsis;
@@ -524,7 +524,7 @@ watch(
 
 .space-section {
   min-width: 0;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.6rem;
   background: white;
   padding: 0.8rem;
@@ -538,7 +538,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.86rem;
   font-weight: 900;
 }
@@ -556,7 +556,7 @@ watch(
 .space-item {
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid rgb(241 245 249);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.6rem;
 }
 
@@ -570,7 +570,7 @@ watch(
 }
 
 .space-item-kicker {
-  color: rgb(79 70 229) !important;
+  color: rgb(26 127 90) !important;
   font-size: 0.7rem !important;
   font-weight: 900;
 }
@@ -578,7 +578,7 @@ watch(
 .space-item h4 {
   margin-top: 0.15rem;
   overflow: hidden;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.84rem;
   font-weight: 900;
   text-overflow: ellipsis;
@@ -603,7 +603,7 @@ watch(
 .space-supporting {
   flex-wrap: wrap;
   align-items: center;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -651,8 +651,8 @@ watch(
 }
 
 .dark .community-space-panel {
-  border-color: rgb(49 46 129);
-  background: rgb(15 23 42);
+  border-color: rgb(10 52 39);
+  background: var(--surface-1);
 }
 
 .dark .space-head h2,
@@ -660,7 +660,7 @@ watch(
 .dark .space-item h4,
 .dark .space-state strong,
 .dark .space-metric strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .space-intro,
@@ -670,7 +670,7 @@ watch(
 .dark .space-state p,
 .dark .space-supporting,
 .dark .space-more-error {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .space-link,
@@ -679,16 +679,16 @@ watch(
 .dark .space-state,
 .dark .supporting-item,
 .dark .space-button {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .space-link {
-  color: rgb(199 210 254);
+  color: rgb(169 216 195);
 }
 
 .dark .space-button {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .space-notice {
@@ -707,10 +707,10 @@ watch(
 }
 
 .dark .space-item {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .space-metric span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 </style>

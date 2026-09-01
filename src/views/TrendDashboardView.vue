@@ -455,7 +455,7 @@ const RankPanel = defineComponent({
   setup(props) {
     const maxCount = computed(() => Math.max(1, ...props.items.map((item) => item.count)))
     const barClass = computed(() => {
-      if (props.color === 'blue') return 'bg-blue-600'
+      if (props.color === 'blue') return 'bg-primary-600'
       if (props.color === 'green') return 'bg-emerald-600'
       if (props.color === 'amber') return 'bg-amber-500'
       return 'bg-primary-600'

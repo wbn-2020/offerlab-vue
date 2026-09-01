@@ -283,8 +283,8 @@ watch([activity, activityId, errorMessage], () => {
 <style scoped>
 .collaboration-detail-page {
   min-height: 100vh;
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
 }
 
 .detail-shell {
@@ -313,7 +313,7 @@ watch([activity, activityId, errorMessage], () => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-weight: 700;
   text-decoration: none;
 }
@@ -357,30 +357,30 @@ watch([activity, activityId, errorMessage], () => {
 .icon-button {
   width: 2.25rem;
   height: 2.25rem;
-  border-color: rgb(226 232 240);
+  border-color: var(--border-subtle);
   background: white;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .primary-button {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .secondary-button {
-  border-color: rgb(203 213 225);
+  border-color: var(--border-subtle);
   background: white;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
 }
 
 .detail-hero,
 .content-section,
 .facts-panel,
 .state-panel {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.7rem;
   background: white;
-  box-shadow: 0 10px 30px rgb(15 23 42 / 0.04);
+  box-shadow: 0 10px 30px rgba(20, 30, 25, 0.04);
 }
 
 .detail-hero {
@@ -398,7 +398,7 @@ watch([activity, activityId, errorMessage], () => {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.8;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .description {
@@ -408,7 +408,7 @@ watch([activity, activityId, errorMessage], () => {
 
 .detail-meta {
   margin-top: 1.1rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.82rem;
 }
 
@@ -434,18 +434,18 @@ watch([activity, activityId, errorMessage], () => {
 }
 
 .status-badge {
-  background: rgb(219 234 254);
-  color: rgb(30 64 175);
+  background: rgb(205 232 220);
+  color: rgb(14 74 55);
 }
 
 .status-badge[data-status='ARCHIVED'] {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .meta-label {
-  background: rgb(239 246 255);
-  color: rgb(30 64 175);
+  background: rgb(232 243 237);
+  color: rgb(14 74 55);
 }
 
 .detail-grid {
@@ -478,7 +478,7 @@ watch([activity, activityId, errorMessage], () => {
 }
 
 .section-kicker {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -492,7 +492,7 @@ watch([activity, activityId, errorMessage], () => {
 .section-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: rgb(96 165 250);
+  color: rgb(70 172 134);
 }
 
 .long-copy,
@@ -502,7 +502,7 @@ watch([activity, activityId, errorMessage], () => {
 
 .muted-text,
 .state-panel p {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .detail-list {
@@ -515,19 +515,19 @@ watch([activity, activityId, errorMessage], () => {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid rgb(241 245 249);
+  border-top: 1px solid var(--border-subtle);
   padding: 0.7rem 0;
 }
 
 .detail-list dt {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 
 .detail-list dd {
   margin: 0;
   text-align: right;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.82rem;
   font-weight: 700;
   overflow-wrap: anywhere;
@@ -539,9 +539,9 @@ watch([activity, activityId, errorMessage], () => {
   gap: 0.45rem;
   margin: 1rem 0 0;
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.75rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
   line-height: 1.6;
 }
@@ -584,7 +584,7 @@ watch([activity, activityId, errorMessage], () => {
 .skeleton {
   display: block;
   border-radius: 0.35rem;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
   animation: pulse 1.4s ease-in-out infinite;
 }
 
@@ -653,8 +653,8 @@ watch([activity, activityId, errorMessage], () => {
 }
 
 .dark .collaboration-detail-page {
-  background: rgb(15 23 42);
-  color: rgb(241 245 249);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .detail-hero,
@@ -663,9 +663,9 @@ watch([activity, activityId, errorMessage], () => {
 .dark .state-panel,
 .dark .icon-button,
 .dark .secondary-button {
-  border-color: rgb(51 65 85);
-  background: rgb(30 41 59);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .description,
@@ -674,24 +674,24 @@ watch([activity, activityId, errorMessage], () => {
 .dark .muted-text,
 .dark .state-panel p,
 .dark .detail-list dt {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .detail-list div {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .detail-list dd {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .readonly-note {
-  background: rgb(15 23 42);
-  color: rgb(148 163 184);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .skeleton {
-  background: rgb(51 65 85);
+  background: var(--surface-2);
 }
 
 /* Community reading layout */

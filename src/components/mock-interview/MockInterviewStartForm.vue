@@ -67,23 +67,23 @@ const model = defineModel<StartFormModel>({ required: true })
 <style scoped>
 .panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .panel-title {
   font-size: 1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .panel-note {
   margin-top: 0.35rem;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .field-label {
@@ -92,18 +92,18 @@ const model = defineModel<StartFormModel>({ required: true })
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .field-input {
   margin-top: 0.45rem;
   width: 100%;
   border-radius: 0.65rem;
-  border: 1px solid rgb(203 213 225);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.75rem 0.85rem;
   font-size: 0.875rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
@@ -113,7 +113,7 @@ const model = defineModel<StartFormModel>({ required: true })
   align-items: center;
   justify-content: center;
   border-radius: 0.65rem;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   padding: 0.55rem 0.9rem;
   font-size: 0.875rem;
   font-weight: 800;
@@ -137,22 +137,22 @@ const model = defineModel<StartFormModel>({ required: true })
 }
 
 .dark .panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .panel-title,
 .dark .field-input {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .panel-note {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .field-input {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .service-warning {

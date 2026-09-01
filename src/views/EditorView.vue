@@ -59,7 +59,7 @@
 
     <!-- 主体内容 -->
     <main v-if="isForbiddenEdit" class="community-page flex min-h-[calc(100vh-160px)] items-center py-10">
-      <section class="w-full rounded-xl border border-amber-200 bg-white p-8 text-center shadow-sm dark:border-amber-900/60 dark:bg-slate-900">
+      <section class="w-full surface-card rounded-xl border-amber-200 p-8 text-center shadow-sm dark:border-amber-900/60">
         <p class="text-sm font-semibold text-amber-600 dark:text-amber-400">无法编辑该帖子</p>
         <h2 class="mt-3 text-2xl font-bold text-slate-950 dark:text-slate-50">只能编辑本人发布的内容</h2>
         <p class="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -604,7 +604,7 @@
               tone="soft"
             />
 
-            <section class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <section class="surface-card rounded-lg p-4">
               <div class="flex items-start justify-between gap-4">
                 <div>
                   <h2 class="text-sm font-extrabold text-slate-900 dark:text-slate-100">当前发布门禁</h2>
@@ -3673,17 +3673,17 @@ onBeforeUnmount(() => {
   min-height: 2.5rem;
   width: min(18rem, 42vw);
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0 0.75rem;
   font-size: 0.875rem;
   font-weight: 700;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   outline: none;
 }
 
 .draft-select:focus {
-  box-shadow: 0 0 0 2px rgb(14 165 233 / 0.25);
+  box-shadow: 0 0 0 2px rgb(33 154 112 / 0.25);
 }
 
 .publish-action-group {
@@ -3779,8 +3779,8 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(219 234 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(205 232 220);
+  background: rgb(232 243 237);
   padding: 1rem;
 }
 
@@ -3818,14 +3818,14 @@ onBeforeUnmount(() => {
 .public-update-editor-head strong {
   display: block;
   margin-top: 0.15rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .public-update-editor-head span,
 .public-update-fields small {
   display: block;
   margin-top: 0.25rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -3854,7 +3854,7 @@ onBeforeUnmount(() => {
 .public-update-fields label {
   display: grid;
   gap: 0.4rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -3862,11 +3862,11 @@ onBeforeUnmount(() => {
 .public-update-fields textarea,
 .public-update-fields select {
   width: 100%;
-  border: 1px solid rgb(148 163 184);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.65rem 0.75rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   outline: none;
 }
@@ -3880,7 +3880,7 @@ onBeforeUnmount(() => {
 .post-reference-editor {
   display: grid;
   gap: 1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 1rem;
@@ -3911,14 +3911,14 @@ onBeforeUnmount(() => {
 }
 
 .post-reference-kicker {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 900;
 }
 
 .post-reference-editor-head h2 {
   margin-top: 0.15rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
 }
@@ -3926,7 +3926,7 @@ onBeforeUnmount(() => {
 .post-reference-editor-head span,
 .post-reference-toolbar p {
   margin-top: 0.25rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.55;
 }
@@ -3945,7 +3945,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 0.85rem;
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.9rem;
 }
 
@@ -3958,7 +3958,7 @@ onBeforeUnmount(() => {
 .post-reference-form-grid label {
   display: grid;
   gap: 0.4rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -3970,7 +3970,7 @@ onBeforeUnmount(() => {
 }
 
 .post-reference-form-grid small {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -3979,11 +3979,11 @@ onBeforeUnmount(() => {
 .post-reference-form-grid select,
 .post-reference-form-grid textarea {
   width: 100%;
-  border: 1px solid rgb(148 163 184);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.65rem 0.75rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   outline: none;
 }
@@ -3995,8 +3995,8 @@ onBeforeUnmount(() => {
 .post-reference-form-grid input:focus,
 .post-reference-form-grid select:focus,
 .post-reference-form-grid textarea:focus {
-  border-color: rgb(37 99 235);
-  box-shadow: 0 0 0 2px rgb(191 219 254 / 0.7);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 2px rgb(169 216 195 / 0.7);
 }
 
 .post-reference-form-wide {
@@ -4021,22 +4021,22 @@ onBeforeUnmount(() => {
 }
 
 .post-reference-primary-button {
-  border: 1px solid rgb(37 99 235);
-  background: rgb(37 99 235);
+  border: 1px solid rgb(26 127 90);
+  background: rgb(26 127 90);
   padding: 0.5rem 0.8rem;
   color: white;
 }
 
 .post-reference-primary-button:hover:not(:disabled) {
-  border-color: rgb(29 78 216);
-  background: rgb(29 78 216);
+  border-color: rgb(18 99 74);
+  background: rgb(18 99 74);
 }
 
 .post-reference-secondary-button,
 .post-reference-icon-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .post-reference-secondary-button {
@@ -4050,9 +4050,9 @@ onBeforeUnmount(() => {
 
 .post-reference-secondary-button:hover:not(:disabled),
 .post-reference-icon-button:hover:not(:disabled) {
-  border-color: rgb(147 197 253);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(124 195 165);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .post-reference-delete-button:hover:not(:disabled) {
@@ -4075,9 +4075,9 @@ onBeforeUnmount(() => {
 
 .post-reference-item {
   align-items: flex-start;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.8rem;
 }
 
@@ -4089,7 +4089,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   justify-content: flex-start;
   gap: 0.35rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .post-reference-item-title-row a {
@@ -4105,14 +4105,14 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
 .post-reference-meta > span:not(:last-child)::after {
   margin-left: 0.35rem;
   content: "·";
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .post-reference-status-active,
@@ -4141,7 +4141,7 @@ onBeforeUnmount(() => {
 }
 
 .post-reference-note {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .post-reference-broken-reason {
@@ -4158,7 +4158,7 @@ onBeforeUnmount(() => {
 .template-helper p {
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .editor-assist-context p {
@@ -4169,7 +4169,7 @@ onBeforeUnmount(() => {
 .template-helper strong {
   margin-top: 0.15rem;
   display: block;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .editor-assist-context span,
@@ -4178,7 +4178,7 @@ onBeforeUnmount(() => {
   display: block;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .editor-assist-context small,
@@ -4188,14 +4188,14 @@ onBeforeUnmount(() => {
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.5;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .editor-assist-context a,
 .template-helper button {
   flex: 0 0 auto;
   border-radius: 0.5rem;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   padding: 0.55rem 0.9rem;
   font-size: 0.875rem;
   font-weight: 800;
@@ -4208,7 +4208,7 @@ onBeforeUnmount(() => {
 
 .template-helper button:disabled {
   cursor: not-allowed;
-  background: rgb(148 163 184);
+  background: var(--text-muted);
 }
 
 .template-chip-row {
@@ -4220,11 +4220,11 @@ onBeforeUnmount(() => {
 
 .template-helper .template-chip {
   min-height: 1.85rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 0.25rem 0.55rem;
   font-size: 0.75rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .template-helper .template-chip-topic {
@@ -4244,20 +4244,20 @@ onBeforeUnmount(() => {
   min-height: 2.25rem;
   max-width: 12rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 0 0.6rem;
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .knowledge-assist {
   display: grid;
   gap: 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 1rem;
 }
 
@@ -4272,14 +4272,14 @@ onBeforeUnmount(() => {
 .knowledge-assist h2 {
   font-size: 0.95rem;
   font-weight: 900;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .knowledge-assist p {
   margin-top: 0.3rem;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .knowledge-assist-head > span {
@@ -4289,7 +4289,7 @@ onBeforeUnmount(() => {
   padding: 0.25rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .knowledge-assist-grid {
@@ -4301,7 +4301,7 @@ onBeforeUnmount(() => {
 .knowledge-assist-grid article {
   min-width: 0;
   border-radius: 0.65rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 0.85rem;
 }
@@ -4310,7 +4310,7 @@ onBeforeUnmount(() => {
   display: block;
   font-size: 0.8125rem;
   font-weight: 900;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .knowledge-assist-actions {
@@ -4325,12 +4325,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(147 197 253);
+  border: 1px solid rgb(124 195 165);
   background: white;
   padding: 0.45rem 0.8rem;
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .domain-source-note {
@@ -4339,15 +4339,15 @@ onBeforeUnmount(() => {
   gap: 0.25rem;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .stage3-assist-panel {
   display: grid;
   gap: 1rem;
   border-radius: 0.85rem;
-  border: 1px solid rgb(191 219 254);
-  background: linear-gradient(180deg, rgb(248 250 252), rgb(255 255 255));
+  border: 1px solid rgb(169 216 195);
+  background: linear-gradient(180deg, var(--surface-soft), rgb(255 255 255));
   padding: 1rem;
 }
 
@@ -4361,14 +4361,14 @@ onBeforeUnmount(() => {
 .stage3-assist-kicker {
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .stage3-assist-head h2 {
   margin-top: 0.2rem;
   font-size: 1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .stage3-assist-head p:last-child {
@@ -4376,7 +4376,7 @@ onBeforeUnmount(() => {
   max-width: 44rem;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .stage3-assist-head-actions {
@@ -4399,15 +4399,15 @@ onBeforeUnmount(() => {
 }
 
 .assist-status-pill {
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .assist-head-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .assist-head-button:disabled {
@@ -4425,7 +4425,7 @@ onBeforeUnmount(() => {
   margin-top: -0.35rem;
   font-size: 0.75rem;
   line-height: 1.45;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .stage3-quota-copy-warning {
@@ -4443,14 +4443,14 @@ onBeforeUnmount(() => {
 }
 
 .assist-status-loading {
-  border-color: rgb(191 219 254);
-  color: rgb(29 78 216);
+  border-color: rgb(169 216 195);
+  color: rgb(18 99 74);
 }
 
 .assist-status-disabled,
 .assist-status-unauthenticated {
-  border-color: rgb(226 232 240);
-  color: rgb(100 116 139);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .assist-status-failed {
@@ -4460,7 +4460,7 @@ onBeforeUnmount(() => {
 
 .stage3-assist-state {
   border-radius: 0.75rem;
-  border: 1px dashed rgb(191 219 254);
+  border: 1px dashed rgb(169 216 195);
   background: white;
   padding: 0.9rem 1rem;
 }
@@ -4468,14 +4468,14 @@ onBeforeUnmount(() => {
 .stage3-assist-state strong {
   display: block;
   font-size: 0.875rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .stage3-assist-state p {
   margin-top: 0.3rem;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .stage3-assist-state-error {
@@ -4495,7 +4495,7 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   min-width: 0;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.95rem;
 }
@@ -4509,21 +4509,21 @@ onBeforeUnmount(() => {
 
 .stage3-card-head strong {
   font-size: 0.875rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .stage3-card-head > span,
 .stage3-card-head > a {
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .stage3-card-copy,
 .stage3-empty-copy {
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .stage3-actions {
@@ -4538,12 +4538,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.55rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.45rem 0.8rem;
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .stage3-actions button:disabled {
@@ -4556,11 +4556,11 @@ onBeforeUnmount(() => {
   min-width: 3rem;
   justify-content: center;
   border-radius: 999px;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 0.25rem 0.65rem;
   font-size: 0.8rem;
   font-weight: 900;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .stage3-metric-list {
@@ -4574,21 +4574,21 @@ onBeforeUnmount(() => {
   gap: 0.6rem;
   align-items: center;
   border-radius: 0.6rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.7rem;
 }
 
 .stage3-metric-row strong {
   display: block;
   font-size: 0.8125rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .stage3-metric-row p {
   margin-top: 0.15rem;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .stage3-metric-row > span {
@@ -4597,7 +4597,7 @@ onBeforeUnmount(() => {
   padding: 0.25rem 0.55rem;
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .stage3-chip-list,
@@ -4614,8 +4614,8 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.45rem;
   border-radius: 999px;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.45rem 0.8rem;
   text-align: left;
 }
@@ -4623,13 +4623,13 @@ onBeforeUnmount(() => {
 .stage3-chip span {
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .stage3-chip small {
   font-size: 0.6875rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .stage3-chip-adopted {
@@ -4647,11 +4647,11 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.35rem;
   border-radius: 999px;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.35rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .stage3-selected-pill button {
@@ -4661,11 +4661,11 @@ onBeforeUnmount(() => {
 .stage3-series-select {
   min-height: 2.5rem;
   border-radius: 0.65rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.55rem 0.7rem;
   font-size: 0.875rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
@@ -4673,18 +4673,18 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 0.15rem;
   border-radius: 0.65rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.55rem 0.7rem;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .stage3-hint-list small {
   font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1.45;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .forbidden-primary-action,
@@ -4701,24 +4701,24 @@ onBeforeUnmount(() => {
 }
 
 .forbidden-primary-action {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .forbidden-primary-action:hover {
-  background: rgb(29 78 216);
+  background: rgb(18 99 74);
 }
 
 .forbidden-secondary-action {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .forbidden-secondary-action:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .quality-score {
@@ -4747,8 +4747,8 @@ onBeforeUnmount(() => {
   grid-template-columns: 1.75rem 1fr;
   gap: 0.65rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.75rem;
 }
 
@@ -4762,20 +4762,20 @@ onBeforeUnmount(() => {
   background: white;
   font-size: 0.8rem;
   font-weight: 900;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .quality-row strong {
   display: block;
   font-size: 0.85rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .quality-row p {
   margin-top: 0.2rem;
   font-size: 0.78rem;
   line-height: 1.5;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .quality-row-ok {
@@ -4813,30 +4813,30 @@ onBeforeUnmount(() => {
 }
 
 .dark .quality-row {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .quality-row > span {
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .draft-select {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .forbidden-secondary-action {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .forbidden-secondary-action:hover {
-  border-color: rgb(59 130 246);
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  border-color: rgb(33 154 112);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .publish-hint {
@@ -4865,21 +4865,21 @@ onBeforeUnmount(() => {
 .dark .publish-diagnostic-actions button,
 .dark .publish-diagnostic-actions a {
   border-color: rgb(153 27 27);
-  background: rgb(15 23 42);
+  background: var(--surface-1);
   color: rgb(254 202 202);
 }
 
 .dark .editor-assist-context,
 .dark .template-helper,
 .dark .public-update-editor {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .editor-assist-context strong,
 .dark .template-helper strong,
 .dark .public-update-editor-head strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .editor-assist-context span,
@@ -4888,7 +4888,7 @@ onBeforeUnmount(() => {
 .dark .template-helper span,
 .dark .public-update-editor-head span,
 .dark .public-update-fields small {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .public-update-editor-head p,
@@ -4898,29 +4898,29 @@ onBeforeUnmount(() => {
 }
 
 .dark .public-update-fields label {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .public-update-fields textarea,
 .dark .public-update-fields select {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(248 250 252);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .post-reference-editor {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .post-reference-editor-head h2 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .post-reference-editor-head span,
 .dark .post-reference-toolbar p,
 .dark .post-reference-note {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .post-reference-error {
@@ -4930,42 +4930,42 @@ onBeforeUnmount(() => {
 
 .dark .post-reference-form,
 .dark .post-reference-item {
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .post-reference-item {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .post-reference-form-grid label {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .post-reference-form-grid small,
 .dark .post-reference-meta {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .post-reference-form-grid input,
 .dark .post-reference-form-grid select,
 .dark .post-reference-form-grid textarea {
-  border-color: rgb(71 85 105);
-  background: rgb(15 23 42);
-  color: rgb(248 250 252);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .post-reference-secondary-button,
 .dark .post-reference-icon-button {
-  border-color: rgb(71 85 105);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .post-reference-secondary-button:hover:not(:disabled),
 .dark .post-reference-icon-button:hover:not(:disabled) {
-  border-color: rgb(59 130 246);
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  border-color: rgb(33 154 112);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .post-reference-delete-button:hover:not(:disabled) {
@@ -4991,35 +4991,35 @@ onBeforeUnmount(() => {
 .dark .editor-assist-context a,
 .dark .template-select,
 .dark .template-helper .template-chip {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .knowledge-assist {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84 / 0.5);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24 / 0.5);
 }
 
 .dark .knowledge-assist h2,
 .dark .knowledge-assist-grid strong {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 
 .dark .knowledge-assist p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .knowledge-assist-head > span {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .knowledge-assist-grid article,
 .dark .knowledge-assist-actions button {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .domain-source-note,
@@ -5029,12 +5029,12 @@ onBeforeUnmount(() => {
 .dark .stage3-metric-row p,
 .dark .stage3-assist-head p:last-child,
 .dark .stage3-assist-state p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .stage3-assist-panel {
-  border-color: rgb(30 64 175);
-  background: linear-gradient(180deg, rgb(15 23 42), rgb(2 6 23));
+  border-color: rgb(14 74 55);
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-1));
 }
 
 .dark .stage3-assist-head h2,
@@ -5042,7 +5042,7 @@ onBeforeUnmount(() => {
 .dark .stage3-metric-row strong,
 .dark .stage3-assist-state strong,
 .dark .stage3-hint-list span {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .assist-status-pill,
@@ -5053,15 +5053,15 @@ onBeforeUnmount(() => {
 .dark .stage3-metric-row,
 .dark .stage3-selected-pill,
 .dark .stage3-hint-list span {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .stage3-quality-badge,
 .dark .stage3-metric-row > span {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .assist-head-button-primary {
@@ -5071,7 +5071,7 @@ onBeforeUnmount(() => {
 }
 
 .dark .stage3-quota-copy {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .stage3-quota-copy-warning {
@@ -5079,8 +5079,8 @@ onBeforeUnmount(() => {
 }
 
 .dark .stage3-chip {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
 }
 
 .dark .stage3-chip span,
@@ -5088,7 +5088,7 @@ onBeforeUnmount(() => {
 .dark .stage3-card-head > span,
 .dark .stage3-card-head > a,
 .dark .assist-status-ready {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 
 .dark .stage3-chip-adopted {
@@ -5108,7 +5108,7 @@ onBeforeUnmount(() => {
 
 .dark .assist-status-disabled,
 .dark .assist-status-unauthenticated {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .assist-status-failed,
@@ -5119,17 +5119,17 @@ onBeforeUnmount(() => {
 }
 
 .dark .stage3-actions button {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .quality-row strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .quality-row p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .quality-row-ok {
@@ -5929,9 +5929,9 @@ onBeforeUnmount(() => {
 
 .editor-advanced-disclosure {
   margin: 0 1rem 1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
-  background: rgb(248 250 252 / 0.72);
+  background: color-mix(in srgb, var(--surface-soft) 72%, transparent);
 }
 
 .editor-advanced-summary {
@@ -5955,12 +5955,12 @@ onBeforeUnmount(() => {
 }
 
 .editor-advanced-summary strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
 }
 
 .editor-advanced-summary span {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8rem;
   line-height: 1.5;
 }
@@ -5984,16 +5984,16 @@ onBeforeUnmount(() => {
 }
 
 .dark .editor-advanced-disclosure {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42 / 0.5);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 50%, transparent);
 }
 
 .dark .editor-advanced-summary strong {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .editor-advanced-summary span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .editor-advanced-stack > .mx-4 {
@@ -6012,7 +6012,7 @@ onBeforeUnmount(() => {
 
 .dark .editor-compose-main,
 .dark .editor-rail-section {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
 }
 
@@ -6036,23 +6036,23 @@ onBeforeUnmount(() => {
 
 .dark .editor-title-input::placeholder,
 .dark .editor-writing-body :deep(.markdown-textarea::placeholder) {
-  color: rgb(148 163 184) !important;
+  color: var(--text-muted) !important;
 }
 
 .dark .content-type-tab {
-  background: rgb(39 39 42);
-  color: rgb(161 161 170) !important;
+  background: var(--surface-1);
+  color: var(--text-muted) !important;
 }
 
 .dark .content-type-tab.text-primary-600,
 .dark .content-type-tab:hover:not(:disabled) {
-  border-color: rgb(30 64 175) !important;
-  background: rgb(30 58 138 / 0.38);
-  color: rgb(147 197 253) !important;
+  border-color: rgb(14 74 55) !important;
+  background: rgb(10 52 39 / 0.38);
+  color: rgb(124 195 165) !important;
 }
 
 .dark .template-helper {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
   background: transparent;
 }
 
@@ -6060,18 +6060,18 @@ onBeforeUnmount(() => {
 .dark .editor-tag-section input,
 .dark .editor-cover-input,
 .dark .template-select {
-  border-color: rgb(63 63 70) !important;
+  border-color: var(--border-subtle) !important;
   background: rgb(15 17 21) !important;
-  color: rgb(228 228 231) !important;
+  color: var(--text-primary) !important;
 }
 
 .dark .editor-selected-tags > span {
-  background: rgb(30 58 138 / 0.4);
-  color: rgb(191 219 254);
+  background: rgb(10 52 39 / 0.4);
+  color: rgb(169 216 195);
 }
 
 .dark .editor-rail-checklist__items > div {
-  border-color: rgb(39 39 42);
+  border-color: var(--border-subtle);
 }
 
 @media (max-width: 1023px) {
@@ -6188,5 +6188,52 @@ onBeforeUnmount(() => {
   .editor-advanced-stack {
     gap: 0.85rem;
   }
+}
+
+/* ==========================================================
+   暖调对齐层：把遗留冷灰 slate 原子类收敛到「闻野」品牌 token。
+   仅在本组件作用域内生效；特异性高于 Tailwind utilities 与 dark:
+   变体，使描边与前景由 token 统一驱动亮暗两态。
+   ========================================================== */
+
+.editor-page [class~="border-slate-100"],
+.editor-page [class~="border-slate-200"],
+.editor-page [class~="border-slate-300"],
+.editor-page [class~="border-slate-400"] {
+  border-color: var(--border-subtle);
+}
+
+.editor-page [class~="bg-slate-50"],
+.editor-page [class~="bg-slate-100"] {
+  background-color: var(--surface-soft);
+}
+
+.editor-page [class~="bg-white"] {
+  background-color: var(--surface);
+}
+
+.editor-page [class~="text-slate-900"],
+.editor-page [class~="text-slate-800"] {
+  color: var(--text-strong);
+}
+
+.editor-page [class~="text-slate-700"],
+.editor-page [class~="text-slate-600"] {
+  color: var(--text-primary);
+}
+
+.editor-page [class~="text-slate-500"],
+.editor-page [class~="text-slate-400"] {
+  color: var(--text-muted);
+}
+
+/* 恢复被上面覆盖的悬停反馈（原子类 hover 变体特异性较低） */
+.editor-page [class~="hover:bg-slate-50"]:hover,
+.editor-page [class~="hover:bg-slate-100"]:hover {
+  background-color: var(--surface-soft);
+}
+
+.editor-page [class~="hover:bg-slate-800"]:hover {
+  background-color: var(--surface-2);
 }
 </style>

@@ -1179,14 +1179,14 @@ onMounted(refreshAll)
 
 <style scoped>
 .community-growth-page {
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
 }
 
 .policy-band {
   display: grid;
   gap: 0.75rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: rgb(255 255 255);
   padding: 0.9rem 1rem;
@@ -1201,13 +1201,13 @@ onMounted(refreshAll)
 
 .policy-band p {
   min-width: 0;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.55;
 }
 
 .policy-band strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .section-nav {
@@ -1225,26 +1225,26 @@ onMounted(refreshAll)
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.45rem 0.7rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 800;
   text-decoration: none;
 }
 
 .section-nav a:hover {
-  border-color: rgb(129 140 248);
-  background: rgb(238 242 255);
-  color: rgb(55 48 163);
+  border-color: rgb(124 195 165);
+  background: rgb(232 243 237);
+  color: rgb(14 74 55);
 }
 
 .workspace-panel {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 1rem;
@@ -1267,7 +1267,7 @@ onMounted(refreshAll)
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.05rem;
   font-weight: 900;
 }
@@ -1276,7 +1276,7 @@ onMounted(refreshAll)
 .subsection-heading span,
 .form-hint {
   margin-top: 0.3rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   line-height: 1.5;
 }
@@ -1288,9 +1288,9 @@ onMounted(refreshAll)
   align-items: center;
   gap: 0.35rem;
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.3rem 0.65rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -1309,16 +1309,16 @@ onMounted(refreshAll)
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.5rem 0.65rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
 .thank-signal-grid strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -1339,9 +1339,9 @@ onMounted(refreshAll)
 .asset-card,
 .benefit-card {
   min-width: 0;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.9rem;
 }
 
@@ -1360,14 +1360,14 @@ onMounted(refreshAll)
 }
 
 .asset-title strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.9rem;
   font-weight: 900;
 }
 
 .asset-title span {
   margin-top: 0.15rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
@@ -1382,8 +1382,8 @@ onMounted(refreshAll)
 }
 
 .mark-reputation {
-  background: rgb(224 242 254);
-  color: rgb(3 105 161);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .mark-point {
@@ -1402,13 +1402,13 @@ onMounted(refreshAll)
 .asset-values div,
 .eligibility-panel dl div {
   min-width: 0;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.55rem;
 }
 
 .asset-values dt,
 .eligibility-panel dt {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
@@ -1416,7 +1416,7 @@ onMounted(refreshAll)
 .eligibility-panel dd {
   margin-top: 0.15rem;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -1434,7 +1434,7 @@ onMounted(refreshAll)
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding: 0.75rem 0;
 }
 
@@ -1445,14 +1445,14 @@ onMounted(refreshAll)
 
 .selected-row {
   margin: 0 -0.5rem;
-  border: 1px solid rgb(165 180 252);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.625rem;
-  background: rgb(238 242 255);
+  background: rgb(232 243 237);
   padding: 0.75rem 0.5rem;
 }
 
 .selected-row:first-child {
-  border-top: 1px solid rgb(165 180 252);
+  border-top: 1px solid rgb(169 216 195);
 }
 
 .row-title {
@@ -1465,7 +1465,7 @@ onMounted(refreshAll)
 
 .row-title strong,
 .block-title {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   font-weight: 900;
 }
@@ -1479,7 +1479,7 @@ onMounted(refreshAll)
   margin-top: 0.35rem;
   max-width: 70ch;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.5;
 }
@@ -1490,7 +1490,7 @@ onMounted(refreshAll)
   display: block;
   margin-top: 0.3rem;
   overflow-wrap: anywhere;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   line-height: 1.45;
 }
@@ -1502,7 +1502,7 @@ onMounted(refreshAll)
   justify-items: end;
   gap: 0.1rem;
   font-size: 0.72rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .ledger-values strong {
@@ -1532,8 +1532,8 @@ onMounted(refreshAll)
 
 .meta-chip,
 .status-muted {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .status-ok {
@@ -1563,7 +1563,7 @@ onMounted(refreshAll)
 }
 
 .subsection-heading strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.9rem;
   font-weight: 900;
 }
@@ -1576,7 +1576,7 @@ onMounted(refreshAll)
 .benefit-card h3 {
   margin-top: 0.65rem;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
 }
@@ -1598,17 +1598,17 @@ onMounted(refreshAll)
 
 .quantity-input {
   width: 4.25rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.5rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .section-divider {
   height: 1px;
   margin: 1rem 0;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .inline-field {
@@ -1616,7 +1616,7 @@ onMounted(refreshAll)
   min-width: min(100%, 24rem);
   align-items: center;
   gap: 0.5rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -1641,13 +1641,13 @@ onMounted(refreshAll)
   display: grid;
   align-content: start;
   gap: 0.75rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.9rem;
 }
 
 .form-column h3 {
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
 }
@@ -1656,7 +1656,7 @@ onMounted(refreshAll)
   display: grid;
   min-width: 0;
   gap: 0.35rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -1664,11 +1664,11 @@ onMounted(refreshAll)
 .field-input {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.58rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8125rem;
   line-height: 1.4;
   outline: none;
@@ -1676,15 +1676,15 @@ onMounted(refreshAll)
 
 .field-input:focus,
 .quantity-input:focus {
-  border-color: rgb(99 102 241);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
+  border-color: rgb(33 154 112);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.7);
 }
 
 .field-input:disabled,
 .quantity-input:disabled {
   cursor: not-allowed;
-  background: rgb(241 245 249);
-  color: rgb(100 116 139);
+  background: var(--surface-soft);
+  color: var(--text-muted);
 }
 
 .field-pair {
@@ -1696,13 +1696,13 @@ onMounted(refreshAll)
 .form-history-heading {
   margin-top: 0.35rem;
   margin-bottom: 0;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.75rem;
 }
 
 .mini-history > div {
   min-width: 0;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.55rem;
 }
 
@@ -1710,12 +1710,12 @@ onMounted(refreshAll)
   display: block;
   margin-top: 0.3rem;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8rem;
 }
 
 .empty-copy {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
 }
 
@@ -1728,7 +1728,7 @@ onMounted(refreshAll)
 }
 
 .eligibility-state {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
 }
 
@@ -1737,7 +1737,7 @@ onMounted(refreshAll)
 }
 
 .eligibility-panel {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.625rem;
   padding: 0.75rem;
 }
@@ -1785,37 +1785,37 @@ onMounted(refreshAll)
 }
 
 .primary-button {
-  border: 1px solid rgb(67 56 202);
-  background: rgb(67 56 202);
+  border: 1px solid rgb(18 99 74);
+  background: rgb(18 99 74);
   padding: 0.5rem 0.75rem;
   color: white;
 }
 
 .primary-button:hover:not(:disabled) {
-  background: rgb(55 48 163);
+  background: rgb(14 74 55);
 }
 
 .secondary-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.5rem 0.75rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .secondary-button:hover:not(:disabled),
 .icon-button:hover:not(:disabled) {
-  border-color: rgb(129 140 248);
-  background: rgb(238 242 255);
-  color: rgb(55 48 163);
+  border-color: rgb(124 195 165);
+  background: rgb(232 243 237);
+  color: rgb(14 74 55);
 }
 
 .icon-button {
   height: 38px;
   width: 38px;
   flex: 0 0 auto;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .compact {
@@ -1868,9 +1868,9 @@ onMounted(refreshAll)
 }
 
 .empty-state {
-  border: 1px dashed rgb(203 213 225);
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
+  border: 1px dashed var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .compact-empty {
@@ -1882,7 +1882,7 @@ onMounted(refreshAll)
   position: relative;
   overflow: hidden;
   border-radius: 0.625rem;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .skeleton-card {
@@ -1968,8 +1968,8 @@ onMounted(refreshAll)
 }
 
 .dark .community-growth-page {
-  background: rgb(2 6 23);
-  color: rgb(226 232 240);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .workspace-panel,
@@ -1979,26 +1979,26 @@ onMounted(refreshAll)
 .dark .icon-button,
 .dark .field-input,
 .dark .quantity-input {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .thank-signal-grid > div {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.6);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 60%, transparent);
 }
 
 .dark .thank-signal-grid strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .asset-card,
 .dark .benefit-card,
 .dark .form-column,
 .dark .empty-state {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.72);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
 }
 
 .dark .panel-header h2,
@@ -2012,7 +2012,7 @@ onMounted(refreshAll)
 .dark .form-column h3,
 .dark .mini-history strong,
 .dark .eligibility-panel dd {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .policy-band p,
@@ -2021,7 +2021,7 @@ onMounted(refreshAll)
 .dark .benefit-card p,
 .dark .field-label,
 .dark .form-hint {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .dense-row,
@@ -2030,12 +2030,12 @@ onMounted(refreshAll)
 .dark .section-divider,
 .dark .form-history-heading,
 .dark .mini-history > div {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .selected-row {
-  border-color: rgb(99 102 241);
-  background: rgb(30 27 75 / 0.5);
+  border-color: rgb(33 154 112);
+  background: rgb(7 31 24 / 0.5);
 }
 
 .dark .error-state {
@@ -2058,7 +2058,7 @@ onMounted(refreshAll)
 
 .dark .skeleton-card,
 .dark .skeleton-row {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 /* Public workspace language: dense information, restrained surfaces, shared actions. */
@@ -2146,7 +2146,7 @@ onMounted(refreshAll)
 }
 
 .community-growth-page .section-nav a:hover {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -2207,7 +2207,7 @@ onMounted(refreshAll)
 .community-growth-page .selected-row {
   margin-right: 0;
   margin-left: 0;
-  border-color: #93c5fd;
+  border-color: #7cc3a5;
   border-radius: var(--radius-control);
   background: var(--primary-50);
   padding: 0.8rem;
@@ -2265,7 +2265,7 @@ onMounted(refreshAll)
 
 .community-growth-page .secondary-button:hover:not(:disabled),
 .community-growth-page .icon-button:hover:not(:disabled) {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }

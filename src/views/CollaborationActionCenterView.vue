@@ -325,7 +325,7 @@ import CollaborationActionCenter from '@/components/collaboration/CollaborationA
 
 .dark .workspace-kicker,
 .dark .directory-icon {
-  color: #93c5fd;
+  color: #7cc3a5;
 }
 
 .collaboration-action-center {

@@ -1,6 +1,12 @@
 import { useAuthStore } from '@/stores/auth'
-import { authApi, AUTH_PROFILE_TIMEOUT_MS } from '@/api/auth'
+import {
+  authApi,
+  AUTH_PROFILE_TIMEOUT_MS,
+  CURRENT_PRIVACY_VERSION,
+  CURRENT_TERMS_VERSION,
+} from '@/api/auth'
 import { authTokenStore } from '@/utils/authTokenStore'
+import type { User } from '@/api/types'
 
 interface AuthOperationOwner {
   requestId: number
@@ -78,6 +84,36 @@ export function useAuth() {
     authStore.setUser(me.data)
   }
 
+  const activateRegisteredSession = async (
+    owner: AuthOperationOwner,
+    token: string,
+    provisionalUser: User,
+  ) => {
+    authStore.setToken(token)
+    owner.sessionGeneration = authStore.getSessionGeneration()
+    const sessionVersion = authTokenStore.getVersion()
+    const me = await authApi.fetchMe(AUTH_PROFILE_TIMEOUT_MS).catch((error) => {
+      if (!authOperationRequestIsCurrent(owner)) {
+        throw new AuthOperationSupersededError()
+      }
+      if (authStore.ownsSession(token, sessionVersion, owner.sessionGeneration)) {
+        if (isTransientProfileFailure(error)) {
+          authStore.setUser(provisionalUser)
+          return { data: provisionalUser }
+        }
+        authStore.logout()
+      }
+      throw error
+    })
+    if (
+      !authOperationRequestIsCurrent(owner)
+      || !authStore.ownsSession(token, sessionVersion, owner.sessionGeneration)
+    ) {
+      throw new AuthOperationSupersededError()
+    }
+    authStore.setUser(me.data || provisionalUser)
+  }
+
   const login = async (account: string, password: string) => {
     const owner = beginAuthOperation()
     await loginWithOwner(owner, account, password)
@@ -85,11 +121,32 @@ export function useAuth() {
 
   const register = async (email: string, password: string, nickname: string) => {
     const owner = beginAuthOperation()
-    await authApi.register({ email, password, nickname }).catch((error) => {
+    const registration = await authApi.register({
+      email,
+      password,
+      nickname,
+      termsAccepted: true,
+      privacyAccepted: true,
+      termsVersion: CURRENT_TERMS_VERSION,
+      privacyVersion: CURRENT_PRIVACY_VERSION,
+    }).catch((error) => {
       requireCurrentAuthOperation(owner)
       throw error
     })
     requireCurrentAuthOperation(owner)
+    const uid = registration.data?.uid
+    const token = registration.data?.token
+    if (uid && token) {
+      await activateRegisteredSession(owner, token, {
+        uid,
+        email,
+        nickname,
+        avatar: '',
+        signature: '',
+        createdAt: Date.now(),
+      })
+      return
+    }
     await loginWithOwner(owner, email, password)
   }
 
@@ -122,4 +179,19 @@ export function useAuth() {
     register,
     logout,
   }
+}
+
+const isTransientProfileFailure = (error: unknown) => {
+  const candidate = error as {
+    code?: unknown
+    status?: unknown
+    response?: { status?: unknown }
+  } | null | undefined
+  const status = Number(candidate?.response?.status || candidate?.status || 0)
+  const code = String(candidate?.code || '').toUpperCase()
+  if (status > 0) {
+    return status >= 500
+  }
+  return ['ECONNABORTED', 'ETIMEDOUT', 'ERR_NETWORK'].includes(code)
+    || !candidate?.response
 }

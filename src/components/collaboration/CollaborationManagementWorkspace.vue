@@ -739,11 +739,11 @@ onMounted(() => {
   min-width: 0;
   align-items: flex-start;
   gap: 0.75rem;
-  border: 1px solid rgb(186 230 253);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.75rem;
-  background: rgb(240 249 255);
+  background: rgb(232 243 237);
   padding: 0.9rem 1rem;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
 }
 
 .access-note > div {
@@ -752,7 +752,7 @@ onMounted(() => {
 }
 
 .access-note strong {
-  color: rgb(12 74 110);
+  color: rgb(10 52 39);
   font-size: 0.85rem;
   font-weight: 900;
 }
@@ -784,19 +784,19 @@ onMounted(() => {
   flex: 0 0 auto;
   align-items: center;
   gap: 0.4rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.5rem 0.75rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 900;
 }
 
 .manage-tabs button.active {
-  border-color: rgb(8 145 178);
-  background: rgb(236 254 255);
-  color: rgb(14 116 144);
+  border-color: rgb(26 127 90);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .manage-layout {
@@ -807,7 +807,7 @@ onMounted(() => {
 
 .manage-panel {
   min-width: 0;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 1rem;
@@ -818,18 +818,18 @@ onMounted(() => {
 }
 
 .panel-heading h2 {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
 
 .panel-heading h2 svg {
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
 }
 
 .panel-heading p {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -844,13 +844,13 @@ onMounted(() => {
 }
 
 .subsection-heading strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.82rem;
 }
 
 .subsection-heading span {
   margin-top: 0.2rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   line-height: 1.45;
 }
@@ -860,7 +860,7 @@ onMounted(() => {
   display: grid;
   min-width: 0;
   gap: 0.35rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.76rem;
   font-weight: 800;
 }
@@ -875,19 +875,19 @@ onMounted(() => {
 .field-control {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.58rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8rem;
   line-height: 1.45;
   outline: none;
 }
 
 .field-control:focus {
-  border-color: rgb(8 145 178);
-  box-shadow: 0 0 0 3px rgb(165 243 252 / 0.65);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.65);
 }
 
 .check-row {
@@ -916,7 +916,7 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.75rem;
 }
 
@@ -932,7 +932,7 @@ onMounted(() => {
 
 .dense-row strong {
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.83rem;
   font-weight: 900;
 }
@@ -942,7 +942,7 @@ onMounted(() => {
   display: block;
   margin-top: 0.3rem;
   overflow-wrap: anywhere;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   line-height: 1.45;
 }
@@ -970,7 +970,7 @@ onMounted(() => {
 .submission-link {
   display: inline-flex;
   margin-top: 0.4rem;
-  color: rgb(8 145 178);
+  color: rgb(26 127 90);
   font-size: 0.72rem;
   font-weight: 850;
 }
@@ -981,7 +981,7 @@ onMounted(() => {
 
 .section-divider {
   margin: 1rem 0;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .action-strip,
@@ -1004,15 +1004,15 @@ onMounted(() => {
 }
 
 .primary-button {
-  border: 1px solid rgb(14 116 144);
-  background: rgb(14 116 144);
+  border: 1px solid rgb(18 99 74);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .secondary-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .danger-button {
@@ -1032,15 +1032,15 @@ button:disabled {
 }
 
 .empty-hint {
-  border: 1px dashed rgb(203 213 225);
+  border: 1px dashed var(--border-subtle);
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.85rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .empty-hint strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -1087,33 +1087,33 @@ button:disabled {
 .dark .manage-tabs button,
 .dark .field-control,
 .dark .secondary-button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .panel-heading h2,
 .dark .dense-row strong,
 .dark .empty-hint strong,
 .dark .subsection-heading strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .panel-heading p,
 .dark .form-stack label,
 .dark .field-label,
 .dark .subsection-heading span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .dense-row,
 .dark .section-divider {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .empty-hint {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.7);
-  color: rgb(148 163 184);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
+  color: var(--text-muted);
 }
 </style>

@@ -875,8 +875,8 @@ onMounted(refreshAll)
 
 <style scoped>
 .admin-collaboration-page {
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
 }
 
 .page-header,
@@ -905,14 +905,14 @@ onMounted(refreshAll)
 }
 
 .page-header p {
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
   font-size: 0.8rem;
   font-weight: 900;
 }
 
 .page-header h1 {
   margin-top: 0.2rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.5rem;
   font-weight: 900;
 }
@@ -921,7 +921,7 @@ onMounted(refreshAll)
   display: block;
   margin-top: 0.45rem;
   max-width: 72ch;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.82rem;
   line-height: 1.55;
 }
@@ -929,11 +929,11 @@ onMounted(refreshAll)
 .permission-band,
 .reason-band {
   margin-bottom: 1rem;
-  border: 1px solid rgb(186 230 253);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.75rem;
-  background: rgb(240 249 255);
+  background: rgb(232 243 237);
   padding: 0.85rem 1rem;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
 }
 
 .permission-band > div {
@@ -985,24 +985,24 @@ onMounted(refreshAll)
   min-height: 40px;
   align-items: center;
   gap: 0.4rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.5rem 0.75rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 900;
 }
 
 .tab-bar button.active {
-  border-color: rgb(8 145 178);
-  background: rgb(236 254 255);
-  color: rgb(14 116 144);
+  border-color: rgb(26 127 90);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .queue-panel {
   min-width: 0;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 1rem;
@@ -1015,14 +1015,14 @@ onMounted(refreshAll)
 }
 
 .panel-heading h2 {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
 
 .panel-heading p {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -1030,11 +1030,11 @@ onMounted(refreshAll)
 .field-control {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.58rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8rem;
   line-height: 1.45;
   outline: none;
@@ -1056,7 +1056,7 @@ onMounted(refreshAll)
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.8rem;
 }
 
@@ -1076,7 +1076,7 @@ onMounted(refreshAll)
 
 .row-title strong {
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.85rem;
   font-weight: 900;
 }
@@ -1086,7 +1086,7 @@ onMounted(refreshAll)
   display: block;
   margin-top: 0.35rem;
   overflow-wrap: anywhere;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.74rem;
   line-height: 1.5;
 }
@@ -1097,7 +1097,7 @@ onMounted(refreshAll)
   align-items: center;
   gap: 0.45rem;
   margin-top: 0.55rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -1105,15 +1105,15 @@ onMounted(refreshAll)
 .relation-post-link {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
   text-decoration: underline;
-  text-decoration-color: rgb(103 232 249);
+  text-decoration-color: rgb(124 195 165);
   text-underline-offset: 0.18rem;
 }
 
 .relation-arrow {
   flex: 0 0 auto;
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .self-review-hint {
@@ -1139,8 +1139,8 @@ onMounted(refreshAll)
 
 .meta-chip,
 .status-muted {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .status-ok {
@@ -1173,15 +1173,15 @@ onMounted(refreshAll)
 }
 
 .primary-button {
-  border: 1px solid rgb(14 116 144);
-  background: rgb(14 116 144);
+  border: 1px solid rgb(18 99 74);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .secondary-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .danger-button {
@@ -1209,16 +1209,16 @@ button:disabled {
   min-width: 0;
   align-items: flex-start;
   gap: 0.65rem;
-  border: 1px dashed rgb(203 213 225);
+  border: 1px dashed var(--border-subtle);
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.8rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
 }
 
 .state-block strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-weight: 900;
 }
 
@@ -1264,40 +1264,40 @@ button:disabled {
 }
 
 .dark .admin-collaboration-page {
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .queue-panel,
 .dark .tab-bar button,
 .dark .field-control,
 .dark .secondary-button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .page-header h1,
 .dark .panel-heading h2,
 .dark .row-title strong,
 .dark .state-block strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .page-header span,
 .dark .panel-heading p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .dense-row {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .relation-route {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .relation-post-link {
-  color: rgb(103 232 249);
-  text-decoration-color: rgb(14 116 144);
+  color: rgb(124 195 165);
+  text-decoration-color: rgb(18 99 74);
 }
 </style>

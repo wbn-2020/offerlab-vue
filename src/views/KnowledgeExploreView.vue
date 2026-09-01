@@ -446,6 +446,7 @@ const filters = reactive<KnowledgeExploreFilters>({
 const graph = ref<KnowledgeExploreResponse | null>(null)
 const loading = ref(false)
 const error = ref('')
+let graphRequestId = 0
 
 const groupLabelMap: Record<string, string> = {
   domain: '领域',
@@ -566,24 +567,28 @@ const queryFromFilters = () => ({
 })
 
 const loadGraph = async () => {
+  const requestId = ++graphRequestId
+  const requestFilters = {
+    domain: filters.domain || undefined,
+    assetId: filters.assetType && filters.assetId ? filters.assetId : undefined,
+    assetType: filters.assetType || undefined,
+    postId: filters.postId || undefined,
+    tagId: filters.tagId || undefined,
+    topicId: filters.topicId || undefined,
+    limit: filters.limit || 8,
+  }
   loading.value = true
   error.value = ''
   try {
-    const res = await knowledgeApi.explore({
-      domain: filters.domain || undefined,
-      assetId: filters.assetType && filters.assetId ? filters.assetId : undefined,
-      assetType: filters.assetType || undefined,
-      postId: filters.postId || undefined,
-      tagId: filters.tagId || undefined,
-      topicId: filters.topicId || undefined,
-      limit: filters.limit || 8,
-    })
+    const res = await knowledgeApi.explore(requestFilters)
+    if (requestId !== graphRequestId) return
     graph.value = res.data
   } catch (err) {
+    if (requestId !== graphRequestId) return
     graph.value = null
     error.value = getErrorMessage(err, '知识关系暂时无法加载，请稍后重试。')
   } finally {
-    loading.value = false
+    if (requestId === graphRequestId) loading.value = false
   }
 }
 
@@ -771,7 +776,7 @@ watch(() => route.fullPath, async () => {
 }
 
 .icon-action:hover {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-600);
 }
@@ -807,8 +812,8 @@ watch(() => route.fullPath, async () => {
 }
 
 .filter-input:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: #7cc3a5;
+  box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.1);
 }
 
 .filter-input:disabled {
@@ -1402,8 +1407,8 @@ watch(() => route.fullPath, async () => {
 
 :global(.dark .relation-status--suggested),
 :global(.dark .asset-type-chip) {
-  background: rgba(30, 64, 175, 0.32);
-  color: #bfdbfe;
+  background: rgba(14, 74, 55, 0.32);
+  color: #a9d8c3;
 }
 
 @media (max-width: 1023px) {

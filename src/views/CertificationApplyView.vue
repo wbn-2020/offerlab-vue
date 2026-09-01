@@ -331,7 +331,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import {
@@ -386,6 +386,8 @@ const applications = ref<ExpertCertificationApplication[]>([])
 const eligibilityError = ref('')
 const applicationsError = ref('')
 const submitError = ref('')
+let eligibilityRequestId = 0
+let applicationsRequestId = 0
 
 const form = reactive({
   evidenceSummary: '',
@@ -484,40 +486,50 @@ const resetForm = () => {
 }
 
 const loadEligibility = async () => {
+  const requestId = ++eligibilityRequestId
   if (!authStore.isLoggedIn) {
     eligibility.value = null
     eligibilityError.value = ''
+    loadingEligibility.value = false
     return
   }
+  const requestedDomain = selectedDomain.value
   loadingEligibility.value = true
   eligibilityError.value = ''
   try {
-    const res = await expertCertificationApi.getEligibility(selectedDomain.value)
+    const res = await expertCertificationApi.getEligibility(requestedDomain)
+    if (requestId !== eligibilityRequestId) return
     eligibility.value = res.data
   } catch (err) {
+    if (requestId !== eligibilityRequestId) return
     eligibility.value = null
     eligibilityError.value = getErrorMessage(err, '加载资格检查失败')
   } finally {
-    loadingEligibility.value = false
+    if (requestId === eligibilityRequestId) loadingEligibility.value = false
   }
 }
 
 const loadApplications = async () => {
+  const requestId = ++applicationsRequestId
   if (!authStore.isLoggedIn) {
     applications.value = []
     applicationsError.value = ''
+    loadingApplications.value = false
     return
   }
+  const requestedDomain = selectedDomain.value
   loadingApplications.value = true
   applicationsError.value = ''
   try {
-    const res = await expertCertificationApi.listMine(selectedDomain.value)
+    const res = await expertCertificationApi.listMine(requestedDomain)
+    if (requestId !== applicationsRequestId) return
     applications.value = res.data || []
   } catch (err) {
+    if (requestId !== applicationsRequestId) return
     applications.value = []
     applicationsError.value = getErrorMessage(err, '加载申请记录失败')
   } finally {
-    loadingApplications.value = false
+    if (requestId === applicationsRequestId) loadingApplications.value = false
   }
 }
 
@@ -528,7 +540,7 @@ const refreshStageFourCertification = async () => {
 const submitApplication = async () => {
   if (!canSubmit.value) return
   if (hasInvalidEvidenceLinks.value) {
-    submitError.value = 'Evidence links must start with http:// or https://.'
+    submitError.value = '证据链接必须以 http:// 或 https:// 开头。'
     return
   }
   submitting.value = true
@@ -563,18 +575,11 @@ const revokeApplication = async (applicationId: ApiId) => {
   }
 }
 
-watch(selectedDomain, async () => {
+watch(selectedDomain, () => {
   resetForm()
-  await refreshStageFourCertification()
 })
 
-watch(() => authStore.isLoggedIn, async () => {
-  await refreshStageFourCertification()
-})
-
-onMounted(async () => {
-  await refreshStageFourCertification()
-})
+watch([selectedDomain, () => authStore.isLoggedIn], refreshStageFourCertification, { immediate: true })
 </script>
 
 <style scoped>
@@ -582,17 +587,17 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  background: rgb(224 242 254);
+  background: rgb(205 232 220);
   padding: 0.35rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
 }
 
 .eligibility-card,
 .application-card,
 .detail-card {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 1rem;
   background: rgb(255 255 255 / 0.82);
 }
@@ -641,17 +646,17 @@ onMounted(async () => {
 }
 
 .status-revoke {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .check-row {
   display: flex;
   align-items: center;
   gap: 1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.9rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.85rem 0.95rem;
 }
 
@@ -690,19 +695,19 @@ onMounted(async () => {
   display: block;
   font-size: 0.82rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .detail-card p {
   margin-top: 0.35rem;
   font-size: 0.78rem;
   line-height: 1.55;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .meta-pill {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .link-chip {
@@ -710,25 +715,25 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .dark .stage4-kicker {
-  background: rgb(8 47 73);
-  color: rgb(125 211 252);
+  background: rgb(7 31 24);
+  color: rgb(124 195 165);
 }
 
 .dark .eligibility-card,
 .dark .application-card,
 .dark .detail-card {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42 / 0.88);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
 }
 
 .dark .check-row {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .risk-banner {
@@ -742,22 +747,22 @@ onMounted(async () => {
 }
 
 .dark .detail-card strong {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .detail-card p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .status-revoke,
 .dark .meta-pill {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .link-chip {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .certification-page {
@@ -965,7 +970,7 @@ onMounted(async () => {
 }
 
 .icon-action:hover:not(:disabled) {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-600);
 }
@@ -1022,8 +1027,8 @@ onMounted(async () => {
 }
 
 .filter-input:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: #7cc3a5;
+  box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.1);
 }
 
 .evidence-summary-input {
@@ -1430,7 +1435,7 @@ onMounted(async () => {
 }
 
 :global(.dark .workflow-step--active) {
-  background: rgba(30, 64, 175, 0.2);
+  background: rgba(14, 74, 55, 0.2);
 }
 
 :global(.dark .workflow-step--active .workflow-step__index) {
@@ -1473,8 +1478,8 @@ onMounted(async () => {
 }
 
 :global(.dark .evidence-link-list a) {
-  background: rgba(30, 64, 175, 0.24);
-  color: #bfdbfe;
+  background: rgba(14, 74, 55, 0.24);
+  color: #a9d8c3;
 }
 
 @media (max-width: 900px) {

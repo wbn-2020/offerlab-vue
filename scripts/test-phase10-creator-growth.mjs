@@ -196,7 +196,11 @@ const p0Sources = [
 for (const [name, source] of p0Sources) {
   missing(source, /徽章挑战|挑战徽章|创作者徽章|创作挑战|badgeChallenge|challengeBadge|creatorBadge|creatorChallenge/i, `${name} must not introduce badges or challenges into Phase 10 P0.`)
   missing(source, /真实支付|支付成功|会员开通|订阅开通|真实订阅|打赏|提现|收益结算|revenue|settlement/i, `${name} must stay inside the non-payment incentive boundary.`)
-  missing(source, /专业投资建议|专业医疗建议|专业法律建议|官方诊断|收益保证|平台背书|保证曝光/i, `${name} must not endorse high-risk channels or promised outcomes.`)
+  missing(
+    source,
+    /专业投资建议|专业医疗建议|专业法律建议|官方诊断|收益保证|(?<!不代表)平台背书|保证曝光/i,
+    `${name} must not endorse high-risk channels or promised outcomes.`,
+  )
   missing(source, /加入训练任务|待训练|投递进度|模拟面试提醒|AI 教练任务|AI 教练建议|刷题计划|私人训练计划/i, `${name} must not reintroduce old job-training copy.`)
 }
 

@@ -115,41 +115,41 @@ const formatTime = (value?: string | null) => {
 </script>
 
 <style scoped>
-.eligibility-panel { min-width: 0; border: 1px solid rgb(226 232 240); border-radius: .625rem; background: white; padding: 1rem; }
+.eligibility-panel { min-width: 0; border: 1px solid var(--border-subtle); border-radius: .625rem; background: white; padding: 1rem; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
-.panel-heading h3 { display: flex; align-items: center; gap: .4rem; margin: 0; color: rgb(15 23 42); font-size: .95rem; font-weight: 900; }
-.panel-heading p { margin: .3rem 0 0; color: rgb(100 116 139); font-size: .73rem; line-height: 1.5; }
-.icon-button { display: inline-flex; height: 2.25rem; width: 2.25rem; flex: none; align-items: center; justify-content: center; border: 1px solid rgb(203 213 225); border-radius: .45rem; background: white; color: rgb(51 65 85); }
+.panel-heading h3 { display: flex; align-items: center; gap: .4rem; margin: 0; color: var(--text-strong); font-size: .95rem; font-weight: 900; }
+.panel-heading p { margin: .3rem 0 0; color: var(--text-muted); font-size: .73rem; line-height: 1.5; }
+.icon-button { display: inline-flex; height: 2.25rem; width: 2.25rem; flex: none; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: .45rem; background: white; color: var(--text-primary); }
 .panel-body { display: grid; gap: .85rem; margin-top: 1rem; }
 .status-line, .action-summary { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
 .status-pill, .meta-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: .22rem .5rem; font-size: .66rem; font-weight: 900; }
 .status-ok { background: rgb(220 252 231); color: rgb(21 128 61); }
 .status-warn { background: rgb(254 243 199); color: rgb(146 64 14); }
-.status-muted, .meta-chip { background: rgb(241 245 249); color: rgb(71 85 105); }
+.status-muted, .meta-chip { background: var(--surface-soft); color: var(--text-primary); }
 .evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
-.evidence-row { display: flex; min-width: 0; align-items: flex-start; gap: .5rem; border: 1px solid rgb(226 232 240); border-radius: .5rem; padding: .6rem; }
+.evidence-row { display: flex; min-width: 0; align-items: flex-start; gap: .5rem; border: 1px solid var(--border-subtle); border-radius: .5rem; padding: .6rem; }
 .evidence-mark { display: inline-flex; height: 1.35rem; width: 1.35rem; flex: none; align-items: center; justify-content: center; border-radius: 999px; }
 .evidence-passed { background: rgb(220 252 231); color: rgb(21 128 61); }
 .evidence-failed { background: rgb(254 226 226); color: rgb(185 28 28); }
 .evidence-row strong, .evidence-row small { display: block; overflow-wrap: anywhere; }
-.evidence-row strong { color: rgb(30 41 59); font-size: .75rem; font-weight: 900; }
-.evidence-row small { margin-top: .2rem; color: rgb(100 116 139); font-size: .68rem; line-height: 1.45; }
+.evidence-row strong { color: var(--text-strong); font-size: .75rem; font-weight: 900; }
+.evidence-row small { margin-top: .2rem; color: var(--text-muted); font-size: .68rem; line-height: 1.45; }
 .detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
-.detail-grid div { min-width: 0; border-radius: .5rem; background: rgb(248 250 252); padding: .6rem; }
+.detail-grid div { min-width: 0; border-radius: .5rem; background: var(--surface-soft); padding: .6rem; }
 .detail-grid span, .detail-grid strong { display: block; overflow-wrap: anywhere; }
-.detail-grid span { color: rgb(100 116 139); font-size: .68rem; }
-.detail-grid strong { margin-top: .2rem; color: rgb(15 23 42); font-size: .78rem; }
+.detail-grid span { color: var(--text-muted); font-size: .68rem; }
+.detail-grid strong { margin-top: .2rem; color: var(--text-strong); font-size: .78rem; }
 .notice { display: flex; align-items: flex-start; gap: .45rem; border-radius: .5rem; padding: .6rem .7rem; font-size: .72rem; line-height: 1.5; }
 .notice-warn { background: rgb(255 251 235); color: rgb(146 64 14); }
-.state { display: flex; min-height: 7rem; align-items: center; justify-content: center; gap: .5rem; border: 1px dashed rgb(203 213 225); border-radius: .5rem; margin-top: 1rem; padding: 1rem; color: rgb(100 116 139); font-size: .76rem; text-align: center; }
+.state { display: flex; min-height: 7rem; align-items: center; justify-content: center; gap: .5rem; border: 1px dashed var(--border-subtle); border-radius: .5rem; margin-top: 1rem; padding: 1rem; color: var(--text-muted); font-size: .76rem; text-align: center; }
 .state-error { border-style: solid; border-color: rgb(254 202 202); color: rgb(185 28 28); }
-.secondary-button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; border: 1px solid rgb(203 213 225); border-radius: .45rem; background: white; padding: .35rem .6rem; color: rgb(51 65 85); font-size: .7rem; font-weight: 900; }
+.secondary-button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: .45rem; background: white; padding: .35rem .6rem; color: var(--text-primary); font-size: .7rem; font-weight: 900; }
 button:disabled { cursor: not-allowed; opacity: .5; }
 @media (max-width: 680px) { .evidence-grid, .detail-grid { grid-template-columns: 1fr; } }
-.dark .eligibility-panel, .dark .icon-button, .dark .secondary-button { border-color: rgb(51 65 85); background: rgb(15 23 42); color: rgb(203 213 225); }
-.dark .panel-heading h3, .dark .evidence-row strong, .dark .detail-grid strong { color: rgb(248 250 252); }
-.dark .panel-heading p, .dark .evidence-row small, .dark .detail-grid span, .dark .state { color: rgb(148 163 184); }
-.dark .evidence-row { border-color: rgb(51 65 85); }
-.dark .detail-grid div { background: rgb(2 6 23 / .6); }
-.dark .status-muted, .dark .meta-chip { background: rgb(30 41 59); color: rgb(203 213 225); }
+.dark .eligibility-panel, .dark .icon-button, .dark .secondary-button { border-color: var(--border-subtle); background: var(--surface-1); color: var(--text-muted); }
+.dark .panel-heading h3, .dark .evidence-row strong, .dark .detail-grid strong { color: var(--text-strong); }
+.dark .panel-heading p, .dark .evidence-row small, .dark .detail-grid span, .dark .state { color: var(--text-muted); }
+.dark .evidence-row { border-color: var(--border-subtle); }
+.dark .detail-grid div { background: color-mix(in srgb, var(--surface-1) 60%, transparent); }
+.dark .status-muted, .dark .meta-chip { background: var(--surface-1); color: var(--text-muted); }
 </style>

@@ -315,7 +315,7 @@ const stateLabel = (state: ParticipationSourceStatus) => {
 
 <style scoped>
 .participation-hub {
-  border-top: 1px solid rgb(191 219 254);
+  border-top: 1px solid rgb(169 216 195);
   padding-top: 1.25rem;
 }
 
@@ -328,14 +328,14 @@ const stateLabel = (state: ParticipationSourceStatus) => {
 
 .participation-hub__eyebrow {
   margin: 0;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 900;
 }
 
 .participation-hub__head h2 {
   margin-top: 0.2rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.05rem;
   font-weight: 900;
 }
@@ -343,7 +343,7 @@ const stateLabel = (state: ParticipationSourceStatus) => {
 .participation-hub__head p:not(.participation-hub__eyebrow) {
   margin-top: 0.45rem;
   max-width: 48rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   font-weight: 650;
   line-height: 1.6;
@@ -357,16 +357,16 @@ const stateLabel = (state: ParticipationSourceStatus) => {
   height: 2.75rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   border-radius: 6px;
-  background: rgb(239 246 255);
-  color: rgb(37 99 235);
+  background: rgb(232 243 237);
+  color: rgb(26 127 90);
 }
 
 .participation-hub__refresh:hover,
 .participation-hub__actions button:hover {
-  border-color: rgb(147 197 253);
-  background: rgb(219 234 254);
+  border-color: rgb(124 195 165);
+  background: rgb(205 232 220);
 }
 
 .participation-hub__refresh:disabled,
@@ -398,9 +398,9 @@ const stateLabel = (state: ParticipationSourceStatus) => {
   min-width: 0;
   min-height: 12.5rem;
   flex-direction: column;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.9rem;
 }
 
@@ -415,11 +415,11 @@ const stateLabel = (state: ParticipationSourceStatus) => {
   height: 1.1rem;
   flex: 0 0 auto;
   margin-top: 0.1rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .participation-hub__card h3 {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   font-weight: 900;
   line-height: 1.35;
@@ -429,7 +429,7 @@ const stateLabel = (state: ParticipationSourceStatus) => {
   display: -webkit-box;
   overflow: hidden;
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 650;
   line-height: 1.45;
@@ -441,16 +441,16 @@ const stateLabel = (state: ParticipationSourceStatus) => {
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 0.2rem 0.45rem;
-  background: rgb(226 232 240);
-  color: rgb(71 85 105);
+  background: var(--surface-2);
+  color: var(--text-primary);
   font-size: 0.625rem;
   font-weight: 900;
   line-height: 1.2;
 }
 
 .participation-hub__state--loading {
-  background: rgb(219 234 254);
-  color: rgb(29 78 216);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .participation-hub__state--degraded {
@@ -471,7 +471,7 @@ const stateLabel = (state: ParticipationSourceStatus) => {
 
 .participation-hub__metric strong {
   overflow: hidden;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.45rem;
   font-weight: 900;
   line-height: 1.1;
@@ -481,7 +481,7 @@ const stateLabel = (state: ParticipationSourceStatus) => {
 
 .participation-hub__metric span,
 .participation-hub__detail {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.45;
@@ -511,46 +511,46 @@ const stateLabel = (state: ParticipationSourceStatus) => {
   min-width: 0;
   align-items: center;
   gap: 0.3rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 900;
 }
 
 .participation-hub__actions a:hover {
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .dark .participation-hub {
-  border-color: rgb(30 64 175);
+  border-color: rgb(14 74 55);
 }
 
 .dark .participation-hub__head h2,
 .dark .participation-hub__card h3,
 .dark .participation-hub__metric strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .participation-hub__head p:not(.participation-hub__eyebrow),
 .dark .participation-hub__card-head p,
 .dark .participation-hub__metric span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .participation-hub__card {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .participation-hub__refresh,
 .dark .participation-hub__actions button {
-  border-color: rgb(30 64 175);
-  background: rgb(30 58 138 / 0.32);
-  color: rgb(147 197 253);
+  border-color: rgb(14 74 55);
+  background: rgb(10 52 39 / 0.32);
+  color: rgb(124 195 165);
 }
 
 .dark .participation-hub__refresh:hover,
 .dark .participation-hub__actions button:hover {
-  background: rgb(30 64 175 / 0.56);
+  background: rgb(14 74 55 / 0.56);
 }
 
 .dark .participation-hub__partial-error {
@@ -560,13 +560,13 @@ const stateLabel = (state: ParticipationSourceStatus) => {
 }
 
 .dark .participation-hub__state {
-  background: rgb(51 65 85);
-  color: rgb(203 213 225);
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .dark .participation-hub__state--loading {
-  background: rgb(30 58 138 / 0.6);
-  color: rgb(191 219 254);
+  background: rgb(10 52 39 / 0.6);
+  color: rgb(169 216 195);
 }
 
 .dark .participation-hub__state--degraded {
@@ -584,7 +584,7 @@ const stateLabel = (state: ParticipationSourceStatus) => {
 }
 
 .dark .participation-hub__actions a {
-  color: rgb(147 197 253);
+  color: rgb(124 195 165);
 }
 
 @media (max-width: 1024px) {

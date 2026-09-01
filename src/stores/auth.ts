@@ -53,10 +53,16 @@ const clearSessionExpiredMarker = () => {
 }
 
 const hydrateFailureText = (error: unknown) => {
-  const candidate = error as { message?: unknown; response?: { status?: unknown } } | null | undefined
-  if (Number(candidate?.response?.status || 0) >= 500) return '账号服务暂时不可用，请重试。'
-  const message = String(candidate?.message || '').trim()
-  return message && message.length <= 120 ? message : '暂时无法确认当前登录状态，请重试。'
+  const candidate = error as {
+    code?: unknown
+    status?: unknown
+    response?: { status?: unknown; data?: { code?: unknown } }
+  } | null | undefined
+  const status = Number(candidate?.response?.status || candidate?.status || 0)
+  const code = Number(candidate?.code || candidate?.response?.data?.code || 0)
+  if (status === 401 || code === 10401) return '当前登录已过期，请重新登录。'
+  if (status >= 500) return '账号服务暂时不可用，请重试。'
+  return '暂时无法确认当前登录状态，请检查网络后重试。'
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -198,9 +204,9 @@ export const useAuthStore = defineStore('auth', () => {
     hydrationState.value = 'hydrating'
     hydrationError.value = ''
     const request = import('@/api/auth')
-      .then(async ({ authApi }) => {
-        // 守卫会 await 本次 hydrate，用更短超时避免后端慢/挂时首跳冻结。
-        const me = await authApi.fetchMe(8000)
+      .then(async ({ authApi, AUTH_ROUTE_HYDRATION_TIMEOUT_MS }) => {
+        // 权限路由会等待本次恢复，窗口必须短于页面级超时。
+        const me = await authApi.fetchMe(AUTH_ROUTE_HYDRATION_TIMEOUT_MS)
         if (!hydrationOwnerIsCurrent(owner)) return
         if (!me.data) throw new Error('账号资料为空，请重新登录。')
         claimPendingInteraction(me.data.uid)

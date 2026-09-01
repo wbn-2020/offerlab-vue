@@ -417,8 +417,8 @@ watch(() => props.canOperate, (canOperate) => {
 
 <style scoped>
 .creator-challenge-admin {
-  border: 1px solid rgb(165 243 252);
-  background: rgb(236 254 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 1.1rem;
 }
 
@@ -442,14 +442,14 @@ watch(() => props.canOperate, (canOperate) => {
 
 .creator-challenge-admin-title {
   align-items: center;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
 }
 
 .creator-challenge-admin-title h2,
 .form-heading h3,
 .creator-challenge-admin-card h3 {
   margin: 0;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -458,7 +458,7 @@ watch(() => props.canOperate, (canOperate) => {
 .form-heading p,
 .creator-challenge-admin-card p {
   margin: 0.35rem 0 0;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8rem;
   line-height: 1.55;
 }
@@ -477,7 +477,7 @@ watch(() => props.canOperate, (canOperate) => {
   display: grid;
   flex: 0 1 25rem;
   gap: 0.8rem;
-  border: 1px solid rgb(186 230 253);
+  border: 1px solid rgb(169 216 195);
   background: rgb(255 255 255);
   padding: 0.9rem;
 }
@@ -485,13 +485,13 @@ watch(() => props.canOperate, (canOperate) => {
 .creator-challenge-admin-form label {
   display: grid;
   gap: 0.35rem;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.76rem;
   font-weight: 800;
 }
 
 .creator-challenge-admin-form small {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 500;
 }
@@ -499,10 +499,10 @@ watch(() => props.canOperate, (canOperate) => {
 .creator-challenge-admin-form .field-control {
   width: 100%;
   min-height: 2.35rem;
-  border: 1px solid rgb(148 163 184);
+  border: 1px solid var(--border-subtle);
   background: rgb(255 255 255);
   padding: 0.45rem 0.55rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.82rem;
 }
 
@@ -535,9 +535,9 @@ watch(() => props.canOperate, (canOperate) => {
   align-items: center;
   gap: 0.55rem;
   min-height: 4.25rem;
-  border: 1px dashed rgb(103 232 249);
+  border: 1px dashed rgb(124 195 165);
   padding: 0.9rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.82rem;
 }
 
@@ -547,7 +547,7 @@ watch(() => props.canOperate, (canOperate) => {
 }
 
 .creator-challenge-admin-card {
-  border: 1px solid rgb(186 230 253);
+  border: 1px solid rgb(169 216 195);
   background: rgb(255 255 255);
   padding: 0.9rem;
 }
@@ -562,7 +562,7 @@ watch(() => props.canOperate, (canOperate) => {
   display: inline-flex;
   align-items: center;
   min-height: 1.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   padding: 0.1rem 0.45rem;
   font-size: 0.7rem;
   font-weight: 800;
@@ -575,15 +575,15 @@ watch(() => props.canOperate, (canOperate) => {
 }
 
 .challenge-status-pending {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .challenge-status-muted,
 .challenge-code {
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .challenge-code {
@@ -601,14 +601,14 @@ watch(() => props.canOperate, (canOperate) => {
 }
 
 .creator-challenge-admin-meta dt {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 800;
 }
 
 .creator-challenge-admin-meta dd {
   margin: 0.2rem 0 0;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.77rem;
   line-height: 1.45;
 }
@@ -625,7 +625,7 @@ watch(() => props.canOperate, (canOperate) => {
   min-height: 2.2rem;
   border: 0;
   background: transparent;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
   font-size: 0.77rem;
   font-weight: 800;
 }
@@ -640,23 +640,23 @@ watch(() => props.canOperate, (canOperate) => {
 }
 
 .dark .creator-challenge-admin {
-  border-color: rgb(8 145 178);
-  background: rgb(8 47 73);
+  border-color: rgb(26 127 90);
+  background: rgb(7 31 24);
 }
 
 .dark .creator-challenge-admin-form,
 .dark .creator-challenge-admin-card,
 .dark .creator-challenge-admin-form .field-control {
-  border-color: rgb(30 64 175);
-  background: rgb(2 6 23);
-  color: rgb(226 232 240);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .creator-challenge-admin-title,
 .dark .creator-challenge-admin-title h2,
 .dark .form-heading h3,
 .dark .creator-challenge-admin-card h3 {
-  color: rgb(224 242 254);
+  color: rgb(205 232 220);
 }
 
 .dark .creator-challenge-admin-header p,
@@ -664,14 +664,14 @@ watch(() => props.canOperate, (canOperate) => {
 .dark .creator-challenge-admin-card p,
 .dark .creator-challenge-admin-form label,
 .dark .creator-challenge-admin-meta dd {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .challenge-status-muted,
 .dark .challenge-code {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 @media (max-width: 900px) {

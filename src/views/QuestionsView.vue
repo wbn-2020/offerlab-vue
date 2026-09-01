@@ -671,8 +671,8 @@ onMounted(() => {
   padding: 0.75rem 0.9rem;
   border: 1px solid #b9ddf4;
   border-radius: var(--radius-surface);
-  background: #f0f9ff;
-  color: #075985;
+  background: #e8f3ed;
+  color: #0e4a37;
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.55;
@@ -928,19 +928,19 @@ onMounted(() => {
 }
 
 :global(html.dark) .filter-input {
-  background: rgba(2, 6, 23, 0.55);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
 }
 
 :global(html.dark) .active-filter-status,
 :global(html.dark) .quick-filter-active {
   background: rgba(21, 94, 239, 0.16);
-  color: #bfdbfe;
+  color: #a9d8c3;
 }
 
 :global(html.dark) .demo-notice {
-  border-color: #075985;
-  background: rgba(7, 89, 133, 0.24);
-  color: #bae6fd;
+  border-color: #0e4a37;
+  background: rgba(14, 74, 55, 0.24);
+  color: #a9d8c3;
 }
 
 :global(html.dark) .load-more p {

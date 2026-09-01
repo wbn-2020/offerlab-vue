@@ -107,16 +107,14 @@ const handleCoverError = () => {
   position: absolute;
   inset: 0;
   border-radius: 1.5rem;
-  background:
-    radial-gradient(circle at top right, rgb(56 189 248 / 0.16), transparent 34%),
+  background: radial-gradient(circle at top right, rgb(70 172 134 / 0.16), transparent 34%),
     linear-gradient(180deg, rgb(255 255 255 / 0.35), transparent 18%);
   content: '';
   pointer-events: none;
 }
 
 .preview-card-empty::after {
-  background:
-    radial-gradient(circle at top right, rgb(148 163 184 / 0.2), transparent 34%),
+  background: radial-gradient(circle at top right, rgba(30, 50, 45, 0.2), transparent 34%),
     linear-gradient(180deg, rgb(255 255 255 / 0.3), transparent 18%);
 }
 
@@ -132,8 +130,8 @@ const handleCoverError = () => {
 }
 
 .preview-pill-domain {
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .preview-pill-type {
@@ -142,8 +140,8 @@ const handleCoverError = () => {
 }
 
 .preview-pill-anonymous {
-  background: rgb(238 242 255);
-  color: rgb(79 70 229);
+  background: rgb(232 243 237);
+  color: rgb(26 127 90);
 }
 
 .preview-pill-public {
@@ -168,16 +166,16 @@ const handleCoverError = () => {
 }
 
 .preview-series-chip-idle {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .preview-cover,
 .preview-cover-fallback {
   overflow: hidden;
   border-radius: 1rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   aspect-ratio: 16 / 9;
 }
 
@@ -197,29 +195,27 @@ const handleCoverError = () => {
   font-size: 0.78rem;
   font-weight: 700;
   line-height: 1.6;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .dark .preview-card {
-  border-color: rgb(51 65 85 / 0.9);
-  background: rgb(15 23 42 / 0.95);
+  border-color: color-mix(in srgb, var(--border-subtle) 90%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 95%, transparent);
 }
 
 .dark .preview-card::after {
-  background:
-    radial-gradient(circle at top right, rgb(14 165 233 / 0.16), transparent 34%),
+  background: radial-gradient(circle at top right, rgb(33 154 112 / 0.16), transparent 34%),
     linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 18%);
 }
 
 .dark .preview-card-empty::after {
-  background:
-    radial-gradient(circle at top right, rgb(100 116 139 / 0.16), transparent 34%),
+  background: radial-gradient(circle at top right, rgba(30, 50, 45, 0.16), transparent 34%),
     linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 18%);
 }
 
 .dark .preview-pill-domain {
-  background: rgb(30 64 175 / 0.28);
-  color: rgb(191 219 254);
+  background: rgb(14 74 55 / 0.28);
+  color: rgb(169 216 195);
 }
 
 .dark .preview-pill-type {
@@ -228,8 +224,8 @@ const handleCoverError = () => {
 }
 
 .dark .preview-pill-anonymous {
-  background: rgb(67 56 202 / 0.24);
-  color: rgb(199 210 254);
+  background: rgb(18 99 74 / 0.24);
+  color: rgb(169 216 195);
 }
 
 .dark .preview-pill-public {
@@ -243,45 +239,45 @@ const handleCoverError = () => {
 }
 
 .dark .preview-series-chip-idle {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .preview-cover,
 .dark .preview-cover-fallback {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42 / 0.75);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 75%, transparent);
 }
 
 .dark .bg-slate-50\/90 {
-  background: rgb(15 23 42 / 0.72);
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
 }
 
 .dark .text-slate-950 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .text-slate-800 {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .text-slate-600 {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .text-slate-500 {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .border-slate-200 {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .bg-slate-50 {
-  background: rgb(30 41 59 / 0.75);
+  background: color-mix(in srgb, var(--surface-1) 75%, transparent);
 }
 
 .dark .text-slate-400 {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 </style>

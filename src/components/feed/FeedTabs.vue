@@ -85,7 +85,7 @@ const handleTabChange = (value: FeedType) => {
   flex: 0 0 auto;
   border-radius: 5px;
   padding: 0 0.72rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   font-weight: 800;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -93,8 +93,8 @@ const handleTabChange = (value: FeedType) => {
 
 .feed-tabs-list button:hover:not(:disabled),
 .feed-tabs-list button.feed-tab-active {
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .feed-tabs-list button:disabled {
@@ -107,7 +107,7 @@ const handleTabChange = (value: FeedType) => {
   align-items: center;
   gap: 0.55rem;
   padding-top: 0.55rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -125,17 +125,17 @@ const handleTabChange = (value: FeedType) => {
 }
 
 .dark .feed-tabs-list button {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .feed-tabs-list button:hover:not(:disabled),
 .dark .feed-tabs-list button.feed-tab-active {
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(147 197 253);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(124 195 165);
 }
 
 .dark .feed-tabs-status {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .feed-tabs-status-error,

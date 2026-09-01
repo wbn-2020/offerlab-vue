@@ -1241,8 +1241,8 @@ onUnmounted(() => {
 }
 
 .priority-low {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .action-main > p {
@@ -1353,7 +1353,7 @@ onUnmounted(() => {
 .queue-skeleton-row span {
   display: block;
   border-radius: 0.35rem;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
   animation: workspace-pulse 1.4s ease-in-out infinite;
 }
 
@@ -1515,12 +1515,12 @@ onUnmounted(() => {
 .dark .workspace-tab-active,
 .dark .summary-row-icon,
 .dark .action-icon {
-  background: rgb(30 27 75);
-  color: rgb(199 210 254);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .workspace-tab span {
-  background: rgb(15 23 42);
+  background: var(--surface-1);
 }
 
 .dark .workspace-notice-error {
@@ -1544,13 +1544,13 @@ onUnmounted(() => {
 }
 
 .dark .priority-low {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .summary-skeleton-row span,
 .dark .queue-skeleton-row span {
-  background: rgb(51 65 85);
+  background: var(--surface-2);
 }
 
 /* Current community workspace baseline. */
@@ -2125,8 +2125,8 @@ onUnmounted(() => {
 :global(html.dark) .metric-chip-active,
 :global(html.dark) .summary-row-icon,
 :global(html.dark) .action-icon {
-  background: rgba(30, 64, 175, 0.34);
-  color: #bfdbfe;
+  background: rgba(14, 74, 55, 0.34);
+  color: #a9d8c3;
 }
 
 :global(html.dark) .priority-high {

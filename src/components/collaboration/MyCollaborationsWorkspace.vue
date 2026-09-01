@@ -1087,7 +1087,7 @@ defineExpose({ refresh })
 <style scoped>
 .my-collaborations-workspace {
   min-width: 0;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: white;
   padding: 1rem;
@@ -1104,25 +1104,25 @@ defineExpose({ refresh })
 
 .workspace-heading {
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .workspace-heading p {
   margin: 0;
-  color: rgb(8 145 178);
+  color: rgb(26 127 90);
   font-size: 0.72rem;
   font-weight: 900;
 }
 
 .workspace-heading h2 {
   margin: 0.2rem 0;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.15rem;
   font-weight: 900;
 }
 
 .workspace-heading span {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8rem;
   line-height: 1.55;
 }
@@ -1137,9 +1137,9 @@ defineExpose({ refresh })
   display: inline-flex;
   gap: 0.2rem;
   margin-top: 1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 7px;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.2rem;
 }
 
@@ -1150,24 +1150,24 @@ defineExpose({ refresh })
   gap: 0.35rem;
   border-radius: 5px;
   padding: 0.45rem 0.7rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.76rem;
   font-weight: 850;
 }
 
 .scope-switch button.active {
   background: white;
-  color: rgb(14 116 144);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+  color: rgb(18 99 74);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.08);
 }
 
 .status-select,
 .icon-button {
   min-height: 40px;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .status-select {
@@ -1196,7 +1196,7 @@ defineExpose({ refresh })
 .claimed-need-row {
   min-width: 0;
   padding: 1rem 0;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .row-title {
@@ -1224,8 +1224,8 @@ defineExpose({ refresh })
 }
 
 .status-badge {
-  background: rgb(224 231 255);
-  color: rgb(67 56 202);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .status-badge[data-status='COMPLETED'] {
@@ -1235,13 +1235,13 @@ defineExpose({ refresh })
 
 .status-badge[data-status='CLOSED'],
 .status-badge[data-status='MERGED'] {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .claimant-badge {
-  background: rgb(236 254 255);
-  color: rgb(14 116 144);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .creator-badge {
@@ -1250,14 +1250,14 @@ defineExpose({ refresh })
 }
 
 .meta-badge {
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .row-title h3 {
   margin: 0.55rem 0 0;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
   line-height: 1.45;
@@ -1265,13 +1265,13 @@ defineExpose({ refresh })
 
 .row-heading time {
   flex: 0 0 auto;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
 .row-description {
   margin: 0.65rem 0 0;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8rem;
   line-height: 1.65;
 }
@@ -1281,10 +1281,10 @@ defineExpose({ refresh })
   align-items: flex-start;
   gap: 0.55rem;
   margin-top: 0.8rem;
-  border-left: 3px solid rgb(59 130 246);
-  background: rgb(239 246 255);
+  border-left: 3px solid rgb(33 154 112);
+  background: rgb(232 243 237);
   padding: 0.7rem 0.8rem;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .delivery-state[data-tone='success'] {
@@ -1300,9 +1300,9 @@ defineExpose({ refresh })
 }
 
 .delivery-state[data-tone='muted'] {
-  border-left-color: rgb(148 163 184);
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
+  border-left-color: var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .delivery-state strong,
@@ -1325,7 +1325,7 @@ defineExpose({ refresh })
   align-items: flex-start;
   gap: 0.45rem;
   margin-top: 0.65rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.72rem;
   line-height: 1.5;
 }
@@ -1341,14 +1341,14 @@ defineExpose({ refresh })
   align-items: flex-start;
   gap: 0.65rem;
   margin-top: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 7px;
   padding: 0.75rem;
 }
 
 .submission-summary {
   justify-content: space-between;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .submission-summary > div,
@@ -1368,7 +1368,7 @@ defineExpose({ refresh })
 
 .submission-summary strong,
 .reject-notice strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.76rem;
 }
 
@@ -1376,7 +1376,7 @@ defineExpose({ refresh })
 .reject-notice span {
   margin-top: 0.2rem;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.74rem;
   line-height: 1.5;
 }
@@ -1385,7 +1385,7 @@ defineExpose({ refresh })
 .submission-summary time {
   margin-top: 0.25rem;
   overflow-wrap: anywhere;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.68rem;
   line-height: 1.45;
 }
@@ -1421,7 +1421,7 @@ defineExpose({ refresh })
   min-width: 0;
   gap: 0.75rem;
   margin-top: 0.8rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.8rem;
 }
 
@@ -1430,7 +1430,7 @@ defineExpose({ refresh })
   display: grid;
   min-width: 0;
   gap: 0.35rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -1462,25 +1462,25 @@ defineExpose({ refresh })
 .field-control {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: white;
   padding: 0.58rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.78rem;
   line-height: 1.45;
   outline: none;
 }
 
 .field-control:focus {
-  border-color: rgb(8 145 178);
-  box-shadow: 0 0 0 3px rgb(165 243 252 / 0.65);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.65);
 }
 
 .row-footer {
   align-items: center;
   margin-top: 0.8rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
@@ -1510,7 +1510,7 @@ defineExpose({ refresh })
 }
 
 .result-link {
-  color: rgb(8 145 178);
+  color: rgb(26 127 90);
 }
 
 .primary-action,
@@ -1520,15 +1520,15 @@ defineExpose({ refresh })
 }
 
 .primary-action {
-  border: 1px solid rgb(14 116 144);
-  background: rgb(14 116 144);
+  border: 1px solid rgb(18 99 74);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .secondary-action {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .danger-action {
@@ -1549,10 +1549,10 @@ defineExpose({ refresh })
   align-items: center;
   gap: 0.8rem;
   margin-top: 1rem;
-  border: 1px dashed rgb(203 213 225);
+  border: 1px dashed var(--border-subtle);
   border-radius: 8px;
   padding: 1.4rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .state-message > div {
@@ -1561,7 +1561,7 @@ defineExpose({ refresh })
 }
 
 .state-message strong {
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.85rem;
 }
 
@@ -1573,10 +1573,10 @@ defineExpose({ refresh })
 
 .state-message button,
 .load-more {
-  border: 1px solid rgb(8 145 178);
+  border: 1px solid rgb(26 127 90);
   background: white;
   padding: 0.5rem 0.75rem;
-  color: rgb(8 145 178);
+  color: rgb(26 127 90);
 }
 
 .state-message-error {
@@ -1596,13 +1596,13 @@ defineExpose({ refresh })
   display: grid;
   gap: 0.5rem;
   padding: 1rem 0;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .skeleton-line {
   height: 0.7rem;
   border-radius: 4px;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .skeleton-line-short {
@@ -1686,9 +1686,9 @@ defineExpose({ refresh })
 .dark .icon-button,
 .dark .field-control,
 .dark .secondary-action {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .release-form {
@@ -1701,30 +1701,30 @@ defineExpose({ refresh })
 }
 
 .dark .scope-switch {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.62);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 62%, transparent);
 }
 
 .dark .scope-switch button {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .scope-switch button.active {
-  background: rgb(30 41 59);
-  color: rgb(103 232 249);
+  background: var(--surface-1);
+  color: rgb(124 195 165);
   box-shadow: none;
 }
 
 .dark .workspace-heading,
 .dark .claimed-need-row,
 .dark .skeleton-row {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .workspace-heading h2,
 .dark .row-title h3,
 .dark .state-message strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .workspace-heading span,
@@ -1732,36 +1732,36 @@ defineExpose({ refresh })
 .dark .row-heading time,
 .dark .row-footer,
 .dark .state-message {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .meta-badge,
 .dark .delivery-state[data-tone='muted'],
 .dark .state-message,
 .dark .submission-summary {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.62);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 62%, transparent);
+  color: var(--text-muted);
 }
 
 .dark .submission-form {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .submission-form label,
 .dark .submission-summary span,
 .dark .submission-summary small,
 .dark .submission-summary time {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .submission-summary strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .delivery-state {
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(191 219 254);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(169 216 195);
 }
 
 .dark .delivery-state[data-tone='success'] {
@@ -1786,11 +1786,11 @@ defineExpose({ refresh })
 }
 
 .dark .skeleton-line {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .manual-delivery-fallback {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -1804,6 +1804,6 @@ defineExpose({ refresh })
 }
 
 .dark .manual-delivery-fallback {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 </style>

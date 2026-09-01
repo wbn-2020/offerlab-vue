@@ -189,39 +189,39 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.health-page { background: rgb(248 250 252); }
+.health-page { background: var(--surface-soft); }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
-.page-header p { margin: 0; color: rgb(8 145 178); font-size: .75rem; font-weight: 800; }
-.page-header h1 { margin: .25rem 0; color: rgb(15 23 42); font-size: 1.5rem; font-weight: 900; }
-.page-header span { display: block; max-width: 58rem; color: rgb(100 116 139); font-size: .875rem; line-height: 1.6; }
-.icon-button { display: inline-flex; height: 2.5rem; width: 2.5rem; flex: none; align-items: center; justify-content: center; border: 1px solid rgb(203 213 225); border-radius: .5rem; background: white; color: rgb(51 65 85); }
+.page-header p { margin: 0; color: rgb(26 127 90); font-size: .75rem; font-weight: 800; }
+.page-header h1 { margin: .25rem 0; color: var(--text-strong); font-size: 1.5rem; font-weight: 900; }
+.page-header span { display: block; max-width: 58rem; color: var(--text-muted); font-size: .875rem; line-height: 1.6; }
+.icon-button { display: inline-flex; height: 2.5rem; width: 2.5rem; flex: none; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: .5rem; background: white; color: var(--text-primary); }
 .health-grid { display: grid; gap: 1rem; }
-.health-row { border: 1px solid rgb(226 232 240); border-radius: .625rem; background: white; padding: 1.15rem; }
+.health-row { border: 1px solid var(--border-subtle); border-radius: .625rem; background: white; padding: 1.15rem; }
 .row-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .title-line { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-.title-line h2 { margin: 0; color: rgb(15 23 42); font-size: 1rem; font-weight: 900; }
-.row-title p, .reason { margin: .35rem 0 0; color: rgb(100 116 139); font-size: .78rem; line-height: 1.55; }
-.row-title > strong { color: rgb(8 145 178); font-size: 1.5rem; font-weight: 900; }
+.title-line h2 { margin: 0; color: var(--text-strong); font-size: 1rem; font-weight: 900; }
+.row-title p, .reason { margin: .35rem 0 0; color: var(--text-muted); font-size: .78rem; line-height: 1.55; }
+.row-title > strong { color: rgb(26 127 90); font-size: 1.5rem; font-weight: 900; }
 .status { border-radius: 999px; padding: .2rem .55rem; font-size: .68rem; font-weight: 900; }
 .status-stable { background: rgb(220 252 231); color: rgb(21 128 61); }
 .status-attention { background: rgb(254 243 199); color: rgb(146 64 14); }
 .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin-top: 1rem; }
-.metric-grid div { min-width: 0; border: 1px solid rgb(226 232 240); border-radius: .5rem; background: rgb(248 250 252); padding: .7rem; }
-.metric-grid span { display: block; color: rgb(100 116 139); font-size: .7rem; font-weight: 700; }
-.metric-grid strong { display: block; margin-top: .3rem; color: rgb(15 23 42); font-size: 1.2rem; font-weight: 900; }
-.metric-grid small { display: block; margin-top: .25rem; color: rgb(100 116 139); font-size: .68rem; line-height: 1.35; }
-.reason { border-top: 1px solid rgb(241 245 249); padding-top: .75rem; }
+.metric-grid div { min-width: 0; border: 1px solid var(--border-subtle); border-radius: .5rem; background: var(--surface-soft); padding: .7rem; }
+.metric-grid span { display: block; color: var(--text-muted); font-size: .7rem; font-weight: 700; }
+.metric-grid strong { display: block; margin-top: .3rem; color: var(--text-strong); font-size: 1.2rem; font-weight: 900; }
+.metric-grid small { display: block; margin-top: .25rem; color: var(--text-muted); font-size: .68rem; line-height: 1.35; }
+.reason { border-top: 1px solid var(--border-subtle); padding-top: .75rem; }
 .reason-stable { color: rgb(21 128 61); }
 .row-actions { display: flex; justify-content: flex-end; margin-top: .75rem; }
-.create-task-link { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; border: 1px solid rgb(8 145 178); border-radius: .5rem; padding: .45rem .7rem; color: rgb(8 145 178); font-size: .75rem; font-weight: 900; }
-.state { border: 1px dashed rgb(203 213 225); border-radius: .625rem; background: white; padding: 2rem; color: rgb(100 116 139); text-align: center; }
+.create-task-link { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; border: 1px solid rgb(26 127 90); border-radius: .5rem; padding: .45rem .7rem; color: rgb(26 127 90); font-size: .75rem; font-weight: 900; }
+.state { border: 1px dashed var(--border-subtle); border-radius: .625rem; background: white; padding: 2rem; color: var(--text-muted); text-align: center; }
 .state-error { border-style: solid; border-color: rgb(254 202 202); color: rgb(185 28 28); }
 .projection-workspace { display: grid; gap: 1rem; margin-top: 1rem; }
 @media (max-width: 800px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.dark .health-page { background: rgb(2 6 23); }
-.dark .page-header h1, .dark .title-line h2, .dark .metric-grid strong { color: rgb(248 250 252); }
-.dark .page-header span, .dark .row-title p, .dark .reason, .dark .metric-grid span, .dark .metric-grid small { color: rgb(148 163 184); }
-.dark .icon-button, .dark .health-row, .dark .state { border-color: rgb(51 65 85); background: rgb(15 23 42); color: rgb(203 213 225); }
-.dark .metric-grid div { border-color: rgb(51 65 85); background: rgb(2 6 23 / .6); }
-.dark .reason { border-color: rgb(30 41 59); }
+.dark .health-page { background: var(--surface-1); }
+.dark .page-header h1, .dark .title-line h2, .dark .metric-grid strong { color: var(--text-strong); }
+.dark .page-header span, .dark .row-title p, .dark .reason, .dark .metric-grid span, .dark .metric-grid small { color: var(--text-muted); }
+.dark .icon-button, .dark .health-row, .dark .state { border-color: var(--border-subtle); background: var(--surface-1); color: var(--text-muted); }
+.dark .metric-grid div { border-color: var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 60%, transparent); }
+.dark .reason { border-color: var(--border-subtle); }
 </style>

@@ -283,9 +283,9 @@ watch(requestKey, () => {
 <style scoped>
 .revisit-panel {
   min-width: 0;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.75rem;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 1rem;
 }
 
@@ -297,14 +297,14 @@ watch(requestKey, () => {
 }
 
 .revisit-eyebrow {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 900;
 }
 
 .revisit-head h2 {
   margin-top: 0.15rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.05rem;
   font-weight: 900;
   line-height: 1.35;
@@ -314,7 +314,7 @@ watch(requestKey, () => {
 .revisit-block p,
 .revisit-preference-note {
   margin-top: 0.35rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -328,7 +328,7 @@ watch(requestKey, () => {
   border-radius: 0.5rem;
   background: white;
   padding: 0.45rem 0.8rem;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
   font-size: 0.8125rem;
   font-weight: 900;
 }
@@ -342,7 +342,7 @@ watch(requestKey, () => {
 
 .revisit-block {
   min-width: 0;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.625rem;
   background: white;
   padding: 0.85rem;
@@ -353,13 +353,13 @@ watch(requestKey, () => {
   min-width: 0;
   align-items: center;
   gap: 0.45rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .revisit-block-title strong {
   min-width: 0;
   overflow: hidden;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.9rem;
   font-weight: 900;
   text-overflow: ellipsis;
@@ -374,7 +374,7 @@ watch(requestKey, () => {
 
 .revisit-item {
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.55rem;
 }
 
@@ -392,7 +392,7 @@ watch(requestKey, () => {
 }
 
 .revisit-link span {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.84rem;
   font-weight: 900;
   white-space: nowrap;
@@ -402,7 +402,7 @@ watch(requestKey, () => {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.45;
@@ -422,12 +422,12 @@ watch(requestKey, () => {
   align-items: center;
   justify-content: center;
   border-radius: 0.4rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .revisit-item-actions button:hover:not(:disabled) {
-  background: rgb(219 234 254);
-  color: rgb(29 78 216);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .revisit-item-actions button:disabled {
@@ -444,7 +444,7 @@ watch(requestKey, () => {
   border-radius: 0.625rem;
   background: white;
   padding: 0.85rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -456,20 +456,20 @@ watch(requestKey, () => {
 }
 
 .dark .revisit-panel {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .revisit-action,
 .dark .revisit-block,
 .dark .revisit-empty {
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .revisit-head h2,
 .dark .revisit-block-title strong,
 .dark .revisit-link span {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .revisit-head p,
@@ -477,16 +477,16 @@ watch(requestKey, () => {
 .dark .revisit-preference-note,
 .dark .revisit-empty,
 .dark .revisit-link small {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .revisit-item {
-  background: rgb(15 23 42);
+  background: var(--surface-1);
 }
 
 .dark .revisit-item-actions button:hover:not(:disabled) {
-  background: rgb(30 58 138 / 0.5);
-  color: rgb(191 219 254);
+  background: rgb(10 52 39 / 0.5);
+  color: rgb(169 216 195);
 }
 
 .revisit-filters {
@@ -500,7 +500,7 @@ watch(requestKey, () => {
 
 .revisit-filters span {
   margin-bottom: 0.35rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -508,11 +508,11 @@ watch(requestKey, () => {
 .revisit-filters select {
   width: min(100%, 16rem);
   min-height: 2.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0 0.7rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8rem;
 }
 
@@ -527,9 +527,9 @@ watch(requestKey, () => {
 }
 
 .dark .revisit-filters select {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 @media (max-width: 768px) {

@@ -752,49 +752,49 @@ watch(() => props.refreshKey, (value, previousValue) => {
 </script>
 
 <style scoped>
-.candidate-panel { border: 1px solid rgb(226 232 240); border-radius: .625rem; background: white; padding: 1.15rem; }
+.candidate-panel { border: 1px solid var(--border-subtle); border-radius: .625rem; background: white; padding: 1.15rem; }
 .panel-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
-.panel-header p, .batch-form-header p { margin: 0; color: rgb(8 145 178); font-size: .75rem; font-weight: 800; }
-.panel-header h2, .batch-form-header h3 { margin: .25rem 0 0; color: rgb(15 23 42); font-size: 1rem; font-weight: 900; }
+.panel-header p, .batch-form-header p { margin: 0; color: rgb(26 127 90); font-size: .75rem; font-weight: 800; }
+.panel-header h2, .batch-form-header h3 { margin: .25rem 0 0; color: var(--text-strong); font-size: 1rem; font-weight: 900; }
 .panel-controls { display: flex; align-items: flex-end; gap: .5rem; }
-.domain-picker, .lifecycle-picker, .batch-field, .disposition-field { display: grid; gap: .25rem; color: rgb(100 116 139); font-size: .68rem; font-weight: 800; }
-.domain-picker select, .lifecycle-picker select, .batch-field input, .batch-field select, .disposition-field select { min-width: 0; border: 1px solid rgb(203 213 225); border-radius: .5rem; background: white; color: rgb(15 23 42); font-size: .75rem; padding: .45rem .55rem; }
+.domain-picker, .lifecycle-picker, .batch-field, .disposition-field { display: grid; gap: .25rem; color: var(--text-muted); font-size: .68rem; font-weight: 800; }
+.domain-picker select, .lifecycle-picker select, .batch-field input, .batch-field select, .disposition-field select { min-width: 0; border: 1px solid var(--border-subtle); border-radius: .5rem; background: white; color: var(--text-strong); font-size: .75rem; padding: .45rem .55rem; }
 .domain-picker select { min-width: 9rem; }
-.icon-button { display: inline-flex; height: 2.25rem; width: 2.25rem; align-items: center; justify-content: center; border: 1px solid rgb(203 213 225); border-radius: .5rem; background: white; color: rgb(51 65 85); }
+.icon-button { display: inline-flex; height: 2.25rem; width: 2.25rem; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: .5rem; background: white; color: var(--text-primary); }
 .icon-button:disabled, .load-more-button:disabled, .retry-button:disabled, .secondary-action:disabled, .batch-create-button:disabled, .text-action:disabled { cursor: not-allowed; opacity: .55; }
-.panel-caption { margin: .75rem 0 0; color: rgb(100 116 139); font-size: .75rem; line-height: 1.55; }
+.panel-caption { margin: .75rem 0 0; color: var(--text-muted); font-size: .75rem; line-height: 1.55; }
 .panel-filters { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-top: .85rem; }
 .lifecycle-picker { min-width: 10rem; }
-.filter-summary { color: rgb(100 116 139); font-size: .7rem; font-weight: 800; }
-.state { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-top: .85rem; border: 1px dashed rgb(203 213 225); border-radius: .5rem; background: rgb(248 250 252); padding: 1.2rem; color: rgb(100 116 139); font-size: .8rem; text-align: center; }
+.filter-summary { color: var(--text-muted); font-size: .7rem; font-weight: 800; }
+.state { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-top: .85rem; border: 1px dashed var(--border-subtle); border-radius: .5rem; background: var(--surface-soft); padding: 1.2rem; color: var(--text-muted); font-size: .8rem; text-align: center; }
 .state-error { border-style: solid; border-color: rgb(254 202 202); color: rgb(185 28 28); }
-.batch-form { margin-top: .85rem; border: 1px solid rgb(165 243 252); border-radius: .5rem; background: rgb(236 254 255); padding: .85rem; }
+.batch-form { margin-top: .85rem; border: 1px solid rgb(169 216 195); border-radius: .5rem; background: rgb(232 243 237); padding: .85rem; }
 .batch-form-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
-.text-action { min-height: 28px; border: 0; background: transparent; color: rgb(14 116 144); font-size: .7rem; font-weight: 800; }
+.text-action { min-height: 28px; border: 0; background: transparent; color: rgb(18 99 74); font-size: .7rem; font-weight: 800; }
 .batch-fields { display: grid; grid-template-columns: minmax(12rem, 2fr) repeat(3, minmax(7rem, 1fr)); gap: .6rem; margin-top: .75rem; }
 .batch-name-field { min-width: 0; }
 .batch-submit-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .75rem; }
 .batch-error { color: rgb(185 28 28); font-size: .7rem; font-weight: 800; line-height: 1.4; }
-.batch-create-button { min-height: 34px; flex: none; border: 1px solid rgb(8 145 178); border-radius: .5rem; background: rgb(8 145 178); padding: .4rem .7rem; color: white; font-size: .72rem; font-weight: 900; }
-.suppressed-notice { margin: .85rem 0 0; border: 1px solid rgb(226 232 240); border-radius: .5rem; background: rgb(248 250 252); padding: .55rem .7rem; color: rgb(100 116 139); font-size: .72rem; line-height: 1.45; }
-.retry-button, .load-more-button, .post-link, .secondary-action { min-height: 32px; border: 1px solid rgb(203 213 225); border-radius: .5rem; background: white; padding: .35rem .55rem; color: rgb(51 65 85); font-size: .72rem; font-weight: 800; }
+.batch-create-button { min-height: 34px; flex: none; border: 1px solid rgb(26 127 90); border-radius: .5rem; background: rgb(26 127 90); padding: .4rem .7rem; color: white; font-size: .72rem; font-weight: 900; }
+.suppressed-notice { margin: .85rem 0 0; border: 1px solid var(--border-subtle); border-radius: .5rem; background: var(--surface-soft); padding: .55rem .7rem; color: var(--text-muted); font-size: .72rem; line-height: 1.45; }
+.retry-button, .load-more-button, .post-link, .secondary-action { min-height: 32px; border: 1px solid var(--border-subtle); border-radius: .5rem; background: white; padding: .35rem .55rem; color: var(--text-primary); font-size: .72rem; font-weight: 800; }
 .candidate-list { display: grid; gap: .65rem; margin-top: .85rem; }
-.candidate-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border-top: 1px solid rgb(241 245 249); padding-top: .75rem; }
+.candidate-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--border-subtle); padding-top: .75rem; }
 .candidate-main { min-width: 0; }
 .candidate-title { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-.candidate-title h3 { overflow: hidden; margin: 0; color: rgb(15 23 42); font-size: .85rem; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
-.candidate-select { display: inline-flex; align-items: center; gap: .25rem; color: rgb(14 116 144); font-size: .66rem; font-weight: 900; }
-.candidate-select input { accent-color: rgb(8 145 178); }
+.candidate-title h3 { overflow: hidden; margin: 0; color: var(--text-strong); font-size: .85rem; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.candidate-select { display: inline-flex; align-items: center; gap: .25rem; color: rgb(18 99 74); font-size: .66rem; font-weight: 900; }
+.candidate-select input { accent-color: rgb(26 127 90); }
 .candidate-status { border-radius: 999px; padding: .18rem .45rem; font-size: .65rem; font-weight: 800; }
 .candidate-status-ready { background: rgb(220 252 231); color: rgb(21 128 61); }
 .candidate-status-task { background: rgb(224 242 254); color: rgb(3 105 161); }
 .candidate-status-stale { background: rgb(254 243 199); color: rgb(146 64 14); }
-.candidate-status-dismissed { background: rgb(241 245 249); color: rgb(71 85 105); }
-.candidate-status-snoozed { background: rgb(224 231 255); color: rgb(67 56 202); }
-.candidate-main p { margin: .35rem 0 0; color: rgb(100 116 139); font-size: .75rem; line-height: 1.5; }
-.candidate-disposition-meta { color: rgb(71 85 105) !important; font-weight: 800; }
+.candidate-status-dismissed { background: var(--surface-soft); color: var(--text-primary); }
+.candidate-status-snoozed { background: rgb(205 232 220); color: rgb(18 99 74); }
+.candidate-main p { margin: .35rem 0 0; color: var(--text-muted); font-size: .75rem; line-height: 1.5; }
+.candidate-disposition-meta { color: var(--text-primary) !important; font-weight: 800; }
 .candidate-actions { display: flex; flex: none; align-items: center; gap: .45rem; }
-.action-state { max-width: 15rem; color: rgb(100 116 139); font-size: .7rem; font-weight: 800; line-height: 1.4; text-align: right; }
+.action-state { max-width: 15rem; color: var(--text-muted); font-size: .7rem; font-weight: 800; line-height: 1.4; text-align: right; }
 .post-link { display: inline-flex; align-items: center; text-decoration: none; }
 .secondary-action { display: inline-flex; align-items: center; justify-content: center; }
 .disposition-controls { display: grid; gap: .45rem; }
@@ -819,22 +819,22 @@ watch(() => props.refreshKey, (value, previousValue) => {
   .action-state { max-width: none; text-align: left; }
   .batch-create-button { width: 100%; }
 }
-.dark .candidate-panel { border-color: rgb(51 65 85); background: rgb(15 23 42); }
-.dark .panel-header h2, .dark .batch-form-header h3, .dark .candidate-title h3 { color: rgb(248 250 252); }
-.dark .domain-picker, .dark .panel-caption, .dark .state, .dark .candidate-main p, .dark .lifecycle-picker, .dark .filter-summary, .dark .batch-field, .dark .disposition-field { color: rgb(148 163 184); }
-.dark .domain-picker select, .dark .lifecycle-picker select, .dark .batch-field input, .dark .batch-field select, .dark .icon-button, .dark .retry-button, .dark .load-more-button, .dark .post-link, .dark .secondary-action, .dark .disposition-field select { border-color: rgb(51 65 85); background: rgb(2 6 23); color: rgb(203 213 225); }
-.dark .state { border-color: rgb(51 65 85); background: rgb(2 6 23 / .55); }
+.dark .candidate-panel { border-color: var(--border-subtle); background: var(--surface-1); }
+.dark .panel-header h2, .dark .batch-form-header h3, .dark .candidate-title h3 { color: var(--text-strong); }
+.dark .domain-picker, .dark .panel-caption, .dark .state, .dark .candidate-main p, .dark .lifecycle-picker, .dark .filter-summary, .dark .batch-field, .dark .disposition-field { color: var(--text-muted); }
+.dark .domain-picker select, .dark .lifecycle-picker select, .dark .batch-field input, .dark .batch-field select, .dark .icon-button, .dark .retry-button, .dark .load-more-button, .dark .post-link, .dark .secondary-action, .dark .disposition-field select { border-color: var(--border-subtle); background: var(--surface-1); color: var(--text-muted); }
+.dark .state { border-color: var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 55%, transparent); }
 .dark .state-error { border-color: rgb(127 29 29); color: rgb(252 165 165); }
-.dark .batch-form { border-color: rgb(14 116 144); background: rgb(8 47 73); }
-.dark .text-action, .dark .candidate-select { color: rgb(103 232 249); }
+.dark .batch-form { border-color: rgb(18 99 74); background: rgb(7 31 24); }
+.dark .text-action, .dark .candidate-select { color: rgb(124 195 165); }
 .dark .batch-error { color: rgb(252 165 165); }
-.dark .suppressed-notice { border-color: rgb(51 65 85); background: rgb(2 6 23 / .55); color: rgb(148 163 184); }
+.dark .suppressed-notice { border-color: var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 55%, transparent); color: var(--text-muted); }
 .dark .candidate-status-task { background: rgb(7 89 133); color: rgb(186 230 253); }
 .dark .candidate-status-stale { background: rgb(120 53 15); color: rgb(253 230 138); }
-.dark .candidate-status-dismissed { background: rgb(30 41 59); color: rgb(203 213 225); }
-.dark .candidate-status-snoozed { background: rgb(49 46 129); color: rgb(224 231 255); }
-.dark .candidate-disposition-meta { color: rgb(203 213 225) !important; }
-.dark .action-state { color: rgb(148 163 184); }
+.dark .candidate-status-dismissed { background: var(--surface-1); color: var(--text-muted); }
+.dark .candidate-status-snoozed { background: rgb(10 52 39); color: rgb(205 232 220); }
+.dark .candidate-disposition-meta { color: var(--text-muted) !important; }
+.dark .action-state { color: var(--text-muted); }
 .dark .load-more-error { color: rgb(252 165 165); }
-.dark .candidate-row { border-color: rgb(30 41 59); }
+.dark .candidate-row { border-color: var(--border-subtle); }
 </style>

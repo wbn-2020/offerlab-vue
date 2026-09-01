@@ -48,7 +48,7 @@
             <form class="settings-group" @submit.prevent="changePassword">
               <div class="group-heading">
                 <h3>修改密码</h3>
-                <p>新密码至少 8 位，提交后立即生效。</p>
+                <p>新密码至少 8 位，且需同时包含字母和数字，提交后立即生效。</p>
               </div>
               <div class="password-grid">
                 <label class="field-block">
@@ -726,7 +726,7 @@ const changePassword = async () => {
   const confirmPassword = passwordForm.value.confirmPassword
 
   if (newPassword.length < 8) {
-    toast.error('新密码至少需要 8 位')
+    toast.error('新密码至少 8 位，且需同时包含字母和数字')
     return
   }
   if (newPassword !== confirmPassword) {
@@ -819,7 +819,7 @@ const updateNotificationPreferences = async () => {
 
 <style scoped>
 .panel {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 2rem;
@@ -829,7 +829,7 @@ const updateNotificationPreferences = async () => {
   min-height: 44px;
   border-bottom: 2px solid transparent;
   padding: 0.75rem 1rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 600;
   transition: color 0.15s ease, border-color 0.15s ease;
@@ -838,14 +838,14 @@ const updateNotificationPreferences = async () => {
 
 .tab-button:hover,
 .tab-button-active {
-  border-color: rgb(79 70 229);
-  color: rgb(79 70 229);
+  border-color: rgb(26 127 90);
+  color: rgb(26 127 90);
 }
 
 .field-label {
   display: block;
   margin-bottom: 0.5rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 600;
 }
@@ -855,18 +855,18 @@ const updateNotificationPreferences = async () => {
   min-height: 40px;
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.625rem 0.75rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   outline: none;
 }
 
 .form-input:focus,
 .form-select:focus {
-  border-color: rgb(79 70 229);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.7);
 }
 
 .form-select {
@@ -888,22 +888,22 @@ const updateNotificationPreferences = async () => {
 }
 
 .primary-button {
-  background: rgb(79 70 229);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .primary-button:hover:not(:disabled) {
-  background: rgb(67 56 202);
+  background: rgb(18 99 74);
 }
 
 .secondary-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .secondary-button:hover:not(:disabled) {
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .danger-button {
@@ -917,7 +917,7 @@ const updateNotificationPreferences = async () => {
 }
 
 .account-section {
-  border-bottom: 1px solid rgb(241 245 249);
+  border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 1.5rem;
 }
 
@@ -935,27 +935,27 @@ const updateNotificationPreferences = async () => {
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  border-bottom: 1px solid rgb(241 245 249);
+  border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 1.25rem;
 }
 
 .setting-title {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 700;
 }
 
 .setting-desc {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
 .setting-help {
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.75rem 0.9rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   font-weight: 600;
 }
@@ -964,7 +964,7 @@ const updateNotificationPreferences = async () => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
-  border-bottom: 1px solid rgb(241 245 249);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 0 0 1.25rem 0;
 }
 
@@ -978,15 +978,15 @@ const updateNotificationPreferences = async () => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.875rem;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .notification-toggle:not(.notification-toggle-disabled):hover {
-  border-color: rgb(165 180 252);
+  border-color: rgb(169 216 195);
   background: white;
 }
 
@@ -1000,14 +1000,14 @@ const updateNotificationPreferences = async () => {
 }
 
 .notification-title {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   font-weight: 700;
 }
 
 .notification-desc {
   margin-top: 0.2rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.35;
 }
@@ -1016,7 +1016,7 @@ const updateNotificationPreferences = async () => {
   height: 1.25rem;
   width: 1.25rem;
   flex: 0 0 auto;
-  accent-color: rgb(79 70 229);
+  accent-color: rgb(26 127 90);
 }
 
 .theme-mode-grid {
@@ -1028,8 +1028,8 @@ const updateNotificationPreferences = async () => {
 .theme-option {
   min-height: 92px;
   border-radius: 0.625rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
   text-align: left;
   transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
@@ -1041,22 +1041,22 @@ const updateNotificationPreferences = async () => {
 }
 
 .theme-option span {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 800;
 }
 
 .theme-option small {
   margin-top: 0.375rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   line-height: 1.45;
 }
 
 .theme-option-active {
-  border-color: rgb(99 102 241);
-  background: rgb(238 242 255);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.65);
+  border-color: rgb(33 154 112);
+  background: rgb(232 243 237);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.65);
 }
 
 .theme-preview {
@@ -1065,21 +1065,21 @@ const updateNotificationPreferences = async () => {
   justify-content: space-between;
   gap: 1rem;
   border-radius: 0.625rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
 .theme-preview span,
 .theme-preview p {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
 }
 
 .theme-preview strong {
   display: block;
   margin-top: 0.25rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.125rem;
 }
 
@@ -1091,27 +1091,27 @@ const updateNotificationPreferences = async () => {
 
 .feed-control-filter button {
   min-height: 36px;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.4rem 0.75rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 700;
 }
 
 .feed-control-filter button:hover,
 .feed-control-filter-active {
-  border-color: rgb(129 140 248) !important;
-  background: rgb(238 242 255) !important;
-  color: rgb(67 56 202) !important;
+  border-color: rgb(124 195 165) !important;
+  background: rgb(232 243 237) !important;
+  color: rgb(18 99 74) !important;
 }
 
 .feed-control-state {
-  border: 1px dashed rgb(203 213 225);
+  border: 1px dashed var(--border-subtle);
   border-radius: 0.5rem;
   padding: 1.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -1133,7 +1133,7 @@ const updateNotificationPreferences = async () => {
 }
 
 .feed-control-list {
-  border-top: 1px solid rgb(241 245 249);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .feed-control-row {
@@ -1141,7 +1141,7 @@ const updateNotificationPreferences = async () => {
   grid-template-columns: 36px minmax(0, 1fr) 36px;
   align-items: center;
   gap: 0.75rem;
-  border-bottom: 1px solid rgb(241 245 249);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 0.875rem 0;
 }
 
@@ -1151,28 +1151,28 @@ const updateNotificationPreferences = async () => {
   width: 36px;
   place-items: center;
   border-radius: 0.5rem;
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .feed-control-row h3 {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   font-weight: 700;
 }
 
 .feed-control-row p {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.4;
 }
 
 .feed-control-type {
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.15rem 0.45rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.6875rem;
   font-weight: 700;
 }
@@ -1183,7 +1183,7 @@ const updateNotificationPreferences = async () => {
   width: 36px;
   place-items: center;
   border-radius: 0.5rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .feed-control-remove:hover:not(:disabled) {
@@ -1201,8 +1201,8 @@ const updateNotificationPreferences = async () => {
 .dark .form-select,
 .dark .secondary-button,
 .dark .danger-button {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .field-label,
@@ -1210,23 +1210,23 @@ const updateNotificationPreferences = async () => {
 .dark .form-input,
 .dark .form-select,
 .dark .secondary-button {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .feed-control-filter button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .feed-control-filter-active {
-  background: rgb(49 46 129 / 0.45) !important;
-  color: rgb(199 210 254) !important;
+  background: rgb(10 52 39 / 0.45) !important;
+  color: rgb(169 216 195) !important;
 }
 
 .dark .feed-control-state {
-  border-color: rgb(51 65 85);
-  color: rgb(148 163 184);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .dark .feed-control-state-error {
@@ -1236,29 +1236,29 @@ const updateNotificationPreferences = async () => {
 
 .dark .feed-control-list,
 .dark .feed-control-row {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .feed-control-icon {
-  background: rgb(49 46 129 / 0.45);
-  color: rgb(199 210 254);
+  background: rgb(10 52 39 / 0.45);
+  color: rgb(169 216 195);
 }
 
 .dark .feed-control-row h3 {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .feed-control-row p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .feed-control-type {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .feed-control-remove {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .feed-control-remove:hover:not(:disabled) {
@@ -1267,79 +1267,79 @@ const updateNotificationPreferences = async () => {
 }
 
 .dark .tab-button {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .tab-button:hover,
 .dark .tab-button-active {
-  color: rgb(129 140 248);
+  color: rgb(124 195 165);
 }
 
 .dark .setting-row,
 .dark .switch-row {
-  border-bottom-color: rgb(30 41 59);
+  border-bottom-color: var(--border-subtle);
 }
 
 .dark .setting-desc {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .setting-help {
-  background: rgb(2 6 23);
-  color: rgb(148 163 184);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .notification-grid {
-  border-bottom-color: rgb(30 41 59);
+  border-bottom-color: var(--border-subtle);
 }
 
 .dark .notification-toggle {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .notification-toggle:not(.notification-toggle-disabled):hover {
-  border-color: rgb(99 102 241);
-  background: rgb(30 41 59);
+  border-color: rgb(33 154 112);
+  background: var(--surface-1);
 }
 
 .dark .notification-title {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .notification-desc {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .theme-option,
 .dark .theme-preview {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .theme-option-active {
-  border-color: rgb(129 140 248);
-  background: rgb(49 46 129 / 0.45);
-  box-shadow: 0 0 0 3px rgb(79 70 229 / 0.28);
+  border-color: rgb(124 195 165);
+  background: rgb(10 52 39 / 0.45);
+  box-shadow: 0 0 0 3px rgb(26 127 90 / 0.28);
 }
 
 .dark .theme-option span,
 .dark .theme-preview strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .theme-option small,
 .dark .theme-preview span,
 .dark .theme-preview p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .secondary-button:hover:not(:disabled) {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .account-section {
-  border-bottom-color: rgb(30 41 59);
+  border-bottom-color: var(--border-subtle);
 }
 
 .dark .danger-button {
@@ -1569,8 +1569,8 @@ const updateNotificationPreferences = async () => {
 
 .form-input:focus,
 .form-select:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+  border-color: #7cc3a5;
+  box-shadow: 0 0 0 3px rgb(26 127 90 / 0.12);
 }
 
 .form-select {
@@ -1614,7 +1614,7 @@ const updateNotificationPreferences = async () => {
 }
 
 .secondary-button:hover:not(:disabled) {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -1700,12 +1700,12 @@ const updateNotificationPreferences = async () => {
 }
 
 .theme-option:hover {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--surface-1);
 }
 
 .theme-option-active {
-  border-color: #93c5fd;
+  border-color: #7cc3a5;
   background: var(--primary-50);
   box-shadow: none;
 }
@@ -1784,7 +1784,7 @@ const updateNotificationPreferences = async () => {
   width: 1rem;
   border-radius: 50%;
   background: white;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.2);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.2);
   content: "";
   transition: transform 0.16s ease;
 }
@@ -1838,7 +1838,7 @@ const updateNotificationPreferences = async () => {
 }
 
 .notification-toggle:not(.notification-toggle-disabled):hover {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--surface-1);
 }
 
@@ -1885,7 +1885,7 @@ const updateNotificationPreferences = async () => {
 
 .feed-control-filter button:hover,
 .feed-control-filter-active {
-  border-color: #bfdbfe !important;
+  border-color: #a9d8c3 !important;
   background: var(--primary-50) !important;
   color: var(--primary-700) !important;
 }
@@ -1931,22 +1931,22 @@ const updateNotificationPreferences = async () => {
 .dark .form-select,
 .dark .secondary-button,
 .dark .danger-button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .settings-tabs .tab-button {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .settings-tabs .tab-button:hover {
-  background: rgb(30 41 59);
-  color: rgb(248 250 252);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .settings-tabs .tab-button-active {
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .panel-heading,
@@ -1955,7 +1955,7 @@ const updateNotificationPreferences = async () => {
 .dark .setting-row,
 .dark .switch-row,
 .dark .notification-grid {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .panel-heading h2,
@@ -1965,7 +1965,7 @@ const updateNotificationPreferences = async () => {
 .dark .theme-option span,
 .dark .notification-title,
 .dark .workspace-heading h1 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .panel-heading p,
@@ -1975,7 +1975,7 @@ const updateNotificationPreferences = async () => {
 .dark .workspace-heading > div > p:last-child,
 .dark .theme-option small,
 .dark .notification-desc {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .panel-meta,
@@ -1985,40 +1985,40 @@ const updateNotificationPreferences = async () => {
 .dark .theme-preview,
 .dark .setting-help,
 .dark .feed-control-type {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .form-input:disabled {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .theme-option,
 .dark .notification-toggle {
-  border-color: rgb(51 65 85);
-  background: rgb(17 24 39);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .theme-option:hover,
 .dark .notification-toggle:not(.notification-toggle-disabled):hover {
-  border-color: rgb(59 130 246);
-  background: rgb(30 41 59);
+  border-color: rgb(33 154 112);
+  background: var(--surface-1);
 }
 
 .dark .theme-option-active {
-  border-color: rgb(59 130 246);
-  background: rgb(23 37 84);
+  border-color: rgb(33 154 112);
+  background: rgb(7 31 24);
   box-shadow: none;
 }
 
 .dark .feed-control-filter-active {
-  background: rgb(23 37 84) !important;
-  color: rgb(191 219 254) !important;
+  background: rgb(7 31 24) !important;
+  color: rgb(169 216 195) !important;
 }
 
 .dark .feed-control-icon {
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .danger-button {

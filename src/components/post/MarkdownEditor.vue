@@ -124,12 +124,12 @@ const handlePaste = (event: ClipboardEvent) => {
 
 <style scoped>
 .markdown-editor-toolbar {
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 0.5rem;
 }
 
 .dark .markdown-editor-toolbar {
-  border-bottom-color: rgb(30 41 59);
+  border-bottom-color: var(--border-subtle);
 }
 
 .markdown-tabs {
@@ -137,15 +137,15 @@ const handlePaste = (event: ClipboardEvent) => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.25rem;
   width: min(100%, 16rem);
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.25rem;
 }
 
 .dark .markdown-tabs {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .markdown-tab-button {
@@ -159,29 +159,29 @@ const handlePaste = (event: ClipboardEvent) => {
 
 .markdown-tab-button-active {
   background: #fff;
-  color: rgb(37 99 235);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+  color: rgb(26 127 90);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.08);
 }
 
 .markdown-tab-button-idle {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .markdown-tab-button-idle:hover {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .dark .markdown-tab-button-active {
-  background: rgb(30 41 59);
-  color: rgb(96 165 250);
+  background: var(--surface-1);
+  color: rgb(70 172 134);
 }
 
 .dark .markdown-tab-button-idle {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .markdown-tab-button-idle:hover {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .markdown-counter {
@@ -234,7 +234,7 @@ const handlePaste = (event: ClipboardEvent) => {
   }
 
   .dark .markdown-editor-toolbar {
-    background: rgb(15 23 42 / 0.96);
+    background: color-mix(in srgb, var(--surface-1) 96%, transparent);
   }
 
   .markdown-tabs {

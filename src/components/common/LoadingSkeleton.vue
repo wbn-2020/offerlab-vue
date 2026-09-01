@@ -68,6 +68,6 @@ withDefaults(defineProps<{
 }
 
 .dark .feed-skeleton-row {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
 }
 </style>

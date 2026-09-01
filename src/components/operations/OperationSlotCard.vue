@@ -140,13 +140,13 @@ onBeforeUnmount(requestGate.invalidate)
 .operation-slot-card {
   min-height: 12.5rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(203 213 225 / 0.9);
-  background: linear-gradient(135deg, rgb(240 249 255), rgb(240 253 250));
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 90%, transparent);
+  background: linear-gradient(135deg, rgb(232 243 237), rgb(240 253 250));
   padding: 1rem;
 }
 
 .operation-slot-card--degraded {
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .operation-slot-head {
@@ -160,11 +160,11 @@ onBeforeUnmount(requestGate.invalidate)
 .operation-slot-label {
   display: inline-flex;
   border-radius: 999px;
-  background: rgb(8 145 178 / 0.12);
+  background: rgb(26 127 90 / 0.12);
   padding: 0.25rem 0.6rem;
   font-size: 0.72rem;
   font-weight: 900;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
 }
 
 .operation-slot-head h2 {
@@ -173,7 +173,7 @@ onBeforeUnmount(requestGate.invalidate)
   font-size: 1rem;
   font-weight: 900;
   line-height: 1.35;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .operation-slot-explain {
@@ -181,12 +181,12 @@ onBeforeUnmount(requestGate.invalidate)
   min-height: 2.4rem;
   font-size: 0.8rem;
   line-height: 1.55;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .operation-slot-meta {
   margin-top: 0.35rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
   line-height: 1.45;
 }
@@ -202,7 +202,7 @@ onBeforeUnmount(requestGate.invalidate)
 .operation-slot-state {
   min-height: 5.75rem;
   border-radius: 0.625rem;
-  border: 1px solid rgb(203 213 225 / 0.8);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
   background: rgb(255 255 255 / 0.82);
 }
 
@@ -215,14 +215,14 @@ onBeforeUnmount(requestGate.invalidate)
   align-items: center;
   gap: 0.35rem;
   border-radius: 0.45rem;
-  border: 1px solid rgb(14 116 144 / 0.45);
+  border: 1px solid rgb(18 99 74 / 0.45);
   padding: 0.35rem 0.6rem;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
   font-weight: 800;
 }
 
 .operation-slot-state--action button:focus-visible {
-  outline: 2px solid rgb(14 165 233);
+  outline: 2px solid rgb(33 154 112);
   outline-offset: 2px;
 }
 
@@ -236,26 +236,26 @@ onBeforeUnmount(requestGate.invalidate)
 }
 
 .operation-slot-item:hover {
-  border-color: rgb(14 165 233 / 0.8);
+  border-color: rgb(33 154 112 / 0.8);
   background: white;
 }
 
 .operation-slot-item span {
   font-size: 0.68rem;
   font-weight: 900;
-  color: rgb(8 145 178);
+  color: rgb(26 127 90);
 }
 
 /* 跨频道专题的中性标注：不用任何单频道配色，避免入口卡冒充频道归属。 */
 .operation-slot-item .operation-slot-scope {
   margin-left: 0.35rem;
-  border: 1px dashed rgb(148 163 184);
+  border: 1px dashed var(--border-subtle);
   border-radius: 999px;
   padding: 0.05rem 0.4rem;
   font-size: 0.62rem;
   font-style: normal;
   font-weight: 800;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .operation-slot-item strong {
@@ -265,7 +265,7 @@ onBeforeUnmount(requestGate.invalidate)
   -webkit-line-clamp: 2;
   font-size: 0.86rem;
   line-height: 1.35;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .operation-slot-item small {
@@ -276,7 +276,7 @@ onBeforeUnmount(requestGate.invalidate)
   margin-top: auto;
   font-size: 0.74rem;
   line-height: 1.45;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .operation-slot-state {
@@ -289,7 +289,7 @@ onBeforeUnmount(requestGate.invalidate)
   text-align: center;
   font-size: 0.85rem;
   font-weight: 800;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {
@@ -303,59 +303,59 @@ onBeforeUnmount(requestGate.invalidate)
 }
 
 .dark .operation-slot-card {
-  border-color: rgb(51 65 85 / 0.86);
-  background: linear-gradient(135deg, rgb(8 47 73 / 0.55), rgb(20 83 45 / 0.28));
+  border-color: color-mix(in srgb, var(--border-subtle) 86%, transparent);
+  background: linear-gradient(135deg, rgb(7 31 24 / 0.55), rgb(20 83 45 / 0.28));
 }
 
 .dark .operation-slot-card--degraded {
-  background: rgb(15 23 42 / 0.78);
+  background: color-mix(in srgb, var(--surface-1) 78%, transparent);
 }
 
 .dark .operation-slot-label {
-  background: rgb(14 116 144 / 0.32);
-  color: rgb(165 243 252);
+  background: rgb(18 99 74 / 0.32);
+  color: rgb(169 216 195);
 }
 
 .dark .operation-slot-head h2 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .operation-slot-explain,
 .dark .operation-slot-meta,
 .dark .operation-slot-state {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .operation-slot-item,
 .dark .operation-slot-state {
-  border-color: rgb(51 65 85 / 0.86);
-  background: rgb(15 23 42 / 0.78);
+  border-color: color-mix(in srgb, var(--border-subtle) 86%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 78%, transparent);
 }
 
 .dark .operation-slot-item:hover {
-  border-color: rgb(34 211 238 / 0.65);
-  background: rgb(30 41 59 / 0.82);
+  border-color: rgb(70 172 134 / 0.65);
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
 }
 
 .dark .operation-slot-item span {
-  color: rgb(103 232 249);
+  color: rgb(124 195 165);
 }
 
 .dark .operation-slot-item .operation-slot-scope {
-  border-color: rgb(71 85 105);
-  color: rgb(148 163 184);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .dark .operation-slot-item strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .operation-slot-item small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .operation-slot-state--action button {
-  border-color: rgb(34 211 238 / 0.55);
-  color: rgb(165 243 252);
+  border-color: rgb(70 172 134 / 0.55);
+  color: rgb(169 216 195);
 }
 </style>

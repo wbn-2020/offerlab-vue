@@ -285,10 +285,10 @@ const nextMockInterviewLink = computed(() => ({
 <style scoped>
 .panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .field-label {
@@ -297,7 +297,7 @@ const nextMockInterviewLink = computed(() => ({
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .field-input,
@@ -305,11 +305,11 @@ const nextMockInterviewLink = computed(() => ({
   margin-top: 0.45rem;
   width: 100%;
   border-radius: 0.65rem;
-  border: 1px solid rgb(203 213 225);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.75rem 0.85rem;
   font-size: 0.875rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
@@ -332,20 +332,20 @@ const nextMockInterviewLink = computed(() => ({
 }
 
 .primary-action {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .secondary-action {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .timer-card {
   min-width: 108px;
   border-radius: 0.75rem;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 0.8rem 1rem;
   text-align: center;
 }
@@ -354,7 +354,7 @@ const nextMockInterviewLink = computed(() => ({
   display: block;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .timer-card strong {
@@ -362,20 +362,20 @@ const nextMockInterviewLink = computed(() => ({
   margin-top: 0.15rem;
   font-size: 1.35rem;
   font-weight: 900;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .question-index {
   border-radius: 999px;
-  background: rgb(219 234 254);
+  background: rgb(205 232 220);
   padding: 0.25rem 0.55rem;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .review-box {
   border-radius: 0.75rem;
-  border: 1px solid rgb(219 234 254);
-  background: rgb(248 250 252);
+  border: 1px solid rgb(205 232 220);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
@@ -385,31 +385,31 @@ const nextMockInterviewLink = computed(() => ({
   align-items: center;
   gap: 0.55rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.85rem 1rem;
   font-size: 0.875rem;
   font-weight: 800;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .ai-toggle-row input {
   height: 1rem;
   width: 1rem;
-  accent-color: rgb(37 99 235);
+  accent-color: rgb(26 127 90);
 }
 
 .ai-toggle-row small {
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .ai-review-box {
   margin-top: 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 1rem;
 }
 
@@ -420,7 +420,7 @@ const nextMockInterviewLink = computed(() => ({
   gap: 0.75rem;
   font-size: 0.875rem;
   font-weight: 900;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .ai-review-head strong {
@@ -432,9 +432,9 @@ const nextMockInterviewLink = computed(() => ({
 .ai-review-head small {
   margin-left: 0.45rem;
   border-radius: 999px;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
   padding: 0.15rem 0.45rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .ai-review-pending {
@@ -451,7 +451,7 @@ const nextMockInterviewLink = computed(() => ({
   margin-top: 0.65rem;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .ai-review-meta {
@@ -459,7 +459,7 @@ const nextMockInterviewLink = computed(() => ({
   word-break: break-word;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .ai-review-meta-list {
@@ -477,7 +477,7 @@ const nextMockInterviewLink = computed(() => ({
   font-size: 0.75rem;
   font-weight: 800;
   line-height: 1.2;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .ai-review-grid {
@@ -496,14 +496,14 @@ const nextMockInterviewLink = computed(() => ({
   display: block;
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .ai-review-grid p {
   margin-top: 0.25rem;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .review-head {
@@ -512,12 +512,12 @@ const nextMockInterviewLink = computed(() => ({
   justify-content: space-between;
   font-size: 0.875rem;
   font-weight: 900;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .review-head strong {
   border-radius: 999px;
-  background: rgb(219 234 254);
+  background: rgb(205 232 220);
   padding: 0.1rem 0.5rem;
 }
 
@@ -537,14 +537,14 @@ const nextMockInterviewLink = computed(() => ({
 .review-list strong {
   display: block;
   font-size: 0.9rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .review-list p {
   margin-top: 0.25rem;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .review-list small {
@@ -552,7 +552,7 @@ const nextMockInterviewLink = computed(() => ({
   display: block;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .weak-review-box {
@@ -588,15 +588,15 @@ const nextMockInterviewLink = computed(() => ({
   justify-content: space-between;
   gap: 0.85rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 1rem;
 }
 
 .learning-loop-box strong {
   display: block;
   font-size: 0.9rem;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .learning-loop-box p {
@@ -604,7 +604,7 @@ const nextMockInterviewLink = computed(() => ({
   max-width: 34rem;
   font-size: 0.8rem;
   line-height: 1.6;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .learning-loop-actions {
@@ -615,71 +615,71 @@ const nextMockInterviewLink = computed(() => ({
 
 .dark .panel,
 .dark .secondary-action {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .field-input,
 .dark .answer-input {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(248 250 252);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .review-box {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .ai-toggle-row,
 .dark .ai-review-box {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .ai-toggle-row small,
 .dark .ai-review-grid span {
-  color: rgb(147 197 253);
+  color: rgb(124 195 165);
 }
 
 .dark .ai-review-head {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 
 .dark .ai-review-head strong,
 .dark .ai-review-grid div {
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .ai-review-head small {
-  background: rgb(51 65 85);
-  color: rgb(203 213 225);
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .dark .ai-review-grid p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .ai-review-message {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .ai-review-meta-list li {
-  background: rgb(15 23 42 / 0.75);
-  color: rgb(203 213 225);
+  background: color-mix(in srgb, var(--surface-1) 75%, transparent);
+  color: var(--text-muted);
 }
 
 .dark .review-list li {
-  background: rgb(15 23 42);
+  background: var(--surface-1);
 }
 
 .dark .review-list strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .review-list p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .weak-review-box {
@@ -688,8 +688,8 @@ const nextMockInterviewLink = computed(() => ({
 }
 
 .dark .learning-loop-box {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .weak-review-box strong {
@@ -702,6 +702,6 @@ const nextMockInterviewLink = computed(() => ({
 
 .dark .learning-loop-box strong,
 .dark .learning-loop-box p {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 </style>

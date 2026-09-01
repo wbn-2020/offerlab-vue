@@ -286,7 +286,7 @@
             <p>配置：{{ kafkaLocalCheck.configExists ? '已找到' : '缺失' }} · {{ kafkaLocalCheck.configPath }}</p>
           </div>
           <ol class="mt-3 list-decimal space-y-1 pl-5">
-            <li v-for="step in kafkaLocalCheck.safeGuide" :key="step">{{ step }}</li>
+            <li v-for="step in kafkaLocalCheck.safeGuide" :key="step">{{ localizeOpsText(step) }}</li>
           </ol>
         </div>
         <div class="mt-4 grid gap-3 text-xs leading-5 text-slate-500 dark:text-slate-400 md:grid-cols-3">
@@ -314,7 +314,7 @@
             {{ searchFallbackDetailText }}
           </p>
           <p v-if="status?.search.action" class="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300">
-            {{ status.search.action }}
+            {{ localizeOpsText(status.search.action) }}
           </p>
         </article>
 
@@ -325,7 +325,7 @@
             当前到期可投递 {{ countText(status?.outbox.duePending) }} 条
           </p>
           <p v-if="status?.outbox.attentionRequired" class="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300">
-            {{ status.outbox.action || status.outbox.message || '事务消息存在待人工处理项' }}
+            {{ localizeOpsText(status.outbox.action || status.outbox.message, '事务消息存在待人工处理项') }}
           </p>
         </article>
 
@@ -347,7 +347,7 @@
             {{ searchRetryImpactText }}
           </p>
           <p v-if="status?.searchIndexRetry.attentionRequired" class="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300">
-            {{ status.searchIndexRetry.action || status.searchIndexRetry.message || '搜索索引补偿队列需要处理' }}
+            {{ localizeOpsText(status.searchIndexRetry.action || status.searchIndexRetry.message, '搜索索引补偿队列需要处理') }}
           </p>
         </article>
 
@@ -358,7 +358,7 @@
             到期可重放 {{ countText(status?.notificationRetry?.duePending) }} 条
           </p>
           <p v-if="status?.notificationRetry?.attentionRequired" class="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300">
-            {{ status.notificationRetry.action || status.notificationRetry.message || '通知补偿队列需要处理' }}
+            {{ localizeOpsText(status.notificationRetry.action || status.notificationRetry.message, '通知补偿队列需要处理') }}
           </p>
         </article>
       </section>
@@ -765,7 +765,7 @@
                   <input
                     v-if="message.msgStatus === 2"
                     type="checkbox"
-                    class="h-4 w-4 accent-indigo-600"
+                    class="h-4 w-4 accent-primary-600"
                     :checked="selectedFailedIds.includes(message.id)"
                     @change="toggleFailedSelection(message.id)"
                   />
@@ -817,7 +817,7 @@
                   <label v-if="message.msgStatus === 2" class="outbox-select-label" title="选择失败消息">
                     <input
                       type="checkbox"
-                      class="h-4 w-4 accent-indigo-600"
+                      class="h-4 w-4 accent-primary-600"
                       :checked="selectedFailedIds.includes(message.id)"
                       @change="toggleFailedSelection(message.id)"
                     />
@@ -1108,7 +1108,7 @@
                   <span :class="['status-pill', aiTaskStatusClass(item.taskStatus)]">{{ aiTaskStatusText(item.taskStatus) }}</span>
                 </div>
                 <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                  题目 {{ item.questionCount }} · 重试 {{ item.retryCount }} · {{ aiProviderText(item.provider) }} · {{ aiFallbackText(item.fallbackUsed) }} · {{ formatDurationMs(item.durationMs) }} · 消耗 {{ formatTokens(item.totalTokens) }} · {{ item.errorCode || item.errorMessage || formatTime(item.updateTime || item.createTime) }}
+                  题目 {{ item.questionCount }} · 重试 {{ item.retryCount }} · {{ aiProviderText(item.provider) }} · {{ aiFallbackText(item.fallbackUsed) }} · {{ formatDurationMs(item.durationMs) }} · 消耗 {{ formatTokens(item.totalTokens) }} · {{ item.errorCode || localizeOpsText(item.errorMessage, formatTime(item.updateTime || item.createTime)) }}
                 </p>
               </div>
               <div class="flex flex-wrap justify-end gap-2">
@@ -1549,7 +1549,7 @@
           <section class="detail-section">
             <h4>错误信息</h4>
             <p class="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">错误码：{{ selectedAiTaskDetail.task.errorCode || '无' }}</p>
-            <pre class="payload-box">{{ selectedAiTaskDetail.task.errorMessage || '暂无错误信息' }}</pre>
+            <pre class="payload-box">{{ localizeOpsText(selectedAiTaskDetail.task.errorMessage, '暂无错误信息') }}</pre>
           </section>
 
           <section class="detail-section">
@@ -1566,7 +1566,7 @@
                     <span :class="['status-pill', aiTaskStatusClass(record.taskStatus)]">{{ aiTaskStatusText(record.taskStatus) }}</span>
                   </div>
                   <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                    题目 {{ record.questionCount }} · 重试 {{ record.retryCount }} · {{ aiProviderText(record.provider) }} · {{ aiFallbackText(record.fallbackUsed) }} · {{ formatDurationMs(record.durationMs) }} · 消耗 {{ formatTokens(record.totalTokens) }} · {{ record.errorCode || record.errorMessage || formatTime(record.updateTime || record.createTime) }}
+                    题目 {{ record.questionCount }} · 重试 {{ record.retryCount }} · {{ aiProviderText(record.provider) }} · {{ aiFallbackText(record.fallbackUsed) }} · {{ formatDurationMs(record.durationMs) }} · 消耗 {{ formatTokens(record.totalTokens) }} · {{ record.errorCode || localizeOpsText(record.errorMessage, formatTime(record.updateTime || record.createTime)) }}
                   </p>
                 </div>
                 <button v-if="record.taskStatus === 3" type="button" class="secondary-button compact-action danger-action" :disabled="retryingAiTaskId === record.id" @click="retryAiTask(record)">
@@ -2389,20 +2389,60 @@ const componentStatusClass = (component?: HealthComponentStatus | null) => {
   return 'status-danger'
 }
 
+const opsTextTranslations = new Map<string, string>([
+  ['Flyway manages the ordered files listed in status.migrations.', '数据库迁移由 Flyway 按状态清单中的顺序文件管理。'],
+  ['Open the compensation queue, preview affected records, then execute single or batch retries with an audit reason.', '打开补偿队列，先预览影响记录，再填写审计原因执行单条或批量重试。'],
+  ['Elasticsearch is available', 'Elasticsearch 搜索索引服务可用'],
+  ['Elasticsearch is enabled but not reachable', 'Elasticsearch 搜索索引服务已启用，但当前无法连接'],
+  ['Elasticsearch is disabled by config; search uses database fallback.', 'Elasticsearch 搜索索引服务已按配置关闭，公共搜索使用数据库兼容查询。'],
+  ['Elasticsearch index operation returned false', 'Elasticsearch 索引写入未成功'],
+  ['Review failed search index retry tasks in Ops and replay after Elasticsearch is healthy.', '请在运维中心检查失败的搜索索引补偿任务，并在 Elasticsearch 恢复后重试。'],
+  ['Review failed question index retry tasks in Ops and replay after Elasticsearch is healthy.', '请在运维中心检查失败的知识索引补偿任务，并在 Elasticsearch 恢复后重试。'],
+  ['Public search is using Elasticsearch index.', '公共搜索正在使用 Elasticsearch 索引。'],
+  ['Public search is using MySQL fallback because Elasticsearch is unavailable or index is not ready.', '由于 Elasticsearch 暂不可用或索引未就绪，公共搜索当前使用数据库兼容查询。'],
+  ['Public search is unavailable because Elasticsearch and MySQL fallback are unavailable.', '搜索索引和数据库兼容查询均不可用，公共搜索暂时无法提供服务。'],
+  ['Check database connectivity and Elasticsearch readiness before signing off search.', '请先检查数据库连接和 Elasticsearch 就绪状态，再确认搜索服务。'],
+  ['Restore Elasticsearch and apply tag governance migration to enable full tag synonym recall.', '请恢复 Elasticsearch 并完成标签治理迁移，以启用完整的标签同义词召回。'],
+  ['Restore Elasticsearch and replay search index retry tasks after the index is healthy.', '请恢复 Elasticsearch，并在索引健康后重试搜索索引补偿任务。'],
+])
+
+const localizeOpsText = (value: unknown, fallback = '') => {
+  const text = String(value || '').trim()
+  if (!text) return fallback
+  const exact = opsTextTranslations.get(text)
+  if (exact) return exact
+  const localized = text
+    .replace(/Open the compensation queue/gi, '打开补偿队列')
+    .replace(/preview affected records/gi, '预览受影响记录')
+    .replace(/execute single or batch retries/gi, '执行单条或批量重试')
+    .replace(/with an audit reason/gi, '并填写审计原因')
+    .replace(/is available/gi, '当前可用')
+    .replace(/is unavailable/gi, '当前不可用')
+    .replace(/index operation returned false/gi, '索引操作未成功')
+  if (!/[\u3400-\u9fff]/u.test(localized) && /[A-Za-z]{4}/.test(localized)) {
+    return fallback || '系统返回了未本地化的诊断信息，请查看审计日志'
+  }
+  return localized
+}
+
 const componentDetail = (component: HealthComponentStatus | null | undefined, label: string) => {
   if (!component) return '等待读取 health/readiness'
   if (component.status === 'BLOCKED_BY_SCHEMA') {
     const missing = Array.isArray(component.missing) ? component.missing.join('、') : ''
-    const migration = typeof component.migration === 'string' && component.migration ? component.migration : '对应迁移脚本'
+    const migration = typeof component.migration === 'string' && component.migration
+      ? localizeOpsText(component.migration)
+      : '对应迁移脚本'
     return missing ? `${label}缺少 ${missing}，请先执行 ${migration}` : `${label}未完成，请先执行 ${migration}`
   }
   if (component.status === 'DISABLED_BY_CONFIG') return '当前 profile 已通过配置关闭，不参与可用性承诺；用户路径应使用降级方案'
   if (component.status === 'DISABLED') return '当前 profile 已关闭，不参与 readiness 失败判定'
   if (component.configured === false) return `${label} 未配置连接地址`
-  if (component.reachable === false || component.available === false) return String(component.message || `${label} 已配置但当前不可达`)
+  if (component.reachable === false || component.available === false) {
+    return localizeOpsText(component.message, `${label} 已配置但当前不可达`)
+  }
   if (typeof component.brokerCount === 'number') return `已连接 ${component.brokerCount} 个 broker`
   if (typeof component.bootstrapServers === 'string' && component.bootstrapServers) return `连接 ${component.bootstrapServers}`
-  return String(component.message || '状态正常')
+  return localizeOpsText(component.message, '状态正常')
 }
 
 const normalizeOpsStatus = (raw?: OpsStatus | null): OpsStatus => {
@@ -2483,16 +2523,16 @@ const normalizeOpsStatus = (raw?: OpsStatus | null): OpsStatus => {
       fallbackMode: String(raw.search?.fallbackMode || ''),
       fallbackScanLimit: toCount(raw.search?.fallbackScanLimit),
       fallbackSchemaReady: Boolean(raw.search?.fallbackSchemaReady),
-      message: String(raw.search?.message || ''),
-      action: String(raw.search?.action || ''),
+      message: localizeOpsText(raw.search?.message),
+      action: localizeOpsText(raw.search?.action),
     },
     searchIndexRetry: {
       ...fallback.searchIndexRetry,
       ...raw.searchIndexRetry,
       available: raw.searchIndexRetry?.available === undefined ? true : Boolean(raw.searchIndexRetry.available),
       attentionRequired: Boolean(raw.searchIndexRetry?.attentionRequired),
-      message: String(raw.searchIndexRetry?.message || ''),
-      action: String(raw.searchIndexRetry?.action || ''),
+      message: localizeOpsText(raw.searchIndexRetry?.message),
+      action: localizeOpsText(raw.searchIndexRetry?.action),
       byStatus: {
         ...fallback.searchIndexRetry.byStatus,
         ...raw.searchIndexRetry?.byStatus,
@@ -2509,8 +2549,8 @@ const normalizeOpsStatus = (raw?: OpsStatus | null): OpsStatus => {
       ...raw.notificationRetry,
       available: raw.notificationRetry?.available === undefined ? true : Boolean(raw.notificationRetry.available),
       attentionRequired: Boolean(raw.notificationRetry?.attentionRequired),
-      message: String(raw.notificationRetry?.message || ''),
-      action: String(raw.notificationRetry?.action || ''),
+      message: localizeOpsText(raw.notificationRetry?.message),
+      action: localizeOpsText(raw.notificationRetry?.action),
       byStatus: {
         ...fallback.notificationRetry.byStatus,
         ...raw.notificationRetry?.byStatus,
@@ -2527,8 +2567,8 @@ const normalizeOpsStatus = (raw?: OpsStatus | null): OpsStatus => {
       ...raw.outbox,
       available: raw.outbox?.available === undefined ? true : Boolean(raw.outbox.available),
       attentionRequired: Boolean(raw.outbox?.attentionRequired),
-      message: String(raw.outbox?.message || ''),
-      action: String(raw.outbox?.action || ''),
+      message: localizeOpsText(raw.outbox?.message),
+      action: localizeOpsText(raw.outbox?.action),
       byStatus: {
         ...fallback.outbox.byStatus,
         ...raw.outbox?.byStatus,
@@ -2546,8 +2586,8 @@ const normalizeOpsStatus = (raw?: OpsStatus | null): OpsStatus => {
       failedTotal: toCount(raw.opsWindow.failedTotal),
       dueTotal: toCount(raw.opsWindow.dueTotal),
       pendingTotal: toCount(raw.opsWindow.pendingTotal),
-      impact: String(raw.opsWindow.impact || ''),
-      suggestedAction: String(raw.opsWindow.suggestedAction || ''),
+      impact: localizeOpsText(raw.opsWindow.impact),
+      suggestedAction: localizeOpsText(raw.opsWindow.suggestedAction),
       thresholds: {
         failedTotalWarn: toCount(raw.opsWindow.thresholds?.failedTotalWarn),
         dueTotalWarn: toCount(raw.opsWindow.thresholds?.dueTotalWarn),
@@ -3690,26 +3730,26 @@ onBeforeUnmount(() => {
 }
 
 .primary-button {
-  background: rgb(79 70 229);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .primary-button:hover:not(:disabled) {
-  background: rgb(67 56 202);
+  background: rgb(18 99 74);
 }
 
 .secondary-button,
 .filter-button,
 .icon-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .secondary-button:hover:not(:disabled),
 .filter-button:hover:not(:disabled),
 .icon-button:hover:not(:disabled) {
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .filter-button {
@@ -3723,24 +3763,24 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.45rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.35rem 0.7rem;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .test-data-toggle input {
   height: 0.875rem;
   width: 0.875rem;
-  accent-color: rgb(79 70 229);
+  accent-color: rgb(26 127 90);
 }
 
 .filter-button-active {
-  border-color: rgb(79 70 229);
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  border-color: rgb(26 127 90);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .icon-button {
@@ -3765,10 +3805,10 @@ onBeforeUnmount(() => {
   width: 100%;
   resize: vertical;
   border-radius: 0.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.75rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
@@ -3780,8 +3820,8 @@ onBeforeUnmount(() => {
 .analytics-column {
   min-width: 0;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
@@ -3796,11 +3836,11 @@ onBeforeUnmount(() => {
 .analytics-column-head span {
   font-size: 0.8125rem;
   font-weight: 700;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .analytics-column-head strong {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -3819,14 +3859,14 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.875rem;
 
 }
 
 .analytics-empty {
   padding-top: 1rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -3848,8 +3888,8 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.75rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.625rem 0.75rem;
 }
 
@@ -3857,7 +3897,7 @@ onBeforeUnmount(() => {
 .ai-provider-row strong {
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .ai-provider-row small,
@@ -3866,26 +3906,26 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
 .detail-section {
   border-radius: 0.625rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
 .detail-section h4 {
   font-size: 0.875rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .field-textarea:focus {
-  border-color: rgb(79 70 229);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.8);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.8);
 }
 
 .primary-button:disabled,
@@ -3901,7 +3941,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   overflow: hidden;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1.25rem;
 }
@@ -3914,14 +3954,14 @@ onBeforeUnmount(() => {
 .metric-label {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .metric-value {
   margin-top: 0.5rem;
   font-size: 1.75rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .status-pill {
@@ -3945,8 +3985,8 @@ onBeforeUnmount(() => {
 }
 
 .status-muted {
-  background: rgb(226 232 240);
-  color: rgb(71 85 105);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .status-danger {
@@ -3958,7 +3998,7 @@ onBeforeUnmount(() => {
   display: none;
   min-width: 0;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1rem;
 }
@@ -3975,7 +4015,7 @@ onBeforeUnmount(() => {
   margin-top: 0.25rem;
   font-size: 1.125rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .mobile-ops-grid {
@@ -3988,8 +4028,8 @@ onBeforeUnmount(() => {
 .mobile-ops-card {
   min-width: 0;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.75rem;
 }
 
@@ -3997,7 +4037,7 @@ onBeforeUnmount(() => {
 .mobile-ops-card small {
   display: block;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .mobile-ops-card strong {
@@ -4005,7 +4045,7 @@ onBeforeUnmount(() => {
   margin-top: 0.35rem;
   overflow-wrap: anywhere;
   font-size: 1.125rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .mobile-ops-card small {
@@ -4027,7 +4067,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1rem;
 }
@@ -4035,7 +4075,7 @@ onBeforeUnmount(() => {
 .ops-priority-card span,
 .ops-priority-card small {
   display: block;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.45;
 }
@@ -4049,7 +4089,7 @@ onBeforeUnmount(() => {
   display: block;
   margin-top: 0.35rem;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.5rem;
   font-weight: 900;
 }
@@ -4060,18 +4100,18 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  color: rgb(51 65 85);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 800;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .ops-priority-action:hover {
-  border-color: rgb(165 180 252);
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .ops-priority-danger {
@@ -4090,7 +4130,7 @@ onBeforeUnmount(() => {
 }
 
 .ops-duty-brief {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 1rem;
@@ -4107,7 +4147,7 @@ onBeforeUnmount(() => {
 .ops-duty-brief-head p,
 .ops-duty-card span,
 .ops-duty-samples span {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 800;
   line-height: 1.4;
@@ -4115,7 +4155,7 @@ onBeforeUnmount(() => {
 
 .ops-duty-brief-head h2 {
   margin-top: 0.25rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.125rem;
   font-weight: 900;
 }
@@ -4130,8 +4170,8 @@ onBeforeUnmount(() => {
 .ops-duty-card {
   min-width: 0;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.875rem;
 }
 
@@ -4139,7 +4179,7 @@ onBeforeUnmount(() => {
   display: block;
   margin-top: 0.4rem;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
   line-height: 1.45;
@@ -4148,7 +4188,7 @@ onBeforeUnmount(() => {
 .ops-duty-card small {
   display: block;
   margin-top: 0.45rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.75rem;
   line-height: 1.5;
 }
@@ -4169,20 +4209,20 @@ onBeforeUnmount(() => {
 }
 
 .ops-duty-muted {
-  border-color: rgb(226 232 240);
-  background: rgb(248 250 252);
+  border-color: var(--border-subtle);
+  background: var(--surface-soft);
 }
 
 .ops-duty-samples {
   margin-top: 0.875rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.875rem;
 }
 
 .ops-duty-samples p,
 .ops-duty-samples li {
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.75rem;
   line-height: 1.55;
 }
@@ -4196,8 +4236,8 @@ onBeforeUnmount(() => {
 .ops-window-summary {
   margin-top: 0.875rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.875rem;
 }
 
@@ -4211,7 +4251,7 @@ onBeforeUnmount(() => {
 
 .ops-window-head span,
 .ops-window-grid span {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -4244,14 +4284,14 @@ onBeforeUnmount(() => {
   display: block;
   margin-top: 0.25rem;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-weight: 900;
 }
 
 .ops-window-grid small {
   display: block;
   margin-top: 0.3rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.7rem;
   line-height: 1.45;
 }
@@ -4263,7 +4303,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: rgb(255 255 255 / 0.92);
   padding: 0.5rem;
@@ -4276,7 +4316,7 @@ onBeforeUnmount(() => {
   border-radius: 0.5rem;
   border: 1px solid transparent;
   padding: 0.55rem 0.85rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   text-align: left;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
@@ -4291,32 +4331,32 @@ onBeforeUnmount(() => {
   margin-top: 0.2rem;
   display: block;
   max-width: 11rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.35;
 }
 
 .ops-workbench-nav button:hover {
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .ops-workbench-pane-active {
-  border-color: rgb(99 102 241) !important;
-  background: rgb(238 242 255);
-  color: rgb(67 56 202) !important;
+  border-color: rgb(33 154 112) !important;
+  background: rgb(232 243 237);
+  color: rgb(18 99 74) !important;
 }
 
 .ops-workbench-pane-active small {
-  color: rgb(79 70 229);
+  color: rgb(26 127 90);
 }
 
 .ops-pagination-note {
   display: grid;
   gap: 0.25rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.75rem 1rem;
 }
@@ -4324,12 +4364,12 @@ onBeforeUnmount(() => {
 .ops-pagination-note strong {
   font-size: 0.8rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .ops-pagination-note span,
 .ops-pagination-note small {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 700;
   line-height: 1.45;
@@ -4338,20 +4378,20 @@ onBeforeUnmount(() => {
 .task-stat {
   min-width: 0;
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.875rem;
 }
 
 .task-stat span {
   display: block;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .task-stat strong {
   margin-top: 0.35rem;
   display: block;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.125rem;
 }
 
@@ -4363,16 +4403,16 @@ onBeforeUnmount(() => {
 
 .ops-table th,
 .ops-table td {
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 0.875rem 0.75rem;
   text-align: left;
   font-size: 0.875rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   vertical-align: middle;
 }
 
 .ops-table th {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -4381,9 +4421,9 @@ onBeforeUnmount(() => {
   max-height: 420px;
   overflow: auto;
   border-radius: 0.5rem;
-  background: rgb(15 23 42);
+  background: #0d1a15;
   padding: 1rem;
-  color: rgb(226 232 240);
+  color: #dbe8e0;
   font-size: 0.8125rem;
 }
 
@@ -4397,18 +4437,18 @@ onBeforeUnmount(() => {
   min-height: 40px;
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.625rem 0.75rem;
   font-size: 0.875rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .admin-input:focus {
-  border-color: rgb(79 70 229);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.7);
 }
 
 .admin-list {
@@ -4424,21 +4464,21 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 1rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   padding: 0.75rem;
 }
 
 .middleware-check-card {
   min-width: 0;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.875rem;
 }
 
 .middleware-check-card span {
   display: block;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -4447,7 +4487,7 @@ onBeforeUnmount(() => {
   margin-top: 0.25rem;
   display: block;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
 }
@@ -4455,7 +4495,7 @@ onBeforeUnmount(() => {
 .middleware-check-card p {
   margin-top: 0.65rem;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.55;
 }
@@ -4471,7 +4511,7 @@ onBeforeUnmount(() => {
 .ops-row-number {
   width: 1%;
   white-space: nowrap;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   font-weight: 800;
 }
@@ -4484,9 +4524,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 1rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   font-weight: 700;
 }
@@ -4506,19 +4546,19 @@ onBeforeUnmount(() => {
 .section-pager-actions button {
   min-height: 36px;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0 0.85rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 800;
   transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
 .section-pager-actions button:hover:not(:disabled) {
-  border-color: rgb(199 210 254);
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .section-pager-actions button:disabled {
@@ -4534,7 +4574,7 @@ onBeforeUnmount(() => {
 .comment-report-card {
   min-width: 0;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.875rem;
 }
@@ -4552,7 +4592,7 @@ onBeforeUnmount(() => {
 .comment-report-fact dt,
 .comment-report-reviewed {
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .comment-report-eyebrow {
@@ -4565,7 +4605,7 @@ onBeforeUnmount(() => {
   margin-top: 0.3rem;
   display: block;
   overflow-wrap: anywhere;
-  color: rgb(79 70 229);
+  color: rgb(26 127 90);
   font-size: 0.9375rem;
   font-weight: 800;
   line-height: 1.45;
@@ -4575,7 +4615,7 @@ onBeforeUnmount(() => {
   margin-top: 0.85rem;
   min-width: 0;
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.75rem;
 }
 
@@ -4591,7 +4631,7 @@ onBeforeUnmount(() => {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .comment-report-summary,
@@ -4604,7 +4644,7 @@ onBeforeUnmount(() => {
 
 .comment-report-summary {
   margin-top: 0.35rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .comment-report-facts {
@@ -4616,7 +4656,7 @@ onBeforeUnmount(() => {
 .comment-report-fact {
   min-width: 0;
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.625rem 0.75rem;
 }
 
@@ -4626,18 +4666,18 @@ onBeforeUnmount(() => {
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1.45;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
 }
 
 .comment-report-detail {
   margin-top: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .comment-report-note {
   margin-top: 0.45rem;
   font-weight: 700;
-  color: rgb(79 70 229);
+  color: rgb(26 127 90);
 }
 
 .comment-report-card-actions {
@@ -4669,7 +4709,7 @@ onBeforeUnmount(() => {
 .outbox-card {
   min-width: 0;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.875rem;
 }
@@ -4699,11 +4739,11 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.35rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   padding: 0 0.45rem;
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .outbox-row-number {
@@ -4711,12 +4751,12 @@ onBeforeUnmount(() => {
   min-height: 28px;
   align-items: center;
   border-radius: 999px;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0 0.55rem;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   white-space: nowrap;
 }
 
@@ -4725,7 +4765,7 @@ onBeforeUnmount(() => {
 .outbox-aggregate,
 .outbox-id-detail {
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .outbox-card-main {
@@ -4738,7 +4778,7 @@ onBeforeUnmount(() => {
   font-size: 0.9375rem;
   font-weight: 700;
   line-height: 1.45;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .outbox-aggregate {
@@ -4840,8 +4880,8 @@ onBeforeUnmount(() => {
 .dark .ai-provider-row,
 .dark .detail-section,
 .dark .panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .secondary-button,
@@ -4856,26 +4896,26 @@ onBeforeUnmount(() => {
 .dark .ops-row-number,
 .dark .outbox-row-number,
 .dark .ops-table td {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .ops-workbench-pane small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .ops-workbench-pane-active {
-  border-color: rgb(129 140 248) !important;
-  background: rgb(49 46 129 / 0.65);
-  color: rgb(238 242 255) !important;
+  border-color: rgb(124 195 165) !important;
+  background: rgb(10 52 39 / 0.65);
+  color: rgb(232 243 237) !important;
 }
 
 .dark .ops-workbench-pane-active small {
-  color: rgb(199 210 254);
+  color: rgb(169 216 195);
 }
 
 .dark .filter-button-active {
-  border-color: rgb(99 102 241);
-  background: rgb(49 46 129);
+  border-color: rgb(33 154 112);
+  background: rgb(10 52 39);
   color: white;
 }
 
@@ -4885,7 +4925,7 @@ onBeforeUnmount(() => {
 .dark .section-pager-actions button:hover:not(:disabled),
 .dark .ops-priority-action:hover,
 .dark .ops-workbench-nav button:hover {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .metric-label,
@@ -4911,7 +4951,7 @@ onBeforeUnmount(() => {
 .dark .comment-report-fact dt,
 .dark .comment-report-reviewed,
 .dark .ops-table th {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .metric-value,
@@ -4930,51 +4970,51 @@ onBeforeUnmount(() => {
 .dark .outbox-topic,
 .dark .detail-section h4,
 .dark .task-stat strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .comment-report-summary,
 .dark .comment-report-detail {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .comment-report-fact dd {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .comment-report-title,
 .dark .comment-report-note {
-  color: rgb(129 140 248);
+  color: rgb(124 195 165);
 }
 
 .dark .ops-pagination-note {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .ops-pagination-note span,
 .dark .ops-pagination-note small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .ops-duty-samples {
-  border-top-color: rgb(30 41 59);
+  border-top-color: var(--border-subtle);
 }
 
 .dark .ops-window-summary,
 .dark .ops-window-grid article {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .ops-window-head span,
 .dark .ops-window-grid span,
 .dark .ops-window-grid small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .ops-window-grid strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .ops-window-head strong {
@@ -4983,28 +5023,28 @@ onBeforeUnmount(() => {
 }
 
 .dark .status-ok {
-  background: rgb(30 64 175 / 0.38);
-  color: rgb(191 219 254);
+  background: rgb(14 74 55 / 0.38);
+  color: rgb(169 216 195);
 }
 
 .dark .ops-priority-ok {
-  border-color: rgb(30 64 175);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(23 37 84 / 0.72));
+  border-color: rgb(14 74 55);
+  background: linear-gradient(135deg, var(--surface-1), rgb(7 31 24 / 0.72));
 }
 
 .dark .ops-priority-muted {
-  border-color: rgb(51 65 85);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(30 41 59 / 0.72));
+  border-color: var(--border-subtle);
+  background: linear-gradient(135deg, var(--surface-1), color-mix(in srgb, var(--surface-1) 72%, transparent));
 }
 
 .dark .ops-priority-warn {
   border-color: rgb(146 64 14 / 0.75);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(69 26 3 / 0.62));
+  background: linear-gradient(135deg, var(--surface-1), rgb(69 26 3 / 0.62));
 }
 
 .dark .ops-priority-danger {
   border-color: rgb(127 29 29 / 0.85);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(76 5 25 / 0.66));
+  background: linear-gradient(135deg, var(--surface-1), rgb(76 5 25 / 0.66));
 }
 
 .dark .ops-duty-ok {
@@ -5013,8 +5053,8 @@ onBeforeUnmount(() => {
 }
 
 .dark .ops-duty-muted {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .ops-duty-warn {
@@ -5028,53 +5068,53 @@ onBeforeUnmount(() => {
 }
 
 .ops-page-dark .ops-priority-card {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: #1d3b30;
+  background: #0d1a15;
 }
 
 .ops-page-dark .ops-priority-card span,
 .ops-page-dark .ops-priority-card small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .ops-page-dark .ops-priority-card strong {
-  color: rgb(248 250 252);
+  color: rgb(238 245 240);
 }
 
 .ops-page-dark .ops-priority-action {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: #274a3c;
+  background: #0d1a15;
+  color: #b8ccc2;
 }
 
 .ops-page-dark .ops-priority-action:hover {
-  background: rgb(30 41 59);
+  background: #16332a;
 }
 
 .ops-page-dark .ops-priority-ok {
-  border-color: rgb(30 64 175);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(23 37 84 / 0.72));
+  border-color: rgb(14 74 55);
+  background: linear-gradient(135deg, #0d1a15, rgb(7 31 24 / 0.72));
 }
 
 .ops-page-dark .ops-priority-muted {
-  border-color: rgb(51 65 85);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(30 41 59 / 0.72));
+  border-color: #274a3c;
+  background: linear-gradient(135deg, #0d1a15, rgb(#16332a / 0.72));
 }
 
 .ops-page-dark .ops-priority-warn {
   border-color: rgb(146 64 14 / 0.75);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(69 26 3 / 0.62));
+  background: linear-gradient(135deg, #0d1a15, rgb(69 26 3 / 0.62));
 }
 
 .ops-page-dark .ops-priority-danger {
   border-color: rgb(127 29 29 / 0.85);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(76 5 25 / 0.66));
+  background: linear-gradient(135deg, #0d1a15, rgb(76 5 25 / 0.66));
 }
 
 .ops-page-dark .ops-duty-brief,
 .ops-page-dark .ops-duty-card {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: #1d3b30;
+  background: #0d1a15;
 }
 
 .ops-page-dark .ops-duty-brief-head p,
@@ -5083,32 +5123,32 @@ onBeforeUnmount(() => {
 .ops-page-dark .ops-duty-samples span,
 .ops-page-dark .ops-duty-samples p,
 .ops-page-dark .ops-duty-samples li {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .ops-page-dark .ops-duty-brief-head h2,
 .ops-page-dark .ops-duty-card strong {
-  color: rgb(248 250 252);
+  color: rgb(238 245 240);
 }
 
 .ops-page-dark .ops-duty-samples {
-  border-top-color: rgb(30 41 59);
+  border-top-color: rgb(29 59 48);
 }
 
 .ops-page-dark .ops-window-summary,
 .ops-page-dark .ops-window-grid article {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: #1d3b30;
+  background: #08130f;
 }
 
 .ops-page-dark .ops-window-head span,
 .ops-page-dark .ops-window-grid span,
 .ops-page-dark .ops-window-grid small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .ops-page-dark .ops-window-grid strong {
-  color: rgb(248 250 252);
+  color: rgb(238 245 240);
 }
 
 .ops-page-dark .ops-window-head strong {
@@ -5122,8 +5162,8 @@ onBeforeUnmount(() => {
 }
 
 .ops-page-dark .ops-duty-muted {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: #274a3c;
+  background: #0d1a15;
 }
 
 .ops-page-dark .ops-duty-warn {
@@ -5285,20 +5325,20 @@ onBeforeUnmount(() => {
 .dark .comment-report-object,
 .dark .comment-report-fact,
 .dark .detail-section {
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .admin-row {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .ops-table th,
 .dark .ops-table td {
-  border-bottom-color: rgb(30 41 59);
+  border-bottom-color: var(--border-subtle);
 }
 
 .dark .section-pager {
-  border-top-color: rgb(30 41 59);
-  color: rgb(148 163 184);
+  border-top-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 </style>

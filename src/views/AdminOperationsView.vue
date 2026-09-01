@@ -1225,15 +1225,15 @@ onMounted(refreshAll)
 
 <style scoped>
 .operations-page {
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .metric-card,
 .panel {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
-  box-shadow: 0 14px 32px rgb(15 23 42 / 0.04);
+  box-shadow: 0 14px 32px rgba(20, 30, 25, 0.04);
 }
 
 .metric-card {
@@ -1243,14 +1243,14 @@ onMounted(refreshAll)
 .metric-card span,
 .metric-card small {
   display: block;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .metric-card strong {
   display: block;
   margin: 0.3rem 0;
   font-size: 1.8rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .panel {
@@ -1269,14 +1269,14 @@ onMounted(refreshAll)
 .row-card h3,
 .content-card h3 {
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .panel p,
 .row-card p,
 .content-card p,
 .constraint-list {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   line-height: 1.6;
 }
 
@@ -1309,10 +1309,10 @@ onMounted(refreshAll)
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.625rem;
   background: white;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-weight: 800;
 }
 
@@ -1322,9 +1322,9 @@ onMounted(refreshAll)
 }
 
 .tab-active {
-  border-color: rgb(14 165 233);
-  background: rgb(240 249 255);
-  color: rgb(3 105 161);
+  border-color: rgb(33 154 112);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .icon-button {
@@ -1356,9 +1356,9 @@ onMounted(refreshAll)
 .row-card,
 .content-card,
 .empty-panel {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.9rem;
 }
 
@@ -1371,8 +1371,8 @@ onMounted(refreshAll)
 }
 
 .row-card-active {
-  border-color: rgb(14 165 233);
-  background: rgb(240 249 255);
+  border-color: rgb(33 154 112);
+  background: rgb(232 243 237);
 }
 
 .row-main {
@@ -1410,8 +1410,8 @@ onMounted(refreshAll)
 
 .meta-chip,
 .status-muted {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .status-ok {
@@ -1457,14 +1457,14 @@ onMounted(refreshAll)
 
 .data-table th,
 .data-table td {
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 0.65rem;
   text-align: left;
   vertical-align: top;
 }
 
 .data-table th {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8rem;
 }
 
@@ -1479,13 +1479,13 @@ onMounted(refreshAll)
 .field-label {
   display: grid;
   gap: 0.35rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 900;
 }
 
 .scope-fieldset {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.6rem;
   padding: 0.6rem 0.75rem 0.75rem;
 }
@@ -1506,7 +1506,7 @@ onMounted(refreshAll)
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.5;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .scope-note-warn {
@@ -1514,11 +1514,11 @@ onMounted(refreshAll)
 }
 
 .dark .scope-fieldset {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .scope-note {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .scope-note-warn {
@@ -1527,17 +1527,17 @@ onMounted(refreshAll)
 
 .text-field {
   width: 100%;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.6rem 0.7rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-weight: 700;
 }
 
 .text-field:disabled {
-  background: rgb(241 245 249);
-  color: rgb(100 116 139);
+  background: var(--surface-soft);
+  color: var(--text-muted);
 }
 
 .editor-actions,
@@ -1551,16 +1551,16 @@ onMounted(refreshAll)
 
 .topic-section-card,
 .publish-check {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.85rem;
 }
 
 .topic-section-card h3 {
   margin-top: 0.35rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .topic-item-list {
@@ -1570,14 +1570,14 @@ onMounted(refreshAll)
 }
 
 .topic-item-list li {
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.65rem;
 }
 
 .topic-item-list span,
 .inline-warning {
   display: block;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.5;
 }

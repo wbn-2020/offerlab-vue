@@ -1682,7 +1682,7 @@ onBeforeUnmount(() => {
 .loading-panel,
 .empty-panel,
 .user-row {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
 }
@@ -1699,25 +1699,25 @@ onBeforeUnmount(() => {
 .field-input {
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.65rem 0.75rem;
   font-size: 0.875rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
 .search-input:focus,
 .field-input:focus {
-  border-color: rgb(79 70 229);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.7);
 }
 
 .search-signal-note {
   margin-top: 0.45rem;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .filter-details {
@@ -1732,19 +1732,19 @@ onBeforeUnmount(() => {
   cursor: pointer;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .filter-summary__state {
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .filter-details__body {
@@ -1768,16 +1768,16 @@ onBeforeUnmount(() => {
 }
 
 .primary-button {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .secondary-button,
 .chip-button,
 .tag-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .primary-button:disabled,
@@ -1789,32 +1789,32 @@ onBeforeUnmount(() => {
 .segmented {
   display: inline-flex;
   width: fit-content;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.625rem;
   padding: 0.2rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .segment-button {
   min-height: 2rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .segment-active,
 .chip-active {
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .chip-active {
-  border-color: rgb(129 140 248);
+  border-color: rgb(124 195 165);
 }
 
 .side-title,
 .field-label {
   font-size: 0.875rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .field-label {
@@ -1828,7 +1828,7 @@ onBeforeUnmount(() => {
   gap: 1rem;
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .search-source-notice {
@@ -1839,16 +1839,16 @@ onBeforeUnmount(() => {
 }
 
 .search-source-notice strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .search-source-notice span {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .source-normal {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
 }
 
 .source-degraded {
@@ -1882,23 +1882,23 @@ onBeforeUnmount(() => {
 .mini-count {
   flex-shrink: 0;
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.15rem 0.45rem;
   font-size: 0.72rem;
   font-weight: 800;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .saved-search {
   display: grid;
   width: 100%;
   gap: 0.25rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.65rem 0.75rem;
   text-align: left;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -1925,12 +1925,12 @@ onBeforeUnmount(() => {
   min-height: 2.5rem;
   min-width: 0;
   border-radius: 0.625rem;
-  border: 1px solid rgb(147 197 253);
+  border: 1px solid rgb(124 195 165);
   background: white;
   padding: 0.55rem 0.7rem;
   font-size: 0.875rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
@@ -1947,26 +1947,26 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .mini-icon-button:hover {
-  border-color: rgb(147 197 253);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(124 195 165);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .undo-panel {
   display: grid;
   gap: 0.75rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.75rem;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 0.85rem 1rem;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
   font-size: 0.875rem;
   font-weight: 800;
 }
@@ -1986,24 +1986,24 @@ onBeforeUnmount(() => {
 }
 
 .undo-actions button:first-child {
-  background: rgb(29 78 216);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .undo-actions button:last-child {
   background: white;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .saved-search:hover {
-  border-color: rgb(147 197 253);
-  background: rgb(239 246 255);
+  border-color: rgb(124 195 165);
+  background: rgb(232 243 237);
 }
 
 .saved-search-meta {
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .notice-error {
@@ -2100,13 +2100,13 @@ onBeforeUnmount(() => {
 .loading-panel,
 .empty-panel {
   text-align: center;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .empty-panel h2 {
   font-size: 1rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .empty-panel p {
@@ -2130,7 +2130,7 @@ onBeforeUnmount(() => {
 .recommend-group > span {
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .recommend-chip {
@@ -2139,12 +2139,12 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.4rem;
   border-radius: 999px;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.35rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .recommend-chip small {
@@ -2154,7 +2154,7 @@ onBeforeUnmount(() => {
   font-size: 0.65rem;
   font-weight: 900;
   line-height: 1.2;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {
@@ -2207,7 +2207,7 @@ onBeforeUnmount(() => {
 }
 
 .user-row:hover {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
   transform: translateY(-1px);
 }
 
@@ -2220,21 +2220,21 @@ onBeforeUnmount(() => {
   justify-content: center;
   overflow: hidden;
   border-radius: 999px;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   font-weight: 800;
   color: white;
 }
 
 .avatar-soft {
-  background: rgb(238 242 255);
-  color: rgb(79 70 229);
+  background: rgb(232 243 237);
+  color: rgb(26 127 90);
 }
 
 .view-link {
   flex-shrink: 0;
   font-size: 0.875rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .dark .search-shell,
@@ -2252,66 +2252,66 @@ onBeforeUnmount(() => {
 .dark .mini-icon-button,
 .dark .search-input,
 .dark .field-input {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .avatar-soft {
-  background: rgb(30 41 59);
-  color: rgb(199 210 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .filter-summary {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
-  color: rgb(248 250 252);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .search-signal-note {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .undo-panel {
-  border-color: rgb(30 64 175);
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .undo-actions button:last-child {
-  background: rgb(15 23 42);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .mini-count {
-  background: rgb(30 41 59);
-  color: rgb(148 163 184);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .saved-search:hover {
-  border-color: rgb(96 165 250);
-  background: rgb(30 41 59);
+  border-color: rgb(70 172 134);
+  background: var(--surface-1);
 }
 
 .dark .segmented {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .side-title,
 .dark .field-label,
 .dark .empty-panel h2,
 .dark .search-source-notice strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .search-source-notice span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .source-normal {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
 }
 
 .dark .source-degraded {
@@ -2320,24 +2320,24 @@ onBeforeUnmount(() => {
 }
 
 .dark .recommend-chip {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .recommend-chip small {
-  background: rgb(15 23 42 / 0.82);
-  color: rgb(203 213 225);
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  color: var(--text-muted);
 }
 
 .dark .search-hit-reasons span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .search-hit-reasons small {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .notice-error {
@@ -2358,7 +2358,7 @@ onBeforeUnmount(() => {
 .dark .notice-error-actions button,
 .dark .notice-error-actions a {
   border-color: rgb(153 27 27);
-  background: rgb(15 23 42);
+  background: var(--surface-1);
   color: rgb(254 202 202);
 }
 
@@ -2396,8 +2396,8 @@ onBeforeUnmount(() => {
 
 .search-input:focus,
 .field-input:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+  border-color: #7cc3a5;
+  box-shadow: 0 0 0 3px rgb(26 127 90 / 0.12);
 }
 
 .search-control-row {
@@ -2449,7 +2449,7 @@ onBeforeUnmount(() => {
 }
 
 .chip-active {
-  border-color: #93c5fd;
+  border-color: #7cc3a5;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -2620,26 +2620,26 @@ onBeforeUnmount(() => {
 
 .dark .search-command-bar,
 .dark .search-result-item {
-  border-color: rgb(39 39 42);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
 }
 
 .dark .segmented {
-  background: rgb(39 39 42);
+  background: var(--surface-1);
 }
 
 .dark .segment-active {
   background: rgb(24 26 32);
-  color: rgb(147 197 253);
+  color: rgb(124 195 165);
 }
 
 .dark .search-side-list a {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .search-side-list a:hover {
-  background: rgb(39 39 42);
-  color: rgb(147 197 253);
+  background: var(--surface-1);
+  color: rgb(124 195 165);
 }
 
 @media (min-width: 1024px) {

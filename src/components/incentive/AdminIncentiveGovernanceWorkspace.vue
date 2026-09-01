@@ -333,7 +333,7 @@ onMounted(() => {
 
 .governance-panel {
   min-width: 0;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 1rem;
@@ -360,18 +360,18 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
 }
 
 .panel-heading h2 svg {
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
 }
 
 .panel-heading p {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.76rem;
   line-height: 1.45;
 }
@@ -379,11 +379,11 @@ onMounted(() => {
 .field-control {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.55rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.78rem;
   outline: none;
 }
@@ -399,7 +399,7 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.75rem;
 }
 
@@ -419,7 +419,7 @@ onMounted(() => {
 
 .row-title strong {
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -429,7 +429,7 @@ onMounted(() => {
   display: block;
   margin-top: 0.32rem;
   overflow-wrap: anywhere;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   line-height: 1.45;
 }
@@ -445,14 +445,14 @@ onMounted(() => {
   min-width: 10rem;
   flex: 1;
   gap: 0.35rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.74rem;
   font-weight: 800;
 }
 
 .scan-result {
   flex: 1 1 100%;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.72rem;
 }
 
@@ -468,8 +468,8 @@ onMounted(() => {
 
 .meta-chip,
 .status-muted {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .status-ok {
@@ -503,16 +503,16 @@ onMounted(() => {
 }
 
 .primary-button {
-  border: 1px solid rgb(14 116 144);
-  background: rgb(14 116 144);
+  border: 1px solid rgb(18 99 74);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .secondary-button,
 .icon-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .danger-button {
@@ -543,11 +543,11 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  border: 1px dashed rgb(203 213 225);
+  border: 1px dashed var(--border-subtle);
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.7rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.74rem;
 }
 
@@ -585,22 +585,22 @@ button:disabled {
 .dark .field-control,
 .dark .secondary-button,
 .dark .icon-button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .panel-heading h2,
 .dark .row-title strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .panel-heading p,
 .dark .scan-form label {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .dense-row {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 </style>

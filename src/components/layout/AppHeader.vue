@@ -166,8 +166,8 @@
             <RouterLink to="/growth/profile" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">成长档案</RouterLink>
             <RouterLink to="/me/settings" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">设置</RouterLink>
 
-            <details v-if="adminLinks.length || permissionStatus !== 'ready'" class="community-header__admin-tools">
-              <summary>管理工具</summary>
+            <div v-if="adminLinks.length || permissionStatus !== 'ready'" class="community-header__admin-tools">
+              <span class="community-header__menu-group-label">管理工具</span>
               <div v-if="permissionStatus === 'loading'" class="community-header__permission-state" role="status">
                 <Loader2 class="h-4 w-4 animate-spin" aria-hidden="true" />
                 <span>正在确认管理权限</span>
@@ -194,7 +194,7 @@
               >
                 {{ item.label }}
               </RouterLink>
-            </details>
+            </div>
             <div class="community-header__menu-divider" />
             <button type="button" class="community-header__menu-item community-header__menu-item--danger" role="menuitem" @click="handleLogout">
               退出登录
@@ -444,7 +444,9 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   top: 0;
   z-index: 40;
   border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
 }
 
 .community-header__inner {
@@ -468,14 +470,15 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__brand-mark {
   display: grid;
-  width: 2.125rem;
-  height: 2.125rem;
+  width: 2.25rem;
+  height: 2.25rem;
   place-items: center;
-  border-radius: 10px;
-  background: var(--primary-600);
+  border-radius: 11px;
+  background-image: linear-gradient(145deg, var(--primary-700), var(--primary-600));
   color: white;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 900;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary-600) 42%, transparent);
 }
 
 .community-header__brand-copy {
@@ -539,7 +542,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__nav-link--active {
   background: var(--primary-50);
-  color: var(--primary-600);
+  color: var(--primary-700);
   font-weight: 750;
 }
 
@@ -585,9 +588,9 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .community-header__search:focus-within {
-  border-color: rgb(147 197 253);
+  border-color: color-mix(in srgb, var(--primary-600) 50%, transparent);
   background: var(--surface);
-  box-shadow: 0 0 0 3px rgb(219 234 254 / 0.82);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-600) 16%, transparent);
 }
 
 .community-header__search input {
@@ -601,7 +604,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .community-header__search input::placeholder {
-  color: #667085;
+  color: var(--text-muted);
 }
 
 .community-header__actions {
@@ -610,16 +613,17 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 
 .community-header__publish {
   gap: 0.35rem;
-  padding: 0 0.85rem;
+  padding: 0 1.05rem;
   border-radius: var(--radius-pill);
-  background: var(--primary-600);
+  background-image: linear-gradient(145deg, var(--primary-700), var(--primary-600));
   color: white;
   font-weight: 750;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary-600) 34%, transparent);
 }
 
 .community-header__publish:hover {
-  background: var(--primary-700);
   transform: translateY(-1px);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--primary-600) 44%, transparent);
 }
 
 .community-header__auth-link,
@@ -634,12 +638,14 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .community-header__register-link {
-  background: var(--primary-600);
+  background-image: linear-gradient(145deg, var(--primary-700), var(--primary-600));
   color: white;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary-600) 30%, transparent);
 }
 
 .community-header__register-link:hover {
-  background: var(--primary-700);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--primary-600) 40%, transparent);
 }
 
 .community-header__icon-button {
@@ -675,6 +681,11 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   background: var(--surface-3);
   color: var(--text-primary);
   cursor: pointer;
+  transition: box-shadow 0.18s ease;
+}
+
+.community-header__avatar:hover {
+  box-shadow: 0 0 0 3px var(--primary-50);
 }
 
 .community-header__avatar-image {
@@ -693,9 +704,9 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   z-index: 50;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: 0 4px 8px rgb(16 24 40 / 0.08);
+  box-shadow: var(--shadow-lg);
 }
 
 .community-header__channel-menu {
@@ -723,9 +734,9 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   height: 1.75rem;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--primary-50);
-  color: var(--primary-600);
+  color: var(--primary-700);
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -850,7 +861,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: var(--text-3, rgb(148 163 184));
+  color: var(--text-3, var(--text-muted));
   text-transform: none;
 }
 
@@ -875,7 +886,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .dark .community-header__menu-group-label {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .community-mobile-dock {
@@ -883,14 +894,14 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 }
 
 .dark .community-header {
-  border-color: rgb(39 39 42);
-  background: rgb(15 17 21);
+  border-color: rgb(45 58 50);
+  background: rgb(18 24 20 / 0.86);
 }
 
 .dark .community-header__brand,
 .dark .community-header__nav-link--active,
 .dark .community-header__search input {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .community-header__brand-copy small,
@@ -903,7 +914,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .dark .community-header__auth-link,
 .dark .community-header__admin-tools summary,
 .dark .community-header__user-summary small {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .community-header__nav-link:hover,
@@ -911,8 +922,8 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .dark .community-header__icon-button:hover,
 .dark .community-header__channel-item:hover,
 .dark .community-header__menu-item:hover {
-  background: rgb(39 39 42);
-  color: white;
+  background: rgb(38 48 41);
+  color: rgb(240 247 242);
 }
 
 .dark .community-header__permission-state--error {
@@ -924,32 +935,32 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
 .dark .community-header__search,
 .dark .community-header__avatar,
 .dark .community-header__dropdown {
-  border-color: rgb(63 63 70);
-  background: rgb(24 26 32);
+  border-color: rgb(45 58 50);
+  background: rgb(26 34 29);
 }
 
 .dark .community-header__search:focus-within {
-  border-color: rgb(59 130 246);
-  background: rgb(24 26 32);
-  box-shadow: 0 0 0 3px rgb(30 58 138 / 0.48);
+  border-color: color-mix(in srgb, var(--primary-600) 60%, transparent);
+  background: rgb(26 34 29);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-600) 20%, transparent);
 }
 
 .dark .community-header__channel-icon {
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(147 197 253);
+  background: rgb(54 184 141 / 0.22);
+  color: rgb(166 232 207);
 }
 
 .dark .community-header__channel-item strong,
 .dark .community-header__user-summary strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .community-header__menu-divider {
-  border-color: rgb(63 63 70);
+  border-color: rgb(45 58 50);
 }
 
 .dark .community-header__admin-tools {
-  border-color: rgb(63 63 70);
+  border-color: rgb(45 58 50);
 }
 
 @media (max-width: 1100px) {
@@ -1042,17 +1053,17 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   }
 
   .dark .community-mobile-dock {
-    border-color: rgb(63 63 70);
-    background: rgb(15 17 21 / 0.99);
+    border-color: rgb(45 58 50);
+    background: rgb(18 24 20 / 0.98);
   }
 
   .dark .community-mobile-dock > a {
-    color: rgb(161 161 170);
+    color: rgb(146 160 152);
   }
 
   .dark .community-mobile-dock > a.community-mobile-dock__item--active,
   .dark .community-mobile-dock > .community-mobile-dock__publish {
-    color: rgb(147 197 253);
+    color: rgb(166 232 207);
   }
 }
 </style>

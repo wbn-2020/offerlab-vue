@@ -116,16 +116,16 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
 <style scoped>
 .panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .panel-title {
   font-size: 1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .score-badge {
@@ -139,7 +139,7 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
 
 .stat-tile {
   border-radius: 0.65rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.75rem;
 }
 
@@ -147,7 +147,7 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
   display: block;
   font-size: 0.72rem;
   font-weight: 800;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .stat-tile strong {
@@ -155,25 +155,25 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
   display: block;
   font-size: 1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .state-box {
   margin-top: 1rem;
   border-radius: 0.75rem;
-  border: 1px dashed rgb(203 213 225);
-  background: rgb(248 250 252);
+  border: 1px dashed var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
   font-size: 0.82rem;
   line-height: 1.6;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .retry-button {
   margin-top: 0.75rem;
   min-height: 34px;
   border-radius: 0.6rem;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   padding: 0.4rem 0.8rem;
   font-size: 0.8rem;
   font-weight: 900;
@@ -183,7 +183,7 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
 .skeleton-line,
 .skeleton-tile {
   border-radius: 0.65rem;
-  background: linear-gradient(90deg, rgb(241 245 249), rgb(226 232 240), rgb(241 245 249));
+  background: linear-gradient(90deg, var(--surface-soft), var(--surface-2), var(--surface-soft));
   background-size: 200% 100%;
   animation: pulse 1.2s ease-in-out infinite;
 }
@@ -207,7 +207,7 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
 .trend-bar {
   min-height: 10px;
   border-radius: 999px 999px 0 0;
-  background: linear-gradient(180deg, rgb(59 130 246), rgb(37 99 235));
+  background: linear-gradient(180deg, rgb(33 154 112), rgb(26 127 90));
 }
 
 .weak-answer-group {
@@ -265,7 +265,7 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
   white-space: nowrap;
   font-size: 0.8rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .weak-answer-row strong {
@@ -288,7 +288,7 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
 .insight-heading {
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .insight-row {
@@ -296,8 +296,8 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.15rem 0.5rem;
   border-radius: 0.65rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.65rem 0.75rem;
 }
 
@@ -308,31 +308,31 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
   white-space: nowrap;
   font-size: 0.82rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .insight-row strong {
   font-size: 0.82rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .insight-row small {
   grid-column: 1 / -1;
   font-size: 0.72rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .dark .panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .panel-title,
 .dark .stat-tile strong,
 .dark .insight-row span,
 .dark .insight-heading {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .score-badge {
@@ -351,27 +351,27 @@ const hasInsights = computed(() => Boolean(visibleFocusTagInsights.value.length 
 }
 
 .dark .weak-answer-row {
-  background: rgb(15 23 42);
+  background: var(--surface-1);
 }
 
 .dark .weak-answer-row span {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .stat-tile,
 .dark .insight-row {
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .state-box {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .skeleton-line,
 .dark .skeleton-tile {
-  background: linear-gradient(90deg, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42));
+  background: linear-gradient(90deg, var(--surface-1), var(--surface-1), var(--surface-1));
   background-size: 200% 100%;
 }
 

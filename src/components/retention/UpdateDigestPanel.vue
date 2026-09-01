@@ -490,9 +490,9 @@ watch(
 <style scoped>
 .update-digest-panel {
   margin-top: 1rem;
-  border: 1px solid rgb(186 230 253);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.75rem;
-  background: rgb(240 249 255);
+  background: rgb(232 243 237);
   padding: 1rem;
 }
 
@@ -512,14 +512,14 @@ watch(
 }
 
 .digest-eyebrow {
-  color: rgb(2 132 199);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 900;
 }
 
 .digest-head h2 {
   margin-top: 0.15rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -529,7 +529,7 @@ watch(
 .digest-item p,
 .digest-meta,
 .digest-more-error {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8rem;
   line-height: 1.55;
 }
@@ -554,13 +554,13 @@ watch(
 
 .digest-link {
   background: white;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
 }
 
 .digest-button {
-  border: 1px solid rgb(186 230 253);
+  border: 1px solid rgb(169 216 195);
   background: white;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
 }
 
 .digest-button:disabled {
@@ -575,13 +575,13 @@ watch(
   border-radius: 0.6rem;
   background: white;
   padding: 0.85rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.84rem;
   font-weight: 700;
 }
 
 .digest-state strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-weight: 900;
 }
 
@@ -637,8 +637,8 @@ watch(
   align-items: center;
   justify-content: center;
   border-radius: 0.45rem;
-  background: rgb(224 242 254);
-  color: rgb(3 105 161);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .digest-item-title {
@@ -649,7 +649,7 @@ watch(
 .digest-item h3 {
   min-width: 0;
   overflow: hidden;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.86rem;
   font-weight: 900;
   text-overflow: ellipsis;
@@ -668,8 +668,8 @@ watch(
 }
 
 .digest-count {
-  background: rgb(224 242 254);
-  color: rgb(3 105 161);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .digest-meta {
@@ -682,7 +682,7 @@ watch(
 
 .digest-disabled {
   flex-shrink: 0;
-  color: rgb(148 163 184);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -718,14 +718,14 @@ watch(
 }
 
 .dark .update-digest-panel {
-  border-color: rgb(12 74 110);
-  background: rgb(15 23 42);
+  border-color: rgb(10 52 39);
+  background: var(--surface-1);
 }
 
 .dark .digest-head h2,
 .dark .digest-state strong,
 .dark .digest-item h3 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .digest-head p,
@@ -733,26 +733,26 @@ watch(
 .dark .digest-item p,
 .dark .digest-meta,
 .dark .digest-more-error {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .digest-link,
 .dark .digest-button,
 .dark .digest-state,
 .dark .digest-item {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .digest-link,
 .dark .digest-button {
-  color: rgb(186 230 253);
+  color: rgb(169 216 195);
 }
 
 .dark .digest-item-icon,
 .dark .digest-count {
-  background: rgb(12 74 110);
-  color: rgb(186 230 253);
+  background: rgb(10 52 39);
+  color: rgb(169 216 195);
 }
 
 .dark .digest-notice {
@@ -784,7 +784,7 @@ watch(
 
 .digest-filters span {
   margin-bottom: 0.35rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -793,19 +793,19 @@ watch(
 .digest-filters input {
   width: 100%;
   min-height: 2.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0 0.7rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8rem;
 }
 
 .dark .digest-filters select,
 .dark .digest-filters input {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 @media (max-width: 960px) {

@@ -929,7 +929,11 @@ const SectionHeader = defineComponent({
         h('h2', props.title),
       ]),
       props.module
-        ? h('span', { class: ['module-status', props.module.degraded ? 'module-status-degraded' : ''] }, props.module.degraded ? '暂不可用' : `${props.module.itemCount} 项`)
+        ? h(
+            'span',
+            { class: ['module-status', props.module.degraded ? 'module-status-degraded' : ''] },
+            props.module.degraded ? '暂不可用' : (props.module.status === 'EMPTY' ? '暂无' : `${props.module.itemCount} 项`),
+          )
         : null,
     ])
   },
@@ -942,7 +946,9 @@ const ModuleEmpty = defineComponent({
   setup(props) {
     return () => h('div', { class: 'module-empty' }, [
       h(Inbox, { class: 'h-5 w-5', 'aria-hidden': 'true' }),
-      h('span', props.module?.fallbackReason ? '这个模块暂时没有可展示内容。' : '暂无可展示内容。'),
+      h('span', props.module?.degraded
+        ? '这个模块暂时不可用，请稍后重试。'
+        : (props.module?.key === 'featuredTopics' ? '暂无精选专题。' : '暂无可展示内容。')),
     ])
   },
 })
@@ -972,7 +978,8 @@ const SkeletonCard = defineComponent({
 
 .explore-band-hero {
   padding-top: 44px;
-  background: linear-gradient(135deg, #0f172a 0%, #164e63 48%, #365314 100%);
+  /* 统一为森绿单色系渐变：原来的「冷蓝黑 → 森绿 → 黄绿」跨色系跨度过大会稀释品牌识别 */
+  background: linear-gradient(135deg, #0a3427 0%, #12634a 55%, #1a7f5a 100%);
   color: white;
 }
 
@@ -1002,14 +1009,14 @@ const SkeletonCard = defineComponent({
 .hero-summary {
   margin: 14px 0 22px;
   max-width: 620px;
-  color: #dbeafe;
+  color: #cde8dc;
   font-size: 16px;
   line-height: 1.7;
 }
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #0891b2;
+  color: #1a7f5a;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
@@ -1031,7 +1038,7 @@ const SkeletonCard = defineComponent({
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
-  color: #334155;
+  color: var(--text-primary);
 }
 
 .hero-search input {
@@ -1039,7 +1046,7 @@ const SkeletonCard = defineComponent({
   border: 0;
   outline: 0;
   background: transparent;
-  color: #111827;
+  color: var(--text-strong);
   font-size: 15px;
 }
 
@@ -1051,7 +1058,7 @@ const SkeletonCard = defineComponent({
   gap: 6px;
   border: 0;
   border-radius: 8px;
-  background: #0f766e;
+  background: var(--primary-600);
   color: white;
   font-weight: 700;
   cursor: pointer;
@@ -1068,7 +1075,7 @@ const SkeletonCard = defineComponent({
   padding: 18px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.42);
+  background: color-mix(in srgb, var(--brand-ink) 42%, transparent);
 }
 
 .status-row {
@@ -1077,7 +1084,7 @@ const SkeletonCard = defineComponent({
   justify-content: space-between;
   gap: 12px;
   min-height: 32px;
-  color: #dbeafe;
+  color: #cde8dc;
 }
 
 .status-row strong {
@@ -1263,8 +1270,8 @@ const SkeletonCard = defineComponent({
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: #e0f2fe;
-  color: #075985;
+  background: #cde8dc;
+  color: #0e4a37;
   font-weight: 900;
 }
 
@@ -1377,7 +1384,7 @@ const SkeletonCard = defineComponent({
 .explore-page {
   min-height: calc(100vh - 64px);
   background: transparent;
-  color: rgb(31 41 55);
+  color: var(--text-strong);
 }
 
 .explore-band {
@@ -1388,7 +1395,7 @@ const SkeletonCard = defineComponent({
   padding-top: 0;
   background: transparent;
   color: inherit;
-  border-bottom: 1px solid rgb(229 231 235);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .explore-band-muted {
@@ -1425,7 +1432,7 @@ const SkeletonCard = defineComponent({
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1rem;
-  color: rgb(107 114 128);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -1436,24 +1443,24 @@ const SkeletonCard = defineComponent({
   align-items: center;
   gap: 0.35rem;
   padding: 0 0.55rem;
-  border: 1px solid rgb(229 231 235);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: white;
-  color: rgb(55 65 81);
+  color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 800;
 }
 
 .explore-back-button:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .eyebrow,
 .explore-band-hero .eyebrow {
   margin-bottom: 0.45rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -1469,7 +1476,7 @@ const SkeletonCard = defineComponent({
 .hero-summary {
   max-width: 680px;
   margin: 0.55rem 0 1rem;
-  color: rgb(75 85 99);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.75;
 }
@@ -1478,18 +1485,18 @@ const SkeletonCard = defineComponent({
   width: min(620px, 100%);
   min-height: 2.6rem;
   padding: 0.3rem 0.3rem 0.3rem 0.8rem;
-  border-color: rgb(229 231 235);
+  border-color: var(--border-subtle);
   border-radius: 6px;
   background: white;
-  color: rgb(107 114 128);
+  color: var(--text-muted);
 }
 
 .hero-search:focus-within {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
 }
 
 .hero-search input {
-  color: rgb(31 41 55);
+  color: var(--text-strong);
   font-size: 0.8125rem;
 }
 
@@ -1497,12 +1504,12 @@ const SkeletonCard = defineComponent({
   width: 2rem;
   height: 2rem;
   border-radius: 5px;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
 }
 
 .explore-channel-strip {
   overflow: hidden;
-  border-bottom: 1px solid rgb(229 231 235);
+  border-bottom: 1px solid var(--border-subtle);
   background: white;
 }
 
@@ -1530,7 +1537,7 @@ const SkeletonCard = defineComponent({
   align-items: center;
   padding: 0 0.65rem;
   border-radius: 5px;
-  color: rgb(75 85 99);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 700;
   white-space: nowrap;
@@ -1538,8 +1545,8 @@ const SkeletonCard = defineComponent({
 
 .explore-channel-strip__item:hover,
 .explore-channel-strip__item--active {
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .section-layout {
@@ -1549,7 +1556,7 @@ const SkeletonCard = defineComponent({
 .section-header {
   align-items: center;
   padding-bottom: 0.85rem;
-  border-bottom: 1px solid rgb(229 231 235);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .section-header h2 {
@@ -1561,7 +1568,7 @@ const SkeletonCard = defineComponent({
 .section-copy {
   max-width: 680px;
   margin: 0.35rem 0 0;
-  color: rgb(107 114 128);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   line-height: 1.7;
 }
@@ -1569,8 +1576,8 @@ const SkeletonCard = defineComponent({
 .module-status {
   padding: 0.3rem 0.55rem;
   border-radius: 5px;
-  background: rgb(243 244 246);
-  color: rgb(75 85 99);
+  background: var(--surface-soft);
+  color: var(--text-primary);
   font-size: 0.7rem;
 }
 
@@ -1584,7 +1591,7 @@ const SkeletonCard = defineComponent({
 .channel-featured-direction-grid,
 .content-form-grid {
   gap: 0;
-  border-top: 1px solid rgb(229 231 235);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .feature-card,
@@ -1593,8 +1600,8 @@ const SkeletonCard = defineComponent({
   min-height: 0;
   padding: 1rem;
   border: 0;
-  border-right: 1px solid rgb(229 231 235);
-  border-bottom: 1px solid rgb(229 231 235);
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -1604,21 +1611,21 @@ const SkeletonCard = defineComponent({
 .channel-card:hover,
 .channel-featured-direction:hover {
   transform: none;
-  border-color: rgb(191 219 254);
-  background: rgb(248 250 252);
+  border-color: rgb(169 216 195);
+  background: var(--surface-soft);
   box-shadow: none;
 }
 
 .feature-card h2 {
   margin: 0.55rem 0 0.45rem;
-  color: rgb(31 41 55);
+  color: var(--text-strong);
   font-size: 0.95rem;
   line-height: 1.45;
 }
 
 .feature-card p,
 .channel-card p {
-  color: rgb(107 114 128);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   line-height: 1.65;
 }
@@ -1626,7 +1633,7 @@ const SkeletonCard = defineComponent({
 .feature-card .card-link,
 .channel-card .card-link {
   margin-top: 0.9rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
 }
 
@@ -1636,7 +1643,7 @@ const SkeletonCard = defineComponent({
 
 .channel-card strong,
 .channel-featured-direction strong {
-  color: rgb(31 41 55);
+  color: var(--text-strong);
   font-size: 0.875rem;
 }
 
@@ -1644,8 +1651,8 @@ const SkeletonCard = defineComponent({
   width: 1.85rem;
   height: 1.85rem;
   border-radius: 5px;
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .channel-featured-direction {
@@ -1655,21 +1662,21 @@ const SkeletonCard = defineComponent({
 .channel-featured-direction p,
 .channel-featured-direction small {
   margin: 0;
-  color: rgb(107 114 128);
+  color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.6;
 }
 
 .compact-list {
   gap: 0;
-  border-top: 1px solid rgb(229 231 235);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .compact-row {
   min-height: 3.25rem;
   padding: 0.6rem 0.3rem;
-  border-bottom-color: rgb(229 231 235);
-  color: rgb(55 65 81);
+  border-bottom-color: var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .compact-row:hover {
@@ -1681,36 +1688,36 @@ const SkeletonCard = defineComponent({
 }
 
 .compact-row small {
-  color: rgb(107 114 128);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
 .search-entry-grid {
   gap: 0;
-  border-top: 1px solid rgb(229 231 235);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .search-entry {
   min-height: 3rem;
   border: 0;
-  border-bottom: 1px solid rgb(229 231 235);
+  border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
   background: transparent;
-  color: rgb(55 65 81);
+  color: var(--text-primary);
   font-size: 0.8125rem;
 }
 
 .search-entry:hover {
   transform: none;
-  border-color: rgb(191 219 254);
-  background: rgb(248 250 252);
+  border-color: rgb(169 216 195);
+  background: var(--surface-soft);
   box-shadow: none;
 }
 
 .state-banner,
 .empty-panel,
 .module-empty {
-  border-color: rgb(229 231 235);
+  border-color: var(--border-subtle);
   border-radius: 6px;
   box-shadow: none;
 }
@@ -1722,12 +1729,12 @@ const SkeletonCard = defineComponent({
 .skeleton-card {
   min-height: 8.5rem;
   border-radius: 0;
-  background: rgb(243 244 246);
+  background: var(--surface-soft);
 }
 
 .dark .explore-band-hero,
 .dark .explore-channel-strip {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
 }
 
@@ -1737,7 +1744,7 @@ const SkeletonCard = defineComponent({
 .dark .feature-card h2,
 .dark .channel-card strong,
 .dark .channel-featured-direction strong {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .hero-summary,
@@ -1749,7 +1756,7 @@ const SkeletonCard = defineComponent({
 .dark .channel-featured-direction p,
 .dark .channel-featured-direction small,
 .dark .search-entry {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .hero-search,
@@ -1757,24 +1764,24 @@ const SkeletonCard = defineComponent({
 .dark .state-banner,
 .dark .empty-panel,
 .dark .module-empty {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .hero-search input {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .explore-channel-strip__item,
 .dark .search-entry {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .explore-channel-strip__item:hover,
 .dark .explore-channel-strip__item--active {
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(147 197 253);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(124 195 165);
 }
 
 .dark .section-header,
@@ -1789,7 +1796,7 @@ const SkeletonCard = defineComponent({
 .dark .channel-featured-direction,
 .dark .compact-row,
 .dark .search-entry {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
 }
 
 .dark .feature-card:hover,
@@ -1797,17 +1804,17 @@ const SkeletonCard = defineComponent({
 .dark .channel-featured-direction:hover,
 .dark .compact-row:hover,
 .dark .search-entry:hover {
-  background: rgb(39 39 42);
+  background: var(--surface-1);
 }
 
 .dark .channel-icon {
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(147 197 253);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(124 195 165);
 }
 
 .dark .module-status {
-  background: rgb(39 39 42);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 @media (max-width: 640px) {
@@ -1881,7 +1888,7 @@ const SkeletonCard = defineComponent({
 }
 
 .explore-back-button:hover {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
   background: var(--primary-50);
   color: var(--primary-600);
 }
@@ -1920,8 +1927,8 @@ const SkeletonCard = defineComponent({
 }
 
 .hero-search:focus-within {
-  border-color: rgb(147 197 253);
-  box-shadow: 0 0 0 3px rgb(219 234 254 / 0.82);
+  border-color: rgb(124 195 165);
+  box-shadow: 0 0 0 3px rgb(205 232 220 / 0.82);
 }
 
 .hero-search input {
@@ -2128,7 +2135,7 @@ const SkeletonCard = defineComponent({
 
 .explore-feature-card:hover,
 .channel-featured-direction:hover {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
   background: var(--primary-50);
   transform: translateY(-1px);
 }
@@ -2414,7 +2421,7 @@ const SkeletonCard = defineComponent({
 .dark .explore-author-row,
 .dark .explore-rail-section,
 .dark .explore-rail-list > a {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
 }
 
 .dark .explore-back-button,
@@ -2425,12 +2432,12 @@ const SkeletonCard = defineComponent({
 .dark .explore-browse-content .empty-panel,
 .dark .explore-browse-content .module-empty,
 .dark .explore-rail-section .module-empty {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
 }
 
 .dark .hero-search:focus-within {
-  box-shadow: 0 0 0 3px rgb(30 58 138 / 0.48);
+  box-shadow: 0 0 0 3px rgb(10 52 39 / 0.48);
 }
 
 .dark .hero-copy h1,
@@ -2441,7 +2448,7 @@ const SkeletonCard = defineComponent({
 .dark .explore-author-row strong,
 .dark .explore-rail-section__title h2,
 .dark .explore-rail-list span {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .hero-summary,
@@ -2452,38 +2459,38 @@ const SkeletonCard = defineComponent({
 .dark .explore-author-row small,
 .dark .explore-rail-list small,
 .dark .explore-rail-section--signin p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .explore-side-nav__item,
 .dark .explore-side-nav__item > span {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .explore-side-nav__item > span,
 .dark .module-status {
-  background: rgb(39 39 42);
+  background: var(--surface-1);
 }
 
 .dark .explore-side-nav__item:hover,
 .dark .explore-side-nav__item--active,
 .dark .explore-feature-card:hover,
 .dark .channel-featured-direction:hover {
-  background: rgb(30 58 138 / 0.36);
-  color: rgb(147 197 253);
+  background: rgb(10 52 39 / 0.36);
+  color: rgb(124 195 165);
 }
 
 .dark .explore-side-nav__item--active > span {
-  background: rgb(30 58 138 / 0.5);
-  color: rgb(147 197 253);
+  background: rgb(10 52 39 / 0.5);
+  color: rgb(124 195 165);
 }
 
 .dark .explore-entry-row:hover {
-  background: rgb(39 39 42);
+  background: var(--surface-1);
 }
 
 .dark .explore-rail-list > a {
-  border-color: rgb(39 39 42);
+  border-color: var(--border-subtle);
 }
 
 @media (max-width: 1023px) {
@@ -2748,7 +2755,7 @@ const SkeletonCard = defineComponent({
 
 .explore-domain-card:hover,
 .explore-domain-card--active {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
   background: var(--primary-50);
   transform: translateY(-1px);
 }
@@ -2841,7 +2848,7 @@ const SkeletonCard = defineComponent({
 
 .explore-form-chip:hover,
 .explore-form-chip--active {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
   background: var(--primary-50);
   color: var(--primary-600);
 }
@@ -2977,14 +2984,14 @@ const SkeletonCard = defineComponent({
 }
 
 .dark .explore-page {
-  background: rgb(15 23 42);
+  background: var(--surface-1);
 }
 
 .dark .explore-channel-plaza,
 .dark .explore-domain-card,
 .dark .explore-form-chip,
 .dark .explore-content-section {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
 }
 
@@ -2992,17 +2999,17 @@ const SkeletonCard = defineComponent({
 .dark .explore-domain-card--active,
 .dark .explore-form-chip:hover,
 .dark .explore-form-chip--active {
-  background: rgb(30 58 138 / 0.36);
+  background: rgb(10 52 39 / 0.36);
 }
 
 .dark .explore-domain-card__icon {
-  background: rgb(39 39 42);
+  background: var(--surface-1);
 }
 
 .dark .explore-domain-card__body strong,
 .dark .explore-collaboration__links strong,
 .dark .explore-hero-guide strong {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .explore-hero-guide,
@@ -3011,7 +3018,7 @@ const SkeletonCard = defineComponent({
 .dark .explore-form-row,
 .dark .explore-feature-grid,
 .dark .explore-collaboration__links > a {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 @media (max-width: 1100px) {
@@ -3227,12 +3234,12 @@ const SkeletonCard = defineComponent({
   }
 
   .dark .explore-topic-list > a {
-    border-color: rgb(51 65 85);
+    border-color: var(--border-subtle);
     background: rgb(24 26 32);
   }
 
   .dark .explore-mobile-topics {
-    border-color: rgb(51 65 85);
+    border-color: var(--border-subtle);
     background: rgb(24 26 32);
   }
 }

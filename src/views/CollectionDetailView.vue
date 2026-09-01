@@ -353,7 +353,7 @@ onMounted(loadCollection)
   place-items: center;
   overflow: hidden;
   border-radius: 8px;
-  background: #172554;
+  background: #071f18;
   color: white;
   font-size: 2rem;
   font-weight: 900;

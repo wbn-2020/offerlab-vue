@@ -1000,23 +1000,23 @@ const reviewScheduleText = (question: Question) => {
 .metric-card,
 .section-panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .metric-card span {
   display: block;
   font-size: 0.875rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .metric-card strong {
   margin-top: 0.35rem;
   display: block;
   font-size: 1.75rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .metric-link {
@@ -1025,8 +1025,8 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .metric-link:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
 }
 
 .prep-workbench-nav {
@@ -1035,8 +1035,8 @@ const reviewScheduleText = (question: Question) => {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.5rem;
 }
 
@@ -1061,25 +1061,25 @@ const reviewScheduleText = (question: Question) => {
 .prep-workbench-tab span {
   font-size: 0.9rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .prep-workbench-tab small {
   margin-top: 0.25rem;
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .prep-workbench-tab:hover {
-  border-color: rgb(191 219 254);
+  border-color: rgb(169 216 195);
   background: white;
 }
 
 .prep-workbench-tab-active {
-  border-color: rgb(59 130 246);
+  border-color: rgb(33 154 112);
   background: white;
-  box-shadow: 0 8px 20px rgb(37 99 235 / 0.12);
+  box-shadow: 0 8px 20px rgb(26 127 90 / 0.12);
 }
 
 .prep-loading-shell {
@@ -1094,10 +1094,10 @@ const reviewScheduleText = (question: Question) => {
   align-items: center;
   gap: 0.65rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.85rem 1rem;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
 }
 
 .prep-load-hint-primary {
@@ -1118,12 +1118,12 @@ const reviewScheduleText = (question: Question) => {
 .prep-load-hint button {
   min-height: 30px;
   border-radius: 999px;
-  border: 1px solid rgb(147 197 253);
+  border: 1px solid rgb(124 195 165);
   background: white;
   padding: 0.25rem 0.75rem;
   font-size: 0.78rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .metric-card-pending {
@@ -1134,7 +1134,7 @@ const reviewScheduleText = (question: Question) => {
   width: 58%;
   height: 2rem;
   border-radius: 0.45rem;
-  background: linear-gradient(90deg, rgb(226 232 240), rgb(248 250 252), rgb(226 232 240));
+  background: linear-gradient(90deg, var(--surface-2), var(--surface-soft), var(--surface-2));
   background-size: 180% 100%;
   animation: prepSkeletonPulse 1.2s ease-in-out infinite;
 }
@@ -1152,7 +1152,7 @@ const reviewScheduleText = (question: Question) => {
 .section-title {
   font-size: 1.05rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .target-form {
@@ -1167,19 +1167,19 @@ const reviewScheduleText = (question: Question) => {
   min-width: 0;
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.45rem 0.7rem;
   font-size: 0.8125rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
   transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .target-input:focus {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
   background: white;
-  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.42);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.42);
   outline: none;
 }
 
@@ -1216,27 +1216,27 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .prep-primary-action {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   padding: 0.5rem 1.05rem;
   color: white;
 }
 
 .prep-primary-action:hover {
-  background: rgb(29 78 216);
+  background: rgb(18 99 74);
 }
 
 .prep-secondary-action,
 .prep-export-trigger {
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.5rem 1rem;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .prep-secondary-action:hover,
 .prep-export-trigger:hover {
-  border-color: rgb(147 197 253);
-  background: rgb(219 234 254);
+  border-color: rgb(124 195 165);
+  background: rgb(205 232 220);
 }
 
 .prep-export-menu {
@@ -1265,10 +1265,10 @@ const reviewScheduleText = (question: Question) => {
   min-width: 13rem;
   overflow: hidden;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.35rem;
-  box-shadow: 0 18px 42px rgb(15 23 42 / 0.16);
+  box-shadow: 0 18px 42px rgba(20, 30, 25, 0.16);
 }
 
 .prep-export-item {
@@ -1277,21 +1277,21 @@ const reviewScheduleText = (question: Question) => {
   border: 0;
   background: transparent;
   padding: 0.6rem 0.7rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   text-align: left;
 }
 
 .prep-export-item:hover,
 .prep-export-item:focus-visible {
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
   outline: none;
 }
 
 .target-button {
   min-height: 36px;
   width: 100%;
-  background: rgb(29 78 216);
+  background: rgb(18 99 74);
   padding: 0.45rem 0.9rem;
   color: white;
   white-space: nowrap;
@@ -1323,10 +1323,10 @@ const reviewScheduleText = (question: Question) => {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 0.4rem;
-  border: 1px solid rgb(199 210 254);
-  background: rgb(238 242 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.65rem 0.75rem;
-  color: rgb(67 56 202);
+  color: rgb(18 99 74);
   text-align: left;
 }
 
@@ -1342,7 +1342,7 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .target-chip-main small {
-  color: rgb(99 102 241);
+  color: rgb(33 154 112);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -1355,7 +1355,7 @@ const reviewScheduleText = (question: Question) => {
   justify-content: center;
   border-radius: 999px;
   background: rgb(255 255 255 / 0.72);
-  color: rgb(67 56 202);
+  color: rgb(18 99 74);
   font-size: 1rem;
   font-weight: 900;
   line-height: 1;
@@ -1364,8 +1364,8 @@ const reviewScheduleText = (question: Question) => {
 
 .target-chip-remove:hover,
 .target-chip-remove:focus-visible {
-  background: rgb(224 231 255);
-  color: rgb(49 46 129);
+  background: rgb(205 232 220);
+  color: rgb(10 52 39);
   outline: none;
 }
 
@@ -1375,8 +1375,8 @@ const reviewScheduleText = (question: Question) => {
 
 .target-summary {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
@@ -1386,12 +1386,12 @@ const reviewScheduleText = (question: Question) => {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.35rem 0.75rem;
   font-size: 0.8rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .reason-chip {
@@ -1409,10 +1409,10 @@ const reviewScheduleText = (question: Question) => {
 
 .review-plan-card {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .starter-panel {
@@ -1420,10 +1420,10 @@ const reviewScheduleText = (question: Question) => {
   gap: 1.25rem;
   align-items: center;
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 1.5rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .starter-actions {
@@ -1438,10 +1438,10 @@ const reviewScheduleText = (question: Question) => {
   gap: 1rem;
   align-items: center;
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: linear-gradient(135deg, rgb(239 246 255), white);
+  border: 1px solid rgb(169 216 195);
+  background: linear-gradient(135deg, rgb(232 243 237), white);
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .due-review-alert {
@@ -1452,7 +1452,7 @@ const reviewScheduleText = (question: Question) => {
   border: 1px solid rgb(254 202 202);
   background: linear-gradient(135deg, rgb(255 241 242), white);
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .due-review-list {
@@ -1498,7 +1498,7 @@ const reviewScheduleText = (question: Question) => {
   border: 1px solid rgb(187 247 208);
   background: linear-gradient(135deg, rgb(240 253 244), white);
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .focus-tags-list {
@@ -1554,7 +1554,7 @@ const reviewScheduleText = (question: Question) => {
   display: block;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .mock-stats-grid strong,
@@ -1563,7 +1563,7 @@ const reviewScheduleText = (question: Question) => {
   display: block;
   font-size: 1.1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .weekly-actions {
@@ -1587,14 +1587,14 @@ const reviewScheduleText = (question: Question) => {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .plan-title {
   margin-top: 0.2rem;
   font-size: 1.1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .plan-count {
@@ -1604,31 +1604,31 @@ const reviewScheduleText = (question: Question) => {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 0 0.75rem;
   font-size: 1rem;
   font-weight: 900;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .plan-question {
   display: grid;
   gap: 0.25rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.75rem 0.9rem;
 }
 
 .plan-question span {
   font-size: 0.9rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .plan-question small {
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .task-question {
@@ -1644,12 +1644,12 @@ const reviewScheduleText = (question: Question) => {
 .task-actions button {
   min-height: 30px;
   border-radius: 999px;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 0.25rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .task-actions button:disabled {
@@ -1660,15 +1660,15 @@ const reviewScheduleText = (question: Question) => {
 .answer-card-link {
   display: block;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.9rem 1rem;
 }
 
 .knowledge-workbench-panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: linear-gradient(180deg, rgb(239 246 255), rgb(255 255 255));
+  border: 1px solid rgb(169 216 195);
+  background: linear-gradient(180deg, rgb(232 243 237), rgb(255 255 255));
   padding: 1.1rem;
 }
 
@@ -1682,17 +1682,17 @@ const reviewScheduleText = (question: Question) => {
   margin-top: 0.25rem;
   font-size: 1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .knowledge-workbench-head > span {
   align-self: flex-start;
   border-radius: 999px;
-  background: rgb(219 234 254);
+  background: rgb(205 232 220);
   padding: 0.3rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
   white-space: nowrap;
 }
 
@@ -1705,15 +1705,15 @@ const reviewScheduleText = (question: Question) => {
 
 .knowledge-workbench-metrics div {
   border-radius: 0.65rem;
-  border: 1px solid rgb(219 234 254);
-  background: rgb(248 250 252);
+  border: 1px solid rgb(205 232 220);
+  background: var(--surface-soft);
   padding: 0.75rem;
 }
 
 .knowledge-workbench-metrics span {
   display: block;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .knowledge-workbench-metrics strong {
@@ -1721,7 +1721,7 @@ const reviewScheduleText = (question: Question) => {
   display: block;
   font-size: 1.25rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .knowledge-filter-grid {
@@ -1740,7 +1740,7 @@ const reviewScheduleText = (question: Question) => {
 .knowledge-filter-grid label > span {
   font-size: 0.72rem;
   font-weight: 900;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .knowledge-filter-grid input,
@@ -1749,19 +1749,19 @@ const reviewScheduleText = (question: Question) => {
   width: 100%;
   min-width: 0;
   border-radius: 0.5rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 0.45rem 0.65rem;
   font-size: 0.8rem;
   font-weight: 700;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
 .knowledge-filter-grid input:focus,
 .knowledge-filter-grid select:focus {
-  border-color: rgb(37 99 235);
-  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.65);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.65);
 }
 
 .knowledge-filter-toggle {
@@ -1779,8 +1779,8 @@ const reviewScheduleText = (question: Question) => {
   grid-template-columns: auto 1fr;
   align-items: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(248 250 252);
+  border: 1px solid rgb(169 216 195);
+  background: var(--surface-soft);
   padding: 0.55rem 0.65rem;
 }
 
@@ -1788,12 +1788,12 @@ const reviewScheduleText = (question: Question) => {
   min-height: 2.35rem;
   align-self: end;
   border-radius: 0.5rem;
-  border: 1px solid rgb(147 197 253);
+  border: 1px solid rgb(124 195 165);
   background: white;
   padding: 0.45rem 0.65rem;
   font-size: 0.8rem;
   font-weight: 900;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .knowledge-filter-grid button:disabled {
@@ -1820,8 +1820,8 @@ const reviewScheduleText = (question: Question) => {
 .material-pack-link {
   display: block;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.875rem;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
@@ -1832,7 +1832,7 @@ const reviewScheduleText = (question: Question) => {
 
 .material-pack-link span {
   display: block;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.9rem;
   font-weight: 900;
 }
@@ -1841,19 +1841,19 @@ const reviewScheduleText = (question: Question) => {
   margin-top: 0.45rem;
   display: block;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .material-pack-link:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
 }
 
 .star-story-link {
   display: block;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.875rem;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
@@ -1862,24 +1862,24 @@ const reviewScheduleText = (question: Question) => {
   margin-top: 0.45rem;
   display: block;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .star-story-link:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
 }
 
 .target-summary dt {
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .target-summary dd {
   margin-top: 0.15rem;
   font-size: 1rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 @media (max-width: 640px) {
@@ -1998,78 +1998,78 @@ const reviewScheduleText = (question: Question) => {
 .dark .section-panel,
 .dark .review-plan-card,
 .dark .starter-panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .prep-workbench-nav {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .prep-workbench-tab span {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .prep-workbench-tab small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .prep-workbench-tab:hover {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .prep-workbench-tab-active {
-  border-color: rgb(96 165 250);
-  background: rgb(15 23 42);
-  box-shadow: 0 12px 24px rgb(37 99 235 / 0.18);
+  border-color: rgb(70 172 134);
+  background: var(--surface-1);
+  box-shadow: 0 12px 24px rgb(26 127 90 / 0.18);
 }
 
 .dark .target-input {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.52);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 52%, transparent);
+  color: var(--text-primary);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
 }
 
 .dark .target-input:focus {
-  border-color: rgb(96 165 250);
-  background: rgb(15 23 42);
-  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.24);
+  border-color: rgb(70 172 134);
+  background: var(--surface-1);
+  box-shadow: 0 0 0 3px rgb(26 127 90 / 0.24);
 }
 
 .dark .prep-load-hint,
 .dark .prep-refresh-banner {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .prep-load-hint button {
-  border-color: rgb(59 130 246);
-  background: rgb(15 23 42);
-  color: rgb(191 219 254);
+  border-color: rgb(33 154 112);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .metric-skeleton {
-  background: linear-gradient(90deg, rgb(30 41 59), rgb(51 65 85), rgb(30 41 59));
+  background: linear-gradient(90deg, var(--surface-1), var(--surface-2), var(--surface-1));
   background-size: 180% 100%;
 }
 
 .dark .mock-stats-panel {
-  border-color: rgb(30 64 175);
-  background: linear-gradient(135deg, rgb(23 37 84), rgb(15 23 42));
+  border-color: rgb(14 74 55);
+  background: linear-gradient(135deg, rgb(7 31 24), var(--surface-1));
 }
 
 .dark .due-review-alert {
   border-color: rgb(127 29 29);
-  background: linear-gradient(135deg, rgb(69 10 10), rgb(15 23 42));
+  background: linear-gradient(135deg, rgb(69 10 10), var(--surface-1));
 }
 
 .dark .due-review-item {
   border-color: rgb(127 29 29);
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .due-review-item:hover {
@@ -2087,7 +2087,7 @@ const reviewScheduleText = (question: Question) => {
 
 .dark .weekly-report-panel {
   border-color: rgb(91 33 182);
-  background: linear-gradient(135deg, rgb(46 16 101), rgb(15 23 42));
+  background: linear-gradient(135deg, rgb(46 16 101), var(--surface-1));
 }
 
 .dark .weekly-actions span {
@@ -2097,18 +2097,18 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .prep-page-dark .mock-stats-panel {
-  border-color: rgb(30 64 175);
-  background: linear-gradient(135deg, rgb(15 23 42), rgb(23 37 84 / 0.74));
+  border-color: rgb(14 74 55);
+  background: linear-gradient(135deg, #0d1a15, rgb(7 31 24 / 0.74));
 }
 
 .prep-page-dark .weekly-report-panel {
   border-color: rgb(91 33 182);
-  background: linear-gradient(135deg, rgb(46 16 101), rgb(15 23 42));
+  background: linear-gradient(135deg, rgb(46 16 101), #0d1a15);
 }
 
 .prep-page-dark .mock-stats-grid span,
 .prep-page-dark .weekly-report-grid span {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 
 .prep-page-dark .mock-stats-grid strong,
@@ -2124,12 +2124,12 @@ const reviewScheduleText = (question: Question) => {
 
 .dark .focus-tags-panel {
   border-color: rgb(22 101 52);
-  background: linear-gradient(135deg, rgb(20 83 45), rgb(15 23 42));
+  background: linear-gradient(135deg, rgb(20 83 45), var(--surface-1));
 }
 
 .dark .focus-tag-row {
   border-color: rgb(22 101 52);
-  background: rgb(2 6 23);
+  background: var(--surface-1);
 }
 
 .dark .focus-tag-row span,
@@ -2145,81 +2145,81 @@ const reviewScheduleText = (question: Question) => {
 .dark .section-title,
 .dark .plan-title,
 .dark .target-input {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .metric-card span {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .target-chip {
-  border-color: rgb(67 56 202);
-  background: rgb(30 27 75);
-  color: rgb(199 210 254);
+  border-color: rgb(18 99 74);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .target-chip-main small {
-  color: rgb(165 180 252);
+  color: rgb(169 216 195);
 }
 
 .dark .target-chip-remove {
-  background: rgb(49 46 129);
-  color: rgb(224 231 255);
+  background: rgb(10 52 39);
+  color: rgb(205 232 220);
 }
 
 .dark .target-chip-remove:hover,
 .dark .target-chip-remove:focus-visible {
-  background: rgb(67 56 202);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .dark .prep-primary-action {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .dark .prep-primary-action:hover {
-  background: rgb(29 78 216);
+  background: rgb(18 99 74);
 }
 
 .dark .prep-secondary-action,
 .dark .prep-export-trigger {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .prep-secondary-action:hover,
 .dark .prep-export-trigger:hover {
-  border-color: rgb(59 130 246);
-  background: rgb(30 64 175);
+  border-color: rgb(33 154 112);
+  background: rgb(14 74 55);
 }
 
 .dark .prep-export-list {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
   box-shadow: 0 18px 42px rgb(0 0 0 / 0.32);
 }
 
 .dark .prep-export-item {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .prep-export-item:hover,
 .dark .prep-export-item:focus-visible {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .target-summary {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .progress-pill {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .reason-chip {
@@ -2229,65 +2229,65 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .dark .plan-count {
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .plan-question {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .task-actions button {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .answer-card-link {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .knowledge-workbench-panel {
-  border-color: rgb(30 64 175);
-  background: linear-gradient(180deg, rgb(15 23 42), rgb(2 6 23));
+  border-color: rgb(14 74 55);
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-1));
 }
 
 .dark .knowledge-workbench-head h2,
 .dark .knowledge-workbench-metrics strong,
 .dark .material-pack-link span {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .knowledge-workbench-head > span {
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .knowledge-workbench-metrics div,
 .dark .knowledge-filter-toggle,
 .dark .material-pack-link {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .knowledge-workbench-metrics span,
 .dark .knowledge-filter-grid label > span,
 .dark .material-pack-link small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .knowledge-filter-grid input,
 .dark .knowledge-filter-grid select,
 .dark .knowledge-filter-grid button {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
-  color: rgb(248 250 252);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .knowledge-filter-grid button {
-  color: rgb(147 197 253);
+  color: rgb(124 195 165);
 }
 
 .dark .knowledge-gap-list span {
@@ -2296,25 +2296,25 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .dark .star-story-link {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .star-story-link small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .plan-question span {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .target-summary dd {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .mock-stats-grid strong,
 .dark .weekly-report-grid strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 /* Legacy training is an opt-in utility surface and follows the public community shell. */
@@ -2428,7 +2428,7 @@ const reviewScheduleText = (question: Question) => {
 
 .prep-secondary-action:hover,
 .prep-export-trigger:hover {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -2530,7 +2530,7 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .prep-workbench-tab-active {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   box-shadow: none;
 }
@@ -2542,7 +2542,7 @@ const reviewScheduleText = (question: Question) => {
 .prep-load-hint,
 .prep-refresh-banner {
   border-radius: var(--radius-surface);
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -2598,7 +2598,7 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .focus-tag-row i {
-  background: #dbeafe;
+  background: #cde8dc;
 }
 
 .target-chip {
@@ -2765,9 +2765,9 @@ const reviewScheduleText = (question: Question) => {
 
 .dark .prep-secondary-action:hover,
 .dark .prep-export-trigger:hover {
-  border-color: #1e40af;
-  background: #172554;
-  color: #bfdbfe;
+  border-color: #0e4a37;
+  background: #071f18;
+  color: #a9d8c3;
 }
 
 .dark .prep-metric-grid,
@@ -2780,12 +2780,12 @@ const reviewScheduleText = (question: Question) => {
 }
 
 .dark .prep-workbench-tab-active {
-  border-color: #1e40af;
-  background: #172554;
+  border-color: #0e4a37;
+  background: #071f18;
 }
 
 .dark .prep-workbench-tab-active span {
-  color: #bfdbfe;
+  color: #a9d8c3;
 }
 
 .dark .due-review-alert {
@@ -2796,7 +2796,7 @@ const reviewScheduleText = (question: Question) => {
 .prep-page-dark .mock-stats-panel,
 .prep-page-dark .weekly-report-panel,
 .dark .focus-tags-panel {
-  background: linear-gradient(180deg, rgb(15 23 42), rgb(15 23 42));
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-1));
 }
 
 .prep-page-dark .mock-stats-grid strong,

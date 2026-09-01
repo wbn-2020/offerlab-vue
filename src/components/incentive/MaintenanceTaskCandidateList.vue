@@ -182,37 +182,37 @@ onMounted(() => load())
 </script>
 
 <style scoped>
-.candidate-panel { min-width: 0; border: 1px solid rgb(226 232 240); border-radius: .625rem; background: white; padding: 1rem; }
+.candidate-panel { min-width: 0; border: 1px solid var(--border-subtle); border-radius: .625rem; background: white; padding: 1rem; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
-.panel-heading h3 { display: flex; align-items: center; gap: .4rem; margin: 0; color: rgb(15 23 42); font-size: .95rem; font-weight: 900; }
-.panel-heading p { margin: .3rem 0 0; color: rgb(100 116 139); font-size: .73rem; line-height: 1.5; }
-.icon-button { display: inline-flex; height: 2.25rem; width: 2.25rem; flex: none; align-items: center; justify-content: center; border: 1px solid rgb(203 213 225); border-radius: .45rem; background: white; color: rgb(51 65 85); }
+.panel-heading h3 { display: flex; align-items: center; gap: .4rem; margin: 0; color: var(--text-strong); font-size: .95rem; font-weight: 900; }
+.panel-heading p { margin: .3rem 0 0; color: var(--text-muted); font-size: .73rem; line-height: 1.5; }
+.icon-button { display: inline-flex; height: 2.25rem; width: 2.25rem; flex: none; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: .45rem; background: white; color: var(--text-primary); }
 .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem; margin-top: 1rem; }
 .filters label { display: grid; min-width: 9rem; gap: .25rem; }
-.filters label span { color: rgb(71 85 105); font-size: .68rem; font-weight: 800; }
-.field-control { width: 100%; min-height: 34px; border: 1px solid rgb(203 213 225); border-radius: .45rem; background: white; padding: .4rem .55rem; color: rgb(15 23 42); font-size: .72rem; }
-.secondary-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: .35rem; border: 1px solid rgb(203 213 225); border-radius: .45rem; background: white; padding: .4rem .65rem; color: rgb(51 65 85); font-size: .7rem; font-weight: 900; }
+.filters label span { color: var(--text-primary); font-size: .68rem; font-weight: 800; }
+.field-control { width: 100%; min-height: 34px; border: 1px solid var(--border-subtle); border-radius: .45rem; background: white; padding: .4rem .55rem; color: var(--text-strong); font-size: .72rem; }
+.secondary-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: .35rem; border: 1px solid var(--border-subtle); border-radius: .45rem; background: white; padding: .4rem .65rem; color: var(--text-primary); font-size: .7rem; font-weight: 900; }
 .filter-button { flex: none; }
-.state { display: flex; min-height: 6rem; align-items: center; justify-content: center; gap: .5rem; border: 1px dashed rgb(203 213 225); border-radius: .5rem; margin-top: 1rem; padding: 1rem; color: rgb(100 116 139); font-size: .76rem; text-align: center; }
+.state { display: flex; min-height: 6rem; align-items: center; justify-content: center; gap: .5rem; border: 1px dashed var(--border-subtle); border-radius: .5rem; margin-top: 1rem; padding: 1rem; color: var(--text-muted); font-size: .76rem; text-align: center; }
 .state-error { border-style: solid; border-color: rgb(254 202 202); color: rgb(185 28 28); }
 .candidate-list { display: grid; gap: .65rem; margin-top: 1rem; }
-.candidate-row { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: .8rem; border-top: 1px solid rgb(226 232 240); padding-top: .75rem; }
+.candidate-row { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: .8rem; border-top: 1px solid var(--border-subtle); padding-top: .75rem; }
 .candidate-row:first-child { border-top: 0; padding-top: 0; }
 .candidate-main { min-width: 0; }
 .badge-line { display: flex; flex-wrap: wrap; gap: .35rem; }
 .status-pill, .meta-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: .2rem .48rem; font-size: .64rem; font-weight: 900; }
 .status-ok, .meta-chip-ok { background: rgb(220 252 231); color: rgb(21 128 61); }
 .status-warn { background: rgb(254 243 199); color: rgb(146 64 14); }
-.status-muted, .meta-chip { background: rgb(241 245 249); color: rgb(71 85 105); }
-.candidate-row h4 { margin: .42rem 0 0; color: rgb(30 41 59); font-size: .8rem; font-weight: 900; overflow-wrap: anywhere; }
-.candidate-row p, .candidate-row small { display: block; margin: .25rem 0 0; color: rgb(100 116 139); font-size: .69rem; line-height: 1.45; }
-.open-link { flex: none; color: rgb(8 145 178); font-size: .7rem; font-weight: 900; white-space: nowrap; }
+.status-muted, .meta-chip { background: var(--surface-soft); color: var(--text-primary); }
+.candidate-row h4 { margin: .42rem 0 0; color: var(--text-strong); font-size: .8rem; font-weight: 900; overflow-wrap: anywhere; }
+.candidate-row p, .candidate-row small { display: block; margin: .25rem 0 0; color: var(--text-muted); font-size: .69rem; line-height: 1.45; }
+.open-link { flex: none; color: rgb(26 127 90); font-size: .7rem; font-weight: 900; white-space: nowrap; }
 .load-more-row { display: flex; justify-content: center; margin-top: .9rem; }
 button:disabled { cursor: not-allowed; opacity: .5; }
-.dark .candidate-panel, .dark .icon-button, .dark .secondary-button, .dark .field-control { border-color: rgb(51 65 85); background: rgb(15 23 42); color: rgb(203 213 225); }
-.dark .panel-heading h3, .dark .candidate-row h4 { color: rgb(248 250 252); }
-.dark .panel-heading p, .dark .filters label span, .dark .candidate-row p, .dark .candidate-row small, .dark .state { color: rgb(148 163 184); }
-.dark .candidate-row { border-color: rgb(51 65 85); }
-.dark .status-muted, .dark .meta-chip { background: rgb(30 41 59); color: rgb(203 213 225); }
+.dark .candidate-panel, .dark .icon-button, .dark .secondary-button, .dark .field-control { border-color: var(--border-subtle); background: var(--surface-1); color: var(--text-muted); }
+.dark .panel-heading h3, .dark .candidate-row h4 { color: var(--text-strong); }
+.dark .panel-heading p, .dark .filters label span, .dark .candidate-row p, .dark .candidate-row small, .dark .state { color: var(--text-muted); }
+.dark .candidate-row { border-color: var(--border-subtle); }
+.dark .status-muted, .dark .meta-chip { background: var(--surface-1); color: var(--text-muted); }
 @media (max-width: 620px) { .candidate-row { flex-direction: column; } .open-link { align-self: flex-start; } }
 </style>

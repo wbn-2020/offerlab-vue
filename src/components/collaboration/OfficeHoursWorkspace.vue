@@ -739,7 +739,7 @@ watch(
 .boundary-band {
   display: grid;
   gap: 0.7rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 1rem;
@@ -751,18 +751,18 @@ watch(
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: start;
   gap: 0.5rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
   line-height: 1.5;
 }
 
 .boundary-band svg,
 .panel-heading svg {
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
 }
 
 .boundary-band strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .office-grid {
@@ -773,7 +773,7 @@ watch(
 
 .office-panel {
   min-width: 0;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 1rem;
@@ -800,14 +800,14 @@ watch(
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
 
 .panel-heading p {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -816,7 +816,7 @@ watch(
   display: grid;
   min-width: 0;
   gap: 0.35rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.76rem;
   font-weight: 800;
 }
@@ -831,19 +831,19 @@ watch(
 .field-control {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.58rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8rem;
   line-height: 1.45;
   outline: none;
 }
 
 .field-control:focus {
-  border-color: rgb(8 145 178);
-  box-shadow: 0 0 0 3px rgb(165 243 252 / 0.65);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.65);
 }
 
 .compact-control {
@@ -864,7 +864,7 @@ watch(
 
 .check-row input {
   margin-top: 0.15rem;
-  accent-color: rgb(8 145 178);
+  accent-color: rgb(26 127 90);
 }
 
 .dense-row {
@@ -873,14 +873,14 @@ watch(
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.85rem;
 }
 
 .dense-row-focused {
   border-radius: 0.5rem;
-  background: rgb(240 249 255);
-  box-shadow: inset 0 0 0 1px rgb(14 165 233 / 0.35);
+  background: rgb(232 243 237);
+  box-shadow: inset 0 0 0 1px rgb(33 154 112 / 0.35);
   padding: 0.85rem;
 }
 
@@ -900,7 +900,7 @@ watch(
 
 .row-title strong {
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.88rem;
   font-weight: 900;
 }
@@ -909,7 +909,7 @@ watch(
   margin-top: 0.4rem;
   max-width: 72ch;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -918,7 +918,7 @@ watch(
   display: block;
   margin-top: 0.35rem;
   overflow-wrap: anywhere;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
   line-height: 1.45;
 }
@@ -931,7 +931,7 @@ watch(
 }
 
 .guidance-copy {
-  color: rgb(51 65 85) !important;
+  color: var(--text-primary) !important;
 }
 
 .row-actions {
@@ -952,8 +952,8 @@ watch(
 
 .meta-chip,
 .status-muted {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .status-ok {
@@ -987,16 +987,16 @@ watch(
 }
 
 .primary-button {
-  border: 1px solid rgb(14 116 144);
-  background: rgb(14 116 144);
+  border: 1px solid rgb(18 99 74);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .secondary-button,
 .icon-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .danger-button {
@@ -1027,16 +1027,16 @@ button:disabled {
   min-width: 0;
   align-items: flex-start;
   gap: 0.65rem;
-  border: 1px dashed rgb(203 213 225);
+  border: 1px dashed var(--border-subtle);
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.8rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
 }
 
 .state-block strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-weight: 900;
 }
 
@@ -1076,9 +1076,9 @@ button:disabled {
   display: flex;
   min-width: 0;
   gap: 0.6rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.55rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
 }
 
@@ -1124,33 +1124,33 @@ button:disabled {
 .dark .field-control,
 .dark .secondary-button,
 .dark .icon-button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .boundary-band strong,
 .dark .panel-heading h2,
 .dark .row-title strong,
 .dark .state-block strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .boundary-band > div,
 .dark .panel-heading p,
 .dark .row-main p,
 .dark .form-stack label {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .dense-row,
 .dark .feedback-list > div {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .state-block {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.65);
-  color: rgb(148 163 184);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 65%, transparent);
+  color: var(--text-muted);
 }
 </style>

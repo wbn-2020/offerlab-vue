@@ -1,6 +1,12 @@
 <template>
   <article
     class="post-card group"
+    role="link"
+    tabindex="0"
+    :aria-label="`查看帖子：${post.title}`"
+    @click="handleCardClick"
+    @keydown.enter.prevent="handleCardClick"
+    @keydown.space.prevent="handleCardClick"
   >
     <div class="post-card__author-row">
       <div class="flex min-w-0 items-center gap-3">
@@ -89,6 +95,7 @@
       :to="detailTo"
       class="post-detail-link"
       :aria-label="`查看帖子：${post.title}`"
+      @click.stop
     >
       <h3
         class="mb-2 line-clamp-2 text-lg font-bold text-slate-900 dark:text-slate-100"
@@ -400,6 +407,14 @@ const emit = defineEmits<{
   blockAuthor: [authorUid: Post['author']['uid'], postId: Post['postId']]
   'follow-change': [authorUid: Post['author']['uid'], following: boolean]
 }>()
+
+const handleCardClick = (event?: MouseEvent | KeyboardEvent) => {
+  if (typeof window === 'undefined') return
+  const eventTarget = event?.target
+  if (eventTarget instanceof Element && eventTarget.closest('a,button,input,textarea,select,[role="button"]')) return
+  if (window.getSelection()?.toString()) return
+  router.push(detailTo.value)
+}
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -755,7 +770,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(15 23 42 / 0.56);
+  background: rgb(#0d1a15 / 0.56);
   padding: 1rem;
 }
 
@@ -763,16 +778,16 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   display: grid;
   width: min(100%, 30rem);
   gap: 1.25rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 1.25rem;
-  color: rgb(15 23 42);
-  box-shadow: 0 22px 55px rgb(15 23 42 / 0.28);
+  color: var(--text-strong);
+  box-shadow: 0 22px 55px rgba(20, 30, 25, 0.28);
 }
 
 .feed-author-control-dialog__eyebrow {
-  color: rgb(79 70 229);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -785,7 +800,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 
 .feed-author-control-dialog p:not(.feed-author-control-dialog__eyebrow) {
   margin-top: 0.5rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -806,13 +821,13 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .feed-author-control-dialog__cancel {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .feed-author-control-dialog__confirm {
-  background: rgb(79 70 229);
+  background: rgb(26 127 90);
   color: white;
 }
 
@@ -824,13 +839,13 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   padding: 0.5rem 0.75rem;
   text-align: left;
   font-size: 0.875rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .feedback-menu-item:hover {
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
 }
 
 .feedback-menu-item strong,
@@ -843,7 +858,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   font-size: 0.72rem;
   font-weight: 500;
   line-height: 1.35;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .feedback-submitted-note {
@@ -870,7 +885,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 
 .post-feed-explanation {
   margin-bottom: 1rem;
-  border-left: 3px solid rgb(14 116 144);
+  border-left: 3px solid rgb(18 99 74);
   background: rgb(240 253 250);
   color: rgb(15 118 110);
 }
@@ -896,7 +911,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .post-feed-explanation__trigger:focus-visible {
-  outline: 3px solid rgb(14 116 144 / 0.35);
+  outline: 3px solid rgb(18 99 74 / 0.35);
   outline-offset: -3px;
 }
 
@@ -933,17 +948,17 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 .content-type-pill {
   display: inline-flex;
   border-radius: 999px;
-  background: rgb(239 246 255);
-  padding: 0.1rem 0.45rem;
+  background: var(--brand-soft);
+  padding: 0.1rem 0.5rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: var(--brand-strong);
 }
 
 .domain-card-media {
   overflow: hidden;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   aspect-ratio: 16 / 9;
 }
 
@@ -970,13 +985,13 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .domain-card-chip--tech {
-  background: rgb(236 254 255);
-  color: rgb(14 116 144);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .domain-card-chip--career {
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .domain-card-chip--reading {
@@ -1016,24 +1031,24 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   display: grid;
   gap: 0.2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.75rem 0.85rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.82rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
 .governance-card-unavailable strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.86rem;
 }
 
 .post-signal-note--hot {
-  border-color: rgb(199 210 254);
-  background: rgb(238 242 255 / 0.72);
-  color: rgb(67 56 202);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237 / 0.72);
+  color: rgb(18 99 74);
 }
 
 .post-signal-note--risk {
@@ -1059,7 +1074,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .card-action:hover {
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .post-detail-link {
@@ -1069,7 +1084,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .post-detail-link:focus-visible {
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.85);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.85);
 }
 
 :deep(.search-highlight) {
@@ -1080,31 +1095,31 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .dark .feedback-menu-item {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .feed-author-control-dialog,
 .dark .feed-author-control-dialog__cancel {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .feed-author-control-dialog {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .feed-author-control-dialog p:not(.feed-author-control-dialog__eyebrow),
 .dark .feed-author-control-dialog__cancel {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .feedback-menu-item:hover {
-  background: rgb(30 41 59);
-  color: rgb(248 250 252);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .feedback-menu-item small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .feedback-submitted-note {
@@ -1130,22 +1145,22 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .dark .card-action:hover {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .domain-card-media {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .domain-card-chip--tech {
-  background: rgb(22 78 99 / 0.45);
-  color: rgb(103 232 249);
+  background: rgb(10 52 39 / 0.45);
+  color: rgb(124 195 165);
 }
 
 .dark .domain-card-chip--career {
-  background: rgb(49 46 129 / 0.5);
-  color: rgb(199 210 254);
+  background: rgb(10 52 39 / 0.5);
+  color: rgb(169 216 195);
 }
 
 .dark .domain-card-chip--reading {
@@ -1164,9 +1179,9 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .dark .post-signal-note--hot {
-  border-color: rgb(67 56 202 / 0.64);
-  background: rgb(49 46 129 / 0.42);
-  color: rgb(199 210 254);
+  border-color: rgb(18 99 74 / 0.64);
+  background: rgb(10 52 39 / 0.42);
+  color: rgb(169 216 195);
 }
 
 .dark .post-signal-note--risk {
@@ -1176,13 +1191,13 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .dark .governance-card-unavailable {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .governance-card-unavailable strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark :deep(.search-highlight) {
@@ -1192,7 +1207,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 
 .post-card {
   padding: 1.1rem 0;
-  border-bottom: 1px solid rgb(229 231 235);
+  border-bottom: 1px solid var(--border-subtle);
   background: transparent;
   transition: background-color 0.15s ease;
 }
@@ -1241,14 +1256,14 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 
 .post-detail-link h3 {
   margin: 0 !important;
-  color: rgb(31 41 55);
+  color: var(--text-strong);
   font-size: 1rem;
   line-height: 1.5;
 }
 
 .post-detail-link p {
   margin: 0 !important;
-  color: rgb(75 85 99);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.7;
 }
@@ -1276,7 +1291,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   padding: 0;
   border-radius: 0;
   background: transparent;
-  color: rgb(107 114 128);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
@@ -1284,7 +1299,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 .post-trust-panel > .mb-1 {
   width: 100%;
   margin: 0;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .post-trust-panel > .mb-1 {
@@ -1297,9 +1312,9 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .post-signal-note--hot {
-  border-color: rgb(219 234 254);
-  background: rgb(239 246 255 / 0.75);
-  color: rgb(29 78 216);
+  border-color: rgb(205 232 220);
+  background: rgb(232 243 237 / 0.75);
+  color: rgb(18 99 74);
 }
 
 .post-signal-note--risk {
@@ -1311,7 +1326,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 .domain-card-media {
   width: 100%;
   margin: 0 !important;
-  border-color: rgb(229 231 235);
+  border-color: var(--border-subtle);
   border-radius: 6px;
   aspect-ratio: 1 / 0.78;
 }
@@ -1339,10 +1354,10 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 
 .post-tag-list > span {
   padding: 0.15rem 0.45rem;
-  border-color: rgb(229 231 235);
+  border-color: var(--border-subtle);
   border-radius: 4px;
   background: rgb(249 250 251);
-  color: rgb(107 114 128);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
@@ -1352,8 +1367,8 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   justify-content: space-between;
   margin-top: 0.9rem;
   padding-top: 0.7rem;
-  border-top: 1px solid rgb(243 244 246);
-  color: rgb(107 114 128);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
   font-size: 0.8125rem;
 }
 
@@ -1364,7 +1379,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .post-card__footer .card-action:hover {
-  background: rgb(243 244 246);
+  background: var(--surface-soft);
 }
 
 .post-card__footer :deep(.post-save-organizer-trigger) {
@@ -1372,41 +1387,37 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .dark .post-card {
-  border-color: rgb(63 63 70);
-}
-
-.dark .post-card:hover {
-  background: rgb(24 26 32 / 0.72);
+  border-color: var(--border-subtle);
 }
 
 .dark .post-detail-link h3 {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .post-detail-link p,
 .dark .post-reason-panel :is(span, div > span),
 .dark .post-trust-panel :is(span, div > span) {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .domain-card-media,
 .dark .post-tag-list > span {
-  border-color: rgb(63 63 70);
-  background: rgb(24 26 32);
+  border-color: var(--border-subtle);
+  background: var(--surface-2);
 }
 
 .dark .post-card__footer {
-  border-color: rgb(39 39 42);
-  color: rgb(148 163 184);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .dark .post-card__footer .card-action:hover {
-  background: rgb(39 39 42);
+  background: var(--surface-3);
 }
 
 @media (max-width: 560px) {
   .post-card {
-    padding: 1rem 0;
+    padding: 1.05rem 1rem;
   }
 
   .post-card__author-row {
@@ -1425,22 +1436,63 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .post-card {
-  padding: 1.15rem 1.1rem;
-  border-bottom-color: var(--border-subtle);
+  position: relative;
+  overflow: hidden;
+  padding: 1.3rem 1.35rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
   background: var(--surface);
-  transition: background-color 0.18s ease;
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.24s ease,
+    transform 0.24s ease;
+}
+
+/* 左侧品牌强调条：默认收起，悬停展开，克制但有回应 */
+.post-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+  opacity: 0;
+  transform: scaleY(0.35);
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
 .post-card:first-child {
-  padding-top: 1.15rem;
+  padding-top: 1.3rem;
 }
 
 .post-card:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .post-card:hover {
-  background: #fbfdff;
+  border-color: color-mix(in srgb, var(--primary-600) 24%, var(--border-subtle));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.post-card:hover::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post-card,
+  .post-card::before {
+    transition: none;
+  }
+
+  .post-card:hover {
+    transform: none;
+  }
 }
 
 .post-card__author-row {
@@ -1454,8 +1506,8 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   flex: 0 0 auto;
   overflow: hidden;
   place-items: center;
-  border-radius: 7px;
-  background: var(--primary-600);
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
   color: white;
   font-size: 0.8125rem;
   font-weight: 850;
@@ -1486,7 +1538,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .post-follow-button:hover:not(:disabled) {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
   background: var(--primary-100);
 }
 
@@ -1516,7 +1568,7 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   display: grid;
   gap: 0.15rem;
   min-height: 3.25rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   padding: 0.65rem 0.75rem;
   text-align: left;
@@ -1524,18 +1576,18 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 
 .feed-feedback-reason-options button:hover,
 .feed-feedback-reason-options .feed-feedback-reason-option--active {
-  border-color: rgb(79 70 229);
-  background: rgb(238 242 255);
+  border-color: rgb(26 127 90);
+  background: rgb(232 243 237);
 }
 
 .feed-feedback-reason-options strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.8125rem;
   font-weight: 800;
 }
 
 .feed-feedback-reason-options span {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.4;
 }
@@ -1546,22 +1598,22 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 }
 
 .dark .feed-feedback-reason-options button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .feed-feedback-reason-options button:hover,
 .dark .feed-feedback-reason-options .feed-feedback-reason-option--active {
-  border-color: rgb(129 140 248);
-  background: rgb(49 46 129 / 0.45);
+  border-color: rgb(124 195 165);
+  background: rgb(10 52 39 / 0.45);
 }
 
 .dark .feed-feedback-reason-options strong {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .feed-feedback-reason-options span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .post-feedback-trigger:hover {
@@ -1618,84 +1670,95 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
 
 .post-detail-link:focus-visible {
   border-radius: 5px;
-  box-shadow: 0 0 0 3px rgb(219 234 254 / 0.82);
+  box-shadow: 0 0 0 3px rgb(205 232 220 / 0.82);
 }
 
 .domain-card-media {
   border-color: var(--border-subtle);
-  border-radius: 7px;
+  border-radius: 12px;
   background: var(--surface-3);
 }
 
 .post-tag-list > span {
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-pill);
   background: var(--surface-3);
   color: var(--text-muted);
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.post-tag-list > span:hover {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
 }
 
 .post-card__footer {
-  margin-top: 0.85rem;
-  padding-top: 0.65rem;
-  border-top-color: var(--surface-3);
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top-color: var(--border-subtle);
   color: var(--text-muted);
 }
 
 .post-card__footer .card-action {
   min-height: 2rem;
-  border-radius: 5px;
+  border-radius: var(--radius-pill);
 }
 
 .post-card__footer .card-action:hover {
-  background: var(--surface-3);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
 }
 
 .dark .post-card,
 .dark .post-feedback-menu {
-  background: rgb(24 26 32);
+  border-color: var(--border-subtle);
+  background: var(--surface);
 }
 
 .dark .post-card:hover {
-  background: rgb(27 29 35);
+  border-color: color-mix(in srgb, var(--primary-600) 34%, var(--border-subtle));
+  background: var(--surface-raised, var(--surface));
 }
 
 .dark .post-author-badge {
-  background: rgb(124 45 18 / 0.45);
-  color: rgb(253 186 116);
+  background: var(--accent-soft);
+  color: var(--accent-500);
 }
 
 .dark .post-follow-button {
-  border-color: rgb(30 58 138);
-  background: rgb(30 58 138 / 0.36);
-  color: rgb(147 197 253);
+  border-color: color-mix(in srgb, var(--primary-600) 38%, transparent);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
 }
 
 .dark .post-feedback-trigger:hover,
 .dark .post-card__footer .card-action:hover,
 .dark .post-tag-list > span,
 .dark .domain-badge {
-  background: rgb(39 39 42);
+  background: var(--surface-3);
 }
 
 .dark .post-feedback-menu,
 .dark .domain-card-media {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
 }
 
 .dark .post-detail-link h3 {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .post-detail-link p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .post-detail-link:focus-visible {
-  box-shadow: 0 0 0 3px rgb(30 58 138 / 0.48);
+  box-shadow: 0 0 0 3px rgb(10 52 39 / 0.48);
 }
 
 .dark .post-card__footer {
-  border-color: rgb(39 39 42);
+  border-color: var(--border-subtle);
 }
 
 @media (max-width: 560px) {
@@ -1723,5 +1786,44 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   .post-detail-link h3 {
     font-size: 0.95rem;
   }
+}
+
+/* ==========================================================================
+   品牌对齐层（最后生效）：把历史遗留的靛蓝强调色收敛到「闻野」森绿 token
+   ========================================================================== */
+.feed-author-control-dialog__eyebrow {
+  color: var(--brand-strong);
+}
+
+.feed-author-control-dialog__confirm {
+  background: var(--primary-600);
+}
+
+.feed-author-control-dialog__confirm:hover {
+  background: var(--primary-700);
+}
+
+.domain-card-chip--career,
+.post-signal-note--hot,
+.feed-feedback-reason-options .feed-feedback-reason-option--active {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.post-signal-note--hot,
+.feed-feedback-reason-options button:hover,
+.feed-feedback-reason-options .feed-feedback-reason-option--active {
+  border-color: color-mix(in srgb, var(--primary-600) 30%, transparent);
+}
+
+.feed-feedback-reason-options button:hover {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.post-follow-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary-600) 40%, transparent);
+  background: var(--primary-100);
+  color: var(--primary-700);
 }
 </style>

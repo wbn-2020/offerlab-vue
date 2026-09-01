@@ -305,7 +305,7 @@ const routes = [
   {
     path: '/admin',
     name: 'Admin',
-    redirect: '/admin/ops',
+    redirect: '/admin/operations',
     meta: { title: '后台中心', requiresAuth: true, adminPermission: ['ops', 'questionOperator', 'contentModerator', 'admin'] },
   },
   {

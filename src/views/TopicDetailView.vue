@@ -639,9 +639,9 @@ onUnmounted(() => {
 }
 
 .tag-chip {
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .status-featured {
@@ -655,24 +655,24 @@ onUnmounted(() => {
 }
 
 .status-muted {
-  background: rgb(226 232 240);
-  color: rgb(71 85 105);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 /* 跨频道专题的中性身份 chip：刻意不用任何单频道配色，避免集合冒充频道归属。 */
 .cross-domain-chip {
-  border: 1px dashed rgb(148 163 184);
+  border: 1px dashed var(--border-subtle);
   background: transparent;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .dark .cross-domain-chip {
-  border-color: rgb(71 85 105);
-  color: rgb(148 163 184);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .curated-section {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
 }
@@ -680,14 +680,14 @@ onUnmounted(() => {
 .curated-section h2 {
   font-size: 0.95rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .curated-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
 }
 
@@ -758,12 +758,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 1rem;
 }
 
 .curated-section-head p {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -776,7 +776,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  border-top: 1px solid rgb(241 245 249);
+  border-top: 1px solid var(--border-subtle);
   padding: 1rem;
 }
 
@@ -788,13 +788,13 @@ onUnmounted(() => {
   margin-top: 0.2rem;
   font-size: 1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .curated-item p,
 .curated-item small,
 .curated-item-source {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   line-height: 1.5;
 }
@@ -806,16 +806,16 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.2rem;
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.1rem 0.5rem;
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .dark .curated-item-domain {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .primary-button,
@@ -831,14 +831,14 @@ onUnmounted(() => {
 }
 
 .primary-button {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .secondary-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .secondary-button:disabled {
@@ -849,7 +849,7 @@ onUnmounted(() => {
 .empty-panel,
 .loading-panel,
 .notice-error {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 2.25rem 1.25rem;
@@ -859,13 +859,13 @@ onUnmounted(() => {
 .empty-panel h2 {
   font-size: 1rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .empty-panel p,
 .loading-panel {
   margin-top: 0.5rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .notice-error {
@@ -1362,7 +1362,7 @@ onUnmounted(() => {
 }
 
 .secondary-button:hover:not(:disabled) {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -1504,8 +1504,8 @@ onUnmounted(() => {
 .dark .filter-chip-active,
 .dark .filter-chip:hover,
 .dark .secondary-button:hover:not(:disabled) {
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(147 197 253);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(124 195 165);
 }
 
 .dark .tag-chip,
@@ -1517,14 +1517,14 @@ onUnmounted(() => {
 .dark .loading-panel,
 .dark .secondary-button,
 .dark .topic-followed-button {
-  border-color: rgb(39 39 42);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
 }
 
 .dark .curated-section-head,
 .dark .aux-details[open] > summary,
 .dark .loading-row {
-  border-color: rgb(39 39 42);
+  border-color: var(--border-subtle);
 }
 
 .dark .side-links a:hover,
@@ -1533,7 +1533,7 @@ onUnmounted(() => {
 .dark .loading-lines i,
 .dark .status-muted,
 .dark .curated-item-domain {
-  background: rgb(39 39 42);
+  background: var(--surface-1);
 }
 
 .dark .curated-section h2,

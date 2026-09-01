@@ -224,9 +224,9 @@ watch(() => props.favorited, (favorited) => {
   width: min(22rem, calc(100vw - 2rem));
   overflow: hidden;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: rgb(255 255 255);
-  box-shadow: 0 18px 45px rgb(15 23 42 / 0.16);
+  box-shadow: 0 18px 45px rgba(20, 30, 25, 0.16);
 }
 
 .save-organizer__head {
@@ -234,8 +234,8 @@ watch(() => props.favorited, (favorited) => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  border-bottom: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.75rem;
 }
 
@@ -247,7 +247,7 @@ watch(() => props.favorited, (favorited) => {
 .save-organizer__head strong {
   font-size: 0.875rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .save-organizer__head span {
@@ -255,7 +255,7 @@ watch(() => props.favorited, (favorited) => {
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.45;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .save-organizer__close {
@@ -266,11 +266,11 @@ watch(() => props.favorited, (favorited) => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .save-organizer__close:hover {
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .save-organizer__error,
@@ -290,9 +290,9 @@ watch(() => props.favorited, (favorited) => {
 }
 
 .save-organizer__loading {
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .save-organizer__list {
@@ -313,7 +313,7 @@ watch(() => props.favorited, (favorited) => {
 }
 
 .save-organizer__target:hover:not(:disabled) {
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .save-organizer__target:disabled {
@@ -333,7 +333,7 @@ watch(() => props.favorited, (favorited) => {
 .save-organizer__target-main span {
   font-size: 0.84rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .save-organizer__target-main small {
@@ -341,7 +341,7 @@ watch(() => props.favorited, (favorited) => {
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1.35;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .save-organizer__visibility {
@@ -353,8 +353,8 @@ watch(() => props.favorited, (favorited) => {
 }
 
 .save-organizer__visibility--private {
-  background: rgb(241 245 249);
-  color: rgb(51 65 85);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .save-organizer__visibility--public {
@@ -365,8 +365,8 @@ watch(() => props.favorited, (favorited) => {
 .save-organizer__create {
   display: grid;
   gap: 0.55rem;
-  border-top: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.75rem;
 }
 
@@ -379,29 +379,29 @@ watch(() => props.favorited, (favorited) => {
   margin-bottom: 0.35rem;
   font-size: 0.72rem;
   font-weight: 900;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .save-organizer__create input {
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.5rem 0.6rem;
   font-size: 0.8125rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
 .save-organizer__create input:focus {
-  border-color: rgb(37 99 235);
-  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.7);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.7);
 }
 
 .save-organizer__create button {
   min-height: 2.25rem;
   border-radius: 0.5rem;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   padding: 0.45rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 900;
@@ -440,43 +440,43 @@ watch(() => props.favorited, (favorited) => {
 }
 
 .dark .save-organizer__panel {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
   box-shadow: 0 18px 45px rgb(0 0 0 / 0.34);
 }
 
 .dark .save-organizer__head,
 .dark .save-organizer__create {
-  border-color: rgb(51 65 85);
-  background: rgb(30 41 59);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .save-organizer__head strong,
 .dark .save-organizer__target-main span {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .save-organizer__head span,
 .dark .save-organizer__create label span {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .save-organizer__close {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .save-organizer__close:hover,
 .dark .save-organizer__target:hover:not(:disabled) {
-  background: rgb(51 65 85);
+  background: var(--surface-2);
 }
 
 .dark .save-organizer__target-main small {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .save-organizer__visibility--private {
-  background: rgb(51 65 85);
-  color: rgb(203 213 225);
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .dark .save-organizer__visibility--public {
@@ -485,9 +485,9 @@ watch(() => props.favorited, (favorited) => {
 }
 
 .dark .save-organizer__create input {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(248 250 252);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .save-organizer__error {
@@ -497,8 +497,8 @@ watch(() => props.favorited, (favorited) => {
 }
 
 .dark .save-organizer__loading {
-  border-color: rgb(30 64 175);
-  background: rgb(30 64 175 / 0.25);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(14 74 55 / 0.25);
+  color: rgb(169 216 195);
 }
 </style>

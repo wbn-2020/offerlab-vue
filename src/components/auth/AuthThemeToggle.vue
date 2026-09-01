@@ -29,24 +29,24 @@ const isEffectiveDark = computed(() => themeStore.isDark())
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .auth-theme-toggle:hover,
 .auth-theme-toggle:focus-visible {
-  background: rgb(241 245 249);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
   outline: none;
 }
 
 .dark .auth-theme-toggle {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .auth-theme-toggle:hover,
 .dark .auth-theme-toggle:focus-visible {
-  background: rgb(30 41 59);
-  color: rgb(248 250 252);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 </style>

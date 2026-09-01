@@ -27,8 +27,9 @@ export function setupRouterGuards(router: Router) {
     const requiresAuth = to.meta.requiresAuth as boolean
     const guestOnly = to.meta.guestOnly as boolean
     const adminPermission = to.meta.adminPermission as AdminPermissionKey | AdminPermissionKey[] | undefined
+    const requiresResolvedSession = Boolean(requiresAuth || guestOnly || adminPermission)
 
-    if (authStore.token && !authStore.ready) {
+    if (requiresResolvedSession && authStore.token && !authStore.ready) {
       await authStore.hydrate()
     } else if (requiresAuth && authStore.token && !authStore.user && !authStore.hydrateFailed) {
       await authStore.hydrate()

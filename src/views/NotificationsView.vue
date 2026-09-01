@@ -817,37 +817,37 @@ onBeforeUnmount(() => {
   flex: none;
   align-items: center;
   gap: 0.45rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0 0.85rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 800;
 }
 
 .inbox-view-tabs button.active {
-  border-color: rgb(14 165 233);
-  background: rgb(240 249 255);
-  color: rgb(3 105 161);
+  border-color: rgb(33 154 112);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .dark .inbox-view-tabs button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .inbox-view-tabs button.active {
-  border-color: rgb(14 116 144);
-  background: rgb(8 47 73);
-  color: rgb(186 230 253);
+  border-color: rgb(18 99 74);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .metric-card {
   min-width: 6.5rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   padding: 0.75rem 0.9rem;
 }
 
@@ -855,7 +855,7 @@ onBeforeUnmount(() => {
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .metric-card strong {
@@ -863,7 +863,7 @@ onBeforeUnmount(() => {
   margin-top: 0.2rem;
   font-size: 1.35rem;
   line-height: 1.8rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .tab-button {
@@ -880,18 +880,18 @@ onBeforeUnmount(() => {
 }
 
 .tab-button-active {
-  border-color: rgb(199 210 254);
-  background: rgb(238 242 255);
-  color: rgb(79 70 229);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(26 127 90);
 }
 
 .tab-button-idle {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .tab-button-idle:hover {
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
 }
 
 .tab-count {
@@ -913,7 +913,7 @@ onBeforeUnmount(() => {
 .mark-read-hint {
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .feedback-revisit-panel {
@@ -921,9 +921,9 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.75rem;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 1rem;
 }
 
@@ -931,7 +931,7 @@ onBeforeUnmount(() => {
   margin-top: 0.15rem;
   font-size: 1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .feedback-revisit-panel span {
@@ -940,7 +940,7 @@ onBeforeUnmount(() => {
   max-width: 42rem;
   font-size: 0.875rem;
   line-height: 1.6;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .feedback-revisit-actions {
@@ -960,28 +960,28 @@ onBeforeUnmount(() => {
   padding: 0.45rem 0.8rem;
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .curation-feedback-card {
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(248 250 252);
+  border: 1px solid rgb(169 216 195);
+  background: var(--surface-soft);
   padding: 0.85rem;
 }
 
 .curation-feedback-label {
   border-radius: 999px;
-  background: rgb(219 234 254);
+  background: rgb(205 232 220);
   padding: 0.2rem 0.55rem;
   font-size: 0.7rem;
   font-weight: 900;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .curation-feedback-card dt {
   font-weight: 900;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .curation-feedback-card dd {
@@ -995,7 +995,7 @@ onBeforeUnmount(() => {
   min-height: 2rem;
   align-items: center;
   border-radius: 0.5rem;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   padding: 0.35rem 0.7rem;
   font-size: 0.75rem;
   font-weight: 900;
@@ -1003,66 +1003,66 @@ onBeforeUnmount(() => {
 }
 
 .dark .metric-card {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .metric-card span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .metric-card strong {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .tab-button-active {
-  border-color: rgb(67 56 202);
-  background: rgb(30 27 75);
-  color: rgb(199 210 254);
+  border-color: rgb(18 99 74);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .tab-button-idle {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .tab-button-idle:hover {
-  background: rgb(30 41 59);
-  color: rgb(248 250 252);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .mark-read-hint {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .feedback-revisit-panel {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .feedback-revisit-panel h2 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .feedback-revisit-panel span {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .feedback-revisit-actions a {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .curation-feedback-card {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .curation-feedback-label {
-  background: rgb(30 58 138);
-  color: rgb(191 219 254);
+  background: rgb(10 52 39);
+  color: rgb(169 216 195);
 }
 
 .dark .curation-feedback-card dt {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 @media (max-width: 640px) {
@@ -1257,7 +1257,7 @@ onBeforeUnmount(() => {
 }
 
 .tab-button-active {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -1384,9 +1384,9 @@ onBeforeUnmount(() => {
 }
 
 .notice-info {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
-  color: #1d4ed8;
+  color: #12634a;
 }
 
 .notifications-workspace {
@@ -1479,7 +1479,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 1rem;
   border: 0;
-  border-bottom: 1px solid #dbeafe;
+  border-bottom: 1px solid #cde8dc;
   border-radius: 0;
   background: var(--primary-50);
   padding: 0.85rem 1rem;
@@ -1507,11 +1507,11 @@ onBeforeUnmount(() => {
 
 .feedback-revisit-actions a {
   min-height: 2rem;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #a9d8c3;
   border-radius: var(--radius-control);
   background: var(--surface-1);
   padding: 0.35rem 0.65rem;
-  color: #1d4ed8;
+  color: #12634a;
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -1625,7 +1625,7 @@ onBeforeUnmount(() => {
 
 .notification-read-button {
   min-height: 34px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #a9d8c3;
   border-radius: var(--radius-control);
   background: var(--surface-1);
   padding: 0.35rem 0.65rem;
@@ -1637,7 +1637,7 @@ onBeforeUnmount(() => {
 }
 
 .notification-read-button:hover:not(:disabled) {
-  border-color: #93c5fd;
+  border-color: #7cc3a5;
   background: var(--primary-50);
 }
 
@@ -1648,7 +1648,7 @@ onBeforeUnmount(() => {
 
 .curation-feedback-card {
   margin-top: 0.75rem;
-  border: 1px solid #dbeafe;
+  border: 1px solid #cde8dc;
   border-radius: var(--radius-control);
   background: #f8fbff;
   padding: 0.75rem;
@@ -1667,8 +1667,8 @@ onBeforeUnmount(() => {
 }
 
 .curation-feedback-label {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #cde8dc;
+  color: #12634a;
 }
 
 .curation-feedback-card dl {
@@ -1899,34 +1899,34 @@ onBeforeUnmount(() => {
 .dark .context-block,
 .dark .notification-read-button,
 .dark .feedback-revisit-actions a {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .inbox-view-tabs {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .inbox-view-tabs button,
 .dark .tab-button-idle {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .inbox-view-tabs button:hover,
 .dark .inbox-view-tabs button.active {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .tab-button-active {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .tab-button-idle:hover,
 .dark .context-links a {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .notification-count,
@@ -1934,7 +1934,7 @@ onBeforeUnmount(() => {
 .dark .notification-row,
 .dark .context-stats div,
 .dark .load-more-row {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .notification-row-unread,
@@ -1944,12 +1944,12 @@ onBeforeUnmount(() => {
 }
 
 .dark .feedback-revisit-panel {
-  border-color: rgb(30 64 175);
+  border-color: rgb(14 74 55);
   background: rgb(17 34 63);
 }
 
 .dark .feedback-revisit-actions a {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 
 .dark .notification-title,
@@ -1959,7 +1959,7 @@ onBeforeUnmount(() => {
 .dark .notification-count strong,
 .dark .context-block-heading,
 .dark .context-stats dd {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .notification-content,
@@ -1970,18 +1970,18 @@ onBeforeUnmount(() => {
 .dark .feedback-revisit-panel span,
 .dark .context-stats dt,
 .dark .context-block p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .notification-type,
 .dark .empty-icon,
 .dark .skeleton-icon,
 .dark .skeleton-line {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .curation-feedback-card {
-  border-color: rgb(30 64 175);
+  border-color: rgb(14 74 55);
   background: rgb(15 31 55);
 }
 
@@ -1998,9 +1998,9 @@ onBeforeUnmount(() => {
 }
 
 .dark .notice-info {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 @media (max-width: 960px) {

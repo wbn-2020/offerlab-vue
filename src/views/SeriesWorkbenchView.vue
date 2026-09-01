@@ -475,7 +475,8 @@ const saveSeriesDraft = async () => {
       activeSeriesId.value = res.data.id
       editingSeriesId.value = res.data.id
       fillSeriesDraft(res.data)
-    }    toast.success('Content series saved')
+    }
+    toast.success('Content series saved')
     await loadSeriesWorkbench()
   } catch (error) {
     toast.error(getErrorMessage(error, '合集保存失败'))
@@ -644,7 +645,7 @@ onMounted(async () => {
 }
 
 .series-card-active {
-  border-color: #93c5fd;
+  border-color: #7cc3a5;
   box-shadow: inset 3px 0 0 var(--primary-600);
 }
 
@@ -657,7 +658,7 @@ onMounted(async () => {
   padding: 0.35rem 0.7rem;
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .series-progress-bar {
@@ -698,13 +699,13 @@ onMounted(async () => {
 }
 
 .series-knowledge-projection strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   font-weight: 900;
 }
 
 .series-knowledge-projection p {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   line-height: 1.6;
 }
@@ -714,7 +715,7 @@ onMounted(async () => {
   align-items: center;
   gap: 0.35rem;
   justify-self: start;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.8125rem;
   font-weight: 800;
 }
@@ -738,11 +739,11 @@ onMounted(async () => {
   padding: 0.25rem;
   font-size: 0.875rem;
   font-weight: 700;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .series-text-button:hover {
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .series-empty-state {
@@ -839,7 +840,7 @@ onMounted(async () => {
 }
 
 .dark .series-card-active {
-  border-color: #1d4ed8;
+  border-color: #12634a;
 }
 
 @media (prefers-reduced-motion: reduce) {

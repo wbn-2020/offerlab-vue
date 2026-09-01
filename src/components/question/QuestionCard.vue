@@ -157,34 +157,34 @@ const addToReviewQueue = async () => {
 <style scoped>
 .meta-chip {
   border-radius: 999px;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.25rem 0.6rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .meta-company {
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .dark .meta-chip {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .meta-company {
-  background: rgb(30 27 75);
-  color: rgb(199 210 254);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .signal-chip {
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.2rem 0.5rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .signal-strong {
@@ -195,19 +195,19 @@ const addToReviewQueue = async () => {
 .review-action {
   min-height: 1.75rem;
   border-radius: 999px;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.2rem 0.6rem;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
   transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
 .review-action:hover:not(:disabled) {
-  border-color: rgb(96 165 250);
-  background: rgb(219 234 254);
-  color: rgb(30 64 175);
+  border-color: rgb(70 172 134);
+  background: rgb(205 232 220);
+  color: rgb(14 74 55);
 }
 
 .review-action:disabled {
@@ -216,8 +216,8 @@ const addToReviewQueue = async () => {
 }
 
 .dark .signal-chip {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .signal-strong {
@@ -226,9 +226,9 @@ const addToReviewQueue = async () => {
 }
 
 .dark .review-action {
-  border-color: rgb(30 64 175);
-  background: rgb(23 37 84);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 :deep(.question-search-highlight) {

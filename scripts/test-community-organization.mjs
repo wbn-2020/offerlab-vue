@@ -42,7 +42,7 @@ for (const [name, source] of [
   assert.doesNotMatch(source, mojibakeMarkers, `${name} must not contain user-visible mojibake markers`)
 }
 
-const topicHeader = firstRegion(topicDetail, '<section class="identity-banner"')
+const topicHeader = firstRegion(topicDetail, '<section v-if="topicReady" class="identity-banner"')
 const topicTypeMap = scriptRegion(topicDetail, 'const topicTypeText')
 assert.match(topicHeader, /社区话题/, 'topic detail header must use community topic language')
 assert.match(topicHeader, /精选话题/, 'topic detail featured badge must use topic language')

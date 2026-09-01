@@ -426,7 +426,7 @@ const props = withDefaults(defineProps<{
   loading: false,
   errorMessage: '',
   expectedCount: 0,
-  emptyText: '还没有评论，来抢沙发吧',
+  emptyText: '还没有评论，来分享你的看法吧',
   replyActionLabel: '回复',
   replyPlaceholder: '写下回复...',
   replySubmitLabel: '回复',
@@ -727,18 +727,18 @@ void props.postId
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   transition: color 0.15s ease;
 }
 
 .comment-state-panel {
   display: grid;
   gap: 0.9rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 1rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   text-align: center;
 }
 
@@ -770,7 +770,7 @@ void props.postId
   display: block;
   animation: comment-skeleton-pulse 1.35s ease-in-out infinite;
   border-radius: 999px;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .comment-skeleton-avatar {
@@ -802,7 +802,7 @@ void props.postId
 }
 
 .comment-branch {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   padding: 1rem;
 }
@@ -812,16 +812,16 @@ void props.postId
 }
 
 [id^='comment-']:target {
-  outline: 3px solid rgb(14 165 233 / 0.35);
+  outline: 3px solid rgb(33 154 112 / 0.35);
   outline-offset: 3px;
 }
 
 .comment-branch-author {
-  border-color: rgb(147 197 253);
+  border-color: rgb(124 195 165);
 }
 
 .comment-branch-pinned {
-  border-color: rgb(125 211 252);
+  border-color: rgb(124 195 165);
 }
 
 .comment-branch-featured {
@@ -834,7 +834,7 @@ void props.postId
 }
 
 .comment-branch-folded {
-  border-color: rgb(148 163 184);
+  border-color: var(--border-subtle);
 }
 
 .comment-action-static {
@@ -842,7 +842,7 @@ void props.postId
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .comment-action-accept {
@@ -864,8 +864,8 @@ void props.postId
 }
 
 .comment-signal-author {
-  background: rgb(219 234 254);
-  color: rgb(29 78 216);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .comment-signal-hot {
@@ -874,8 +874,8 @@ void props.postId
 }
 
 .comment-signal-pinned {
-  background: rgb(224 242 254);
-  color: rgb(3 105 161);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .comment-signal-featured {
@@ -894,8 +894,8 @@ void props.postId
 }
 
 .comment-signal-folded {
-  background: rgb(226 232 240);
-  color: rgb(71 85 105);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .folded-comment-summary {
@@ -904,20 +904,20 @@ void props.postId
   align-items: center;
   gap: 0.5rem;
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.75rem 0.85rem;
   font-size: 0.8125rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .folded-comment-summary-reply {
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
 }
 
 .discussion-signal-panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
@@ -932,14 +932,14 @@ void props.postId
 .discussion-signal-head span {
   font-size: 0.9rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .discussion-signal-head p {
   max-width: 30rem;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .discussion-signal-list {
@@ -950,14 +950,14 @@ void props.postId
 
 .discussion-signal-item {
   border-radius: 0.625rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.85rem;
 }
 
 .discussion-signal-item strong {
   font-size: 0.8125rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .discussion-signal-item p {
@@ -968,16 +968,16 @@ void props.postId
   -webkit-box-orient: vertical;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .signal-badge {
   border-radius: 999px;
-  background: rgb(238 242 255);
+  background: var(--brand-soft);
   padding: 0.18rem 0.5rem;
   font-size: 0.68rem;
   font-weight: 900;
-  color: rgb(67 56 202);
+  color: var(--brand-strong);
 }
 
 .signal-metrics {
@@ -987,21 +987,21 @@ void props.postId
   gap: 0.6rem;
   font-size: 0.72rem;
   font-weight: 800;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .comment-action:hover {
-  color: rgb(79 70 229);
+  color: var(--brand-strong);
 }
 
 .dark .comment-action {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .comment-state-panel {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .comment-state-panel--error {
@@ -1012,19 +1012,19 @@ void props.postId
 
 .dark .comment-skeleton-avatar,
 .dark .comment-skeleton-copy i {
-  background: rgb(51 65 85);
+  background: var(--surface-2);
 }
 
 .dark .comment-branch {
-  border-left-color: rgb(30 41 59);
+  border-left-color: var(--border-subtle);
 }
 
 .dark .comment-branch-author {
-  border-color: rgb(96 165 250);
+  border-color: rgb(70 172 134);
 }
 
 .dark .comment-branch-pinned {
-  border-color: rgb(56 189 248);
+  border-color: rgb(70 172 134);
 }
 
 .dark .comment-branch-featured {
@@ -1037,16 +1037,16 @@ void props.postId
 }
 
 .dark .comment-branch-folded {
-  border-color: rgb(100 116 139);
+  border-color: var(--border-subtle);
 }
 
 .dark .comment-action-static {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .comment-signal-author {
-  background: rgb(30 64 175 / 0.45);
-  color: rgb(191 219 254);
+  background: rgb(14 74 55 / 0.45);
+  color: rgb(169 216 195);
 }
 
 .dark .comment-signal-hot {
@@ -1055,8 +1055,8 @@ void props.postId
 }
 
 .dark .comment-signal-pinned {
-  background: rgb(12 74 110 / 0.55);
-  color: rgb(186 230 253);
+  background: rgb(10 52 39 / 0.55);
+  color: rgb(169 216 195);
 }
 
 .dark .comment-signal-featured {
@@ -1075,38 +1075,38 @@ void props.postId
 }
 
 .dark .comment-signal-folded {
-  background: rgb(51 65 85);
-  color: rgb(203 213 225);
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .dark .folded-comment-summary {
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .folded-comment-summary-reply {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .discussion-signal-panel,
 .dark .discussion-signal-item {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .discussion-signal-head span,
 .dark .discussion-signal-item strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .discussion-signal-head p,
 .dark .discussion-signal-item p,
 .dark .signal-metrics {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .signal-badge {
-  background: rgb(49 46 129 / 0.45);
-  color: rgb(199 210 254);
+  background: rgb(10 52 39 / 0.45);
+  color: rgb(169 216 195);
 }
 </style>

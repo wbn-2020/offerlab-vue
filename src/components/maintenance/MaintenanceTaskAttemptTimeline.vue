@@ -230,33 +230,33 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.attempt-timeline { margin-top: .9rem; border-top: 1px solid rgb(226 232 240); padding-top: .8rem; }
-.timeline-toggle { display: inline-flex; min-height: 32px; align-items: center; gap: .35rem; border: 0; background: transparent; padding: .2rem 0; color: rgb(8 145 178); font-size: .76rem; font-weight: 900; }
+.attempt-timeline { margin-top: .9rem; border-top: 1px solid var(--border-subtle); padding-top: .8rem; }
+.timeline-toggle { display: inline-flex; min-height: 32px; align-items: center; gap: .35rem; border: 0; background: transparent; padding: .2rem 0; color: rgb(26 127 90); font-size: .76rem; font-weight: 900; }
 .timeline-toggle svg { transition: transform .15s ease; }
 .timeline-content { margin-top: .65rem; }
-.timeline-state { border: 1px dashed rgb(203 213 225); border-radius: .5rem; padding: .85rem; color: rgb(100 116 139); font-size: .76rem; text-align: center; }
+.timeline-state { border: 1px dashed var(--border-subtle); border-radius: .5rem; padding: .85rem; color: var(--text-muted); font-size: .76rem; text-align: center; }
 .timeline-state p { margin: 0; }
 .timeline-state-error { border-style: solid; border-color: rgb(254 202 202); color: rgb(185 28 28); }
-.retry-button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; margin-top: .55rem; border: 1px solid rgb(203 213 225); border-radius: .5rem; background: white; padding: .35rem .65rem; color: rgb(51 65 85); font-size: .73rem; font-weight: 900; }
+.retry-button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; margin-top: .55rem; border: 1px solid var(--border-subtle); border-radius: .5rem; background: white; padding: .35rem .65rem; color: var(--text-primary); font-size: .73rem; font-weight: 900; }
 .attempt-list { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
 .attempt-item { position: relative; padding-left: 1rem; }
-.attempt-item::before { position: absolute; top: 1rem; bottom: -1.15rem; left: .2rem; width: 1px; background: rgb(203 213 225); content: ''; }
+.attempt-item::before { position: absolute; top: 1rem; bottom: -1.15rem; left: .2rem; width: 1px; background: var(--surface-2); content: ''; }
 .attempt-item:last-child::before { display: none; }
-.attempt-marker { position: absolute; top: .75rem; left: 0; width: .45rem; height: .45rem; border: 2px solid rgb(14 116 144); border-radius: 999px; background: white; }
-.attempt-card { border: 1px solid rgb(226 232 240); border-radius: .5rem; padding: .7rem; }
+.attempt-marker { position: absolute; top: .75rem; left: 0; width: .45rem; height: .45rem; border: 2px solid rgb(18 99 74); border-radius: 999px; background: white; }
+.attempt-card { border: 1px solid var(--border-subtle); border-radius: .5rem; padding: .7rem; }
 .attempt-head,.decision-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .65rem; }
-.attempt-head p,.attempt-head span,.attempt-head time,.attempt-meta,.attempt-note,.decision p,.decision small,.pending-copy { display: block; margin: 0; color: rgb(71 85 105); font-size: .74rem; line-height: 1.55; }
-.attempt-head p { color: rgb(15 23 42); font-weight: 900; }.attempt-head span,.attempt-head time,.attempt-meta,.decision small { color: rgb(100 116 139); font-size: .69rem; }
+.attempt-head p,.attempt-head span,.attempt-head time,.attempt-meta,.attempt-note,.decision p,.decision small,.pending-copy { display: block; margin: 0; color: var(--text-primary); font-size: .74rem; line-height: 1.55; }
+.attempt-head p { color: var(--text-strong); font-weight: 900; }.attempt-head span,.attempt-head time,.attempt-meta,.decision small { color: var(--text-muted); font-size: .69rem; }
 .attempt-meta { margin-top: .35rem; }.attempt-note { margin-top: .5rem; white-space: pre-wrap; }
-.decision { margin-top: .65rem; border-left: 2px solid rgb(203 213 225); padding-left: .6rem; }
+.decision { margin-top: .65rem; border-left: 2px solid var(--border-subtle); padding-left: .6rem; }
 .decision strong { font-size: .73rem; }.decision p { margin-top: .3rem; white-space: pre-wrap; }.decision small { margin-top: .3rem; }
 .decision-approved { border-color: rgb(34 197 94); }.decision-approved strong { color: rgb(21 128 61); }
 .decision-rejected { border-color: rgb(245 158 11); }.decision-rejected strong { color: rgb(146 64 14); }
-.decision-closed { border-color: rgb(100 116 139); }.decision-closed strong { color: rgb(71 85 105); }
+.decision-closed { border-color: var(--border-subtle); }.decision-closed strong { color: var(--text-primary); }
 .pending-copy { margin-top: .65rem; color: rgb(146 64 14); font-weight: 800; }
 @media (max-width: 640px) { .attempt-head,.decision-head { flex-direction: column; gap: .25rem; } }
-.dark .attempt-timeline,.dark .attempt-item::before { border-color: rgb(51 65 85); background-color: rgb(51 65 85); }
-.dark .attempt-marker,.dark .attempt-card,.dark .retry-button,.dark .timeline-state { border-color: rgb(51 65 85); background: rgb(15 23 42); }
-.dark .attempt-head p,.dark .attempt-head span,.dark .attempt-head time,.dark .attempt-meta,.dark .attempt-note,.dark .decision p,.dark .decision small,.dark .timeline-state { color: rgb(148 163 184); }
-.dark .retry-button { color: rgb(203 213 225); }
+.dark .attempt-timeline,.dark .attempt-item::before { border-color: var(--border-subtle); background-color: var(--surface-2); }
+.dark .attempt-marker,.dark .attempt-card,.dark .retry-button,.dark .timeline-state { border-color: var(--border-subtle); background: var(--surface-1); }
+.dark .attempt-head p,.dark .attempt-head span,.dark .attempt-head time,.dark .attempt-meta,.dark .attempt-note,.dark .decision p,.dark .decision small,.dark .timeline-state { color: var(--text-muted); }
+.dark .retry-button { color: var(--text-muted); }
 </style>

@@ -94,13 +94,13 @@
           <div
             v-for="(position, idx) in form.targetPositions"
             :key="position"
-            class="flex items-center gap-2 px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+            class="flex items-center gap-2 px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-full text-sm"
           >
             {{ position }}
             <button
               type="button"
               @click="removePosition(idx)"
-              class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+              class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200"
               :aria-label="`移除${position}`"
             >
               x

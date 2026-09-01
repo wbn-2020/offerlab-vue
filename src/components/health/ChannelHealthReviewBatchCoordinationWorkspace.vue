@@ -374,38 +374,38 @@ defineExpose({
 </script>
 
 <style scoped>
-.coordination-workspace { margin-top: 1rem; border-top: 1px solid rgb(226 232 240); padding-top: 1rem; }
+.coordination-workspace { margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem; }
 .workspace-header, .task-section-header, .action-form-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
-.workspace-header p, .task-section-header p { margin: 0; color: rgb(8 145 178); font-size: .7rem; font-weight: 800; }
-.workspace-header h4, .task-section-header h5, .action-form-header h5 { margin: .2rem 0 0; color: rgb(15 23 42); font-size: .86rem; font-weight: 900; }
-.refresh-button, .retry-button, .action-form button { min-height: 30px; border: 1px solid rgb(203 213 225); border-radius: .5rem; background: white; padding: .3rem .55rem; color: rgb(51 65 85); font-size: .7rem; font-weight: 800; }
+.workspace-header p, .task-section-header p { margin: 0; color: rgb(26 127 90); font-size: .7rem; font-weight: 800; }
+.workspace-header h4, .task-section-header h5, .action-form-header h5 { margin: .2rem 0 0; color: var(--text-strong); font-size: .86rem; font-weight: 900; }
+.refresh-button, .retry-button, .action-form button { min-height: 30px; border: 1px solid var(--border-subtle); border-radius: .5rem; background: white; padding: .3rem .55rem; color: var(--text-primary); font-size: .7rem; font-weight: 800; }
 .refresh-button:disabled, .retry-button:disabled, .action-form button:disabled { cursor: not-allowed; opacity: .55; }
-.workspace-state { display: flex; align-items: center; justify-content: center; gap: .65rem; margin-top: .75rem; border: 1px dashed rgb(203 213 225); border-radius: .5rem; background: rgb(248 250 252); padding: .95rem; color: rgb(100 116 139); font-size: .74rem; text-align: center; }
+.workspace-state { display: flex; align-items: center; justify-content: center; gap: .65rem; margin-top: .75rem; border: 1px dashed var(--border-subtle); border-radius: .5rem; background: var(--surface-soft); padding: .95rem; color: var(--text-muted); font-size: .74rem; text-align: center; }
 .workspace-state-error { border-style: solid; border-color: rgb(254 202 202); color: rgb(185 28 28); }
-.coordination-summary { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; border: 1px solid rgb(226 232 240); border-radius: .5rem; background: rgb(248 250 252); padding: .65rem; }
-.coordination-summary span { color: rgb(71 85 105); font-size: .67rem; font-weight: 800; }
+.coordination-summary { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; border: 1px solid var(--border-subtle); border-radius: .5rem; background: var(--surface-soft); padding: .65rem; }
+.coordination-summary span { color: var(--text-primary); font-size: .67rem; font-weight: 800; }
 .coordination-tasks { margin-top: .9rem; }
 .coordination-task-list { display: grid; gap: .5rem; margin-top: .6rem; }
-.coordination-task-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; border-top: 1px solid rgb(241 245 249); padding-top: .6rem; }
+.coordination-task-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; border-top: 1px solid var(--border-subtle); padding-top: .6rem; }
 .task-title { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
-.task-title strong { color: rgb(15 23 42); font-size: .75rem; font-weight: 900; }
-.coordination-task-row p { margin: .28rem 0 0; color: rgb(100 116 139); font-size: .69rem; line-height: 1.5; }
+.task-title strong { color: var(--text-strong); font-size: .75rem; font-weight: 900; }
+.coordination-task-row p { margin: .28rem 0 0; color: var(--text-muted); font-size: .69rem; line-height: 1.5; }
 .task-status, .task-capability { border-radius: 999px; padding: .18rem .42rem; font-size: .62rem; font-weight: 900; }
 .task-status-open { background: rgb(254 243 199); color: rgb(146 64 14); }
 .task-status-claimed { background: rgb(224 242 254); color: rgb(3 105 161); }
-.task-status-submitted { background: rgb(224 231 255); color: rgb(67 56 202); }
+.task-status-submitted { background: rgb(205 232 220); color: rgb(18 99 74); }
 .task-status-completed { background: rgb(220 252 231); color: rgb(21 128 61); }
-.task-status-closed, .task-capability { background: rgb(241 245 249); color: rgb(71 85 105); }
+.task-status-closed, .task-capability { background: var(--surface-soft); color: var(--text-primary); }
 .action-feedback { margin: .85rem 0 0; border-radius: .5rem; padding: .55rem .65rem; font-size: .72rem; font-weight: 700; }
 .action-feedback-success { background: rgb(220 252 231); color: rgb(21 128 61); }
 .action-feedback-error { background: rgb(254 226 226); color: rgb(185 28 28); }
 .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin-top: .9rem; }
-.action-form { display: grid; gap: .55rem; border-top: 1px solid rgb(226 232 240); padding-top: .75rem; }
+.action-form { display: grid; gap: .55rem; border-top: 1px solid var(--border-subtle); padding-top: .75rem; }
 .action-form-header span { color: rgb(146 64 14); font-size: .66rem; font-weight: 700; text-align: right; }
-.action-form label { display: grid; gap: .28rem; color: rgb(71 85 105); font-size: .67rem; font-weight: 800; }
-.action-form select, .action-form input, .action-form textarea { width: 100%; border: 1px solid rgb(203 213 225); border-radius: .5rem; background: white; padding: .42rem .5rem; color: rgb(15 23 42); font-size: .72rem; line-height: 1.45; }
+.action-form label { display: grid; gap: .28rem; color: var(--text-primary); font-size: .67rem; font-weight: 800; }
+.action-form select, .action-form input, .action-form textarea { width: 100%; border: 1px solid var(--border-subtle); border-radius: .5rem; background: white; padding: .42rem .5rem; color: var(--text-strong); font-size: .72rem; line-height: 1.45; }
 .action-form textarea { resize: vertical; }
-.action-form button { justify-self: start; border-color: rgb(8 145 178); color: rgb(14 116 144); }
+.action-form button { justify-self: start; border-color: rgb(26 127 90); color: rgb(18 99 74); }
 .action-form-withdraw button { border-color: rgb(185 28 28); color: rgb(185 28 28); }
 .confirm-check { display: flex !important; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .45rem !important; }
 .confirm-check input { width: auto; }
@@ -413,16 +413,16 @@ defineExpose({
   .action-grid { grid-template-columns: 1fr; }
   .coordination-task-row { flex-direction: column; }
 }
-.dark .coordination-workspace, .dark .coordination-task-row, .dark .action-form { border-color: rgb(30 41 59); }
-.dark .workspace-header h4, .dark .task-section-header h5, .dark .action-form-header h5, .dark .task-title strong { color: rgb(248 250 252); }
-.dark .refresh-button, .dark .retry-button, .dark .action-form select, .dark .action-form input, .dark .action-form textarea { border-color: rgb(51 65 85); background: rgb(2 6 23); color: rgb(203 213 225); }
-.dark .workspace-state, .dark .coordination-summary { border-color: rgb(51 65 85); background: rgb(2 6 23 / .55); color: rgb(148 163 184); }
+.dark .coordination-workspace, .dark .coordination-task-row, .dark .action-form { border-color: var(--border-subtle); }
+.dark .workspace-header h4, .dark .task-section-header h5, .dark .action-form-header h5, .dark .task-title strong { color: var(--text-strong); }
+.dark .refresh-button, .dark .retry-button, .dark .action-form select, .dark .action-form input, .dark .action-form textarea { border-color: var(--border-subtle); background: var(--surface-1); color: var(--text-muted); }
+.dark .workspace-state, .dark .coordination-summary { border-color: var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 55%, transparent); color: var(--text-muted); }
 .dark .workspace-state-error { border-color: rgb(127 29 29); color: rgb(252 165 165); }
-.dark .coordination-summary span, .dark .coordination-task-row p, .dark .action-form label { color: rgb(148 163 184); }
-.dark .task-capability { background: rgb(30 41 59); color: rgb(203 213 225); }
+.dark .coordination-summary span, .dark .coordination-task-row p, .dark .action-form label { color: var(--text-muted); }
+.dark .task-capability { background: var(--surface-1); color: var(--text-muted); }
 .dark .action-form-header span { color: rgb(253 230 138); }
 .dark .action-feedback-success { background: rgb(20 83 45); color: rgb(187 247 208); }
 .dark .action-feedback-error { background: rgb(127 29 29); color: rgb(254 202 202); }
-.dark .action-form button { color: rgb(103 232 249); }
+.dark .action-form button { color: rgb(124 195 165); }
 .dark .action-form-withdraw button { color: rgb(252 165 165); }
 </style>

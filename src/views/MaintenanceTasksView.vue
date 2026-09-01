@@ -1192,8 +1192,8 @@ onBeforeUnmount(() => {
 }
 
 :global(html.dark) .status-active {
-  background: rgba(30, 64, 175, 0.34);
-  color: #bfdbfe;
+  background: rgba(14, 74, 55, 0.34);
+  color: #a9d8c3;
 }
 
 :global(html.dark) .status-warn,
@@ -1214,8 +1214,8 @@ onBeforeUnmount(() => {
 }
 
 :global(html.dark) .action-row {
-  border-color: #1e3a8a;
-  background: rgba(30, 58, 138, 0.2);
+  border-color: #0a3427;
+  background: rgba(10, 52, 39, 0.2);
 }
 
 :global(html.dark) .state-error {

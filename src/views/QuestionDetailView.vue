@@ -640,7 +640,7 @@ onBeforeUnmount(() => {
 }
 
 .company {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -808,7 +808,7 @@ onBeforeUnmount(() => {
 .answer-workspace {
   margin-top: 1.5rem;
   padding: 1.25rem;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #a9d8c3;
   border-radius: var(--radius-surface);
   background: #f8fbff;
 }
@@ -908,8 +908,8 @@ onBeforeUnmount(() => {
   margin-top: 0.8rem;
   padding: 0.6rem 0.7rem;
   border-radius: var(--radius-control);
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #e8f3ed;
+  color: #12634a;
   font-size: 0.75rem;
   font-weight: 650;
 }
@@ -1182,7 +1182,7 @@ onBeforeUnmount(() => {
 :global(html.dark) .draft-notice,
 :global(html.dark) .sidebar-link-list a:hover {
   background: rgba(21, 94, 239, 0.15);
-  color: #bfdbfe;
+  color: #a9d8c3;
 }
 
 :global(html.dark) .reading-section--answer {
@@ -1191,8 +1191,8 @@ onBeforeUnmount(() => {
 }
 
 :global(html.dark) .answer-workspace {
-  border-color: #1d4ed8;
-  background: rgba(30, 64, 175, 0.12);
+  border-color: #12634a;
+  background: rgba(14, 74, 55, 0.12);
 }
 
 :global(html.dark) .review-panel {
@@ -1202,6 +1202,6 @@ onBeforeUnmount(() => {
 :global(html.dark) .note-input,
 :global(html.dark) .state-select,
 :global(html.dark) .reason-select {
-  background: rgba(2, 6, 23, 0.55);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
 }
 </style>

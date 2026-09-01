@@ -150,17 +150,15 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 .editor-quality-checklist {
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 20px;
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  background: radial-gradient(circle at top right, rgba(33, 154, 112, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), color-mix(in srgb, var(--surface-soft) 94%, transparent));
   padding: 20px;
-  color: rgb(15, 23, 42);
+  color: var(--text-strong);
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
 }
 
 .editor-quality-checklist--soft {
-  background:
-    radial-gradient(circle at top right, rgba(16, 185, 129, 0.1), transparent 34%),
+  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.1), transparent 34%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 251, 0.96));
 }
 
@@ -177,7 +175,7 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgb(14, 116, 144);
+  color: rgb(18, 99, 74);
 }
 
 .editor-quality-checklist__title {
@@ -192,7 +190,7 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
   margin: 8px 0 0;
   font-size: 13px;
   line-height: 1.6;
-  color: rgb(71, 85, 105);
+  color: var(--text-primary);
 }
 
 .editor-quality-checklist__score {
@@ -215,7 +213,7 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
   display: block;
   margin-top: 6px;
   font-size: 11px;
-  color: rgb(100, 116, 139);
+  color: var(--text-muted);
 }
 
 .editor-quality-checklist__meta {
@@ -236,8 +234,8 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 }
 
 .editor-quality-checklist__meta-pill {
-  background: rgba(226, 232, 240, 0.9);
-  color: rgb(51, 65, 85);
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  color: var(--text-primary);
 }
 
 .editor-quality-checklist__meta-pill--blocking {
@@ -256,7 +254,7 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
   gap: 12px;
   border-radius: 16px;
   padding: 14px;
-  border: 1px solid rgba(203, 213, 225, 0.78);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
   background: rgba(255, 255, 255, 0.7);
 }
 
@@ -276,8 +274,8 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 }
 
 .editor-quality-checklist__item--tip {
-  border-color: rgba(59, 130, 246, 0.22);
-  background: rgba(239, 246, 255, 0.72);
+  border-color: rgba(33, 154, 112, 0.22);
+  background: rgba(232, 243, 237, 0.72);
 }
 
 .editor-quality-checklist__item-icon {
@@ -313,7 +311,7 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
   margin: 8px 0 0;
   font-size: 13px;
   line-height: 1.6;
-  color: rgb(71, 85, 105);
+  color: var(--text-primary);
 }
 
 .editor-quality-checklist__required {
@@ -322,21 +320,21 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 }
 
 .editor-quality-checklist__optional {
-  background: rgba(226, 232, 240, 0.9);
-  color: rgb(71, 85, 105);
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  color: var(--text-primary);
 }
 
 .editor-quality-checklist__footer {
   margin-top: 18px;
   padding-top: 14px;
-  border-top: 1px solid rgba(203, 213, 225, 0.72);
+  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
 }
 
 .editor-quality-checklist__footer-label {
   display: block;
   font-size: 12px;
   font-weight: 700;
-  color: rgb(71, 85, 105);
+  color: var(--text-primary);
 }
 
 .editor-quality-checklist__focus-list {
@@ -348,26 +346,24 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 
 .editor-quality-checklist__focus-chip {
   background: rgba(15, 23, 42, 0.06);
-  color: rgb(15, 23, 42);
+  color: var(--text-strong);
 }
 
 .dark .editor-quality-checklist {
-  border-color: rgba(51, 65, 85, 0.9);
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.92));
-  color: rgb(226, 232, 240);
+  border-color: color-mix(in srgb, var(--border-subtle) 90%, transparent);
+  background: radial-gradient(circle at top right, rgba(33, 154, 112, 0.18), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-1) 96%, transparent), color-mix(in srgb, var(--surface-1) 92%, transparent));
+  color: var(--text-primary);
   box-shadow: none;
 }
 
 .dark .editor-quality-checklist--soft {
-  background:
-    radial-gradient(circle at top right, rgba(16, 185, 129, 0.16), transparent 34%),
-    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.92));
+  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.16), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-1) 96%, transparent), color-mix(in srgb, var(--surface-1) 92%, transparent));
 }
 
 .dark .editor-quality-checklist__eyebrow {
-  color: rgb(103, 232, 249);
+  color: rgb(124, 195, 165);
 }
 
 .dark .editor-quality-checklist__headline,
@@ -375,21 +371,21 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 .dark .editor-quality-checklist__item-body p,
 .dark .editor-quality-checklist__footer-label,
 .dark .editor-quality-checklist__score span {
-  color: rgb(148, 163, 184);
+  color: var(--text-muted);
 }
 
 .dark .editor-quality-checklist__score,
 .dark .editor-quality-checklist__item,
 .dark .editor-quality-checklist__item-icon {
-  background: rgba(15, 23, 42, 0.76);
-  border-color: rgba(51, 65, 85, 0.9);
+  background: color-mix(in srgb, var(--surface-1) 76%, transparent);
+  border-color: color-mix(in srgb, var(--border-subtle) 90%, transparent);
 }
 
 .dark .editor-quality-checklist__meta-pill,
 .dark .editor-quality-checklist__optional,
 .dark .editor-quality-checklist__focus-chip {
-  background: rgba(30, 41, 59, 0.92);
-  color: rgb(226, 232, 240);
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  color: var(--text-primary);
 }
 
 .dark .editor-quality-checklist__meta-pill--blocking {
@@ -418,12 +414,12 @@ const stateSymbol = (state: EditorQualityChecklistState) => {
 }
 
 .dark .editor-quality-checklist__item--tip {
-  background: rgba(30, 64, 175, 0.25);
-  border-color: rgba(96, 165, 250, 0.32);
+  background: rgba(14, 74, 55, 0.25);
+  border-color: rgba(70, 172, 134, 0.32);
 }
 
 .dark .editor-quality-checklist__footer {
-  border-top-color: rgba(51, 65, 85, 0.9);
+  border-top-color: color-mix(in srgb, var(--border-subtle) 90%, transparent);
 }
 
 @media (max-width: 640px) {

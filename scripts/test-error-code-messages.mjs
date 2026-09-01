@@ -8,7 +8,10 @@ for (const code of [10001, 10002, 10401, 10403, 10404, 10429, 20000, 20004, 2050
   assert.match(client, new RegExp(`${code}:`), `client must map error code ${code}`)
 }
 
-assert.match(client, /errorMessageMap\[error\.code\] \|\| error\.message \|\| fallback/, 'BizException messages must prefer mapped copy')
+assert.match(client, /const mapped = errorMessageMap\[error\.code\]/, 'BizException messages must resolve through the centralized map')
+assert.match(client, /if \(mapped\) return mapped/, 'known business errors must use mapped user-facing copy')
+assert.match(client, /return fallback/, 'unknown or unsafe business errors must use a safe fallback')
+assert.match(client, /const internalErrorText = \/.*elasticsearch.*mysql.*redis/s, 'internal implementation terms must be recognized')
 assert.match(client, /error\.response\?\.status === 400\) return errorMessageMap\[10001\]/, 'HTTP 400 must map to PARAM_ERROR copy')
 assert.match(client, /error\.response\?\.status === 401\) return errorMessageMap\[10401\]/, 'HTTP 401 must map to login copy')
 assert.match(client, /error\.response\?\.status === 409\) return errorMessageMap\[30002\]/, 'HTTP 409 must map to invalid status copy')

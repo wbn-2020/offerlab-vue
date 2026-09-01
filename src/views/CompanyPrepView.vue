@@ -571,7 +571,7 @@ const ResultTrendList = defineComponent({
 }
 
 .check-item:hover {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
 }
 
@@ -586,7 +586,7 @@ const ResultTrendList = defineComponent({
   height: 2rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #a9d8c3;
   border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--primary-600);
@@ -660,7 +660,7 @@ const ResultTrendList = defineComponent({
   display: inline-flex;
   min-height: 1.75rem;
   align-items: center;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #a9d8c3;
   border-radius: var(--radius-pill);
   background: var(--primary-50);
   padding: 0.2rem 0.625rem;
@@ -944,8 +944,8 @@ const ResultTrendList = defineComponent({
 }
 
 .dark .check-item:hover {
-  border-color: #1d4ed8;
-  background: #172554;
+  border-color: #12634a;
+  background: #071f18;
 }
 
 .dark .check-item.done {
@@ -954,9 +954,9 @@ const ResultTrendList = defineComponent({
 }
 
 .dark .check-icon {
-  border-color: #1e40af;
+  border-color: #0e4a37;
   background: var(--surface-2);
-  color: #bfdbfe;
+  color: #a9d8c3;
 }
 
 .dark .check-item.done .check-icon {
@@ -966,9 +966,9 @@ const ResultTrendList = defineComponent({
 
 .dark .next-action-chip,
 .dark .status-badge {
-  border-color: #1e40af;
-  background: #172554;
-  color: #bfdbfe;
+  border-color: #0e4a37;
+  background: #071f18;
+  color: #a9d8c3;
 }
 
 .dark .result-trend-block,

@@ -12,6 +12,10 @@ export interface RegisterReq {
   email: string
   password: string
   nickname: string
+  termsAccepted: boolean
+  privacyAccepted: boolean
+  termsVersion: string
+  privacyVersion: string
 }
 
 export interface LoginResp {
@@ -21,10 +25,14 @@ export interface LoginResp {
 
 export interface RegisterResp {
   uid: ApiId
+  token?: string
 }
 
 export const AUTH_LOGIN_TIMEOUT_MS = 12_000
 export const AUTH_PROFILE_TIMEOUT_MS = 8_000
+export const AUTH_ROUTE_HYDRATION_TIMEOUT_MS = 3_500
+export const CURRENT_TERMS_VERSION = '2026-09-01'
+export const CURRENT_PRIVACY_VERSION = '2026-09-01'
 
 export const authApi = {
   login: (req: LoginReq, timeoutMs = AUTH_LOGIN_TIMEOUT_MS): Promise<Result<LoginResp>> =>

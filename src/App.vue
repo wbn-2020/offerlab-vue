@@ -79,21 +79,21 @@ useRealtime()
 }
 
 .route-error-action-primary {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .route-error-action-primary:hover {
-  background: rgb(29 78 216);
+  background: rgb(18 99 74);
 }
 
 .route-error-action-secondary {
-  border: 1px solid rgb(226 232 240);
-  color: rgb(51 65 85);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .dark .route-error-action-secondary {
-  border-color: rgb(51 65 85);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 </style>

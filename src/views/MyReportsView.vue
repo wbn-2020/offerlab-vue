@@ -533,7 +533,7 @@ onMounted(() => {
 <style scoped>
 .reports-hero,
 .reports-panel {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 1.5rem;
@@ -548,7 +548,7 @@ onMounted(() => {
 
 .reports-hero h1 {
   margin-top: 0.2rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.65rem;
   font-weight: 900;
 }
@@ -556,7 +556,7 @@ onMounted(() => {
 .reports-hero span {
   margin-top: 0.4rem;
   display: block;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.9rem;
   line-height: 1.6;
 }
@@ -591,19 +591,19 @@ onMounted(() => {
 
 .filter-button,
 .secondary-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .filter-button-active {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .primary-button {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
@@ -619,9 +619,9 @@ onMounted(() => {
 }
 
 .report-card {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .report-card-main {
@@ -639,14 +639,14 @@ onMounted(() => {
 }
 
 .report-object-type {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.72rem;
   font-weight: 900;
 }
 
 .report-card h2 {
   margin-top: 0.25rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
   line-height: 1.45;
@@ -656,7 +656,7 @@ onMounted(() => {
 .result-summary,
 .detail-section p,
 .unavailable-copy {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -683,7 +683,7 @@ onMounted(() => {
 
 .report-facts dt,
 .detail-grid dt {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 900;
 }
@@ -691,7 +691,7 @@ onMounted(() => {
 .report-facts dd,
 .detail-grid dd {
   margin-top: 0.2rem;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.82rem;
   font-weight: 800;
 }
@@ -715,15 +715,15 @@ onMounted(() => {
 }
 
 .status-chip-muted {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .empty-panel,
 .loading-panel,
 .notice-error {
   margin-top: 1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 2rem 1.25rem;
@@ -738,13 +738,13 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgb(239 246 255);
-  color: rgb(37 99 235);
+  background: rgb(232 243 237);
+  color: rgb(26 127 90);
 }
 
 .empty-panel h2 {
   margin-top: 0.9rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -752,7 +752,7 @@ onMounted(() => {
 .empty-panel p,
 .loading-panel {
   margin-top: 0.5rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .empty-panel .primary-button {
@@ -790,7 +790,7 @@ onMounted(() => {
   z-index: 50;
   display: flex;
   justify-content: flex-end;
-  background: rgb(15 23 42 / 0.55);
+  background: rgb(#0d1a15 / 0.55);
 }
 
 .report-drawer {
@@ -802,7 +802,7 @@ onMounted(() => {
   overflow-y: auto;
   background: white;
   padding: 1.25rem;
-  box-shadow: -20px 0 50px rgb(15 23 42 / 0.18);
+  box-shadow: -20px 0 50px rgba(20, 30, 25, 0.18);
 }
 
 .drawer-head,
@@ -815,7 +815,7 @@ onMounted(() => {
 
 .drawer-head h2 {
   margin-top: 0.2rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.15rem;
   font-weight: 900;
   line-height: 1.45;
@@ -824,21 +824,21 @@ onMounted(() => {
 .icon-button {
   width: 2.375rem;
   padding: 0;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .detail-section {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
 .detail-section h3 {
   margin-bottom: 0.45rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
 }
@@ -846,7 +846,7 @@ onMounted(() => {
 .detail-title-row {
   margin-bottom: 0.8rem;
   align-items: center;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 900;
 }
@@ -854,7 +854,7 @@ onMounted(() => {
 .unavailable-copy {
   margin-top: 0.75rem;
   border-radius: 0.625rem;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.7rem;
   font-weight: 800;
 }
@@ -867,9 +867,9 @@ onMounted(() => {
 .dark .loading-panel,
 .dark .report-drawer,
 .dark .icon-button {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .reports-hero h1,
@@ -877,41 +877,41 @@ onMounted(() => {
 .dark .empty-panel h2,
 .dark .drawer-head h2,
 .dark .detail-section h3 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .reports-hero span,
 .dark .report-summary,
 .dark .detail-section p,
 .dark .unavailable-copy {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .filter-button-active {
-  border-color: rgb(30 64 175);
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .report-card,
 .dark .detail-section {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .result-summary,
 .dark .unavailable-copy {
-  background: rgb(15 23 42);
+  background: var(--surface-1);
 }
 
 .dark .report-facts dd,
 .dark .detail-grid dd {
-  color: rgb(226 232 240);
+  color: var(--text-primary);
 }
 
 .dark .status-chip-muted {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 @media (max-width: 640px) {
@@ -1389,9 +1389,9 @@ onMounted(() => {
 }
 
 :global(html.dark) .filter-button-active {
-  border-color: #60a5fa;
+  border-color: #46ac86;
   background: transparent;
-  color: #bfdbfe;
+  color: #a9d8c3;
 }
 
 :global(html.dark) .status-chip-warn {

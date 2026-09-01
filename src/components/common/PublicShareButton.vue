@@ -64,11 +64,11 @@ const handleShare = async () => {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.625rem 1rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 800;
 }
@@ -79,9 +79,9 @@ const handleShare = async () => {
 }
 
 .dark .public-share-button {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {

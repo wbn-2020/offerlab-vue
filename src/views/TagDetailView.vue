@@ -699,7 +699,7 @@ onUnmounted(() => {
 }
 
 .secondary-button:hover:not(:disabled) {
-  border-color: #bfdbfe;
+  border-color: #a9d8c3;
   background: var(--primary-50);
   color: var(--primary-700);
 }
@@ -848,8 +848,8 @@ onUnmounted(() => {
 .dark .filter-chip-active,
 .dark .filter-chip:hover,
 .dark .secondary-button:hover:not(:disabled) {
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(147 197 253);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(124 195 165);
 }
 
 .dark .post-list,
@@ -857,7 +857,7 @@ onUnmounted(() => {
 .dark .empty-panel,
 .dark .loading-panel,
 .dark .secondary-button {
-  border-color: rgb(39 39 42);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
 }
 
@@ -865,7 +865,7 @@ onUnmounted(() => {
 .dark .empty-icon,
 .dark .loading-avatar,
 .dark .loading-lines i {
-  background: rgb(39 39 42);
+  background: var(--surface-1);
 }
 
 .dark .notice-error {

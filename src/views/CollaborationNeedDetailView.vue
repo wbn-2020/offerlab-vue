@@ -992,8 +992,8 @@ onMounted(() => {
 <style scoped>
 .need-detail-page {
   min-height: 100vh;
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
 }
 
 .need-detail-shell {
@@ -1027,7 +1027,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
   font-size: 0.78rem;
   font-weight: 850;
 }
@@ -1062,9 +1062,9 @@ onMounted(() => {
 
 .icon-button {
   width: 40px;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .primary-button,
@@ -1074,15 +1074,15 @@ onMounted(() => {
 }
 
 .primary-button {
-  border: 1px solid rgb(14 116 144);
-  background: rgb(14 116 144);
+  border: 1px solid rgb(18 99 74);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .secondary-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .danger-button {
@@ -1105,7 +1105,7 @@ onMounted(() => {
 .action-section,
 .loading-panel,
 .state-panel {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: white;
 }
@@ -1132,8 +1132,8 @@ onMounted(() => {
 }
 
 .status-badge {
-  background: rgb(224 231 255);
-  color: rgb(67 56 202);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .status-badge[data-status='COMPLETED'] {
@@ -1143,8 +1143,8 @@ onMounted(() => {
 
 .status-badge[data-status='CLOSED'],
 .status-badge[data-status='MERGED'] {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .status-badge[data-status='SUBMITTED'] {
@@ -1153,15 +1153,15 @@ onMounted(() => {
 }
 
 .meta-label {
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .detail-header h1 {
   max-width: 850px;
   margin: 0.75rem 0 0;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: clamp(1.45rem, 3vw, 2.2rem);
   font-weight: 900;
   line-height: 1.2;
@@ -1172,7 +1172,7 @@ onMounted(() => {
   margin: 0.8rem 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.92rem;
   line-height: 1.75;
 }
@@ -1181,7 +1181,7 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 0.8rem 1.1rem;
   margin-top: 1rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
 }
 
@@ -1201,7 +1201,7 @@ onMounted(() => {
 .muted-text,
 .empty-inline,
 .timeline-state {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.76rem;
   line-height: 1.55;
 }
@@ -1219,7 +1219,7 @@ onMounted(() => {
 
 .risk-check input {
   margin-top: 0.15rem;
-  accent-color: rgb(14 116 144);
+  accent-color: rgb(18 99 74);
 }
 
 .content-grid {
@@ -1247,7 +1247,7 @@ onMounted(() => {
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 0.8rem;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .section-heading.compact {
@@ -1256,7 +1256,7 @@ onMounted(() => {
 
 .section-kicker {
   display: block;
-  color: rgb(8 145 178);
+  color: rgb(26 127 90);
   font-size: 0.65rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -1264,7 +1264,7 @@ onMounted(() => {
 
 .section-heading h2 {
   margin: 0.2rem 0 0;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -1272,7 +1272,7 @@ onMounted(() => {
 .section-icon {
   width: 1.1rem;
   height: 1.1rem;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
 }
 
 .brief-block {
@@ -1281,12 +1281,12 @@ onMounted(() => {
 
 .brief-block + .brief-block {
   margin-top: 1rem;
-  border-top: 1px solid rgb(241 245 249);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .brief-block h3 {
   margin: 0;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -1295,7 +1295,7 @@ onMounted(() => {
   margin: 0.55rem 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8rem;
   line-height: 1.7;
 }
@@ -1313,7 +1313,7 @@ onMounted(() => {
 }
 
 .detail-list dt {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
 }
 
@@ -1321,7 +1321,7 @@ onMounted(() => {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.78rem;
   line-height: 1.55;
 }
@@ -1342,13 +1342,13 @@ onMounted(() => {
 }
 
 .delivery-row strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.8rem;
 }
 
 .delivery-row span {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.73rem;
 }
 
@@ -1374,9 +1374,9 @@ onMounted(() => {
 }
 
 .cycle-card {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.6rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.8rem;
 }
 
@@ -1392,19 +1392,19 @@ onMounted(() => {
 }
 
 .cycle-heading strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.8rem;
 }
 
 .cycle-heading span,
 .revision-row strong {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.7rem;
 }
 
 .cycle-card > p {
   margin: 0.35rem 0 0;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
 }
 
@@ -1415,15 +1415,15 @@ onMounted(() => {
 .revision-row {
   min-width: 0;
   flex-wrap: wrap;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.6rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.72rem;
 }
 
 .revision-row time {
   margin-left: auto;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .danger-text {
@@ -1474,7 +1474,7 @@ onMounted(() => {
   bottom: 0.7rem;
   left: 0.65rem;
   width: 1px;
-  background: rgb(203 213 225);
+  background: var(--surface-2);
   content: '';
 }
 
@@ -1494,10 +1494,10 @@ onMounted(() => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgb(165 243 252);
+  border: 1px solid rgb(169 216 195);
   border-radius: 50%;
-  background: rgb(236 254 255);
-  color: rgb(14 116 144);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .timeline-content {
@@ -1512,13 +1512,13 @@ onMounted(() => {
 }
 
 .timeline-topline strong {
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.8rem;
 }
 
 .timeline-topline time {
   flex: 0 0 auto;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.68rem;
 }
 
@@ -1530,7 +1530,7 @@ onMounted(() => {
   gap: 0.3rem;
   margin: 0.3rem 0 0;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.73rem;
   line-height: 1.5;
 }
@@ -1540,7 +1540,7 @@ onMounted(() => {
 }
 
 .event-actor {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.67rem;
 }
 
@@ -1555,7 +1555,7 @@ onMounted(() => {
 .action-stack label {
   display: grid;
   gap: 0.35rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -1563,19 +1563,19 @@ onMounted(() => {
 .field-control {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: white;
   padding: 0.58rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.78rem;
   line-height: 1.45;
   outline: none;
 }
 
 .field-control:focus {
-  border-color: rgb(8 145 178);
-  box-shadow: 0 0 0 3px rgb(165 243 252 / 0.65);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.65);
 }
 
 .full-width {
@@ -1598,7 +1598,7 @@ onMounted(() => {
 .timeline-skeleton b {
   display: block;
   border-radius: 4px;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .timeline-skeleton i {
@@ -1626,14 +1626,14 @@ onMounted(() => {
 
 .state-panel h1 {
   margin: 0;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.95rem;
   font-weight: 900;
 }
 
 .state-panel p {
   margin: 0.25rem 0 0;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.76rem;
   line-height: 1.5;
 }
@@ -1642,7 +1642,7 @@ onMounted(() => {
   width: 1.3rem;
   height: 1.3rem;
   flex: 0 0 auto;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
 }
 
 .error-panel {
@@ -1666,7 +1666,7 @@ onMounted(() => {
   display: block;
   height: 0.8rem;
   border-radius: 4px;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .skeleton-kicker {
@@ -1701,10 +1701,10 @@ onMounted(() => {
 
 .load-more-button {
   margin: 0.5rem auto 0;
-  border: 1px solid rgb(14 116 144);
+  border: 1px solid rgb(18 99 74);
   background: white;
   padding: 0.5rem 0.75rem;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
 }
 
 .spin {
@@ -1774,8 +1774,8 @@ onMounted(() => {
 }
 
 .dark .need-detail-page {
-  background: rgb(2 6 23);
-  color: rgb(226 232 240);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .detail-header,
@@ -1788,9 +1788,9 @@ onMounted(() => {
 .dark .danger-button,
 .dark .load-more-button,
 .dark .field-control {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .detail-header h1,
@@ -1799,7 +1799,7 @@ onMounted(() => {
 .dark .delivery-row strong,
 .dark .timeline-topline strong,
 .dark .state-panel h1 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .description,
@@ -1815,19 +1815,19 @@ onMounted(() => {
 .dark .muted-text,
 .dark .empty-inline,
 .dark .timeline-state {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .meta-label,
 .dark .status-badge[data-status='CLOSED'],
 .dark .status-badge[data-status='MERGED'] {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .section-heading,
 .dark .brief-block + .brief-block {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .stalled-notice {
@@ -1837,18 +1837,18 @@ onMounted(() => {
 }
 
 .dark .timeline-list::before {
-  background: rgb(51 65 85);
+  background: var(--surface-2);
 }
 
 .dark .timeline-marker {
-  border-color: rgb(21 94 117);
-  background: rgb(8 47 73);
+  border-color: rgb(14 74 55);
+  background: rgb(7 31 24);
 }
 
 .dark .timeline-skeleton i,
 .dark .timeline-skeleton b,
 .dark .skeleton {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .error-panel {

@@ -32,10 +32,10 @@ withDefaults(defineProps<Props>(), {
 <style scoped>
 .prep-panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, 0.04);
 }
 
 .prep-panel-heading {
@@ -49,30 +49,30 @@ withDefaults(defineProps<Props>(), {
 .prep-panel-title {
   font-size: 1.05rem;
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .prep-panel-action {
   flex-shrink: 0;
   font-size: 0.875rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .prep-panel-action:hover {
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .dark .prep-panel {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .prep-panel-title {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .prep-panel-action {
-  color: rgb(147 197 253);
+  color: rgb(124 195 165);
 }
 </style>

@@ -179,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Activity, AlertTriangle, BadgeCheck, Library, RefreshCw } from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -205,6 +205,7 @@ const loading = ref(false)
 const error = ref('')
 const report = ref<GrowthReport | null>(null)
 const reportPayloadTrusted = ref(false)
+let reportRequestId = 0
 const loginRedirectHref = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 const highlightDomainLabel = (post: GrowthReport['highlightPosts'][number]) => (
   isKnownDomain(post.domain)
@@ -258,38 +259,33 @@ const trendClass = (trend?: string) => {
 }
 
 const loadReport = async () => {
+  const requestId = ++reportRequestId
   if (!authStore.isLoggedIn) {
     report.value = null
     reportPayloadTrusted.value = false
     error.value = ''
+    loading.value = false
     return
   }
+  const requestedPeriod = period.value
   loading.value = true
   error.value = ''
   try {
-    const res = await growthApi.getReport(period.value)
+    const res = await growthApi.getReport(requestedPeriod)
+    if (requestId !== reportRequestId) return
     report.value = res.data
     reportPayloadTrusted.value = isTrustedGrowthResult(res)
   } catch (err) {
+    if (requestId !== reportRequestId) return
     report.value = null
     reportPayloadTrusted.value = false
     error.value = getErrorMessage(err, '加载成长报告失败')
   } finally {
-    loading.value = false
+    if (requestId === reportRequestId) loading.value = false
   }
 }
 
-watch(period, async () => {
-  await loadReport()
-})
-
-watch(() => authStore.isLoggedIn, async () => {
-  await loadReport()
-})
-
-onMounted(async () => {
-  await loadReport()
-})
+watch([period, () => authStore.isLoggedIn], loadReport, { immediate: true })
 </script>
 
 <style scoped>
@@ -479,7 +475,7 @@ onMounted(async () => {
 }
 
 .next-action-chip {
-  border: 1px solid #bfdbfe;
+  border: 1px solid #a9d8c3;
   background: var(--primary-50);
   padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
@@ -504,13 +500,13 @@ onMounted(async () => {
 }
 
 .trend-flat {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .highlight-domain {
-  background: rgb(241 245 249);
-  color: rgb(51 65 85);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .highlight-flag {
@@ -523,7 +519,7 @@ onMounted(async () => {
 }
 
 .highlight-card:hover {
-  border-color: rgb(191 219 254);
+  border-color: rgb(169 216 195);
   background: var(--primary-50);
 }
 
@@ -534,14 +530,14 @@ onMounted(async () => {
 
 .dark .period-chip-active {
   background: var(--surface-3);
-  color: #bfdbfe;
+  color: #a9d8c3;
 }
 
 .dark .fallback-banner,
 .dark .change-row,
 .dark .highlight-card {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42 / 0.88);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
 }
 
 .dark .fallback-banner {
@@ -555,23 +551,23 @@ onMounted(async () => {
 }
 
 .dark .stat-card strong {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .stat-card p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .stat-label,
 .dark .trend-flat,
 .dark .highlight-domain {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .next-action-chip {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .highlight-flag {

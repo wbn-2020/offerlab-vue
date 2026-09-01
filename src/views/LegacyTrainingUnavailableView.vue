@@ -202,8 +202,8 @@ const content = computed(() => {
 }
 
 .dark .legacy-page__icon {
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(147 197 253);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(124 195 165);
 }
 
 @media (max-width: 720px) {

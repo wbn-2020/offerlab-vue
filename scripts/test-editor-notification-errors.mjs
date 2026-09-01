@@ -42,7 +42,7 @@ assert.match(notifications, /暂无未读/, 'NotificationsView must explain when
 assert.match(notifications, /toast\.success\('已全部标为已读'\)/, 'NotificationsView must confirm successful mark-all actions')
 assert.doesNotMatch(notifications, /console\.error/, 'NotificationsView must not hide failures in console only')
 
-assert.match(login, /router\.replace\(safeRedirect\(route\.query\.redirect\)\)/, 'LoginView must replace the login page after successful login')
+assert.match(login, /window\.location\.replace\(safeRedirect\(route\.query\.redirect\)\)/, 'LoginView must use the verified hard-navigation recovery path after successful login')
 assert.match(navigation, /\^\\\/\(\?:login\|register\|welcome\)/, 'shared navigation guard must not redirect authenticated users back to auth or onboarding pages')
 assert.match(login, /authStore\.isLoggedIn/, 'LoginView must redirect already authenticated visitors away from login')
 

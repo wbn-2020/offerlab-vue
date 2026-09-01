@@ -335,9 +335,9 @@ const skip = async () => {
 }
 
 .welcome-chip:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .welcome-chip--active {
@@ -388,20 +388,20 @@ const skip = async () => {
 }
 
 .dark .welcome-chip {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .welcome-chip:hover {
-  border-color: rgb(29 78 216);
-  background: rgb(23 37 84 / 0.5);
-  color: rgb(191 219 254);
+  border-color: rgb(18 99 74);
+  background: rgb(7 31 24 / 0.5);
+  color: rgb(169 216 195);
 }
 
 .dark .welcome-chip--active {
-  border-color: rgb(29 78 216);
-  background: rgb(37 99 235);
+  border-color: rgb(18 99 74);
+  background: rgb(26 127 90);
   color: rgb(255 255 255);
 }
 

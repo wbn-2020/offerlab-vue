@@ -366,7 +366,7 @@ onMounted(loadWorkspace)
 
 <style scoped>
 .creator-challenge-panel {
-  border: 1px solid rgb(186 230 253);
+  border: 1px solid rgb(169 216 195);
   background: rgb(248 252 255);
   padding: 1.25rem;
 }
@@ -397,14 +397,14 @@ onMounted(loadWorkspace)
 }
 
 .creator-challenge-title {
-  color: rgb(12 74 110);
+  color: rgb(10 52 39);
 }
 
 .creator-challenge-title h2,
 .creator-badge-heading h3,
 .creator-challenge-card h3 {
   margin: 0;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -415,7 +415,7 @@ onMounted(loadWorkspace)
 .creator-badge-card p,
 .creator-challenge-muted {
   margin: 0.35rem 0 0;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.82rem;
   line-height: 1.55;
 }
@@ -425,7 +425,7 @@ onMounted(loadWorkspace)
   align-items: flex-start;
   gap: 0.45rem;
   margin: 1rem 0 0;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
   font-size: 0.78rem;
   line-height: 1.55;
 }
@@ -436,9 +436,9 @@ onMounted(loadWorkspace)
   gap: 0.55rem;
   min-height: 4.25rem;
   margin-top: 1rem;
-  border: 1px dashed rgb(186 230 253);
+  border: 1px dashed rgb(169 216 195);
   padding: 0.9rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.84rem;
 }
 
@@ -455,7 +455,7 @@ onMounted(loadWorkspace)
 }
 
 .creator-challenge-card {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: rgb(255 255 255);
   padding: 1rem;
 }
@@ -470,9 +470,9 @@ onMounted(loadWorkspace)
   display: inline-flex;
   align-items: center;
   min-height: 1.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   padding: 0.1rem 0.45rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.7rem;
   font-weight: 800;
 }
@@ -484,14 +484,14 @@ onMounted(loadWorkspace)
 }
 
 .challenge-status-pending {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .challenge-status-muted,
 .challenge-code {
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .challenge-code {
@@ -513,14 +513,14 @@ onMounted(loadWorkspace)
 }
 
 .creator-challenge-meta dt {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 800;
 }
 
 .creator-challenge-meta dd {
   margin: 0.2rem 0 0;
-  color: rgb(30 41 59);
+  color: var(--text-strong);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -541,7 +541,7 @@ onMounted(loadWorkspace)
 .text-action {
   border: 0;
   background: transparent;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -576,7 +576,7 @@ onMounted(loadWorkspace)
   flex: 1;
   gap: 0.3rem;
   min-width: 0;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -584,21 +584,21 @@ onMounted(loadWorkspace)
 .creator-challenge-completion select {
   width: 100%;
   min-height: 2.4rem;
-  border: 1px solid rgb(148 163 184);
+  border: 1px solid var(--border-subtle);
   background: rgb(255 255 255);
   padding: 0.4rem 0.55rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.82rem;
 }
 
 .creator-badge-section {
   margin-top: 1rem;
-  border-top: 1px solid rgb(186 230 253);
+  border-top: 1px solid rgb(169 216 195);
   padding-top: 1rem;
 }
 
 .creator-badge-heading > span {
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -612,41 +612,41 @@ onMounted(loadWorkspace)
 
 .creator-badge-card {
   align-items: flex-start;
-  border: 1px solid rgb(186 230 253);
-  background: rgb(240 249 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.75rem;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
 }
 
 .creator-badge-card strong {
   display: block;
-  color: rgb(12 74 110);
+  color: rgb(10 52 39);
   font-size: 0.84rem;
 }
 
 .creator-badge-card small {
   display: block;
   margin-top: 0.4rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.72rem;
 }
 
 .dark .creator-challenge-panel {
-  border-color: rgb(8 145 178);
-  background: rgb(8 47 73);
+  border-color: rgb(26 127 90);
+  background: rgb(7 31 24);
 }
 
 .dark .creator-challenge-card,
 .dark .creator-challenge-completion select {
-  border-color: rgb(30 64 175);
-  background: rgb(2 6 23);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .creator-challenge-title,
 .dark .creator-challenge-card h3,
 .dark .creator-badge-heading h3,
 .dark .creator-badge-card strong {
-  color: rgb(224 242 254);
+  color: rgb(205 232 220);
 }
 
 .dark .creator-challenge-header p,
@@ -657,19 +657,19 @@ onMounted(loadWorkspace)
 .dark .creator-challenge-meta dd,
 .dark .creator-challenge-completion label,
 .dark .creator-challenge-completion select {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .challenge-status-muted,
 .dark .challenge-code {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .creator-badge-card {
-  border-color: rgb(14 116 144);
-  background: rgb(8 47 73);
+  border-color: rgb(18 99 74);
+  background: rgb(7 31 24);
 }
 
 @media (max-width: 640px) {

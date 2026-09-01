@@ -37,15 +37,17 @@
     </main>
   </div>
 
-  <main v-else class="route-loading-generic">
+  <main v-else class="route-loading-generic" aria-live="polite">
     <div>
       <Loader2 class="h-5 w-5 animate-spin text-primary-600 dark:text-primary-400" aria-hidden="true" />
-      <span>正在加载页面</span>
+      <span>{{ loadingMessage }}</span>
+      <button v-if="showRetry" type="button" @click="reloadPage">重新加载</button>
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
+import { onBeforeUnmount, ref } from 'vue'
 import { CalendarDays, Layers3, Loader2, Scale, Target, Users } from 'lucide-vue-next'
 import AppHeader from '@/components/layout/AppHeader.vue'
 
@@ -59,13 +61,30 @@ const tabs = [
   { label: '活动', icon: CalendarDays, active: false },
   { label: '讨论', icon: Scale, active: false },
 ]
+
+const loadingMessage = ref('正在加载页面')
+const showRetry = ref(false)
+const slowTimer = window.setTimeout(() => {
+  loadingMessage.value = '页面加载时间比预期更长'
+}, 3_000)
+const retryTimer = window.setTimeout(() => {
+  loadingMessage.value = '页面资源仍未完成加载，可以重新尝试'
+  showRetry.value = true
+}, 8_000)
+
+const reloadPage = () => window.location.reload()
+
+onBeforeUnmount(() => {
+  window.clearTimeout(slowTimer)
+  window.clearTimeout(retryTimer)
+})
 </script>
 
 <style scoped>
 .collaboration-route-shell {
   min-height: 100vh;
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
 }
 
 .collaboration-route-main {
@@ -88,7 +107,7 @@ const tabs = [
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
@@ -99,7 +118,7 @@ const tabs = [
 }
 
 .collaboration-route-header p {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -113,7 +132,7 @@ const tabs = [
 .collaboration-route-header span {
   display: block;
   margin-top: 0.35rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
 }
 
@@ -122,7 +141,7 @@ const tabs = [
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.25rem;
   margin-top: 1.5rem;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .collaboration-route-tabs span {
@@ -131,14 +150,14 @@ const tabs = [
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
   font-weight: 800;
 }
 
 .collaboration-route-tabs .active {
-  border-bottom: 2px solid rgb(37 99 235);
-  color: rgb(29 78 216);
+  border-bottom: 2px solid rgb(26 127 90);
+  color: rgb(18 99 74);
 }
 
 .collaboration-route-content {
@@ -150,7 +169,7 @@ const tabs = [
   min-height: 3.5rem;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .collaboration-route-toolbar div {
@@ -166,7 +185,7 @@ const tabs = [
 .collaboration-route-row span {
   display: block;
   border-radius: 0.25rem;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
   animation: route-shell-pulse 1.4s ease-in-out infinite;
 }
 
@@ -189,7 +208,7 @@ const tabs = [
   display: grid;
   gap: 0.65rem;
   padding: 1.1rem 0;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .collaboration-route-row i {
@@ -212,21 +231,37 @@ const tabs = [
   min-height: 100vh;
   align-items: center;
   justify-content: center;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 1.5rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .route-loading-generic > div {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 1rem 1.25rem;
   font-size: 0.875rem;
   font-weight: 700;
+}
+
+.route-loading-generic button {
+  min-height: 2.25rem;
+  border-radius: 0.4rem;
+  background: rgb(26 127 90);
+  padding: 0.45rem 0.75rem;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.route-loading-generic button:focus-visible {
+  outline: 3px solid rgb(124 195 165);
+  outline-offset: 2px;
 }
 
 @keyframes route-shell-pulse {
@@ -256,19 +291,19 @@ const tabs = [
 
 .dark .collaboration-route-shell,
 .dark .route-loading-generic {
-  background: rgb(2 6 23);
-  color: rgb(241 245 249);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .collaboration-route-header span,
 .dark .collaboration-route-tabs span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .collaboration-route-tabs,
 .dark .collaboration-route-toolbar,
 .dark .collaboration-route-row {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .collaboration-route-toolbar i,
@@ -277,11 +312,11 @@ const tabs = [
 .dark .collaboration-route-row i,
 .dark .collaboration-route-row b,
 .dark .collaboration-route-row span {
-  background: rgb(51 65 85);
+  background: var(--surface-2);
 }
 
 .dark .route-loading-generic > div {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 </style>

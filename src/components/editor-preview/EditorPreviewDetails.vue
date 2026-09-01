@@ -115,7 +115,7 @@ const summaryHint = computed(() => {
 <style scoped>
 .preview-detail-card {
   border-radius: 1rem;
-  border: 1px solid rgb(226 232 240 / 0.9);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 90%, transparent);
   background: rgb(255 255 255 / 0.86);
   padding: 1rem;
 }
@@ -125,31 +125,31 @@ const summaryHint = computed(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .preview-inline-note {
   margin-top: 0.75rem;
   display: inline-flex;
   border-radius: 999px;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.375rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .dark .preview-detail-card {
-  border-color: rgb(51 65 85 / 0.9);
-  background: rgb(15 23 42 / 0.8);
+  border-color: color-mix(in srgb, var(--border-subtle) 90%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 80%, transparent);
 }
 
 .dark .preview-detail-label {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .preview-inline-note {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 </style>

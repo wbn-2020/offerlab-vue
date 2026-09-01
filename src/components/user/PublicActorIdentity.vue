@@ -66,7 +66,7 @@ const badges = computed(() => (
 }
 
 .public-actor-identity__role {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .public-actor-identity strong {
@@ -78,9 +78,9 @@ const badges = computed(() => (
 
 .public-actor-identity__badge {
   border-radius: 999px;
-  background: rgb(236 254 255);
+  background: rgb(232 243 237);
   padding: 0.1rem 0.35rem;
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
   font-size: 0.66rem;
   font-weight: 800;
 }
@@ -92,11 +92,11 @@ const badges = computed(() => (
 }
 
 .dark .public-actor-identity__role {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .public-actor-identity__badge {
-  background: rgb(22 78 99);
-  color: rgb(207 250 254);
+  background: rgb(10 52 39);
+  color: rgb(205 232 220);
 }
 </style>

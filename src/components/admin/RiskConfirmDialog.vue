@@ -202,8 +202,8 @@ useAccessibleDialog(() => props.state.open, {
 
 .risk-medium,
 .risk-reversible {
-  background: rgb(219 234 254);
-  color: rgb(29 78 216);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .risk-summary-grid {
@@ -215,8 +215,8 @@ useAccessibleDialog(() => props.state.open, {
 .risk-summary-item,
 .risk-section {
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.875rem;
 }
 
@@ -225,14 +225,14 @@ useAccessibleDialog(() => props.state.open, {
   display: block;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .risk-summary-item strong {
   margin-top: 0.35rem;
   display: block;
   font-size: 1.25rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .risk-object-list {
@@ -251,17 +251,17 @@ useAccessibleDialog(() => props.state.open, {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .risk-note {
   width: 100%;
   resize: vertical;
   border-radius: 0.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.75rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   outline: none;
 }
@@ -269,22 +269,22 @@ useAccessibleDialog(() => props.state.open, {
 .risk-phrase {
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.75rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   outline: none;
 }
 
 .risk-note:focus {
-  border-color: rgb(79 70 229);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.8);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.8);
 }
 
 .risk-phrase:focus {
-  border-color: rgb(79 70 229);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.8);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.8);
 }
 
 .risk-required,
@@ -311,9 +311,9 @@ useAccessibleDialog(() => props.state.open, {
 }
 
 .risk-secondary-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .risk-danger-button {
@@ -335,17 +335,17 @@ useAccessibleDialog(() => props.state.open, {
 .dark .risk-section,
 .dark .risk-secondary-button,
 .dark .risk-note {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .risk-summary-item strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .risk-object-list span {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 </style>

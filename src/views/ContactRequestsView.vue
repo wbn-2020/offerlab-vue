@@ -615,7 +615,7 @@ watch(() => route.query.tab, (tab) => {
 .page-heading,
 .settings-panel,
 .request-panel {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
 }
@@ -630,7 +630,7 @@ watch(() => route.query.tab, (tab) => {
 
 .page-heading h1 {
   margin-top: 0.15rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.75rem;
   font-weight: 900;
 }
@@ -638,7 +638,7 @@ watch(() => route.query.tab, (tab) => {
 .page-heading p:last-child {
   margin-top: 0.45rem;
   max-width: 42rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -657,7 +657,7 @@ watch(() => route.query.tab, (tab) => {
 }
 
 .settings-panel h2 {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -665,7 +665,7 @@ watch(() => route.query.tab, (tab) => {
 .settings-panel p,
 .settings-loading {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -682,9 +682,9 @@ watch(() => route.query.tab, (tab) => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.625rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.9rem;
 }
 
@@ -696,14 +696,14 @@ watch(() => route.query.tab, (tab) => {
 
 .switch-row strong,
 .setting-field span {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.9rem;
   font-weight: 800;
 }
 
 .switch-row small {
   margin-top: 0.2rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -712,17 +712,17 @@ watch(() => route.query.tab, (tab) => {
   height: 1.25rem;
   width: 1.25rem;
   flex: 0 0 auto;
-  accent-color: rgb(79 70 229);
+  accent-color: rgb(26 127 90);
 }
 
 .form-select {
   min-height: 2.5rem;
   width: min(100%, 14rem);
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.5rem 0.75rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.875rem;
   outline: none;
 }
@@ -738,7 +738,7 @@ watch(() => route.query.tab, (tab) => {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
-  border-bottom: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 0 1rem;
 }
 
@@ -749,7 +749,7 @@ watch(() => route.query.tab, (tab) => {
   gap: 0.45rem;
   border-bottom: 2px solid transparent;
   padding: 0 0.75rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 800;
   white-space: nowrap;
@@ -757,15 +757,15 @@ watch(() => route.query.tab, (tab) => {
 
 .tab-button span {
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.1rem 0.45rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
 }
 
 .tab-active {
-  border-color: rgb(79 70 229);
-  color: rgb(79 70 229);
+  border-color: rgb(26 127 90);
+  color: rgb(26 127 90);
 }
 
 .request-list {
@@ -778,9 +778,9 @@ watch(() => route.query.tab, (tab) => {
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(0, 1fr) auto;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
@@ -796,7 +796,7 @@ watch(() => route.query.tab, (tab) => {
 }
 
 .request-title-row h2 {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -809,14 +809,14 @@ watch(() => route.query.tab, (tab) => {
 }
 
 .request-meta dt {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 800;
 }
 
 .request-meta dd {
   margin-top: 0.2rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.84rem;
   font-weight: 700;
 }
@@ -826,7 +826,7 @@ watch(() => route.query.tab, (tab) => {
   border-radius: 0.625rem;
   background: white;
   padding: 0.8rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -864,8 +864,8 @@ watch(() => route.query.tab, (tab) => {
 }
 
 .status-muted {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .primary-button,
@@ -883,14 +883,14 @@ watch(() => route.query.tab, (tab) => {
 }
 
 .primary-button {
-  background: rgb(79 70 229);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .secondary-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .danger-button {
@@ -908,7 +908,7 @@ watch(() => route.query.tab, (tab) => {
 
 .state-block,
 .notice-error {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 2rem 1.25rem;
@@ -916,7 +916,7 @@ watch(() => route.query.tab, (tab) => {
 }
 
 .state-block h2 {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -924,7 +924,7 @@ watch(() => route.query.tab, (tab) => {
 .state-block p {
   margin: 0.5rem auto 0;
   max-width: 32rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.875rem;
   line-height: 1.6;
 }
@@ -952,8 +952,8 @@ watch(() => route.query.tab, (tab) => {
 .dark .state-block,
 .dark .secondary-button,
 .dark .form-select {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .page-heading h1,
@@ -963,7 +963,7 @@ watch(() => route.query.tab, (tab) => {
 .dark .request-title-row h2,
 .dark .state-block h2,
 .dark .form-select {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .page-heading p:last-child,
@@ -971,46 +971,46 @@ watch(() => route.query.tab, (tab) => {
 .dark .settings-loading,
 .dark .switch-row small,
 .dark .state-block p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .switch-row,
 .dark .setting-field,
 .dark .request-card {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .tab-bar {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .tab-button {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .tab-active {
-  color: rgb(129 140 248);
+  color: rgb(124 195 165);
 }
 
 .dark .tab-button span,
 .dark .status-muted {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .request-meta dt {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .request-meta dd,
 .dark .request-message,
 .dark .secondary-button {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .request-message {
-  background: rgb(15 23 42);
+  background: var(--surface-1);
 }
 
 .dark .danger-button {

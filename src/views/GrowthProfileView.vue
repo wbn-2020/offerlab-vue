@@ -730,14 +730,14 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .growth-path-marker--empty {
-  background: rgb(226 232 240);
-  color: rgb(71 85 105);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .growth-path-marker--unavailable {
-  border: 1px dashed rgb(148 163 184);
+  border: 1px dashed var(--border-subtle);
   background: transparent;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .growth-path-title {
@@ -759,13 +759,13 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .growth-path-state--empty {
-  background: rgb(241 245 249);
-  color: rgb(100 116 139);
+  background: var(--surface-soft);
+  color: var(--text-muted);
 }
 
 .growth-path-state--unavailable {
-  border: 1px dashed rgb(148 163 184);
-  color: rgb(100 116 139);
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .growth-path-hint {
@@ -784,15 +784,15 @@ onBeforeUnmount(invalidateSessionLoads)
 
 .dark .growth-path-loading,
 .dark .growth-path-hint {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .growth-path-title {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .growth-path-evidence {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .growth-path-marker--active,
@@ -803,14 +803,14 @@ onBeforeUnmount(invalidateSessionLoads)
 
 .dark .growth-path-marker--empty,
 .dark .growth-path-state--empty {
-  background: rgb(30 41 59);
-  color: rgb(148 163 184);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .growth-path-marker--unavailable,
 .dark .growth-path-state--unavailable {
-  border-color: rgb(71 85 105);
-  color: rgb(148 163 184);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .growth-kicker {
@@ -925,7 +925,7 @@ onBeforeUnmount(invalidateSessionLoads)
 
 .meta-pill {
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.35rem 0.65rem;
 }
 
@@ -933,7 +933,7 @@ onBeforeUnmount(invalidateSessionLoads)
   height: 0.5rem;
   overflow: hidden;
   border-radius: 999px;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .dimension-bar span {
@@ -964,7 +964,7 @@ onBeforeUnmount(invalidateSessionLoads)
   flex-shrink: 0;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .curation-state-pill,
@@ -990,22 +990,22 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .curation-card:hover {
-  border-color: rgb(191 219 254);
+  border-color: rgb(169 216 195);
   background: var(--primary-50);
 }
 
 .curation-card-kicker {
   display: inline-flex;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 0.25rem 0.55rem;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .curation-card h3 {
   margin-top: 0.75rem;
   font-size: 0.98rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .curation-card p,
@@ -1014,12 +1014,12 @@ onBeforeUnmount(invalidateSessionLoads)
   margin-top: 0.5rem;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .curation-empty {
   border-radius: var(--radius-control);
-  border: 1px dashed rgb(203 213 225);
+  border: 1px dashed var(--border-subtle);
   padding: 1rem;
 }
 
@@ -1039,23 +1039,23 @@ onBeforeUnmount(invalidateSessionLoads)
 
 .dark .day-chip-active {
   background: var(--surface-3);
-  color: #bfdbfe;
+  color: #a9d8c3;
 }
 
 .dark .summary-label,
 .dark .meta-pill {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .summary-card strong,
 .dark .glossary-card strong {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .summary-card p,
 .dark .glossary-card p {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .fallback-banner {
@@ -1073,7 +1073,7 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .dark .dimension-bar {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 
 .dark .curation-state-pill {
@@ -1087,22 +1087,22 @@ onBeforeUnmount(invalidateSessionLoads)
 }
 
 .dark .curation-card-kicker {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .curation-card h3 {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .curation-card p,
 .dark .curation-card small,
 .dark .curation-empty {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .curation-empty {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 @media (min-width: 768px) {

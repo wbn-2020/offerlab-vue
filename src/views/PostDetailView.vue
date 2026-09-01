@@ -11,7 +11,7 @@
           <LoadingSkeleton v-if="isLoading" />
 
           <template v-else-if="post">
-            <section class="post-detail-author-card mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+            <section class="post-detail-author-card surface-card mb-6 rounded-xl p-6">
               <div class="flex items-center justify-between gap-4">
                 <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex min-w-0 items-center gap-3">
                   <UserAvatar
@@ -67,7 +67,7 @@
               </p>
             </section>
 
-            <article class="post-detail-article mb-6 rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+            <article class="post-detail-article surface-card mb-6 rounded-xl p-8">
               <div class="mb-4 flex flex-wrap items-center gap-3">
                 <span class="content-type-pill">{{ contentTypeLabel }}</span>
                 <span v-if="isKnownDomain(post.domain)" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
@@ -92,10 +92,10 @@
               </div>
 
               <details
-                v-if="publishStatusItems.length"
+                v-if="publishStatusItems.length && isOwnPost"
                 class="publish-status-bar publish-status-details mb-6"
               >
-                <summary>查看内容发布状态</summary>
+                <summary>查看我的发布状态</summary>
                 <div class="publish-status-head">
                   <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">发布状态</span>
                   <span class="text-xs text-slate-500 dark:text-slate-400">{{ publishStatusSummary }}</span>
@@ -465,7 +465,7 @@
                 :to="{ path: `/post/${postId}`, hash: '#comments' }"
                 class="discussion-primary-link"
               >
-                {{ post.counter.comment ? `查看并参与 ${post.counter.comment} 条讨论` : '成为第一个参与讨论的人' }}
+                {{ post.counter.comment ? `查看并参与 ${post.counter.comment} 条讨论` : '前往评论区' }}
               </RouterLink>
 
               <button
@@ -475,7 +475,7 @@
                 aria-controls="trusted-content"
                 @click="showTrustDetails = !showTrustDetails"
               >
-                <span><strong>内容维护与治理</strong><small>时效、来源、公开更新、纠错与处理入口</small></span>
+                <span><strong>内容反馈</strong><small>查看内容时效和读者反馈</small></span>
                 <span>{{ showTrustDetails ? '收起' : '展开' }}</span>
               </button>
               <section
@@ -993,7 +993,7 @@
               </details>
             </article>
 
-            <section id="comments" class="post-detail-comments rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+            <section id="comments" class="post-detail-comments surface-card rounded-xl p-8">
               <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">{{ discussionSectionTitle }}</h2>
                 <div class="inline-flex w-full rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800 sm:w-auto" aria-label="评论排序">
@@ -1111,7 +1111,7 @@
 
         <aside class="post-detail-rail hidden lg:block">
           <div class="post-detail-rail__inner sticky top-24 space-y-6">
-            <section v-if="post" class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+            <section v-if="post" class="surface-card rounded-xl p-6">
               <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">作者名片</h3>
               <RouterLink v-if="canOpenAuthorProfile" :to="authorProfileTo" class="flex flex-col items-center text-center">
                 <UserAvatar
@@ -1159,7 +1159,7 @@
               </div>
             </section>
 
-            <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+            <section class="surface-card rounded-xl p-6">
               <h3 class="mb-4 font-bold text-slate-900 dark:text-slate-100">{{ relatedSectionTitle }}</h3>
               <div v-if="relatedPosts.length" class="space-y-3">
                 <RouterLink
@@ -1180,7 +1180,7 @@
     </main>
 
     <div v-if="isReportDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" @click.self="closeReportDialog">
-      <form ref="reportDialog" class="report-dialog-panel w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" tabindex="-1" @submit.prevent="submitReport">
+      <form ref="reportDialog" class="report-dialog-panel surface-card w-full max-w-lg rounded-xl p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" tabindex="-1" @submit.prevent="submitReport">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 id="report-dialog-title" class="text-lg font-bold text-slate-950 dark:text-slate-50">举报{{ reportTargetLabel }}</h2>
@@ -1242,7 +1242,7 @@
     </div>
 
     <div v-if="isVersionDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" @click.self="closeVersionHistory">
-      <section class="version-dialog w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="version-history-title">
+      <section class="version-dialog surface-card w-full max-w-3xl rounded-xl p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="version-history-title">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 id="version-history-title" class="text-lg font-bold text-slate-950 dark:text-slate-50">版本历史</h2>
@@ -1463,6 +1463,7 @@ const detailKnowledgeLoading = ref(false)
 const detailKnowledgeError = ref('')
 const commentText = ref('')
 const isSubmittingComment = ref(false)
+let commentSubmitInFlight = false
 const isReporting = ref(false)
 const isDeletingPost = ref(false)
 let interactionRequestId = 0
@@ -1890,7 +1891,7 @@ const discussionSubmitLabel = computed(() => (isQuestionPost.value ? '发布建�
 const discussionEmptyText = computed(() => (
   isQuestionPost.value
     ? '还没有建议，来分享一个可尝试的思路吧'
-    : '还没有评论，来抢沙发吧'
+    : '还没有评论，来分享你的看法吧'
 ))
 const discussionReplyActionLabel = computed(() => (isQuestionPost.value ? '追问 / 补充' : '回复'))
 const discussionReplyPlaceholder = computed(() => (
@@ -3427,6 +3428,8 @@ const preserveCommentScroll = async (task: () => Promise<void>) => {
 const handleSubmitComment = async () => {
   if (!post.value || !commentText.value.trim()) return
   if (!requireLogin()) return
+  if (commentSubmitInFlight) return
+  commentSubmitInFlight = true
   isSubmittingComment.value = true
   try {
     const res = await interactionApi.comment(postId.value, commentText.value)
@@ -3445,6 +3448,7 @@ const handleSubmitComment = async () => {
     toast.error(getErrorMessage(error, '评论失败'))
   } finally {
     isSubmittingComment.value = false
+    commentSubmitInFlight = false
   }
 }
 
@@ -3619,7 +3623,9 @@ const loadComments = async (reset = true) => {
       hasMoreComments.value = false
       commentsErrorMessage.value = errorCodeOf(error) === 10403 || errorCodeOf(error) === 403
         ? '无权访问评论，内容不可见。'
-        : message
+        : errorCodeOf(error) === 30201
+          ? '评论暂时无法加载，帖子正文仍可继续阅读。'
+          : message
     } else {
       toast.error(message)
     }
@@ -4368,7 +4374,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0.25rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   padding: 0.75rem 0.9rem;
   overflow-wrap: anywhere;
   font-size: 0.875rem;
@@ -4405,15 +4411,15 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0.25rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(203 213 225);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.85rem 1rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   overflow-wrap: anywhere;
 }
 
 .governance-unavailable-state strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-weight: 800;
 }
 
@@ -4424,10 +4430,10 @@ onBeforeUnmount(() => {
 
 .meta-pill {
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 0.35rem 0.6rem;
   font-size: 0.875rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .content-type-pill,
@@ -4440,8 +4446,8 @@ onBeforeUnmount(() => {
 }
 
 .content-type-pill {
-  background: rgb(239 246 255);
-  color: rgb(37 99 235);
+  background: rgb(232 243 237);
+  color: rgb(26 127 90);
 }
 
 .ai-pill {
@@ -4451,8 +4457,8 @@ onBeforeUnmount(() => {
 
 .publish-status-bar {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 0.9rem;
 }
 
@@ -4477,11 +4483,11 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.45rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   padding: 0.45rem 0.65rem;
   font-size: 0.8rem;
   font-weight: 800;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .publish-status-dot {
@@ -4539,14 +4545,14 @@ onBeforeUnmount(() => {
 .trusted-content-loop,
 .public-update-list {
   margin-top: 1.5rem;
-  border-top: 1px solid rgb(203 213 225);
-  border-bottom: 1px solid rgb(203 213 225);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 1.2rem 0;
 }
 
 .post-management-disclosure {
   margin-top: 1rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.75rem;
 }
 
@@ -4557,7 +4563,7 @@ onBeforeUnmount(() => {
   list-style: none;
   align-items: center;
   justify-content: space-between;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 800;
 }
@@ -4567,7 +4573,7 @@ onBeforeUnmount(() => {
 }
 
 .post-management-disclosure > summary::after {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   content: '展开';
   font-size: 0.75rem;
 }
@@ -4602,7 +4608,7 @@ onBeforeUnmount(() => {
 .trusted-content-loop-head h2,
 .public-update-list-head h2 {
   margin-top: 0.2rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -4612,7 +4618,7 @@ onBeforeUnmount(() => {
   display: block;
   margin-top: 0.25rem;
   max-width: 42rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8rem;
   line-height: 1.6;
 }
@@ -4653,12 +4659,12 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(18rem, 1.1fr);
   gap: 1.25rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 1rem;
 }
 
 .trusted-content-row-copy > span {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -4666,13 +4672,13 @@ onBeforeUnmount(() => {
 .trusted-content-row-copy strong {
   display: block;
   margin-top: 0.15rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
 }
 
 .trusted-content-row-copy p {
   margin-top: 0.35rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8rem;
   line-height: 1.55;
 }
@@ -4680,7 +4686,7 @@ onBeforeUnmount(() => {
 .trusted-content-row-copy a {
   display: inline-flex;
   margin-top: 0.45rem;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -4697,17 +4703,17 @@ onBeforeUnmount(() => {
 .trusted-content-controls input {
   min-height: 2.35rem;
   min-width: min(14rem, 100%);
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.45rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8rem;
 }
 
 .trusted-content-controls .trusted-content-secondary {
-  border-color: rgb(203 213 225);
-  color: rgb(71 85 105);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .trust-profile-details {
@@ -4731,9 +4737,9 @@ onBeforeUnmount(() => {
 
 .trust-profile-state {
   align-self: center;
-  border-color: rgb(203 213 225);
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
+  border-color: var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .useful-reason-list {
@@ -4749,11 +4755,11 @@ onBeforeUnmount(() => {
   min-height: 2.35rem;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.45rem 0.65rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.78rem;
 }
 
@@ -4771,11 +4777,11 @@ onBeforeUnmount(() => {
 .useful-reason-list > .useful-reason-clear {
   border-color: transparent;
   background: transparent;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .useful-reason-note {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.78rem;
 }
 
@@ -4790,7 +4796,7 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(8rem, 0.3fr) minmax(0, 1fr) auto;
   align-items: start;
   gap: 1rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.9rem;
 }
 
@@ -4800,18 +4806,18 @@ onBeforeUnmount(() => {
 }
 
 .public-update-list article strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.85rem;
 }
 
 .public-update-list article span,
 .public-update-list article small {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
 .public-update-list article p {
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.85rem;
   line-height: 1.6;
 }
@@ -4819,13 +4825,13 @@ onBeforeUnmount(() => {
 .content-trust-panel,
 .content-suggestion-panel {
   margin-top: 1.5rem;
-  border-top: 1px solid rgb(226 232 240);
-  border-bottom: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 1.25rem 0;
 }
 
 .content-trust-kicker {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -4833,7 +4839,7 @@ onBeforeUnmount(() => {
 .content-trust-panel h2,
 .content-suggestion-panel h2 {
   margin-top: 0.25rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 800;
 }
@@ -4841,7 +4847,7 @@ onBeforeUnmount(() => {
 .content-trust-panel p,
 .content-suggestion-panel p {
   margin-top: 0.35rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.7;
 }
@@ -4855,7 +4861,7 @@ onBeforeUnmount(() => {
 .content-trust-grid article,
 .content-suggestion-item {
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.9rem;
 }
@@ -4863,7 +4869,7 @@ onBeforeUnmount(() => {
 .content-trust-grid span,
 .content-suggestion-item-head span,
 .content-suggestion-form label > span {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -4872,7 +4878,7 @@ onBeforeUnmount(() => {
 .content-suggestion-item-head strong {
   margin-top: 0.2rem;
   display: block;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
 }
 
@@ -4885,9 +4891,9 @@ onBeforeUnmount(() => {
 
 .content-relationship-note span {
   border-radius: 999px;
-  background: rgb(219 234 254);
+  background: rgb(205 232 220);
   padding: 0.3rem 0.65rem;
-  color: rgb(30 64 175);
+  color: rgb(14 74 55);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -4913,15 +4919,15 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(37 99 235);
+  border: 1px solid rgb(26 127 90);
   padding: 0.45rem 0.8rem;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.8rem;
   font-weight: 800;
 }
 
 .content-suggestion-form-actions button {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
@@ -4953,9 +4959,9 @@ onBeforeUnmount(() => {
 
 .content-suggestion-feedback,
 .content-suggestion-empty {
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(30 64 175);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(14 74 55);
 }
 
 .content-suggestion-author,
@@ -4986,10 +4992,10 @@ onBeforeUnmount(() => {
 .content-suggestion-item textarea {
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.7rem 0.8rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
@@ -5007,7 +5013,7 @@ onBeforeUnmount(() => {
 }
 
 .content-suggestion-meta {
-  color: rgb(30 64 175) !important;
+  color: rgb(14 74 55) !important;
   font-size: 0.78rem !important;
 }
 
@@ -5037,14 +5043,14 @@ onBeforeUnmount(() => {
 
 .content-suggestion-history-head h3 {
   margin-top: 0.2rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 800;
 }
 
 .content-suggestion-history-head > span,
 .content-suggestion-history-time {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
@@ -5056,7 +5062,7 @@ onBeforeUnmount(() => {
 
 #trusted-content:target,
 [id^='content-suggestion-']:target {
-  outline: 3px solid rgb(14 165 233 / 0.35);
+  outline: 3px solid rgb(33 154 112 / 0.35);
   outline-offset: 3px;
 }
 
@@ -5068,20 +5074,20 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 1rem;
 }
 
 .discussion-follow-kicker {
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .discussion-follow-panel h2 {
   margin-top: 0.25rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -5089,7 +5095,7 @@ onBeforeUnmount(() => {
 .discussion-follow-panel p:not(.discussion-follow-kicker) {
   margin-top: 0.35rem;
   max-width: 42rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.65;
 }
@@ -5108,8 +5114,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(37 99 235);
-  background: rgb(37 99 235);
+  border: 1px solid rgb(26 127 90);
+  background: rgb(26 127 90);
   padding: 0.55rem 0.9rem;
   color: white;
   font-size: 0.875rem;
@@ -5118,8 +5124,8 @@ onBeforeUnmount(() => {
 }
 
 .discussion-follow-button:hover:not(:disabled) {
-  border-color: rgb(29 78 216);
-  background: rgb(29 78 216);
+  border-color: rgb(18 99 74);
+  background: rgb(18 99 74);
 }
 
 .discussion-follow-button:disabled {
@@ -5138,7 +5144,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   padding: 0.55rem 0.9rem;
   color: white;
   font-size: 0.875rem;
@@ -5146,7 +5152,7 @@ onBeforeUnmount(() => {
 }
 
 .discussion-follow-actions span {
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.75rem;
   line-height: 1.5;
 }
@@ -5154,8 +5160,8 @@ onBeforeUnmount(() => {
 .author-reason-box {
   margin-top: 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(199 210 254);
-  background: rgb(238 242 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 0.85rem;
 }
 
@@ -5182,27 +5188,27 @@ onBeforeUnmount(() => {
 }
 
 .contact-author-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .contact-author-unavailable {
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
-  color: rgb(100 116 139);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-muted);
 }
 
 .author-reason-box strong {
   display: block;
-  color: rgb(67 56 202);
+  color: rgb(18 99 74);
   font-size: 0.78rem;
   font-weight: 900;
 }
 
 .author-reason-box p {
   margin-top: 0.4rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.6;
 }
@@ -5210,7 +5216,7 @@ onBeforeUnmount(() => {
 .author-reason-box a {
   margin-top: 0.65rem;
   display: inline-flex;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.8125rem;
   font-weight: 900;
 }
@@ -5247,7 +5253,7 @@ onBeforeUnmount(() => {
 
 .creator-feedback-box p {
   margin-top: 0.65rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.6;
 }
@@ -5286,15 +5292,15 @@ onBeforeUnmount(() => {
 .dark .public-update-list,
 .dark .content-trust-panel,
 .dark .content-suggestion-panel {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .post-management-disclosure {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .post-management-disclosure > summary {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .trusted-content-loop-head h2,
@@ -5305,7 +5311,7 @@ onBeforeUnmount(() => {
 .dark .content-suggestion-panel h2,
 .dark .content-trust-grid strong,
 .dark .content-suggestion-item-head strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .trusted-content-loop-head span,
@@ -5314,12 +5320,12 @@ onBeforeUnmount(() => {
 .dark .public-update-list article p,
 .dark .content-trust-panel p,
 .dark .content-suggestion-panel p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .trusted-content-row,
 .dark .public-update-list article {
-  border-color: rgb(30 41 59);
+  border-color: var(--border-subtle);
 }
 
 .dark .trusted-content-refresh,
@@ -5327,9 +5333,9 @@ onBeforeUnmount(() => {
 .dark .useful-reason-list > button,
 .dark .content-trust-grid article,
 .dark .content-suggestion-item {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .trusted-content-controls select,
@@ -5338,9 +5344,9 @@ onBeforeUnmount(() => {
 .dark .content-suggestion-form input,
 .dark .content-suggestion-form select,
 .dark .content-suggestion-item textarea {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(248 250 252);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .trust-profile-details span {
@@ -5350,9 +5356,9 @@ onBeforeUnmount(() => {
 }
 
 .dark .trust-profile-state {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .useful-reason-list > .useful-reason-active {
@@ -5364,22 +5370,22 @@ onBeforeUnmount(() => {
 .dark .public-update-list article span,
 .dark .public-update-list article small,
 .dark .useful-reason-note {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .discussion-follow-panel {
-  border-color: rgb(30 64 175);
-  background: rgb(30 41 59);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .discussion-follow-kicker,
 .dark .discussion-follow-link {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 
 .dark .discussion-follow-button {
-  border-color: rgb(96 165 250);
-  background: rgb(37 99 235);
+  border-color: rgb(70 172 134);
+  background: rgb(26 127 90);
 }
 
 .dark .discussion-follow-button--active {
@@ -5388,38 +5394,38 @@ onBeforeUnmount(() => {
 }
 
 .dark .discussion-follow-link {
-  background: rgb(29 78 216);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .dark .discussion-follow-panel h2 {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .discussion-follow-panel p:not(.discussion-follow-kicker),
 .dark .discussion-follow-actions span {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .author-reason-box {
-  border-color: rgb(49 46 129);
-  background: rgb(30 41 59);
+  border-color: rgb(10 52 39);
+  background: var(--surface-1);
 }
 
 .dark .contact-author-button,
 .dark .contact-author-unavailable {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .author-reason-box strong,
 .dark .author-reason-box a {
-  color: rgb(199 210 254);
+  color: rgb(169 216 195);
 }
 
 .dark .author-reason-box p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .creator-feedback-box {
@@ -5432,12 +5438,12 @@ onBeforeUnmount(() => {
 }
 
 .dark .creator-feedback-grid span {
-  background: rgb(15 23 42);
+  background: var(--surface-1);
   color: rgb(187 247 208);
 }
 
 .dark .creator-feedback-box p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .creator-feedback-link {
@@ -5453,8 +5459,8 @@ onBeforeUnmount(() => {
 .domain-detail-panel {
   margin-bottom: 2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1.25rem;
 }
 
@@ -5469,19 +5475,19 @@ onBeforeUnmount(() => {
 .domain-detail-head p {
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .domain-detail-head h2 {
   margin-top: 0.25rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.05rem;
   font-weight: 900;
 }
 
 .domain-detail-description {
   margin-top: 0.5rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.65;
 }
@@ -5496,14 +5502,14 @@ onBeforeUnmount(() => {
 .domain-detail-item {
   min-width: 0;
   border-radius: 0.625rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.85rem;
 }
 
 .domain-detail-item span {
   display: block;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 900;
 }
@@ -5512,7 +5518,7 @@ onBeforeUnmount(() => {
   margin-top: 0.3rem;
   display: block;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
 }
@@ -5536,21 +5542,21 @@ onBeforeUnmount(() => {
 
 .domain-detail-chip-tech,
 .domain-detail-tech {
-  border-color: rgb(186 230 253);
+  border-color: rgb(169 216 195);
 }
 
 .domain-detail-chip-tech {
-  background: rgb(224 242 254);
-  color: rgb(3 105 161);
+  background: rgb(205 232 220);
+  color: rgb(18 99 74);
 }
 
 .domain-detail-chip-career {
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .domain-detail-career {
-  border-color: rgb(199 210 254);
+  border-color: rgb(169 216 195);
 }
 
 .domain-detail-chip-reading {
@@ -5609,8 +5615,8 @@ onBeforeUnmount(() => {
 .knowledge-panel,
 .knowledge-card {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
 }
 
 .knowledge-panel {
@@ -5623,29 +5629,29 @@ onBeforeUnmount(() => {
 
 .knowledge-card strong {
   display: block;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .knowledge-card p {
   margin-top: 0.4rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.6;
 }
 
 .knowledge-tag {
   border-radius: 999px;
-  background: rgb(238 242 255);
+  background: rgb(232 243 237);
   padding: 0.35rem 0.7rem;
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgb(67 56 202);
+  color: rgb(18 99 74);
 }
 
 .ai-knowledge-assistant {
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: rgb(239 246 255);
+  border: 1px solid rgb(169 216 195);
+  background: rgb(232 243 237);
   padding: 1.25rem;
 }
 
@@ -5658,14 +5664,14 @@ onBeforeUnmount(() => {
 }
 
 .ai-knowledge-head p {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.75rem;
   font-weight: 900;
 }
 
 .ai-knowledge-head h2 {
   margin-top: 0.25rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1.05rem;
   font-weight: 900;
 }
@@ -5692,8 +5698,8 @@ onBeforeUnmount(() => {
 }
 
 .ai-confidence-low {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .ai-knowledge-grid {
@@ -5706,13 +5712,13 @@ onBeforeUnmount(() => {
 .ai-knowledge-card {
   min-width: 0;
   border-radius: 0.625rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 0.9rem;
 }
 
 .ai-knowledge-card span {
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
   font-size: 0.72rem;
   font-weight: 900;
 }
@@ -5721,7 +5727,7 @@ onBeforeUnmount(() => {
   display: block;
   margin-top: 0.3rem;
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.95rem;
   font-weight: 900;
 }
@@ -5729,7 +5735,7 @@ onBeforeUnmount(() => {
 .ai-knowledge-card p {
   margin-top: 0.4rem;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.55;
 }
@@ -5747,18 +5753,18 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 0.5rem 0.85rem;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
   font-size: 0.8125rem;
   font-weight: 900;
 }
 
 .interview-material-panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(191 219 254);
-  background: linear-gradient(180deg, rgb(239 246 255), rgb(255 255 255));
+  border: 1px solid rgb(169 216 195);
+  background: linear-gradient(180deg, rgb(232 243 237), rgb(255 255 255));
   padding: 1.25rem;
 }
 
@@ -5773,7 +5779,7 @@ onBeforeUnmount(() => {
   margin-top: 0.25rem;
   font-size: 1.1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .interview-material-head span {
@@ -5781,7 +5787,7 @@ onBeforeUnmount(() => {
   display: block;
   font-size: 0.875rem;
   line-height: 1.6;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .interview-material-actions {
@@ -5803,15 +5809,15 @@ onBeforeUnmount(() => {
 }
 
 .interview-material-primary {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .interview-material-secondary,
 .interview-material-empty button,
 .interview-material-error button {
-  border: 1px solid rgb(147 197 253);
-  color: rgb(29 78 216);
+  border: 1px solid rgb(124 195 165);
+  color: rgb(18 99 74);
 }
 
 .interview-material-primary:disabled,
@@ -5824,8 +5830,8 @@ onBeforeUnmount(() => {
 .interview-material-error {
   margin-top: 1rem;
   border-radius: 0.75rem;
-  border: 1px dashed rgb(147 197 253);
-  background: rgb(248 250 252);
+  border: 1px dashed rgb(124 195 165);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
@@ -5833,14 +5839,14 @@ onBeforeUnmount(() => {
 .interview-material-error span {
   display: block;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .interview-material-empty p {
   margin-top: 0.35rem;
   font-size: 0.875rem;
   line-height: 1.6;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .interview-material-empty button,
@@ -5869,52 +5875,52 @@ onBeforeUnmount(() => {
 .interview-material-form label span {
   font-size: 0.8rem;
   font-weight: 900;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .interview-material-form textarea {
   width: 100%;
   resize: vertical;
   border-radius: 0.65rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: rgb(255 255 255);
   padding: 0.75rem;
   font-size: 0.875rem;
   line-height: 1.6;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
 .interview-material-form textarea:focus {
-  border-color: rgb(37 99 235);
-  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.7);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.7);
 }
 
 .knowledge-path-panel {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1.25rem;
 }
 
 .knowledge-path-kicker {
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .knowledge-path-panel h2 {
   margin-top: 0.25rem;
   font-size: 1.05rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .knowledge-path-panel > div > p:not(.knowledge-path-kicker) {
   margin-top: 0.35rem;
   font-size: 0.875rem;
   line-height: 1.65;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .knowledge-path-steps {
@@ -5926,7 +5932,7 @@ onBeforeUnmount(() => {
 
 .knowledge-path-step {
   border-radius: 0.625rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.85rem;
 }
@@ -5934,20 +5940,20 @@ onBeforeUnmount(() => {
 .knowledge-path-step span {
   font-size: 0.72rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .knowledge-path-step strong {
   margin-top: 0.2rem;
   display: block;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .knowledge-path-step p {
   margin-top: 0.3rem;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .knowledge-path-actions {
@@ -5963,18 +5969,18 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  border: 1px solid rgb(191 219 254);
+  border: 1px solid rgb(169 216 195);
   background: white;
   padding: 0.5rem 0.85rem;
   font-size: 0.8125rem;
   font-weight: 900;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .post-knowledge-assets {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 1rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
   padding: 1.25rem;
 }
 
@@ -5987,14 +5993,14 @@ onBeforeUnmount(() => {
 .post-knowledge-head p {
   font-size: 0.75rem;
   font-weight: 900;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .post-knowledge-head h2 {
   margin-top: 0.25rem;
   font-size: 1.1rem;
   font-weight: 900;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .post-knowledge-head span,
@@ -6002,7 +6008,7 @@ onBeforeUnmount(() => {
 .post-knowledge-card p,
 .post-knowledge-card small,
 .post-knowledge-list p {
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   line-height: 1.6;
 }
@@ -6012,7 +6018,7 @@ onBeforeUnmount(() => {
   align-self: flex-start;
   font-size: 0.8125rem;
   font-weight: 800;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .post-knowledge-grid {
@@ -6026,7 +6032,7 @@ onBeforeUnmount(() => {
 .post-knowledge-list {
   display: grid;
   gap: 0.6rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.85rem;
   background: white;
   padding: 1rem;
@@ -6034,7 +6040,7 @@ onBeforeUnmount(() => {
 
 .post-knowledge-card strong,
 .post-knowledge-list strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-weight: 900;
 }
 
@@ -6046,21 +6052,21 @@ onBeforeUnmount(() => {
 
 .post-knowledge-card-tags span {
   border-radius: 999px;
-  background: rgb(239 246 255);
+  background: rgb(232 243 237);
   padding: 0.2rem 0.55rem;
   font-size: 0.72rem;
   font-weight: 800;
-  color: rgb(29 78 216);
+  color: rgb(18 99 74);
 }
 
 .dark .meta-pill {
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .content-type-pill {
-  background: rgb(30 41 59);
-  color: rgb(191 219 254);
+  background: var(--surface-1);
+  color: rgb(169 216 195);
 }
 
 .dark .ai-pill {
@@ -6069,13 +6075,13 @@ onBeforeUnmount(() => {
 }
 
 .dark .publish-status-bar {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .publish-status-pill {
-  border-color: rgb(51 65 85);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .dark .publish-status-ok {
@@ -6092,31 +6098,31 @@ onBeforeUnmount(() => {
 
 .dark .domain-detail-panel,
 .dark .domain-detail-item {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .domain-detail-head h2,
 .dark .domain-detail-item strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .domain-detail-description {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .domain-detail-item span {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .domain-detail-chip-tech {
-  background: rgb(12 74 110 / 0.72);
-  color: rgb(186 230 253);
+  background: rgb(10 52 39 / 0.72);
+  color: rgb(169 216 195);
 }
 
 .dark .domain-detail-chip-career {
-  background: rgb(49 46 129 / 0.7);
-  color: rgb(199 210 254);
+  background: rgb(10 52 39 / 0.7);
+  color: rgb(169 216 195);
 }
 
 .dark .domain-detail-chip-reading {
@@ -6141,41 +6147,41 @@ onBeforeUnmount(() => {
 
 .dark .knowledge-panel,
 .dark .knowledge-card {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .knowledge-card strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .knowledge-card p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .knowledge-tag {
-  background: rgb(49 46 129 / 0.45);
-  color: rgb(199 210 254);
+  background: rgb(10 52 39 / 0.45);
+  color: rgb(169 216 195);
 }
 
 .dark .ai-knowledge-assistant,
 .dark .ai-knowledge-card,
 .dark .ai-knowledge-actions a {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .ai-knowledge-head h2,
 .dark .ai-knowledge-card strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .ai-knowledge-card p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .ai-knowledge-actions a {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 
 .dark .ai-confidence-high {
@@ -6189,65 +6195,65 @@ onBeforeUnmount(() => {
 }
 
 .dark .ai-confidence-low {
-  background: rgb(51 65 85);
-  color: rgb(203 213 225);
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .dark .interview-material-panel {
-  border-color: rgb(30 64 175);
-  background: linear-gradient(180deg, rgb(15 23 42), rgb(2 6 23));
+  border-color: rgb(14 74 55);
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-1));
 }
 
 .dark .interview-material-head h2,
 .dark .interview-material-empty strong,
 .dark .interview-material-error span,
 .dark .interview-material-form label span {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .interview-material-head span,
 .dark .interview-material-empty p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .interview-material-empty,
 .dark .interview-material-error {
-  border-color: rgb(30 64 175);
-  background: rgb(15 23 42);
+  border-color: rgb(14 74 55);
+  background: var(--surface-1);
 }
 
 .dark .interview-material-form textarea {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23);
-  color: rgb(248 250 252);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-strong);
 }
 
 .dark .interview-material-secondary,
 .dark .interview-material-empty button,
 .dark .interview-material-error button {
-  border-color: rgb(30 64 175);
-  color: rgb(147 197 253);
+  border-color: rgb(14 74 55);
+  color: rgb(124 195 165);
 }
 
 .dark .knowledge-path-panel,
 .dark .knowledge-path-step,
 .dark .knowledge-path-actions a {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .knowledge-path-panel h2,
 .dark .knowledge-path-step strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .knowledge-path-panel > div > p:not(.knowledge-path-kicker),
 .dark .knowledge-path-step p {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .knowledge-path-actions a {
-  color: rgb(191 219 254);
+  color: rgb(169 216 195);
 }
 
 .version-dialog {
@@ -6262,10 +6268,10 @@ onBeforeUnmount(() => {
 }
 
 .version-item {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   padding: 1rem;
-  background: rgb(248 250 252);
+  background: var(--surface-soft);
 }
 
 .version-item + .version-item {
@@ -6273,8 +6279,8 @@ onBeforeUnmount(() => {
 }
 
 .dark .version-item {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .detail-back {
@@ -6284,30 +6290,30 @@ onBeforeUnmount(() => {
   gap: 0.4rem;
   margin-bottom: 1rem;
   padding: 0 0.65rem;
-  border: 1px solid rgb(229 231 235);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: white;
-  color: rgb(75 85 99);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 800;
 }
 
 .detail-back:hover {
-  border-color: rgb(191 219 254);
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .dark .detail-back {
-  border-color: rgb(63 63 70);
+  border-color: var(--border-subtle);
   background: rgb(24 26 32);
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .detail-back:hover {
-  border-color: rgb(30 58 138);
-  background: rgb(30 58 138 / 0.35);
-  color: rgb(147 197 253);
+  border-color: rgb(10 52 39);
+  background: rgb(10 52 39 / 0.35);
+  color: rgb(124 195 165);
 }
 
 /* The reading surface follows the community shell: one focused column and a compact context rail. */
@@ -6497,18 +6503,18 @@ onBeforeUnmount(() => {
 .dark .post-detail-article,
 .dark .post-detail-comments,
 .dark .post-detail-rail section {
-  border-color: rgb(63 63 70) !important;
+  border-color: var(--border-subtle) !important;
   background: rgb(24 26 32) !important;
 }
 
 .dark .post-detail-article :deep(.prose),
 .dark .post-detail-article :deep(.prose p),
 .dark .post-detail-article :deep(.prose li) {
-  color: rgb(203 213 225);
+  color: var(--text-muted);
 }
 
 .dark .post-detail-article :deep(.prose h2) {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .publish-status-details {
@@ -6748,5 +6754,58 @@ onBeforeUnmount(() => {
   .knowledge-path-actions a {
     width: 100%;
   }
+}
+
+/* ==========================================================
+   暖调对齐层：把遗留冷灰 slate 原子类收敛到「闻野」品牌 token。
+   仅在本组件作用域内生效；特异性高于 Tailwind utilities 与 dark:
+   变体，使描边与前景由 token 统一驱动亮暗两态。
+   ========================================================== */
+
+.post-detail-page [class~="border-slate-100"],
+.post-detail-page [class~="border-slate-200"],
+.post-detail-page [class~="border-slate-300"] {
+  border-color: var(--border-subtle);
+}
+
+.post-detail-page [class~="bg-slate-50"],
+.post-detail-page [class~="bg-slate-100"] {
+  background-color: var(--surface-soft);
+}
+
+.post-detail-page [class~="bg-white"] {
+  background-color: var(--surface);
+}
+
+.post-detail-page [class~="text-slate-900"],
+.post-detail-page [class~="text-slate-800"] {
+  color: var(--text-strong);
+}
+
+.post-detail-page [class~="text-slate-700"],
+.post-detail-page [class~="text-slate-600"] {
+  color: var(--text-primary);
+}
+
+.post-detail-page [class~="text-slate-500"],
+.post-detail-page [class~="text-slate-400"] {
+  color: var(--text-muted);
+}
+
+/* 恢复被上面覆盖的悬停反馈（原子类 hover 变体特异性较低） */
+.post-detail-page [class~="hover:bg-slate-50"]:hover,
+.post-detail-page [class~="hover:bg-slate-100"]:hover {
+  background-color: var(--surface-soft);
+}
+
+.post-detail-page [class~="hover:bg-slate-800"]:hover {
+  background-color: var(--surface-2);
+}
+
+/* 作者卡与正文卡是上下拼接成的一体化主内容区，共享阴影会在接缝处透出多余暗线，
+   因此主内容区保持“描边 + 净面”，把阴影层次留给独立浮起的侧栏与评论卡。 */
+.post-detail-author-card,
+.post-detail-article {
+  box-shadow: none;
 }
 </style>

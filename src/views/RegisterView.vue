@@ -36,7 +36,7 @@
                 placeholder="2-32 个字符"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
                 ref="nicknameInput"
-                :disabled="isLoading"
+                :disabled="isLoading || rateLimitSeconds > 0"
                 :aria-invalid="Boolean(errors.nickname)"
                 :aria-describedby="errors.nickname ? 'register-nickname-error' : undefined"
                 @input="clearFieldError('nickname')"
@@ -56,7 +56,7 @@
                 placeholder="your@email.com"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
                 ref="emailInput"
-                :disabled="isLoading"
+                :disabled="isLoading || rateLimitSeconds > 0"
                 :aria-invalid="Boolean(errors.email)"
                 :aria-describedby="errors.email ? 'register-email-error' : undefined"
                 @input="clearFieldError('email')"
@@ -73,10 +73,10 @@
                 type="password"
                 name="new-password"
                 autocomplete="new-password"
-                placeholder="至少 6 位"
+                placeholder="至少 8 位，含字母和数字"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
                 ref="passwordInput"
-                :disabled="isLoading"
+                :disabled="isLoading || rateLimitSeconds > 0"
                 :aria-invalid="Boolean(errors.password)"
                 :aria-describedby="errors.password ? 'register-password-error' : undefined"
                 @input="handlePasswordInput"
@@ -107,7 +107,7 @@
                 placeholder="再次输入密码"
                 class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
                 ref="confirmPasswordInput"
-                :disabled="isLoading"
+                :disabled="isLoading || rateLimitSeconds > 0"
                 :aria-invalid="Boolean(errors.confirmPassword)"
                 :aria-describedby="errors.confirmPassword ? 'register-confirm-password-error' : undefined"
                 @input="handleConfirmPasswordInput"
@@ -115,13 +115,35 @@
               <p v-if="errors.confirmPassword" id="register-confirm-password-error" role="alert" class="text-xs text-danger mt-1">{{ errors.confirmPassword }}</p>
             </div>
 
+            <div>
+              <label class="agreement-field" :class="{ 'agreement-field--error': Boolean(errors.agreements) }">
+                <input
+                  ref="agreementsInput"
+                  v-model="form.agreements"
+                  type="checkbox"
+                  name="agreements"
+                  :disabled="isLoading || rateLimitSeconds > 0"
+                  :aria-invalid="Boolean(errors.agreements)"
+                  :aria-describedby="errors.agreements ? 'register-agreements-error' : undefined"
+                  @change="clearFieldError('agreements')"
+                >
+                <span>
+                  我已阅读并同意
+                  <RouterLink to="/about#terms" target="_blank" @click.stop>服务条款</RouterLink>
+                  和
+                  <RouterLink to="/about#privacy" target="_blank" @click.stop>隐私政策</RouterLink>
+                </span>
+              </label>
+              <p v-if="errors.agreements" id="register-agreements-error" role="alert" class="text-xs text-danger mt-1">{{ errors.agreements }}</p>
+            </div>
+
             <!-- Submit Button -->
             <button
               type="submit"
-              :disabled="isLoading"
+              :disabled="isLoading || rateLimitSeconds > 0"
               class="auth-submit w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
-              {{ isLoading ? '注册中...' : '注册' }}
+              {{ isLoading ? '注册中...' : rateLimitSeconds > 0 ? `${rateLimitSeconds} 秒后重试` : '注册' }}
             </button>
           </form>
 
@@ -142,12 +164,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, reactive } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, reactive } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
-import { getErrorMessage } from '@/api/client'
+import { getErrorMessage, getRateLimitRetryAfterSeconds } from '@/api/client'
 import { redirectQuery, safeRedirect } from '@/utils/navigation'
 import { beginWelcomeOnboarding } from '@/utils/welcomeOnboarding'
 import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
@@ -161,15 +183,19 @@ const { register } = useAuth()
 const authStore = useAuthStore()
 
 const isLoading = ref(false)
+const rateLimitSeconds = ref(0)
+let rateLimitTimer: ReturnType<typeof setInterval> | undefined
 const nicknameInput = ref<HTMLInputElement | null>(null)
 const emailInput = ref<HTMLInputElement | null>(null)
 const passwordInput = ref<HTMLInputElement | null>(null)
 const confirmPasswordInput = ref<HTMLInputElement | null>(null)
+const agreementsInput = ref<HTMLInputElement | null>(null)
 const form = reactive({
   nickname: '',
   email: '',
   password: '',
   confirmPassword: '',
+  agreements: false,
 })
 
 const errors = reactive({
@@ -177,14 +203,15 @@ const errors = reactive({
   email: '',
   password: '',
   confirmPassword: '',
+  agreements: '',
 })
 
-// 密码强度提示：长度 + 是否含字母/数字/符号的粗略估计，只做引导不做硬性拦截（后端只要求 6 位）。
+// 密码强度提示：与服务端最低规则保持一致，并额外提示更强组合。
 const passwordStrength = computed(() => {
   const value = form.password
   if (!value) return { score: 0, label: '', barClass: '', textClass: '' }
   let raw = 0
-  if (value.length >= 6) raw += 1
+  if (value.length >= 8) raw += 1
   if (value.length >= 10) raw += 1
   if (/[a-zA-Z]/.test(value) && /\d/.test(value)) raw += 1
   if (/[^a-zA-Z0-9]/.test(value)) raw += 1
@@ -197,8 +224,14 @@ const passwordStrength = computed(() => {
 const registerSchema = z.object({
   nickname: z.string().min(2, '昵称至少 2 个字符').max(32, '昵称最多 32 个字符'),
   email: z.string().email('请输入有效的邮箱地址'),
-  password: z.string().min(6, '密码至少 6 位'),
+  password: z.string()
+    .min(8, '密码至少 8 位')
+    .regex(/[a-zA-Z]/, '密码需包含字母')
+    .regex(/\d/, '密码需包含数字'),
   confirmPassword: z.string(),
+  agreements: z.literal(true, {
+    errorMap: () => ({ message: '请阅读并同意服务条款与隐私政策' }),
+  }),
 }).superRefine((data, context) => {
   if (!data.confirmPassword) {
     context.addIssue({
@@ -246,6 +279,7 @@ const focusFirstInvalidField = async () => {
     email: emailInput.value,
     password: passwordInput.value,
     confirmPassword: confirmPasswordInput.value,
+    agreements: agreementsInput.value,
   }
   const firstInvalid = (Object.keys(errors) as RegisterField[]).find((field) => Boolean(errors[field]))
   if (!firstInvalid) return
@@ -289,12 +323,45 @@ const handleSubmit = async () => {
     const redirect = safeRedirect(route.query.redirect)
     await router.replace({ path: '/welcome', query: redirect && redirect !== '/' ? { redirect } : {} })
   } catch (error: any) {
-    const message = getErrorMessage(error, '注册失败，请稍后重试')
-    toast.error(message)
+    const fieldErrors = error?.data?.fieldErrors
+    if (fieldErrors && typeof fieldErrors === 'object') {
+      const agreementMessages: string[] = []
+      for (const [field, message] of Object.entries(fieldErrors)) {
+        const text = typeof message === 'string' ? message : ''
+        if (!text) continue
+        if (field === 'termsAccepted' || field === 'privacyAccepted' || field === 'termsVersion' || field === 'privacyVersion' || field === 'request') {
+          agreementMessages.push(text)
+        } else if (field in errors) {
+          errors[field as RegisterField] = text
+        }
+      }
+      if (agreementMessages.length) errors.agreements = agreementMessages[0]
+      await focusFirstInvalidField()
+    }
+    const retryAfterSeconds = getRateLimitRetryAfterSeconds(error)
+    if (retryAfterSeconds) {
+      rateLimitSeconds.value = retryAfterSeconds
+      if (rateLimitTimer) clearInterval(rateLimitTimer)
+      rateLimitTimer = setInterval(() => {
+        rateLimitSeconds.value = Math.max(0, rateLimitSeconds.value - 1)
+        if (rateLimitSeconds.value === 0 && rateLimitTimer) {
+          clearInterval(rateLimitTimer)
+          rateLimitTimer = undefined
+        }
+      }, 1000)
+      toast.error(`操作过于频繁，请 ${retryAfterSeconds} 秒后重试`)
+    } else {
+      const message = getErrorMessage(error, '注册失败，请稍后重试')
+      toast.error(message)
+    }
   } finally {
     isLoading.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  if (rateLimitTimer) clearInterval(rateLimitTimer)
+})
 </script>
 
 <style scoped>
@@ -335,6 +402,37 @@ const handleSubmit = async () => {
 
 .auth-submit {
   min-height: 44px;
+}
+
+.agreement-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.agreement-field input {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  margin-top: 0.1rem;
+  accent-color: rgb(26 127 90);
+}
+
+.agreement-field a {
+  color: rgb(18 99 74);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.agreement-field--error {
+  border-color: rgb(220 38 38);
 }
 
 @media (max-width: 720px) {

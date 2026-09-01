@@ -177,30 +177,30 @@ defineExpose({
 </script>
 
 <style scoped>
-.event-timeline { margin-top: 1rem; border-top: 1px solid rgb(226 232 240); padding-top: 1rem; }
+.event-timeline { margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem; }
 .timeline-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
-.timeline-header p { margin: 0; color: rgb(8 145 178); font-size: .7rem; font-weight: 800; }
-.timeline-header h4 { margin: .2rem 0 0; color: rgb(15 23 42); font-size: .86rem; font-weight: 900; }
-.refresh-button, .retry-button, .load-more-button { min-height: 30px; border: 1px solid rgb(203 213 225); border-radius: .5rem; background: white; padding: .3rem .5rem; color: rgb(51 65 85); font-size: .7rem; font-weight: 800; }
+.timeline-header p { margin: 0; color: rgb(26 127 90); font-size: .7rem; font-weight: 800; }
+.timeline-header h4 { margin: .2rem 0 0; color: var(--text-strong); font-size: .86rem; font-weight: 900; }
+.refresh-button, .retry-button, .load-more-button { min-height: 30px; border: 1px solid var(--border-subtle); border-radius: .5rem; background: white; padding: .3rem .5rem; color: var(--text-primary); font-size: .7rem; font-weight: 800; }
 .refresh-button:disabled, .retry-button:disabled, .load-more-button:disabled { cursor: not-allowed; opacity: .55; }
-.timeline-state { display: flex; align-items: center; justify-content: center; gap: .65rem; margin-top: .7rem; border: 1px dashed rgb(203 213 225); border-radius: .5rem; background: rgb(248 250 252); padding: .9rem; color: rgb(100 116 139); font-size: .74rem; text-align: center; }
+.timeline-state { display: flex; align-items: center; justify-content: center; gap: .65rem; margin-top: .7rem; border: 1px dashed var(--border-subtle); border-radius: .5rem; background: var(--surface-soft); padding: .9rem; color: var(--text-muted); font-size: .74rem; text-align: center; }
 .timeline-state-error { border-style: solid; border-color: rgb(254 202 202); color: rgb(185 28 28); }
 .event-list { display: grid; gap: .75rem; margin: .85rem 0 0; padding: 0; list-style: none; }
 .event-row { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: .6rem; }
-.event-marker { width: 8px; height: 8px; margin: .35rem 0 0 2px; border-radius: 999px; background: rgb(8 145 178); box-shadow: 0 0 0 3px rgb(207 250 254); }
-.event-content { min-width: 0; border-bottom: 1px solid rgb(241 245 249); padding-bottom: .7rem; }
+.event-marker { width: 8px; height: 8px; margin: .35rem 0 0 2px; border-radius: 999px; background: rgb(26 127 90); box-shadow: 0 0 0 3px rgb(205 232 220); }
+.event-content { min-width: 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: .7rem; }
 .event-title { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .45rem; }
-.event-title strong { color: rgb(15 23 42); font-size: .76rem; font-weight: 900; }
-.event-title time, .event-meta { color: rgb(100 116 139); font-size: .66rem; font-weight: 700; }
-.event-content p { margin: .28rem 0; color: rgb(71 85 105); font-size: .74rem; line-height: 1.5; white-space: pre-wrap; }
+.event-title strong { color: var(--text-strong); font-size: .76rem; font-weight: 900; }
+.event-title time, .event-meta { color: var(--text-muted); font-size: .66rem; font-weight: 700; }
+.event-content p { margin: .28rem 0; color: var(--text-primary); font-size: .74rem; line-height: 1.5; white-space: pre-wrap; }
 .load-more-error { display: flex; align-items: center; justify-content: center; gap: .6rem; margin-top: .7rem; color: rgb(185 28 28); font-size: .7rem; }
 .load-more-button { display: block; margin-top: .7rem; }
-.dark .event-timeline, .dark .event-content { border-color: rgb(30 41 59); }
-.dark .timeline-header h4, .dark .event-title strong { color: rgb(248 250 252); }
-.dark .refresh-button, .dark .retry-button, .dark .load-more-button { border-color: rgb(51 65 85); background: rgb(2 6 23); color: rgb(203 213 225); }
-.dark .timeline-state { border-color: rgb(51 65 85); background: rgb(2 6 23 / .55); color: rgb(148 163 184); }
+.dark .event-timeline, .dark .event-content { border-color: var(--border-subtle); }
+.dark .timeline-header h4, .dark .event-title strong { color: var(--text-strong); }
+.dark .refresh-button, .dark .retry-button, .dark .load-more-button { border-color: var(--border-subtle); background: var(--surface-1); color: var(--text-muted); }
+.dark .timeline-state { border-color: var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 55%, transparent); color: var(--text-muted); }
 .dark .timeline-state-error { border-color: rgb(127 29 29); color: rgb(252 165 165); }
-.dark .event-marker { background: rgb(34 211 238); box-shadow: 0 0 0 3px rgb(8 47 73); }
-.dark .event-title time, .dark .event-meta { color: rgb(148 163 184); }
-.dark .event-content p { color: rgb(203 213 225); }
+.dark .event-marker { background: rgb(70 172 134); box-shadow: 0 0 0 3px rgb(7 31 24); }
+.dark .event-title time, .dark .event-meta { color: var(--text-muted); }
+.dark .event-content p { color: var(--text-muted); }
 </style>

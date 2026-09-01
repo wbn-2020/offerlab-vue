@@ -1621,8 +1621,8 @@ onMounted(refreshAll)
 
 <style scoped>
 .admin-growth-page {
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  background: var(--surface-soft);
+  color: var(--text-strong);
 }
 
 .notice {
@@ -1647,9 +1647,9 @@ onMounted(refreshAll)
 }
 
 .notice-info {
-  border-color: rgb(186 230 253);
-  background: rgb(240 249 255);
-  color: rgb(3 105 161);
+  border-color: rgb(169 216 195);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .notice-ok {
@@ -1704,19 +1704,19 @@ onMounted(refreshAll)
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.5rem 0.75rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   font-weight: 900;
 }
 
 .tab-active {
-  border-color: rgb(8 145 178);
-  background: rgb(236 254 255);
-  color: rgb(14 116 144);
+  border-color: rgb(26 127 90);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .tool-grid {
@@ -1738,7 +1738,7 @@ onMounted(refreshAll)
   align-content: start;
   gap: 0.75rem;
   overflow: hidden;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: white;
   padding: 1rem;
@@ -1756,14 +1756,14 @@ onMounted(refreshAll)
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.98rem;
   font-weight: 900;
 }
 
 .tool-heading p {
   margin-top: 0.25rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -1776,7 +1776,7 @@ onMounted(refreshAll)
   display: grid;
   min-width: 0;
   gap: 0.35rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.76rem;
   font-weight: 800;
 }
@@ -1784,25 +1784,25 @@ onMounted(refreshAll)
 .field-input {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
   background: white;
   padding: 0.56rem 0.65rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.8125rem;
   line-height: 1.4;
   outline: none;
 }
 
 .field-input:focus {
-  border-color: rgb(8 145 178);
-  box-shadow: 0 0 0 3px rgb(165 243 252 / 0.72);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.72);
 }
 
 .field-input:disabled {
   cursor: not-allowed;
-  background: rgb(241 245 249);
-  color: rgb(100 116 139);
+  background: var(--surface-soft);
+  color: var(--text-muted);
 }
 
 .code-field {
@@ -1834,7 +1834,7 @@ onMounted(refreshAll)
   min-width: 0;
   align-items: center;
   gap: 0.5rem;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -1842,7 +1842,7 @@ onMounted(refreshAll)
 .toggle-row input {
   height: 1rem;
   width: 1rem;
-  accent-color: rgb(8 145 178);
+  accent-color: rgb(26 127 90);
 }
 
 .boundary-copy {
@@ -1850,9 +1850,9 @@ onMounted(refreshAll)
   min-width: 0;
   align-items: flex-start;
   gap: 0.55rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.7rem;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.75rem;
   line-height: 1.5;
 }
@@ -1866,9 +1866,9 @@ onMounted(refreshAll)
   display: grid;
   min-width: 0;
   gap: 0.5rem;
-  border: 1px solid rgb(186 230 253);
+  border: 1px solid rgb(169 216 195);
   border-radius: 0.625rem;
-  background: rgb(240 249 255);
+  background: rgb(232 243 237);
   padding: 0.75rem;
 }
 
@@ -1878,21 +1878,21 @@ onMounted(refreshAll)
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  color: rgb(3 105 161);
+  color: rgb(18 99 74);
   font-size: 0.72rem;
 }
 
 .budget-summary strong {
   overflow-wrap: anywhere;
-  color: rgb(12 74 110);
+  color: rgb(10 52 39);
   font-weight: 900;
   text-align: right;
 }
 
 .budget-summary p {
-  border-top: 1px solid rgb(186 230 253);
+  border-top: 1px solid rgb(169 216 195);
   padding-top: 0.5rem;
-  color: rgb(7 89 133);
+  color: rgb(14 74 55);
   font-size: 0.7rem;
   line-height: 1.45;
 }
@@ -1909,7 +1909,7 @@ onMounted(refreshAll)
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
-  border-top: 1px solid rgb(226 232 240);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 0.7rem;
 }
 
@@ -1928,7 +1928,7 @@ onMounted(refreshAll)
 
 .row-title strong {
   overflow-wrap: anywhere;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 0.85rem;
   font-weight: 900;
 }
@@ -1937,7 +1937,7 @@ onMounted(refreshAll)
   margin-top: 0.32rem;
   max-width: 72ch;
   overflow-wrap: anywhere;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
   font-size: 0.78rem;
   line-height: 1.48;
 }
@@ -1946,7 +1946,7 @@ onMounted(refreshAll)
   display: block;
   margin-top: 0.28rem;
   overflow-wrap: anywhere;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
   line-height: 1.4;
 }
@@ -1955,13 +1955,13 @@ onMounted(refreshAll)
   display: grid;
   flex: 0 0 auto;
   justify-items: end;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
 .numeric-summary strong {
   margin-top: 0.15rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   font-size: 1rem;
   font-weight: 900;
 }
@@ -1996,8 +1996,8 @@ onMounted(refreshAll)
 .meta-chip,
 .status-muted,
 .count-label {
-  background: rgb(241 245 249);
-  color: rgb(71 85 105);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .status-ok {
@@ -2032,16 +2032,16 @@ onMounted(refreshAll)
 }
 
 .primary-button {
-  border: 1px solid rgb(14 116 144);
-  background: rgb(14 116 144);
+  border: 1px solid rgb(18 99 74);
+  background: rgb(18 99 74);
   color: white;
 }
 
 .secondary-button,
 .icon-button {
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .danger-button {
@@ -2069,14 +2069,14 @@ onMounted(refreshAll)
 }
 
 .primary-button:hover:not(:disabled) {
-  background: rgb(21 94 117);
+  background: rgb(14 74 55);
 }
 
 .secondary-button:hover:not(:disabled),
 .icon-button:hover:not(:disabled) {
-  border-color: rgb(34 211 238);
-  background: rgb(236 254 255);
-  color: rgb(14 116 144);
+  border-color: rgb(70 172 134);
+  background: rgb(232 243 237);
+  color: rgb(18 99 74);
 }
 
 .danger-button:hover:not(:disabled) {
@@ -2097,7 +2097,7 @@ onMounted(refreshAll)
 }
 
 .text-button {
-  color: rgb(14 116 144);
+  color: rgb(18 99 74);
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -2108,7 +2108,7 @@ onMounted(refreshAll)
   justify-content: center;
   gap: 0.65rem;
   margin-top: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
@@ -2130,9 +2130,9 @@ onMounted(refreshAll)
 }
 
 .empty-state {
-  border: 1px dashed rgb(203 213 225);
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
+  border: 1px dashed var(--border-subtle);
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .error-state > div {
@@ -2160,7 +2160,7 @@ onMounted(refreshAll)
   height: 4.1rem;
   overflow: hidden;
   border-radius: 0.625rem;
-  background: rgb(226 232 240);
+  background: var(--surface-2);
 }
 
 .skeleton-row::after {
@@ -2245,8 +2245,8 @@ onMounted(refreshAll)
 }
 
 .dark .admin-growth-page {
-  background: rgb(2 6 23);
-  color: rgb(226 232 240);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .tool-panel,
@@ -2254,9 +2254,9 @@ onMounted(refreshAll)
 .dark .secondary-button,
 .dark .icon-button,
 .dark .field-input {
-  border-color: rgb(51 65 85);
-  background: rgb(15 23 42);
-  color: rgb(226 232 240);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .dark .reason-bar {
@@ -2265,17 +2265,17 @@ onMounted(refreshAll)
 }
 
 .dark .budget-summary {
-  border-color: rgb(14 116 144);
-  background: rgb(8 47 73 / 0.5);
+  border-color: rgb(18 99 74);
+  background: rgb(7 31 24 / 0.5);
 }
 
 .dark .budget-summary > div,
 .dark .budget-summary p {
-  color: rgb(165 243 252);
+  color: rgb(169 216 195);
 }
 
 .dark .budget-summary strong {
-  color: rgb(207 250 254);
+  color: rgb(205 232 220);
 }
 
 .dark .reason-status small {
@@ -2283,15 +2283,15 @@ onMounted(refreshAll)
 }
 
 .dark .tab-active {
-  border-color: rgb(6 182 212);
-  background: rgb(8 47 73);
-  color: rgb(165 243 252);
+  border-color: rgb(33 154 112);
+  background: rgb(7 31 24);
+  color: rgb(169 216 195);
 }
 
 .dark .tool-heading h2,
 .dark .row-title strong,
 .dark .numeric-summary strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .tool-heading p,
@@ -2299,18 +2299,18 @@ onMounted(refreshAll)
 .dark .field-label,
 .dark .toggle-row,
 .dark .boundary-copy {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .dense-row,
 .dark .boundary-copy {
-  border-color: rgb(51 65 85);
+  border-color: var(--border-subtle);
 }
 
 .dark .empty-state {
-  border-color: rgb(51 65 85);
-  background: rgb(2 6 23 / 0.7);
-  color: rgb(148 163 184);
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
+  color: var(--text-muted);
 }
 
 .dark .error-state,
@@ -2321,9 +2321,9 @@ onMounted(refreshAll)
 }
 
 .dark .notice-info {
-  border-color: rgb(14 116 144);
-  background: rgb(8 47 73 / 0.5);
-  color: rgb(165 243 252);
+  border-color: rgb(18 99 74);
+  background: rgb(7 31 24 / 0.5);
+  color: rgb(169 216 195);
 }
 
 .dark .notice-ok {
@@ -2345,6 +2345,6 @@ onMounted(refreshAll)
 }
 
 .dark .skeleton-row {
-  background: rgb(30 41 59);
+  background: var(--surface-1);
 }
 </style>

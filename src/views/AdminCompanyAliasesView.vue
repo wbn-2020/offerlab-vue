@@ -380,14 +380,14 @@ onMounted(() => {
 }
 
 .primary-button {
-  background: rgb(37 99 235);
+  background: rgb(26 127 90);
   color: white;
 }
 
 .secondary-button {
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
-  color: rgb(51 65 85);
+  color: var(--text-primary);
 }
 
 .compact-button {
@@ -406,7 +406,7 @@ onMounted(() => {
   min-width: 0;
   overflow: hidden;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 1.25rem;
 }
@@ -423,18 +423,18 @@ onMounted(() => {
 
 .candidate-card {
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
 }
 
 .candidate-card strong {
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .candidate-stat {
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.65rem 0.75rem;
 }
@@ -443,7 +443,7 @@ onMounted(() => {
   display: block;
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .candidate-stat strong {
@@ -489,8 +489,8 @@ onMounted(() => {
   gap: 0.85rem;
   width: 100%;
   border-radius: 0.75rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
   padding: 1rem;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
@@ -508,13 +508,13 @@ onMounted(() => {
 
 .alias-row:hover,
 .alias-row-active {
-  border-color: rgb(129 140 248);
-  background: rgb(238 242 255);
+  border-color: rgb(124 195 165);
+  background: rgb(232 243 237);
 }
 
 .canonical {
   font-weight: 800;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
 }
 
 .status-pill {
@@ -532,8 +532,8 @@ onMounted(() => {
 }
 
 .status-muted {
-  background: rgb(226 232 240);
-  color: rgb(71 85 105);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .field-label {
@@ -541,18 +541,18 @@ onMounted(() => {
   gap: 0.4rem;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: rgb(71 85 105);
+  color: var(--text-primary);
 }
 
 .field-input {
   width: 100%;
   min-width: 0;
   border-radius: 0.5rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid var(--border-subtle);
   background: white;
   padding: 0.65rem 0.75rem;
   font-size: 0.875rem;
-  color: rgb(15 23 42);
+  color: var(--text-strong);
   outline: none;
 }
 
@@ -585,38 +585,38 @@ onMounted(() => {
 }
 
 .field-input:focus {
-  border-color: rgb(79 70 229);
-  box-shadow: 0 0 0 3px rgb(199 210 254 / 0.7);
+  border-color: rgb(26 127 90);
+  box-shadow: 0 0 0 3px rgb(169 216 195 / 0.7);
 }
 
 .text-button {
   font-size: 0.875rem;
   font-weight: 700;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .dark .panel,
 .dark .secondary-button,
 .dark .field-input {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
-  color: rgb(203 213 225);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 
 .dark .alias-row {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .alias-row:hover,
 .dark .alias-row-active {
-  border-color: rgb(99 102 241);
-  background: rgb(30 27 75);
+  border-color: rgb(33 154 112);
+  background: rgb(7 31 24);
 }
 
 .dark .candidate-card {
-  border-color: rgb(30 41 59);
-  background: rgb(2 6 23);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .candidate-error {
@@ -626,15 +626,15 @@ onMounted(() => {
 }
 
 .dark .candidate-card strong {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 
 .dark .candidate-stat {
-  border-color: rgb(30 41 59);
-  background: rgb(15 23 42);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .dark .canonical {
-  color: rgb(248 250 252);
+  color: var(--text-strong);
 }
 </style>

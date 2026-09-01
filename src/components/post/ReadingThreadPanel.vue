@@ -134,7 +134,7 @@ onBeforeUnmount(() => {
 .thread-group-title {
   font-size: 0.8125rem;
   font-weight: 700;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .thread-list {
@@ -153,7 +153,7 @@ onBeforeUnmount(() => {
 
 .thread-link {
   font-weight: 600;
-  color: rgb(37 99 235);
+  color: rgb(26 127 90);
 }
 
 .thread-meta {
@@ -161,13 +161,13 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.375rem;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .thread-badge,
 .thread-relation {
   border-radius: 999px;
-  background: rgb(241 245 249);
+  background: var(--surface-soft);
   padding: 0.125rem 0.5rem;
 }
 
@@ -180,26 +180,26 @@ onBeforeUnmount(() => {
 .thread-truncated {
   margin-top: 0.75rem;
   font-size: 0.75rem;
-  color: rgb(100 116 139);
+  color: var(--text-muted);
 }
 
 .dark .thread-group-title,
 .dark .thread-meta,
 .dark .thread-truncated {
-  color: rgb(148 163 184);
+  color: var(--text-muted);
 }
 
 .dark .thread-link {
-  color: rgb(147 197 253);
+  color: rgb(124 195 165);
 }
 
 .dark .thread-anchor {
-  color: rgb(241 245 249);
+  color: var(--text-strong);
 }
 
 .dark .thread-badge,
 .dark .thread-relation {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
+  background: var(--surface-1);
+  color: var(--text-muted);
 }
 </style>
