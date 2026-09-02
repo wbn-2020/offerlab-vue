@@ -855,62 +855,78 @@
                     </article>
                   </section>
 
-                  <form class="content-suggestion-form" @submit.prevent="submitContentSuggestion">
-                    <label>
-                      <span>建议类型</span>
-                      <select v-model="contentSuggestionForm.type">
-                        <option v-for="option in CONTENT_SUGGESTION_TYPE_OPTIONS" :key="option.value" :value="option.value">
-                          {{ option.label }} · {{ option.description }}
-                        </option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>具体建议</span>
-                      <textarea v-model="contentSuggestionForm.detail" rows="4" maxlength="2000" placeholder="写下你希望作者补充、核对或澄清的内容" />
-                    </label>
-                    <div class="content-suggestion-structure-fields">
+                  <div class="content-suggestion-form-shell" data-reader-suggestion-entry>
+                    <button
+                      type="button"
+                      class="content-suggestion-form-trigger"
+                      :aria-expanded="contentSuggestionFormOpen"
+                      @click="toggleContentSuggestionForm"
+                    >
+                      <span class="content-suggestion-form-trigger__title">我要补充 / 纠错</span>
+                      <span class="content-suggestion-form-trigger__hint">建议不会自动公开，仅作者与必要治理角色可见</span>
+                      <span class="content-suggestion-form-trigger__chevron" aria-hidden="true">{{ contentSuggestionFormOpen ? '收起' : '展开' }}</span>
+                    </button>
+                    <form
+                      v-if="contentSuggestionFormOpen"
+                      class="content-suggestion-form content-suggestion-form--secondary"
+                      @submit.prevent="submitContentSuggestion"
+                    >
                       <label>
-                        <span>建议范围</span>
-                        <select v-model="contentSuggestionForm.targetScope">
-                          <option v-for="option in CONTENT_SUGGESTION_TARGET_SCOPE_OPTIONS" :key="option.value" :value="option.value">
-                            {{ option.label }}
+                        <span>建议类型</span>
+                        <select v-model="contentSuggestionForm.type">
+                          <option v-for="option in CONTENT_SUGGESTION_TYPE_OPTIONS" :key="option.value" :value="option.value">
+                            {{ option.label }} · {{ option.description }}
                           </option>
                         </select>
                       </label>
                       <label>
-                        <span>具体位置（可选）</span>
-                        <input
-                          v-model.trim="contentSuggestionForm.targetLocator"
-                          type="text"
-                          maxlength="300"
-                          :placeholder="contentSuggestionTargetLocatorPlaceholder"
-                        >
+                        <span>具体建议</span>
+                        <textarea v-model="contentSuggestionForm.detail" rows="4" maxlength="2000" placeholder="写下你希望作者补充、核对或澄清的内容" />
                       </label>
-                      <label class="content-suggestion-expected-field">
-                        <span>预期改动（可选）</span>
-                        <textarea
-                          v-model="contentSuggestionForm.expectedChange"
-                          rows="3"
-                          maxlength="1000"
-                          placeholder="例如：补充适用条件、更新数据口径，或在对应段落增加来源说明"
-                        />
+                      <div class="content-suggestion-structure-fields">
+                        <label>
+                          <span>建议范围</span>
+                          <select v-model="contentSuggestionForm.targetScope">
+                            <option v-for="option in CONTENT_SUGGESTION_TARGET_SCOPE_OPTIONS" :key="option.value" :value="option.value">
+                              {{ option.label }}
+                            </option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>具体位置（可选）</span>
+                          <input
+                            v-model.trim="contentSuggestionForm.targetLocator"
+                            type="text"
+                            maxlength="300"
+                            :placeholder="contentSuggestionTargetLocatorPlaceholder"
+                          >
+                        </label>
+                        <label class="content-suggestion-expected-field">
+                          <span>预期改动（可选）</span>
+                          <textarea
+                            v-model="contentSuggestionForm.expectedChange"
+                            rows="3"
+                            maxlength="1000"
+                            placeholder="例如：补充适用条件、更新数据口径，或在对应段落增加来源说明"
+                          />
+                        </label>
+                      </div>
+                      <label>
+                        <span>相关链接（可选）</span>
+                        <input v-model="contentSuggestionForm.sourceUrl" type="url" placeholder="https://..." />
                       </label>
-                    </div>
-                    <label>
-                      <span>相关链接（可选）</span>
-                      <input v-model="contentSuggestionForm.sourceUrl" type="url" placeholder="https://..." />
-                    </label>
-                    <label class="content-suggestion-checkbox">
-                      <input v-model="contentSuggestionForm.allowPublicAttribution" type="checkbox" />
-                      <span>如果作者采纳，允许展示我的昵称；默认不公开提交者身份。</span>
-                    </label>
-                    <div class="content-suggestion-form-actions">
-                      <span>{{ contentSuggestionSubmitGuard.reason }}</span>
-                      <button type="submit" :disabled="contentSuggestionSubmitDisabled">
-                        {{ isSubmittingContentSuggestion ? '提交中...' : '提交给作者' }}
-                      </button>
-                    </div>
-                  </form>
+                      <label class="content-suggestion-checkbox">
+                        <input v-model="contentSuggestionForm.allowPublicAttribution" type="checkbox" />
+                        <span>如果作者采纳，允许展示我的昵称；默认不公开提交者身份。</span>
+                      </label>
+                      <div class="content-suggestion-form-actions">
+                        <span>{{ contentSuggestionSubmitGuard.reason }}</span>
+                        <button type="submit" :disabled="contentSuggestionSubmitDisabled">
+                          {{ isSubmittingContentSuggestion ? '提交中...' : '提交给作者' }}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
 
                 <div v-else class="content-suggestion-empty">
@@ -1539,6 +1555,13 @@ const createContentSuggestionForm = (): ContentSuggestionForm => ({
   allowPublicAttribution: false,
 })
 const contentSuggestionForm = ref<ContentSuggestionForm>(createContentSuggestionForm())
+// The reader-side suggestion form is a secondary, non-comment action. It stays
+// collapsed by default so it does not compete with the comment composer, and
+// expands only when the reader explicitly chooses to contribute context.
+const contentSuggestionFormOpen = ref(false)
+const toggleContentSuggestionForm = () => {
+  contentSuggestionFormOpen.value = !contentSuggestionFormOpen.value
+}
 const unavailableReportFeedbackMessage = '内容状态已变化，无需重复举报'
 const duplicateReportFeedbackMessage = '重复举报已收到，已有待处理举报，请勿重复提交。'
 const rateLimitedReportFeedbackMessage = '举报太频繁，请稍后再提交。'
@@ -5030,6 +5053,61 @@ onBeforeUnmount(() => {
 
 .content-suggestion-reader {
   margin-top: 1rem;
+}
+
+.content-suggestion-form-shell {
+  margin-top: 1rem;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--text-muted) 7%, transparent);
+  padding: 0.35rem;
+}
+
+.content-suggestion-form-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 0.85rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-strong);
+  border-radius: 0.7rem;
+  transition: background-color 0.2s ease;
+}
+
+.content-suggestion-form-trigger:hover {
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+}
+
+.content-suggestion-form-trigger__title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.content-suggestion-form-trigger__hint {
+  flex: 1 1 10rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.content-suggestion-form-trigger__chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.content-suggestion-form--secondary {
+  margin-top: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--brand-soft);
+  border-radius: 0.7rem;
+  background: var(--surface-card, #fff);
 }
 
 .content-suggestion-history-head,

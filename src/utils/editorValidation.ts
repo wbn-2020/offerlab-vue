@@ -135,3 +135,25 @@ export const editorDisabledReason = (
   const reasons = fieldOrder.map((field) => errors[field]).filter((message): message is string => Boolean(message))
   return reasons.length ? `请先修正：${reasons.join('；')}` : ''
 }
+
+export const EDITOR_FIELD_LABELS: Record<EditorField, string> = {
+  domain: '频道',
+  title: '标题',
+  content: '正文',
+  summary: '摘要',
+  tags: '标签',
+  coverUrl: '封面',
+}
+
+export type EditorIssue = {
+  field: EditorField
+  label: string
+  message: string
+}
+
+export const editorIssueList = (
+  errors: Partial<Record<EditorField, string>>,
+  fieldOrder: EditorField[] = ['title', 'content', 'domain', 'tags', 'summary', 'coverUrl'],
+): EditorIssue[] => fieldOrder
+  .map((field) => ({ field, label: EDITOR_FIELD_LABELS[field], message: errors[field] }))
+  .filter((issue): issue is EditorIssue => Boolean(issue.message))

@@ -25,6 +25,7 @@ const routes = [
   {
     path: '/collaboration',
     name: 'CollaborationHub',
+    alias: '/co-build',
     component: () => import('@/views/CollaborationHubView.vue'),
     beforeEnter: (to: RouteLocationNormalized) => {
       const legacyPath = legacyCollaborationDetailPath(to.query)
@@ -84,6 +85,7 @@ const routes = [
   {
     path: '/questions',
     name: 'Questions',
+    alias: '/knowledge',
     component: () => import('@/views/QuestionsView.vue'),
     meta: { title: '知识库' },
   },

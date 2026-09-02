@@ -134,7 +134,9 @@ for (const label of ['资源库', '题库', '模拟面试', '成长报告']) {
 assert.match(appHeader, /to="\/knowledge\/explore"[\s\S]*知识探索/, 'knowledge exploration must remain reachable outside primary navigation')
 
 assert.match(appHeader, /<nav class="community-mobile-dock"/, 'AppHeader must expose a persistent mobile navigation dock')
-assert.match(appHeader, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/, 'mobile dock must keep five balanced navigation targets')
+assert.match(appHeader, /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/, 'mobile dock must keep six balanced navigation targets')
+assert.match(appHeader, /to="\/co-build"[\s\S]*共建/, 'mobile dock must expose the collaboration entry under its semantic path')
+assert.match(appHeader, /NAV_ALIAS_GROUPS/, 'header navigation must treat canonical and semantic paths as one active group')
 assert.match(appHeader, /community-mobile-dock__item--active/, 'mobile dock must expose a distinct active state')
 assert.match(appHeader, /min-height:\s*3\.55rem/, 'mobile dock targets must keep an accessible touch target')
 assert.match(appHeader, /\.dark \.community-mobile-dock/, 'mobile dock must retain a dark-mode surface')

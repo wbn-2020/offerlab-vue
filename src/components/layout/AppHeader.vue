@@ -217,9 +217,13 @@
         <PenLine class="h-5 w-5" />
         <span>发布</span>
       </RouterLink>
-      <RouterLink to="/questions" :class="{ 'community-mobile-dock__item--active': isNavActive('/questions') }">
+      <RouterLink to="/knowledge" :class="{ 'community-mobile-dock__item--active': isNavActive('/knowledge') }">
         <BookOpen class="h-5 w-5" />
         <span>知识库</span>
+      </RouterLink>
+      <RouterLink to="/co-build" :class="{ 'community-mobile-dock__item--active': isNavActive('/co-build') }">
+        <HeartHandshake class="h-5 w-5" />
+        <span>共建</span>
       </RouterLink>
       <RouterLink :to="authStore.isLoggedIn ? '/me' : '/login'" :class="{ 'community-mobile-dock__item--active': isNavActive('/me') }">
         <User class="h-5 w-5" />
@@ -287,15 +291,25 @@ const userMenuSignature = computed(() => {
 const navItems = [
   { to: '/', label: '首页', icon: Flame },
   { to: '/explore', label: '发现', icon: Compass },
-  { to: '/questions', label: '知识库', icon: BookOpen },
-  { to: '/collaboration', label: '共建', icon: HeartHandshake },
+  { to: '/knowledge', label: '知识库', icon: BookOpen },
+  { to: '/co-build', label: '共建', icon: HeartHandshake },
 ]
 
-const isNavActive = (target: string) => (
-  target === '/'
-    ? route.path === '/'
-    : route.path === target || route.path.startsWith(`${target}/`)
-)
+// Routes that expose a canonical path and a more semantic alias. Either form
+// must light up the matching navigation item.
+const NAV_ALIAS_GROUPS: Array<[string, string]> = [
+  ['/questions', '/knowledge'],
+  ['/collaboration', '/co-build'],
+]
+
+const isNavActive = (target: string) => {
+  if (target === '/') return route.path === '/'
+  const group = NAV_ALIAS_GROUPS.find((pair) => pair.includes(target))
+  const candidates = group ?? [target]
+  return candidates.some(
+    (path) => route.path === path || route.path.startsWith(`${path}/`),
+  )
+}
 
 const adminLinks = computed(() => {
   const value = permissions.value
@@ -1023,7 +1037,7 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
     left: 0;
     z-index: 45;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     min-height: 4.35rem;
     padding: 0.3rem max(0.65rem, env(safe-area-inset-right)) calc(0.3rem + env(safe-area-inset-bottom)) max(0.65rem, env(safe-area-inset-left));
     border-top: 1px solid var(--border-subtle);

@@ -43,15 +43,28 @@
             >
               {{ isPublishing ? (isEditing ? '保存中...' : '发布中...') : (isEditing ? '保存修改' : '发布') }}
             </button>
-            <p
+            <div
               v-if="publishDisabledReason && !isPublishing"
               id="publish-disabled-reason"
               :class="['publish-hint', { 'publish-hint--neutral': isInitialComposeState }]"
               role="status"
               aria-live="polite"
             >
-              {{ publishDisabledReason }}
-            </p>
+              <template v-if="publishIssues.length > 1">
+                <span class="publish-hint__lead">请先修正以下问题：</span>
+                <ul class="publish-issue-list">
+                  <li
+                    v-for="issue in publishIssues"
+                    :key="issue.field"
+                    class="publish-issue-list__item"
+                  >
+                    <span class="publish-issue-list__field">{{ issue.label }}</span>
+                    <span>{{ issue.message }}</span>
+                  </li>
+                </ul>
+              </template>
+              <template v-else>{{ publishDisabledReason }}</template>
+            </div>
           </div>
         </div>
       </div>
@@ -940,6 +953,7 @@ import {
   applyEditorTextLimit,
   clampEditorText,
   editorDisabledReason,
+  editorIssueList,
   isValidPublicHttpUrl,
   normalizeEditorTags,
   validateEditorPublish,
@@ -1518,6 +1532,7 @@ const isPublishDisabled = computed(() => (
   || blockingQualityIssues.value.length > 0
 ))
 const canRetryWithTextTagsOnly = computed(() => normalizedTags.value.length > 0 && form.value.tags.length > 0)
+const publishIssues = computed(() => editorIssueList(editorValidation.value.errors))
 const tagInputPlaceholder = computed(() => (
   isQuestionPost.value
     ? '添加场景 / 人群 / 问题类型标签'
@@ -3704,6 +3719,37 @@ onBeforeUnmount(() => {
 .publish-hint--neutral {
   color: var(--text-muted);
   font-weight: 600;
+}
+
+.publish-hint__lead {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.publish-issue-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+
+.publish-issue-list__item {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  text-align: right;
+}
+
+.publish-issue-list__field {
+  flex-shrink: 0;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgb(254 243 199);
+  color: rgb(146 64 14);
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .publish-diagnostic {
