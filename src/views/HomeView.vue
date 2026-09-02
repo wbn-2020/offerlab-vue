@@ -5,6 +5,31 @@
       <div class="community-feed-layout">
         <aside class="community-feed-layout__left hidden lg:block">
           <div class="home-left-rail space-y-5">
+            <nav class="home-primary-nav" aria-label="社区主导航">
+              <RouterLink
+                v-for="item in primaryNavItems"
+                :key="item.to"
+                :to="item.to"
+                class="home-primary-nav__link"
+                :class="{ 'home-primary-nav__link--active': isPrimaryNavActive(item.to, item.exact) }"
+              >
+                <component :is="item.icon" class="h-4 w-4" aria-hidden="true" />
+                <span>{{ item.label }}</span>
+              </RouterLink>
+              <RouterLink
+                to="/me/notifications"
+                class="home-primary-nav__link"
+                :class="{ 'home-primary-nav__link--active': route.path.startsWith('/me/notifications') || route.path.startsWith('/notifications') }"
+              >
+                <Bell class="h-4 w-4" aria-hidden="true" />
+                <span>通知中心</span>
+                <span
+                  v-if="authStore.isLoggedIn && unreadNotificationTotal > 0"
+                  class="home-primary-nav__badge"
+                >{{ unreadNotificationTotal > 99 ? '99+' : unreadNotificationTotal }}</span>
+              </RouterLink>
+            </nav>
+
             <nav class="home-channel-nav" aria-label="首页频道">
               <div class="home-rail-heading">
                 <p class="home-rail-label">频道</p>
@@ -500,10 +525,11 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
-import { ChevronRight, Compass, Library, Loader2, PenLine, Sparkles, Tag, Users } from 'lucide-vue-next'
+import { Bell, BookOpen, ChevronRight, Compass, HeartHandshake, Home, Library, Loader2, PenLine, Sparkles, Tag, TrendingUp, Users } from 'lucide-vue-next'
 import { getErrorMessage } from '@/api/client'
 import { useInfiniteFeed, type FeedType } from '@/composables/useInfiniteFeed'
 import { useAuthStore } from '@/stores/auth'
+import { useRealtimeStore } from '@/stores/realtime'
 import { postApi } from '@/api/post'
 import { taskApi, type UserTaskItem, type UserTaskOverview } from '@/api/tasks'
 import { userApi } from '@/api/user'
@@ -532,6 +558,28 @@ import { filterPublicContent, isSyntheticVisibleText } from '@/utils/textQuality
 import { filterVisiblePosts } from '@/utils/recommendationGovernance'
 
 const authStore = useAuthStore()
+const realtimeStore = useRealtimeStore()
+
+// 左栏主导航：与 AppHeader 顶部导航、移动端 dock 同源的社区主干入口。
+// 语义化路径（/knowledge、/co-build）与规范路径共用路由 alias，两种地址都能命中。
+const unreadNotificationTotal = computed(() => realtimeStore.unreadCount.total)
+const primaryNavItems = [
+  { to: '/', label: '首页', icon: Home, exact: true },
+  { to: '/explore', label: '发现', icon: Compass, exact: false },
+  { to: '/knowledge', label: '知识库', icon: BookOpen, exact: false },
+  { to: '/co-build', label: '共建', icon: HeartHandshake, exact: false },
+  { to: '/trend', label: '趋势看板', icon: TrendingUp, exact: false },
+] as const
+
+const isPrimaryNavActive = (target: string, exact: boolean) => {
+  if (exact) return route.path === '/'
+  const aliases: Record<string, string[]> = {
+    '/knowledge': ['/questions'],
+    '/co-build': ['/collaboration'],
+  }
+  const candidates = [target, ...(aliases[target] ?? [])]
+  return candidates.some((path) => route.path === path || route.path.startsWith(`${path}/`))
+}
 const router = useRouter()
 const route = useRoute()
 const queryClient = useQueryClient()
@@ -1921,6 +1969,49 @@ watch(
 
 .community-feed-layout {
   align-items: start;
+}
+
+.home-primary-nav {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.home-primary-nav__link {
+  display: flex;
+  min-height: 2.4rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 0.6rem;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.home-primary-nav__link:hover,
+.home-primary-nav__link--active {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.home-primary-nav__badge {
+  margin-left: auto;
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgb(225 29 72);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .home-channel-nav {
