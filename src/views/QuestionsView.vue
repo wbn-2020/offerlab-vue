@@ -217,6 +217,17 @@
         </aside>
       </div>
     </main>
+
+    <FirstVisitGuide
+      guide-id="knowledge-base"
+      title="第一次使用知识库？"
+      description="三步找到对你真正有用的经验。"
+      :steps="[
+        { title: '先搜索主题', description: '关键词支持题目正文与结构化内容，筛选条件会同步到地址栏，方便保存和分享。' },
+        { title: '按条件收窄', description: '按领域、应用场景与难度逐层筛选，快速定位最贴合的知识卡。' },
+        { title: '沉淀你的经验', description: '读完一张知识卡后，欢迎发布你的经验或补充讨论，帮下一个人少走弯路。' },
+      ]"
+    />
   </div>
 </template>
 
@@ -227,6 +238,7 @@ import { LibraryBig, PenLine, RotateCcw, Search, SlidersHorizontal } from 'lucid
 import AppHeader from '@/components/layout/AppHeader.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import QuestionCard from '@/components/question/QuestionCard.vue'
+import FirstVisitGuide from '@/components/onboarding/FirstVisitGuide.vue'
 import { questionApi, type Question } from '@/api/question'
 import { getErrorMessage } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'

@@ -27,6 +27,18 @@
             <span v-if="isKnownDomain(post.domain)" class="domain-badge inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">
               {{ getDomainIcon(post.domain) }} {{ getDomainLabel(post.domain) }}
             </span>
+            <RouterLink
+              v-if="primaryTopic"
+              :to="`/tag/${primaryTopic.slug || primaryTopic.id}`"
+              class="post-topic-chip inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+              :aria-label="`查看话题：${primaryTopic.name}`"
+              @click.stop
+              @keydown.enter.stop
+              @keydown.space.stop
+            >
+              <Tag class="h-3 w-3" aria-hidden="true" />
+              {{ primaryTopic.name }}
+            </RouterLink>
           </div>
         </div>
       </div>
@@ -365,7 +377,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { ChevronDown, Eye, EyeOff, Flag, Heart, Lightbulb, Loader2, MessageCircle, MoreHorizontal, RotateCcw, ShieldAlert, ShieldCheck, Star, UserX } from 'lucide-vue-next'
+import { ChevronDown, Eye, EyeOff, Flag, Heart, Lightbulb, Loader2, MessageCircle, MoreHorizontal, RotateCcw, ShieldAlert, ShieldCheck, Star, Tag, UserX } from 'lucide-vue-next'
 import type { Post } from '@/api/types'
 import { formatTime, formatNumber } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
@@ -571,6 +583,8 @@ const legacyInterviewResultText = computed(() => {
   return getResultText(result)
 })
 const visibleTags = computed(() => props.post.tags.slice(0, 4))
+// 卡片头部的话题入口：指向首个标签的话题页（页面内可关注），为推荐流补充正向反馈路径。
+const primaryTopic = computed(() => props.post.tags.find((tag) => tag.name) ?? null)
 const trustSignalChips = computed(() => {
   const signals = props.post.trustSignals
   if (!signals) return []

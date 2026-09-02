@@ -1197,6 +1197,17 @@
         <CollaborationCasesWorkspace />
       </section>
     </main>
+
+    <FirstVisitGuide
+      guide-id="collaboration-hub"
+      title="第一次使用公共共建？"
+      description="三步上手，从一个浏览者变成共建者。"
+      :steps="[
+        { title: '浏览进行中的协作', description: '在「需求 / 合集 / 活动 / 讨论」标签里找到你感兴趣的方向。' },
+        { title: '认领或提交内容', description: '登录后可以认领需求、提交合集与活动内容，贡献会沉淀为公共资产。' },
+        { title: '跟进你的协作', description: '在「我的行动」里查看认领、反馈与处理进度，不会错过任何一步。' },
+      ]"
+    />
   </div>
 </template>
 
@@ -1237,6 +1248,7 @@ import CollaborationManagementWorkspace from '@/components/collaboration/Collabo
 import MyCollaborationsWorkspace from '@/components/collaboration/MyCollaborationsWorkspace.vue'
 import NeedDiscoveryFilters from '@/components/collaboration/NeedDiscoveryFilters.vue'
 import OfficeHoursWorkspace from '@/components/collaboration/OfficeHoursWorkspace.vue'
+import FirstVisitGuide from '@/components/onboarding/FirstVisitGuide.vue'
 import { getErrorMessage } from '@/api/client'
 import { localDomainConfigs } from '@/api/domains'
 import {
