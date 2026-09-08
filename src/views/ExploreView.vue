@@ -791,6 +791,11 @@ const syncAuthorFollowState = (uid: User['uid'], following: boolean, followerCou
 }
 
 const toggleFollowUser = async (user: User) => {
+  // 与 PostCard 的关注行为保持一致:未登录先引导登录,不发注定 401 的请求。
+  if (!authStore.isLoggedIn) {
+    void router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
   const uid = String(user.uid)
   if (!uid || followingBusyIds.value.has(uid)) return
   followingBusyIds.value = new Set(followingBusyIds.value).add(uid)
@@ -2152,6 +2157,13 @@ const SkeletonCard = defineComponent({
   font-size: 0.925rem;
   font-weight: 780;
   line-height: 1.5;
+  /* 专题卡标题最长可达数百字,必须钳制行数,避免文字墙撑破卡片。 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .explore-feature-card p,

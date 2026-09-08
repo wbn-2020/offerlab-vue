@@ -267,6 +267,14 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response): any => {
     const result = response.data as Result
+    // 200 但响应体不是 Result JSON(如网关/代理返回 HTML)时,转为结构化错误,
+    // 避免产生 code=undefined 的 BizException 让上层兜底文案失准。
+    if (!isResultPayload(result)) {
+      return Promise.reject(toBizException(
+        { code: 20000, message: '服务响应格式异常，请稍后重试', data: null } as Result,
+        response.status,
+      ))
+    }
     if (result.code !== 0) {
       const error = toBizException(result, response.status)
       return Promise.reject(error)

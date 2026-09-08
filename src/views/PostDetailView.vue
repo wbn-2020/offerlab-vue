@@ -76,7 +76,7 @@
                 <span v-if="post.extension?.difficulty" class="meta-pill">{{ post.extension.difficulty }}</span>
                 <span v-if="post.extension?.scenario" class="meta-pill">{{ post.extension.scenario }}</span>
               </div>
-              <h1 class="mb-4 text-3xl font-bold leading-tight text-slate-900 dark:text-slate-100">{{ post.title }}</h1>
+              <h1 class="post-detail-title mb-4 text-3xl font-bold leading-tight text-slate-900 dark:text-slate-100">{{ post.title }}</h1>
               <div
                 v-if="searchEntryNotice"
                 class="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-800 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-200"
@@ -1312,6 +1312,37 @@
       :source-id="post.postId"
     />
   </div>
+      <!-- 移动端吸底互动栏：点赞/评论/收藏常驻可达 -->
+      <div v-if="post" class="post-mobile-action-bar" aria-label="快捷互动">
+        <button
+          type="button"
+          :class="['post-mobile-action', { 'is-liked': post.myInteraction?.liked }]"
+          :aria-pressed="Boolean(post.myInteraction?.liked)"
+          :disabled="isTogglingLike"
+          @click="handleLike()"
+        >
+          <span aria-hidden="true">{{ post.myInteraction?.liked ? '♥' : '♡' }}</span>
+          点赞
+        </button>
+        <button
+          type="button"
+          class="post-mobile-action"
+          @click="scrollToDiscussion"
+        >
+          <span aria-hidden="true">💬</span>
+          评论
+        </button>
+        <button
+          type="button"
+          :class="['post-mobile-action', { 'is-favorited': post.myInteraction?.favorited }]"
+          :aria-pressed="Boolean(post.myInteraction?.favorited)"
+          :disabled="isTogglingFavorite"
+          @click="handleFavorite()"
+        >
+          <span aria-hidden="true">{{ post.myInteraction?.favorited ? '★' : '☆' }}</span>
+          收藏
+        </button>
+      </div>
 </template>
 
 <script setup lang="ts">
@@ -1900,6 +1931,10 @@ const trustProfileDescription = computed(() => {
   }
   return '仅展示作者主动填写的公开背景、适用范围和已知限制，不构成平台认证、专业建议或结果承诺。'
 })
+const scrollToDiscussion = () => {
+  document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 const discussionSectionTitle = computed(() => (
   isQuestionPost.value
     ? `讨论与建议（${post.value?.counter.comment ?? 0}）`
@@ -6885,5 +6920,117 @@ onBeforeUnmount(() => {
 .post-detail-author-card,
 .post-detail-article {
   box-shadow: none;
+}
+
+/* ---------- 正文排版升级：阅读宽度 / 行高 / 段落节奏 ---------- */
+.post-detail-article :deep(.markdown-content) {
+  max-width: 46rem; /* 约 36-40 中文字符/行，长文最优阅读宽度 */
+  margin-inline: auto;
+  font-size: 1rem;
+  line-height: 1.75;
+  word-break: break-word;
+}
+
+.post-detail-article :deep(.markdown-content) > * + * {
+  margin-top: 1em; /* 段落间距与行距拉开，长文呼吸感 */
+}
+
+.post-detail-article :deep(.markdown-content) h1,
+.post-detail-article :deep(.markdown-content) h2,
+.post-detail-article :deep(.markdown-content) h3 {
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.post-detail-article :deep(.markdown-content) img {
+  border-radius: 0.5rem;
+}
+
+/* ---------- 标题：移动端最多 3 行截断，桌面完整显示 ---------- */
+.post-detail-title {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 移动端吸底互动栏：仅 <640px 显示，避开底部 dock ---------- */
+.post-mobile-action-bar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .post-detail-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    font-size: 1.35rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .post-detail-layout {
+    padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .post-mobile-action-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    z-index: 30;
+    display: flex;
+    align-items: stretch;
+    gap: 1px;
+    background: var(--surface-1, #0f172a);
+    border-top: 1px solid var(--border, rgba(148, 163, 184, 0.25));
+    padding: 0.375rem 0.5rem;
+    padding-bottom: 0.375rem;
+  }
+
+  .post-mobile-action {
+    flex: 1;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+    min-height: 3rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.6875rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .post-mobile-action span[aria-hidden] {
+    font-size: 1.125rem;
+    line-height: 1.25;
+  }
+
+  .post-mobile-action:active {
+    background: rgba(148, 163, 184, 0.12);
+  }
+
+  .post-mobile-action:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .post-mobile-action.is-liked {
+    color: #f43f5e;
+  }
+
+  .post-mobile-action.is-favorited {
+    color: #f59e0b;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post-mobile-action {
+    transition: none;
+  }
 }
 </style>

@@ -24,6 +24,10 @@ export function useInfiniteFeed(feedType: MaybeRef<FeedType> = 'latest', domain?
     refetch,
   } = useInfiniteQuery({
     queryKey: computed(() => ['feed', currentFeed.value, currentDomain.value, authStore.sessionQueryScope]),
+    enabled: computed(() => authStore.ready),
+    // 会话代际在首屏 hydrate 完成时变化；enabled 门禁保证首次请求就带最终代际，
+    // 不会出现"匿名代际请求 + 登录代际重发"的首屏双请求。
+    staleTime: 30_000,
     queryFn: ({ pageParam }) => {
       const apiMap = {
         following: feedApi.getFollowing,

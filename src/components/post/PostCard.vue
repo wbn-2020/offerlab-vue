@@ -5,8 +5,8 @@
     tabindex="0"
     :aria-label="`查看帖子：${post.title}`"
     @click="handleCardClick"
-    @keydown.enter.prevent="handleCardClick"
-    @keydown.space.prevent="handleCardClick"
+    @keydown.enter.self.prevent="handleCardClick"
+    @keydown.space.self.prevent="handleCardClick"
   >
     <div class="post-card__author-row">
       <div class="flex min-w-0 items-center gap-3">
@@ -1457,10 +1457,17 @@ useAccessibleDialog(() => showFeedbackReasonDialog.value, {
   border-radius: var(--radius-surface);
   background: var(--surface);
   box-shadow: var(--shadow-card);
+  /* 整卡可进入详情:article 上有 role=link 与点击/键盘处理,这里补上指针提示。 */
+  cursor: pointer;
   transition:
     border-color 0.2s ease,
     box-shadow 0.24s ease,
     transform 0.24s ease;
+}
+
+.post-card:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary-600) 55%, transparent);
+  outline-offset: 2px;
 }
 
 /* 左侧品牌强调条：默认收起，悬停展开，克制但有回应 */
