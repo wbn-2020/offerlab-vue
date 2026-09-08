@@ -6,6 +6,8 @@ import { safeStorage } from '@/utils/safeStorage'
 import { claimPendingInteraction, clearPendingInteraction } from '@/utils/pendingInteraction'
 import { clearWelcomeOnboarding } from '@/utils/welcomeOnboarding'
 import { resetSessionQueryState } from '@/lib/queryClient'
+import { notifySessionExpired } from '@/utils/sessionExpiry'
+import { safeRedirect } from '@/utils/navigation'
 
 export type AuthHydrationState =
   | 'anonymous'
@@ -125,21 +127,20 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const setToken = (newToken: string) => {
-    advanceSessionGeneration()
-    resetSessionQueryState()
-    if (authTokenStore.get() === newToken) {
-      authTokenStore.clear()
+    const setToken = (newToken: string) => {
+      advanceSessionGeneration()
+      resetSessionQueryState()
+      // 直接覆盖共享存储:不要先 clear 再 set,那会产生 remove→set 两次独立
+      // localStorage 变更,另一标签页会先收到 null 事件走登出分支误清草稿。
+      authTokenStore.set(newToken)
+      clearSessionExpiredMarker()
+      token.value = newToken
+      user.value = null
+      ready.value = false
+      loading.value = false
+      hydrationState.value = 'hydrating'
+      hydrationError.value = ''
     }
-    authTokenStore.set(newToken)
-    clearSessionExpiredMarker()
-    token.value = newToken
-    user.value = null
-    ready.value = false
-    loading.value = false
-    hydrationState.value = 'hydrating'
-    hydrationError.value = ''
-  }
 
   const logout = () => {
     const expiredByResponseInterceptor = Boolean(token.value) && authTokenStore.get() === null
@@ -237,6 +238,42 @@ export const useAuthStore = defineStore('auth', () => {
     hydratePromise = request
     return hydratePromise
   }
+
+  // 其他标签页登录/登出/切换账号时,通过 storage 事件同步本标签会话,
+  // 避免出现"新开标签掉登录"或"另一标签已退出这里仍展示登录态"。
+  // (authTokenStore 已把同一事件的连续多次写入合并为一次通知,这里只会收到最终值。)
+  const syncSessionFromOtherTab = (sharedToken: string | null) => {
+    if (sharedToken === token.value) return
+    advanceSessionGeneration()
+    resetSessionQueryState()
+    token.value = sharedToken
+    if (sharedToken) {
+      user.value = null
+      ready.value = false
+      loading.value = false
+      hydrationState.value = 'hydrating'
+      hydrationError.value = ''
+      void hydrate()
+      return
+    }
+    const owner = user.value?.uid == null ? undefined : String(user.value.uid)
+    if (owner) safeStorage.clearSensitive(owner)
+    clearPendingInteraction()
+    clearWelcomeOnboarding()
+    user.value = null
+    ready.value = true
+    loading.value = false
+    hydrationState.value = 'anonymous'
+    hydrationError.value = ''
+    // 正停在需要登录的页面时,复用 sessionExpiry 桥接做 SPA 软导航去登录页,
+    // 而不是等下一次操作被 401 带走;处理器未注册(如测试环境)时保持现状即可。
+    // store 不能直接 import router(会形成与 client.ts 相同的循环依赖),
+    // 这里经 window.location 判定当前页面;回跳值在这里先经 safeRedirect 清洗。
+    if (typeof window !== 'undefined' && window.location?.pathname) {
+      void notifySessionExpired({ redirect: safeRedirect(window.location.pathname + window.location.search, '') })
+    }
+  }
+  authTokenStore.onExternalChange(syncSessionFromOtherTab)
 
   return {
     user,

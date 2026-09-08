@@ -14,3 +14,8 @@ dist/
 .idea/
 *.iml
 pnpm-lock.yaml
+.codex-tmp/
+dist-*/
+ui-audit-*/
+visual-snapshots-*/
+_neutral_warm.mjs

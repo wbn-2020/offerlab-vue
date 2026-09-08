@@ -73,10 +73,15 @@ assert.match(
   /authTokenStore\.set\(newToken\)\s*clearSessionExpiredMarker\(\)\s*token\.value = newToken/,
   'installing a fresh session must clear a prior expired-session marker',
 )
+assert.doesNotMatch(
+  authStoreSource,
+  /authTokenStore\.clear\(\)\s*authTokenStore\.set\(newToken\)/,
+  'setToken must not write localStorage twice (clear→set): the null event would make other tabs run their logout branch and wipe drafts',
+)
 assert.match(
   authStoreSource,
-  /if \(authTokenStore\.get\(\) === newToken\) \{\s*authTokenStore\.clear\(\)\s*\}/,
-  'reinstalling the same token must still create a new logical session boundary',
+  /advanceSessionGeneration\(\)\s*resetSessionQueryState\(\)[\s\S]{0,220}?authTokenStore\.set\(newToken\)/,
+  'reinstalling the same token must still create a new logical session boundary via advanceSessionGeneration',
 )
 assert.match(
   authStoreSource,
@@ -145,12 +150,15 @@ assert.match(
 )
 
 const sessionStorageValues = new Map()
+const localStorageValues = new Map()
 const authTokenSandbox = {
   exports: {},
   module: { exports: {} },
   window: {
     localStorage: {
-      removeItem: () => {},
+      getItem: key => localStorageValues.get(key) ?? null,
+      removeItem: key => localStorageValues.delete(key),
+      setItem: (key, value) => localStorageValues.set(key, value),
     },
     sessionStorage: {
       getItem: key => sessionStorageValues.get(key) ?? null,
@@ -163,8 +171,10 @@ authTokenSandbox.module.exports = authTokenSandbox.exports
 vm.runInNewContext(compileCommonJs('src/utils/authTokenStore.ts'), authTokenSandbox)
 
 const realStore = authTokenSandbox.exports.authTokenStore
+assert.equal(typeof realStore.onExternalChange, 'function', 'authTokenStore must expose cross-tab change subscription')
 assert.equal(realStore.getVersion(), 0)
 realStore.set('session-a')
+assert.equal(localStorageValues.get('offerlab.auth.token'), 'session-a', 'token must be shared across tabs via localStorage')
 assert.equal(realStore.getVersion(), 1)
 realStore.set('session-a')
 assert.equal(realStore.getVersion(), 1, 'repeating the same token must be version-idempotent')
@@ -174,6 +184,78 @@ realStore.clear()
 assert.equal(realStore.getVersion(), 3)
 realStore.clear()
 assert.equal(realStore.getVersion(), 3, 'repeating clear on an empty store must be version-idempotent')
+
+// --- 跨标签同步行为断言 -------------------------------------------------
+// sandbox 需要 queueMicrotask 与 addEventListener 才能驱动合并通知路径。
+{
+  const listeners = new Map()
+  authTokenSandbox.window.addEventListener = (type, listener) => {
+    if (type === 'storage') listeners.set('storage', listener)
+  }
+  authTokenSandbox.window.queueMicrotask = fn => Promise.resolve().then(fn)
+  // 重置内部"已绑定"标记,让新 sandbox 重新 attach 监听器。
+  realStore.resetForTesting()
+
+  const received = []
+  const unsubscribe = realStore.onExternalChange(token => received.push(token))
+
+  // 模拟另一标签页 clear→set("同 token 重登")的连续写入:本标签页收到两个
+  // storage 事件,但合并通知只允许按最终值投递一次,绝不能先投 null 触发登出。
+  localStorageValues.delete('offerlab.auth.token')
+  listeners.get('storage')({ key: 'offerlab.auth.token' })
+  localStorageValues.set('offerlab.auth.token', 'session-a')
+  listeners.get('storage')({ key: 'offerlab.auth.token' })
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.deepEqual(received, ['session-a'], 'consecutive cross-tab writes must coalesce into one final-value notification')
+
+  // 单独登出事件仍必须投递 null。
+  localStorageValues.delete('offerlab.auth.token')
+  listeners.get('storage')({ key: 'offerlab.auth.token' })
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.deepEqual(received, ['session-a', null], 'cross-tab logout must still notify with null')
+
+  // 无关键变化不投递。
+  listeners.get('storage')({ key: 'other.key' })
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(received.length, 2, 'storage events for unrelated keys must be ignored')
+
+  unsubscribe()
+}
+
+// --- sessionStorage 一次性迁移 -------------------------------------------
+{
+  const migrationLocal = new Map()
+  const migrationSession = new Map()
+  migrationSession.set('offerlab.auth.token', 'legacy-session-token')
+  const migrationSandbox = {
+    exports: {},
+    module: { exports: {} },
+    window: {
+      localStorage: {
+        getItem: key => migrationLocal.get(key) ?? null,
+        removeItem: key => migrationLocal.delete(key),
+        setItem: (key, value) => migrationLocal.set(key, value),
+      },
+      sessionStorage: {
+        getItem: key => migrationSession.get(key) ?? null,
+        removeItem: key => migrationSession.delete(key),
+        setItem: (key, value) => migrationSession.set(key, value),
+      },
+    },
+  }
+  migrationSandbox.module.exports = migrationSandbox.exports
+  vm.runInNewContext(compileCommonJs('src/utils/authTokenStore.ts'), migrationSandbox)
+  assert.equal(
+    migrationSandbox.exports.authTokenStore.get(),
+    'legacy-session-token',
+    'existing sessionStorage tokens must migrate into the shared localStorage on first load',
+  )
+  assert.equal(migrationLocal.get('offerlab.auth.token'), 'legacy-session-token')
+  assert.equal(migrationSession.get('offerlab.auth.token'), undefined, 'legacy sessionStorage key must be removed after migration')
+}
 
 const wrappedErrorAdapter = (beforeThrow = () => {}) => async (config) => {
   beforeThrow(config)
@@ -329,6 +411,7 @@ const createAuthStoreRuntime = (initialToken) => {
     clearLegacyLocalToken: () => {},
     get: () => runtimeToken,
     getVersion: () => runtimeVersion,
+    onExternalChange: () => () => {},
     set: value => {
       if (runtimeToken !== value) runtimeVersion += 1
       runtimeToken = value
@@ -385,6 +468,12 @@ const createAuthStoreRuntime = (initialToken) => {
       }
       if (name === '@/lib/queryClient') {
         return { resetSessionQueryState: () => {} }
+      }
+      if (name === '@/utils/sessionExpiry') {
+        return { notifySessionExpired: async () => false }
+      }
+      if (name === '@/utils/navigation') {
+        return { safeRedirect: value => (typeof value === 'string' ? value : '/') }
       }
       if (name === '@/utils/safeStorage') {
         return {
@@ -470,9 +559,12 @@ await waitFor(
   () => sameTokenRuntime.fetchMeRequests.length === 1,
   'same-token hydrate request was not started',
 )
-const sameTokenVersion = sameTokenRuntime.getVersion()
+const sameTokenGeneration = sameTokenRuntime.store.getSessionGeneration()
 sameTokenRuntime.store.setToken('session-a')
-assert.ok(sameTokenRuntime.getVersion() > sameTokenVersion, 'same-token session replacement must invalidate old request metadata')
+assert.ok(
+  sameTokenRuntime.store.getSessionGeneration() > sameTokenGeneration,
+  'same-token session replacement must advance the logical session generation to invalidate old request metadata',
+)
 const currentSameTokenHydrate = sameTokenRuntime.store.hydrate()
 await waitFor(
   () => sameTokenRuntime.fetchMeRequests.length === 2,
@@ -516,6 +608,7 @@ const createUseAuthRuntime = ({ deferLogin = false, deferLogout = false } = {}) 
   const runtimeTokenStore = {
     getVersion: () => runtimeVersion,
     get: () => runtimeToken,
+    onExternalChange: () => () => {},
   }
   const runtimeStore = {
     token: null,

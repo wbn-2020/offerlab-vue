@@ -38,9 +38,17 @@ const authStore = readFileSync(resolve(sourceRoot, 'utils/authTokenStore.ts'), '
 const authPiniaStore = readFileSync(resolve(sourceRoot, 'stores/auth.ts'), 'utf8')
 const apiClient = readFileSync(resolve(sourceRoot, 'api/client.ts'), 'utf8')
 
-if (!/sessionStorage\.setItem\(STORAGE_KEY, token\)/.test(authStore) || /localStorage\.setItem\(['"]token['"]/.test(authStore)) {
+// 登录态策略:token 只允许经 authTokenStore 写入其专用 localStorage 键,
+// 用于跨标签共享登录;禁止回退到遗留的持久化 'token' 键或每标签 sessionStorage。
+if (!/localStorage\.setItem\(STORAGE_KEY, token\)/.test(authStore) || /localStorage\.setItem\(['"]token['"]/.test(authStore)) {
   console.error('storage safety guard failed:')
-  console.error('- auth tokens must use session storage or memory, not persistent localStorage writes')
+  console.error('- auth tokens must be shared across tabs via the dedicated authTokenStore key, not the legacy persistent key')
+  process.exit(1)
+}
+
+if (!/onExternalChange/.test(authStore) || !/onExternalChange/.test(authPiniaStore)) {
+  console.error('storage safety guard failed:')
+  console.error('- authTokenStore must expose cross-tab change events and the auth store must subscribe to them')
   process.exit(1)
 }
 
