@@ -28,6 +28,17 @@ export interface RegisterResp {
   token?: string
 }
 
+export interface PasswordResetRequestResp {
+  /** true 表示验证码已投递（无论邮箱是否存在都为 true，防枚举）。 */
+  delivered: boolean
+  /** 投递通道：email=邮件；ops=运维通道（测试环境从后台/日志获取）。 */
+  channel: 'email' | 'ops' | 'silent' | string
+}
+
+export interface PasswordResetConfirmResp {
+  reset: boolean
+}
+
 export const AUTH_LOGIN_TIMEOUT_MS = 12_000
 export const AUTH_PROFILE_TIMEOUT_MS = 8_000
 export const AUTH_ROUTE_HYDRATION_TIMEOUT_MS = 3_500
@@ -45,6 +56,12 @@ export const authApi = {
     client.post('/api/v1/auth/register', req, {
       skipAuthRedirect: true,
     }),
+
+  requestPasswordReset: (email: string): Promise<Result<PasswordResetRequestResp>> =>
+    client.post('/api/v1/auth/password/reset-request', { email }, { skipAuthRedirect: true }),
+
+  confirmPasswordReset: (email: string, code: string, newPassword: string): Promise<Result<PasswordResetConfirmResp>> =>
+    client.post('/api/v1/auth/password/reset-confirm', { email, code, newPassword }, { skipAuthRedirect: true }),
 
   logout: (): Promise<Result<void>> =>
     client.post('/api/v1/auth/logout'),

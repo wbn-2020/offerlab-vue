@@ -315,15 +315,46 @@
 
         <section class="editor-rail-section editor-cover-section">
           <label class="editor-rail-label">封面图 <span>可选</span></label>
+          <div class="editor-cover-actions">
+            <button
+              type="button"
+              class="editor-cover-upload"
+              :disabled="coverUploading"
+              @click="coverFileInput?.click()"
+            >
+              {{ coverUploading ? '上传中...' : '上传图片' }}
+            </button>
+            <button
+              v-if="form.coverUrl"
+              type="button"
+              class="editor-cover-remove"
+              :disabled="coverUploading"
+              @click="removeCoverImage"
+            >
+              移除
+            </button>
+          </div>
           <input
-            v-model="form.coverUrl"
-            type="url"
-            placeholder="输入图片 URL"
-            data-field="coverUrl"
-            :aria-invalid="Boolean(fieldErrors.coverUrl)"
-            class="editor-cover-input"
+            ref="coverFileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="editor-cover-file-input"
+            aria-label="选择封面图片文件"
+            @change="handleCoverFileChange"
           />
+          <details class="editor-cover-url-disclosure">
+            <summary>或使用图片链接</summary>
+            <input
+              v-model="form.coverUrl"
+              type="url"
+              placeholder="输入图片 URL"
+              data-field="coverUrl"
+              :aria-invalid="Boolean(fieldErrors.coverUrl)"
+              class="editor-cover-input"
+            />
+          </details>
           <p v-if="fieldErrors.coverUrl" class="field-error">{{ fieldErrors.coverUrl }}</p>
+          <p v-if="coverUploadError" class="field-error" role="alert">{{ coverUploadError }}</p>
           <div v-if="form.coverUrl && !formCoverHasFailed" class="editor-cover-preview">
             <img :src="form.coverUrl" :alt="form.title" @error="handleFormCoverError" />
           </div>
@@ -333,7 +364,9 @@
         </section>
 
         <section class="editor-rail-section editor-rail-checklist">
-          <div class="editor-rail-checklist__head">
+          <details class="editor-rail-checklist__disclosure" :open="blockingQualityIssues.length > 0">
+          <summary class="editor-rail-checklist__summary">
+            <div class="editor-rail-checklist__head">
             <div>
               <p>发布前检查</p>
               <strong>{{ passedQualityCount }}/{{ qualityChecks.length }} 已通过</strong>
@@ -342,6 +375,7 @@
               {{ blockingQualityIssues.length ? `${blockingQualityIssues.length} 项待处理` : '可以发布' }}
             </span>
           </div>
+          </summary>
           <div class="editor-rail-checklist__items">
             <div
               v-for="item in railQualityChecks"
@@ -360,6 +394,7 @@
               </button>
             </div>
           </div>
+          </details>
         </section>
           </aside>
         </div>
@@ -898,6 +933,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount, onMounted, watch } from 'vue'
+import { mediaApi } from '@/api/media'
 import { onBeforeRouteLeave, useRouter, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { EditorPreviewPanel } from '@/components/editor-preview'
@@ -1079,6 +1115,46 @@ const formCoverHasFailed = computed(() => Boolean(form.value.coverUrl) && formCo
 const formCoverFallbackText = computed(() => (
   formCoverHasFailed.value ? '\u56fe\u7247\u52a0\u8f7d\u5931\u8d25\uff0c\u5df2\u6539\u7528\u6587\u5b57\u9884\u89c8\u3002' : ''
 ))
+// ---------- 封面图本地上传 ----------
+const coverFileInput = ref<HTMLInputElement | null>(null)
+const coverUploading = ref(false)
+const coverUploadError = ref('')
+
+const handleCoverFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (coverUploading.value) return
+  coverUploadError.value = ''
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    coverUploadError.value = '仅支持 JPG/PNG/WebP 图片'
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    coverUploadError.value = '图片不能超过 5MB'
+    return
+  }
+  coverUploading.value = true
+  try {
+    const res = await mediaApi.uploadImage(file)
+    form.value.coverUrl = res.data?.url || ''
+    formCoverFailedUrl.value = ''
+    fieldErrors.value = { ...fieldErrors.value, coverUrl: '' }
+    toast.success('封面图已上传')
+  } catch (error: any) {
+    coverUploadError.value = getErrorMessage(error, '图片上传失败，请重试')
+  } finally {
+    coverUploading.value = false
+  }
+}
+
+const removeCoverImage = () => {
+  form.value.coverUrl = ''
+  formCoverFailedUrl.value = ''
+  coverUploadError.value = ''
+}
+
 const handleFormCoverError = () => {
   formCoverFailedUrl.value = form.value.coverUrl
 }
@@ -5778,6 +5854,75 @@ onBeforeUnmount(() => {
 
 .editor-domain-field select,
 .editor-tag-section input,
+.editor-cover-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.editor-cover-upload {
+  flex: 1;
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-strong, rgba(16, 185, 129, 0.45));
+  background: transparent;
+  color: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.editor-cover-upload:hover:not(:disabled) {
+  border-color: var(--accent, #10b981);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.editor-cover-upload:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editor-cover-remove {
+  min-height: 36px;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.35));
+  background: transparent;
+  color: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.editor-cover-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.editor-cover-url-disclosure summary {
+  font-size: 0.75rem;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  margin-bottom: 0.375rem;
+}
+
+.editor-cover-url-disclosure[open] summary {
+  margin-bottom: 0.375rem;
+}
+
+.editor-rail-checklist__disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.editor-rail-checklist__disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
 .editor-cover-input {
   min-height: 2.4rem;
   width: 100%;

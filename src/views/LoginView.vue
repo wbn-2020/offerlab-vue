@@ -61,7 +61,16 @@
 
             <!-- Password Field -->
             <div>
-              <label for="login-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">密码</label>
+              <div class="flex items-center justify-between mb-2">
+                <label for="login-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300">密码</label>
+                <button
+                  type="button"
+                  class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                  @click="openForgotPassword"
+                >
+                  忘记密码？
+                </button>
+              </div>
               <input
                 id="login-password"
                 v-model="form.password"
@@ -98,6 +107,123 @@
           </p>
         </div>
 
+        <!-- Forgot Password Dialog -->
+        <div
+          v-if="forgotOpen"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="找回密码"
+          @click.self="closeForgotPassword"
+        >
+          <div class="w-full max-w-md bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">找回密码</h2>
+              <button
+                type="button"
+                class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none"
+                aria-label="关闭找回密码"
+                @click="closeForgotPassword"
+              >
+                ×
+              </button>
+            </div>
+
+            <!-- 第一步：填写邮箱获取验证码 -->
+            <form v-if="forgotStep === 'email'" class="space-y-4" @submit.prevent="submitForgotEmail">
+              <p class="text-sm text-slate-600 dark:text-slate-400">输入注册时使用的邮箱，我们将发送 6 位验证码（10 分钟内有效）。</p>
+              <div>
+                <label for="forgot-email" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">注册邮箱</label>
+                <input
+                  id="forgot-email"
+                  v-model="forgotForm.email"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="you@example.com"
+                  class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                  :disabled="forgotLoading"
+                >
+                <p v-if="forgotErrors.email" class="text-xs text-danger mt-1">{{ forgotErrors.email }}</p>
+              </div>
+              <button
+                type="submit"
+                :disabled="forgotLoading || forgotResendSeconds > 0"
+                class="w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {{ forgotLoading ? '发送中...' : forgotResendSeconds > 0 ? `${forgotResendSeconds} 秒后可重发` : '获取验证码' }}
+              </button>
+            </form>
+
+            <!-- 第二步：验证码 + 新密码 -->
+            <form v-else-if="forgotStep === 'confirm'" class="space-y-4" @submit.prevent="submitForgotConfirm">
+              <p class="text-sm text-slate-600 dark:text-slate-400">
+                验证码已发送至 <strong>{{ maskedForgotEmail }}</strong><template v-if="forgotChannelHint">（{{ forgotChannelHint }}）</template>，10 分钟内有效。
+              </p>
+              <div>
+                <label for="forgot-code" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">邮箱验证码</label>
+                <input
+                  id="forgot-code"
+                  v-model="forgotForm.code"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="6"
+                  autocomplete="one-time-code"
+                  placeholder="6 位数字验证码"
+                  class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100 tracking-widest"
+                  :disabled="forgotLoading"
+                >
+                <p v-if="forgotErrors.code" class="text-xs text-danger mt-1">{{ forgotErrors.code }}</p>
+              </div>
+              <div>
+                <label for="forgot-new-password" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">新密码</label>
+                <input
+                  id="forgot-new-password"
+                  v-model="forgotForm.newPassword"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="至少 8 位，包含字母和数字"
+                  class="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 dark:text-slate-100"
+                  :disabled="forgotLoading"
+                >
+                <p v-if="forgotErrors.newPassword" class="text-xs text-danger mt-1">{{ forgotErrors.newPassword }}</p>
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  class="text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium disabled:text-slate-400 disabled:cursor-not-allowed"
+                  :disabled="forgotLoading || forgotResendSeconds > 0"
+                  @click="submitForgotEmail"
+                >
+                  {{ forgotResendSeconds > 0 ? `${forgotResendSeconds} 秒后可重发` : '重新发送验证码' }}
+                </button>
+                <button type="button" class="text-slate-500 hover:text-slate-700 dark:text-slate-400" @click="forgotStep = 'email'">
+                  换一个邮箱
+                </button>
+              </div>
+              <button
+                type="submit"
+                :disabled="forgotLoading"
+                class="w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {{ forgotLoading ? '提交中...' : '重置密码' }}
+              </button>
+            </form>
+
+            <!-- 第三步：完成 -->
+            <div v-else class="space-y-4 text-center">
+              <div class="text-4xl" aria-hidden="true">✅</div>
+              <p class="text-sm text-slate-700 dark:text-slate-300">密码已重置成功，旧登录状态已全部失效。请使用新密码登录。</p>
+              <button
+                type="button"
+                class="w-full py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                @click="finishForgotPassword"
+              >
+                返回登录
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Demo Hint -->
         <div v-if="showDemoAccounts" class="mt-6 p-4 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg">
           <p class="text-xs text-primary-700 dark:text-primary-300">
@@ -116,6 +242,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from 'vue-sonner'
 import { getErrorMessage, getRateLimitRetryAfterSeconds } from '@/api/client'
+import { authApi } from '@/api/auth'
 import { redirectQuery, safeRedirect } from '@/utils/navigation'
 import AuthThemeToggle from '@/components/auth/AuthThemeToggle.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -239,6 +366,140 @@ const handleSubmit = async () => {
     isLoading.value = false
   }
 }
+
+// ---------- 找回密码（三步：邮箱 → 验证码+新密码 → 完成） ----------
+const forgotOpen = ref(false)
+const forgotStep = ref<'email' | 'confirm' | 'done'>('email')
+const forgotLoading = ref(false)
+const forgotResendSeconds = ref(0)
+const forgotChannelHint = ref('')
+let forgotResendTimer: ReturnType<typeof setInterval> | undefined
+
+const forgotForm = reactive({ email: '', code: '', newPassword: '' })
+const forgotErrors = reactive({ email: '', code: '', newPassword: '' })
+
+const maskedForgotEmail = computed(() => {
+  const email = forgotForm.email.trim()
+  const at = email.indexOf('@')
+  if (at <= 0) return email
+  const local = email.slice(0, at)
+  const domain = email.slice(at)
+  const shown = local.slice(0, Math.min(2, local.length))
+  return `${shown}${'*'.repeat(Math.max(1, local.length - shown.length))}${domain}`
+})
+
+const openForgotPassword = () => {
+  forgotOpen.value = true
+  forgotStep.value = 'email'
+  forgotForm.email = ''
+  forgotForm.code = ''
+  forgotForm.newPassword = ''
+  forgotErrors.email = ''
+  forgotErrors.code = ''
+  forgotErrors.newPassword = ''
+  forgotChannelHint.value = ''
+}
+
+const closeForgotPassword = () => {
+  forgotOpen.value = false
+  if (forgotResendTimer) {
+    clearInterval(forgotResendTimer)
+    forgotResendTimer = undefined
+  }
+}
+
+const finishForgotPassword = () => {
+  closeForgotPassword()
+  forgotStep.value = 'email'
+}
+
+const startForgotResendCooldown = () => {
+  forgotResendSeconds.value = 60
+  if (forgotResendTimer) clearInterval(forgotResendTimer)
+  forgotResendTimer = setInterval(() => {
+    forgotResendSeconds.value = Math.max(0, forgotResendSeconds.value - 1)
+    if (forgotResendSeconds.value === 0 && forgotResendTimer) {
+      clearInterval(forgotResendTimer)
+      forgotResendTimer = undefined
+    }
+  }, 1000)
+}
+
+const validateForgotEmail = () => {
+  forgotErrors.email = ''
+  const email = forgotForm.email.trim()
+  if (!email) {
+    forgotErrors.email = '请输入注册时使用的邮箱'
+    return false
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    forgotErrors.email = '请输入有效的邮箱地址'
+    return false
+  }
+  return true
+}
+
+const submitForgotEmail = async () => {
+  if (!validateForgotEmail() || forgotLoading.value) return
+  forgotLoading.value = true
+  try {
+    const res = await authApi.requestPasswordReset(forgotForm.email.trim())
+    startForgotResendCooldown()
+    forgotChannelHint.value = res.data?.channel === 'ops'
+      ? '当前环境未接入邮件服务，验证码已交给运维通道，请联系管理员获取'
+      : '请查收邮箱'
+    forgotStep.value = 'confirm'
+    toast.success('验证码已发送')
+  } catch (error: any) {
+    const retryAfterSeconds = getRateLimitRetryAfterSeconds(error)
+    if (retryAfterSeconds) {
+      forgotResendSeconds.value = retryAfterSeconds
+      startForgotResendCooldown()
+      forgotResendSeconds.value = retryAfterSeconds
+      toast.error(`操作过于频繁，请 ${retryAfterSeconds} 秒后重试`)
+    } else {
+      toast.error(getErrorMessage(error, '验证码发送失败，请稍后重试'))
+    }
+  } finally {
+    forgotLoading.value = false
+  }
+}
+
+const validateForgotConfirm = () => {
+  forgotErrors.code = ''
+  forgotErrors.newPassword = ''
+  let ok = true
+  if (!/^\d{6}$/.test(forgotForm.code.trim())) {
+    forgotErrors.code = '请输入 6 位数字验证码'
+    ok = false
+  }
+  if (forgotForm.newPassword.length < 8 || !/[a-zA-Z]/.test(forgotForm.newPassword) || !/\d/.test(forgotForm.newPassword)) {
+    forgotErrors.newPassword = '密码至少 8 位，且需同时包含字母和数字'
+    ok = false
+  }
+  return ok
+}
+
+const submitForgotConfirm = async () => {
+  if (!validateForgotConfirm() || forgotLoading.value) return
+  forgotLoading.value = true
+  try {
+    await authApi.confirmPasswordReset(forgotForm.email.trim(), forgotForm.code.trim(), forgotForm.newPassword)
+    forgotStep.value = 'done'
+    if (forgotResendTimer) {
+      clearInterval(forgotResendTimer)
+      forgotResendTimer = undefined
+    }
+  } catch (error: any) {
+    toast.error(getErrorMessage(error, '重置失败，请确认验证码后重试'))
+  } finally {
+    forgotLoading.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  if (forgotResendTimer) clearInterval(forgotResendTimer)
+})
 
 const isLoginTimeout = (error: unknown) => {
   const requestError = error as { code?: string, message?: string, response?: unknown }
