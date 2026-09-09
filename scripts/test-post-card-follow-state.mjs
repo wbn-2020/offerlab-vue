@@ -24,7 +24,10 @@ if (!/<article[^>]*class="[^"]*\bgroup\b[^"]*"/.test(postCard) || !/class="post-
   failures.push('PostCard must split the card container from the detail RouterLink so action buttons are not nested inside a link')
 }
 
-if (/<RouterLink[\s\S]*<button[\s\S]*<\/RouterLink>/.test(postCard)) {
+// 逐个 RouterLink 块检查:任何链接内部都不得包住按钮(贪婪跨块匹配会把
+// 顶部话题 chip 与详情链接之间的独立按钮误判为嵌套)。
+const routerLinkBlocks = postCard.match(/<RouterLink\b[\s\S]*?<\/RouterLink>/g) || []
+if (routerLinkBlocks.some(block => /<button[\s\S]*<\/RouterLink>/.test(block))) {
   failures.push('PostCard detail RouterLink must not wrap follow, feedback, like, or favorite buttons')
 }
 

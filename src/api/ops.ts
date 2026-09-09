@@ -103,7 +103,10 @@ export interface KafkaLocalCheck {
   bootstrapServers: string
   topic: string
   consumerGroup: string
+  /** 末段文件名/目录名;服务端不再回显绝对路径。 */
   configPath: string
+  /** 配置来源:default(未配置走默认值)或 configured(部署机显式配置)。 */
+  configPathSource?: 'default' | 'configured' | string
   configExists: boolean
   storage: {
     logDir: KafkaPathStatus
@@ -221,7 +224,8 @@ export interface NotificationRetryStatus {
 
 export interface MyAdminPermissions {
   uid: ApiId
-  adminMode: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY' | 'LOCKED'
+  /** 后台鉴权机制状态;仅后台管理者可见,普通用户响应中不返回。 */
+  adminMode?: 'RBAC' | 'WHITELIST' | 'LOCAL_OPEN' | 'RBAC_EMPTY' | 'LOCKED'
   admin: boolean
   ops: boolean
   opsRole?: boolean
@@ -237,7 +241,8 @@ export interface MyAdminPermissions {
   domainModerator: boolean
   moderatedDomains: number[]
   questionOperator: boolean
-  localOpen: boolean
+  /** 本地开放开关状态;仅后台管理者可见,普通用户响应中不返回。 */
+  localOpen?: boolean
 }
 
 export interface AdminUserRole {

@@ -167,7 +167,18 @@
             <RouterLink to="/me/settings" class="community-header__menu-item" role="menuitem" @click="showUserMenu = false">设置</RouterLink>
 
             <div v-if="adminLinks.length || permissionStatus !== 'ready'" class="community-header__admin-tools">
-              <span class="community-header__menu-group-label">管理工具</span>
+              <div class="community-header__admin-tools-head">
+                <span class="community-header__menu-group-label">管理工具</span>
+                <RouterLink
+                  v-if="adminLinks.length"
+                  to="/admin"
+                  class="community-header__admin-entry"
+                  role="menuitem"
+                  @click="showUserMenu = false"
+                >
+                  进入后台中心 →
+                </RouterLink>
+              </div>
               <div v-if="permissionStatus === 'loading'" class="community-header__permission-state" role="status">
                 <Loader2 class="h-4 w-4 animate-spin" aria-hidden="true" />
                 <span>正在确认管理权限</span>
@@ -216,10 +227,6 @@
       <RouterLink to="/editor" class="community-mobile-dock__publish">
         <PenLine class="h-5 w-5" />
         <span>发布</span>
-      </RouterLink>
-      <RouterLink to="/knowledge" :class="{ 'community-mobile-dock__item--active': isNavActive('/knowledge') }">
-        <BookOpen class="h-5 w-5" />
-        <span>知识库</span>
       </RouterLink>
       <RouterLink to="/co-build" :class="{ 'community-mobile-dock__item--active': isNavActive('/co-build') }">
         <HeartHandshake class="h-5 w-5" />
@@ -883,6 +890,23 @@ watch([() => authStore.user?.uid, () => authStore.token], () => {
   border-top: 1px solid var(--surface-3);
   margin-top: 0.35rem;
   padding-top: 0.35rem;
+}
+
+.community-header__admin-tools-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.community-header__admin-entry {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent, #10b981);
+}
+
+.community-header__admin-entry:hover {
+  filter: brightness(1.1);
 }
 
 .community-header__admin-tools summary {

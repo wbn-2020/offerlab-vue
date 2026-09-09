@@ -64,7 +64,7 @@
       <section v-if="canModerate" class="domain-filter mb-6">
         <div class="domain-filter-header">
           <div>
-            <p class="text-xs font-bold uppercase text-slate-400">Domain scope</p>
+            <p class="text-xs font-bold uppercase text-slate-400">治理范围</p>
             <h2 class="text-base font-extrabold text-slate-950 dark:text-slate-50">领域治理范围</h2>
           </div>
           <p class="text-sm font-semibold text-slate-500">{{ domainScopeText }}</p>

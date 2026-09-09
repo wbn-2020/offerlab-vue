@@ -307,7 +307,8 @@ const routes = [
   {
     path: '/admin',
     name: 'Admin',
-    redirect: '/admin/operations',
+    // 运营日常从"审核队列"开始；运维中心/运营编排作为子入口保留。
+    redirect: '/admin/governance?tab=queue',
     meta: { title: '后台中心', requiresAuth: true, adminPermission: ['ops', 'questionOperator', 'contentModerator', 'admin'] },
   },
   {

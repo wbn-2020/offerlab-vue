@@ -64,7 +64,8 @@ assert.doesNotMatch(postDetail, /成为第一个参与讨论的人/)
 assert.equal((postDetail.match(/还没有评论，来分享你的看法吧/g) || []).length, 1)
 
 assert.match(router, /path:\s*'\/admin'/)
-assert.match(router, /redirect:\s*'\/admin\/operations'/)
+// 后台默认落地 2026-09 起改为治理中心的审核队列（运营日常首屏）；运维中心/运营编排为子入口。
+assert.match(router, /redirect:\s*'\/admin\/governance\?tab=queue'/)
 assert.doesNotMatch(
   home,
   /watch\(\s*\(\)\s*=>\s*authStore\.isLoggedIn[\s\S]{0,300}loadFeed/,

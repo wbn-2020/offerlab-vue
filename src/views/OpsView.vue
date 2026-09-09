@@ -1780,13 +1780,18 @@ const kafkaLocalCheckCards = computed(() => {
   const logDirOk = Boolean(check.storage?.logDir?.exists && check.storage.logDir.directory)
   const metadataDirOk = Boolean(check.storage?.metadataDir?.exists && check.storage.metadataDir.directory)
   const storageOk = logDirOk && metadataDirOk && check.configExists
+  const kafkaDisabledByProfile = kafkaHealth.value?.status === 'DISABLED_BY_CONFIG'
   return [
     {
       label: 'Kafka TCP',
       value: check.endpoint || check.bootstrapServers,
-      badge: check.tcpReachable ? '可达' : '不可达',
-      className: check.tcpReachable ? 'status-ok' : 'status-warn',
-      detail: check.tcpReachable ? '端口可连接，可以继续只读 AdminClient 探测。' : '端口不可达，先按运行手册启动或检查 Kafka。',
+      badge: check.tcpReachable ? '可达' : kafkaDisabledByProfile ? 'profile 已关闭' : '不可达',
+      className: check.tcpReachable ? 'status-ok' : kafkaDisabledByProfile ? 'status-muted' : 'status-warn',
+      detail: check.tcpReachable
+        ? '端口可连接，可以继续只读 AdminClient 探测。'
+        : kafkaDisabledByProfile
+          ? '当前 profile 已通过配置关闭 Kafka，端口探测不参与可用性判定；恢复 Outbox 重试前需先启用 Kafka。'
+          : '端口不可达，先按运行手册启动或检查 Kafka。',
     },
     {
       label: 'Topic',
