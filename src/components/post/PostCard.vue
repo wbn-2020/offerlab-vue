@@ -243,7 +243,7 @@
         </span>
         <button
           type="button"
-          class="card-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-55"
+          class="card-action hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-55 dark:hover:text-primary-400"
           :aria-label="likePending ? '点赞处理中' : post.myInteraction?.liked ? '取消点赞' : '点赞帖子'"
           :title="likePending ? '点赞处理中' : post.myInteraction?.liked ? '取消点赞' : '点赞帖子'"
           :aria-pressed="Boolean(post.myInteraction?.liked)"
@@ -251,7 +251,7 @@
           :disabled="likePending"
           @click.prevent="handleLike"
         >
-          <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-rose-600' : ''" />
+          <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-primary-600 dark:text-primary-400' : ''" />
           <span class="action-label">{{ post.myInteraction?.liked ? '已点赞' : '点赞' }}</span>
           {{ formatNumber(post.counter.like) }}
         </button>

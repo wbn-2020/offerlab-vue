@@ -7020,7 +7020,7 @@ onBeforeUnmount(() => {
   }
 
   .post-mobile-action.is-liked {
-    color: #f43f5e;
+    color: var(--primary-600, #1a7f5a);
   }
 
   .post-mobile-action.is-favorited {

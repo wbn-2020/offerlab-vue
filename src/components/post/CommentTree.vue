@@ -93,13 +93,13 @@
               </span>
               <button
                 type="button"
-                class="comment-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                class="comment-action hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-primary-400"
                 :aria-label="isCommentLikePending(comment.commentId) ? '评论点赞处理中' : comment.myLiked ? '取消点赞评论' : '点赞评论'"
                 :aria-busy="isCommentLikePending(comment.commentId)"
                 :disabled="isCommentLikePending(comment.commentId)"
                 @click="toggleCommentLike(comment)"
               >
-                <ThumbsUp class="h-3.5 w-3.5" :class="comment.myLiked ? 'fill-current text-rose-600' : ''" />
+                <ThumbsUp class="h-3.5 w-3.5" :class="comment.myLiked ? 'fill-current text-primary-600 dark:text-primary-400' : ''" />
                 {{ comment.likeCount }}
               </button>
               <button
@@ -247,13 +247,13 @@
                       </button>
                       <button
                         type="button"
-                        class="comment-action hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="comment-action hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-primary-400"
                         :aria-label="isCommentLikePending(reply.commentId) ? '评论点赞处理中' : reply.myLiked ? '取消点赞评论' : '点赞评论'"
                         :aria-busy="isCommentLikePending(reply.commentId)"
                         :disabled="isCommentLikePending(reply.commentId)"
                         @click="toggleCommentLike(reply)"
                       >
-                        <ThumbsUp class="h-3.5 w-3.5" :class="reply.myLiked ? 'fill-current text-rose-600' : ''" />
+                        <ThumbsUp class="h-3.5 w-3.5" :class="reply.myLiked ? 'fill-current text-primary-600 dark:text-primary-400' : ''" />
                         {{ reply.likeCount }}
                       </button>
                       <button

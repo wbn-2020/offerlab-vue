@@ -14,10 +14,10 @@
         :aria-pressed="Boolean(post.myInteraction?.liked)"
         :aria-busy="likePending"
         :disabled="likePending"
-        class="interaction-action transition-colors hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+        class="interaction-action transition-colors hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-primary-400"
         @click="handleLike"
       >
-        <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-rose-600' : ''" />
+        <Heart class="h-4 w-4" :class="post.myInteraction?.liked ? 'fill-current text-primary-600 dark:text-primary-400' : ''" />
         <span class="action-label">{{ post.myInteraction?.liked ? '已点赞' : '点赞' }}</span>
         {{ formatNumber(post.counter.like) }}
       </button>
