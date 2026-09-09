@@ -428,6 +428,12 @@ const routes = [
     meta: { title: '标签详情' },
   },
   {
+    path: '/topics',
+    name: 'TopicsOverview',
+    component: () => import('@/views/TopicsOverviewView.vue'),
+    meta: { title: '话题总览' },
+  },
+  {
     path: '/topics/:slug',
     name: 'TopicDetail',
     component: () => import('@/views/TopicDetailView.vue'),
